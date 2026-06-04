@@ -15,7 +15,6 @@
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:'Nunito',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
 
-    /* TOPBAR */
     #topbar{position:sticky;top:0;z-index:100;background:var(--s1);border-bottom:1px solid var(--border);padding:0 24px;height:62px;display:flex;align-items:center;gap:12px;}
     .topbar-logo{display:flex;align-items:center;gap:11px;}
     .topbar-logo img{height:40px;width:40px;object-fit:contain;border-radius:8px;}
@@ -23,39 +22,28 @@
     .topbar-brand-name{font-size:16px;font-weight:800;color:var(--green);}
     .topbar-brand-sub{font-size:11px;font-weight:400;color:var(--muted);}
 
-    /* TABS */
     #tab-nav{background:var(--s1);border-bottom:1px solid var(--border);padding:0 24px;display:flex;gap:2px;overflow-x:auto;}
-    .tab-btn{padding:14px 22px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;transition:color .2s,border-color .2s;}
+    .tab-btn{padding:14px 20px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;transition:color .2s,border-color .2s;}
     .tab-btn:hover{color:var(--text);}
     .tab-btn.active{color:var(--green);border-bottom-color:var(--green);}
 
-    /* MAIN */
-    #main{max-width:1100px;margin:0 auto;padding:28px 24px;}
+    #main{max-width:1160px;margin:0 auto;padding:28px 24px;}
     .tab-panel{display:none;}
     .tab-panel.active{display:block;}
-
-    /* TYPOGRAPHY */
     .page-title{font-size:22px;font-weight:900;margin-bottom:4px;}
     .page-sub{font-size:13px;color:var(--muted);margin-bottom:24px;}
     .section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
     .label-hint{font-size:11px;font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;}
-
-    /* CARDS */
     .card{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:20px;}
 
-    /* SESSION CARDS */
-    .sessions-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
-    @media(max-width:600px){.sessions-grid{grid-template-columns:1fr;}}
-    .session-card{background:var(--s2);border:2px solid var(--border);border-radius:12px;padding:20px;cursor:pointer;transition:border-color .2s;}
-    .session-card.selected{border-color:var(--green);}
-    .session-card:hover:not(.selected){border-color:rgba(110,232,154,.3);}
-    .session-card-day{font-size:19px;font-weight:900;margin-bottom:3px;}
-    .session-card-date{font-size:13px;color:var(--muted);margin-bottom:8px;}
-    .session-card-time{font-size:13px;font-weight:700;margin-bottom:14px;}
-    .session-spots{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:800;}
-    .spots-green{background:rgba(110,232,154,.15);color:var(--green);}
-    .spots-orange{background:rgba(224,136,40,.15);color:var(--orange);}
-    .spots-red{background:rgba(224,64,64,.15);color:var(--red);}
+    /* DATE PICKER SESSION */
+    .date-picker-card{background:var(--s2);border:2px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px;transition:border-color .2s;}
+    .date-picker-card.valid{border-color:var(--green);}
+    .date-picker-card.invalid{border-color:var(--red);}
+    .date-result{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px;}
+    .day-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:800;}
+    .day-chip.valid{background:rgba(110,232,154,.15);color:var(--green);}
+    .day-chip.invalid{background:rgba(224,64,64,.1);color:var(--red);}
 
     /* FORM */
     .form-section{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:24px;}
@@ -65,36 +53,30 @@
     .form-group{display:flex;flex-direction:column;gap:6px;}
     .form-group.full{grid-column:1/-1;}
     label{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;}
-    input[type="text"],input[type="tel"],input[type="number"],input[type="email"],select{
+    input[type="text"],input[type="tel"],input[type="number"],input[type="email"],input[type="date"],select{
       background:var(--s3);border:1px solid var(--border);border-radius:8px;
       padding:10px 14px;color:var(--text);font-family:'Nunito',sans-serif;
       font-size:14px;font-weight:500;outline:none;transition:border-color .2s;width:100%;}
     input:focus,select:focus{border-color:var(--green);}
+    input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.6);cursor:pointer;}
     select{appearance:none;-webkit-appearance:none;
       background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
       background-repeat:no-repeat;background-position:right 13px center;padding-right:34px;}
 
-    /* PHONE ROW */
     .phone-row{display:flex;gap:8px;}
     .phone-cc{width:118px!important;flex-shrink:0;}
     .phone-num{flex:1;}
 
-    /* HEIGHT + SIZE INDICATOR */
     .height-row{display:flex;align-items:center;gap:10px;}
     .height-row input{flex:1;}
-    .size-chip{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
-      padding:8px 14px;border-radius:8px;font-size:15px;font-weight:900;
-      background:rgba(110,232,154,.15);color:var(--green);
-      border:1px solid rgba(110,232,154,.4);white-space:nowrap;min-width:80px;transition:all .2s;}
+    .size-chip{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 14px;border-radius:8px;font-size:15px;font-weight:900;background:rgba(110,232,154,.15);color:var(--green);border:1px solid rgba(110,232,154,.4);white-space:nowrap;min-width:80px;}
     .size-chip-label{font-size:10px;color:var(--green-d);font-weight:700;margin-top:2px;}
 
-    /* TOGGLE BUTTONS */
     .toggle-group{display:flex;gap:8px;flex-wrap:wrap;}
     .toggle-btn{padding:8px 16px;background:var(--s3);border:1px solid var(--border);border-radius:20px;color:var(--muted);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;}
     .toggle-btn:hover{border-color:var(--green);color:var(--text);}
     .toggle-btn.active{background:rgba(110,232,154,.15);border-color:var(--green);color:var(--green);}
 
-    /* BUTTONS */
     .btn-primary{background:var(--green);color:#111;border:none;border-radius:8px;padding:11px 24px;font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;cursor:pointer;transition:background .2s;}
     .btn-primary:hover{background:var(--green-h);}
     .btn-secondary{background:var(--s3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px 18px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:border-color .2s;}
@@ -106,6 +88,7 @@
     .btn-red{background:rgba(224,64,64,.15);color:var(--red);border:1px solid rgba(224,64,64,.35);}
     .btn-orange{background:rgba(224,136,40,.15);color:var(--orange);border:1px solid rgba(224,136,40,.35);}
     .btn-blue{background:rgba(74,168,248,.15);color:var(--blue);border:1px solid rgba(74,168,248,.35);}
+    .btn-purple{background:rgba(160,106,240,.15);color:var(--purple);border:1px solid rgba(160,106,240,.35);}
     .btn-muted{background:var(--s3);color:var(--muted);border:1px solid var(--border);}
 
     /* COLOR PICKER */
@@ -116,7 +99,6 @@
     .color-slot input[type="color"]{width:52px;height:52px;border-radius:10px;border:2px solid var(--border);cursor:pointer;padding:3px;background:var(--s3);transition:border-color .2s;}
     .color-slot input[type="color"]:hover{border-color:var(--green);}
     .color-del{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--red);border:none;color:#fff;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;padding:0;}
-    .color-del:hover{opacity:.85;}
     .add-color-slot{width:52px;height:52px;border-radius:10px;border:2px dashed var(--border);background:var(--s3);color:var(--muted);font-family:'Nunito',sans-serif;font-size:11px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;text-align:center;line-height:1.2;}
     .add-color-slot:hover{border-color:var(--green);color:var(--green);}
     .bike-color-strip{height:5px;border-radius:3px;margin-bottom:2px;}
@@ -134,7 +116,7 @@
     .stat-num{font-size:30px;font-weight:900;line-height:1;}
     .stat-label{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:4px;}
 
-    /* FILTER PILLS */
+    /* FILTER */
     .filter-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:20px;}
     .filter-pill{padding:6px 15px;background:var(--s2);border:1px solid var(--border);border-radius:20px;color:var(--muted);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;}
     .filter-pill:hover{border-color:var(--green);color:var(--text);}
@@ -151,15 +133,20 @@
     .table-wrapper{overflow-x:auto;border-radius:12px;border:1px solid var(--border);}
     .queue-table{width:100%;border-collapse:collapse;background:var(--s2);}
     .queue-table th{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;text-align:left;padding:11px 14px;border-bottom:1px solid var(--border);white-space:nowrap;}
-    .queue-table td{padding:13px 14px;border-bottom:1px solid var(--border);vertical-align:middle;}
+    .queue-table td{padding:12px 14px;border-bottom:1px solid var(--border);vertical-align:middle;}
     .queue-table tbody tr:last-child td{border-bottom:none;}
     .queue-table tbody tr.row-active{background:rgba(110,232,154,.04);}
     .queue-table tbody tr.row-done{opacity:.45;}
     .queue-num-cell{font-size:26px;font-weight:900;color:var(--green);}
     .rider-name{font-weight:800;font-size:14px;}
-    .rider-phone{font-size:12px;color:var(--muted);margin-top:1px;}
+    .rider-sub{font-size:11px;color:var(--muted);margin-top:2px;}
     .actions-cell{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
     .walk-in-badge{font-size:10px;font-weight:800;background:rgba(74,168,248,.15);color:var(--blue);padding:1px 7px;border-radius:8px;margin-left:5px;}
+
+    /* PAYMENT CHECKBOX */
+    .pay-cell{display:flex;align-items:center;gap:7px;cursor:pointer;}
+    .pay-cb{width:16px;height:16px;accent-color:var(--green);cursor:pointer;flex-shrink:0;}
+    .pay-label{font-size:12px;font-weight:800;white-space:nowrap;}
 
     /* BADGES */
     .status-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}
@@ -174,10 +161,16 @@
     .type-gravel{background:rgba(160,106,240,.15);color:var(--purple);}
     .type-any{background:rgba(255,255,255,.08);color:var(--muted);}
 
+    /* SPOTS */
+    .session-spots{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:800;}
+    .spots-green{background:rgba(110,232,154,.15);color:var(--green);}
+    .spots-orange{background:rgba(224,136,40,.15);color:var(--orange);}
+    .spots-red{background:rgba(224,64,64,.15);color:var(--red);}
+
     /* INLINE FORM */
     .inline-form{background:var(--s2);border:1px solid rgba(110,232,154,.2);border-radius:12px;padding:20px;margin-bottom:20px;}
 
-    /* BIKES GRID */
+    /* BIKES */
     .bikes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:16px;}
     .bike-card{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:7px;}
     .bike-card-top{display:flex;align-items:center;justify-content:space-between;}
@@ -202,17 +195,17 @@
     .modal-bike-card.unavailable{opacity:.38;cursor:not-allowed;}
     .modal-footer{display:flex;justify-content:flex-end;gap:10px;}
 
+    /* RECEIPT PREVIEW MODAL */
+    .receipt-box{background:var(--s3);border-radius:10px;padding:20px;font-family:monospace;font-size:13px;line-height:1.7;white-space:pre-wrap;margin-bottom:20px;color:var(--text);border:1px solid var(--border);}
+
     /* TOAST */
     #toast-container{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:300;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;}
     .toast{background:var(--s2);border:1px solid var(--border);border-left:3px solid var(--green);border-radius:10px;padding:12px 22px;font-size:14px;font-weight:700;white-space:nowrap;pointer-events:all;box-shadow:0 0 22px rgba(110,232,154,.18);animation:toastIn .28s ease;}
     .toast.error{border-left-color:var(--red);box-shadow:0 0 18px rgba(224,64,64,.12);}
-    .toast.warning{border-left-color:var(--orange);box-shadow:0 0 18px rgba(224,136,40,.12);}
+    .toast.warning{border-left-color:var(--orange);}
     @keyframes toastIn{from{transform:translateY(18px);opacity:0;}to{transform:none;opacity:1;}}
 
-    /* EMPTY */
     .empty-state{text-align:center;padding:52px 24px;color:var(--muted);font-size:14px;}
-
-    /* RESPONSIVE */
     @media(max-width:768px){
       .hide-mobile{display:none!important;}
       .stats-row{display:grid;grid-template-columns:1fr 1fr;}
@@ -237,6 +230,7 @@
   <button class="tab-btn" data-tab="ticket">My Ticket</button>
   <button class="tab-btn" data-tab="staff">Staff Queue</button>
   <button class="tab-btn" data-tab="bikes">Bikes</button>
+  <button class="tab-btn" data-tab="history">History</button>
 </nav>
 
 <main id="main">
@@ -244,9 +238,11 @@
   <div id="tab-ticket"   class="tab-panel"></div>
   <div id="tab-staff"    class="tab-panel"></div>
   <div id="tab-bikes"    class="tab-panel"></div>
+  <div id="tab-history"  class="tab-panel"></div>
 </main>
 <div id="toast-container"></div>
-<div id="bike-modal" style="display:none"></div>
+<div id="bike-modal"    style="display:none"></div>
+<div id="receipt-modal" style="display:none"></div>
 
 <script>
 const COUNTRY_CODES=[
@@ -262,11 +258,17 @@ const COUNTRY_CODES=[
 
 const S={
   tab:'register',
-  selSession:null,regType:null,lastTicket:null,
+  // register
+  _rDate:'',selSession:null,regType:null,lastTicket:null,
   _rName:'',_rEmail:'',_rPhone:'',_rCC:'+966',_rHeight:'',
+  // staff
   showWalkIn:false,sfStatus:'all',sfSession:'all',wiSize:null,wiType:null,
+  // bikes
   showAddBike:false,editBikeId:null,bkTypeFilter:'all',
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],_bkName:'',
+  // history
+  histStatus:'all',histPay:'all',histSess:'all',
+  // modal
   modalRider:null,modalBike:null,
 };
 
@@ -279,31 +281,28 @@ const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36);
 function fmtDate(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function shortDate(ds){return new Date(ds+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
 function longDate(ds){return new Date(ds+'T00:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});}
+function todayStr(){return fmtDate(new Date());}
 
-function upcomingSessions(){
-  const today=new Date();today.setHours(0,0,0,0);
-  const out=[];
-  for(let i=0;i<14&&out.length<2;i++){
-    const d=new Date(today);d.setDate(today.getDate()+i);
-    const dow=d.getDay();
-    if(dow===0||dow===2)out.push({id:fmtDate(d),day:dow===0?'Sunday':'Tuesday',display:longDate(fmtDate(d))});
-  }
-  return out;
-}
 function allSessions(){
   const qIds=[...new Set(getQueue().map(e=>e.sessionId))];
-  const upIds=upcomingSessions().map(s=>s.id);
-  const ids=[...new Set([...upIds,...qIds])].sort();
+  // generate next 8 sundays+tuesdays as options
+  const upcoming=[];const today=new Date();today.setHours(0,0,0,0);
+  for(let i=0;i<60&&upcoming.length<8;i++){
+    const d=new Date(today);d.setDate(today.getDate()+i);
+    const dow=d.getDay();
+    if(dow===0||dow===2)upcoming.push(fmtDate(d));
+  }
+  const ids=[...new Set([...upcoming,...qIds])].sort();
   return ids.map(id=>{const dow=new Date(id+'T00:00:00').getDay();return{id,day:dow===0?'Sunday':'Tuesday',display:shortDate(id)};});
 }
+
 function spotsLeft(sid){return Math.max(0,12-getQueue().filter(e=>e.sessionId===sid&&e.status!=='noshow').length);}
 function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid).map(e=>e.queueNum);return nums.length?Math.max(...nums)+1:1;}
 const bikeById=id=>getBikes().find(b=>b.id===id);
-
 function heightToSize(h){if(h<=166)return'XS';if(h<=172)return'S';if(h<=178)return'M';return'L';}
 function sizeLabel(sz){return{XS:'XS (166 cm & under)',S:'S (167–172 cm)',M:'M (173–178 cm)',L:'L (179 cm & up)'}[sz]||sz;}
 function bikeGradient(c){if(!c||!c.length)return'var(--green)';if(c.length===1)return c[0];return`linear-gradient(135deg,${c.join(',')})`;}
-
+const DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const TYPE_ICON={Road:'&#x1F6B4;',Hybrid:'&#x1F6B2;',Mountain:'&#x1F3D4;&#xFE0F;',Gravel:'&#x1FAA8;'};
 const TYPE_CLS={Road:'type-road',Hybrid:'type-hybrid',Mountain:'type-mountain',Gravel:'type-gravel',Any:'type-any'};
 const typeBadge=t=>`<span class="type-badge ${TYPE_CLS[t]||'type-any'}">${t}</span>`;
@@ -312,8 +311,7 @@ const statusBadge=s=>{const[c,l]=STATUS_MAP[s]||['badge-done',s];return`<span cl
 
 function toast(msg,type){
   const el=document.createElement('div');
-  el.className='toast'+(type?' '+type:'');
-  el.textContent=msg;
+  el.className='toast'+(type?' '+type:'');el.textContent=msg;
   document.getElementById('toast-container').appendChild(el);
   setTimeout(()=>el.remove(),2600);
 }
@@ -327,22 +325,40 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
   });
 });
 
-/* ── REGISTER ──────────────────────────────── */
+/* ══════════════════════════════════════════════
+   REGISTER
+══════════════════════════════════════════════ */
 function renderRegister(){
-  const sessions=upcomingSessions();
-  if(!S.selSession&&sessions.length)S.selSession=sessions[0].id;
-
-  const sessionCards=sessions.map(s=>{
-    const spots=spotsLeft(s.id);
-    const cls=spots===0?'spots-red':spots<=3?'spots-orange':'spots-green';
-    const label=spots===0?'Full':`${spots} spot${spots===1?'':'s'} left`;
-    return`<div class="session-card${S.selSession===s.id?' selected':''}" onclick="pickSession('${s.id}')">
-      <div class="session-card-day">${s.day}</div>
-      <div class="session-card-date">${s.display}</div>
-      <div class="session-card-time">09:00 &ndash; 11:00</div>
-      <span class="session-spots ${cls}">${label}</span>
-    </div>`;
-  }).join('');
+  // Date picker section
+  let dateSection='';
+  const dv=S._rDate;
+  let dateCardCls='date-picker-card';
+  let dateResult='';
+  if(dv){
+    const d=new Date(dv+'T00:00:00');
+    const dow=d.getDay();
+    const today=new Date();today.setHours(0,0,0,0);
+    if(d<today){
+      dateCardCls+=' invalid';
+      dateResult=`<div class="day-chip invalid">&#x2717; Cannot register for a past date</div>`;
+      S.selSession=null;
+    } else if(dow===0||dow===2){
+      dateCardCls+=' valid';
+      S.selSession=dv;
+      const spots=spotsLeft(dv);
+      const sc=spots===0?'spots-red':spots<=3?'spots-orange':'spots-green';
+      const sl=spots===0?'Full':`${spots} spot${spots===1?'':'s'} left`;
+      dateResult=`<div class="date-result">
+        <div class="day-chip valid">&#x2713; ${DAY_NAMES[dow]}</div>
+        <span class="session-spots ${sc}">${sl}</span>
+        <span style="font-size:13px;color:var(--muted)">${longDate(dv)} &middot; 09:00 &ndash; 11:00</span>
+      </div>`;
+    } else {
+      dateCardCls+=' invalid';
+      S.selSession=null;
+      dateResult=`<div class="day-chip invalid" style="margin-top:10px">&#x2717; ${DAY_NAMES[dow]} &mdash; sessions run on Sundays and Tuesdays only</div>`;
+    }
+  }
 
   const h=parseInt(S._rHeight);
   const autoSize=(!isNaN(h)&&h>=100&&h<=250)?heightToSize(h):null;
@@ -381,8 +397,14 @@ function renderRegister(){
 
   document.getElementById('tab-register').innerHTML=`
     <div class="page-title">Reserve Your Spot</div>
-    <div class="page-sub">Select a session, fill in your details, and join the queue.</div>
-    <div class="sessions-grid">${sessionCards}</div>
+    <div class="page-sub">Choose a Sunday or Tuesday, fill in your details, and join the queue.</div>
+    <div class="${dateCardCls}">
+      <label>Session Date &nbsp;<span class="label-hint">— Sundays and Tuesdays only</span></label>
+      <input type="date" id="reg-date" style="margin-top:8px;max-width:240px"
+        min="${todayStr()}" value="${esc(S._rDate)}"
+        oninput="S._rDate=this.value;renderRegister()">
+      ${dateResult}
+    </div>
     <div class="form-section">
       <div class="form-title">Rider Details</div>
       <div class="form-row">
@@ -404,7 +426,7 @@ function renderRegister(){
           </div>
         </div>
         <div class="form-group">
-          <label>Height &nbsp;<span class="label-hint">— frame size chosen automatically</span></label>
+          <label>Height &nbsp;<span class="label-hint">— frame size auto-selected</span></label>
           <div class="height-row">
             <input type="number" id="reg-height" placeholder="cm, e.g. 175" min="100" max="250"
               value="${esc(S._rHeight)}" oninput="S._rHeight=this.value;refreshSizeBadge()">
@@ -432,12 +454,10 @@ function refreshSizeBadge(){
   if(!isNaN(h)&&h>=100&&h<=250){
     const sz=heightToSize(h);
     wrap.innerHTML=`<div class="size-chip">${sz}<span class="size-chip-label">${sizeLabel(sz)}</span></div>`;
-  } else {
+  }else{
     wrap.innerHTML=`<div style="font-size:12px;color:var(--muted);padding:9px 0">Enter height above</div>`;
   }
 }
-
-function pickSession(id){S.selSession=id;renderRegister();}
 
 function submitReg(){
   const name =document.getElementById('reg-name').value.trim();
@@ -445,33 +465,35 @@ function submitReg(){
   const cc   =document.getElementById('reg-cc').value;
   const phone=document.getElementById('reg-phone').value.trim();
   const h    =parseInt(document.getElementById('reg-height').value);
-  if(!name)                              {toast('Please enter your full name.','error');return;}
+  if(!name)                                {toast('Please enter your full name.','error');return;}
   if(!email||!/^\S+@\S+\.\S+$/.test(email)){toast('Please enter a valid email address.','error');return;}
-  if(!phone)                             {toast('Please enter your phone number.','error');return;}
-  if(!S.selSession)                      {toast('Please select a session.','error');return;}
-  if(isNaN(h)||h<100||h>250)            {toast('Please enter a valid height (cm).','error');return;}
-  if(!S.regType)                         {toast('Please select a bike type preference.','error');return;}
-  if(spotsLeft(S.selSession)===0)        {toast('This session is full.','error');return;}
+  if(!phone)                               {toast('Please enter your phone number.','error');return;}
+  if(!S.selSession)                        {toast('Please select a valid session date (Sunday or Tuesday).','error');return;}
+  if(isNaN(h)||h<100||h>250)             {toast('Please enter a valid height in cm.','error');return;}
+  if(!S.regType)                           {toast('Please select a bike type preference.','error');return;}
+  if(spotsLeft(S.selSession)===0)          {toast('This session is full.','error');return;}
   const fullPhone=cc+phone;
   const size=heightToSize(h);
   const queue=getQueue();
   if(queue.find(e=>e.phone===fullPhone&&e.sessionId===S.selSession&&e.status!=='noshow'))
     {toast('This phone number is already registered for that session.','error');return;}
-  const sess=upcomingSessions().find(s=>s.id===S.selSession)||allSessions().find(s=>s.id===S.selSession);
+  const dow=new Date(S.selSession+'T00:00:00').getDay();
   const entry={
-    id:uid(),name,email,phone:fullPhone,size,typePreference:S.regType,
+    id:uid(),name,email,phone:fullPhone,size,typePreference:S.regType,paid:false,
     assignedBikeId:null,sessionId:S.selSession,
-    sessionDay:sess?sess.day:'',sessionDate:S.selSession,
+    sessionDay:dow===0?'Sunday':'Tuesday',sessionDate:S.selSession,
     queueNum:nextQNum(S.selSession),status:'waiting',
     registeredAt:Date.now(),walkIn:false,
   };
   queue.push(entry);saveQueue(queue);
-  S.lastTicket=entry;S._rName='';S._rEmail='';S._rPhone='';S._rHeight='';S.regType=null;
-  toast(`Registered! Queue number #${entry.queueNum}`);
-  renderAll();
+  S.lastTicket=entry;S._rName='';S._rEmail='';S._rPhone='';S._rHeight='';
+  S._rDate='';S.selSession=null;S.regType=null;
+  toast(`Registered! Queue number #${entry.queueNum}`);renderAll();
 }
 
-/* ── MY TICKET ─────────────────────────────── */
+/* ══════════════════════════════════════════════
+   MY TICKET
+══════════════════════════════════════════════ */
 function renderTicket(){
   const sessions=allSessions();
   const opts=sessions.map(s=>`<option value="${s.id}">${s.day} &mdash; ${s.display}</option>`).join('');
@@ -527,7 +549,9 @@ function lookupTicket(){
   </div>`;
 }
 
-/* ── STAFF QUEUE ────────────────────────────── */
+/* ══════════════════════════════════════════════
+   STAFF QUEUE
+══════════════════════════════════════════════ */
 function renderStaff(){
   const queue=getQueue();const sessions=allSessions();
   const base=S.sfSession!=='all'?queue.filter(e=>e.sessionId===S.sfSession):queue;
@@ -544,18 +568,21 @@ function renderStaff(){
       <div class="next-up-details">Size ${nextRider.size} &middot; ${nextRider.typePreference} &middot; ${nextRider.sessionDay} ${shortDate(nextRider.sessionDate)}</div>
     </div>
     <button class="btn-primary" onclick="openModal('${nextRider.id}')">Assign Bike &amp; Check In</button>
-  </div>`:'' ;
+  </div>`:'';
+
   const statusPills=['all','waiting','active','done','noshow'].map(s=>{
     const label={all:'All',waiting:'Waiting',active:'On Bike',done:'Done',noshow:'No-Show'}[s];
     return`<button class="filter-pill${S.sfStatus===s?' active':''}" onclick="setSfStatus('${s}')">${label}</button>`;
   }).join('');
   const sessOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>All Sessions</option>`+
     sessions.map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${s.day} ${s.display}</option>`).join('');
+
   const wiSizeBtns=['XS','S','M','L'].map(v=>
     `<button class="toggle-btn${S.wiSize===v?' active':''}" onclick="set('wiSize','${v}')">${v}</button>`).join('');
   const wiTypeBtns=['Road','Hybrid','Mountain','Gravel','Any'].map(t=>
     `<button class="toggle-btn${S.wiType===t?' active':''}" onclick="set('wiType','${t}')">${t}</button>`).join('');
   const wiSessOpts=sessions.map(s=>`<option value="${s.id}">${s.day} &mdash; ${s.display}</option>`).join('');
+
   const walkInForm=S.showWalkIn?`<div class="inline-form">
     <div class="form-title">Walk-in Registration</div>
     <div class="form-row">
@@ -572,6 +599,7 @@ function renderStaff(){
       <button class="btn-secondary" onclick="set('showWalkIn',false)">Cancel</button>
     </div>
   </div>`:'';
+
   const rows=filtered.map(e=>{
     const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
     const rowCls=e.status==='active'?'row-active':(e.status==='done'||e.status==='noshow')?'row-done':'';
@@ -580,17 +608,25 @@ function renderStaff(){
     if(e.status==='waiting')actions=`<button class="btn-sm btn-green" onclick="openModal('${e.id}')">Check In</button><button class="btn-sm btn-red" onclick="doNoShow('${e.id}')">No-Show</button>`;
     else if(e.status==='active')actions=`<button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">Return Bike</button>`;
     else actions=`<button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">Remove</button>`;
+    const payColor=e.paid?'var(--green)':'var(--orange)';
     return`<tr class="${rowCls}">
       <td><span class="queue-num-cell">#${e.queueNum}</span></td>
-      <td><div class="rider-name">${esc(e.name)}${wiTag}</div><div class="rider-phone">${esc(e.phone)}</div></td>
+      <td><div class="rider-name">${esc(e.name)}${wiTag}</div><div class="rider-sub">${esc(e.phone)}</div></td>
       <td>${e.size} &middot; ${typeBadge(e.typePreference)}</td>
       <td class="hide-mobile">${e.sessionDay||''} ${shortDate(e.sessionDate)}</td>
       <td>${bike?esc(bike.name):'<span style="color:var(--muted)">—</span>'}</td>
+      <td>
+        <label class="pay-cell" onclick="event.stopPropagation()">
+          <input class="pay-cb" type="checkbox" ${e.paid?'checked':''} onchange="togglePayment('${e.id}',this.checked)">
+          <span class="pay-label" style="color:${payColor}">${e.paid?'Paid':'Pending'}</span>
+        </label>
+      </td>
       <td>${statusBadge(e.status)}</td>
       <td><div class="actions-cell">${actions}</div></td>
     </tr>`;
   }).join('');
-  const emptyRow=filtered.length===0?`<tr><td colspan="7" class="empty-state">No riders match the current filters.</td></tr>`:'';
+  const emptyRow=filtered.length===0?`<tr><td colspan="8" class="empty-state">No riders match the current filters.</td></tr>`:'';
+
   document.getElementById('tab-staff').innerHTML=`
     <div class="section-header"><div class="page-title">Staff Queue</div>
       <button class="btn-primary" onclick="set('showWalkIn',${!S.showWalkIn})">+ Walk-in</button></div>
@@ -605,12 +641,28 @@ function renderStaff(){
     <div class="filter-row">${statusPills}<div class="filter-spacer"></div>
       <select style="width:auto;min-width:180px" onchange="set('sfSession',this.value)">${sessOpts}</select></div>
     <div class="table-wrapper"><table class="queue-table">
-      <thead><tr><th>#</th><th>Rider</th><th>Wants</th><th class="hide-mobile">Session</th><th>Bike</th><th>Status</th><th>Actions</th></tr></thead>
+      <thead><tr>
+        <th>#</th><th>Rider</th><th>Wants</th>
+        <th class="hide-mobile">Session</th><th>Bike</th>
+        <th>Payment</th><th>Status</th><th>Actions</th>
+      </tr></thead>
       <tbody>${rows}${emptyRow}</tbody>
     </table></div>`;
 }
 
 function setSfStatus(v){S.sfStatus=v;renderStaff();}
+
+function togglePayment(id,paid){
+  const queue=getQueue();const i=queue.findIndex(e=>e.id===id);if(i<0)return;
+  queue[i].paid=paid;saveQueue(queue);
+  // update label in place without full re-render
+  const cb=document.querySelector(`input.pay-cb[onchange*="${id}"]`);
+  if(cb){
+    const lbl=cb.nextElementSibling;
+    if(lbl){lbl.textContent=paid?'Paid':'Pending';lbl.style.color=paid?'var(--green)':'var(--orange)';}
+  }
+  toast(paid?'Marked as paid.':'Marked as pending.',paid?'':'warning');
+}
 
 function submitWalkIn(){
   const name=document.getElementById('wi-name').value.trim();
@@ -625,7 +677,7 @@ function submitWalkIn(){
   if(queue.find(e=>e.phone===phone&&e.sessionId===sid&&e.status!=='noshow'))
     {toast('Phone already registered for this session.','error');return;}
   const sess=allSessions().find(s=>s.id===sid);
-  const entry={id:uid(),name,email:'',phone,size:S.wiSize,typePreference:S.wiType,
+  const entry={id:uid(),name,email:'',phone,size:S.wiSize,typePreference:S.wiType,paid:false,
     assignedBikeId:null,sessionId:sid,sessionDay:sess?sess.day:'',sessionDate:sid,
     queueNum:nextQNum(sid),status:'waiting',registeredAt:Date.now(),walkIn:true};
   queue.push(entry);saveQueue(queue);
@@ -641,9 +693,10 @@ function doReturn(id){
 }
 function doRemove(id){saveQueue(getQueue().filter(e=>e.id!==id));toast('Rider removed.');renderAll();}
 
-/* ── BIKE MODAL ─────────────────────────────── */
+/* ══════════════════════════════════════════════
+   BIKE MODAL
+══════════════════════════════════════════════ */
 function openModal(riderId){S.modalRider=riderId;S.modalBike=null;renderModal();}
-
 function renderModal(){
   const rider=getQueue().find(e=>e.id===S.modalRider);if(!rider)return;
   const bikes=getBikes();
@@ -678,7 +731,6 @@ function renderModal(){
     </div>
   </div>`;
 }
-
 function pickBike(id){S.modalBike=id;renderModal();}
 function closeModal(){document.getElementById('bike-modal').style.display='none';S.modalRider=null;S.modalBike=null;}
 function confirmAssign(){
@@ -692,12 +744,16 @@ function confirmAssign(){
   toast(`${bikeName} assigned. Rider checked in!`);renderAll();
 }
 
-/* ── COLOR PICKER ───────────────────────────── */
+/* ══════════════════════════════════════════════
+   COLOR PICKER
+══════════════════════════════════════════════ */
 function updateColorPreview(){const p=document.getElementById('color-prev');if(p)p.style.background=bikeGradient(S.addBikeColors);}
 function addColorSlot(){if(S.addBikeColors.length>=4)return;S.addBikeColors.push('#ffffff');renderBikes();}
 function removeColor(i){if(S.addBikeColors.length<=1)return;S.addBikeColors.splice(i,1);renderBikes();}
 
-/* ── BIKES ──────────────────────────────────── */
+/* ══════════════════════════════════════════════
+   BIKES
+══════════════════════════════════════════════ */
 function renderBikes(){
   const bikes=getBikes();
   const total=bikes.length,nAvail=bikes.filter(b=>b.status==='available').length,
@@ -720,8 +776,7 @@ function renderBikes(){
       <input type="color" value="${c}" oninput="S.addBikeColors[${i}]=this.value;updateColorPreview()">
       ${S.addBikeColors.length>1?`<button class="color-del" onclick="removeColor(${i})" type="button">&#x2715;</button>`:''}
     </div>`).join('');
-  const addColorBtn=S.addBikeColors.length<4
-    ?`<button class="add-color-slot" onclick="addColorSlot()" type="button">+<br>Color</button>`:'';
+  const addColorBtn=S.addBikeColors.length<4?`<button class="add-color-slot" onclick="addColorSlot()" type="button">+<br>Color</button>`:'';
   const addForm=(S.showAddBike||isEdit)?`<div class="inline-form">
     <div class="form-title">${isEdit?'Edit Bike':'Add New Bike'}</div>
     <div class="form-row">
@@ -750,7 +805,6 @@ function renderBikes(){
     const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-orange':'dot-red';
     const slbl=b.status==='available'?'Available':b.status==='in-use'?'In Use':'Maintenance';
     const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--orange)':'var(--red)';
-    const mtLbl=b.status==='maintenance'?'Restore':'Maint.';
     const icon={Road:'&#x1F6B4;',Hybrid:'&#x1F6B2;',Mountain:'&#x1F3D4;&#xFE0F;',Gravel:'&#x1FAA8;'}[b.type]||'&#x1F6B2;';
     const grad=bikeGradient(b.colors||['#6ee89a']);
     return`<div class="bike-card">
@@ -761,7 +815,7 @@ function renderBikes(){
       <div style="font-size:12px;font-weight:800;color:${sclr}">${slbl}</div>
       <div class="bike-actions">
         <button class="btn-sm btn-blue" onclick="startEdit('${b.id}')">Edit</button>
-        <button class="btn-sm btn-orange" onclick="toggleMaint('${b.id}')">${mtLbl}</button>
+        <button class="btn-sm btn-orange" onclick="toggleMaint('${b.id}')">${b.status==='maintenance'?'Restore':'Maint.'}</button>
         <button class="btn-sm btn-red" ${b.status!=='in-use'?`onclick="delBike('${b.id}')"`:' disabled'}>Delete</button>
       </div>
     </div>`;
@@ -786,7 +840,6 @@ function renderBikes(){
 function toggleAddBike(){S.showAddBike=!S.showAddBike;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S._bkName='';renderBikes();}
 function cancelBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeColors=['#6ee89a'];S._bkName='';renderBikes();}
 function setBkFilter(v){S.bkTypeFilter=v;renderBikes();}
-
 function addBike(){
   const name=document.getElementById('bk-name').value.trim();
   const size=document.getElementById('bk-size').value||'M';
@@ -797,15 +850,11 @@ function addBike(){
   saveBikes(b);S.showAddBike=false;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S._bkName='';
   toast(`${name} added to fleet.`);renderBikes();
 }
-
 function startEdit(id){
   const bike=getBikes().find(b=>b.id===id);if(!bike)return;
-  S.editBikeId=id;S.showAddBike=false;
-  S.addBikeType=bike.type;S.addBikeSize=bike.size;
-  S.addBikeColors=bike.colors&&bike.colors.length?[...bike.colors]:['#6ee89a'];
-  S._bkName=bike.name;renderBikes();
+  S.editBikeId=id;S.showAddBike=false;S.addBikeType=bike.type;S.addBikeSize=bike.size;
+  S.addBikeColors=bike.colors&&bike.colors.length?[...bike.colors]:['#6ee89a'];S._bkName=bike.name;renderBikes();
 }
-
 function saveBikeEdit(){
   const name=document.getElementById('bk-name').value.trim();
   const size=document.getElementById('bk-size').value||'M';
@@ -816,25 +865,178 @@ function saveBikeEdit(){
   saveBikes(b);S.editBikeId=null;S.addBikeType=null;S.addBikeColors=['#6ee89a'];S._bkName='';
   toast('Bike updated.');renderBikes();
 }
-
 function toggleMaint(id){
   const b=getBikes();const i=b.findIndex(x=>x.id===id);if(i<0)return;
   if(b[i].status==='in-use'){toast('Cannot change while bike is in use.','error');return;}
   b[i].status=b[i].status==='maintenance'?'available':'maintenance';
   saveBikes(b);toast(`Status: ${b[i].status}.`);renderBikes();
 }
-
 function delBike(id){
   const b=getBikes();const bike=b.find(x=>x.id===id);
   if(!bike||bike.status==='in-use'){toast('Cannot delete a bike in use.','error');return;}
   saveBikes(b.filter(x=>x.id!==id));toast(`${bike.name} removed.`);renderBikes();
 }
 
-/* ── HELPERS ────────────────────────────────── */
+/* ══════════════════════════════════════════════
+   HISTORY + RECEIPTS
+══════════════════════════════════════════════ */
+function renderHistory(){
+  const queue=getQueue();
+  const hist=queue.filter(e=>e.status==='done'||e.status==='noshow');
+  const sessions=allSessions();
+
+  // stats
+  const nDone  =hist.filter(e=>e.status==='done').length;
+  const nPaid  =hist.filter(e=>e.status==='done'&&e.paid).length;
+  const nPend  =hist.filter(e=>e.status==='done'&&!e.paid).length;
+  const nNoShow=hist.filter(e=>e.status==='noshow').length;
+
+  // filters
+  let filtered=[...hist];
+  if(S.histSess!=='all')   filtered=filtered.filter(e=>e.sessionId===S.histSess);
+  if(S.histStatus!=='all') filtered=filtered.filter(e=>e.status===S.histStatus);
+  if(S.histPay==='paid')   filtered=filtered.filter(e=>e.paid);
+  if(S.histPay==='pending')filtered=filtered.filter(e=>!e.paid&&e.status==='done');
+  filtered.sort((a,b)=>b.registeredAt-a.registeredAt);
+
+  const statusPills=['all','done','noshow'].map(s=>{
+    const l={all:'All',done:'Completed',noshow:'No-Show'}[s];
+    return`<button class="filter-pill${S.histStatus===s?' active':''}" onclick="setHistStatus('${s}')">${l}</button>`;
+  }).join('');
+  const payPills=['all','paid','pending'].map(s=>{
+    const l={all:'All Payments',paid:'Paid',pending:'Pending'}[s];
+    return`<button class="filter-pill${S.histPay===s?' active':''}" onclick="setHistPay('${s}')">${l}</button>`;
+  }).join('');
+  const sessOpts=`<option value="all"${S.histSess==='all'?' selected':''}>All Sessions</option>`+
+    sessions.map(s=>`<option value="${s.id}"${S.histSess===s.id?' selected':''}>${s.day} ${s.display}</option>`).join('');
+
+  const rows=filtered.map(e=>{
+    const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
+    const payColor=e.paid?'var(--green)':'var(--orange)';
+    const hasEmail=e.email&&e.email.length>0;
+    const wiTag=e.walkIn?'<span class="walk-in-badge">Walk-in</span>':'';
+    return`<tr>
+      <td><span class="queue-num-cell">#${e.queueNum}</span></td>
+      <td>
+        <div class="rider-name">${esc(e.name)}${wiTag}</div>
+        <div class="rider-sub">${hasEmail?esc(e.email):'<span style="color:var(--muted);font-style:italic">no email</span>'}</div>
+        <div class="rider-sub">${esc(e.phone)}</div>
+      </td>
+      <td class="hide-mobile">${e.sessionDay||''}<br><span style="color:var(--muted);font-size:12px">${shortDate(e.sessionDate)}</span></td>
+      <td>${bike?esc(bike.name):'<span style="color:var(--muted)">—</span>'}</td>
+      <td>
+        <label class="pay-cell" onclick="event.stopPropagation()">
+          <input class="pay-cb" type="checkbox" ${e.paid?'checked':''} onchange="togglePayment('${e.id}',this.checked)">
+          <span class="pay-label" style="color:${payColor}">${e.paid?'Paid':'Pending'}</span>
+        </label>
+      </td>
+      <td>${statusBadge(e.status)}</td>
+      <td><div class="actions-cell">
+        ${hasEmail&&e.status==='done'
+          ?`<button class="btn-sm btn-purple" onclick="showReceipt('${e.id}')">Send Receipt</button>`
+          :`<span style="font-size:11px;color:var(--muted)">${e.status==='noshow'?'No-Show':hasEmail?'':'No email'}</span>`}
+      </div></td>
+    </tr>`;
+  }).join('');
+  const emptyRow=filtered.length===0?`<tr><td colspan="7" class="empty-state">No history records match the current filters.</td></tr>`:'';
+
+  document.getElementById('tab-history').innerHTML=`
+    <div class="page-title">Ride History</div>
+    <div class="page-sub">Log of all completed and no-show rides. Send receipts directly to customers.</div>
+    <div class="stats-row">
+      <div class="stat-card"><div class="stat-num">${nDone}</div><div class="stat-label">Completed</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nPaid}</div><div class="stat-label">Paid</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--orange)">${nPend}</div><div class="stat-label">Pending</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--red)">${nNoShow}</div><div class="stat-label">No-Shows</div></div>
+    </div>
+    <div class="filter-row">
+      ${statusPills}
+      <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
+      ${payPills}
+      <div class="filter-spacer"></div>
+      <select style="width:auto;min-width:180px" onchange="setHistSess(this.value)">${sessOpts}</select>
+    </div>
+    <div class="table-wrapper"><table class="queue-table">
+      <thead><tr>
+        <th>#</th><th>Rider</th><th class="hide-mobile">Session</th>
+        <th>Bike</th><th>Payment</th><th>Status</th><th>Actions</th>
+      </tr></thead>
+      <tbody>${rows}${emptyRow}</tbody>
+    </table></div>`;
+}
+
+function setHistStatus(v){S.histStatus=v;renderHistory();}
+function setHistPay(v){S.histPay=v;renderHistory();}
+function setHistSess(v){S.histSess=v;renderHistory();}
+
+function showReceipt(id){
+  const e=getQueue().find(x=>x.id===id);if(!e)return;
+  const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
+  const lines=[
+    '╔══════════════════════════════════════╗',
+    '║     MICROMOBILITY CORNICHE CIRCUIT   ║',
+    '║            RIDE RECEIPT              ║',
+    '╚══════════════════════════════════════╝',
+    '',
+    `Dear ${e.name},`,
+    '',
+    'Thank you for riding with us at the',
+    'Jeddah Corniche Circuit!',
+    '',
+    '──────────────────────────────────────',
+    `Queue Number  :  #${e.queueNum}`,
+    `Session       :  ${e.sessionDay}, ${shortDate(e.sessionDate)}`,
+    `Time          :  09:00 – 11:00`,
+    `Bike Assigned :  ${bike?bike.name:'N/A'}`,
+    `Frame Size    :  ${e.size}`,
+    `Bike Type     :  ${e.typePreference}`,
+    `Payment       :  ${e.paid?'Paid ✓':'Pending ⏳'}`,
+    '──────────────────────────────────────',
+    '',
+    'We hope to see you at the Corniche',
+    'Circuit again soon!',
+    '',
+    'MicroMobility Team',
+    'Corniche Circuit, Jeddah',
+  ].join('\n');
+
+  const subject=encodeURIComponent(`MicroMobility — Ride Receipt #${e.queueNum} (${shortDate(e.sessionDate)})`);
+  const body=encodeURIComponent(lines);
+  const mailtoLink=`mailto:${e.email}?subject=${subject}&body=${body}`;
+
+  const modal=document.getElementById('receipt-modal');
+  modal.style.display='flex';
+  modal.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeReceipt()">
+    <div class="modal-box" style="max-width:520px">
+      <div class="modal-title">Send Receipt</div>
+      <div class="modal-sub">To: ${esc(e.email)}</div>
+      <div class="receipt-box">${esc(lines)}</div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeReceipt()">Cancel</button>
+        <a href="${mailtoLink}" class="btn-primary" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px"
+           onclick="setTimeout(closeReceipt,300)">
+          &#x2709;&#xFE0F; Open in Email App
+        </a>
+      </div>
+    </div>
+  </div>`;
+}
+
+function closeReceipt(){document.getElementById('receipt-modal').style.display='none';}
+
+/* ══════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════ */
 function set(k,v){S[k]=v;renderAll();}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-function renderAll(){renderRegister();renderTicket();renderStaff();renderBikes();}
+function renderAll(){
+  renderRegister();
+  renderTicket();
+  renderStaff();
+  renderBikes();
+  renderHistory();
+}
 renderAll();
 </script>
 </body>
