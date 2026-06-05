@@ -436,278 +436,6 @@
     @keyframes shimmer{0%{background-position:200% center;}100%{background-position:-200% center;}}
     .tab-panel.active{animation:tabFadeIn .22s ease;}
 
-    /* ════════════════════════════════════════════════════════
-       CYCLING THEME DECORATIONS
-    ════════════════════════════════════════════════════════ */
-
-    /* ── Wheel spin & gear keyframes ── */
-    @keyframes wheelSpin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
-    @keyframes gearSpin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
-    @keyframes roadScroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}
-    @keyframes chainAnim{from{background-position:0 0;}to{background-position:28px 0;}}
-    @keyframes circuitGlow{0%,100%{opacity:.35;}50%{opacity:1;}}
-    @keyframes speedLine{0%{transform:translateX(-120%);opacity:0;}30%{opacity:.7;}100%{transform:translateX(220%);opacity:0;}}
-    @keyframes cardSweep{to{left:150%;}}
-    @keyframes spokeReveal{from{opacity:0;transform:scale(.85);}to{opacity:.025;transform:scale(1);}}
-
-    /* ── Fixed floating wheel backgrounds ── */
-    .float-wheel{
-      position:fixed;pointer-events:none;z-index:0;
-      animation:wheelSpin 45s linear infinite;
-    }
-    .float-wheel.fw1{width:520px;height:520px;top:-130px;right:-160px;opacity:.022;}
-    .float-wheel.fw2{width:360px;height:360px;bottom:-100px;left:-120px;opacity:.016;animation-direction:reverse;animation-duration:60s;}
-    .float-wheel svg{display:block;width:100%;height:100%;}
-    @media(max-width:767px){
-      .float-wheel.fw1{width:320px;height:320px;top:-80px;right:-100px;}
-      .float-wheel.fw2{display:none;}
-    }
-
-    /* ── Chain accent strip under topbar ── */
-    .chain-accent{
-      height:3px;width:100%;
-      background:repeating-linear-gradient(
-        90deg,
-        rgba(110,232,154,.55) 0, rgba(110,232,154,.55) 6px,
-        rgba(110,232,154,.12) 6px, rgba(110,232,154,.12) 9px,
-        rgba(110,232,154,.55) 9px, rgba(110,232,154,.55) 11px,
-        transparent 11px, transparent 14px,
-        rgba(110,232,154,.08) 14px, rgba(110,232,154,.08) 18px,
-        transparent 18px, transparent 21px,
-        rgba(110,232,154,.55) 21px, rgba(110,232,154,.55) 23px,
-        rgba(110,232,154,.12) 23px, rgba(110,232,154,.12) 26px,
-        transparent 26px, transparent 28px
-      );
-      background-size:28px 3px;
-      animation:chainAnim 1.4s linear infinite;
-      z-index:99;position:relative;
-    }
-
-    /* ── Road dashes decoration ── */
-    .road-dashes{
-      width:100%;height:18px;overflow:hidden;
-      position:relative;pointer-events:none;
-      display:flex;align-items:center;margin:6px 0 20px;
-    }
-    .road-dashes-inner{
-      display:flex;gap:14px;align-items:center;
-      animation:roadScroll 5s linear infinite;
-      width:200%;
-    }
-    .road-dash{
-      flex-shrink:0;
-      width:32px;height:3px;border-radius:2px;
-      background:rgba(110,232,154,.35);
-    }
-    .road-dash.dim{background:rgba(110,232,154,.12);}
-
-    /* ── Circuit live badge ── */
-    .circuit-badge{
-      display:inline-flex;align-items:center;gap:7px;
-      background:rgba(110,232,154,.07);
-      border:1px solid rgba(110,232,154,.22);
-      border-radius:20px;padding:5px 14px 5px 10px;
-      font-size:11px;font-weight:900;
-      color:rgba(110,232,154,.8);
-      letter-spacing:.5px;text-transform:uppercase;
-      margin-bottom:16px;
-    }
-    .circuit-badge-dot{
-      width:7px;height:7px;border-radius:50%;
-      background:var(--green);
-      box-shadow:0 0 8px rgba(110,232,154,.9);
-      animation:dotPulse 2s ease-in-out infinite;
-      flex-shrink:0;
-    }
-
-    /* ── Landing page cycling upgrades ── */
-    #landing-body{position:relative;overflow:hidden;}
-
-    /* Speed sweep on landing card hover */
-    .landing-card{position:relative;overflow:hidden;}
-    .landing-card::after{
-      content:'';position:absolute;
-      top:0;bottom:0;left:-100%;width:55%;
-      background:linear-gradient(90deg,transparent,rgba(110,232,154,.04),transparent);
-      pointer-events:none;
-    }
-    .landing-card:hover::after{animation:cardSweep .6s ease-out forwards;}
-
-    /* Top highlight bar on card hover */
-    .landing-card::before{
-      content:'';position:absolute;
-      top:0;left:20%;right:20%;height:1.5px;
-      background:linear-gradient(90deg,transparent,rgba(110,232,154,.6),transparent);
-      border-radius:0 0 2px 2px;
-      opacity:0;transition:opacity .3s;
-      pointer-events:none;
-    }
-    .landing-card:hover::before{opacity:1;}
-
-    /* Road circuit bottom strip on landing */
-    .landing-circuit-line{
-      position:absolute;bottom:0;left:0;right:0;height:44px;
-      overflow:hidden;pointer-events:none;
-      display:flex;align-items:center;
-    }
-    .landing-circuit-line svg{
-      width:200%;animation:roadScroll 10s linear infinite;
-    }
-
-    /* Spoke dividers */
-    .spoke-divider{
-      display:flex;align-items:center;gap:10px;
-      margin:20px 0;
-      font-size:10px;font-weight:900;color:rgba(255,255,255,.2);
-      text-transform:uppercase;letter-spacing:1.5px;
-    }
-    .spoke-divider::before,.spoke-divider::after{
-      content:'';flex:1;height:1px;
-      background:linear-gradient(90deg,transparent,rgba(110,232,154,.18),transparent);
-    }
-
-    /* ── Session card progress bar ── */
-    .sess-card{position:relative;overflow:hidden;}
-    .sess-card-bar{
-      position:absolute;bottom:0;left:0;height:2px;
-      background:linear-gradient(90deg,var(--green-d),var(--green));
-      border-radius:0;
-      transform:scaleX(0);transform-origin:left;
-      transition:transform .3s cubic-bezier(.2,.8,.2,1);
-    }
-    .sess-card:hover:not(.sess-full) .sess-card-bar,
-    .sess-card.sess-selected .sess-card-bar{transform:scaleX(1);}
-
-    /* ── Ticket card cycling wheel rings ── */
-    .ticket-card{position:relative;overflow:hidden;}
-    .ticket-card::before,.ticket-card::after{
-      content:'';position:absolute;border-radius:50%;pointer-events:none;
-      border:1px solid rgba(110,232,154,.05);
-    }
-    .ticket-card::before{width:220px;height:220px;top:-80px;right:-80px;}
-    .ticket-card::after{width:140px;height:140px;top:-40px;right:-20px;}
-
-    /* ── Stat card top accent ── */
-    .stat-card{position:relative;overflow:hidden;}
-    .stat-card::before{
-      content:'';position:absolute;
-      top:0;left:0;right:0;height:2px;
-      background:linear-gradient(90deg,transparent,rgba(110,232,154,.28),transparent);
-      opacity:0;transition:opacity .25s;
-    }
-    .stat-card:hover::before{opacity:1;}
-
-    /* ── Queue number wheel ring ── */
-    .queue-num-cell{position:relative;}
-
-    /* ── Next-up spinning indicator ── */
-    .next-up-wheel{
-      width:28px;height:28px;flex-shrink:0;
-      animation:wheelSpin 3s linear infinite;
-      opacity:.5;
-    }
-
-    /* ── Bike card speed line ── */
-    .bike-card{position:relative;overflow:hidden;}
-    .bike-card::after{
-      content:'';position:absolute;
-      top:0;bottom:0;left:-100%;width:50%;
-      background:linear-gradient(90deg,transparent,rgba(255,255,255,.025),transparent);
-      pointer-events:none;
-    }
-    .bike-card:hover::after{animation:cardSweep .5s ease-out forwards;}
-
-    /* ── Landing hero gear decorations ── */
-    .landing-gear-wrap{
-      position:absolute;right:-60px;top:10%;
-      width:340px;height:340px;
-      pointer-events:none;opacity:.025;
-      animation:wheelSpin 35s linear infinite;
-    }
-    .landing-gear-wrap2{
-      position:absolute;left:-80px;bottom:12%;
-      width:240px;height:240px;
-      pointer-events:none;opacity:.018;
-      animation:wheelSpin 50s linear infinite reverse;
-    }
-    @media(max-width:767px){
-      .landing-gear-wrap,.landing-gear-wrap2{display:none;}
-    }
-
-    /* ── Topbar route indicator dot ── */
-    .topbar-route-dot{
-      width:6px;height:6px;border-radius:50%;
-      background:var(--green);
-      box-shadow:0 0 10px rgba(110,232,154,.8);
-      animation:dotPulse 2.5s ease-in-out infinite;
-      flex-shrink:0;margin-right:4px;
-    }
-
-    /* ── Form section track line ── */
-    .form-section{position:relative;}
-    .form-section::before{
-      content:'';position:absolute;
-      left:0;top:28px;bottom:28px;width:2px;
-      background:linear-gradient(180deg,transparent,rgba(110,232,154,.2),transparent);
-      border-radius:2px;
-    }
-
-    /* ── Inline form accent ── */
-    .inline-form{position:relative;}
-    .inline-form::after{
-      content:'';position:absolute;
-      top:0;left:0;right:0;height:1.5px;
-      background:linear-gradient(90deg,rgba(110,232,154,.3),rgba(110,232,154,.08),transparent);
-      border-radius:16px 16px 0 0;
-    }
-
-    /* ── Table wrapper track ── */
-    .table-wrapper{position:relative;}
-
-    /* ── Badge glow upgrade ── */
-    .badge-active{box-shadow:0 0 12px rgba(110,232,154,.18)!important;}
-    .badge-waiting{box-shadow:0 0 10px rgba(74,168,248,.12)!important;}
-
-    /* ── Filter pill cycling dot ── */
-    .filter-pill.active::before{
-      content:'';display:inline-block;
-      width:5px;height:5px;border-radius:50%;
-      background:var(--green);
-      margin-right:5px;
-      vertical-align:middle;
-      box-shadow:0 0 6px rgba(110,232,154,.8);
-    }
-
-    /* ── Section header track marker ── */
-    .page-title{position:relative;display:inline-block;}
-
-    /* ── Scrollbar cycling green ── */
-    ::-webkit-scrollbar-thumb{background:rgba(110,232,154,.3);border-radius:4px;}
-    ::-webkit-scrollbar-thumb:hover{background:rgba(110,232,154,.55);}
-
-    /* ── Landing card icon upgrade ── */
-    .landing-card-icon-wrap{
-      width:52px;height:52px;border-radius:14px;
-      background:rgba(110,232,154,.09);
-      border:1px solid rgba(110,232,154,.2);
-      display:flex;align-items:center;justify-content:center;
-      font-size:26px;margin-bottom:10px;
-      transition:all .25s;
-      box-shadow:0 0 20px rgba(110,232,154,.08);
-    }
-    .landing-card:hover .landing-card-icon-wrap{
-      background:rgba(110,232,154,.16);
-      border-color:rgba(110,232,154,.4);
-      box-shadow:0 0 28px rgba(110,232,154,.18);
-      transform:scale(1.05);
-    }
-
-    /* ── Topbar brand cycling green glow ── */
-    .topbar-brand-name{
-      background:linear-gradient(135deg,var(--green) 0%,var(--green-h) 100%);
-      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-    }
-
     /* ── TABLET  768–1023px ──────────────────────────────────── */
     /* ══════════════════════════════════════════════════════════
        TABLET  768 – 1023 px  (iPad / iPad Mini / iPad Air)
@@ -922,49 +650,6 @@
 </head>
 <body>
 
-<!-- FLOATING WHEEL BACKGROUNDS -->
-<div class="float-wheel fw1" aria-hidden="true">
-  <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" fill="none">
-    <circle cx="100" cy="100" r="94" stroke="#6ee89a" stroke-width="5"/>
-    <circle cx="100" cy="100" r="74" stroke="#6ee89a" stroke-width="1.5"/>
-    <circle cx="100" cy="100" r="11" stroke="#6ee89a" stroke-width="3.5"/>
-    <circle cx="100" cy="100" r="5" fill="#6ee89a"/>
-    <line x1="100" y1="89" x2="100" y2="6"  stroke="#6ee89a" stroke-width="1.2"/>
-    <line x1="100" y1="111" x2="100" y2="194" stroke="#6ee89a" stroke-width="1.2"/>
-    <line x1="89" y1="100" x2="6"   y2="100" stroke="#6ee89a" stroke-width="1.2"/>
-    <line x1="111" y1="100" x2="194" y2="100" stroke="#6ee89a" stroke-width="1.2"/>
-    <line x1="92.2" y1="92.2" x2="10.5" y2="10.5"  stroke="#6ee89a" stroke-width="1"/>
-    <line x1="107.8" y1="107.8" x2="189.5" y2="189.5" stroke="#6ee89a" stroke-width="1"/>
-    <line x1="107.8" y1="92.2" x2="189.5" y2="10.5"  stroke="#6ee89a" stroke-width="1"/>
-    <line x1="92.2" y1="107.8" x2="10.5" y2="189.5"  stroke="#6ee89a" stroke-width="1"/>
-    <line x1="96.5" y1="89.1" x2="66.2" y2="10.9"  stroke="#6ee89a" stroke-width=".8"/>
-    <line x1="103.5" y1="110.9" x2="133.8" y2="189.1" stroke="#6ee89a" stroke-width=".8"/>
-    <line x1="110.9" y1="96.5" x2="189.1" y2="66.2"  stroke="#6ee89a" stroke-width=".8"/>
-    <line x1="89.1" y1="103.5" x2="10.9" y2="133.8"  stroke="#6ee89a" stroke-width=".8"/>
-    <line x1="110.9" y1="103.5" x2="189.1" y2="133.8" stroke="#6ee89a" stroke-width=".8"/>
-    <line x1="89.1" y1="96.5"  x2="10.9" y2="66.2"   stroke="#6ee89a" stroke-width=".8"/>
-    <line x1="103.5" y1="89.1" x2="133.8" y2="10.9"  stroke="#6ee89a" stroke-width=".8"/>
-    <line x1="96.5" y1="110.9" x2="66.2" y2="189.1"  stroke="#6ee89a" stroke-width=".8"/>
-    <circle cx="100" cy="100" r="94" stroke="#6ee89a" stroke-width="1" stroke-dasharray="4 6" opacity=".4"/>
-  </svg>
-</div>
-<div class="float-wheel fw2" aria-hidden="true">
-  <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" fill="none">
-    <circle cx="100" cy="100" r="94" stroke="#6ee89a" stroke-width="5"/>
-    <circle cx="100" cy="100" r="74" stroke="#6ee89a" stroke-width="1.5"/>
-    <circle cx="100" cy="100" r="11" stroke="#6ee89a" stroke-width="3.5"/>
-    <circle cx="100" cy="100" r="5" fill="#6ee89a"/>
-    <line x1="100" y1="89" x2="100" y2="6"  stroke="#6ee89a" stroke-width="1.2"/>
-    <line x1="100" y1="111" x2="100" y2="194" stroke="#6ee89a" stroke-width="1.2"/>
-    <line x1="89" y1="100" x2="6"   y2="100" stroke="#6ee89a" stroke-width="1.2"/>
-    <line x1="111" y1="100" x2="194" y2="100" stroke="#6ee89a" stroke-width="1.2"/>
-    <line x1="92.2" y1="92.2" x2="10.5" y2="10.5"  stroke="#6ee89a" stroke-width="1"/>
-    <line x1="107.8" y1="107.8" x2="189.5" y2="189.5" stroke="#6ee89a" stroke-width="1"/>
-    <line x1="107.8" y1="92.2" x2="189.5" y2="10.5"  stroke="#6ee89a" stroke-width="1"/>
-    <line x1="92.2" y1="107.8" x2="10.5" y2="189.5"  stroke="#6ee89a" stroke-width="1"/>
-  </svg>
-</div>
-
 <!-- TOPBAR -->
 <header id="topbar">
   <a class="topbar-logo" onclick="goLanding()" style="cursor:pointer">
@@ -979,99 +664,19 @@
     <div class="topbar-right" id="topbar-right"></div>
   </div>
 </header>
-<!-- ANIMATED CHAIN ACCENT -->
-<div class="chain-accent" aria-hidden="true"></div>
 
 <!-- LANDING VIEW -->
 <div id="view-landing">
   <div id="landing-body">
-
-    <!-- Spinning gear/wheel decorations (desktop only) -->
-    <div class="landing-gear-wrap" aria-hidden="true">
-      <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" fill="none">
-        <circle cx="100" cy="100" r="94" stroke="#6ee89a" stroke-width="4"/>
-        <circle cx="100" cy="100" r="74" stroke="#6ee89a" stroke-width="1.5"/>
-        <circle cx="100" cy="100" r="52" stroke="#6ee89a" stroke-width=".8"/>
-        <circle cx="100" cy="100" r="12" stroke="#6ee89a" stroke-width="3"/>
-        <circle cx="100" cy="100" r="5" fill="#6ee89a"/>
-        <line x1="100" y1="88" x2="100" y2="6"   stroke="#6ee89a" stroke-width="1.3"/>
-        <line x1="100" y1="112" x2="100" y2="194" stroke="#6ee89a" stroke-width="1.3"/>
-        <line x1="88"  y1="100" x2="6"   y2="100" stroke="#6ee89a" stroke-width="1.3"/>
-        <line x1="112" y1="100" x2="194" y2="100" stroke="#6ee89a" stroke-width="1.3"/>
-        <line x1="91.5" y1="91.5" x2="10.5" y2="10.5"   stroke="#6ee89a" stroke-width="1"/>
-        <line x1="108.5" y1="108.5" x2="189.5" y2="189.5" stroke="#6ee89a" stroke-width="1"/>
-        <line x1="108.5" y1="91.5" x2="189.5" y2="10.5"   stroke="#6ee89a" stroke-width="1"/>
-        <line x1="91.5" y1="108.5" x2="10.5" y2="189.5"   stroke="#6ee89a" stroke-width="1"/>
-        <line x1="96" y1="88.3" x2="65.3" y2="10.4"   stroke="#6ee89a" stroke-width=".8"/>
-        <line x1="104" y1="111.7" x2="134.7" y2="189.6" stroke="#6ee89a" stroke-width=".8"/>
-        <line x1="111.7" y1="96" x2="189.6" y2="65.3"   stroke="#6ee89a" stroke-width=".8"/>
-        <line x1="88.3" y1="104" x2="10.4" y2="134.7"   stroke="#6ee89a" stroke-width=".8"/>
-        <line x1="111.7" y1="104" x2="189.6" y2="134.7"  stroke="#6ee89a" stroke-width=".8"/>
-        <line x1="88.3" y1="96"  x2="10.4" y2="65.3"    stroke="#6ee89a" stroke-width=".8"/>
-        <line x1="104" y1="88.3" x2="134.7" y2="10.4"   stroke="#6ee89a" stroke-width=".8"/>
-        <line x1="96" y1="111.7" x2="65.3" y2="189.6"   stroke="#6ee89a" stroke-width=".8"/>
-        <circle cx="100" cy="100" r="88" stroke="#6ee89a" stroke-width=".5" stroke-dasharray="5 7" opacity=".4"/>
-      </svg>
-    </div>
-    <div class="landing-gear-wrap2" aria-hidden="true">
-      <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" fill="none">
-        <circle cx="100" cy="100" r="94" stroke="#6ee89a" stroke-width="4"/>
-        <circle cx="100" cy="100" r="70" stroke="#6ee89a" stroke-width="1.5"/>
-        <circle cx="100" cy="100" r="12" stroke="#6ee89a" stroke-width="3"/>
-        <circle cx="100" cy="100" r="5" fill="#6ee89a"/>
-        <line x1="100" y1="88" x2="100" y2="6"   stroke="#6ee89a" stroke-width="1.3"/>
-        <line x1="100" y1="112" x2="100" y2="194" stroke="#6ee89a" stroke-width="1.3"/>
-        <line x1="88"  y1="100" x2="6"   y2="100" stroke="#6ee89a" stroke-width="1.3"/>
-        <line x1="112" y1="100" x2="194" y2="100" stroke="#6ee89a" stroke-width="1.3"/>
-        <line x1="91.5" y1="91.5" x2="10.5" y2="10.5"   stroke="#6ee89a" stroke-width="1"/>
-        <line x1="108.5" y1="108.5" x2="189.5" y2="189.5" stroke="#6ee89a" stroke-width="1"/>
-        <line x1="108.5" y1="91.5" x2="189.5" y2="10.5"   stroke="#6ee89a" stroke-width="1"/>
-        <line x1="91.5" y1="108.5" x2="10.5" y2="189.5"   stroke="#6ee89a" stroke-width="1"/>
-      </svg>
-    </div>
-
     <div class="landing-hero">
       <div class="landing-brand-row">
         <img class="landing-hero-img" src="hero.png" alt="Corniche Circuit">
       </div>
-      <!-- Live circuit badge -->
-      <div class="circuit-badge">
-        <span class="circuit-badge-dot"></span>
-        Jeddah Corniche Circuit
-      </div>
       <div class="landing-title" id="land-title"><span>MicroMobility</span> Corniche Circuit</div>
       <div class="landing-sub" id="land-sub">Bicycle rental queue - Jeddah Corniche Circuit</div>
     </div>
-
-    <!-- Animated road dashes -->
-    <div class="road-dashes" aria-hidden="true">
-      <div class="road-dashes-inner">
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-        <div class="road-dash"></div><div class="road-dash dim"></div>
-      </div>
-    </div>
-
     <div class="landing-cards">
       <div class="landing-card" onclick="goCustomer('register')">
-        <div class="landing-card-icon-wrap">&#x1F6B4;</div>
         <div class="landing-card-title" id="land-card-title">Reserve Your Spot</div>
         <div class="landing-card-desc" id="land-card-desc">Register for an available session and join the queue.</div>
         <div class="landing-card-arrow" id="land-card-arrow">&rarr;</div>
@@ -1080,26 +685,6 @@
     <div class="landing-footer">
       <button class="staff-access-btn" id="land-staff-btn" onclick="openPinModal()">Staff Access</button>
     </div>
-
-    <!-- Circuit road line scrolling at bottom of landing -->
-    <div class="landing-circuit-line" aria-hidden="true">
-      <svg viewBox="0 0 800 20" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="0"   y="8" width="48" height="4" rx="2" fill="#6ee89a" opacity=".5"/>
-        <rect x="64"  y="8" width="48" height="4" rx="2" fill="#6ee89a" opacity=".25"/>
-        <rect x="128" y="8" width="48" height="4" rx="2" fill="#6ee89a" opacity=".5"/>
-        <rect x="192" y="8" width="48" height="4" rx="2" fill="#6ee89a" opacity=".25"/>
-        <rect x="256" y="8" width="48" height="4" rx="2" fill="#6ee89a" opacity=".5"/>
-        <rect x="320" y="8" width="48" height="4" rx="2" fill="#6ee89a" opacity=".25"/>
-        <rect x="384" y="8" width="48" height="4" rx="2" fill="#6ee89a" opacity=".5"/>
-        <rect x="448" y="8" width="48" height="4" rx="2" fill="#6ee89a" opacity=".25"/>
-        <rect x="512" y="8" width="48" height="4" rx="2" fill="#6ee89a" opacity=".5"/>
-        <rect x="576" y="8" width="48" height="4" rx="2" fill="#6ee89a" opacity=".25"/>
-        <rect x="640" y="8" width="48" height="4" rx="2" fill="#6ee89a" opacity=".5"/>
-        <rect x="704" y="8" width="48" height="4" rx="2" fill="#6ee89a" opacity=".25"/>
-        <rect x="768" y="8" width="48" height="4" rx="2" fill="#6ee89a" opacity=".5"/>
-      </svg>
-    </div>
-
   </div>
 </div>
 
@@ -2273,7 +1858,6 @@ function renderRegister(){
           <div class="sess-card-day">${dayLabel(s.day)}</div>
           <div class="sess-card-date">${shortDate(s.session_date||s.id)}</div>
           <div class="sess-card-spots ${sc}">${sl}</div>
-          <div class="sess-card-bar"></div>
         </div>`;
       }).join('')
     : `<div class="no-sessions-msg">${t('noSessions')}</div>`;
@@ -2418,7 +2002,6 @@ function renderRegister(){
       <div class="session-picker-label">${t('availSessions')}</div>
       <div class="session-cards-grid">${sessCards}</div>
     </div>
-    <div class="spoke-divider">&#x2699; Rider Details</div>
     <div class="form-section">
       <div class="form-title">${t('riderDetails')}</div>
       ${accountInfoBlock}
@@ -2944,25 +2527,10 @@ function renderStaffQueue(){
   filtered.sort((a,b)=>a.sessionId.localeCompare(b.sessionId)||a.queueNum-b.queueNum);
   const nextRider=base.filter(e=>e.status==='waiting').sort((a,b)=>a.queueNum-b.queueNum)[0];
   const nextUp=nextRider?`<div class="next-up-banner">
-    <div style="display:flex;align-items:center;gap:14px;">
-      <svg class="next-up-wheel" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <circle cx="20" cy="20" r="18" stroke="#6ee89a" stroke-width="2"/>
-        <circle cx="20" cy="20" r="12" stroke="#6ee89a" stroke-width="1" opacity=".5"/>
-        <circle cx="20" cy="20" r="3" fill="#6ee89a"/>
-        <line x1="20" y1="17" x2="20" y2="2"  stroke="#6ee89a" stroke-width="1.2"/>
-        <line x1="20" y1="23" x2="20" y2="38" stroke="#6ee89a" stroke-width="1.2"/>
-        <line x1="17" y1="20" x2="2"  y2="20" stroke="#6ee89a" stroke-width="1.2"/>
-        <line x1="23" y1="20" x2="38" y2="20" stroke="#6ee89a" stroke-width="1.2"/>
-        <line x1="17.9" y1="17.9" x2="5.7" y2="5.7"   stroke="#6ee89a" stroke-width=".9"/>
-        <line x1="22.1" y1="22.1" x2="34.3" y2="34.3"  stroke="#6ee89a" stroke-width=".9"/>
-        <line x1="22.1" y1="17.9" x2="34.3" y2="5.7"   stroke="#6ee89a" stroke-width=".9"/>
-        <line x1="17.9" y1="22.1" x2="5.7" y2="34.3"   stroke="#6ee89a" stroke-width=".9"/>
-      </svg>
-      <div>
-        <div class="next-up-label">${t('nextUpLabel')}</div>
-        <div class="next-up-name">#${nextRider.queueNum} - ${esc(nextRider.name)}</div>
-        <div class="next-up-details">Size ${nextRider.size} &middot; ${typeLabel(nextRider.typePreference)} &middot; ${dayLabel(nextRider.sessionDay)} ${shortDate(nextRider.sessionDate)}</div>
-      </div>
+    <div>
+      <div class="next-up-label">${t('nextUpLabel')}</div>
+      <div class="next-up-name">#${nextRider.queueNum} - ${esc(nextRider.name)}</div>
+      <div class="next-up-details">Size ${nextRider.size} &middot; ${typeLabel(nextRider.typePreference)} &middot; ${dayLabel(nextRider.sessionDay)} ${shortDate(nextRider.sessionDate)}</div>
     </div>
     <button class="btn-primary" onclick="openModal('${nextRider.id}')">${t('assignBikeCheckin')}</button>
   </div>`:'';
