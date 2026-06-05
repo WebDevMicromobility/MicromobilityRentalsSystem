@@ -223,6 +223,7 @@
     .sess-admin-table tbody tr:hover td{background:rgba(255,255,255,.018);}
     .badge-open{background:rgba(110,232,154,.12);color:var(--green);border:1px solid rgba(110,232,154,.3);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:900;box-shadow:0 0 10px rgba(110,232,154,.1);letter-spacing:.3px;}
     .badge-closed{background:rgba(224,64,64,.08);color:var(--red);border:1px solid rgba(224,64,64,.22);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:900;letter-spacing:.3px;}
+    .badge-full{background:rgba(224,136,40,.1);color:var(--orange);border:1px solid rgba(224,136,40,.3);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:900;letter-spacing:.3px;}
 
     /* ── FORM ────────────────────────────────────────────── */
     .form-section{background:linear-gradient(160deg,#181818 0%,#161616 100%);border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:28px;box-shadow:0 4px 28px rgba(0,0,0,.22);}
@@ -810,7 +811,7 @@ en:{
   newSession:'+ New Session',newSessionTitle:'New Session',dateLabel:'Date',capacityLabel:'Capacity (spots)',
   createSession:'Create Session',colDate:'Date',colDay:'Day',colCapacity:'Capacity',
   colBookings:'Bookings',colActions:'Actions',openBtn:'Open',closeBtn:'Close',deleteBtn:'Delete',
-  statusOpen:'Open',statusClosed:'Closed',noSessionsYet:'No sessions yet. Create one above.',
+  statusOpen:'Open',statusClosed:'Closed',statusFull:'Fully Booked',markFullBtn:'Mark Full',reopenBtn:'Re-open',noSessionsYet:'No sessions yet. Create one above.',
   bikesTitle:'Fleet',addBike:'+ Add Bike',editBikeTitle:'Edit Bike',addBikeTitle:'Add New Bike',
   bikeNameLabel:'Bike Name',frameSizeLabel:'Frame Size',bikeTypeLabel:'Bike Type',
   bikeColorsLabel:'Bike Color(s)',colorsHint:'1 required - up to 4',
@@ -963,7 +964,7 @@ ar:{
   newSession:'+ جلسة جديدة',newSessionTitle:'جلسة جديدة',dateLabel:'التاريخ',capacityLabel:'الطاقة الاستيعابية',
   createSession:'إنشاء جلسة',colDate:'التاريخ',colDay:'اليوم',colCapacity:'الطاقة',
   colBookings:'الحجوزات',colActions:'الإجراءات',openBtn:'فتح',closeBtn:'إغلاق',deleteBtn:'حذف',
-  statusOpen:'مفتوح',statusClosed:'مغلق',noSessionsYet:'لا توجد جلسات بعد. أنشئ واحدة أعلاه.',
+  statusOpen:'مفتوح',statusClosed:'مغلق',statusFull:'مكتمل',markFullBtn:'تعيين كمكتمل',reopenBtn:'إعادة فتح',noSessionsYet:'لا توجد جلسات بعد. أنشئ واحدة أعلاه.',
   bikesTitle:'إضافة دراجة',addBike:'+ الأسطول',editBikeTitle:'تعديل الدراجة',addBikeTitle:'إضافة دراجة جديدة',
   bikeNameLabel:'اسم الدراجة',frameSizeLabel:'مقاس الإطار',bikeTypeLabel:'نوع الدراجة',
   bikeColorsLabel:'لون الدراجة',colorsHint:'مطلوب 1 - حتى 4',
@@ -1429,7 +1430,7 @@ function todayStr(){return new Date().toLocaleDateString('en-CA',{timeZone:KSA_T
 function allSessions(){
   return S.sessions.map(s=>({...s,display:shortDate(s.session_date||s.id)}));
 }
-function openSessions(){return allSessions().filter(s=>s.status==='open');}
+function openSessions(){return allSessions().filter(s=>s.status==='open'||s.status==='full');}
 function spotsLeft(sid){
   const sess=S.sessions.find(s=>s.id===sid);
   const cap=(sess&&sess.capacity)||12;
@@ -1881,10 +1882,10 @@ function renderRegister(){
   // Session cards
   const sessCards=available.length
     ? available.map(s=>{
-        const spots=spotsLeft(s.id);
-        const full=spots===0;
-        const sc=full?'spots-red':spots<=3?'spots-orange':'spots-green';
-        const sl=spotsLeftLabel(spots);
+        const manuallyFull=s.status==='full';
+        const full=manuallyFull||spotsLeft(s.id)===0;
+        const sc=full?'spots-red':'spots-green';
+        const sl=full?(S.lang==='ar'?'ممتلئة':'Full'):(S.lang==='ar'?'متاح':'Available');
         const sel=S.selSession===s.id;
         return`<div class="sess-card${sel?' sess-selected':''}${full?' sess-full':''}"
           ${full?'':` onclick="S.selSession='${s.id}';renderRegister()"`}>
@@ -2483,8 +2484,8 @@ function renderSessions(){
     if(S.sessSort==='capacity') return (b.capacity||12)-(a.capacity||12);
     return new Date(a.session_date||a.id)-new Date(b.session_date||b.id);
   });
-  const sessStatusPills=['all','open','closed'].map(s=>{
-    const l={all:t('filterAll'),open:t('statusOpen'),closed:t('statusClosed')}[s];
+  const sessStatusPills=['all','open','full','closed'].map(s=>{
+    const l={all:t('filterAll'),open:t('statusOpen'),full:t('statusFull'),closed:t('statusClosed')}[s];
     return`<button class="filter-pill${S.sessStatusFilter===s?' active':''}" onclick="setSessStatusFilter('${s}')">${l}</button>`;
   }).join('');
   const sessSortPills=['date-asc','date-desc','bookings','capacity'].map(k=>{
@@ -2496,8 +2497,25 @@ function renderSessions(){
     const cap=s.capacity||12;
     const left=Math.max(0,cap-booked);
     const isOpen=s.status==='open';
+    const isFull=s.status==='full';
+    const isClosed=s.status==='closed';
     const slots=parseSlots(s.bike_slots);
     const fleetInfo=slots?slotsLabel(slots):'—';
+    let statusBadgeHtml,actionBtns;
+    if(isOpen){
+      statusBadgeHtml=`<span class="badge-open">${t('statusOpen')}</span>`;
+      actionBtns=`
+        <button class="btn-sm btn-orange" onclick="toggleSession('${s.id}','full')">${t('markFullBtn')}</button>
+        <button class="btn-sm btn-red" onclick="toggleSession('${s.id}','closed')">${t('closeBtn')}</button>`;
+    }else if(isFull){
+      statusBadgeHtml=`<span class="badge-full">${t('statusFull')}</span>`;
+      actionBtns=`
+        <button class="btn-sm btn-green" onclick="toggleSession('${s.id}','open')">${t('reopenBtn')}</button>
+        <button class="btn-sm btn-red" onclick="toggleSession('${s.id}','closed')">${t('closeBtn')}</button>`;
+    }else{
+      statusBadgeHtml=`<span class="badge-closed">${t('statusClosed')}</span>`;
+      actionBtns=`<button class="btn-sm btn-green" onclick="toggleSession('${s.id}','open')">${t('openBtn')}</button>`;
+    }
     return`<tr>
       <td style="font-weight:800">${shortDate(s.session_date||s.id)}</td>
       <td style="color:var(--muted)">${dayLabel(s.day)||''}</td>
@@ -2506,12 +2524,10 @@ function renderSessions(){
         <div style="font-size:11px;color:var(--muted);margin-top:2px">${fleetInfo}</div>
       </td>
       <td>${booked} / ${cap} &nbsp;<span style="color:var(--muted);font-size:11px">(${left} left)</span></td>
-      <td><span class="${isOpen?'badge-open':'badge-closed'}">${isOpen?t('statusOpen'):t('statusClosed')}</span></td>
+      <td>${statusBadgeHtml}</td>
       <td>
         <div class="actions-cell">
-          <button class="btn-sm ${isOpen?'btn-orange':'btn-green'}" onclick="toggleSession('${s.id}','${isOpen?'closed':'open'}')">
-            ${isOpen?t('closeBtn'):t('openBtn')}
-          </button>
+          ${actionBtns}
           <button class="btn-sm btn-red" onclick="deleteSession('${s.id}')" ${booked>0?`disabled title="${t('hasBookingsTitle')}"`:''}>Delete</button>
         </div>
       </td>
