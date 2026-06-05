@@ -701,6 +701,8 @@ function getSession(){try{const r=sessionStorage.getItem('cq_session');return r?
 function setSession(c){sessionStorage.setItem('cq_session',JSON.stringify(c));}
 function clearSession(){sessionStorage.removeItem('cq_session');}
 const DEFAULT_PRICE=30;
+const RIDE_PRICES={Road:75,Mountain:57.5,Hybrid:57.5,Gravel:30,Any:30};
+function priceForType(t){return RIDE_PRICES[t]||DEFAULT_PRICE;}
 
 /* ══════════════════════════════════════════════
    UTILS
@@ -716,7 +718,7 @@ function openSessions(){return allSessions().filter(s=>s.status==='open');}
 function spotsLeft(sid){
   const sess=S.sessions.find(s=>s.id===sid);
   const cap=(sess&&sess.capacity)||12;
-  return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&e.status!=='noshow').length);
+  return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&e.status!=='noshow'&&e.status!=='cancelled').length);
 }
 function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid).map(e=>e.queueNum);return nums.length?Math.max(...nums)+1:1;}
 const bikeById=id=>getBikes().find(b=>b.id===id);
@@ -726,7 +728,7 @@ function bikeGradient(c){if(!c||!c.length)return'var(--green)';if(c.length===1)r
 const DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const TYPE_CLS={Road:'type-road',Hybrid:'type-hybrid',Mountain:'type-mountain',Gravel:'type-gravel',Any:'type-any'};
 const typeBadge=t=>`<span class="type-badge ${TYPE_CLS[t]||'type-any'}">${t}</span>`;
-const STATUS_MAP={waiting:['badge-waiting','Waiting'],active:['badge-active','On Bike'],done:['badge-done','Complete'],noshow:['badge-noshow','No-Show']};
+const STATUS_MAP={waiting:['badge-waiting','Waiting'],active:['badge-active','On Bike'],done:['badge-done','Complete'],noshow:['badge-noshow','No-Show'],cancelled:['badge-noshow','Cancelled']};
 const statusBadge=s=>{const[c,l]=STATUS_MAP[s]||['badge-done',s];return`<span class="status-badge ${c}">${l}</span>`;};
 function isoToFlag(iso){return iso.toUpperCase().replace(/./g,c=>String.fromCodePoint(c.charCodeAt(0)-65+0x1F1E6));}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -1148,14 +1150,14 @@ async function submitReg(){
   if(spotsLeft(S.selSession)===0){toast('This session is full.','error');return;}
   const fullPhone=cc+phone;const size=heightToSize(h);
   const queue=getQueue();
-  if(queue.find(e=>e.phone===fullPhone&&e.sessionId===S.selSession&&e.status!=='noshow'))
+  if(queue.find(e=>e.phone===fullPhone&&e.sessionId===S.selSession&&e.status!=='noshow'&&e.status!=='cancelled'))
     {toast('This phone number is already registered for that session.','error');return;}
   const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
   const cust=S.loggedIn||getSession();
   const entry={id:uid(),name,email,phone:fullPhone,size,typePreference:S.regType,paid:false,
     assignedBikeId:null,sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
     queueNum:nextQNum(S.selSession),status:'waiting',registeredAt:Date.now(),walkIn:false,
-    customerId:cust?cust.id:null,price:DEFAULT_PRICE};
+    customerId:cust?cust.id:null,price:priceForType(S.regType)};
   await sb.from('queue_entries').insert(entryToDB(entry));
   await loadData();
   S.lastTicket=entry;S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
@@ -1219,21 +1221,23 @@ function renderMyRides(){
   if(!cust){document.getElementById('tab-myrides').innerHTML='';return;}
   const allEntries=getQueue().filter(e=>e.customerId===cust.id);
   const completed=allEntries.filter(e=>e.status==='done');
-  const totalRides=allEntries.filter(e=>e.status!=='noshow').length;
+  const totalRides=allEntries.filter(e=>e.status!=='noshow'&&e.status!=='cancelled').length;
   const totalPaid=allEntries.filter(e=>e.paid).reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
   const pending=allEntries.filter(e=>!e.paid&&(e.status==='done'||e.status==='waiting'||e.status==='active')).reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
   const rows=allEntries.length?[...allEntries].sort((a,b)=>b.registeredAt-a.registeredAt).map(e=>{
     const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
     const payColor=e.paid?'var(--green)':'var(--orange)';
+    const canCancel=e.status==='waiting';
     return`<tr>
       <td><span class="queue-num-cell">#${e.queueNum}</span></td>
       <td class="hide-mobile">${e.sessionDay||''} ${shortDate(e.sessionDate)}</td>
       <td>${bike?esc(bike.name):'<span style="color:var(--muted)">-</span>'}</td>
       <td>${e.size} &middot; ${typeBadge(e.typePreference)}</td>
-      <td style="font-weight:800;color:${payColor}">${e.paid?'SAR '+(e.price||DEFAULT_PRICE):'Pending'}</td>
+      <td style="font-weight:800;color:${payColor}">${e.paid?'SAR '+(e.price||DEFAULT_PRICE):(e.status==='cancelled'?'<span style="color:var(--muted)">-</span>':'Pending')}</td>
       <td>${statusBadge(e.status)}</td>
+      <td>${canCancel?`<button class="btn-sm btn-red" onclick="cancelBooking('${e.id}')">Cancel</button>`:'<span style="color:var(--muted);font-size:12px">-</span>'}</td>
     </tr>`;
-  }).join(''):`<tr><td colspan="6" class="empty-state">No rides found.</td></tr>`;
+  }).join(''):`<tr><td colspan="7" class="empty-state">No rides found.</td></tr>`;
   document.getElementById('tab-myrides').innerHTML=`
     <div class="page-title">My Rides</div>
     <div class="page-sub">Your complete rental history with ${esc(cust.name)}.</div>
@@ -1258,7 +1262,7 @@ function renderMyRides(){
     <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:16px 0">
       <div style="padding:0 20px 12px;font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Ride History</div>
       <div class="table-wrapper"><table class="queue-table">
-        <thead><tr><th>#</th><th class="hide-mobile">Session</th><th>Bike</th><th>Size / Type</th><th>Payment</th><th>Status</th></tr></thead>
+        <thead><tr><th>#</th><th class="hide-mobile">Session</th><th>Bike</th><th>Size / Type</th><th>Payment</th><th>Status</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
     </div>`;
@@ -1290,7 +1294,7 @@ function renderSessions(){
       </div>
     </div>`:'';
   const rows=sessions.length?sessions.map(s=>{
-    const booked=getQueue().filter(e=>e.sessionId===s.id&&e.status!=='noshow').length;
+    const booked=getQueue().filter(e=>e.sessionId===s.id&&e.status!=='noshow'&&e.status!=='cancelled').length;
     const left=Math.max(0,(s.capacity||12)-booked);
     const isOpen=s.status==='open';
     return`<tr>
@@ -1418,7 +1422,7 @@ function renderStaffQueue(){
   </div>`:'';
   const rows=filtered.map(e=>{
     const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
-    const rowCls=e.status==='active'?'row-active':(e.status==='done'||e.status==='noshow')?'row-done':'';
+    const rowCls=e.status==='active'?'row-active':(e.status==='done'||e.status==='noshow'||e.status==='cancelled')?'row-done':'';
     const wiTag=e.walkIn?'<span class="walk-in-badge">Walk-in</span>':'';
     let actions='';
     if(e.status==='waiting')actions=`<button class="btn-sm btn-green" onclick="openModal('${e.id}')">Check In</button><button class="btn-sm btn-red" onclick="doNoShow('${e.id}')">No-Show</button>`;
@@ -1483,16 +1487,25 @@ async function submitWalkIn(){
   if(!S.wiType){toast('Please select bike type.','error');return;}
   if(spotsLeft(sid)===0){toast('Session is full.','error');return;}
   const queue=getQueue();
-  if(queue.find(e=>e.phone===fullPhone&&e.sessionId===sid&&e.status!=='noshow')){toast('Phone already registered.','error');return;}
+  if(queue.find(e=>e.phone===fullPhone&&e.sessionId===sid&&e.status!=='noshow'&&e.status!=='cancelled')){toast('Phone already registered.','error');return;}
   const sess=allSessions().find(s=>s.id===sid);
   const entry={id:uid(),name,email:'',phone:fullPhone,size:S.wiSize,typePreference:S.wiType,paid:false,
     assignedBikeId:null,sessionId:sid,sessionDay:sess?sess.day:'',sessionDate:sid,
     queueNum:nextQNum(sid),status:'waiting',registeredAt:Date.now(),walkIn:true,
-    customerId:null,price:DEFAULT_PRICE};
+    customerId:null,price:priceForType(S.wiType)};
   await sb.from('queue_entries').insert(entryToDB(entry));
   await loadData();
   S.showWalkIn=false;S.wiSize=null;S.wiType=null;
   toast(`Walk-in added: #${entry.queueNum} ${name}`);renderStaffQueue();
+}
+
+async function cancelBooking(id){
+  const entry=getQueue().find(e=>e.id===id);
+  if(!entry||entry.status!=='waiting'){toast('Only waiting bookings can be cancelled.','error');return;}
+  await sb.from('queue_entries').update({status:'cancelled'}).eq('id',id);
+  await loadData();
+  toast('Booking cancelled. Your spot has been freed.');
+  renderMyRides();
 }
 
 async function doNoShow(id){
@@ -1683,7 +1696,7 @@ async function delBike(id){
    HISTORY
 ══════════════════════════════════════════════ */
 function renderHistory(){
-  const queue=getQueue();const hist=queue.filter(e=>e.status==='done'||e.status==='noshow');
+  const queue=getQueue();const hist=queue.filter(e=>e.status==='done'||e.status==='noshow'||e.status==='cancelled');
   const sessions=allSessions();
   const nDone=hist.filter(e=>e.status==='done').length,nPaid=hist.filter(e=>e.status==='done'&&e.paid).length,
         nPend=hist.filter(e=>e.status==='done'&&!e.paid).length,nNoShow=hist.filter(e=>e.status==='noshow').length;
@@ -1693,7 +1706,7 @@ function renderHistory(){
   if(S.histPay==='paid')   filtered=filtered.filter(e=>e.paid);
   if(S.histPay==='pending')filtered=filtered.filter(e=>!e.paid&&e.status==='done');
   filtered.sort((a,b)=>b.registeredAt-a.registeredAt);
-  const statusPills=['all','done','noshow'].map(s=>{
+  const statusPills=['all','done','noshow','cancelled'].map(s=>{
     const l={all:'All',done:'Completed',noshow:'No-Show'}[s];
     return`<button class="filter-pill${S.histStatus===s?' active':''}" onclick="setHistStatus('${s}')">${l}</button>`;}).join('');
   const payPills=['all','paid','pending'].map(s=>{
