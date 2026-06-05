@@ -139,6 +139,27 @@
     .rides-stat-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
     .rides-empty{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:40px;text-align:center;color:var(--muted);font-size:14px;font-weight:600;}
 
+    /* ── LANGUAGE TOGGLE ─────────────────────────────────── */
+    .lang-toggle{background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;padding:6px 13px;cursor:pointer;transition:all .2s;letter-spacing:.3px;}
+    .lang-toggle:hover{border-color:var(--green);color:var(--green);}
+    /* ── RTL SUPPORT ─────────────────────────────────────── */
+    html[dir="rtl"] .phone-row{flex-direction:row-reverse;}
+    html[dir="rtl"] .auth-cc-row{flex-direction:row-reverse;}
+    html[dir="rtl"] .height-row{flex-direction:row-reverse;}
+    html[dir="rtl"] .toggle-group{flex-direction:row-reverse;}
+    html[dir="rtl"] .form-row{direction:rtl;}
+    html[dir="rtl"] .tab-nav{direction:rtl;}
+    html[dir="rtl"] .filter-row{direction:rtl;}
+    html[dir="rtl"] input,html[dir="rtl"] select{text-align:right;}
+    html[dir="rtl"] th,html[dir="rtl"] td{text-align:right;}
+    html[dir="rtl"] .topbar-logo{flex-direction:row-reverse;}
+    html[dir="rtl"] .section-header{flex-direction:row-reverse;}
+    html[dir="rtl"] .actions-cell{flex-direction:row-reverse;}
+    html[dir="rtl"] .landing-card-arrow{transform:scaleX(-1);}
+    html[dir="rtl"] .stats-row{direction:rtl;}
+    html[dir="rtl"] .next-up-banner{flex-direction:row-reverse;}
+    html[dir="rtl"] .modal-footer{flex-direction:row-reverse;}
+    html[dir="rtl"] .auth-tabs{direction:rtl;}
     /* ── PRICE PREVIEW ───────────────────────────────────── */
     .price-preview{display:flex;align-items:center;justify-content:space-between;background:rgba(110,232,154,.08);border:1px solid rgba(110,232,154,.28);border-radius:10px;padding:14px 18px;margin-bottom:14px;}
     .price-preview-breakdown{font-size:13px;color:var(--muted);font-weight:600;}
@@ -344,7 +365,10 @@
       <span class="topbar-brand-sub">Corniche Circuit Queue</span>
     </div>
   </a>
-  <div class="topbar-right" id="topbar-right"></div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <button class="lang-toggle" id="lang-btn" onclick="setLang(S.lang==='en'?'ar':'en')">عربي</button>
+    <div class="topbar-right" id="topbar-right"></div>
+  </div>
 </header>
 
 <!-- LANDING VIEW -->
@@ -352,21 +376,20 @@
   <div id="landing-body">
     <div class="landing-hero">
       <div class="landing-brand-row">
-        <img class="landing-logo" src="logo.png" alt="MicroMobility logo">
         <img class="landing-hero-img" src="hero.png" alt="Corniche Circuit">
       </div>
-      <div class="landing-title"><span>MicroMobility</span> Corniche Circuit</div>
-      <div class="landing-sub">Bicycle rental queue - Jeddah Corniche Circuit</div>
+      <div class="landing-title" id="land-title"><span>MicroMobility</span> Corniche Circuit</div>
+      <div class="landing-sub" id="land-sub">Bicycle rental queue - Jeddah Corniche Circuit</div>
     </div>
     <div class="landing-cards">
       <div class="landing-card" onclick="goCustomer('register')">
-        <div class="landing-card-title">Reserve Your Spot</div>
-        <div class="landing-card-desc">Register for an available session and join the queue.</div>
-        <div class="landing-card-arrow">&rarr;</div>
+        <div class="landing-card-title" id="land-card-title">Reserve Your Spot</div>
+        <div class="landing-card-desc" id="land-card-desc">Register for an available session and join the queue.</div>
+        <div class="landing-card-arrow" id="land-card-arrow">&rarr;</div>
       </div>
     </div>
     <div class="landing-footer">
-      <button class="staff-access-btn" onclick="openPinModal()">Staff Access</button>
+      <button class="staff-access-btn" id="land-staff-btn" onclick="openPinModal()">Staff Access</button>
     </div>
   </div>
 </div>
@@ -407,6 +430,146 @@
 <div id="toast-container"></div>
 
 <script>
+/* ══════════════════════════════════════════════
+   TRANSLATIONS
+══════════════════════════════════════════════ */
+const LANG={
+en:{
+  appSub:'Corniche Circuit Queue',landingTitle:'MicroMobility Corniche Circuit',
+  landingSub:'Bicycle rental queue - Jeddah Corniche Circuit',
+  reserveTitle:'Reserve Your Spot',reserveDesc:'Register for an available session and join the queue.',
+  staffAccess:'Staff Access',customerBadge:'Customer',staffBadge:'Staff Panel',
+  lockBtn:'Lock',homeBtn:'Home',logOut:'Log Out',
+  authWelcome:'Welcome to MicroMobility',authSub:'Sign in or create an account to track your rides.',
+  authLogin:'Log In',authSignup:'Sign Up',authLoginBtn:'Log In',authSignupBtn:'Create Account',
+  authCancel:t('authCancel'),authIdentifier:'Email or Phone',
+  authFullName:'Full Name',authEmail:'Email Address',authEmailOpt:'(optional if using phone)',
+  authPhone:'Phone Number',authPhoneOpt:'(optional if using email)',
+  authPassword:'Password',authPasswordHint:'${t('authPasswordHint')}',authConfirmPassword:'Confirm Password',
+  tabReserve:'Reserve',tabMyRides:'My Rides',tabQueue:'Queue',tabSessions:'Sessions',tabBikes:'Bikes',tabHistory:'History',
+  regTitle:'Reserve Your Spot',regSub:'Pick an available session, fill in your details, and join the queue.',
+  availSessions:'Available Sessions',
+  noSessions:'No sessions are currently open for reservation. Check back soon or contact the team.',
+  riderDetails:'Rider Details',fullName:'Full Name',emailAddr:'Email Address',
+  phoneNum:'Phone Number',heightLabel:'Height',heightHint:'- frame size auto-selected',
+  bikeTypePref:'Bike Type Preference',numBikes:'Number of Bikes',joinQueue:'Join Queue',
+  pricePerBike:t('pricePerBike'),bikesWord:'bikes',totalWord:'Total',
+  myRidesTitle:'My Rides',myRidesSub:'Your complete rental history with',
+  totalBookings:t('totalBookings'),completedLabel:t('completedLabel'),totalPaid:t('totalPaid'),pendingPayment:t('pendingPayment'),
+  rideHistory:'Ride History',noRides:'No bookings yet.',
+  colSession:'Session',colBike:'Bike',colSizeType:'Size / Type',colPayment:'Payment',colStatus:'Status',
+  cancelBooking:'Cancel',
+  statusWaiting:'Waiting',statusActive:'On Bike',statusDone:'Complete',statusNoshow:'No-Show',statusCancelled:'Cancelled',
+  staffQueueTitle:'Staff Queue',addWalkin:t('addWalkin'),nextUpLabel:'Next Up',
+  assignBikeCheckin:'Assign Bike & Check In',
+  filterAll:'All',filterWaiting:'Waiting',filterOnBike:'On Bike',filterDone:'Done',filterNoshow:'No-Show',
+  allSessions:t('allSessions'),colRider:'Rider',colWants:'Wants',
+  walkinTitle:'Walk-in Registration',walkinName:'Full Name',walkinPhone:'Phone Number',
+  walkinSession:'Session',walkinSize:'Frame Size',walkinType:'Bike Type Preference',
+  addWalkinBtn:t('addWalkinBtn'),cancelBtn:'Cancel',
+  checkInBtn:'Check In',returnBikeBtn:'Return Bike',removeBtn:'Remove',noShowBtn:'No-Show',
+  paidLabel:'Paid',pendingLabel:'Pending',
+  sessionsTitle:'Sessions',sessionsSub:'Create sessions and open them to accept reservations. Closed by default.',
+  newSession:t('newSession'),newSessionTitle:'New Session',dateLabel:'Date',capacityLabel:'Capacity (spots)',
+  createSession:t('createSession'),colDate:'Date',colDay:'Day',colCapacity:'Capacity',
+  colBookings:'Bookings',colActions:'Actions',openBtn:'Open',closeBtn:'Close',deleteBtn:'Delete',
+  statusOpen:'Open',statusClosed:'Closed',noSessionsYet:t('noSessionsYet'),
+  bikesTitle:'Fleet',addBike:t('addBike'),editBikeTitle:'Edit Bike',addBikeTitle:'Add New Bike',
+  bikeNameLabel:'Bike Name',frameSizeLabel:'Frame Size',bikeTypeLabel:'Bike Type',
+  bikeColorsLabel:'Bike Color(s)',colorsHint:'1 required - up to 4',
+  saveBikeBtn:'Save Changes',addBikeBtn:'Add Bike',
+  availLabel:'Available',inUseLabel:'In Use',maintLabel:'Maintenance',
+  editBtn:'Edit',maintBtn:'Maint.',restoreBtn:'Restore',
+  noBikes:t('noBikes'),
+  historyTitle:'Ride History',historySub:'Log of all completed and no-show rides. Send receipts directly to customers.',
+  filterPaid:'Paid',filterUnpaid:'Unpaid',filterCancelled:'Cancelled',
+  sendReceipt:t('sendReceipt'),noHistory:t('noHistory'),
+  assignBikeTitle:'Assign Bike',confirmCheckin:'Confirm & Check In',
+  pinTitle:'Staff Access',pinSub:'Enter the 4-digit PIN to access the staff panel.',
+},
+ar:{
+  appSub:'طابور حلبة الكورنيش',landingTitle:'مايكرو موبيليتي - حلبة الكورنيش',
+  landingSub:'طابور تأجير الدراجات - حلبة كورنيش جدة',
+  reserveTitle:'احجز موقعك',reserveDesc:'سجل في جلسة متاحة وانضم إلى الطابور.',
+  staffAccess:'دخول الموظفين',customerBadge:'عميل',staffBadge:'لوحة الموظفين',
+  lockBtn:'قفل',homeBtn:'الرئيسية',logOut:'تسجيل الخروج',
+  authWelcome:'مرحباً بك في مايكرو موبيليتي',authSub:'سجل دخولك أو أنشئ حساباً لتتبع رحلاتك.',
+  authLogin:'تسجيل الدخول',authSignup:'إنشاء حساب',authLoginBtn:'تسجيل الدخول',authSignupBtn:'إنشاء الحساب',
+  authCancel:'إلغاء - الرئيسية',authIdentifier:'البريد الإلكتروني أو الهاتف',
+  authFullName:'الاسم الكامل',authEmail:'البريد الإلكتروني',authEmailOpt:'(اختياري إذا استخدمت الهاتف)',
+  authPhone:'رقم الهاتف',authPhoneOpt:'(اختياري إذا استخدمت البريد)',
+  authPassword:'كلمة المرور',authPasswordHint:'اختر كلمة مرور (6 أحرف على الأقل)',authConfirmPassword:'تأكيد كلمة المرور',
+  tabReserve:'حجز',tabMyRides:'رحلاتي',tabQueue:'الطابور',tabSessions:'الجلسات',tabBikes:'الدراجات',tabHistory:'السجل',
+  regTitle:'احجز موقعك',regSub:'اختر جلسة متاحة، أدخل بياناتك، وانضم إلى الطابور.',
+  availSessions:'الجلسات المتاحة',
+  noSessions:'لا توجد جلسات مفتوحة للحجز حالياً. تحقق لاحقاً أو تواصل مع الفريق.',
+  riderDetails:'بيانات الراكب',fullName:'الاسم الكامل',emailAddr:'البريد الإلكتروني',
+  phoneNum:'رقم الهاتف',heightLabel:'الطول',heightHint:'- يتم اختيار المقاس تلقائياً',
+  bikeTypePref:'تفضيل نوع الدراجة',numBikes:'عدد الدراجات',joinQueue:'انضم للطابور',
+  pricePerBike:'السعر للدراجة',bikesWord:'دراجات',totalWord:'الإجمالي',
+  myRidesTitle:'رحلاتي',myRidesSub:'سجل الإيجار الكامل لـ',
+  totalBookings:'إجمالي الحجوزات',completedLabel:'مكتملة',totalPaid:'إجمالي المدفوع',pendingPayment:'مستحق الدفع',
+  rideHistory:'سجل الرحلات',noRides:'لا توجد حجوزات بعد.',
+  colSession:'الجلسة',colBike:'الدراجة',colSizeType:'المقاس / النوع',colPayment:'الدفع',colStatus:'الحالة',
+  cancelBooking:'إلغاء',
+  statusWaiting:'بانتظار',statusActive:'على الدراجة',statusDone:'مكتمل',statusNoshow:'لم يحضر',statusCancelled:'ملغي',
+  staffQueueTitle:'طابور الموظفين',addWalkin:'+ زيارة مباشرة',nextUpLabel:'التالي',
+  assignBikeCheckin:'تخصيص دراجة وتسجيل الدخول',
+  filterAll:'الكل',filterWaiting:'بانتظار',filterOnBike:'على الدراجة',filterDone:'منتهي',filterNoshow:'لم يحضر',
+  allSessions:'جميع الجلسات',colRider:'الراكب',colWants:'الطلب',
+  walkinTitle:'تسجيل زيارة مباشرة',walkinName:'الاسم الكامل',walkinPhone:'رقم الهاتف',
+  walkinSession:'الجلسة',walkinSize:'مقاس الإطار',walkinType:'تفضيل نوع الدراجة',
+  addWalkinBtn:'إضافة زيارة',cancelBtn:'إلغاء',
+  checkInBtn:'تسجيل الدخول',returnBikeBtn:'إرجاع الدراجة',removeBtn:'حذف',noShowBtn:'لم يحضر',
+  paidLabel:'مدفوع',pendingLabel:'معلق',
+  sessionsTitle:'الجلسات',sessionsSub:'أنشئ الجلسات وافتحها لقبول الحجوزات. مغلقة بشكل افتراضي.',
+  newSession:'+ جلسة جديدة',newSessionTitle:'جلسة جديدة',dateLabel:'التاريخ',capacityLabel:'الطاقة الاستيعابية',
+  createSession:'إنشاء جلسة',colDate:'التاريخ',colDay:'اليوم',colCapacity:'الطاقة',
+  colBookings:'الحجوزات',colActions:'الإجراءات',openBtn:'فتح',closeBtn:'إغلاق',deleteBtn:'حذف',
+  statusOpen:'مفتوح',statusClosed:'مغلق',noSessionsYet:'لا توجد جلسات بعد. أنشئ واحدة أعلاه.',
+  bikesTitle:'الأسطول',addBike:'+ إضافة دراجة',editBikeTitle:'تعديل الدراجة',addBikeTitle:'إضافة دراجة جديدة',
+  bikeNameLabel:'اسم الدراجة',frameSizeLabel:'مقاس الإطار',bikeTypeLabel:'نوع الدراجة',
+  bikeColorsLabel:'لون الدراجة',colorsHint:'مطلوب 1 - حتى 4',
+  saveBikeBtn:'حفظ التغييرات',addBikeBtn:'إضافة دراجة',
+  availLabel:'متاح',inUseLabel:'قيد الاستخدام',maintLabel:'صيانة',
+  editBtn:'تعديل',maintBtn:'صيانة',restoreBtn:'استعادة',
+  noBikes:'لا توجد دراجات. أضف أول دراجة أعلاه.',
+  historyTitle:'سجل الرحلات',historySub:'سجل جميع الرحلات المكتملة والغيابات.',
+  filterPaid:'مدفوع',filterUnpaid:'غير مدفوع',filterCancelled:'ملغي',
+  sendReceipt:'إيصال',noHistory:'لا يوجد راكبون يطابقون الفلتر الحالي.',
+  assignBikeTitle:'تخصيص دراجة',confirmCheckin:'تأكيد وتسجيل الدخول',
+  pinTitle:'دخول الموظفين',pinSub:'أدخل الرقم السري المكون من 4 أرقام للدخول إلى لوحة الموظفين.',
+}};
+function t(k){return(LANG[S&&S.lang?S.lang:'en']||LANG.en)[k]||LANG.en[k]||k;}
+
+function setLang(lang){
+  S.lang=lang;
+  document.documentElement.dir=lang==='ar'?'rtl':'ltr';
+  document.documentElement.lang=lang;
+  document.getElementById('lang-btn').textContent=lang==='ar'?'English':'عربي';
+  document.querySelector('.topbar-brand-sub').textContent=t('appSub');
+  const lt=document.getElementById('land-title');if(lt)lt.innerHTML=`<span>MicroMobility</span> Corniche Circuit`;
+  const ls=document.getElementById('land-sub');if(ls)ls.textContent=t('landingSub');
+  const lct=document.getElementById('land-card-title');if(lct)lct.textContent=t('reserveTitle');
+  const lcd=document.getElementById('land-card-desc');if(lcd)lcd.textContent=t('reserveDesc');
+  const lca=document.getElementById('land-card-arrow');if(lca)lca.innerHTML=lang==='ar'?'&larr;':'&rarr;';
+  const lsb=document.getElementById('land-staff-btn');if(lsb)lsb.textContent=t('staffAccess');
+  document.querySelectorAll('#customer-tab-nav .tab-btn').forEach(b=>{
+    if(b.dataset.ctab==='register')b.textContent=t('tabReserve');
+    if(b.dataset.ctab==='myrides')b.textContent=t('tabMyRides');
+  });
+  document.querySelectorAll('#staff-tab-nav .tab-btn').forEach(b=>{
+    if(b.dataset.stab==='queue')b.textContent=t('tabQueue');
+    if(b.dataset.stab==='sessions')b.textContent=t('tabSessions');
+    if(b.dataset.stab==='bikes')b.textContent=t('tabBikes');
+    if(b.dataset.stab==='history')b.textContent=t('tabHistory');
+  });
+  renderTopbarRight();
+  if(S.view==='customer'){renderRegister();renderMyRides();}
+  else if(S.view==='staff'){renderStaffQueue();renderSessions();renderBikes();renderHistory();}
+  if(document.getElementById('auth-modal')?.style.display!=='none')renderAuthModal();
+}
+
 /* ══════════════════════════════════════════════
    CONFIG
 ══════════════════════════════════════════════ */
@@ -626,6 +789,7 @@ const COUNTRY_CODES=[
    STATE
 ══════════════════════════════════════════════ */
 const S={
+  lang:'en',            // 'en' | 'ar'
   view:'landing',       // 'landing' | 'customer' | 'staff'
   custTab:'register',
   staffTab:'queue',
@@ -733,8 +897,9 @@ function bikeGradient(c){if(!c||!c.length)return'var(--green)';if(c.length===1)r
 const DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const TYPE_CLS={Road:'type-road',Hybrid:'type-hybrid',Mountain:'type-mountain',Gravel:'type-gravel',Any:'type-any'};
 const typeBadge=t=>`<span class="type-badge ${TYPE_CLS[t]||'type-any'}">${t}</span>`;
-const STATUS_MAP={waiting:['badge-waiting','Waiting'],active:['badge-active','On Bike'],done:['badge-done','Complete'],noshow:['badge-noshow','No-Show'],cancelled:['badge-noshow','Cancelled']};
-const statusBadge=s=>{const[c,l]=STATUS_MAP[s]||['badge-done',s];return`<span class="status-badge ${c}">${l}</span>`;};
+const STATUS_CLS={waiting:'badge-waiting',active:'badge-active',done:'badge-done',noshow:'badge-noshow',cancelled:'badge-noshow'};
+const STATUS_KEY={waiting:'statusWaiting',active:'statusActive',done:'statusDone',noshow:'statusNoshow',cancelled:'statusCancelled'};
+const statusBadge=s=>`<span class="status-badge ${STATUS_CLS[s]||'badge-done'}">${t(STATUS_KEY[s]||'statusDone')}</span>`;
 function isoToFlag(iso){return iso.toUpperCase().replace(/./g,c=>String.fromCodePoint(c.charCodeAt(0)-65+0x1F1E6));}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function toast(msg,type){
@@ -772,20 +937,20 @@ function renderAuthModal(){
       </div>
       <div class="auth-err" id="auth-err"></div>
       ${isLogin?`
-        <div class="auth-field"><label>Email or Phone</label><input id="a-identifier" type="text" placeholder="email@example.com or +966..."></div>
-        <div class="auth-field"><label>Password</label><input id="a-pwd" type="password" placeholder="Your password"></div>
+        <div class="auth-field"><label>${t('authIdentifier')}</label><input id="a-identifier" type="text" placeholder="email@example.com or +966..."></div>
+        <div class="auth-field"><label>${t('authPassword')}</label><input id="a-pwd" type="password" placeholder="${t('authPassword')}"></div>
         <button class="btn-primary auth-submit" onclick="doLogin()">Log In</button>
       `:`
-        <div class="auth-field"><label>Full Name</label><input id="a-name" type="text" placeholder="Your full name"></div>
-        <div class="auth-field"><label>Email Address <span style="font-weight:400;text-transform:none">(optional if using phone)</span></label>
+        <div class="auth-field"><label>${t('authFullName')}</label><input id="a-name" type="text" placeholder="Your full name"></div>
+        <div class="auth-field"><label>${t('authEmail')} <span style="font-weight:400;text-transform:none">${t('authEmailOpt')}</span></label>
           <input id="a-email" type="email" placeholder="your@email.com"></div>
-        <div class="auth-field"><label>Phone Number <span style="font-weight:400;text-transform:none">(optional if using email)</span></label>
+        <div class="auth-field"><label>${t('authPhone')} <span style="font-weight:400;text-transform:none">${t('authPhoneOpt')}</span></label>
           <div class="auth-cc-row">
             <select id="a-cc">${ccOpts}</select>
             <input id="a-phone" type="tel" placeholder="5x xxx xxxx">
           </div></div>
-        <div class="auth-field"><label>Password</label><input id="a-pwd" type="password" placeholder="Choose a password (min 6 chars)"></div>
-        <div class="auth-field"><label>Confirm Password</label><input id="a-pwd2" type="password" placeholder="Repeat password"></div>
+        <div class="auth-field"><label>Password</label><input id="a-pwd" type="password" placeholder="${t('authPasswordHint')}"></div>
+        <div class="auth-field"><label>${t('authConfirmPassword')}</label><input id="a-pwd2" type="password" placeholder="Repeat password"></div>
         <button class="btn-primary auth-submit" onclick="doSignup()">Create Account</button>
       `}
       <div style="text-align:center;margin-top:12px">
@@ -1059,7 +1224,7 @@ function renderRegister(){
           <div class="sess-card-spots ${sc}">${sl}</div>
         </div>`;
       }).join('')
-    : `<div class="no-sessions-msg">No sessions are currently open for reservation.<br>Check back soon or contact the team.</div>`;
+    : `<div class="no-sessions-msg">${t('noSessions')}</div>`;
   if(S.selSession&&!available.find(s=>s.id===S.selSession))S.selSession=null;
   const h=parseInt(S._rHeight);
   const autoSize=(!isNaN(h)&&h>=100&&h<=250)?heightToSize(h):null;
@@ -1071,56 +1236,56 @@ function renderRegister(){
     `<option value="${code}"${S._rCC===code?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
   let ticket='';
   if(S.lastTicket){
-    const t=S.lastTicket;
+    const tkt=S.lastTicket;
     ticket=`<div class="ticket-card">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px">
-        <div><div class="ticket-label">Queue Number</div><div class="ticket-num">#${t.queueNum}</div></div>
+        <div><div class="ticket-label">Queue Number</div><div class="ticket-num">#${tkt.queueNum}</div></div>
         <span class="status-badge badge-active" style="margin-top:6px">Registered</span>
       </div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Keep this number - you will need it to check your status.</div>
       <div class="ticket-grid">
-        <div><div class="ticket-label">Name</div><div class="ticket-value">${esc(t.name)}</div></div>
-        <div><div class="ticket-label">Email</div><div class="ticket-value">${esc(t.email||'')}</div></div>
-        <div><div class="ticket-label">Session</div><div class="ticket-value">${t.sessionDay}</div></div>
-        <div><div class="ticket-label">Date</div><div class="ticket-value">${shortDate(t.sessionDate)}</div></div>
+        <div><div class="ticket-label">Name</div><div class="ticket-value">${esc(tkt.name)}</div></div>
+        <div><div class="ticket-label">Email</div><div class="ticket-value">${esc(tkt.email||'')}</div></div>
+        <div><div class="ticket-label">Session</div><div class="ticket-value">${tkt.sessionDay}</div></div>
+        <div><div class="ticket-label">Date</div><div class="ticket-value">${shortDate(tkt.sessionDate)}</div></div>
         <div><div class="ticket-label">Time</div><div class="ticket-value">09:00 &ndash; 11:00</div></div>
-        <div><div class="ticket-label">Frame Size</div><div class="ticket-value">${t.size}</div></div>
-        <div><div class="ticket-label">Preference</div><div class="ticket-value">${t.typePreference}</div></div>
+        <div><div class="ticket-label">Frame Size</div><div class="ticket-value">${tkt.size}</div></div>
+        <div><div class="ticket-label">Preference</div><div class="ticket-value">${tkt.typePreference}</div></div>
       </div>
     </div>`;
   }
   document.getElementById('tab-register').innerHTML=`
-    <div class="page-title">Reserve Your Spot</div>
-    <div class="page-sub">Pick an available session, fill in your details, and join the queue.</div>
+    <div class="page-title">${t('regTitle')}</div>
+    <div class="page-sub">${t('regSub')}</div>
     <div class="session-picker-wrap">
-      <div class="session-picker-label">Available Sessions</div>
+      <div class="session-picker-label">${t('availSessions')}</div>
       <div class="session-cards-grid">${sessCards}</div>
     </div>
     <div class="form-section">
-      <div class="form-title">Rider Details</div>
+      <div class="form-title">${t('riderDetails')}</div>
       <div class="form-row">
-        <div class="form-group"><label>Full Name</label>
+        <div class="form-group"><label>${t('fullName')}</label>
           <input type="text" id="reg-name" placeholder="Your full name" value="${esc(S._rName)}"></div>
-        <div class="form-group"><label>Email Address</label>
+        <div class="form-group"><label>${t('emailAddr')}</label>
           <input type="email" id="reg-email" placeholder="your@email.com" value="${esc(S._rEmail)}"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Phone Number</label>
+        <div class="form-group"><label>${t('phoneNum')}</label>
           <div class="phone-row">
             <select class="phone-cc" id="reg-cc">${ccOpts}</select>
             <input type="tel" class="phone-num" id="reg-phone" placeholder="5x xxx xxxx" value="${esc(S._rPhone)}">
           </div></div>
-        <div class="form-group"><label>Height &nbsp;<span class="label-hint">- frame size auto-selected</span></label>
+        <div class="form-group"><label>${t('heightLabel')} &nbsp;<span class="label-hint">${t('heightHint')}</span></label>
           <div class="height-row">
             <input type="number" id="reg-height" placeholder="cm, e.g. 175" min="100" max="250"
               value="${esc(S._rHeight)}" oninput="S._rHeight=this.value;refreshSizeBadge()">
             <div id="size-badge-wrap">${sizeChip}</div>
           </div></div>
       </div>
-      <div class="form-group full" style="margin-bottom:16px"><label>Bike Type Preference</label>
+      <div class="form-group full" style="margin-bottom:16px"><label>${t('bikeTypePref')}</label>
         <div class="toggle-group">${typeBtns}</div></div>
       <div class="form-row" style="margin-bottom:16px">
-        <div class="form-group"><label>Number of Bikes</label>
+        <div class="form-group"><label>${t('numBikes')}</label>
           <div class="qty-stepper">
             <button class="qty-btn" onclick="S.regQty=Math.max(1,S.regQty-1);renderRegister()" type="button">-</button>
             <span class="qty-val">${S.regQty}</span>
@@ -1129,10 +1294,10 @@ function renderRegister(){
         </div>
       </div>
       ${S.regType?`<div class="price-preview">
-        <div class="price-preview-breakdown">${S.regQty>1?`${S.regQty} bikes &times; SAR ${priceForType(S.regType)}`:'Price per bike'}</div>
+        <div class="price-preview-breakdown">${S.regQty>1?`${S.regQty} ${t('bikesWord')} &times; SAR ${priceForType(S.regType)}`:t('pricePerBike')}</div>
         <div class="price-preview-total">SAR ${(S.regQty*priceForType(S.regType)).toFixed(2).replace(/\.00$/,'')}</div>
       </div>`:''}
-      <button class="btn-primary" style="width:100%" onclick="submitReg()">Join Queue</button>
+      <button class="btn-primary" style="width:100%" onclick="submitReg()">${t('joinQueue')}</button>
     </div>
     ${ticket}`;
   document.getElementById('reg-name') .addEventListener('input',e=>S._rName=e.target.value);
@@ -1211,34 +1376,34 @@ function renderMyRides(){
       <td>${e.size} &middot; ${typeBadge(e.typePreference)}</td>
       <td style="font-weight:800;color:${payColor}">${e.paid?'SAR '+(e.price||DEFAULT_PRICE):'Pending'}</td>
       <td>${statusBadge(e.status)}</td>
-      <td>${canCancel?`<button class="btn-sm btn-red" onclick="cancelBooking('${e.id}')">Cancel</button>`:'<span style="color:var(--muted);font-size:12px">-</span>'}</td>
+      <td>${canCancel?`<button class="btn-sm btn-red" onclick="cancelBooking('${e.id}')">${t('cancelBooking')}</button>`:'<span style="color:var(--muted);font-size:12px">-</span>'}</td>
     </tr>`;
-  }).join(''):`<tr><td colspan="7" class="empty-state">No bookings yet.</td></tr>`;
+  }).join(''):`<tr><td colspan="7" class="empty-state">${t('noRides')}</td></tr>`;
   document.getElementById('tab-myrides').innerHTML=`
-    <div class="page-title">My Rides</div>
-    <div class="page-sub">Your complete rental history with ${esc(cust.name)}.</div>
+    <div class="page-title">${t('myRidesTitle')}</div>
+    <div class="page-sub">${t('myRidesSub')} ${esc(cust.name)}.</div>
     <div class="rides-stat-row">
       <div class="rides-stat-card">
         <div class="rides-stat-num">${visible.length}</div>
-        <div class="rides-stat-label">Total Bookings</div>
+        <div class="rides-stat-label">${t('totalBookings')}</div>
       </div>
       <div class="rides-stat-card">
         <div class="rides-stat-num" style="color:var(--green)">${completed.length}</div>
-        <div class="rides-stat-label">Completed</div>
+        <div class="rides-stat-label">${t('completedLabel')}</div>
       </div>
       <div class="rides-stat-card">
         <div class="rides-stat-num" style="color:var(--blue)">SAR ${totalPaid}</div>
-        <div class="rides-stat-label">Total Paid</div>
+        <div class="rides-stat-label">${t('totalPaid')}</div>
       </div>
       <div class="rides-stat-card">
         <div class="rides-stat-num" style="color:var(--orange)">SAR ${pending}</div>
-        <div class="rides-stat-label">Pending Payment</div>
+        <div class="rides-stat-label">${t('pendingPayment')}</div>
       </div>
     </div>
     <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:16px 0">
-      <div style="padding:0 20px 12px;font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">Ride History</div>
+      <div style="padding:0 20px 12px;font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${t('rideHistory')}</div>
       <div class="table-wrapper"><table class="queue-table">
-        <thead><tr><th>#</th><th class="hide-mobile">Session</th><th>Bike</th><th>Size / Type</th><th>Payment</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th class="hide-mobile">${t('colSession')}</th><th>${t('colBike')}</th><th>${t('colSizeType')}</th><th>${t('colPayment')}</th><th>${t('colStatus')}</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
     </div>`;
@@ -1251,15 +1416,15 @@ function renderSessions(){
   const sessions=allSessions();
   const addForm=S.showAddSession?`
     <div class="inline-form" style="margin-bottom:24px">
-      <div class="form-title">New Session</div>
+      <div class="form-title">${t('newSessionTitle')}</div>
       <div class="form-row">
         <div class="form-group">
-          <label>Date</label>
+          <label>${t('dateLabel')}</label>
           <input type="date" id="ns-date" value="${esc(S.newSessDate)}" min="${todayStr()}"
             oninput="S.newSessDate=this.value">
         </div>
         <div class="form-group">
-          <label>Capacity (spots)</label>
+          <label>${t('capacityLabel')}</label>
           <input type="number" id="ns-cap" value="${S.newSessCap}" min="1" max="100"
             oninput="S.newSessCap=parseInt(this.value)||12">
         </div>
@@ -1278,11 +1443,11 @@ function renderSessions(){
       <td style="color:var(--muted)">${s.day||''}</td>
       <td>${s.capacity||12}</td>
       <td>${booked} / ${s.capacity||12} &nbsp;<span style="color:var(--muted);font-size:11px">(${left} left)</span></td>
-      <td><span class="${isOpen?'badge-open':'badge-closed'}">${isOpen?'Open':'Closed'}</span></td>
+      <td><span class="${isOpen?'badge-open':'badge-closed'}">${isOpen?t('statusOpen'):t('statusClosed')}</span></td>
       <td>
         <div class="actions-cell">
           <button class="btn-sm ${isOpen?'btn-orange':'btn-green'}" onclick="toggleSession('${s.id}','${isOpen?'closed':'open'}')">
-            ${isOpen?'Close':'Open'}
+            ${isOpen?t('closeBtn'):t('openBtn')}
           </button>
           <button class="btn-sm btn-red" onclick="deleteSession('${s.id}')" ${booked>0?'disabled title="Has bookings"':''}>Delete</button>
         </div>
@@ -1292,15 +1457,15 @@ function renderSessions(){
   document.getElementById('tab-sessions').innerHTML=`
     <div class="section-header">
       <div>
-        <div class="page-title">Sessions</div>
-        <div class="page-sub">Create sessions and open them to accept reservations. Closed by default.</div>
+        <div class="page-title">${t('sessionsTitle')}</div>
+        <div class="page-sub">${t('sessionsSub')}</div>
       </div>
       <button class="btn-primary" onclick="S.showAddSession=!S.showAddSession;renderSessions()">+ New Session</button>
     </div>
     ${addForm}
     <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;overflow:hidden">
       <table class="sess-admin-table">
-        <thead><tr><th>Date</th><th>Day</th><th>Capacity</th><th>Bookings</th><th>Status</th><th>Actions</th></tr></thead>
+        <thead><tr><th>${t('colDate')}</th><th>${t('colDay')}</th><th>${t('colCapacity')}</th><th>${t('colBookings')}</th><th>${t('colStatus')}</th><th>${t('colActions')}</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -1330,7 +1495,7 @@ async function toggleSession(id,newStatus){
   try{
     await sb.from('sessions').update({status:newStatus}).eq('id',id);
     await loadData();
-    toast(newStatus==='open'?'Session opened for reservations.':'Session closed.');
+    toast(newStatus==='open'?t('sessOpened'):t('sessClosed'));
     renderSessions();
     renderStaffQueue();
   }catch(e){toast('Server error.','error');}
@@ -1342,7 +1507,7 @@ async function deleteSession(id){
     if(bookings>0){toast('Cannot delete a session with existing bookings.','error');return;}
     await sb.from('sessions').delete().eq('id',id);
     await loadData();
-    toast('Session deleted.');renderSessions();
+    toast(t('sessDeleted'));renderSessions();
   }catch(e){toast('Error deleting session.','error');}
 }
 
@@ -1360,36 +1525,36 @@ function renderStaffQueue(){
   const nextRider=base.filter(e=>e.status==='waiting').sort((a,b)=>a.queueNum-b.queueNum)[0];
   const nextUp=nextRider?`<div class="next-up-banner">
     <div>
-      <div class="next-up-label">Next Up</div>
+      <div class="next-up-label">${t('nextUpLabel')}</div>
       <div class="next-up-name">#${nextRider.queueNum} - ${esc(nextRider.name)}</div>
       <div class="next-up-details">Size ${nextRider.size} &middot; ${nextRider.typePreference} &middot; ${nextRider.sessionDay} ${shortDate(nextRider.sessionDate)}</div>
     </div>
-    <button class="btn-primary" onclick="openModal('${nextRider.id}')">Assign Bike &amp; Check In</button>
+    <button class="btn-primary" onclick="openModal('${nextRider.id}')">${t('assignBikeCheckin')}</button>
   </div>`:'';
   const statusPills=['all','waiting','active','done','noshow'].map(s=>{
-    const label={all:'All',waiting:'Waiting',active:'On Bike',done:'Done',noshow:'No-Show'}[s];
+    const label={all:t('filterAll'),waiting:t('filterWaiting'),active:t('filterOnBike'),done:t('filterDone'),noshow:t('filterNoshow')}[s];
     return`<button class="filter-pill${S.sfStatus===s?' active':''}" onclick="setSfStatus('${s}')">${label}</button>`;
   }).join('');
-  const sessOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>All Sessions</option>`+
+  const sessOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>${t('allSessions')}</option>`+
     sessions.map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${s.day} ${s.display}</option>`).join('');
   const wiSizeBtns=['XS','S','M','L'].map(v=>`<button class="toggle-btn${S.wiSize===v?' active':''}" onclick="setWi('wiSize','${v}')">${v}</button>`).join('');
   const wiTypeBtns=['Road','Hybrid','Mountain','Gravel','Any'].map(t=>`<button class="toggle-btn${S.wiType===t?' active':''}" onclick="setWi('wiType','${t}')">${t}</button>`).join('');
   const wiSessOpts=sessions.map(s=>`<option value="${s.id}">${s.day}: ${s.display}</option>`).join('');
   const wiCcOpts=COUNTRY_CODES.map(([code,iso,name])=>`<option value="${code}"${S.wiCC===code?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
   const walkInForm=S.showWalkIn?`<div class="inline-form">
-    <div class="form-title">Walk-in Registration</div>
+    <div class="form-title">${t('walkinTitle')}</div>
     <div class="form-row">
-      <div class="form-group"><label>Full Name</label><input type="text" id="wi-name" placeholder="Rider name"></div>
-      <div class="form-group"><label>Phone Number</label>
+      <div class="form-group"><label>${t('walkinName')}</label><input type="text" id="wi-name" placeholder="${t('walkinName')}"></div>
+      <div class="form-group"><label>${t('phoneNum')}</label>
         <div class="phone-row">
           <select class="phone-cc" id="wi-cc" onchange="setWi('wiCC',this.value)">${wiCcOpts}</select>
           <input type="tel" class="phone-num" id="wi-phone" placeholder="5x xxx xxxx">
         </div></div>
     </div>
-    <div class="form-group" style="margin-bottom:16px"><label>Session</label><select id="wi-sess">${wiSessOpts}</select></div>
+    <div class="form-group" style="margin-bottom:16px"><label>${t('walkinSession')}</label><select id="wi-sess">${wiSessOpts}</select></div>
     <div class="form-row">
-      <div class="form-group"><label>Frame Size</label><div class="toggle-group">${wiSizeBtns}</div></div>
-      <div class="form-group"><label>Bike Type Preference</label><div class="toggle-group">${wiTypeBtns}</div></div>
+      <div class="form-group"><label>${t('walkinSize')}</label><div class="toggle-group">${wiSizeBtns}</div></div>
+      <div class="form-group"><label>${t('bikeTypePref')}</label><div class="toggle-group">${wiTypeBtns}</div></div>
     </div>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn-primary" onclick="submitWalkIn()">Add Walk-in</button>
@@ -1399,11 +1564,11 @@ function renderStaffQueue(){
   const rows=filtered.map(e=>{
     const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
     const rowCls=e.status==='active'?'row-active':(e.status==='done'||e.status==='noshow'||e.status==='cancelled')?'row-done':'';
-    const wiTag=e.walkIn?'<span class="walk-in-badge">Walk-in</span>':'';
+    const wiTag=e.walkIn?'<span class="walk-in-badge">'+(S.lang==='ar'?'زيارة مباشرة':'Walk-in')+'</span>':'';
     let actions='';
-    if(e.status==='waiting')actions=`<button class="btn-sm btn-green" onclick="openModal('${e.id}')">Check In</button><button class="btn-sm btn-red" onclick="doNoShow('${e.id}')">No-Show</button>`;
-    else if(e.status==='active')actions=`<button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">Return Bike</button>`;
-    else actions=`<button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">Remove</button>`;
+    if(e.status==='waiting')actions=`<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="doNoShow('${e.id}')">${t('noShowBtn')}</button>`;
+    else if(e.status==='active')actions=`<button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button>`;
+    else actions=`<button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
     const payColor=e.paid?'var(--green)':'var(--orange)';
     return`<tr class="${rowCls}">
       <td><span class="queue-num-cell">#${e.queueNum}</span></td>
@@ -1413,7 +1578,7 @@ function renderStaffQueue(){
       <td>${bike?esc(bike.name):'<span style="color:var(--muted)">-</span>'}</td>
       <td><label class="pay-cell" onclick="event.stopPropagation()">
         <input class="pay-cb" type="checkbox" ${e.paid?'checked':''} onchange="togglePayment('${e.id}',this.checked)">
-        <span class="pay-label" style="color:${payColor}">${e.paid?'Paid':'Pending'}</span>
+        <span class="pay-label" style="color:${payColor}">${e.paid?t('paidLabel'):t('pendingLabel')}</span>
       </label></td>
       <td>${statusBadge(e.status)}</td>
       <td><div class="actions-cell">${actions}</div></td>
@@ -1421,7 +1586,7 @@ function renderStaffQueue(){
   }).join('');
   const emptyRow=filtered.length===0?`<tr><td colspan="8" class="empty-state">No riders match the current filters.</td></tr>`:'';
   document.getElementById('tab-queue').innerHTML=`
-    <div class="section-header"><div class="page-title">Staff Queue</div>
+    <div class="section-header"><div class="page-title">${t('staffQueueTitle')}</div>
       <button class="btn-primary" onclick="setWi('showWalkIn',${!S.showWalkIn})">+ Walk-in</button></div>
     ${walkInForm}
     <div class="stats-row">
@@ -1434,7 +1599,7 @@ function renderStaffQueue(){
     <div class="filter-row">${statusPills}<div class="filter-spacer"></div>
       <select style="width:auto;min-width:180px" onchange="setSfSession(this.value)">${sessOpts}</select></div>
     <div class="table-wrapper"><table class="queue-table">
-      <thead><tr><th>#</th><th>Rider</th><th>Wants</th><th class="hide-mobile">Session</th><th>Bike</th><th>Payment</th><th>Status</th><th>Actions</th></tr></thead>
+      <thead><tr><th>#</th><th>${t('colRider')}</th><th>${t('colWants')}</th><th class="hide-mobile">${t('colSession')}</th><th>${t('colBike')}</th><th>${t('colPayment')}</th><th>${t('colStatus')}</th><th></th></tr></thead>
       <tbody>${rows}${emptyRow}</tbody>
     </table></div>`;
 }
@@ -1447,8 +1612,8 @@ async function togglePayment(id,paid){
   await sb.from('queue_entries').update({paid}).eq('id',id);
   await loadData();
   const cb=document.querySelector(`input.pay-cb[onchange*="${id}"]`);
-  if(cb){const lbl=cb.nextElementSibling;if(lbl){lbl.textContent=paid?'Paid':'Pending';lbl.style.color=paid?'var(--green)':'var(--orange)';}}
-  toast(paid?'Marked as paid.':'Marked as pending.',paid?'':'warning');
+  if(cb){const lbl=cb.nextElementSibling;if(lbl){lbl.textContent=paid?t('paidLabel'):t('pendingLabel');lbl.style.color=paid?'var(--green)':'var(--orange)';}}
+  toast(paid?t('paidLabel')+'.':t('pendingLabel')+'.', paid?'':'warning');
 }
 
 async function submitWalkIn(){
@@ -1512,7 +1677,7 @@ function renderModal(){
   const cards=bikes.length?bikes.map(b=>{
     const free=b.status==='available';
     const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-orange':'dot-red';
-    const slbl=b.status==='available'?'Available':b.status==='in-use'?'In Use':'Maintenance';
+    const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
     const icon={Road:'Road',Hybrid:'Hybrid',Mountain:'Mountain',Gravel:'Gravel'}[b.type]||b.type;
     const grad=bikeGradient(b.colors||['#6ee89a']);
     return`<div class="modal-bike-card${!free?' unavailable':''}${S.modalBike===b.id?' selected':''}" ${free?`onclick="pickBike('${b.id}')"`:''}>
@@ -1528,10 +1693,10 @@ function renderModal(){
   modal.style.display='flex';
   modal.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeModal()">
     <div class="modal-box">
-      <div class="modal-title">Assign Bike</div>
+      <div class="modal-title">${t('assignBikeTitle')}</div>
       <div class="modal-sub">#${rider.queueNum} ${esc(rider.name)} &middot; Size ${rider.size} &middot; Prefers ${rider.typePreference}</div>
       <div class="modal-bikes-grid">${cards}</div>
-      <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="confirmAssign()">Confirm &amp; Check In</button></div>
+      <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="confirmAssign()">${t('confirmCheckin')}</button></div>
     </div>
   </div>`;
 }
@@ -1575,28 +1740,28 @@ function renderBikes(){
       ${S.addBikeColors.length>1?`<button class="color-del" onclick="removeColor(${i})" type="button">&#x2715;</button>`:''}</div>`).join('');
   const addColorBtn=S.addBikeColors.length<4?`<button class="add-color-slot" onclick="addColorSlot()" type="button">+<br>Color</button>`:'';
   const addForm=(S.showAddBike||isEdit)?`<div class="inline-form">
-    <div class="form-title">${isEdit?'Edit Bike':'Add New Bike'}</div>
+    <div class="form-title">${isEdit?t('editBikeTitle'):t('addBikeTitle')}</div>
     <div class="form-row">
-      <div class="form-group"><label>Bike Name</label><input type="text" id="bk-name" placeholder="e.g. Spectra One" value="${esc(S._bkName)}"></div>
-      <div class="form-group"><label>Frame Size</label><select id="bk-size" onchange="S.addBikeSize=this.value">${sizeOpts}</select></div>
+      <div class="form-group"><label>${t('bikeNameLabel')}</label><input type="text" id="bk-name" placeholder="e.g. Spectra One" value="${esc(S._bkName)}"></div>
+      <div class="form-group"><label>${t('walkinSize')}</label><select id="bk-size" onchange="S.addBikeSize=this.value">${sizeOpts}</select></div>
     </div>
-    <div class="form-group" style="margin-bottom:16px"><label>Bike Type</label><div class="toggle-group">${bkTypeBtns}</div></div>
+    <div class="form-group" style="margin-bottom:16px"><label>${t('bikeTypeLabel')}</label><div class="toggle-group">${bkTypeBtns}</div></div>
     <div class="form-group" style="margin-bottom:16px">
-      <label>Bike Color(s) &nbsp;<span class="label-hint">1 required &middot; up to 4</span></label>
+      <label>${t('bikeColorsLabel')} &nbsp;<span class="label-hint">${t('colorsHint')}</span></label>
       <div class="color-builder">
         <div class="color-preview-bar" id="color-prev" style="background:${bikeGradient(S.addBikeColors)}"></div>
         <div class="color-slots">${colorSlots}${addColorBtn}</div>
       </div>
     </div>
     <div style="display:flex;gap:8px">
-      <button class="btn-primary" onclick="${isEdit?'saveBikeEdit()':'addBike()'}"> ${isEdit?'Save Changes':'Add Bike'}</button>
+      <button class="btn-primary" onclick="${isEdit?'saveBikeEdit()':'addBike()'}"> ${isEdit?t('saveBikeBtn'):t('addBikeBtn')}</button>
       <button class="btn-secondary" onclick="cancelBikeForm()">Cancel</button>
     </div>
   </div>`:'';
   const filtered=S.bkTypeFilter!=='all'?bikes.filter(b=>b.type===S.bkTypeFilter):bikes;
   const bkCards=filtered.length?filtered.map(b=>{
     const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-orange':'dot-red';
-    const slbl=b.status==='available'?'Available':b.status==='in-use'?'In Use':'Maintenance';
+    const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
     const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--orange)':'var(--red)';
     const icon={Road:'Road',Hybrid:'Hybrid',Mountain:'Mountain',Gravel:'Gravel'}[b.type]||b.type;
     const grad=bikeGradient(b.colors||['#6ee89a']);
@@ -1614,7 +1779,7 @@ function renderBikes(){
     </div>`;
   }).join(''):`<div class="empty-state" style="grid-column:1/-1">No bikes found. Add your first bike above.</div>`;
   document.getElementById('tab-bikes').innerHTML=`
-    <div class="section-header"><div class="page-title">Fleet</div><button class="btn-primary" onclick="toggleAddBike()">+ Add Bike</button></div>
+    <div class="section-header"><div class="page-title">${t('bikesTitle')}</div><button class="btn-primary" onclick="toggleAddBike()">+ Add Bike</button></div>
     ${addForm}
     <div class="stats-row">
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Total</div></div>
@@ -1685,18 +1850,18 @@ function renderHistory(){
   if(S.histPay==='pending')filtered=filtered.filter(e=>!e.paid&&e.status==='done');
   filtered.sort((a,b)=>b.registeredAt-a.registeredAt);
   const statusPills=['all','done','noshow','cancelled'].map(s=>{
-    const l={all:'All',done:'Completed',noshow:'No-Show'}[s];
+    const l={all:t('filterAll'),done:t('filterDone'),noshow:t('filterNoshow'),cancelled:t('statusCancelled')}[s];
     return`<button class="filter-pill${S.histStatus===s?' active':''}" onclick="setHistStatus('${s}')">${l}</button>`;}).join('');
   const payPills=['all','paid','pending'].map(s=>{
-    const l={all:'All Payments',paid:'Paid',pending:'Pending'}[s];
+    const l={all:t('filterAll'),paid:t('filterPaid'),pending:t('pendingLabel')}[s];
     return`<button class="filter-pill${S.histPay===s?' active':''}" onclick="setHistPay('${s}')">${l}</button>`;}).join('');
-  const sessOpts=`<option value="all"${S.histSess==='all'?' selected':''}>All Sessions</option>`+
+  const sessOpts=`<option value="all"${S.histSess==='all'?' selected':''}>${t('allSessions')}</option>`+
     sessions.map(s=>`<option value="${s.id}"${S.histSess===s.id?' selected':''}>${s.day} ${s.display}</option>`).join('');
   const rows=filtered.map(e=>{
     const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
     const payColor=e.paid?'var(--green)':'var(--orange)';
     const hasEmail=e.email&&e.email.length>0;
-    const wiTag=e.walkIn?'<span class="walk-in-badge">Walk-in</span>':'';
+    const wiTag=e.walkIn?'<span class="walk-in-badge">'+(S.lang==='ar'?'زيارة مباشرة':'Walk-in')+'</span>':'';
     return`<tr>
       <td><span class="queue-num-cell">#${e.queueNum}</span></td>
       <td><div class="rider-name">${esc(e.name)}${wiTag}</div>
@@ -1706,7 +1871,7 @@ function renderHistory(){
       <td>${bike?esc(bike.name):'<span style="color:var(--muted)">-</span>'}</td>
       <td><label class="pay-cell" onclick="event.stopPropagation()">
         <input class="pay-cb" type="checkbox" ${e.paid?'checked':''} onchange="togglePayment('${e.id}',this.checked)">
-        <span class="pay-label" style="color:${payColor}">${e.paid?'Paid':'Pending'}</span>
+        <span class="pay-label" style="color:${payColor}">${e.paid?t('paidLabel'):t('pendingLabel')}</span>
       </label></td>
       <td>${statusBadge(e.status)}</td>
       <td><div class="actions-cell">
@@ -1717,10 +1882,10 @@ function renderHistory(){
   }).join('');
   const emptyRow=filtered.length===0?`<tr><td colspan="7" class="empty-state">No history records match the current filters.</td></tr>`:'';
   document.getElementById('tab-history').innerHTML=`
-    <div class="page-title">Ride History</div>
-    <div class="page-sub">Log of all completed and no-show rides. Send receipts directly to customers.</div>
+    <div class="page-title">${t('historyTitle')}</div>
+    <div class="page-sub">${t('historySub')}</div>
     <div class="stats-row">
-      <div class="stat-card"><div class="stat-num">${nDone}</div><div class="stat-label">Completed</div></div>
+      <div class="stat-card"><div class="stat-num">${nDone}</div><div class="stat-label">${t('completedLabel')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nPaid}</div><div class="stat-label">Paid</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--orange)">${nPend}</div><div class="stat-label">Pending</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--red)">${nNoShow}</div><div class="stat-label">No-Shows</div></div>
