@@ -119,7 +119,7 @@
     .auth-submit{width:100%;margin-top:6px;}
     .auth-err{font-size:13px;color:var(--red);font-weight:700;margin-bottom:10px;min-height:18px;text-align:center;}
     .auth-cc-row{display:flex;gap:8px;}
-    .auth-cc-row select{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-family:'Nunito',sans-serif;font-size:14px;font-weight:500;outline:none;width:130px;flex-shrink:0;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M6 8L0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px;}
+    .auth-cc-row select{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-family:'Nunito',sans-serif;font-size:14px;font-weight:500;outline:none;width:190px;flex-shrink:0;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M6 8L0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px;}
     .auth-cc-row input{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-family:'Nunito',sans-serif;font-size:14px;font-weight:500;outline:none;transition:border-color .2s;}
     .auth-cc-row input:focus{border-color:var(--green);}
 
@@ -162,7 +162,7 @@
       background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
       background-repeat:no-repeat;background-position:right 13px center;padding-right:34px;}
     .phone-row{display:flex;gap:8px;}
-    .phone-cc{width:118px!important;flex-shrink:0;}
+    .phone-cc{width:190px!important;flex-shrink:0;}
     .phone-num{flex:1;}
     .height-row{display:flex;align-items:center;gap:10px;}
     .height-row input{flex:1;}
@@ -392,14 +392,213 @@
 const STAFF_PIN = '1234'; // change this to your preferred PIN
 
 const COUNTRY_CODES=[
-  ['+966','SA','Saudi Arabia'],['+971','AE','UAE'],['+974','QA','Qatar'],
-  ['+965','KW','Kuwait'],['+973','BH','Bahrain'],['+968','OM','Oman'],
-  ['+962','JO','Jordan'],['+961','LB','Lebanon'],['+964','IQ','Iraq'],
-  ['+963','SY','Syria'],['+967','YE','Yemen'],['+20','EG','Egypt'],
-  ['+212','MA','Morocco'],['+216','TN','Tunisia'],['+1','US','USA/Canada'],
-  ['+44','GB','UK'],['+33','FR','France'],['+49','DE','Germany'],
-  ['+91','IN','India'],['+92','PK','Pakistan'],['+880','BD','Bangladesh'],
-  ['+63','PH','Philippines'],['+62','ID','Indonesia'],
+  // ── Gulf countries first ───────────────────────────────
+  ['+966','SA','Saudi Arabia'],
+  ['+971','AE','UAE'],
+  ['+974','QA','Qatar'],
+  ['+965','KW','Kuwait'],
+  ['+973','BH','Bahrain'],
+  ['+968','OM','Oman'],
+  // ── Rest of the world, ascending by calling code ───────
+  ['+1',  'US','USA & Canada'],
+  ['+7',  'KZ','Kazakhstan'],
+  ['+7',  'RU','Russia'],
+  ['+20', 'EG','Egypt'],
+  ['+27', 'ZA','South Africa'],
+  ['+30', 'GR','Greece'],
+  ['+31', 'NL','Netherlands'],
+  ['+32', 'BE','Belgium'],
+  ['+33', 'FR','France'],
+  ['+34', 'ES','Spain'],
+  ['+36', 'HU','Hungary'],
+  ['+39', 'IT','Italy'],
+  ['+40', 'RO','Romania'],
+  ['+41', 'CH','Switzerland'],
+  ['+43', 'AT','Austria'],
+  ['+44', 'GB','United Kingdom'],
+  ['+45', 'DK','Denmark'],
+  ['+46', 'SE','Sweden'],
+  ['+47', 'NO','Norway'],
+  ['+48', 'PL','Poland'],
+  ['+49', 'DE','Germany'],
+  ['+51', 'PE','Peru'],
+  ['+52', 'MX','Mexico'],
+  ['+53', 'CU','Cuba'],
+  ['+54', 'AR','Argentina'],
+  ['+55', 'BR','Brazil'],
+  ['+56', 'CL','Chile'],
+  ['+57', 'CO','Colombia'],
+  ['+58', 'VE','Venezuela'],
+  ['+60', 'MY','Malaysia'],
+  ['+61', 'AU','Australia'],
+  ['+62', 'ID','Indonesia'],
+  ['+63', 'PH','Philippines'],
+  ['+64', 'NZ','New Zealand'],
+  ['+65', 'SG','Singapore'],
+  ['+66', 'TH','Thailand'],
+  ['+81', 'JP','Japan'],
+  ['+82', 'KR','South Korea'],
+  ['+84', 'VN','Vietnam'],
+  ['+86', 'CN','China'],
+  ['+90', 'TR','Turkey'],
+  ['+91', 'IN','India'],
+  ['+92', 'PK','Pakistan'],
+  ['+93', 'AF','Afghanistan'],
+  ['+94', 'LK','Sri Lanka'],
+  ['+95', 'MM','Myanmar'],
+  ['+98', 'IR','Iran'],
+  ['+211','SS','South Sudan'],
+  ['+212','MA','Morocco'],
+  ['+213','DZ','Algeria'],
+  ['+216','TN','Tunisia'],
+  ['+218','LY','Libya'],
+  ['+220','GM','Gambia'],
+  ['+221','SN','Senegal'],
+  ['+222','MR','Mauritania'],
+  ['+223','ML','Mali'],
+  ['+224','GN','Guinea'],
+  ['+225','CI',"Côte d'Ivoire"],
+  ['+226','BF','Burkina Faso'],
+  ['+227','NE','Niger'],
+  ['+228','TG','Togo'],
+  ['+229','BJ','Benin'],
+  ['+230','MU','Mauritius'],
+  ['+231','LR','Liberia'],
+  ['+232','SL','Sierra Leone'],
+  ['+233','GH','Ghana'],
+  ['+234','NG','Nigeria'],
+  ['+235','TD','Chad'],
+  ['+236','CF','Central African Republic'],
+  ['+237','CM','Cameroon'],
+  ['+238','CV','Cape Verde'],
+  ['+239','ST','São Tomé & Príncipe'],
+  ['+240','GQ','Equatorial Guinea'],
+  ['+241','GA','Gabon'],
+  ['+242','CG','Congo'],
+  ['+243','CD','DR Congo'],
+  ['+244','AO','Angola'],
+  ['+245','GW','Guinea-Bissau'],
+  ['+248','SC','Seychelles'],
+  ['+249','SD','Sudan'],
+  ['+250','RW','Rwanda'],
+  ['+251','ET','Ethiopia'],
+  ['+252','SO','Somalia'],
+  ['+253','DJ','Djibouti'],
+  ['+254','KE','Kenya'],
+  ['+255','TZ','Tanzania'],
+  ['+256','UG','Uganda'],
+  ['+257','BI','Burundi'],
+  ['+258','MZ','Mozambique'],
+  ['+260','ZM','Zambia'],
+  ['+261','MG','Madagascar'],
+  ['+262','RE','Réunion'],
+  ['+263','ZW','Zimbabwe'],
+  ['+264','NA','Namibia'],
+  ['+265','MW','Malawi'],
+  ['+266','LS','Lesotho'],
+  ['+267','BW','Botswana'],
+  ['+268','SZ','Eswatini'],
+  ['+269','KM','Comoros'],
+  ['+290','SH','Saint Helena'],
+  ['+291','ER','Eritrea'],
+  ['+297','AW','Aruba'],
+  ['+298','FO','Faroe Islands'],
+  ['+299','GL','Greenland'],
+  ['+350','GI','Gibraltar'],
+  ['+351','PT','Portugal'],
+  ['+352','LU','Luxembourg'],
+  ['+353','IE','Ireland'],
+  ['+354','IS','Iceland'],
+  ['+355','AL','Albania'],
+  ['+356','MT','Malta'],
+  ['+357','CY','Cyprus'],
+  ['+358','FI','Finland'],
+  ['+359','BG','Bulgaria'],
+  ['+370','LT','Lithuania'],
+  ['+371','LV','Latvia'],
+  ['+372','EE','Estonia'],
+  ['+373','MD','Moldova'],
+  ['+374','AM','Armenia'],
+  ['+375','BY','Belarus'],
+  ['+376','AD','Andorra'],
+  ['+377','MC','Monaco'],
+  ['+378','SM','San Marino'],
+  ['+380','UA','Ukraine'],
+  ['+381','RS','Serbia'],
+  ['+382','ME','Montenegro'],
+  ['+383','XK','Kosovo'],
+  ['+385','HR','Croatia'],
+  ['+386','SI','Slovenia'],
+  ['+387','BA','Bosnia & Herzegovina'],
+  ['+389','MK','North Macedonia'],
+  ['+420','CZ','Czech Republic'],
+  ['+421','SK','Slovakia'],
+  ['+423','LI','Liechtenstein'],
+  ['+500','FK','Falkland Islands'],
+  ['+501','BZ','Belize'],
+  ['+502','GT','Guatemala'],
+  ['+503','SV','El Salvador'],
+  ['+504','HN','Honduras'],
+  ['+505','NI','Nicaragua'],
+  ['+506','CR','Costa Rica'],
+  ['+507','PA','Panama'],
+  ['+508','PM','St. Pierre & Miquelon'],
+  ['+509','HT','Haiti'],
+  ['+590','GP','Guadeloupe'],
+  ['+591','BO','Bolivia'],
+  ['+592','GY','Guyana'],
+  ['+593','EC','Ecuador'],
+  ['+594','GF','French Guiana'],
+  ['+595','PY','Paraguay'],
+  ['+596','MQ','Martinique'],
+  ['+597','SR','Suriname'],
+  ['+598','UY','Uruguay'],
+  ['+599','CW','Curaçao'],
+  ['+670','TL','Timor-Leste'],
+  ['+672','NF','Norfolk Island'],
+  ['+673','BN','Brunei'],
+  ['+674','NR','Nauru'],
+  ['+675','PG','Papua New Guinea'],
+  ['+676','TO','Tonga'],
+  ['+677','SB','Solomon Islands'],
+  ['+678','VU','Vanuatu'],
+  ['+679','FJ','Fiji'],
+  ['+680','PW','Palau'],
+  ['+681','WF','Wallis & Futuna'],
+  ['+682','CK','Cook Islands'],
+  ['+683','NU','Niue'],
+  ['+685','WS','Samoa'],
+  ['+686','KI','Kiribati'],
+  ['+687','NC','New Caledonia'],
+  ['+688','TV','Tuvalu'],
+  ['+689','PF','French Polynesia'],
+  ['+690','TK','Tokelau'],
+  ['+691','FM','Micronesia'],
+  ['+692','MH','Marshall Islands'],
+  ['+850','KP','North Korea'],
+  ['+852','HK','Hong Kong'],
+  ['+853','MO','Macao'],
+  ['+855','KH','Cambodia'],
+  ['+856','LA','Laos'],
+  ['+880','BD','Bangladesh'],
+  ['+886','TW','Taiwan'],
+  ['+960','MV','Maldives'],
+  ['+961','LB','Lebanon'],
+  ['+962','JO','Jordan'],
+  ['+963','SY','Syria'],
+  ['+964','IQ','Iraq'],
+  ['+967','YE','Yemen'],
+  ['+970','PS','Palestine'],
+  ['+972','IL','Israel'],
+  ['+975','BT','Bhutan'],
+  ['+976','MN','Mongolia'],
+  ['+977','NP','Nepal'],
+  ['+992','TJ','Tajikistan'],
+  ['+993','TM','Turkmenistan'],
+  ['+994','AZ','Azerbaijan'],
+  ['+995','GE','Georgia'],
+  ['+996','KG','Kyrgyzstan'],
+  ['+998','UZ','Uzbekistan'],
 ];
 
 /* ══════════════════════════════════════════════
@@ -415,7 +614,7 @@ const S={
   _rDate:'',selSession:null,regType:null,lastTicket:null,
   _rName:'',_rEmail:'',_rPhone:'',_rCC:'+966',_rHeight:'',
   // staff queue
-  showWalkIn:false,sfStatus:'all',sfSession:'all',wiSize:null,wiType:null,
+  showWalkIn:false,sfStatus:'all',sfSession:'all',wiSize:null,wiType:null,wiCC:'+966',
   // bikes
   showAddBike:false,editBikeId:null,bkTypeFilter:'all',
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],_bkName:'',
@@ -495,6 +694,7 @@ const TYPE_CLS={Road:'type-road',Hybrid:'type-hybrid',Mountain:'type-mountain',G
 const typeBadge=t=>`<span class="type-badge ${TYPE_CLS[t]||'type-any'}">${t}</span>`;
 const STATUS_MAP={waiting:['badge-waiting','Waiting'],active:['badge-active','On Bike'],done:['badge-done','Complete'],noshow:['badge-noshow','No-Show']};
 const statusBadge=s=>{const[c,l]=STATUS_MAP[s]||['badge-done',s];return`<span class="status-badge ${c}">${l}</span>`;};
+function isoToFlag(iso){return iso.toUpperCase().replace(/./g,c=>String.fromCodePoint(c.charCodeAt(0)-65+0x1F1E6));}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function toast(msg,type){
   const el=document.createElement('div');
@@ -517,7 +717,7 @@ function closeAuthModal(){document.getElementById('auth-modal').style.display='n
 
 function renderAuthModal(){
   const isLogin=S.authMode==='login';
-  const ccOpts=COUNTRY_CODES.map(([code,iso])=>`<option value="${code}"${code==='+966'?' selected':''}>${iso} ${code}</option>`).join('');
+  const ccOpts=COUNTRY_CODES.map(([code,iso,name])=>`<option value="${code}"${code==='+966'&&iso==='SA'?' selected':''}>${isoToFlag(iso)} ${name} (${code})</option>`).join('');
   const logoSrc=document.querySelector('.topbar-logo img')?.src||'micromobilitylogo.jpeg';
   document.getElementById('auth-modal').innerHTML=`
   <div class="auth-backdrop">
@@ -824,8 +1024,8 @@ function renderRegister(){
     :`<div style="font-size:12px;color:var(--muted);padding:9px 0">Enter height above</div>`;
   const typeBtns=['Road','Hybrid','Mountain','Gravel','Any'].map(t=>
     `<button class="toggle-btn${S.regType===t?' active':''}" onclick="set('regType','${t}')">${t}</button>`).join('');
-  const ccOpts=COUNTRY_CODES.map(([code,iso])=>
-    `<option value="${code}"${S._rCC===code?' selected':''}>${iso} ${code}</option>`).join('');
+  const ccOpts=COUNTRY_CODES.map(([code,iso,name])=>
+    `<option value="${code}"${S._rCC===code?' selected':''}>${isoToFlag(iso)} ${name} (${code})</option>`).join('');
   let ticket='';
   if(S.lastTicket){
     const t=S.lastTicket;
@@ -1055,11 +1255,16 @@ function renderStaffQueue(){
   const wiSizeBtns=['XS','S','M','L'].map(v=>`<button class="toggle-btn${S.wiSize===v?' active':''}" onclick="setWi('wiSize','${v}')">${v}</button>`).join('');
   const wiTypeBtns=['Road','Hybrid','Mountain','Gravel','Any'].map(t=>`<button class="toggle-btn${S.wiType===t?' active':''}" onclick="setWi('wiType','${t}')">${t}</button>`).join('');
   const wiSessOpts=sessions.map(s=>`<option value="${s.id}">${s.day} &mdash; ${s.display}</option>`).join('');
+  const wiCcOpts=COUNTRY_CODES.map(([code,iso,name])=>`<option value="${code}"${S.wiCC===code?' selected':''}>${isoToFlag(iso)} ${name} (${code})</option>`).join('');
   const walkInForm=S.showWalkIn?`<div class="inline-form">
     <div class="form-title">Walk-in Registration</div>
     <div class="form-row">
       <div class="form-group"><label>Full Name</label><input type="text" id="wi-name" placeholder="Rider name"></div>
-      <div class="form-group"><label>Phone Number</label><input type="tel" id="wi-phone" placeholder="+966..."></div>
+      <div class="form-group"><label>Phone Number</label>
+        <div class="phone-row">
+          <select class="phone-cc" id="wi-cc" onchange="setWi('wiCC',this.value)">${wiCcOpts}</select>
+          <input type="tel" class="phone-num" id="wi-phone" placeholder="5x xxx xxxx">
+        </div></div>
     </div>
     <div class="form-group" style="margin-bottom:16px"><label>Session</label><select id="wi-sess">${wiSessOpts}</select></div>
     <div class="form-row">
@@ -1128,7 +1333,9 @@ async function togglePayment(id,paid){
 
 async function submitWalkIn(){
   const name=document.getElementById('wi-name').value.trim();
+  const cc=document.getElementById('wi-cc').value;
   const phone=document.getElementById('wi-phone').value.trim();
+  const fullPhone=cc+phone;
   const sid=document.getElementById('wi-sess').value;
   if(!name){toast('Please enter rider name.','error');return;}
   if(!phone){toast('Please enter phone number.','error');return;}
@@ -1136,9 +1343,9 @@ async function submitWalkIn(){
   if(!S.wiType){toast('Please select bike type.','error');return;}
   if(spotsLeft(sid)===0){toast('Session is full.','error');return;}
   const queue=getQueue();
-  if(queue.find(e=>e.phone===phone&&e.sessionId===sid&&e.status!=='noshow')){toast('Phone already registered.','error');return;}
+  if(queue.find(e=>e.phone===fullPhone&&e.sessionId===sid&&e.status!=='noshow')){toast('Phone already registered.','error');return;}
   const sess=allSessions().find(s=>s.id===sid);
-  const entry={id:uid(),name,email:'',phone,size:S.wiSize,typePreference:S.wiType,paid:false,
+  const entry={id:uid(),name,email:'',phone:fullPhone,size:S.wiSize,typePreference:S.wiType,paid:false,
     assignedBikeId:null,sessionId:sid,sessionDay:sess?sess.day:'',sessionDate:sid,
     queueNum:nextQNum(sid),status:'waiting',registeredAt:Date.now(),walkIn:true,
     customerId:null,price:DEFAULT_PRICE};
