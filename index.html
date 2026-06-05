@@ -399,10 +399,12 @@
   <nav class="tab-nav" id="customer-tab-nav">
     <button class="tab-btn active" data-ctab="register" onclick="setCustTab('register')">Reserve</button>
     <button class="tab-btn"        data-ctab="myrides"  onclick="setCustTab('myrides')">My Rides</button>
+    <button class="tab-btn"        data-ctab="account"  onclick="setCustTab('account')">Account</button>
   </nav>
   <div class="view-main">
     <div id="tab-register" class="tab-panel active"></div>
     <div id="tab-myrides"  class="tab-panel"></div>
+    <div id="tab-account"  class="tab-panel"></div>
   </div>
 </div>
 
@@ -486,6 +488,13 @@ en:{
   sendReceipt:'Receipt',noHistory:'No riders match the current filters.',
   assignBikeTitle:'Assign Bike',confirmCheckin:'Confirm & Check In',
   pinTitle:'Staff Access',pinSub:'Enter the 4-digit PIN to access the staff panel.',
+  tabAccount:'Account',
+  accountTitle:'Account Settings',accountSub:'Update your profile information and preferences.',
+  saveAccountBtn:'Save Changes',accountSaved:'Profile updated successfully.',
+  changeInAccount:'Change in Account',
+  heightOptional:'(optional — auto-selects your bike size)',
+  enterHeightAbove:'Enter height above',
+  bike:'Bike',
 },
 ar:{
   appSub:'طابور حلبة الكورنيش',landingTitle:'مايكرو موبيليتي - حلبة الكورنيش',
@@ -539,6 +548,13 @@ ar:{
   sendReceipt:'إيصال',noHistory:'لا يوجد راكبون يطابقون الفلتر الحالي.',
   assignBikeTitle:'تخصيص دراجة',confirmCheckin:'تأكيد وتسجيل الدخول',
   pinTitle:'دخول الموظفين',pinSub:'أدخل الرقم السري المكون من 4 أرقام للدخول إلى لوحة الموظفين.',
+  tabAccount:'الحساب',
+  accountTitle:'إعدادات الحساب',accountSub:'تحديث معلومات ملفك الشخصي.',
+  saveAccountBtn:'حفظ التغييرات',accountSaved:'تم تحديث الملف الشخصي.',
+  changeInAccount:'تغيير في الحساب',
+  heightOptional:'(اختياري — يحدد مقاس الدراجة تلقائياً)',
+  enterHeightAbove:'أدخل الطول أعلاه',
+  bike:'دراجة',
 }};
 function t(k){return(LANG[S&&S.lang?S.lang:'en']||LANG.en)[k]||LANG.en[k]||k;}
 
@@ -557,6 +573,7 @@ function setLang(lang){
   document.querySelectorAll('#customer-tab-nav .tab-btn').forEach(b=>{
     if(b.dataset.ctab==='register')b.textContent=t('tabReserve');
     if(b.dataset.ctab==='myrides')b.textContent=t('tabMyRides');
+    if(b.dataset.ctab==='account')b.textContent=t('tabAccount');
   });
   document.querySelectorAll('#staff-tab-nav .tab-btn').forEach(b=>{
     if(b.dataset.stab==='queue')b.textContent=t('tabQueue');
@@ -565,7 +582,7 @@ function setLang(lang){
     if(b.dataset.stab==='history')b.textContent=t('tabHistory');
   });
   renderTopbarRight();
-  if(S.view==='customer'){renderRegister();renderMyRides();}
+  if(S.view==='customer'){renderRegister();renderMyRides();if(S.custTab==='account')renderAccount();}
   else if(S.view==='staff'){renderStaffQueue();renderSessions();renderBikes();renderHistory();}
   if(document.getElementById('auth-modal')?.style.display!=='none')renderAuthModal();
 }
@@ -798,6 +815,7 @@ const S={
   // register
   _rDate:'',selSession:null,regType:null,regQty:1,lastTicket:null,
   _rName:'',_rEmail:'',_rPhone:'',_rCC:'+966',_rHeight:'',
+  regBikeSizes:[],  // one size per bike slot, e.g. ['M','S']
   // staff queue
   showWalkIn:false,sfStatus:'all',sfSession:'all',wiSize:null,wiType:null,wiCC:'+966',
   // bikes
@@ -852,7 +870,7 @@ async function loadData(){
   const [q,b,c,ses]=await Promise.all([
     sb.from('queue_entries').select('*').order('session_id').order('queue_num'),
     sb.from('bikes').select('*'),
-    sb.from('customers').select('id,name,email,phone,created_at'),
+    sb.from('customers').select('id,name,email,phone,height,created_at'),
     sb.from('sessions').select('*').order('session_date'),
   ]);
   S.queue=(q.data||[]).map(entryFromDB);
@@ -951,6 +969,8 @@ function renderAuthModal(){
           </div></div>
         <div class="auth-field"><label>Password</label><input id="a-pwd" type="password" placeholder="${t('authPasswordHint')}"></div>
         <div class="auth-field"><label>${t('authConfirmPassword')}</label><input id="a-pwd2" type="password" placeholder="Repeat password"></div>
+        <div class="auth-field"><label>${t('heightLabel')} <span style="font-weight:400;text-transform:none">${t('heightOptional')}</span></label>
+          <input id="a-height" type="number" placeholder="cm, e.g. 175" min="100" max="250"></div>
         <button class="btn-primary auth-submit" onclick="doSignup()">Create Account</button>
       `}
       <div style="text-align:center;margin-top:12px">
@@ -979,11 +999,13 @@ async function doSignup(){
   try{
     if(email){const{data:ex}=await sb.from('customers').select('id').eq('email',email).maybeSingle();if(ex){authErr('An account with this email already exists.');return;}}
     if(fullPhone){const{data:ex}=await sb.from('customers').select('id').eq('phone',fullPhone).maybeSingle();if(ex){authErr('An account with this phone already exists.');return;}}
-    const customer={id:uid(),name,email,phone:fullPhone,password_hash:hashPwd(pwd),created_at:new Date().toISOString()};
+    const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
+    const height=(!isNaN(heightRaw)&&heightRaw>=100&&heightRaw<=250)?heightRaw:null;
+    const customer={id:uid(),name,email,phone:fullPhone,password_hash:hashPwd(pwd),created_at:new Date().toISOString(),height};
     const{error}=await sb.from('customers').insert(customer);
     if(error)throw error;
     await loadData();
-    const safeCustomer={id:customer.id,name,email,phone:fullPhone,created_at:customer.created_at};
+    const safeCustomer={id:customer.id,name,email,phone:fullPhone,height,created_at:customer.created_at};
     S.loggedIn=safeCustomer;setSession(safeCustomer);
     closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
     toast(`Welcome, ${name}! Account created.`);
@@ -997,7 +1019,7 @@ async function doLogin(){
   if(!pwd){authErr('Please enter your password.');return;}
   try{
     const{data:customer}=await sb.from('customers')
-      .select('id,name,email,phone,created_at')
+      .select('id,name,email,phone,height,created_at')
       .or(`email.eq.${identifier},phone.eq.${identifier}`)
       .eq('password_hash',hashPwd(pwd))
       .maybeSingle();
@@ -1011,7 +1033,8 @@ async function doLogin(){
 
 function doLogout(){
   S.loggedIn=null;clearSession();
-  S._rName='';S._rEmail='';S._rPhone='';
+  S._rName='';S._rEmail='';S._rPhone='';S._rHeight='';
+  S.regBikeSizes=[];S.regQty=1;S.regType=null;S.selSession=null;S.lastTicket=null;
   renderTopbarRight();
   goLanding();
   toast('Logged out successfully.');
@@ -1025,6 +1048,12 @@ function prefillFromAccount(){
     const match=COUNTRY_CODES.find(([code])=>S.loggedIn.phone.startsWith(code));
     if(match){S._rCC=match[0];S._rPhone=S.loggedIn.phone.slice(match[0].length);}
     else S._rPhone=S.loggedIn.phone;
+  }
+  if(S.loggedIn.height){
+    S._rHeight=String(S.loggedIn.height);
+    const sz=heightToSize(S.loggedIn.height);
+    if(S.regBikeSizes.length===0)S.regBikeSizes=[sz];
+    else S.regBikeSizes[0]=sz;
   }
 }
 
@@ -1068,11 +1097,12 @@ function goStaff(){
   renderHistory();
 }
 
-function setCustTab(t){
-  S.custTab=t;
+function setCustTab(tab){
+  S.custTab=tab;
   renderCustomerTabs();
-  if(t==='myrides')renderMyRides();
-  else if(t==='register')renderRegister();
+  if(tab==='myrides')renderMyRides();
+  else if(tab==='register')renderRegister();
+  else if(tab==='account')renderAccount();
 }
 function setStaffTab(t){
   S.staffTab=t;
@@ -1089,6 +1119,7 @@ function renderCustomerTabs(){
   });
   document.getElementById('tab-register').classList.toggle('active',S.custTab==='register');
   document.getElementById('tab-myrides').classList.toggle('active',S.custTab==='myrides');
+  document.getElementById('tab-account').classList.toggle('active',S.custTab==='account');
 }
 
 function renderStaffTabs(){
@@ -1209,7 +1240,13 @@ document.addEventListener('keydown',e=>{
    REGISTER
 ══════════════════════════════════════════════ */
 function renderRegister(){
+  const cust=S.loggedIn||getSession();
   const available=openSessions();
+
+  // Keep bike sizes array in sync with qty
+  ensureBikeSizes();
+
+  // Session cards
   const sessCards=available.length
     ? available.map(s=>{
         const spots=spotsLeft(s.id);
@@ -1226,14 +1263,74 @@ function renderRegister(){
       }).join('')
     : `<div class="no-sessions-msg">${t('noSessions')}</div>`;
   if(S.selSession&&!available.find(s=>s.id===S.selSession))S.selSession=null;
+
+  // Read-only account info block (no re-entering name/email/phone)
+  const accountInfoBlock=cust?`
+    <div style="background:var(--s3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 20px">
+        <div>
+          <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">${t('fullName')}</div>
+          <div style="font-size:14px;font-weight:700">${esc(cust.name)}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">${t('emailAddr')}</div>
+          <div style="font-size:14px;font-weight:700">${esc(cust.email||'&mdash;')}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">${t('phoneNum')}</div>
+          <div style="font-size:14px;font-weight:700">${esc(cust.phone||'&mdash;')}</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--muted)">
+        Need to update? <button onclick="setCustTab('account')" style="background:none;border:none;color:var(--blue);font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline">${t('tabAccount')}</button>
+      </div>
+    </div>`:'';
+
+  // Height / size section
+  const hasAccountHeight=cust&&cust.height;
   const h=parseInt(S._rHeight);
-  const autoSize=(!isNaN(h)&&h>=100&&h<=250)?heightToSize(h):null;
-  const sizeChip=autoSize?`<div class="size-chip">${autoSize}<span class="size-chip-label">${sizeLabel(autoSize)}</span></div>`
-    :`<div style="font-size:12px;color:var(--muted);padding:9px 0">Enter height above</div>`;
-  const typeBtns=['Road','Hybrid','Mountain','Gravel','Any'].map(t=>
-    `<button class="toggle-btn${S.regType===t?' active':''}" onclick="set('regType','${t}')">${t}</button>`).join('');
-  const ccOpts=COUNTRY_CODES.map(([code,iso,name])=>
-    `<option value="${code}"${S._rCC===code?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
+  const derivedSize=(!isNaN(h)&&h>=100&&h<=250)?heightToSize(h):null;
+
+  const heightSection=hasAccountHeight?`
+    <div class="form-group" style="margin-bottom:20px">
+      <label>${t('heightLabel')}</label>
+      <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
+        <div class="size-chip">${heightToSize(cust.height)}<span class="size-chip-label">${sizeLabel(heightToSize(cust.height))}</span></div>
+        <span style="font-size:12px;color:var(--muted)">${cust.height} cm &middot; <button onclick="setCustTab('account')" style="background:none;border:none;color:var(--blue);font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;cursor:pointer;padding:0">${t('changeInAccount')}</button></span>
+      </div>
+    </div>`:`
+    <div class="form-group" style="margin-bottom:20px">
+      <label>${t('heightLabel')} &nbsp;<span class="label-hint">${t('heightHint')}</span></label>
+      <div class="height-row">
+        <input type="number" id="reg-height" placeholder="cm, e.g. 175" min="100" max="250"
+          value="${esc(S._rHeight)}" oninput="S._rHeight=this.value;refreshSizeBadge()">
+        <div id="size-badge-wrap">${derivedSize
+          ?`<div class="size-chip">${derivedSize}<span class="size-chip-label">${sizeLabel(derivedSize)}</span></div>`
+          :`<div style="font-size:12px;color:var(--muted);padding:9px 0">${t('enterHeightAbove')}</div>`
+        }</div>
+      </div>
+    </div>`;
+
+  // Per-bike frame size selectors
+  const bikeSizeRows=Array.from({length:S.regQty},(_,i)=>{
+    const lbl=S.regQty>1?`${t('bike')} ${i+1} &mdash; ${t('frameSizeLabel')}`:t('frameSizeLabel');
+    const btns=['XS','S','M','L'].map(sz=>
+      `<button class="toggle-btn${S.regBikeSizes[i]===sz?' active':''}" data-slot="${i}" data-size="${sz}" onclick="setBikeSize(${i},'${sz}')">${sz}</button>`
+    ).join('');
+    const desc=S.regBikeSizes[i]?`<span style="font-size:11px;color:var(--muted);margin-left:4px">${sizeLabel(S.regBikeSizes[i])}</span>`:'';
+    return`<div class="form-group" style="margin-bottom:14px">
+      <label>${lbl}</label>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <div class="toggle-group">${btns}</div>${desc}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Type preference
+  const typeBtns=['Road','Hybrid','Mountain','Gravel','Any'].map(ty=>
+    `<button class="toggle-btn${S.regType===ty?' active':''}" onclick="set('regType','${ty}')">${ty}</button>`).join('');
+
+  // Last ticket confirmation
   let ticket='';
   if(S.lastTicket){
     const tkt=S.lastTicket;
@@ -1254,6 +1351,7 @@ function renderRegister(){
       </div>
     </div>`;
   }
+
   document.getElementById('tab-register').innerHTML=`
     <div class="page-title">${t('regTitle')}</div>
     <div class="page-sub">${t('regSub')}</div>
@@ -1263,33 +1361,17 @@ function renderRegister(){
     </div>
     <div class="form-section">
       <div class="form-title">${t('riderDetails')}</div>
-      <div class="form-row">
-        <div class="form-group"><label>${t('fullName')}</label>
-          <input type="text" id="reg-name" placeholder="Your full name" value="${esc(S._rName)}"></div>
-        <div class="form-group"><label>${t('emailAddr')}</label>
-          <input type="email" id="reg-email" placeholder="your@email.com" value="${esc(S._rEmail)}"></div>
-      </div>
-      <div class="form-row">
-        <div class="form-group"><label>${t('phoneNum')}</label>
-          <div class="phone-row">
-            <select class="phone-cc" id="reg-cc">${ccOpts}</select>
-            <input type="tel" class="phone-num" id="reg-phone" placeholder="5x xxx xxxx" value="${esc(S._rPhone)}">
-          </div></div>
-        <div class="form-group"><label>${t('heightLabel')} &nbsp;<span class="label-hint">${t('heightHint')}</span></label>
-          <div class="height-row">
-            <input type="number" id="reg-height" placeholder="cm, e.g. 175" min="100" max="250"
-              value="${esc(S._rHeight)}" oninput="S._rHeight=this.value;refreshSizeBadge()">
-            <div id="size-badge-wrap">${sizeChip}</div>
-          </div></div>
-      </div>
+      ${accountInfoBlock}
+      ${heightSection}
+      <div style="margin-bottom:20px">${bikeSizeRows}</div>
       <div class="form-group full" style="margin-bottom:16px"><label>${t('bikeTypePref')}</label>
         <div class="toggle-group">${typeBtns}</div></div>
       <div class="form-row" style="margin-bottom:16px">
         <div class="form-group"><label>${t('numBikes')}</label>
           <div class="qty-stepper">
-            <button class="qty-btn" onclick="S.regQty=Math.max(1,S.regQty-1);renderRegister()" type="button">-</button>
+            <button class="qty-btn" onclick="changeRegQty(-1)" type="button">-</button>
             <span class="qty-val">${S.regQty}</span>
-            <button class="qty-btn" onclick="S.regQty=Math.min(6,S.regQty+1);renderRegister()" type="button">+</button>
+            <button class="qty-btn" onclick="changeRegQty(1)" type="button">+</button>
           </div>
         </div>
       </div>
@@ -1300,53 +1382,113 @@ function renderRegister(){
       <button class="btn-primary" style="width:100%" onclick="submitReg()">${t('joinQueue')}</button>
     </div>
     ${ticket}`;
-  document.getElementById('reg-name') .addEventListener('input',e=>S._rName=e.target.value);
-  document.getElementById('reg-email').addEventListener('input',e=>S._rEmail=e.target.value);
-  document.getElementById('reg-phone').addEventListener('input',e=>S._rPhone=e.target.value);
-  document.getElementById('reg-cc')   .addEventListener('change',e=>S._rCC=e.target.value);
 }
 
 function refreshSizeBadge(){
-  const h=parseInt(S._rHeight);const wrap=document.getElementById('size-badge-wrap');if(!wrap)return;
-  if(!isNaN(h)&&h>=100&&h<=250){const sz=heightToSize(h);wrap.innerHTML=`<div class="size-chip">${sz}<span class="size-chip-label">${sizeLabel(sz)}</span></div>`;}
-  else wrap.innerHTML=`<div style="font-size:12px;color:var(--muted);padding:9px 0">Enter height above</div>`;
+  const h=parseInt(S._rHeight);
+  const wrap=document.getElementById('size-badge-wrap');
+  if(!isNaN(h)&&h>=100&&h<=250){
+    const sz=heightToSize(h);
+    if(wrap)wrap.innerHTML=`<div class="size-chip">${sz}<span class="size-chip-label">${sizeLabel(sz)}</span></div>`;
+    // Update slot 0 in state and toggle active class without full re-render
+    if(S.regBikeSizes.length>0)S.regBikeSizes[0]=sz;
+    else S.regBikeSizes=[sz];
+    document.querySelectorAll('[data-slot="0"]').forEach(btn=>{
+      btn.classList.toggle('active',btn.dataset.size===sz);
+    });
+  }else{
+    if(wrap)wrap.innerHTML=`<div style="font-size:12px;color:var(--muted);padding:9px 0">${t('enterHeightAbove')}</div>`;
+  }
+}
+
+function ensureBikeSizes(){
+  const h=parseInt(S._rHeight);
+  const defaultSz=(!isNaN(h)&&h>=100&&h<=250)?heightToSize(h):'M';
+  while(S.regBikeSizes.length<S.regQty){
+    // slot 0 gets height-based default, all others get 'M'
+    S.regBikeSizes.push(S.regBikeSizes.length===0?defaultSz:'M');
+  }
+  while(S.regBikeSizes.length>S.regQty)S.regBikeSizes.pop();
+}
+
+function setBikeSize(idx,size){
+  S.regBikeSizes[idx]=size;
+  // targeted update - no full re-render needed
+  document.querySelectorAll(`[data-slot="${idx}"]`).forEach(btn=>{
+    btn.classList.toggle('active',btn.dataset.size===size);
+  });
+  // update size description label next to the toggles
+  const row=document.querySelector(`[data-slot="${idx}"]`)?.closest('.form-group');
+  if(row){const desc=row.querySelector('.size-desc');if(desc)desc.textContent=sizeLabel(size);}
+}
+
+function changeRegQty(delta){
+  S.regQty=Math.max(1,Math.min(6,S.regQty+delta));
+  ensureBikeSizes();
+  renderRegister();
 }
 
 function set(k,v){S[k]=v;if(S.view==='customer'){renderRegister();renderMyRides();}else if(S.view==='staff'){renderStaffQueue();renderBikes();renderHistory();}}
 
 async function submitReg(){
-  const name=document.getElementById('reg-name').value.trim();
-  const email=document.getElementById('reg-email').value.trim();
-  const cc=document.getElementById('reg-cc').value;
-  const phone=document.getElementById('reg-phone').value.trim();
-  const h=parseInt(document.getElementById('reg-height').value);
-  if(!name){toast('Please enter your full name.','error');return;}
-  if(!email||!/^\S+@\S+\.\S+$/.test(email)){toast('Please enter a valid email address.','error');return;}
-  if(!phone){toast('Please enter your phone number.','error');return;}
+  const cust=S.loggedIn||getSession();
+  if(!cust){toast('Please log in first.','error');return;}
   if(!S.selSession){toast('Please select a session above.','error');return;}
   if(!openSessions().find(s=>s.id===S.selSession)){toast('That session is no longer open.','error');return;}
-  if(isNaN(h)||h<100||h>250){toast('Please enter a valid height in cm.','error');return;}
   if(!S.regType){toast('Please select a bike type preference.','error');return;}
+
+  // Resolve height: use account height or manual input
+  let h=cust.height;
+  if(!h){
+    h=parseInt(S._rHeight);
+    if(isNaN(h)||h<100||h>250){toast('Please enter a valid height in cm.','error');return;}
+  }
+
   const qty=S.regQty||1;
+  ensureBikeSizes();
+
+  // Validate all bike sizes selected
+  for(let i=0;i<qty;i++){
+    if(!S.regBikeSizes[i]){
+      toast(qty>1?`Please select frame size for Bike ${i+1}.`:'Please select a frame size.','error');return;
+    }
+  }
+
   if(spotsLeft(S.selSession)<qty){toast(`Only ${spotsLeft(S.selSession)} spot(s) left in this session.`,'error');return;}
-  const fullPhone=cc+phone;const size=heightToSize(h);
+
+  const name=cust.name;
+  const email=cust.email||'';
+  const phone=cust.phone||'';
   const queue=getQueue();
-  if(queue.find(e=>e.phone===fullPhone&&e.sessionId===S.selSession&&e.status!=='noshow'&&e.status!=='cancelled'))
+  if(phone&&queue.find(e=>e.phone===phone&&e.sessionId===S.selSession&&e.status!=='noshow'&&e.status!=='cancelled'))
     {toast('This phone number is already registered for that session.','error');return;}
+
   const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
-  const cust=S.loggedIn||getSession();
   const baseQNum=nextQNum(S.selSession);
   const unitPrice=priceForType(S.regType);
   const entries=Array.from({length:qty},(_,i)=>({
-    id:uid(),name,email,phone:fullPhone,size,typePreference:S.regType,paid:false,
+    id:uid(),name,email,phone,
+    size:S.regBikeSizes[i]||heightToSize(h),
+    typePreference:S.regType,paid:false,
     assignedBikeId:null,sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
     queueNum:baseQNum+i,status:'waiting',registeredAt:new Date().toISOString(),walkIn:false,
-    customerId:cust?cust.id:null,price:unitPrice
+    customerId:cust.id,price:unitPrice
   }));
   await Promise.all(entries.map(e=>sb.from('queue_entries').insert(entryToDB(e))));
+
+  // Save height to account if not already stored
+  if(!cust.height&&!isNaN(parseInt(S._rHeight))){
+    try{
+      const newH=parseInt(S._rHeight);
+      await sb.from('customers').update({height:newH}).eq('id',cust.id);
+      S.loggedIn.height=newH;setSession(S.loggedIn);
+    }catch(e){/* non-fatal */}
+  }
+
   await loadData();
-  S.lastTicket=entries[0];S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;S.regQty=1;
-  toast(qty>1?`Registered! Queue numbers #${baseQNum}–#${baseQNum+qty-1}`:`Registered! Queue number #${baseQNum}`);renderRegister();
+  S.lastTicket=entries[0];S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;S.regQty=1;S.regBikeSizes=[];
+  toast(qty>1?`Registered! Queue numbers #${baseQNum}–#${baseQNum+qty-1}`:`Registered! Queue number #${baseQNum}`);
+  renderRegister();
 }
 
 
@@ -1407,6 +1549,97 @@ function renderMyRides(){
         <tbody>${rows}</tbody>
       </table></div>
     </div>`;
+}
+
+/* ══════════════════════════════════════════════
+   ACCOUNT SETTINGS
+══════════════════════════════════════════════ */
+function renderAccount(){
+  const cust=S.loggedIn||getSession();
+  if(!cust){document.getElementById('tab-account').innerHTML='';return;}
+  let accCC='+966',accPhone='';
+  if(cust.phone){
+    const match=COUNTRY_CODES.find(([code])=>cust.phone.startsWith(code));
+    if(match){accCC=match[0];accPhone=cust.phone.slice(match[0].length);}
+    else accPhone=cust.phone;
+  }
+  const ccOpts=COUNTRY_CODES.map(([code,iso])=>
+    `<option value="${code}"${accCC===code?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
+  const accH=cust.height||'';
+  const accSz=accH?heightToSize(accH):null;
+  const sizeDisplay=accSz
+    ?`<div class="size-chip">${accSz}<span class="size-chip-label">${sizeLabel(accSz)}</span></div>`:'';
+  document.getElementById('tab-account').innerHTML=`
+    <div class="page-title">${t('accountTitle')}</div>
+    <div class="page-sub">${t('accountSub')}</div>
+    <div class="form-section" style="max-width:560px">
+      <div class="form-title">Profile Information</div>
+      <div class="form-row">
+        <div class="form-group"><label>${t('fullName')}</label>
+          <input type="text" id="acc-name" value="${esc(cust.name)}" placeholder="Your full name"></div>
+        <div class="form-group"><label>${t('emailAddr')}</label>
+          <input type="email" id="acc-email" value="${esc(cust.email||'')}" placeholder="your@email.com"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>${t('phoneNum')}</label>
+          <div class="phone-row">
+            <select class="phone-cc" id="acc-cc">${ccOpts}</select>
+            <input type="tel" class="phone-num" id="acc-phone" value="${esc(accPhone)}" placeholder="5x xxx xxxx">
+          </div></div>
+        <div class="form-group"><label>${t('heightLabel')} &nbsp;<span class="label-hint">${t('heightHint')}</span></label>
+          <div class="height-row">
+            <input type="number" id="acc-height" value="${esc(String(accH))}" placeholder="cm, e.g. 175" min="100" max="250"
+              oninput="refreshAccSizeBadge()">
+            <div id="acc-size-wrap">${sizeDisplay}</div>
+          </div></div>
+      </div>
+      <div id="acc-err" style="color:var(--red);font-size:13px;font-weight:700;min-height:18px;margin-bottom:10px"></div>
+      <button class="btn-primary" onclick="saveAccount()">${t('saveAccountBtn')}</button>
+    </div>`;
+}
+
+function refreshAccSizeBadge(){
+  const h=parseInt(document.getElementById('acc-height')?.value||'');
+  const wrap=document.getElementById('acc-size-wrap');
+  if(!wrap)return;
+  if(!isNaN(h)&&h>=100&&h<=250){
+    const sz=heightToSize(h);
+    wrap.innerHTML=`<div class="size-chip">${sz}<span class="size-chip-label">${sizeLabel(sz)}</span></div>`;
+  }else{
+    wrap.innerHTML='';
+  }
+}
+
+async function saveAccount(){
+  const cust=S.loggedIn||getSession();
+  if(!cust)return;
+  const name=(document.getElementById('acc-name')?.value||'').trim();
+  const email=(document.getElementById('acc-email')?.value||'').trim().toLowerCase();
+  const cc=document.getElementById('acc-cc')?.value||'+966';
+  const phone=(document.getElementById('acc-phone')?.value||'').trim();
+  const heightRaw=parseInt(document.getElementById('acc-height')?.value||'');
+  const errEl=document.getElementById('acc-err');
+  const setErr=msg=>{if(errEl)errEl.textContent=msg;};
+  if(!name){setErr('Please enter your name.');return;}
+  if(email&&!/^\S+@\S+\.\S+$/.test(email)){setErr('Please enter a valid email address.');return;}
+  setErr('');
+  const fullPhone=phone?(cc+phone):'';
+  const height=(!isNaN(heightRaw)&&heightRaw>=100&&heightRaw<=250)?heightRaw:null;
+  try{
+    const updates={name};
+    if(email!==undefined)updates.email=email;
+    if(fullPhone!==undefined)updates.phone=fullPhone;
+    updates.height=height;
+    const{error}=await sb.from('customers').update(updates).eq('id',cust.id);
+    if(error)throw error;
+    S.loggedIn={...cust,name,email,phone:fullPhone,height};
+    setSession(S.loggedIn);
+    // Sync registration form if height changed
+    if(height){S._rHeight=String(height);S.regBikeSizes[0]=heightToSize(height);}
+    toast(t('accountSaved'));
+    renderAccount();
+    renderTopbarRight();
+  }catch(e){setErr('Error saving changes. Please try again.');}
 }
 
 /* ══════════════════════════════════════════════

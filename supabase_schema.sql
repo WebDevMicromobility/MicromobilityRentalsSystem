@@ -9,8 +9,12 @@ create table if not exists customers (
   email         text,
   phone         text,
   password_hash text not null,
-  created_at    text not null
+  created_at    text not null,
+  height        integer          -- rider height in cm (100–250), used for automatic bike size selection
 );
+
+-- Migration for existing databases (skip if creating fresh):
+-- alter table customers add column if not exists height integer;
 
 create table if not exists bikes (
   id     text primary key,

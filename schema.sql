@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS customers (
     email         TEXT,                       -- optional if phone provided
     phone         TEXT,                       -- full international format, e.g. +966512345678
     password_hash TEXT NOT NULL,              -- djb2 hash of the password
-    created_at    INTEGER NOT NULL            -- Unix ms timestamp
+    created_at    INTEGER NOT NULL,           -- Unix ms timestamp
+    height        INTEGER                     -- rider height in cm (100–250); drives automatic bike size selection
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_customers_email ON customers(email) WHERE email != '';

@@ -13,7 +13,8 @@ CREATE TABLE IF NOT EXISTS customers (
     email         TEXT,
     phone         TEXT,
     password_hash TEXT NOT NULL,
-    created_at    INTEGER NOT NULL
+    created_at    INTEGER NOT NULL,
+    height        INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS bikes (
@@ -312,10 +313,27 @@ def add_customer():
             if exists:
                 return jsonify({'ok': False, 'error': 'phone_exists'}), 409
         conn.execute(
-            "INSERT INTO customers (id, name, email, phone, password_hash, created_at) VALUES (?,?,?,?,?,?)",
+            "INSERT INTO customers (id, name, email, phone, password_hash, created_at, height) VALUES (?,?,?,?,?,?,?)",
             (c['id'], c['name'], c.get('email', ''), c.get('phone', ''),
-             c['passwordHash'], c['createdAt'])
+             c['passwordHash'], c['createdAt'], c.get('height'))
         )
+    return jsonify({'ok': True})
+
+
+@app.route('/api/customers/<customer_id>', methods=['PATCH'])
+def patch_customer(customer_id):
+    data = request.get_json()
+    col_map = {'name': 'name', 'email': 'email', 'phone': 'phone', 'height': 'height'}
+    sets, vals = [], []
+    for key, col in col_map.items():
+        if key in data:
+            sets.append(f"{col} = ?")
+            vals.append(data[key])
+    if not sets:
+        return jsonify({'ok': False}), 400
+    vals.append(customer_id)
+    with get_db() as conn:
+        conn.execute(f"UPDATE customers SET {', '.join(sets)} WHERE id = ?", vals)
     return jsonify({'ok': True})
 
 
@@ -328,7 +346,7 @@ def login():
     pwd_hash = data.get('passwordHash', '')
     with get_db() as conn:
         row = conn.execute(
-            """SELECT id, name, email, phone, created_at FROM customers
+            """SELECT id, name, email, phone, height, created_at FROM customers
                WHERE (LOWER(email) = ? OR phone = ?) AND password_hash = ?""",
             (identifier, identifier, pwd_hash)
         ).fetchone()
