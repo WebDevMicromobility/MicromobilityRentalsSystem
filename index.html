@@ -877,6 +877,7 @@ en:{
   createSession:'Create Session',colDate:'Date',colDay:'Day',colCapacity:'Capacity',
   colBookings:'Bookings',colActions:'Actions',openBtn:'Open',closeBtn:'Close',deleteBtn:'Delete',
   statusOpen:'Open',statusClosed:'Closed',statusFull:'Fully Booked',markFullBtn:'Mark Full',reopenBtn:'Re-open',noSessionsYet:'No sessions yet. Create one above.',
+  editSessionTitle:'Edit Session',saveSessionBtn:'Save Changes',editBtn2:'Edit',dateWarning:'Changing the date will update all existing bookings for this session.',
   bikesTitle:'Fleet',addBike:'+ Add Bike',editBikeTitle:'Edit Bike',addBikeTitle:'Add New Bike',
   bikeNameLabel:'Bike Name',frameSizeLabel:'Frame Size',bikeTypeLabel:'Bike Type',
   bikeColorsLabel:'Bike Color(s)',colorsHint:'1 required - up to 4',
@@ -1037,6 +1038,7 @@ ar:{
   createSession:'إنشاء جلسة',colDate:'التاريخ',colDay:'اليوم',colCapacity:'الطاقة',
   colBookings:'الحجوزات',colActions:'الإجراءات',openBtn:'فتح',closeBtn:'إغلاق',deleteBtn:'حذف',
   statusOpen:'مفتوح',statusClosed:'مغلق',statusFull:'مكتمل',markFullBtn:'تعيين كمكتمل',reopenBtn:'إعادة فتح',noSessionsYet:'لا توجد جلسات بعد. أنشئ واحدة أعلاه.',
+  editSessionTitle:'تعديل الجلسة',saveSessionBtn:'حفظ التغييرات',editBtn2:'تعديل',dateWarning:'تغيير التاريخ سيحدّث جميع الحجوزات الموجودة لهذه الجلسة.',
   bikesTitle:'إضافة دراجة',addBike:'+ الأسطول',editBikeTitle:'تعديل الدراجة',addBikeTitle:'إضافة دراجة جديدة',
   bikeNameLabel:'اسم الدراجة',frameSizeLabel:'مقاس الإطار',bikeTypeLabel:'نوع الدراجة',
   bikeColorsLabel:'لون الدراجة',colorsHint:'مطلوب 1 - حتى 4',
@@ -1418,6 +1420,9 @@ const S={
   // session management form
   showAddSession:false,newSessDate:'',
   newSessSlots:{RoadXS:0,RoadS:0,RoadM:0,RoadL:0,HybridXS:0,HybridS:0,HybridM:0,HybridL:0,MountainXS:0,MountainS:0,MountainM:0,MountainL:0},
+  editSessionId:null,
+  editSessSlots:{RoadXS:0,RoadS:0,RoadM:0,RoadL:0,HybridXS:0,HybridS:0,HybridM:0,HybridL:0,MountainXS:0,MountainS:0,MountainM:0,MountainL:0},
+  editSessDate:'',editSessStatus:'closed',
 };
 
 /* ══════════════════════════════════════════════
@@ -2482,21 +2487,38 @@ function slotsLabel(raw){
   return parts.join(', ')||'—';
 }
 
-function updateSessTotal(){
+function _updateSlotTotals(prefix,stateKey){
   const types=['Road','Hybrid','Mountain'],sizes=['XS','S','M','L'];
   let total=0;
   for(const ty of types){
     let row=0;
     for(const sz of sizes){
-      const v=parseInt(document.getElementById(`ns-${ty}-${sz}`)?.value)||0;
-      S.newSessSlots[ty+sz]=v;
+      const v=parseInt(document.getElementById(`${prefix}-${ty}-${sz}`)?.value)||0;
+      S[stateKey][ty+sz]=v;
       row+=v;total+=v;
     }
-    const rowEl=document.getElementById(`ns-row-${ty}`);
+    const rowEl=document.getElementById(`${prefix}-row-${ty}`);
     if(rowEl)rowEl.textContent=row||0;
   }
-  const totEl=document.getElementById('ns-total');
+  const totEl=document.getElementById(`${prefix}-total`);
   if(totEl)totEl.textContent=total;
+}
+function updateSessTotal(){_updateSlotTotals('ns','newSessSlots');}
+function updateEditSessTotal(){_updateSlotTotals('es','editSessSlots');}
+
+function startEditSession(id){
+  const sess=allSessions().find(s=>s.id===id);if(!sess)return;
+  S.editSessionId=id;
+  S.editSessDate=sess.session_date||sess.id;
+  S.editSessStatus=sess.status||'closed';
+  S.showAddSession=false;
+  const slots=parseSlots(sess.bike_slots)||{};
+  const types=['Road','Hybrid','Mountain'],sizes=['XS','S','M','L'];
+  for(const ty of types)for(const sz of sizes)
+    S.editSessSlots[ty+sz]=(slots[ty]&&slots[ty][sz])||0;
+  renderSessions();
+  // Scroll to edit form
+  setTimeout(()=>document.getElementById('sess-edit-form')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
 }
 
 /* ══════════════════════════════════════════════
@@ -2508,6 +2530,38 @@ function renderSessions(){
   const sizes=['XS','S','M','L'];
   const typeColor={Road:'var(--blue)',Hybrid:'var(--green-d)',Mountain:'var(--orange)'};
   const nsTotal=Object.values(S.newSessSlots).reduce((a,b)=>a+b,0);
+  const esTotal=Object.values(S.editSessSlots).reduce((a,b)=>a+b,0);
+
+  // ── Fleet table builder (shared by add and edit forms) ────
+  function fleetTable(prefix,slots,onchange){
+    return`<div style="overflow-x:auto;margin-top:10px;margin-bottom:6px">
+      <table style="border-collapse:collapse;min-width:360px;font-size:13px">
+        <thead><tr>
+          <th style="text-align:left;padding:6px 12px 6px 0;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px">Type</th>
+          ${sizes.map(sz=>`<th style="padding:6px 10px;text-align:center;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px">${sz}</th>`).join('')}
+          <th style="padding:6px 10px;text-align:center;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px">${t('rowLabel')}</th>
+        </tr></thead>
+        <tbody>
+          ${types.map(ty=>{
+            const rowTotal=sizes.reduce((a,sz)=>a+(slots[ty+sz]||0),0);
+            return`<tr style="border-top:1px solid var(--border)">
+              <td style="padding:8px 12px 8px 0;font-weight:800;color:${typeColor[ty]}">${ty}</td>
+              ${sizes.map(sz=>`<td style="padding:6px 8px;text-align:center">
+                <input type="number" id="${prefix}-${ty}-${sz}" value="${slots[ty+sz]||0}" min="0" max="20"
+                  style="width:54px;padding:7px 4px;text-align:center;background:var(--s3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;outline:none"
+                  oninput="${onchange}">
+              </td>`).join('')}
+              <td id="${prefix}-row-${ty}" style="padding:8px 10px;text-align:center;font-weight:900;color:${typeColor[ty]}">${rowTotal}</td>
+            </tr>`;
+          }).join('')}
+          <tr style="border-top:2px solid var(--border)">
+            <td colspan="${sizes.length+1}" style="padding:10px 0 4px;font-weight:900;font-size:13px;color:var(--muted)">${t('totalBikesSession')}</td>
+            <td id="${prefix}-total" style="padding:10px 10px 4px;text-align:center;font-size:20px;font-weight:900;color:var(--green)">${prefix==='ns'?nsTotal:esTotal}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+  }
 
   const addForm=S.showAddSession?`
     <div class="inline-form" style="margin-bottom:24px">
@@ -2518,40 +2572,42 @@ function renderSessions(){
           oninput="S.newSessDate=this.value" style="max-width:240px">
       </div>
       <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${t('bikeFleetComp')}</label>
-      <div style="overflow-x:auto;margin-top:10px;margin-bottom:6px">
-        <table style="border-collapse:collapse;min-width:360px;font-size:13px">
-          <thead>
-            <tr>
-              <th style="text-align:left;padding:6px 12px 6px 0;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px">Type</th>
-              ${sizes.map(sz=>`<th style="padding:6px 10px;text-align:center;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px">${sz}</th>`).join('')}
-              <th style="padding:6px 10px;text-align:center;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px">${t('rowLabel')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${types.map(ty=>{
-              const rowTotal=sizes.reduce((a,sz)=>a+(S.newSessSlots[ty+sz]||0),0);
-              return`<tr style="border-top:1px solid var(--border)">
-                <td style="padding:8px 12px 8px 0;font-weight:800;color:${typeColor[ty]}">${ty}</td>
-                ${sizes.map(sz=>`<td style="padding:6px 8px;text-align:center">
-                  <input type="number" id="ns-${ty}-${sz}" value="${S.newSessSlots[ty+sz]||0}" min="0" max="20"
-                    style="width:54px;padding:7px 4px;text-align:center;background:var(--s3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;outline:none"
-                    oninput="updateSessTotal()">
-                </td>`).join('')}
-                <td id="ns-row-${ty}" style="padding:8px 10px;text-align:center;font-weight:900;color:${typeColor[ty]}">${rowTotal}</td>
-              </tr>`;
-            }).join('')}
-            <tr style="border-top:2px solid var(--border)">
-              <td colspan="${sizes.length+1}" style="padding:10px 0 4px;font-weight:900;font-size:13px;color:var(--muted)">${t('totalBikesSession')}</td>
-              <td id="ns-total" style="padding:10px 10px 4px;text-align:center;font-size:20px;font-weight:900;color:var(--green)">${nsTotal}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+      ${fleetTable('ns',S.newSessSlots,'updateSessTotal()')}
       <div style="display:flex;gap:8px;margin-top:16px">
-        <button class="btn-primary" onclick="addSession()">Create Session</button>
+        <button class="btn-primary" onclick="addSession()">${t('createSession')}</button>
         <button class="btn-secondary" onclick="S.showAddSession=false;renderSessions()">${t('cancelBtn')}</button>
       </div>
     </div>`:'';
+
+  // ── Edit form ─────────────────────────────────────────
+  const editSess=S.editSessionId?allSessions().find(s=>s.id===S.editSessionId):null;
+  const editForm=editSess?`
+    <div class="inline-form" style="margin-bottom:24px;border-color:rgba(110,232,154,.25)" id="sess-edit-form">
+      <div class="form-title" style="color:var(--green)">${t('editSessionTitle')}: ${shortDate(editSess.session_date||editSess.id)}</div>
+      <div class="form-row" style="margin-bottom:20px">
+        <div class="form-group">
+          <label>${t('dateLabel')}</label>
+          <input type="date" id="es-date" value="${esc(S.editSessDate)}"
+            oninput="S.editSessDate=this.value"
+            style="max-width:240px">
+          <div style="font-size:11px;color:var(--orange);margin-top:5px;font-weight:600">${t('dateWarning')}</div>
+        </div>
+        <div class="form-group">
+          <label>${t('colStatus')}</label>
+          <div class="toggle-group" style="margin-top:4px">
+            ${['closed','open','full'].map(st=>`<button class="toggle-btn${S.editSessStatus===st?' active':''}"
+              onclick="S.editSessStatus='${st}';renderSessions()">${{closed:t('statusClosed'),open:t('statusOpen'),full:t('statusFull')}[st]}</button>`).join('')}
+          </div>
+        </div>
+      </div>
+      <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${t('bikeFleetComp')}</label>
+      ${fleetTable('es',S.editSessSlots,'updateEditSessTotal()')}
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn-primary" onclick="saveSessionEdit()">${t('saveSessionBtn')}</button>
+        <button class="btn-secondary" onclick="S.editSessionId=null;renderSessions()">${t('cancelBtn')}</button>
+      </div>
+    </div>`:'';
+
 
   let sessList=[...sessions];
   if(S.sessStatusFilter!=='all') sessList=sessList.filter(s=>s.status===S.sessStatusFilter);
@@ -2608,6 +2664,7 @@ function renderSessions(){
       <td>${statusBadgeHtml}</td>
       <td>
         <div class="actions-cell">
+          <button class="btn-sm btn-blue" onclick="startEditSession('${s.id}')">${t('editBtn2')}</button>
           ${actionBtns}
           <button class="btn-sm btn-red" onclick="deleteSession('${s.id}')" ${booked>0?`disabled title="${t('hasBookingsTitle')}"`:''}>Delete</button>
         </div>
@@ -2621,9 +2678,10 @@ function renderSessions(){
         <div class="page-title">${t('sessionsTitle')}</div>
         <div class="page-sub">${t('sessionsSub')}</div>
       </div>
-      <button class="btn-primary" onclick="S.showAddSession=!S.showAddSession;renderSessions()">+ New Session</button>
+      <button class="btn-primary" onclick="S.showAddSession=!S.showAddSession;S.editSessionId=null;renderSessions()">+ New Session</button>
     </div>
     ${addForm}
+    ${editForm}
     <div class="filter-bar">
       <div class="filter-bar-row">
         <span class="filter-group-label">Status:</span>
@@ -2640,6 +2698,78 @@ function renderSessions(){
         <tbody>${rows}</tbody>
       </table>
     </div>`;
+}
+
+async function saveSessionEdit(){
+  const oldId=S.editSessionId;
+  const sess=allSessions().find(s=>s.id===oldId);if(!sess)return;
+  const newDate=S.editSessDate||oldId;
+  const types=['Road','Hybrid','Mountain'],sizes=['XS','S','M','L'];
+  const slots={};let total=0;
+  for(const ty of types){
+    slots[ty]={};
+    for(const sz of sizes){
+      const v=S.editSessSlots[ty+sz]||0;
+      slots[ty][sz]=v;total+=v;
+    }
+  }
+  if(total===0){toast(t('errAddBikeToSession'),'error');return;}
+  const newStatus=S.editSessStatus||sess.status;
+  const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const newDay=dayNames[new Date(newDate+'T00:00:00').getDay()];
+
+  // Save previous state for undo
+  const prevSlots=sess.bike_slots;const prevCap=sess.capacity;
+  const prevStatus=sess.status;const prevDate=sess.session_date||sess.id;const prevDay=sess.day;
+
+  try{
+    if(newDate!==oldId){
+      // Date changed — need to migrate: insert new session, update entries, delete old
+      const existing=allSessions().find(s=>s.id===newDate&&s.id!==oldId);
+      if(existing){toast(t('errDateExists'),'error');return;}
+      await sb.from('sessions').insert({
+        id:newDate,day:newDay,session_date:newDate,capacity:total,
+        status:newStatus,created_at:sess.created_at||new Date().toISOString(),
+        bike_slots:JSON.stringify(slots)
+      });
+      // Move queue entries to new session
+      await sb.from('queue_entries').update({
+        session_id:newDate,session_date:newDate,session_day:newDay
+      }).eq('session_id',oldId);
+      await sb.from('sessions').delete().eq('id',oldId);
+    } else {
+      await sb.from('sessions').update({
+        day:newDay,session_date:newDate,capacity:total,
+        status:newStatus,bike_slots:JSON.stringify(slots)
+      }).eq('id',oldId);
+    }
+    await loadData();
+    const displayDate=shortDate(newDate);
+    toast(`Session ${displayDate} updated.`);
+    pushUndo(`Edit session ${displayDate}`,async()=>{
+      const currentId=newDate!==oldId?newDate:oldId;
+      if(newDate!==oldId){
+        // Undo migration: re-create old session, move entries back, delete new
+        await sb.from('sessions').insert({
+          id:oldId,day:prevDay,session_date:prevDate,capacity:prevCap,
+          status:prevStatus,created_at:sess.created_at||new Date().toISOString(),
+          bike_slots:prevSlots||null
+        });
+        await sb.from('queue_entries').update({
+          session_id:oldId,session_date:prevDate,session_day:prevDay
+        }).eq('session_id',currentId);
+        await sb.from('sessions').delete().eq('id',currentId);
+      } else {
+        await sb.from('sessions').update({
+          day:prevDay,session_date:prevDate,capacity:prevCap,
+          status:prevStatus,bike_slots:prevSlots||null
+        }).eq('id',oldId);
+      }
+      await loadData();renderSessions();renderStaffQueue();
+    });
+    S.editSessionId=null;
+    renderSessions();renderStaffQueue();
+  }catch(e){toast(t('errServerError'),'error');console.error(e);}
 }
 
 async function addSession(){
