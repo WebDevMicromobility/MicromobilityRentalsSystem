@@ -2592,7 +2592,9 @@ function renderBikes(){
   const bikes=getBikes();
   const total=bikes.length,nAvail=bikes.filter(b=>b.status==='available').length,
         nUse=bikes.filter(b=>b.status==='in-use').length,
-        nRoad=bikes.filter(b=>b.type==='Road').length,nMtn=bikes.filter(b=>b.type==='Mountain').length;
+        nRoad=bikes.filter(b=>b.type==='Road').length,
+        nHybrid=bikes.filter(b=>b.type==='Hybrid').length,
+        nMtn=bikes.filter(b=>b.type==='Mountain').length;
   const typePills=['all','Road','Hybrid','Mountain'].map(ty=>
     `<button class="filter-pill${S.bkTypeFilter===ty?' active':''}" onclick="setBkFilter('${ty}')">${ty==='all'?t('filterAll'):typeLabel(ty)}</button>`).join('');
   const isEdit=!!S.editBikeId;const editBike=isEdit?bikes.find(b=>b.id===S.editBikeId):null;
@@ -2629,16 +2631,23 @@ function renderBikes(){
     const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
     const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--orange)':'var(--red)';
     const grad=bikeGradient(b.colors||['#6ee89a']);
-    return`<div class="bike-card">
-      <div class="bike-card-top"><span class="bike-icon">${typeLabel(b.type)}</span><span class="avail-dot ${dot}"></span></div>
-      <div class="bike-color-strip" style="background:${grad}"></div>
-      <div class="bike-name">${esc(b.name)}</div>
-      <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">${typeBadge(b.type)}<span class="bike-meta">Size ${b.size}</span></div>
-      <div style="font-size:12px;font-weight:800;color:${sclr}">${slbl}</div>
-      <div class="bike-actions">
-        <button class="btn-sm btn-blue" onclick="startEdit('${b.id}')">Edit</button>
-        <button class="btn-sm btn-orange" onclick="toggleMaint('${b.id}')">${b.status==='maintenance'?'Restore':'Maint.'}</button>
-        <button class="btn-sm btn-red" ${b.status!=='in-use'?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
+    return`<div class="bike-card" style="display:flex;flex-direction:column;gap:0">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">
+        <div style="min-width:0">
+          <div class="bike-name" style="font-size:16px">${esc(b.name)}</div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap">
+            ${typeBadge(b.type)}
+            <span class="bike-meta">${t('frameSizeLabel')} ${b.size}</span>
+          </div>
+        </div>
+        <span class="avail-dot ${dot}" style="margin-top:4px;flex-shrink:0"></span>
+      </div>
+      <div class="bike-color-strip" style="background:${grad};margin-bottom:8px"></div>
+      <div style="font-size:12px;font-weight:800;color:${sclr};margin-bottom:10px">${slbl}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:auto">
+        <button class="btn-sm btn-blue" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
+        <button class="btn-sm btn-orange" onclick="toggleMaint('${b.id}')">${b.status==='maintenance'?t('restoreBtn'):t('maintBtn')}</button>
+        <button class="btn-sm btn-red" style="grid-column:1/-1" ${b.status!=='in-use'?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
       </div>
     </div>`;
   }).join(''):`<div class="empty-state" style="grid-column:1/-1">${t('noBikes')}</div>`;
@@ -2649,8 +2658,9 @@ function renderBikes(){
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('totalStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nAvail}</div><div class="stat-label">${t('availLabel')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--orange)">${nUse}</div><div class="stat-label">${t('inUseLabel')}</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--blue)">${nRoad}</div><div class="stat-label">Road</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--orange)">${nMtn}</div><div class="stat-label">Mountain</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--blue)">${nRoad}</div><div class="stat-label">${typeLabel('Road')}</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:#a78bfa">${nHybrid}</div><div class="stat-label">${typeLabel('Hybrid')}</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--orange)">${nMtn}</div><div class="stat-label">${typeLabel('Mountain')}</div></div>
     </div>
     <div class="filter-row">${typePills}</div>
     <div class="bikes-grid">${bkCards}</div>`;
