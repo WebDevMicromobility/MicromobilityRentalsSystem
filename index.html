@@ -351,12 +351,6 @@
         <div class="landing-card-desc">Register for an available session and join the queue.</div>
         <div class="landing-card-arrow">&rarr;</div>
       </div>
-      <div class="landing-card" onclick="goCustomer('ticket')">
-        <div class="landing-card-icon">&#x1F3AB;</div>
-        <div class="landing-card-title">Check My Ticket</div>
-        <div class="landing-card-desc">Look up your queue number, position, status, and assigned bike.</div>
-        <div class="landing-card-arrow">&rarr;</div>
-      </div>
     </div>
     <div class="landing-footer">
       <button class="staff-access-btn" onclick="openPinModal()">&#x1F512; Staff Access</button>
@@ -369,12 +363,10 @@
   <nav class="tab-nav" id="customer-tab-nav">
     <button class="tab-btn active" data-ctab="register" onclick="setCustTab('register')">&#x1F4DD; Reserve</button>
     <button class="tab-btn"        data-ctab="myrides"  onclick="setCustTab('myrides')">&#x1F3C6; My Rides</button>
-    <button class="tab-btn"        data-ctab="ticket"   onclick="setCustTab('ticket')">&#x1F3AB; My Ticket</button>
   </nav>
   <div class="view-main">
     <div id="tab-register" class="tab-panel active"></div>
     <div id="tab-myrides"  class="tab-panel"></div>
-    <div id="tab-ticket"   class="tab-panel"></div>
   </div>
 </div>
 
@@ -815,7 +807,7 @@ async function doSignup(){
     await loadData();
     const safeCustomer={id:customer.id,name,email,phone:fullPhone,created_at:customer.created_at};
     S.loggedIn=safeCustomer;setSession(safeCustomer);
-    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();renderTicket();
+    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
     toast(`Welcome, ${name}! Account created.`);
   }catch(e){authErr('Connection error. Check your network.');}
 }
@@ -834,7 +826,7 @@ async function doLogin(){
     if(!customer){authErr('Incorrect credentials. Please try again.');return;}
     S.loggedIn=customer;setSession(customer);
     await loadData();
-    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();renderTicket();
+    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
     toast(`Welcome back, ${customer.name}!`);
   }catch(e){authErr('Connection error. Check your network.');}
 }
@@ -887,7 +879,6 @@ function goCustomer(tab){
   renderCustomerTabs();
   renderRegister();
   renderMyRides();
-  renderTicket();
 }
 
 function goStaff(){
@@ -904,7 +895,6 @@ function setCustTab(t){
   renderCustomerTabs();
   if(t==='myrides')renderMyRides();
   else if(t==='register')renderRegister();
-  else if(t==='ticket')renderTicket();
 }
 function setStaffTab(t){
   S.staffTab=t;
@@ -920,8 +910,7 @@ function renderCustomerTabs(){
     b.classList.toggle('active',b.dataset.ctab===S.custTab);
   });
   document.getElementById('tab-register').classList.toggle('active',S.custTab==='register');
-  document.getElementById('tab-myrides') .classList.toggle('active',S.custTab==='myrides');
-  document.getElementById('tab-ticket')  .classList.toggle('active',S.custTab==='ticket');
+  document.getElementById('tab-myrides').classList.toggle('active',S.custTab==='myrides');
 }
 
 function renderStaffTabs(){
@@ -1132,7 +1121,7 @@ function refreshSizeBadge(){
   else wrap.innerHTML=`<div style="font-size:12px;color:var(--muted);padding:9px 0">Enter height above</div>`;
 }
 
-function set(k,v){S[k]=v;if(S.view==='customer'){renderRegister();renderMyRides();renderTicket();}else if(S.view==='staff'){renderStaffQueue();renderBikes();renderHistory();}}
+function set(k,v){S[k]=v;if(S.view==='customer'){renderRegister();renderMyRides();}else if(S.view==='staff'){renderStaffQueue();renderBikes();renderHistory();}}
 
 async function submitReg(){
   const name=document.getElementById('reg-name').value.trim();
@@ -1164,54 +1153,6 @@ async function submitReg(){
   toast(`Registered! Queue number #${entry.queueNum}`);renderRegister();
 }
 
-/* ══════════════════════════════════════════════
-   MY TICKET
-══════════════════════════════════════════════ */
-function renderTicket(){
-  const sessions=allSessions();
-  const opts=sessions.map(s=>`<option value="${s.id}">${s.day} &mdash; ${s.display}</option>`).join('');
-  document.getElementById('tab-ticket').innerHTML=`
-    <div class="page-title">My Ticket</div>
-    <div class="page-sub">Look up your status using your queue number, session, and last 4 digits of your phone.</div>
-    <div class="form-section" style="max-width:520px">
-      <div class="form-row">
-        <div class="form-group"><label>Queue Number</label><input type="number" id="tkt-num" placeholder="e.g. 3" min="1"></div>
-        <div class="form-group"><label>Last 4 Digits of Phone</label><input type="text" id="tkt-p4" placeholder="e.g. 4521" maxlength="4"></div>
-      </div>
-      <div class="form-group" style="margin-bottom:16px"><label>Session</label><select id="tkt-sess">${opts}</select></div>
-      <button class="btn-primary" onclick="lookupTicket()">Look Up My Ticket</button>
-    </div>
-    <div id="tkt-result" style="margin-top:24px;max-width:520px"></div>`;
-}
-
-function lookupTicket(){
-  const num=parseInt(document.getElementById('tkt-num').value);
-  const p4=document.getElementById('tkt-p4').value.trim();
-  const sessId=document.getElementById('tkt-sess').value;
-  if(!num||!p4||!sessId){toast('Please fill in all fields.','error');return;}
-  if(!/^\d{4}$/.test(p4)){toast('Enter exactly 4 digits.','error');return;}
-  const entry=getQueue().find(e=>e.queueNum===num&&e.sessionId===sessId&&e.phone.replace(/\D/g,'').endsWith(p4));
-  const res=document.getElementById('tkt-result');
-  if(!entry){res.innerHTML=`<div class="card" style="color:var(--red);font-weight:700;font-size:14px">No ticket found. Check your details and try again.</div>`;return;}
-  const ahead=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum<entry.queueNum).length;
-  const bike=entry.assignedBikeId?bikeById(entry.assignedBikeId):null;
-  res.innerHTML=`<div class="ticket-card">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">
-      <div><div class="ticket-label">Queue Number</div><div class="ticket-num">#${entry.queueNum}</div></div>
-      <div>${statusBadge(entry.status)}</div>
-    </div>
-    <div class="ticket-grid">
-      <div><div class="ticket-label">Name</div><div class="ticket-value">${esc(entry.name)}</div></div>
-      <div><div class="ticket-label">Session</div><div class="ticket-value">${entry.sessionDay}</div></div>
-      <div><div class="ticket-label">Date</div><div class="ticket-value">${shortDate(entry.sessionDate)}</div></div>
-      <div><div class="ticket-label">Time</div><div class="ticket-value">09:00 &ndash; 11:00</div></div>
-      <div><div class="ticket-label">Frame Size</div><div class="ticket-value">${entry.size}</div></div>
-      <div><div class="ticket-label">Preference</div><div class="ticket-value">${entry.typePreference}</div></div>
-      ${entry.status==='waiting'?`<div><div class="ticket-label">Riders Ahead</div><div class="ticket-value" style="color:var(--blue)">${ahead}</div></div>`:''}
-      ${bike?`<div><div class="ticket-label">Assigned Bike</div><div class="ticket-value" style="color:var(--green)">${esc(bike.name)}</div></div>`:''}
-    </div>
-  </div>`;
-}
 
 /* ══════════════════════════════════════════════
    MY RIDES (customer account history)
@@ -1502,7 +1443,9 @@ async function submitWalkIn(){
 async function cancelBooking(id){
   const entry=getQueue().find(e=>e.id===id);
   if(!entry||entry.status!=='waiting'){toast('Only waiting bookings can be cancelled.','error');return;}
+  const behind=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>entry.queueNum);
   await sb.from('queue_entries').update({status:'cancelled'}).eq('id',id);
+  await Promise.all(behind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
   await loadData();
   toast('Booking cancelled. Your spot has been freed.');
   renderMyRides();
