@@ -1369,6 +1369,13 @@ function sizeRange(sz){
   return{XS:`≤ 166 ${cm}`,S:`167–172 ${cm}`,M:`173–178 ${cm}`,L:`≥ 179 ${cm}`}[sz]||'';
 }
 function bikeGradient(c){if(!c||!c.length)return'var(--green)';if(c.length===1)return c[0];return`linear-gradient(135deg,${c.join(',')})`;}
+function bikeStrip(c){
+  if(!c||!c.length)return'var(--green)';
+  if(c.length===1)return c[0];
+  const pct=100/c.length;
+  const stops=c.flatMap((col,i)=>[`${col} ${(i*pct).toFixed(2)}%`,`${col} ${((i+1)*pct).toFixed(2)}%`]);
+  return`linear-gradient(to bottom,${stops.join(',')})`;
+}
 const DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const DAY_NAMES_AR={Sunday:'الأحد',Monday:'الاثنين',Tuesday:'الثلاثاء',Wednesday:'الأربعاء',Thursday:'الخميس',Friday:'الجمعة',Saturday:'السبت'};
 function dayLabel(day){return S.lang==='ar'?(DAY_NAMES_AR[day]||day):day;}
@@ -2671,10 +2678,9 @@ function renderBikes(){
     const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
     const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--orange)':'var(--red)';
     const colors=b.colors&&b.colors.length?b.colors:['#6ee89a'];
-    const stripColor=colors[0];
     const colorSwatches=colors.map(c=>`<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');
     return`<div class="bike-list-row">
-      <div class="bike-list-strip" style="background:${stripColor}"></div>
+      <div class="bike-list-strip" style="background:${bikeStrip(colors)}"></div>
       <div class="bike-list-dot-col"><span class="avail-dot ${dot}"></span></div>
       <div class="bike-list-info">
         <div class="bike-list-name">${esc(b.name)}</div>
