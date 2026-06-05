@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MicroMobility — Corniche Circuit Queue</title>
+  <title>MicroMobility: Corniche Circuit Queue</title>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="logo.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -356,7 +356,7 @@
         <img class="landing-hero-img" src="hero.png" alt="Corniche Circuit">
       </div>
       <div class="landing-title"><span>MicroMobility</span> Corniche Circuit</div>
-      <div class="landing-sub">Bicycle rental queue &mdash; Jeddah Corniche Circuit</div>
+      <div class="landing-sub">Bicycle rental queue - Jeddah Corniche Circuit</div>
     </div>
     <div class="landing-cards">
       <div class="landing-card" onclick="goCustomer('register')">
@@ -1077,7 +1077,7 @@ function renderRegister(){
         <div><div class="ticket-label">Queue Number</div><div class="ticket-num">#${t.queueNum}</div></div>
         <span class="status-badge badge-active" style="margin-top:6px">Registered</span>
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Keep this number &mdash; you&rsquo;ll need it to check your status.</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:4px">Keep this number - you will need it to check your status.</div>
       <div class="ticket-grid">
         <div><div class="ticket-label">Name</div><div class="ticket-value">${esc(t.name)}</div></div>
         <div><div class="ticket-label">Email</div><div class="ticket-value">${esc(t.email||'')}</div></div>
@@ -1110,7 +1110,7 @@ function renderRegister(){
             <select class="phone-cc" id="reg-cc">${ccOpts}</select>
             <input type="tel" class="phone-num" id="reg-phone" placeholder="5x xxx xxxx" value="${esc(S._rPhone)}">
           </div></div>
-        <div class="form-group"><label>Height &nbsp;<span class="label-hint">— frame size auto-selected</span></label>
+        <div class="form-group"><label>Height &nbsp;<span class="label-hint">- frame size auto-selected</span></label>
           <div class="height-row">
             <input type="number" id="reg-height" placeholder="cm, e.g. 175" min="100" max="250"
               value="${esc(S._rHeight)}" oninput="S._rHeight=this.value;refreshSizeBadge()">
@@ -1361,7 +1361,7 @@ function renderStaffQueue(){
   const nextUp=nextRider?`<div class="next-up-banner">
     <div>
       <div class="next-up-label">Next Up</div>
-      <div class="next-up-name">#${nextRider.queueNum} &mdash; ${esc(nextRider.name)}</div>
+      <div class="next-up-name">#${nextRider.queueNum} - ${esc(nextRider.name)}</div>
       <div class="next-up-details">Size ${nextRider.size} &middot; ${nextRider.typePreference} &middot; ${nextRider.sessionDay} ${shortDate(nextRider.sessionDate)}</div>
     </div>
     <button class="btn-primary" onclick="openModal('${nextRider.id}')">Assign Bike &amp; Check In</button>
@@ -1374,7 +1374,7 @@ function renderStaffQueue(){
     sessions.map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${s.day} ${s.display}</option>`).join('');
   const wiSizeBtns=['XS','S','M','L'].map(v=>`<button class="toggle-btn${S.wiSize===v?' active':''}" onclick="setWi('wiSize','${v}')">${v}</button>`).join('');
   const wiTypeBtns=['Road','Hybrid','Mountain','Gravel','Any'].map(t=>`<button class="toggle-btn${S.wiType===t?' active':''}" onclick="setWi('wiType','${t}')">${t}</button>`).join('');
-  const wiSessOpts=sessions.map(s=>`<option value="${s.id}">${s.day} &mdash; ${s.display}</option>`).join('');
+  const wiSessOpts=sessions.map(s=>`<option value="${s.id}">${s.day}: ${s.display}</option>`).join('');
   const wiCcOpts=COUNTRY_CODES.map(([code,iso,name])=>`<option value="${code}"${S.wiCC===code?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
   const walkInForm=S.showWalkIn?`<div class="inline-form">
     <div class="form-title">Walk-in Registration</div>
@@ -1410,7 +1410,7 @@ function renderStaffQueue(){
       <td><div class="rider-name">${esc(e.name)}${wiTag}</div><div class="rider-sub">${esc(e.phone)}</div></td>
       <td>${e.size} &middot; ${typeBadge(e.typePreference)}</td>
       <td class="hide-mobile">${e.sessionDay||''} ${shortDate(e.sessionDate)}</td>
-      <td>${bike?esc(bike.name):'<span style="color:var(--muted)">—</span>'}</td>
+      <td>${bike?esc(bike.name):'<span style="color:var(--muted)">-</span>'}</td>
       <td><label class="pay-cell" onclick="event.stopPropagation()">
         <input class="pay-cb" type="checkbox" ${e.paid?'checked':''} onchange="togglePayment('${e.id}',this.checked)">
         <span class="pay-label" style="color:${payColor}">${e.paid?'Paid':'Pending'}</span>
@@ -1703,7 +1703,7 @@ function renderHistory(){
         <div class="rider-sub">${hasEmail?esc(e.email):'<span style="font-style:italic">no email</span>'}</div>
         <div class="rider-sub">${esc(e.phone)}</div></td>
       <td class="hide-mobile">${e.sessionDay||''}<br><span style="color:var(--muted);font-size:12px">${shortDate(e.sessionDate)}</span></td>
-      <td>${bike?esc(bike.name):'<span style="color:var(--muted)">—</span>'}</td>
+      <td>${bike?esc(bike.name):'<span style="color:var(--muted)">-</span>'}</td>
       <td><label class="pay-cell" onclick="event.stopPropagation()">
         <input class="pay-cb" type="checkbox" ${e.paid?'checked':''} onchange="togglePayment('${e.id}',this.checked)">
         <span class="pay-label" style="color:${payColor}">${e.paid?'Paid':'Pending'}</span>
@@ -1711,7 +1711,7 @@ function renderHistory(){
       <td>${statusBadge(e.status)}</td>
       <td><div class="actions-cell">
         ${hasEmail&&e.status==='done'?`<button class="btn-sm btn-purple" onclick="showReceipt('${e.id}')">Send Receipt</button>`
-          :`<span style="font-size:11px;color:var(--muted)">${e.status==='noshow'?'—':hasEmail?'':'No email'}</span>`}
+          :`<span style="font-size:11px;color:var(--muted)">${e.status==='noshow'?'-':hasEmail?'':'No email'}</span>`}
       </div></td>
     </tr>`;
   }).join('');
@@ -1761,7 +1761,7 @@ function showReceipt(id){
     'We hope to see you at the Corniche','Circuit again soon!','',
     'MicroMobility Team','Corniche Circuit, Jeddah',
   ].join('\n');
-  const subject=encodeURIComponent(`MicroMobility — Ride Receipt #${e.queueNum} (${shortDate(e.sessionDate)})`);
+  const subject=encodeURIComponent(`MicroMobility: Ride Receipt #${e.queueNum} (${shortDate(e.sessionDate)})`);
   const body=encodeURIComponent(lines);
   const mailtoLink=`mailto:${e.email}?subject=${subject}&body=${body}`;
   const modal=document.getElementById('receipt-modal');
@@ -1782,7 +1782,7 @@ function showReceipt(id){
 function closeReceipt(){document.getElementById('receipt-modal').style.display='none';}
 
 /* ══════════════════════════════════════════════
-   BOOT — load data from API then show landing
+   BOOT - load data from API then show landing
 ══════════════════════════════════════════════ */
 (async()=>{
   try{
