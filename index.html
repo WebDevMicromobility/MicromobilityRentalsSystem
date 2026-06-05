@@ -572,6 +572,7 @@ en:{
   receiptTitle:'Ride Receipt',receiptDear:'Dear',
   receiptThankYou:'Thank you for riding with us at the Jeddah Corniche Circuit!',
   receiptSeeYou:'We hope to see you at the Corniche Circuit again soon!',
+  typeRoad:'Road',typeHybrid:'Hybrid',typeMountain:'Mountain',typeAny:'Any',typeGravel:'Gravel',
 },
 ar:{
   appSub:'طابور حلبة الكورنيش',landingTitle:'مايكرو موبيليتي - حلبة الكورنيش',
@@ -613,7 +614,7 @@ ar:{
   createSession:'إنشاء جلسة',colDate:'التاريخ',colDay:'اليوم',colCapacity:'الطاقة',
   colBookings:'الحجوزات',colActions:'الإجراءات',openBtn:'فتح',closeBtn:'إغلاق',deleteBtn:'حذف',
   statusOpen:'مفتوح',statusClosed:'مغلق',noSessionsYet:'لا توجد جلسات بعد. أنشئ واحدة أعلاه.',
-  bikesTitle:'الأسطول',addBike:'+ إضافة دراجة',editBikeTitle:'تعديل الدراجة',addBikeTitle:'إضافة دراجة جديدة',
+  bikesTitle:'إضافة دراجة',addBike:'+ الأسطول',editBikeTitle:'تعديل الدراجة',addBikeTitle:'إضافة دراجة جديدة',
   bikeNameLabel:'اسم الدراجة',frameSizeLabel:'مقاس الإطار',bikeTypeLabel:'نوع الدراجة',
   bikeColorsLabel:'لون الدراجة',colorsHint:'مطلوب 1 - حتى 4',
   saveBikeBtn:'حفظ التغييرات',addBikeBtn:'إضافة دراجة',
@@ -700,6 +701,7 @@ ar:{
   receiptTitle:'إيصال الرحلة',receiptDear:'عزيزي',
   receiptThankYou:'شكراً لركوبك معنا في حلبة كورنيش جدة!',
   receiptSeeYou:'نأمل رؤيتك في حلبة الكورنيش مجدداً!',
+  typeRoad:'طريق',typeHybrid:'هجين',typeMountain:'جبلي',typeAny:'أي',typeGravel:'حصوي',
 }};
 function t(k){return(LANG[S&&S.lang?S.lang:'en']||LANG.en)[k]||LANG.en[k]||k;}
 
@@ -1062,7 +1064,8 @@ function sizeLabel(sz){return{XS:'XS (166 cm & under)',S:'S (167–172 cm)',M:'M
 function bikeGradient(c){if(!c||!c.length)return'var(--green)';if(c.length===1)return c[0];return`linear-gradient(135deg,${c.join(',')})`;}
 const DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const TYPE_CLS={Road:'type-road',Hybrid:'type-hybrid',Mountain:'type-mountain',Gravel:'type-gravel',Any:'type-any'};
-const typeBadge=t=>`<span class="type-badge ${TYPE_CLS[t]||'type-any'}">${t}</span>`;
+function typeLabel(ty){const m={Road:t('typeRoad'),Hybrid:t('typeHybrid'),Mountain:t('typeMountain'),Any:t('typeAny'),Gravel:t('typeGravel')};return m[ty]||ty;}
+const typeBadge=ty=>`<span class="type-badge ${TYPE_CLS[ty]||'type-any'}">${typeLabel(ty)}</span>`;
 const STATUS_CLS={waiting:'badge-waiting',active:'badge-active',done:'badge-done',noshow:'badge-noshow',cancelled:'badge-noshow'};
 const STATUS_KEY={waiting:'statusWaiting',active:'statusActive',done:'statusDone',noshow:'statusNoshow',cancelled:'statusCancelled'};
 const statusBadge=s=>`<span class="status-badge ${STATUS_CLS[s]||'badge-done'}">${t(STATUS_KEY[s]||'statusDone')}</span>`;
@@ -1484,7 +1487,7 @@ function renderRegister(){
 
     // Type toggles
     const typeBtns=['Road','Hybrid','Mountain','Any'].map(ty=>
-      `<button class="toggle-btn${selTy===ty?' active':''}" data-type-slot="${i}" data-type="${ty}" onclick="setBikeType(${i},'${ty}')">${ty}</button>`
+      `<button class="toggle-btn${selTy===ty?' active':''}" data-type-slot="${i}" data-type="${ty}" onclick="setBikeType(${i},'${ty}')">${typeLabel(ty)}</button>`
     ).join('');
 
     const divider=(S.regQty>1&&i<S.regQty-1)?`<div style="border-top:1px solid var(--border);margin:20px 0"></div>`:'';
@@ -2054,7 +2057,7 @@ function renderStaffQueue(){
   const sessOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>${t('allSessions')}</option>`+
     sessions.map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${s.day} ${s.display}</option>`).join('');
   const wiSizeBtns=['XS','S','M','L'].map(v=>`<button class="toggle-btn${S.wiSize===v?' active':''}" onclick="setWi('wiSize','${v}')">${v}</button>`).join('');
-  const wiTypeBtns=['Road','Hybrid','Mountain','Any'].map(t=>`<button class="toggle-btn${S.wiType===t?' active':''}" onclick="setWi('wiType','${t}')">${t}</button>`).join('');
+  const wiTypeBtns=['Road','Hybrid','Mountain','Any'].map(ty=>`<button class="toggle-btn${S.wiType===ty?' active':''}" onclick="setWi('wiType','${ty}')">${typeLabel(ty)}</button>`).join('');
   const wiSessOpts=sessions.map(s=>`<option value="${s.id}">${s.day}: ${s.display}</option>`).join('');
   const wiCcOpts=COUNTRY_CODES.map(([code,iso,name])=>`<option value="${code}"${S.wiCC===code?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
   const walkInForm=S.showWalkIn?`<div class="inline-form">
@@ -2220,7 +2223,7 @@ function renderModal(){
       </div>
       <div style="height:5px;border-radius:3px;background:${grad};margin-bottom:8px"></div>
       <div style="font-weight:900;font-size:14px;margin-bottom:3px">${esc(b.name)}</div>
-      <div style="font-size:12px;color:var(--muted)">${b.type} &middot; Size ${b.size}</div>
+      <div style="font-size:12px;color:var(--muted)">${typeLabel(b.type)} &middot; ${t('frameSizeLabel')} ${b.size}</div>
       <div style="margin-top:6px">${typeBadge(b.type)}</div>
       <div style="font-size:11px;color:var(--muted);margin-top:5px">${slbl}</div>
     </div>`;
@@ -2267,14 +2270,13 @@ function renderBikes(){
   const total=bikes.length,nAvail=bikes.filter(b=>b.status==='available').length,
         nUse=bikes.filter(b=>b.status==='in-use').length,
         nRoad=bikes.filter(b=>b.type==='Road').length,nMtn=bikes.filter(b=>b.type==='Mountain').length;
-  const typePills=['all','Road','Hybrid','Mountain'].map(t=>
-    `<button class="filter-pill${S.bkTypeFilter===t?' active':''}" onclick="setBkFilter('${t}')">${t==='all'?'All':t}</button>`).join('');
+  const typePills=['all','Road','Hybrid','Mountain'].map(ty=>
+    `<button class="filter-pill${S.bkTypeFilter===ty?' active':''}" onclick="setBkFilter('${ty}')">${ty==='all'?t('filterAll'):typeLabel(ty)}</button>`).join('');
   const isEdit=!!S.editBikeId;const editBike=isEdit?bikes.find(b=>b.id===S.editBikeId):null;
   const curSize=(isEdit&&editBike)?(S.addBikeSize||editBike.size):S.addBikeSize;
   const sizeOpts=['XS','S','M','L'].map(v=>`<option value="${v}"${curSize===v?' selected':''}>${v}</option>`).join('');
-  const bkTypeBtns=['Road','Hybrid','Mountain'].map(t=>{
-    const icon={Road:'Road',Hybrid:'Hybrid',Mountain:'Mountain'}[t]||t;
-    return`<button class="toggle-btn${S.addBikeType===t?' active':''}" onclick="S.addBikeType='${t}';renderBikes()">${icon} ${t}</button>`;}).join('');
+  const bkTypeBtns=['Road','Hybrid','Mountain'].map(ty=>
+    `<button class="toggle-btn${S.addBikeType===ty?' active':''}" onclick="S.addBikeType='${ty}';renderBikes()">${typeLabel(ty)}</button>`).join('');
   const colorSlots=S.addBikeColors.map((c,i)=>`
     <div class="color-slot"><input type="color" value="${c}" oninput="S.addBikeColors[${i}]=this.value;updateColorPreview()">
       ${S.addBikeColors.length>1?`<button class="color-del" onclick="removeColor(${i})" type="button">&#x2715;</button>`:''}</div>`).join('');
@@ -2303,10 +2305,9 @@ function renderBikes(){
     const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-orange':'dot-red';
     const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
     const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--orange)':'var(--red)';
-    const icon={Road:'Road',Hybrid:'Hybrid',Mountain:'Mountain',Gravel:'Gravel'}[b.type]||b.type;
     const grad=bikeGradient(b.colors||['#6ee89a']);
     return`<div class="bike-card">
-      <div class="bike-card-top"><span class="bike-icon">${icon}</span><span class="avail-dot ${dot}"></span></div>
+      <div class="bike-card-top"><span class="bike-icon">${typeLabel(b.type)}</span><span class="avail-dot ${dot}"></span></div>
       <div class="bike-color-strip" style="background:${grad}"></div>
       <div class="bike-name">${esc(b.name)}</div>
       <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">${typeBadge(b.type)}<span class="bike-meta">Size ${b.size}</span></div>
@@ -2319,7 +2320,7 @@ function renderBikes(){
     </div>`;
   }).join(''):`<div class="empty-state" style="grid-column:1/-1">${t('noBikes')}</div>`;
   document.getElementById('tab-bikes').innerHTML=`
-    <div class="section-header"><div class="page-title">${t('bikesTitle')}</div><button class="btn-primary" onclick="toggleAddBike()">+ Add Bike</button></div>
+    <div class="section-header"><div class="page-title">${t('bikesTitle')}</div><button class="btn-primary" onclick="toggleAddBike()">${t('addBike')}</button></div>
     ${addForm}
     <div class="stats-row">
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('totalStat')}</div></div>
@@ -2411,7 +2412,7 @@ function renderHistory(){
       <td>${bike?esc(bike.name):'<span style="color:var(--muted)">-</span>'}</td>
       <td><label class="pay-cell" onclick="event.stopPropagation()">
         <input class="pay-cb" type="checkbox" ${e.paid?'checked':''} onchange="togglePayment('${e.id}',this.checked)">
-        <span class="pay-label" style="color:${payColor}">${e.paid?t('paidLabel'):t('pendingLabel')}</span>
+        <span class="pay-label" style="color:${payColor}">SAR ${e.price||DEFAULT_PRICE} &middot; ${e.paid?t('paidLabel'):t('pendingLabel')}</span>
       </label></td>
       <td>${statusBadge(e.status)}</td>
       <td><div class="actions-cell">
