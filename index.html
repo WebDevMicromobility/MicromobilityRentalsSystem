@@ -1078,6 +1078,13 @@ function sizeRange(sz){
 }
 function bikeGradient(c){if(!c||!c.length)return'var(--green)';if(c.length===1)return c[0];return`linear-gradient(135deg,${c.join(',')})`;}
 const DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const DAY_NAMES_AR={Sunday:'الأحد',Monday:'الاثنين',Tuesday:'الثلاثاء',Wednesday:'الأربعاء',Thursday:'الخميس',Friday:'الجمعة',Saturday:'السبت'};
+function dayLabel(day){return S.lang==='ar'?(DAY_NAMES_AR[day]||day):day;}
+function spotsLeftLabel(n){
+  if(n===0)return S.lang==='ar'?'ممتلئة':'Full';
+  if(S.lang==='ar')return`${n} ${n===1?'مقعد متبقي':'مقاعد متبقية'}`;
+  return`${n} spot${n===1?'':'s'} left`;
+}
 const TYPE_CLS={Road:'type-road',Hybrid:'type-hybrid',Mountain:'type-mountain',Gravel:'type-gravel',Any:'type-any'};
 function typeLabel(ty){const m={Road:t('typeRoad'),Hybrid:t('typeHybrid'),Mountain:t('typeMountain'),Any:t('typeAny'),Gravel:t('typeGravel')};return m[ty]||ty;}
 const typeBadge=ty=>`<span class="type-badge ${TYPE_CLS[ty]||'type-any'}">${typeLabel(ty)}</span>`;
@@ -1416,11 +1423,11 @@ function renderRegister(){
         const spots=spotsLeft(s.id);
         const full=spots===0;
         const sc=full?'spots-red':spots<=3?'spots-orange':'spots-green';
-        const sl=full?'Full':`${spots} spot${spots===1?'':'s'} left`;
+        const sl=spotsLeftLabel(spots);
         const sel=S.selSession===s.id;
         return`<div class="sess-card${sel?' sess-selected':''}${full?' sess-full':''}"
           ${full?'':` onclick="S.selSession='${s.id}';renderRegister()"`}>
-          <div class="sess-card-day">${s.day}</div>
+          <div class="sess-card-day">${dayLabel(s.day)}</div>
           <div class="sess-card-date">${shortDate(s.session_date||s.id)}</div>
           <div class="sess-card-spots ${sc}">${sl}</div>
         </div>`;
@@ -1551,7 +1558,7 @@ function renderRegister(){
       <div class="ticket-grid">
         <div><div class="ticket-label">${t('nameLabel')}</div><div class="ticket-value">${esc(tkt.name)}</div></div>
         <div><div class="ticket-label">${t('emailAddr')}</div><div class="ticket-value">${esc(tkt.email||'')}</div></div>
-        <div><div class="ticket-label">${t('colSession')}</div><div class="ticket-value">${tkt.sessionDay}</div></div>
+        <div><div class="ticket-label">${t('colSession')}</div><div class="ticket-value">${dayLabel(tkt.sessionDay)}</div></div>
         <div><div class="ticket-label">${t('colDate')}</div><div class="ticket-value">${shortDate(tkt.sessionDate)}</div></div>
         <div><div class="ticket-label">${t('timeLabel')}</div><div class="ticket-value">09:00 &ndash; 11:00</div></div>
         <div><div class="ticket-label">${t('frameSizeLabel')}</div><div class="ticket-value">${tkt.size}</div></div>
@@ -1735,7 +1742,7 @@ function renderMyRides(){
     const canCancel=e.status==='waiting';
     return`<tr>
       <td><span class="queue-num-cell">#${e.orderNum}</span></td>
-      <td class="hide-mobile">${e.sessionDay||''} ${shortDate(e.sessionDate)}</td>
+      <td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>
       <td>${bike?esc(bike.name):'<span style="color:var(--muted)">-</span>'}</td>
       <td>${e.size} &middot; ${typeBadge(e.typePreference)}</td>
       <td style="font-weight:800;color:${payColor}">${e.paid?'SAR '+(e.price||DEFAULT_PRICE):'Pending'}</td>
@@ -1965,7 +1972,7 @@ function renderSessions(){
     const fleetInfo=slots?slotsLabel(slots):'—';
     return`<tr>
       <td style="font-weight:800">${shortDate(s.session_date||s.id)}</td>
-      <td style="color:var(--muted)">${s.day||''}</td>
+      <td style="color:var(--muted)">${dayLabel(s.day)||''}</td>
       <td>
         <div style="font-weight:800">${cap}</div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px">${fleetInfo}</div>
@@ -2069,7 +2076,7 @@ function renderStaffQueue(){
     <div>
       <div class="next-up-label">${t('nextUpLabel')}</div>
       <div class="next-up-name">#${nextRider.queueNum} - ${esc(nextRider.name)}</div>
-      <div class="next-up-details">Size ${nextRider.size} &middot; ${nextRider.typePreference} &middot; ${nextRider.sessionDay} ${shortDate(nextRider.sessionDate)}</div>
+      <div class="next-up-details">Size ${nextRider.size} &middot; ${typeLabel(nextRider.typePreference)} &middot; ${dayLabel(nextRider.sessionDay)} ${shortDate(nextRider.sessionDate)}</div>
     </div>
     <button class="btn-primary" onclick="openModal('${nextRider.id}')">${t('assignBikeCheckin')}</button>
   </div>`:'';
@@ -2078,10 +2085,10 @@ function renderStaffQueue(){
     return`<button class="filter-pill${S.sfStatus===s?' active':''}" onclick="setSfStatus('${s}')">${label}</button>`;
   }).join('');
   const sessOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>${t('allSessions')}</option>`+
-    sessions.map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${s.day} ${s.display}</option>`).join('');
+    sessions.map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${s.display}</option>`).join('');
   const wiSizeBtns=['XS','S','M','L'].map(v=>`<button class="toggle-btn${S.wiSize===v?' active':''}" onclick="setWi('wiSize','${v}')">${v}</button>`).join('');
   const wiTypeBtns=['Road','Hybrid','Mountain','Any'].map(ty=>`<button class="toggle-btn${S.wiType===ty?' active':''}" onclick="setWi('wiType','${ty}')">${typeLabel(ty)}</button>`).join('');
-  const wiSessOpts=sessions.map(s=>`<option value="${s.id}">${s.day}: ${s.display}</option>`).join('');
+  const wiSessOpts=sessions.map(s=>`<option value="${s.id}">${dayLabel(s.day)}: ${s.display}</option>`).join('');
   const wiCcOpts=COUNTRY_CODES.map(([code,iso,name])=>`<option value="${code}"${S.wiCC===code?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
   const walkInForm=S.showWalkIn?`<div class="inline-form">
     <div class="form-title">${t('walkinTitle')}</div>
@@ -2116,7 +2123,7 @@ function renderStaffQueue(){
       <td><span class="queue-num-cell">#${e.queueNum}</span></td>
       <td><div class="rider-name">${esc(e.name)}${wiTag}</div><div class="rider-sub">${esc(e.phone)}</div></td>
       <td>${e.size} &middot; ${typeBadge(e.typePreference)}</td>
-      <td class="hide-mobile">${e.sessionDay||''} ${shortDate(e.sessionDate)}</td>
+      <td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>
       <td>${bike?esc(bike.name):'<span style="color:var(--muted)">-</span>'}</td>
       <td><label class="pay-cell" onclick="event.stopPropagation()">
         <input class="pay-cb" type="checkbox" ${e.paid?'checked':''} onchange="togglePayment('${e.id}',this.checked)">
@@ -2431,7 +2438,7 @@ function renderHistory(){
       <td><div class="rider-name">${esc(e.name)}${wiTag}</div>
         <div class="rider-sub">${hasEmail?esc(e.email):`<span style="font-style:italic">${t('noEmailLabel')}</span>`}</div>
         <div class="rider-sub">${esc(e.phone)}</div></td>
-      <td class="hide-mobile">${e.sessionDay||''}<br><span style="color:var(--muted);font-size:12px">${shortDate(e.sessionDate)}</span></td>
+      <td class="hide-mobile">${dayLabel(e.sessionDay)||''}<br><span style="color:var(--muted);font-size:12px">${shortDate(e.sessionDate)}</span></td>
       <td>${bike?esc(bike.name):'<span style="color:var(--muted)">-</span>'}</td>
       <td><label class="pay-cell" onclick="event.stopPropagation()">
         <input class="pay-cb" type="checkbox" ${e.paid?'checked':''} onchange="togglePayment('${e.id}',this.checked)">
@@ -2480,7 +2487,7 @@ function showReceipt(id){
     t('receiptThankYou'),'',
     '──────────────────────────────────────',
     `${t('queueNumLabel').padEnd(14)}:  #${e.queueNum}`,
-    `${t('colSession').padEnd(14)}:  ${e.sessionDay}, ${shortDate(e.sessionDate)}`,
+    `${t('colSession').padEnd(14)}:  ${dayLabel(e.sessionDay)}, ${shortDate(e.sessionDate)}`,
     `${t('timeLabel').padEnd(14)}:  09:00 – 11:00`,
     `${t('colBike').padEnd(14)}:  ${bike?bike.name:'N/A'}`,
     `${t('frameSizeLabel').padEnd(14)}:  ${e.size}`,
