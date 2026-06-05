@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MicroMobility — Corniche Circuit Queue</title>
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
       --bg:#0a0a0a; --s1:#111111; --s2:#171717; --s3:#1e1e1e;
@@ -649,30 +650,46 @@ const S={
 /* ══════════════════════════════════════════════
    STORAGE
 ══════════════════════════════════════════════ */
-// In-memory data cache — populated by loadData() from the Flask backend
+// ── SUPABASE ─ replace these two values from your project settings ──────────
+const SUPABASE_URL  = 'https://YOUR_PROJECT_ID.supabase.co';
+const SUPABASE_KEY  = 'YOUR_ANON_PUBLIC_KEY';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── In-memory cache ──────────────────────────────────────────────────────────
 const getQueue=()=>S.queue||[];
 const getBikes=()=>S.bikes||[];
 const getCustomers=()=>S.customers||[];
 const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36);
 
-async function api(method,path,body){
-  const opts={method,headers:{'Content-Type':'application/json'}};
-  if(body!==undefined)opts.body=JSON.stringify(body);
-  const r=await fetch(path,opts);
-  return r.json();
+// ── DB row <-> camelCase conversion ─────────────────────────────────────────
+function entryFromDB(e){
+  return{id:e.id,name:e.name,email:e.email,phone:e.phone,size:e.size,
+    typePreference:e.type_preference,paid:Boolean(e.paid),price:e.price,
+    assignedBikeId:e.assigned_bike_id,sessionId:e.session_id,
+    sessionDay:e.session_day,sessionDate:e.session_date,
+    queueNum:e.queue_num,status:e.status,registeredAt:e.registered_at,
+    walkIn:Boolean(e.walk_in),customerId:e.customer_id};
+}
+function entryToDB(e){
+  return{id:e.id,name:e.name,email:e.email||'',phone:e.phone||'',
+    size:e.size,type_preference:e.typePreference,paid:e.paid,price:e.price||30,
+    assigned_bike_id:e.assignedBikeId||null,session_id:e.sessionId,
+    session_day:e.sessionDay,session_date:e.sessionDate,
+    queue_num:e.queueNum,status:e.status,registered_at:e.registeredAt,
+    walk_in:e.walkIn||false,customer_id:e.customerId||null};
 }
 
 async function loadData(){
-  const [queue,bikes,customers,sessions]=await Promise.all([
-    api('GET','/api/queue'),
-    api('GET','/api/bikes'),
-    api('GET','/api/customers'),
-    api('GET','/api/sessions'),
+  const [q,b,c,ses]=await Promise.all([
+    sb.from('queue_entries').select('*').order('session_id').order('queue_num'),
+    sb.from('bikes').select('*'),
+    sb.from('customers').select('id,name,email,phone,created_at'),
+    sb.from('sessions').select('*').order('session_date'),
   ]);
-  S.queue=Array.isArray(queue)?queue:[];
-  S.bikes=Array.isArray(bikes)?bikes:[];
-  S.customers=Array.isArray(customers)?customers:[];
-  S.sessions=Array.isArray(sessions)?sessions:[];
+  S.queue=(q.data||[]).map(entryFromDB);
+  S.bikes=b.data||[];
+  S.customers=c.data||[];
+  S.sessions=ses.data||[];
 }
 
 function hashPwd(s){
@@ -787,20 +804,18 @@ async function doSignup(){
   if(pwd.length<6){authErr('Password must be at least 6 characters.');return;}
   if(pwd!==pwd2){authErr('Passwords do not match.');return;}
   const fullPhone=phone?(cc+phone):'';
-  const customer={id:uid(),name,email,phone:fullPhone,passwordHash:hashPwd(pwd),createdAt:Date.now()};
   try{
-    const r=await api('POST','/api/customers',customer);
-    if(!r.ok){
-      if(r.error==='email_exists'){authErr('An account with this email already exists.');return;}
-      if(r.error==='phone_exists'){authErr('An account with this phone already exists.');return;}
-      authErr('Signup failed. Please try again.');return;
-    }
+    if(email){const{data:ex}=await sb.from('customers').select('id').eq('email',email).maybeSingle();if(ex){authErr('An account with this email already exists.');return;}}
+    if(fullPhone){const{data:ex}=await sb.from('customers').select('id').eq('phone',fullPhone).maybeSingle();if(ex){authErr('An account with this phone already exists.');return;}}
+    const customer={id:uid(),name,email,phone:fullPhone,password_hash:hashPwd(pwd),created_at:Date.now()};
+    const{error}=await sb.from('customers').insert(customer);
+    if(error)throw error;
     await loadData();
-    const {passwordHash:_,...safeCustomer}=customer;
+    const safeCustomer={id:customer.id,name,email,phone:fullPhone,created_at:customer.created_at};
     S.loggedIn=safeCustomer;setSession(safeCustomer);
     closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();renderTicket();
     toast(`Welcome, ${name}! Account created.`);
-  }catch(e){authErr('Cannot connect to server. Make sure the Flask app is running.');}
+  }catch(e){authErr('Connection error. Check your network.');}
 }
 
 async function doLogin(){
@@ -809,14 +824,17 @@ async function doLogin(){
   if(!identifier){authErr('Please enter your email or phone number.');return;}
   if(!pwd){authErr('Please enter your password.');return;}
   try{
-    const r=await api('POST','/api/auth/login',{identifier,passwordHash:hashPwd(pwd)});
-    if(!r.ok){authErr('Incorrect credentials. Please try again.');return;}
-    const customer=r.customer;
+    const{data:customer}=await sb.from('customers')
+      .select('id,name,email,phone,created_at')
+      .or(`email.eq.${identifier},phone.eq.${identifier}`)
+      .eq('password_hash',hashPwd(pwd))
+      .maybeSingle();
+    if(!customer){authErr('Incorrect credentials. Please try again.');return;}
     S.loggedIn=customer;setSession(customer);
     await loadData();
     closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();renderTicket();
     toast(`Welcome back, ${customer.name}!`);
-  }catch(e){authErr('Cannot connect to server. Make sure the Flask app is running.');}
+  }catch(e){authErr('Connection error. Check your network.');}
 }
 
 function doLogout(){
@@ -1138,7 +1156,7 @@ async function submitReg(){
     assignedBikeId:null,sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
     queueNum:nextQNum(S.selSession),status:'waiting',registeredAt:Date.now(),walkIn:false,
     customerId:cust?cust.id:null,price:DEFAULT_PRICE};
-  await api('POST','/api/queue',entry);
+  await sb.from('queue_entries').insert(entryToDB(entry));
   await loadData();
   S.lastTicket=entry;S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
   toast(`Registered! Queue number #${entry.queueNum}`);renderRegister();
@@ -1316,21 +1334,21 @@ async function addSession(){
   const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const session={id:date,day:dayNames[d.getDay()],session_date:date,capacity:cap,created_at:Date.now()};
   try{
-    const r=await api('POST','/api/sessions',session);
-    if(!r.ok){
-      if(r.error==='session_exists'){toast('A session for that date already exists.','error');return;}
-      toast('Failed to create session.','error');return;
+    const{error}=await sb.from('sessions').insert(session);
+    if(error){
+      if(error.code==='23505'){toast('A session for that date already exists.','error');return;}
+      throw error;
     }
     await loadData();
     S.showAddSession=false;S.newSessDate='';S.newSessCap=12;
-    toast(`Session created for ${shortDate(date)}. It is closed by default — open it when ready.`);
+    toast(`Session created for ${shortDate(date)}. Open it when ready.`);
     renderSessions();
-  }catch(e){toast('Server error.','error');}
+  }catch(e){toast('Error creating session.','error');}
 }
 
 async function toggleSession(id,newStatus){
   try{
-    await api('PATCH',`/api/sessions/${id}`,{status:newStatus});
+    await sb.from('sessions').update({status:newStatus}).eq('id',id);
     await loadData();
     toast(newStatus==='open'?'Session opened for reservations.':'Session closed.');
     renderSessions();
@@ -1340,11 +1358,12 @@ async function toggleSession(id,newStatus){
 
 async function deleteSession(id){
   try{
-    const r=await api('DELETE',`/api/sessions/${id}`);
-    if(!r.ok){toast('Cannot delete a session with existing bookings.','error');return;}
+    const bookings=getQueue().filter(e=>e.sessionId===id).length;
+    if(bookings>0){toast('Cannot delete a session with existing bookings.','error');return;}
+    await sb.from('sessions').delete().eq('id',id);
     await loadData();
     toast('Session deleted.');renderSessions();
-  }catch(e){toast('Server error.','error');}
+  }catch(e){toast('Error deleting session.','error');}
 }
 
 /* ══════════════════════════════════════════════
@@ -1445,7 +1464,7 @@ function setSfSession(v){S.sfSession=v;renderStaffQueue();}
 function setWi(k,v){S[k]=v;renderStaffQueue();}
 
 async function togglePayment(id,paid){
-  await api('PATCH',`/api/queue/${id}`,{paid});
+  await sb.from('queue_entries').update({paid}).eq('id',id);
   await loadData();
   const cb=document.querySelector(`input.pay-cb[onchange*="${id}"]`);
   if(cb){const lbl=cb.nextElementSibling;if(lbl){lbl.textContent=paid?'Paid':'Pending';lbl.style.color=paid?'var(--green)':'var(--orange)';}}
@@ -1470,25 +1489,25 @@ async function submitWalkIn(){
     assignedBikeId:null,sessionId:sid,sessionDay:sess?sess.day:'',sessionDate:sid,
     queueNum:nextQNum(sid),status:'waiting',registeredAt:Date.now(),walkIn:true,
     customerId:null,price:DEFAULT_PRICE};
-  await api('POST','/api/queue',entry);
+  await sb.from('queue_entries').insert(entryToDB(entry));
   await loadData();
   S.showWalkIn=false;S.wiSize=null;S.wiType=null;
   toast(`Walk-in added: #${entry.queueNum} ${name}`);renderStaffQueue();
 }
 
 async function doNoShow(id){
-  await api('PATCH',`/api/queue/${id}`,{status:'noshow'});
+  await sb.from('queue_entries').update({status:'noshow'}).eq('id',id);
   await loadData();toast('Marked as No-Show.');renderStaffQueue();
 }
 async function doReturn(id){
   const q=getQueue();const i=q.findIndex(e=>e.id===id);if(i<0)return;
-  const calls=[api('PATCH',`/api/queue/${id}`,{status:'done'})];
-  if(q[i].assignedBikeId)calls.push(api('PATCH',`/api/bikes/${q[i].assignedBikeId}`,{status:'available'}));
+  const calls=[sb.from('queue_entries').update({status:'done'}).eq('id',id)];
+  if(q[i].assignedBikeId)calls.push(sb.from('bikes').update({status:'available'}).eq('id',q[i].assignedBikeId));
   await Promise.all(calls);
   await loadData();toast('Bike returned. Ride complete.');renderStaffQueue();
 }
 async function doRemove(id){
-  await api('DELETE',`/api/queue/${id}`);
+  await sb.from('queue_entries').delete().eq('id',id);
   await loadData();toast('Rider removed.');renderStaffQueue();
 }
 
@@ -1533,8 +1552,8 @@ async function confirmAssign(){
   if(bi<0||bikes[bi].status!=='available'){toast('Bike no longer available.','error');return;}
   const bikeName=bikes[bi].name;
   await Promise.all([
-    api('PATCH',`/api/bikes/${S.modalBike}`,{status:'in-use'}),
-    api('PATCH',`/api/queue/${S.modalRider}`,{status:'active',assignedBikeId:S.modalBike}),
+    sb.from('bikes').update({status:'in-use'}).eq('id',S.modalBike),
+    sb.from('queue_entries').update({status:'active',assigned_bike_id:S.modalBike}).eq('id',S.modalRider),
   ]);
   await loadData();closeModal();
   toast(`${bikeName} assigned. Rider checked in!`);renderStaffQueue();
@@ -1627,7 +1646,7 @@ async function addBike(){
   if(!name){toast('Please enter a bike name.','error');return;}
   if(!S.addBikeType){toast('Please select a bike type.','error');return;}
   const bike={id:uid(),name,size,type:S.addBikeType,colors:[...S.addBikeColors],status:'available'};
-  await api('POST','/api/bikes',bike);
+  await sb.from('bikes').insert(bike);
   await loadData();
   S.showAddBike=false;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S._bkName='';
   toast(`${name} added to fleet.`);renderBikes();
@@ -1642,7 +1661,7 @@ async function saveBikeEdit(){
   if(!name){toast('Please enter a bike name.','error');return;}
   if(!S.addBikeType){toast('Please select a bike type.','error');return;}
   const b=getBikes();const existing=b.find(x=>x.id===S.editBikeId);if(!existing)return;
-  await api('PUT',`/api/bikes/${S.editBikeId}`,{name,size,type:S.addBikeType,colors:[...S.addBikeColors],status:existing.status});
+  await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],status:existing.status}).eq('id',S.editBikeId);
   await loadData();
   S.editBikeId=null;S.addBikeType=null;S.addBikeColors=['#6ee89a'];S._bkName='';toast('Bike updated.');renderBikes();
 }
@@ -1650,13 +1669,13 @@ async function toggleMaint(id){
   const b=getBikes();const bike=b.find(x=>x.id===id);if(!bike)return;
   if(bike.status==='in-use'){toast('Cannot change while in use.','error');return;}
   const newStatus=bike.status==='maintenance'?'available':'maintenance';
-  await api('PATCH',`/api/bikes/${id}`,{status:newStatus});
+  await sb.from('bikes').update({status:newStatus}).eq('id',id);
   await loadData();toast(`Status: ${newStatus}.`);renderBikes();
 }
 async function delBike(id){
   const bike=getBikes().find(x=>x.id===id);
   if(!bike||bike.status==='in-use'){toast('Cannot delete a bike in use.','error');return;}
-  await api('DELETE',`/api/bikes/${id}`);
+  await sb.from('bikes').delete().eq('id',id);
   await loadData();toast(`${bike.name} removed.`);renderBikes();
 }
 
