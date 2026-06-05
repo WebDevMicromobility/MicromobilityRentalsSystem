@@ -2670,8 +2670,9 @@ function renderBikes(){
     const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-orange':'dot-red';
     const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
     const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--orange)':'var(--red)';
-    const grad=bikeGradient(b.colors||['#6ee89a']);
-    const stripColor=(b.colors&&b.colors[0])||'#6ee89a';
+    const colors=b.colors&&b.colors.length?b.colors:['#6ee89a'];
+    const stripColor=colors[0];
+    const colorSwatches=colors.map(c=>`<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');
     return`<div class="bike-list-row">
       <div class="bike-list-strip" style="background:${stripColor}"></div>
       <div class="bike-list-dot-col"><span class="avail-dot ${dot}"></span></div>
@@ -2680,7 +2681,7 @@ function renderBikes(){
         <div class="bike-list-meta">
           ${typeBadge(b.type)}
           <span class="bike-meta">${b.size}</span>
-          <div style="height:3px;width:32px;border-radius:2px;background:${grad}"></div>
+          <div style="display:flex;align-items:center;gap:4px">${colorSwatches}</div>
         </div>
       </div>
       <div class="bike-list-status" style="color:${sclr}">${slbl}</div>
