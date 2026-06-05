@@ -25,6 +25,15 @@ CREATE TABLE IF NOT EXISTS bikes (
     status TEXT NOT NULL DEFAULT 'available'
 );
 
+CREATE TABLE IF NOT EXISTS sessions (
+    id           TEXT PRIMARY KEY,
+    day          TEXT NOT NULL,
+    session_date TEXT NOT NULL,
+    capacity     INTEGER NOT NULL DEFAULT 12,
+    status       TEXT NOT NULL DEFAULT 'closed',
+    created_at   INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS queue_entries (
     id               TEXT PRIMARY KEY,
     name             TEXT NOT NULL,
@@ -95,6 +104,62 @@ def serve_index():
 @app.route('/micromobilitylogo.jpeg')
 def serve_logo():
     return send_from_directory('.', 'micromobilitylogo.jpeg')
+
+
+# ── SESSIONS ─────────────────────────────────────────────────────────────────
+
+@app.route('/api/sessions', methods=['GET'])
+def get_sessions():
+    with get_db() as conn:
+        rows = conn.execute(
+            "SELECT * FROM sessions ORDER BY session_date"
+        ).fetchall()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route('/api/sessions', methods=['POST'])
+def add_session():
+    s = request.get_json()
+    with get_db() as conn:
+        exists = conn.execute(
+            "SELECT id FROM sessions WHERE id = ?", (s['id'],)
+        ).fetchone()
+        if exists:
+            return jsonify({'ok': False, 'error': 'session_exists'}), 409
+        conn.execute(
+            "INSERT INTO sessions (id, day, session_date, capacity, status, created_at) VALUES (?,?,?,?,?,?)",
+            (s['id'], s['day'], s['session_date'], s.get('capacity', 12), 'closed', s['created_at'])
+        )
+    return jsonify({'ok': True})
+
+
+@app.route('/api/sessions/<session_id>', methods=['PATCH'])
+def patch_session(session_id):
+    data = request.get_json()
+    allowed = {'status', 'capacity'}
+    sets, vals = [], []
+    for key in allowed:
+        if key in data:
+            sets.append(f"{key} = ?")
+            vals.append(data[key])
+    if not sets:
+        return jsonify({'ok': False}), 400
+    vals.append(session_id)
+    with get_db() as conn:
+        conn.execute(f"UPDATE sessions SET {', '.join(sets)} WHERE id = ?", vals)
+    return jsonify({'ok': True})
+
+
+@app.route('/api/sessions/<session_id>', methods=['DELETE'])
+def delete_session(session_id):
+    with get_db() as conn:
+        bookings = conn.execute(
+            "SELECT COUNT(*) FROM queue_entries WHERE session_id = ?", (session_id,)
+        ).fetchone()[0]
+        if bookings > 0:
+            return jsonify({'ok': False, 'error': 'has_bookings'}), 409
+        conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
+    return jsonify({'ok': True})
 
 
 # ── QUEUE ENTRIES ─────────────────────────────────────────────────────────────

@@ -135,14 +135,27 @@
     .rides-stat-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
     .rides-empty{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:40px;text-align:center;color:var(--muted);font-size:14px;font-weight:600;}
 
-    /* ── DATE PICKER ─────────────────────────────────────── */
-    .date-picker-card{background:var(--s2);border:2px solid var(--border);border-radius:12px;padding:20px;margin-bottom:24px;transition:border-color .2s;}
-    .date-picker-card.valid{border-color:var(--green);}
-    .date-picker-card.invalid{border-color:var(--red);}
-    .date-result{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:12px;}
-    .day-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:800;}
-    .day-chip.valid{background:rgba(110,232,154,.15);color:var(--green);}
-    .day-chip.invalid{background:rgba(224,64,64,.1);color:var(--red);}
+    /* ── SESSION PICKER ──────────────────────────────────── */
+    .session-picker-wrap{margin-bottom:24px;}
+    .session-picker-label{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;}
+    .session-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+    .sess-card{background:var(--s2);border:2px solid var(--border);border-radius:12px;padding:16px 18px;cursor:pointer;transition:all .18s;}
+    .sess-card:hover:not(.sess-full){border-color:var(--green);background:rgba(110,232,154,.04);}
+    .sess-card.sess-selected{border-color:var(--green);background:rgba(110,232,154,.1);}
+    .sess-card.sess-full{opacity:.5;cursor:not-allowed;}
+    .sess-card-day{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}
+    .sess-card-date{font-size:17px;font-weight:900;margin-bottom:6px;}
+    .sess-card-spots{font-size:12px;font-weight:800;}
+    .spots-green{color:var(--green);}
+    .spots-orange{color:var(--orange);}
+    .spots-red{color:var(--red);}
+    .no-sessions-msg{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:28px;text-align:center;color:var(--muted);font-size:14px;font-weight:600;}
+    /* ── SESSIONS ADMIN TAB ──────────────────────────────── */
+    .sess-admin-table{width:100%;border-collapse:collapse;}
+    .sess-admin-table th,.sess-admin-table td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--border);font-size:13px;}
+    .sess-admin-table th{font-weight:800;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px;}
+    .badge-open{background:rgba(110,232,154,.15);color:var(--green);border:1px solid rgba(110,232,154,.3);padding:3px 10px;border-radius:12px;font-size:11px;font-weight:800;}
+    .badge-closed{background:rgba(224,64,64,.1);color:var(--red);border:1px solid rgba(224,64,64,.25);padding:3px 10px;border-radius:12px;font-size:11px;font-weight:800;}
 
     /* ── FORM ────────────────────────────────────────────── */
     .form-section{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:24px;}
@@ -334,7 +347,7 @@
       <div class="landing-card" onclick="goCustomer('register')">
         <div class="landing-card-icon">&#x1F6B4;</div>
         <div class="landing-card-title">Reserve Your Spot</div>
-        <div class="landing-card-desc">Register for an upcoming Sunday or Tuesday session and join the queue.</div>
+        <div class="landing-card-desc">Register for an available session and join the queue.</div>
         <div class="landing-card-arrow">&rarr;</div>
       </div>
       <div class="landing-card" onclick="goCustomer('ticket')">
@@ -367,14 +380,16 @@
 <!-- STAFF VIEW -->
 <div id="view-staff">
   <nav class="tab-nav" id="staff-tab-nav">
-    <button class="tab-btn active" data-stab="queue"   onclick="setStaffTab('queue')">&#x1F4CB; Queue</button>
-    <button class="tab-btn"        data-stab="bikes"   onclick="setStaffTab('bikes')">&#x1F6B2; Bikes</button>
-    <button class="tab-btn"        data-stab="history" onclick="setStaffTab('history')">&#x1F4DC; History</button>
+    <button class="tab-btn active" data-stab="queue"    onclick="setStaffTab('queue')">&#x1F4CB; Queue</button>
+    <button class="tab-btn"        data-stab="sessions" onclick="setStaffTab('sessions')">&#x1F4C5; Sessions</button>
+    <button class="tab-btn"        data-stab="bikes"    onclick="setStaffTab('bikes')">&#x1F6B2; Bikes</button>
+    <button class="tab-btn"        data-stab="history"  onclick="setStaffTab('history')">&#x1F4DC; History</button>
   </nav>
   <div class="view-main">
-    <div id="tab-queue"   class="tab-panel active"></div>
-    <div id="tab-bikes"   class="tab-panel"></div>
-    <div id="tab-history" class="tab-panel"></div>
+    <div id="tab-queue"    class="tab-panel active"></div>
+    <div id="tab-sessions" class="tab-panel"></div>
+    <div id="tab-bikes"    class="tab-panel"></div>
+    <div id="tab-history"  class="tab-panel"></div>
   </div>
 </div>
 
@@ -626,7 +641,9 @@ const S={
   authMode:'login',   // 'login' | 'signup'
   loggedIn:null,      // customer object or null
   // data cache (loaded from API)
-  queue:[],bikes:[],customers:[],
+  queue:[],bikes:[],customers:[],sessions:[],
+  // session management form
+  showAddSession:false,newSessDate:'',newSessCap:12,
 };
 
 /* ══════════════════════════════════════════════
@@ -646,14 +663,16 @@ async function api(method,path,body){
 }
 
 async function loadData(){
-  const [queue,bikes,customers]=await Promise.all([
+  const [queue,bikes,customers,sessions]=await Promise.all([
     api('GET','/api/queue'),
     api('GET','/api/bikes'),
     api('GET','/api/customers'),
+    api('GET','/api/sessions'),
   ]);
   S.queue=Array.isArray(queue)?queue:[];
   S.bikes=Array.isArray(bikes)?bikes:[];
   S.customers=Array.isArray(customers)?customers:[];
+  S.sessions=Array.isArray(sessions)?sessions:[];
 }
 
 function hashPwd(s){
@@ -674,16 +693,14 @@ function shortDate(ds){return new Date(ds+'T00:00:00').toLocaleDateString('en-US
 function longDate(ds){return new Date(ds+'T00:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});}
 function todayStr(){return fmtDate(new Date());}
 function allSessions(){
-  const qIds=[...new Set(getQueue().map(e=>e.sessionId))];
-  const upcoming=[];const today=new Date();today.setHours(0,0,0,0);
-  for(let i=0;i<60&&upcoming.length<8;i++){
-    const d=new Date(today);d.setDate(today.getDate()+i);
-    const dow=d.getDay();if(dow===0||dow===2)upcoming.push(fmtDate(d));
-  }
-  const ids=[...new Set([...upcoming,...qIds])].sort();
-  return ids.map(id=>{const dow=new Date(id+'T00:00:00').getDay();return{id,day:dow===0?'Sunday':'Tuesday',display:shortDate(id)};});
+  return S.sessions.map(s=>({...s,display:shortDate(s.session_date||s.id)}));
 }
-function spotsLeft(sid){return Math.max(0,12-getQueue().filter(e=>e.sessionId===sid&&e.status!=='noshow').length);}
+function openSessions(){return allSessions().filter(s=>s.status==='open');}
+function spotsLeft(sid){
+  const sess=S.sessions.find(s=>s.id===sid);
+  const cap=(sess&&sess.capacity)||12;
+  return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&e.status!=='noshow').length);
+}
 function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid).map(e=>e.queueNum);return nums.length?Math.max(...nums)+1:1;}
 const bikeById=id=>getBikes().find(b=>b.id===id);
 function heightToSize(h){if(h<=166)return'XS';if(h<=172)return'S';if(h<=178)return'M';return'L';}
@@ -717,7 +734,7 @@ function closeAuthModal(){document.getElementById('auth-modal').style.display='n
 
 function renderAuthModal(){
   const isLogin=S.authMode==='login';
-  const ccOpts=COUNTRY_CODES.map(([code,iso,name])=>`<option value="${code}"${code==='+966'&&iso==='SA'?' selected':''}>${isoToFlag(iso)} ${name} (${code})</option>`).join('');
+  const ccOpts=COUNTRY_CODES.map(([code,iso,name])=>`<option value="${code}"${code==='+966'&&iso==='SA'?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
   const logoSrc=document.querySelector('.topbar-logo img')?.src||'micromobilitylogo.jpeg';
   document.getElementById('auth-modal').innerHTML=`
   <div class="auth-backdrop">
@@ -771,17 +788,19 @@ async function doSignup(){
   if(pwd!==pwd2){authErr('Passwords do not match.');return;}
   const fullPhone=phone?(cc+phone):'';
   const customer={id:uid(),name,email,phone:fullPhone,passwordHash:hashPwd(pwd),createdAt:Date.now()};
-  const r=await api('POST','/api/customers',customer);
-  if(!r.ok){
-    if(r.error==='email_exists'){authErr('An account with this email already exists.');return;}
-    if(r.error==='phone_exists'){authErr('An account with this phone already exists.');return;}
-    authErr('Signup failed. Please try again.');return;
-  }
-  await loadData();
-  const {passwordHash:_,...safeCustomer}=customer;
-  S.loggedIn=safeCustomer;setSession(safeCustomer);
-  closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();renderTicket();
-  toast(`Welcome, ${name}! Account created.`);
+  try{
+    const r=await api('POST','/api/customers',customer);
+    if(!r.ok){
+      if(r.error==='email_exists'){authErr('An account with this email already exists.');return;}
+      if(r.error==='phone_exists'){authErr('An account with this phone already exists.');return;}
+      authErr('Signup failed. Please try again.');return;
+    }
+    await loadData();
+    const {passwordHash:_,...safeCustomer}=customer;
+    S.loggedIn=safeCustomer;setSession(safeCustomer);
+    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();renderTicket();
+    toast(`Welcome, ${name}! Account created.`);
+  }catch(e){authErr('Cannot connect to server. Make sure the Flask app is running.');}
 }
 
 async function doLogin(){
@@ -789,13 +808,15 @@ async function doLogin(){
   const pwd=(document.getElementById('a-pwd')?.value||'');
   if(!identifier){authErr('Please enter your email or phone number.');return;}
   if(!pwd){authErr('Please enter your password.');return;}
-  const r=await api('POST','/api/auth/login',{identifier,passwordHash:hashPwd(pwd)});
-  if(!r.ok){authErr('Incorrect credentials. Please try again.');return;}
-  const customer=r.customer;
-  S.loggedIn=customer;setSession(customer);
-  await loadData();
-  closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();renderTicket();
-  toast(`Welcome back, ${customer.name}!`);
+  try{
+    const r=await api('POST','/api/auth/login',{identifier,passwordHash:hashPwd(pwd)});
+    if(!r.ok){authErr('Incorrect credentials. Please try again.');return;}
+    const customer=r.customer;
+    S.loggedIn=customer;setSession(customer);
+    await loadData();
+    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();renderTicket();
+    toast(`Welcome back, ${customer.name}!`);
+  }catch(e){authErr('Cannot connect to server. Make sure the Flask app is running.');}
 }
 
 function doLogout(){
@@ -853,6 +874,7 @@ function goStaff(){
   showView('staff');
   renderStaffTabs();
   renderStaffQueue();
+  renderSessions();
   renderBikes();
   renderHistory();
 }
@@ -867,6 +889,10 @@ function setCustTab(t){
 function setStaffTab(t){
   S.staffTab=t;
   renderStaffTabs();
+  if(t==='sessions')renderSessions();
+  else if(t==='queue')renderStaffQueue();
+  else if(t==='bikes')renderBikes();
+  else if(t==='history')renderHistory();
 }
 
 function renderCustomerTabs(){
@@ -882,9 +908,10 @@ function renderStaffTabs(){
   document.querySelectorAll('#staff-tab-nav .tab-btn').forEach(b=>{
     b.classList.toggle('active',b.dataset.stab===S.staffTab);
   });
-  document.getElementById('tab-queue')  .classList.toggle('active',S.staffTab==='queue');
-  document.getElementById('tab-bikes')  .classList.toggle('active',S.staffTab==='bikes');
-  document.getElementById('tab-history').classList.toggle('active',S.staffTab==='history');
+  document.getElementById('tab-queue')   .classList.toggle('active',S.staffTab==='queue');
+  document.getElementById('tab-sessions').classList.toggle('active',S.staffTab==='sessions');
+  document.getElementById('tab-bikes')   .classList.toggle('active',S.staffTab==='bikes');
+  document.getElementById('tab-history') .classList.toggle('active',S.staffTab==='history');
 }
 
 function renderTopbarRight(){
@@ -995,29 +1022,23 @@ document.addEventListener('keydown',e=>{
    REGISTER
 ══════════════════════════════════════════════ */
 function renderRegister(){
-  const dv=S._rDate;
-  let dateCardCls='date-picker-card';
-  let dateResult='';
-  if(dv){
-    const d=new Date(dv+'T00:00:00');const dow=d.getDay();
-    const today=new Date();today.setHours(0,0,0,0);
-    if(d<today){
-      dateCardCls+=' invalid';dateResult=`<div class="day-chip invalid" style="margin-top:10px">&#x2717; Cannot register for a past date</div>`;S.selSession=null;
-    } else if(dow===0||dow===2){
-      dateCardCls+=' valid';S.selSession=dv;
-      const spots=spotsLeft(dv);
-      const sc=spots===0?'spots-red':spots<=3?'spots-orange':'spots-green';
-      const sl=spots===0?'Full':`${spots} spot${spots===1?'':'s'} left`;
-      dateResult=`<div class="date-result">
-        <div class="day-chip valid">&#x2713; ${DAY_NAMES[dow]}</div>
-        <span class="session-spots ${sc}">${sl}</span>
-        <span style="font-size:13px;color:var(--muted)">${longDate(dv)} &middot; 09:00 &ndash; 11:00</span>
-      </div>`;
-    } else {
-      dateCardCls+=' invalid';S.selSession=null;
-      dateResult=`<div class="day-chip invalid" style="margin-top:10px">&#x2717; ${DAY_NAMES[dow]} &mdash; sessions run on Sundays and Tuesdays only</div>`;
-    }
-  }
+  const available=openSessions();
+  const sessCards=available.length
+    ? available.map(s=>{
+        const spots=spotsLeft(s.id);
+        const full=spots===0;
+        const sc=full?'spots-red':spots<=3?'spots-orange':'spots-green';
+        const sl=full?'Full':`${spots} spot${spots===1?'':'s'} left`;
+        const sel=S.selSession===s.id;
+        return`<div class="sess-card${sel?' sess-selected':''}${full?' sess-full':''}"
+          ${full?'':` onclick="S.selSession='${s.id}';renderRegister()"`}>
+          <div class="sess-card-day">${s.day}</div>
+          <div class="sess-card-date">${shortDate(s.session_date||s.id)}</div>
+          <div class="sess-card-spots ${sc}">${sl}</div>
+        </div>`;
+      }).join('')
+    : `<div class="no-sessions-msg">No sessions are currently open for reservation.<br>Check back soon or contact the team.</div>`;
+  if(S.selSession&&!available.find(s=>s.id===S.selSession))S.selSession=null;
   const h=parseInt(S._rHeight);
   const autoSize=(!isNaN(h)&&h>=100&&h<=250)?heightToSize(h):null;
   const sizeChip=autoSize?`<div class="size-chip">${autoSize}<span class="size-chip-label">${sizeLabel(autoSize)}</span></div>`
@@ -1025,7 +1046,7 @@ function renderRegister(){
   const typeBtns=['Road','Hybrid','Mountain','Gravel','Any'].map(t=>
     `<button class="toggle-btn${S.regType===t?' active':''}" onclick="set('regType','${t}')">${t}</button>`).join('');
   const ccOpts=COUNTRY_CODES.map(([code,iso,name])=>
-    `<option value="${code}"${S._rCC===code?' selected':''}>${isoToFlag(iso)} ${name} (${code})</option>`).join('');
+    `<option value="${code}"${S._rCC===code?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
   let ticket='';
   if(S.lastTicket){
     const t=S.lastTicket;
@@ -1048,12 +1069,10 @@ function renderRegister(){
   }
   document.getElementById('tab-register').innerHTML=`
     <div class="page-title">Reserve Your Spot</div>
-    <div class="page-sub">Choose a Sunday or Tuesday, fill in your details, and join the queue.</div>
-    <div class="${dateCardCls}">
-      <label>Session Date &nbsp;<span class="label-hint">— Sundays and Tuesdays only</span></label>
-      <input type="date" id="reg-date" style="margin-top:8px;max-width:240px"
-        min="${todayStr()}" value="${esc(S._rDate)}" oninput="S._rDate=this.value;renderRegister()">
-      ${dateResult}
+    <div class="page-sub">Pick an available session, fill in your details, and join the queue.</div>
+    <div class="session-picker-wrap">
+      <div class="session-picker-label">Available Sessions</div>
+      <div class="session-cards-grid">${sessCards}</div>
     </div>
     <div class="form-section">
       <div class="form-title">Rider Details</div>
@@ -1104,7 +1123,8 @@ async function submitReg(){
   if(!name){toast('Please enter your full name.','error');return;}
   if(!email||!/^\S+@\S+\.\S+$/.test(email)){toast('Please enter a valid email address.','error');return;}
   if(!phone){toast('Please enter your phone number.','error');return;}
-  if(!S.selSession){toast('Please select a valid session date (Sunday or Tuesday).','error');return;}
+  if(!S.selSession){toast('Please select a session above.','error');return;}
+  if(!openSessions().find(s=>s.id===S.selSession)){toast('That session is no longer open.','error');return;}
   if(isNaN(h)||h<100||h>250){toast('Please enter a valid height in cm.','error');return;}
   if(!S.regType){toast('Please select a bike type preference.','error');return;}
   if(spotsLeft(S.selSession)===0){toast('This session is full.','error');return;}
@@ -1112,10 +1132,10 @@ async function submitReg(){
   const queue=getQueue();
   if(queue.find(e=>e.phone===fullPhone&&e.sessionId===S.selSession&&e.status!=='noshow'))
     {toast('This phone number is already registered for that session.','error');return;}
-  const dow=new Date(S.selSession+'T00:00:00').getDay();
+  const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
   const cust=S.loggedIn||getSession();
   const entry={id:uid(),name,email,phone:fullPhone,size,typePreference:S.regType,paid:false,
-    assignedBikeId:null,sessionId:S.selSession,sessionDay:dow===0?'Sunday':'Tuesday',sessionDate:S.selSession,
+    assignedBikeId:null,sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
     queueNum:nextQNum(S.selSession),status:'waiting',registeredAt:Date.now(),walkIn:false,
     customerId:cust?cust.id:null,price:DEFAULT_PRICE};
   await api('POST','/api/queue',entry);
@@ -1227,6 +1247,107 @@ function renderMyRides(){
 }
 
 /* ══════════════════════════════════════════════
+   SESSIONS MANAGEMENT (staff)
+══════════════════════════════════════════════ */
+function renderSessions(){
+  const sessions=allSessions();
+  const addForm=S.showAddSession?`
+    <div class="inline-form" style="margin-bottom:24px">
+      <div class="form-title">New Session</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="ns-date" value="${esc(S.newSessDate)}" min="${todayStr()}"
+            oninput="S.newSessDate=this.value">
+        </div>
+        <div class="form-group">
+          <label>Capacity (spots)</label>
+          <input type="number" id="ns-cap" value="${S.newSessCap}" min="1" max="100"
+            oninput="S.newSessCap=parseInt(this.value)||12">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button class="btn-primary" onclick="addSession()">Create Session</button>
+        <button class="btn-secondary" onclick="S.showAddSession=false;renderSessions()">Cancel</button>
+      </div>
+    </div>`:'';
+  const rows=sessions.length?sessions.map(s=>{
+    const booked=getQueue().filter(e=>e.sessionId===s.id&&e.status!=='noshow').length;
+    const left=Math.max(0,(s.capacity||12)-booked);
+    const isOpen=s.status==='open';
+    return`<tr>
+      <td style="font-weight:800">${shortDate(s.session_date||s.id)}</td>
+      <td style="color:var(--muted)">${s.day||''}</td>
+      <td>${s.capacity||12}</td>
+      <td>${booked} / ${s.capacity||12} &nbsp;<span style="color:var(--muted);font-size:11px">(${left} left)</span></td>
+      <td><span class="${isOpen?'badge-open':'badge-closed'}">${isOpen?'Open':'Closed'}</span></td>
+      <td>
+        <div class="actions-cell">
+          <button class="btn-sm ${isOpen?'btn-orange':'btn-green'}" onclick="toggleSession('${s.id}','${isOpen?'closed':'open'}')">
+            ${isOpen?'Close':'Open'}
+          </button>
+          <button class="btn-sm btn-red" onclick="deleteSession('${s.id}')" ${booked>0?'disabled title="Has bookings"':''}>Delete</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="6" class="empty-state">No sessions yet. Create one above.</td></tr>`;
+  document.getElementById('tab-sessions').innerHTML=`
+    <div class="section-header">
+      <div>
+        <div class="page-title">Sessions</div>
+        <div class="page-sub">Create sessions and open them to accept reservations. Closed by default.</div>
+      </div>
+      <button class="btn-primary" onclick="S.showAddSession=!S.showAddSession;renderSessions()">+ New Session</button>
+    </div>
+    ${addForm}
+    <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+      <table class="sess-admin-table">
+        <thead><tr><th>Date</th><th>Day</th><th>Capacity</th><th>Bookings</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+async function addSession(){
+  const date=document.getElementById('ns-date')?.value;
+  const cap=parseInt(document.getElementById('ns-cap')?.value)||12;
+  if(!date){toast('Please pick a date.','error');return;}
+  const d=new Date(date+'T00:00:00');
+  const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const session={id:date,day:dayNames[d.getDay()],session_date:date,capacity:cap,created_at:Date.now()};
+  try{
+    const r=await api('POST','/api/sessions',session);
+    if(!r.ok){
+      if(r.error==='session_exists'){toast('A session for that date already exists.','error');return;}
+      toast('Failed to create session.','error');return;
+    }
+    await loadData();
+    S.showAddSession=false;S.newSessDate='';S.newSessCap=12;
+    toast(`Session created for ${shortDate(date)}. It is closed by default — open it when ready.`);
+    renderSessions();
+  }catch(e){toast('Server error.','error');}
+}
+
+async function toggleSession(id,newStatus){
+  try{
+    await api('PATCH',`/api/sessions/${id}`,{status:newStatus});
+    await loadData();
+    toast(newStatus==='open'?'Session opened for reservations.':'Session closed.');
+    renderSessions();
+    renderStaffQueue();
+  }catch(e){toast('Server error.','error');}
+}
+
+async function deleteSession(id){
+  try{
+    const r=await api('DELETE',`/api/sessions/${id}`);
+    if(!r.ok){toast('Cannot delete a session with existing bookings.','error');return;}
+    await loadData();
+    toast('Session deleted.');renderSessions();
+  }catch(e){toast('Server error.','error');}
+}
+
+/* ══════════════════════════════════════════════
    STAFF QUEUE
 ══════════════════════════════════════════════ */
 function renderStaffQueue(){
@@ -1255,7 +1376,7 @@ function renderStaffQueue(){
   const wiSizeBtns=['XS','S','M','L'].map(v=>`<button class="toggle-btn${S.wiSize===v?' active':''}" onclick="setWi('wiSize','${v}')">${v}</button>`).join('');
   const wiTypeBtns=['Road','Hybrid','Mountain','Gravel','Any'].map(t=>`<button class="toggle-btn${S.wiType===t?' active':''}" onclick="setWi('wiType','${t}')">${t}</button>`).join('');
   const wiSessOpts=sessions.map(s=>`<option value="${s.id}">${s.day} &mdash; ${s.display}</option>`).join('');
-  const wiCcOpts=COUNTRY_CODES.map(([code,iso,name])=>`<option value="${code}"${S.wiCC===code?' selected':''}>${isoToFlag(iso)} ${name} (${code})</option>`).join('');
+  const wiCcOpts=COUNTRY_CODES.map(([code,iso,name])=>`<option value="${code}"${S.wiCC===code?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
   const walkInForm=S.showWalkIn?`<div class="inline-form">
     <div class="form-title">Walk-in Registration</div>
     <div class="form-row">
