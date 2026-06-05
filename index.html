@@ -155,8 +155,9 @@
     .auth-cc-row input:focus{border-color:var(--green);}
 
     /* ── CUSTOMER TOPBAR ACCOUNT ─────────────────────────── */
-    .cust-topbar-name{font-size:13px;font-weight:700;color:var(--text);}
-    .cust-topbar-email{font-size:11px;color:var(--muted);}
+    .cust-topbar-name{font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
+    .cust-topbar-email{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;}
+    .topbar-btn{white-space:nowrap;}
 
     /* ── MY RIDES TAB ────────────────────────────────────── */
     .rides-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;}
@@ -1579,8 +1580,8 @@ function renderTopbarRight(){
       el.innerHTML=`
         <div style="display:flex;align-items:center;gap:10px">
           <div style="width:32px;height:32px;border-radius:50%;background:rgba(110,232,154,.2);border:1px solid rgba(110,232,154,.4);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--green)">${esc(initials)}</div>
-          <div>
-            <div class="cust-topbar-name">${esc(cust.name)}</div>
+          <div style="min-width:0">
+            <div class="cust-topbar-name">${esc(cust.name.split(' ')[0])}</div>
             <div class="cust-topbar-email">${esc(cust.email||cust.phone||'')}</div>
           </div>
         </div>
@@ -2009,7 +2010,7 @@ function renderMyRides(){
       <td><span class="queue-num-cell">#${e.orderNum}</span></td>
       <td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>
       <td>${bike?esc(bike.name):'<span style="color:var(--muted)">-</span>'}</td>
-      <td>${e.size} &middot; ${typeBadge(e.typePreference)}</td>
+      <td style="white-space:nowrap">${e.size} &middot; ${typeBadge(e.typePreference)}</td>
       <td style="font-weight:800;color:${payColor}">${e.paid?'SAR '+(e.price||DEFAULT_PRICE):'Pending'}</td>
       <td>${statusBadge(e.status)}</td>
       <td>${canCancel?`<button class="btn-sm btn-red" onclick="cancelBooking('${e.id}')">${t('cancelBooking')}</button>`:'<span style="color:var(--muted);font-size:12px">-</span>'}</td>
@@ -2387,7 +2388,7 @@ function renderStaffQueue(){
     return`<tr class="${rowCls}">
       <td><span class="queue-num-cell">#${e.queueNum}</span></td>
       <td><div class="rider-name">${esc(e.name)}${wiTag}</div><div class="rider-sub">${esc(e.phone)}</div></td>
-      <td>${e.size} &middot; ${typeBadge(e.typePreference)}</td>
+      <td style="white-space:nowrap">${e.size} &middot; ${typeBadge(e.typePreference)}</td>
       <td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>
       <td>${bike?esc(bike.name):'<span style="color:var(--muted)">-</span>'}</td>
       <td><label class="pay-cell" onclick="event.stopPropagation()">
