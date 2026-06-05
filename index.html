@@ -1044,10 +1044,11 @@ function priceForType(t){return RIDE_PRICES[t]||DEFAULT_PRICE;}
 /* ══════════════════════════════════════════════
    UTILS
 ══════════════════════════════════════════════ */
-function fmtDate(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
-function shortDate(ds){return new Date(ds+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
-function longDate(ds){return new Date(ds+'T00:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});}
-function todayStr(){return fmtDate(new Date());}
+const KSA_TZ='Asia/Riyadh';
+function fmtDate(d){return d.toLocaleDateString('en-CA',{timeZone:KSA_TZ});} // returns YYYY-MM-DD in KSA time
+function shortDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:KSA_TZ});}
+function longDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',timeZone:KSA_TZ});}
+function todayStr(){return new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});}
 function allSessions(){
   return S.sessions.map(s=>({...s,display:shortDate(s.session_date||s.id)}));
 }
