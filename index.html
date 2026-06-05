@@ -646,6 +646,33 @@
       .ticket-num{font-size:38px;}
       .view-main{padding:12px 12px 32px;}
     }
+
+    /* ── Search input ── */
+    .search-wrap{position:relative;flex-shrink:0;}
+    .search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:.4;}
+    .search-input{background:#1c1c1c;border:1px solid rgba(255,255,255,.09);border-radius:8px;
+      padding:6px 12px 6px 32px;color:var(--text);font-family:'Nunito',sans-serif;
+      font-size:13px;font-weight:500;outline:none;transition:border-color .2s;width:200px;}
+    .search-input:focus{border-color:rgba(110,232,154,.5);background:#1e201e;}
+    .search-input::placeholder{color:var(--muted);}
+    @media(max-width:767px){.search-input{width:130px;font-size:12px;}}
+
+    /* ── Filter group label ── */
+    .filter-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+    .filter-group-label{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;}
+
+    /* ── Multi-row filter layout ── */
+    .filter-bar{display:flex;flex-direction:column;gap:8px;margin-bottom:18px;}
+    .filter-bar-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;}
+    @media(max-width:767px){.filter-bar-row{gap:5px;overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px;}
+      .filter-bar-row::-webkit-scrollbar{display:none;}}
+
+    /* ── Sort pill direction arrow ── */
+    .sort-pill .asc::after{content:' ↑';}
+    .sort-pill .desc::after{content:' ↓';}
+
+    /* ── Result count ── */
+    .result-count{font-size:11px;font-weight:700;color:var(--muted);padding:0 4px;}
   </style>
 </head>
 <body>
@@ -1291,11 +1318,17 @@ const S={
   regBikeTypes:[],   // one type preference per bike slot, e.g. ['Road','Hybrid']
   // staff queue
   showWalkIn:false,showResetTool:false,sfStatus:'all',sfSession:'all',wiSize:null,wiType:null,wiCC:'+966',
+  sfSort:'queue',sfSearch:'',sfPay:'all',sfSize:'all',
   // bikes
   showAddBike:false,editBikeId:null,bkTypeFilter:'all',bkSort:'name',
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],_bkName:'',
+  bkStatus:'all',bkSize:'all',
   // history
-  histStatus:'all',histPay:'all',histSess:'all',
+  histStatus:'all',histPay:'all',histSess:'all',histSort:'newest',histType:'all',histSize:'all',histSearch:'',
+  // my rides
+  myStatus:'all',mySort:'newest',
+  // sessions
+  sessSort:'date-asc',sessStatusFilter:'all',
   // modals
   modalRider:null,modalBike:null,
   // auth
@@ -2160,10 +2193,22 @@ function renderMyRides(){
   const completed=visible.filter(e=>e.status==='done');
   const totalPaid=visible.filter(e=>e.paid).reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
   const pending=visible.filter(e=>!e.paid&&e.status!=='cancelled').reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
-  // Assign personal order numbers chronologically, display newest first
+  // Assign personal order numbers chronologically
   const chronological=[...visible].sort((a,b)=>new Date(a.registeredAt)-new Date(b.registeredAt));
   const withIndex=chronological.map((e,i)=>({...e,orderNum:i+1}));
-  const displayOrder=[...withIndex].sort((a,b)=>new Date(b.registeredAt)-new Date(a.registeredAt));
+  // Apply filters + sort
+  let displayOrder=[...withIndex];
+  if(S.myStatus!=='all') displayOrder=displayOrder.filter(e=>e.status===S.myStatus);
+  if(S.mySort==='oldest') displayOrder.sort((a,b)=>new Date(a.registeredAt)-new Date(b.registeredAt));
+  else displayOrder.sort((a,b)=>new Date(b.registeredAt)-new Date(a.registeredAt));
+  const myStatusPills=['all','waiting','active','done'].map(s=>{
+    const l={all:t('filterAll'),waiting:t('filterWaiting'),active:t('filterOnBike'),done:t('filterDone')}[s];
+    return`<button class="filter-pill${S.myStatus===s?' active':''}" onclick="setMyStatus('${s}')">${l}</button>`;
+  }).join('');
+  const mySortPills=['newest','oldest'].map(k=>{
+    const lbl={newest:'Newest first',oldest:'Oldest first'}[k];
+    return`<button class="sort-pill${S.mySort===k?' active':''}" onclick="setMySort('${k}')">${lbl}</button>`;
+  }).join('');
   const rows=displayOrder.length?displayOrder.map(e=>{
     const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
     const grad=bike&&bike.colors?bikeGradient(bike.colors):null;
@@ -2219,6 +2264,15 @@ function renderMyRides(){
         <div class="rides-stat-num" style="color:var(--orange)">SAR ${pending}</div>
         <div class="rides-stat-label">${t('pendingPayment')}</div>
       </div>
+    </div>
+    <div class="filter-bar" style="margin-top:18px">
+      <div class="filter-bar-row">
+        <span class="filter-group-label">Status:</span>
+        ${myStatusPills}
+        <div class="filter-spacer"></div>
+        ${mySortPills}
+      </div>
+      ${displayOrder.length!==visible.length?`<div class="result-count">${displayOrder.length} of ${visible.length} rides</div>`:''}
     </div>
     <div class="table-wrapper" style="border-radius:14px;border:1px solid rgba(255,255,255,.07)"><table class="queue-table">
       <thead><tr>
@@ -2417,7 +2471,27 @@ function renderSessions(){
       </div>
     </div>`:'';
 
-  const rows=sessions.length?sessions.map(s=>{
+  let sessList=[...sessions];
+  if(S.sessStatusFilter!=='all') sessList=sessList.filter(s=>s.status===S.sessStatusFilter);
+  sessList.sort((a,b)=>{
+    if(S.sessSort==='date-desc') return new Date(b.session_date||b.id)-new Date(a.session_date||a.id);
+    if(S.sessSort==='bookings'){
+      const ba=getQueue().filter(e=>e.sessionId===a.id&&e.status!=='noshow'&&e.status!=='cancelled').length;
+      const bb=getQueue().filter(e=>e.sessionId===b.id&&e.status!=='noshow'&&e.status!=='cancelled').length;
+      return bb-ba;
+    }
+    if(S.sessSort==='capacity') return (b.capacity||12)-(a.capacity||12);
+    return new Date(a.session_date||a.id)-new Date(b.session_date||b.id);
+  });
+  const sessStatusPills=['all','open','closed'].map(s=>{
+    const l={all:t('filterAll'),open:t('statusOpen'),closed:t('statusClosed')}[s];
+    return`<button class="filter-pill${S.sessStatusFilter===s?' active':''}" onclick="setSessStatusFilter('${s}')">${l}</button>`;
+  }).join('');
+  const sessSortPills=['date-asc','date-desc','bookings','capacity'].map(k=>{
+    const lbl={['date-asc']:'Date ↑',['date-desc']:'Date ↓',bookings:'Bookings',capacity:'Capacity'}[k];
+    return`<button class="sort-pill${S.sessSort===k?' active':''}" onclick="setSessSort('${k}')">${lbl}</button>`;
+  }).join('');
+  const rows=sessList.length?sessList.map(s=>{
     const booked=getQueue().filter(e=>e.sessionId===s.id&&e.status!=='noshow'&&e.status!=='cancelled').length;
     const cap=s.capacity||12;
     const left=Math.max(0,cap-booked);
@@ -2453,6 +2527,16 @@ function renderSessions(){
       <button class="btn-primary" onclick="S.showAddSession=!S.showAddSession;renderSessions()">+ New Session</button>
     </div>
     ${addForm}
+    <div class="filter-bar">
+      <div class="filter-bar-row">
+        <span class="filter-group-label">Status:</span>
+        ${sessStatusPills}
+        <div class="filter-spacer"></div>
+        <span class="filter-group-label">${t('sortBy')}:</span>
+        ${sessSortPills}
+      </div>
+      ${sessList.length!==sessions.length?`<div class="result-count">${sessList.length} of ${sessions.length} sessions</div>`:''}
+    </div>
     <div class="table-wrapper">
       <table class="sess-admin-table">
         <thead><tr><th>${t('colDate')}</th><th>${t('colDay')}</th><th>${t('colCapacity')}</th><th>${t('colBookings')}</th><th>${t('colStatus')}</th><th>${t('colActions')}</th></tr></thead>
@@ -2524,7 +2608,18 @@ function renderStaffQueue(){
         nBike=base.filter(e=>e.status==='active').length,nDone=base.filter(e=>e.status==='done').length;
   let filtered=[...base];
   if(S.sfStatus!=='all')filtered=filtered.filter(e=>e.status===S.sfStatus);
-  filtered.sort((a,b)=>a.sessionId.localeCompare(b.sessionId)||a.queueNum-b.queueNum);
+  if(S.sfSize!=='all')  filtered=filtered.filter(e=>e.size===S.sfSize);
+  if(S.sfPay==='paid')  filtered=filtered.filter(e=>e.paid);
+  if(S.sfPay==='pending')filtered=filtered.filter(e=>!e.paid);
+  if(S.sfSearch.trim()){const q=S.sfSearch.trim().toLowerCase();filtered=filtered.filter(e=>e.name.toLowerCase().includes(q)||e.phone.includes(q));}
+  const sizeOrder={XS:0,S:1,M:2,L:3};
+  filtered.sort((a,b)=>{
+    if(S.sfSort==='name') return a.name.localeCompare(b.name);
+    if(S.sfSort==='size') return (sizeOrder[a.size]??9)-(sizeOrder[b.size]??9);
+    if(S.sfSort==='type') return a.typePreference.localeCompare(b.typePreference);
+    if(S.sfSort==='paid') return Number(b.paid)-Number(a.paid);
+    return a.sessionId.localeCompare(b.sessionId)||a.queueNum-b.queueNum;
+  });
   const nextRider=base.filter(e=>e.status==='waiting').sort((a,b)=>a.queueNum-b.queueNum)[0];
   const nextUp=nextRider?`<div class="next-up-banner">
     <div>
@@ -2537,6 +2632,16 @@ function renderStaffQueue(){
   const statusPills=['all','waiting','active','done','noshow'].map(s=>{
     const label={all:t('filterAll'),waiting:t('filterWaiting'),active:t('filterOnBike'),done:t('filterDone'),noshow:t('filterNoshow')}[s];
     return`<button class="filter-pill${S.sfStatus===s?' active':''}" onclick="setSfStatus('${s}')">${label}</button>`;
+  }).join('');
+  const sizePills=['all','XS','S','M','L'].map(sz=>
+    `<button class="filter-pill${S.sfSize===sz?' active':''}" onclick="setSfSize('${sz}')">${sz==='all'?t('filterAll'):sz}</button>`).join('');
+  const payPills=['all','paid','pending'].map(p=>{
+    const lbl={all:t('filterAll'),paid:t('paidLabel'),pending:t('pendingLabel')}[p];
+    return`<button class="filter-pill${S.sfPay===p?' active':''}" onclick="setSfPay('${p}')">${lbl}</button>`;
+  }).join('');
+  const sortPillsQ=['queue','name','size','type','paid'].map(k=>{
+    const lbl={queue:'#',name:t('sortName'),size:t('sortSize'),type:t('sortType'),paid:t('filterPaid')}[k];
+    return`<button class="sort-pill${S.sfSort===k?' active':''}" onclick="setSfSort('${k}')">${lbl}${S.sfSort===k?'<span class="sort-arrow">↑</span>':''}</button>`;
   }).join('');
   const sessOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>${t('allSessions')}</option>`+
     sessions.map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${s.display}</option>`).join('');
@@ -2614,8 +2719,32 @@ function renderStaffQueue(){
       <div class="stat-card"><div class="stat-num" style="color:var(--muted)">${nDone}</div><div class="stat-label">${t('doneStat')}</div></div>
     </div>
     ${nextUp}
-    <div class="filter-row">${statusPills}<div class="filter-spacer"></div>
-      <select style="width:auto;min-width:180px" onchange="setSfSession(this.value)">${sessOpts}</select></div>
+    <div class="filter-bar">
+      <div class="filter-bar-row">
+        <span class="filter-group-label">Status:</span>
+        ${statusPills}
+        <div class="filter-spacer"></div>
+        <select style="width:auto;min-width:160px;font-size:12px" onchange="setSfSession(this.value)">${sessOpts}</select>
+      </div>
+      <div class="filter-bar-row">
+        <span class="filter-group-label">Size:</span>
+        ${sizePills}
+        <div class="filter-spacer"></div>
+        <span class="filter-group-label">Pay:</span>
+        ${payPills}
+      </div>
+      <div class="filter-bar-row">
+        <span class="filter-group-label">${t('sortBy')}:</span>
+        ${sortPillsQ}
+        <div class="filter-spacer"></div>
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="white" stroke-width="1.4"/><line x1="9.5" y1="9.5" x2="13" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <input class="search-input" placeholder="Search name / phone…" value="${esc(S.sfSearch)}"
+            oninput="setSfSearch(this.value)">
+        </div>
+      </div>
+      ${filtered.length!==base.length?`<div class="result-count">${filtered.length} of ${base.length} riders</div>`:''}
+    </div>
     <div class="table-wrapper"><table class="queue-table">
       <thead><tr><th>#</th><th>${t('colRider')}</th><th>${t('colWants')}</th><th class="hide-mobile">${t('colSession')}</th><th>${t('colBike')}</th><th>${t('colPayment')}</th><th>${t('colStatus')}</th><th></th></tr></thead>
       <tbody>${rows}${emptyRow}</tbody>
@@ -2624,6 +2753,10 @@ function renderStaffQueue(){
 
 function setSfStatus(v){S.sfStatus=v;renderStaffQueue();}
 function setSfSession(v){S.sfSession=v;renderStaffQueue();}
+function setSfSort(v){S.sfSort=v;renderStaffQueue();}
+function setSfSearch(v){S.sfSearch=v;renderStaffQueue();}
+function setSfPay(v){S.sfPay=v;renderStaffQueue();}
+function setSfSize(v){S.sfSize=v;renderStaffQueue();}
 function setWi(k,v){S[k]=v;renderStaffQueue();}
 function toggleResetTool(){S.showResetTool=!S.showResetTool;renderStaffQueue();}
 async function staffShowResetCode(){
@@ -2788,6 +2921,12 @@ function renderBikes(){
         nMtn=bikes.filter(b=>b.type==='Mountain').length;
   const typePills=['all','Road','Hybrid','Mountain'].map(ty=>
     `<button class="filter-pill${S.bkTypeFilter===ty?' active':''}" onclick="setBkFilter('${ty}')">${ty==='all'?t('filterAll'):typeLabel(ty)}</button>`).join('');
+  const statusPillsBk=['all','available','in-use','maintenance'].map(s=>{
+    const l={all:t('filterAll'),available:t('availLabel'),'in-use':t('inUseLabel'),maintenance:t('maintLabel')}[s];
+    return`<button class="filter-pill${S.bkStatus===s?' active':''}" onclick="setBkStatus('${s}')">${l}</button>`;
+  }).join('');
+  const sizePillsBk=['all','XS','S','M','L'].map(sz=>
+    `<button class="filter-pill${S.bkSize===sz?' active':''}" onclick="setBkSize('${sz}')">${sz==='all'?t('filterAll'):sz}</button>`).join('');
   const isEdit=!!S.editBikeId;const editBike=isEdit?bikes.find(b=>b.id===S.editBikeId):null;
   const curSize=(isEdit&&editBike)?(S.addBikeSize||editBike.size):S.addBikeSize;
   const sizeOpts=['XS','S','M','L'].map(v=>`<option value="${v}"${curSize===v?' selected':''}>${v}</option>`).join('');
@@ -2817,7 +2956,10 @@ function renderBikes(){
     </div>
   </div>`:'';
   // Filter
-  let filtered=S.bkTypeFilter!=='all'?bikes.filter(b=>b.type===S.bkTypeFilter):[...bikes];
+  let filtered=[...bikes];
+  if(S.bkTypeFilter!=='all') filtered=filtered.filter(b=>b.type===S.bkTypeFilter);
+  if(S.bkStatus!=='all')     filtered=filtered.filter(b=>b.status===S.bkStatus);
+  if(S.bkSize!=='all')       filtered=filtered.filter(b=>b.size===S.bkSize);
   // Sort
   const sortOrder={available:0,'in-use':1,maintenance:2};
   const sizeOrder={XS:0,S:1,M:2,L:3};
@@ -2868,8 +3010,24 @@ function renderBikes(){
       <div class="stat-card"><div class="stat-num" style="color:#a78bfa">${nHybrid}</div><div class="stat-label">${typeLabel('Hybrid')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--orange)">${nMtn}</div><div class="stat-label">${typeLabel('Mountain')}</div></div>
     </div>
-    <div class="filter-row">${typePills}</div>
-    <div class="sort-bar"><span class="sort-label">${t('sortBy')}:</span>${sortPills}</div>
+    <div class="filter-bar">
+      <div class="filter-bar-row">
+        <span class="filter-group-label">Type:</span>
+        ${typePills}
+      </div>
+      <div class="filter-bar-row">
+        <span class="filter-group-label">Status:</span>
+        ${statusPillsBk}
+        <div class="filter-spacer"></div>
+        <span class="filter-group-label">Size:</span>
+        ${sizePillsBk}
+      </div>
+      <div class="filter-bar-row">
+        <span class="filter-group-label">${t('sortBy')}:</span>
+        ${sortPills}
+      </div>
+      ${filtered.length!==bikes.length?`<div class="result-count">${filtered.length} of ${bikes.length} bikes</div>`:''}
+    </div>
     <div class="bikes-list">${bkRows}</div>`;
   const nameEl=document.getElementById('bk-name');
   if(nameEl)nameEl.addEventListener('input',e=>S._bkName=e.target.value);
@@ -2930,13 +3088,31 @@ function renderHistory(){
   if(S.histStatus!=='all') filtered=filtered.filter(e=>e.status===S.histStatus);
   if(S.histPay==='paid')   filtered=filtered.filter(e=>e.paid);
   if(S.histPay==='pending')filtered=filtered.filter(e=>!e.paid&&e.status==='done');
-  filtered.sort((a,b)=>b.registeredAt-a.registeredAt);
+  if(S.histType!=='all')   filtered=filtered.filter(e=>e.typePreference===S.histType);
+  if(S.histSize!=='all')   filtered=filtered.filter(e=>e.size===S.histSize);
+  if(S.histSearch.trim()){const q=S.histSearch.trim().toLowerCase();filtered=filtered.filter(e=>e.name.toLowerCase().includes(q)||e.phone.includes(q)||(e.email||'').toLowerCase().includes(q));}
+  const sizeOrdH={XS:0,S:1,M:2,L:3};
+  filtered.sort((a,b)=>{
+    if(S.histSort==='oldest') return new Date(a.registeredAt)-new Date(b.registeredAt);
+    if(S.histSort==='name')   return a.name.localeCompare(b.name);
+    if(S.histSort==='amount-hi') return (b.price||0)-(a.price||0);
+    if(S.histSort==='amount-lo') return (a.price||0)-(b.price||0);
+    return new Date(b.registeredAt)-new Date(a.registeredAt);
+  });
   const statusPills=['all','done','noshow','cancelled'].map(s=>{
     const l={all:t('filterAll'),done:t('filterDone'),noshow:t('filterNoshow'),cancelled:t('statusCancelled')}[s];
     return`<button class="filter-pill${S.histStatus===s?' active':''}" onclick="setHistStatus('${s}')">${l}</button>`;}).join('');
   const payPills=['all','paid','pending'].map(s=>{
     const l={all:t('filterAll'),paid:t('filterPaid'),pending:t('pendingLabel')}[s];
     return`<button class="filter-pill${S.histPay===s?' active':''}" onclick="setHistPay('${s}')">${l}</button>`;}).join('');
+  const typePills=['all','Road','Hybrid','Mountain','Any'].map(ty=>
+    `<button class="filter-pill${S.histType===ty?' active':''}" onclick="setHistType('${ty}')">${ty==='all'?t('filterAll'):typeLabel(ty)}</button>`).join('');
+  const sizePillsH=['all','XS','S','M','L'].map(sz=>
+    `<button class="filter-pill${S.histSize===sz?' active':''}" onclick="setHistSize('${sz}')">${sz==='all'?t('filterAll'):sz}</button>`).join('');
+  const sortPillsH=['newest','oldest','name','amount-hi','amount-lo'].map(k=>{
+    const lbl={newest:'Newest',oldest:'Oldest',name:t('sortName'),'amount-hi':'SAR High','amount-lo':'SAR Low'}[k];
+    return`<button class="sort-pill${S.histSort===k?' active':''}" onclick="setHistSort('${k}')">${lbl}${S.histSort===k?'<span class="sort-arrow">↑</span>':''}</button>`;
+  }).join('');
   const sessOpts=`<option value="all"${S.histSess==='all'?' selected':''}>${t('allSessions')}</option>`+
     sessions.map(s=>`<option value="${s.id}"${S.histSess===s.id?' selected':''}>${s.day} ${s.display}</option>`).join('');
   const rows=filtered.map(e=>{
@@ -2996,10 +3172,36 @@ function renderHistory(){
       <div class="stat-card"><div class="stat-num" style="color:var(--orange)">${nPend}</div><div class="stat-label">${t('pendingLabel')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--red)">${nNoShow}</div><div class="stat-label">${t('filterNoshow')}</div></div>
     </div>
-    <div class="filter-row">${statusPills}
-      <div style="width:1px;height:20px;background:var(--border);margin:0 4px"></div>
-      ${payPills}<div class="filter-spacer"></div>
-      <select style="width:auto;min-width:180px" onchange="setHistSess(this.value)">${sessOpts}</select></div>
+    <div class="filter-bar">
+      <div class="filter-bar-row">
+        <span class="filter-group-label">Status:</span>
+        ${statusPills}
+        <div class="filter-spacer"></div>
+        <select style="width:auto;min-width:160px;font-size:12px" onchange="setHistSess(this.value)">${sessOpts}</select>
+      </div>
+      <div class="filter-bar-row">
+        <span class="filter-group-label">Pay:</span>
+        ${payPills}
+        <div class="filter-spacer"></div>
+        <span class="filter-group-label">Type:</span>
+        ${typePills}
+      </div>
+      <div class="filter-bar-row">
+        <span class="filter-group-label">Size:</span>
+        ${sizePillsH}
+      </div>
+      <div class="filter-bar-row">
+        <span class="filter-group-label">${t('sortBy')}:</span>
+        ${sortPillsH}
+        <div class="filter-spacer"></div>
+        <div class="search-wrap">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="white" stroke-width="1.4"/><line x1="9.5" y1="9.5" x2="13" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <input class="search-input" placeholder="Search name / phone…" value="${esc(S.histSearch)}"
+            oninput="setHistSearch(this.value)">
+        </div>
+      </div>
+      ${filtered.length!==hist.length?`<div class="result-count">${filtered.length} of ${hist.length} records</div>`:''}
+    </div>
     <div class="table-wrapper"><table class="queue-table">
       <thead><tr>
         <th>#</th>
@@ -3018,6 +3220,16 @@ function renderHistory(){
 function setHistStatus(v){S.histStatus=v;renderHistory();}
 function setHistPay(v){S.histPay=v;renderHistory();}
 function setHistSess(v){S.histSess=v;renderHistory();}
+function setHistSort(v){S.histSort=v;renderHistory();}
+function setHistType(v){S.histType=v;renderHistory();}
+function setHistSize(v){S.histSize=v;renderHistory();}
+function setHistSearch(v){S.histSearch=v;renderHistory();}
+function setMyStatus(v){S.myStatus=v;renderMyRides();}
+function setMySort(v){S.mySort=v;renderMyRides();}
+function setSessSort(v){S.sessSort=v;renderSessions();}
+function setSessStatusFilter(v){S.sessStatusFilter=v;renderSessions();}
+function setBkStatus(v){S.bkStatus=v;renderBikes();}
+function setBkSize(v){S.bkSize=v;renderBikes();}
 
 function showReceipt(id){
   const e=getQueue().find(x=>x.id===id);if(!e)return;
