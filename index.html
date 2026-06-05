@@ -367,6 +367,24 @@
 
     /* ── BIKES ───────────────────────────────────────────── */
     .bikes-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:14px;}
+    /* ── BIKE LIST ───────────────────────────────────────────── */
+    .bikes-list{display:flex;flex-direction:column;gap:0;background:linear-gradient(160deg,#181818,#151515);border:1px solid rgba(255,255,255,.07);border-radius:14px;overflow:hidden;}
+    .bike-list-row{display:grid;grid-template-columns:4px 40px 1fr auto auto auto auto;align-items:center;gap:0 16px;padding:14px 18px;border-bottom:1px solid rgba(255,255,255,.04);transition:background .15s;position:relative;}
+    .bike-list-row:last-child{border-bottom:none;}
+    .bike-list-row:hover{background:rgba(255,255,255,.02);}
+    .bike-list-strip{grid-column:1;align-self:stretch;border-radius:4px 0 0 4px;margin:-14px 0 -14px -18px;}
+    .bike-list-dot-col{grid-column:2;display:flex;align-items:center;justify-content:center;}
+    .bike-list-info{grid-column:3;min-width:0;}
+    .bike-list-name{font-size:14px;font-weight:900;letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .bike-list-meta{display:flex;align-items:center;gap:7px;margin-top:4px;flex-wrap:wrap;}
+    .bike-list-status{grid-column:4;font-size:11px;font-weight:800;white-space:nowrap;}
+    .bike-list-actions{grid-column:5/8;display:flex;gap:6px;justify-content:flex-end;flex-shrink:0;}
+    .sort-bar{display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
+    .sort-label{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
+    .sort-pill{padding:5px 12px;background:#1a1a1a;border:1px solid rgba(255,255,255,.08);border-radius:20px;color:var(--muted);font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;}
+    .sort-pill:hover{border-color:rgba(110,232,154,.35);color:rgba(255,255,255,.8);}
+    .sort-pill.active{background:rgba(110,232,154,.1);border-color:rgba(110,232,154,.4);color:var(--green);}
+    .sort-pill .sort-arrow{font-size:10px;margin-left:4px;opacity:.7;}
     .bike-card{background:linear-gradient(145deg,#1a1a1a,#161616);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:7px;transition:border-color .2s,transform .2s,box-shadow .2s;box-shadow:0 2px 12px rgba(0,0,0,.2);}
     .bike-card:hover{border-color:rgba(255,255,255,.14);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.3);}
     .bike-card-top{display:flex;align-items:center;justify-content:space-between;}
@@ -530,6 +548,10 @@
       .bike-name{font-size:13px;}
       .bike-meta{font-size:11px;}
       .bike-actions{gap:4px;flex-wrap:wrap;}
+      .bike-list-row{grid-template-columns:4px 32px 1fr auto;gap:0 10px;padding:12px 14px;}
+      .bike-list-actions{grid-column:1/-1;display:flex;gap:5px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.04);}
+      .bike-list-status{display:none;}
+      .sort-bar{gap:5px;}
 
       /* ── Tables ── */
       .hide-mobile{display:none!important;}
@@ -756,6 +778,7 @@ en:{
   noBikes:'No bikes found. Add your first bike above.',
   historyTitle:'Ride History',historySub:'Log of all completed and no-show rides. Send receipts directly to customers.',
   filterPaid:'Paid',filterUnpaid:'Unpaid',filterCancelled:'Cancelled',
+  sortBy:'Sort by',sortName:'Name',sortType:'Type',sortSize:'Size',sortStatus:'Status',
   sendReceipt:'Receipt',noHistory:'No riders match the current filters.',
   assignBikeTitle:'Assign Bike',confirmCheckin:'Confirm & Check In',
   pinTitle:'Staff Access',pinSub:'Enter the 4-digit PIN to access the staff panel.',
@@ -894,6 +917,7 @@ ar:{
   noBikes:'لا توجد دراجات. أضف أول دراجة أعلاه.',
   historyTitle:'سجل الرحلات',historySub:'سجل جميع الرحلات المكتملة والغيابات.',
   filterPaid:'مدفوع',filterUnpaid:'غير مدفوع',filterCancelled:'ملغي',
+  sortBy:'ترتيب حسب',sortName:'الاسم',sortType:'النوع',sortSize:'المقاس',sortStatus:'الحالة',
   sendReceipt:'إيصال',noHistory:'لا يوجد راكبون يطابقون الفلتر الحالي.',
   assignBikeTitle:'تخصيص دراجة',confirmCheckin:'تأكيد وتسجيل الدخول',
   pinTitle:'دخول الموظفين',pinSub:'أدخل الرقم السري المكون من 4 أرقام للدخول إلى لوحة الموظفين.',
@@ -1239,7 +1263,7 @@ const S={
   // staff queue
   showWalkIn:false,sfStatus:'all',sfSession:'all',wiSize:null,wiType:null,wiCC:'+966',
   // bikes
-  showAddBike:false,editBikeId:null,bkTypeFilter:'all',
+  showAddBike:false,editBikeId:null,bkTypeFilter:'all',bkSort:'name',
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],_bkName:'',
   // history
   histStatus:'all',histPay:'all',histSess:'all',
@@ -2625,32 +2649,47 @@ function renderBikes(){
       <button class="btn-secondary" onclick="cancelBikeForm()">${t('cancelBtn')}</button>
     </div>
   </div>`:'';
-  const filtered=S.bkTypeFilter!=='all'?bikes.filter(b=>b.type===S.bkTypeFilter):bikes;
-  const bkCards=filtered.length?filtered.map(b=>{
+  // Filter
+  let filtered=S.bkTypeFilter!=='all'?bikes.filter(b=>b.type===S.bkTypeFilter):[...bikes];
+  // Sort
+  const sortOrder={available:0,'in-use':1,maintenance:2};
+  const sizeOrder={XS:0,S:1,M:2,L:3};
+  filtered.sort((a,b)=>{
+    if(S.bkSort==='type')  return a.type.localeCompare(b.type)||a.name.localeCompare(b.name);
+    if(S.bkSort==='size')  return (sizeOrder[a.size]??9)-(sizeOrder[b.size]??9)||a.name.localeCompare(b.name);
+    if(S.bkSort==='status')return (sortOrder[a.status]??9)-(sortOrder[b.status]??9)||a.name.localeCompare(b.name);
+    return a.name.localeCompare(b.name); // default: name
+  });
+  const sortPills=['name','type','size','status'].map(k=>{
+    const labels={name:t('sortName'),type:t('sortType'),size:t('sortSize'),status:t('sortStatus')};
+    const active=S.bkSort===k;
+    return`<button class="sort-pill${active?' active':''}" onclick="setBkSort('${k}')">${labels[k]}${active?'<span class="sort-arrow">↑</span>':''}</button>`;
+  }).join('');
+  const bkRows=filtered.length?filtered.map(b=>{
     const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-orange':'dot-red';
     const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
     const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--orange)':'var(--red)';
     const grad=bikeGradient(b.colors||['#6ee89a']);
-    return`<div class="bike-card" style="display:flex;flex-direction:column;gap:0">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">
-        <div style="min-width:0">
-          <div class="bike-name" style="font-size:16px">${esc(b.name)}</div>
-          <div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap">
-            ${typeBadge(b.type)}
-            <span class="bike-meta">${t('frameSizeLabel')} ${b.size}</span>
-          </div>
+    const stripColor=(b.colors&&b.colors[0])||'#6ee89a';
+    return`<div class="bike-list-row">
+      <div class="bike-list-strip" style="background:${stripColor}"></div>
+      <div class="bike-list-dot-col"><span class="avail-dot ${dot}"></span></div>
+      <div class="bike-list-info">
+        <div class="bike-list-name">${esc(b.name)}</div>
+        <div class="bike-list-meta">
+          ${typeBadge(b.type)}
+          <span class="bike-meta">${b.size}</span>
+          <div style="height:3px;width:32px;border-radius:2px;background:${grad}"></div>
         </div>
-        <span class="avail-dot ${dot}" style="margin-top:4px;flex-shrink:0"></span>
       </div>
-      <div class="bike-color-strip" style="background:${grad};margin-bottom:8px"></div>
-      <div style="font-size:12px;font-weight:800;color:${sclr};margin-bottom:10px">${slbl}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:auto">
+      <div class="bike-list-status" style="color:${sclr}">${slbl}</div>
+      <div class="bike-list-actions">
         <button class="btn-sm btn-blue" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
         <button class="btn-sm btn-orange" onclick="toggleMaint('${b.id}')">${b.status==='maintenance'?t('restoreBtn'):t('maintBtn')}</button>
-        <button class="btn-sm btn-red" style="grid-column:1/-1" ${b.status!=='in-use'?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
+        <button class="btn-sm btn-red" ${b.status!=='in-use'?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
       </div>
     </div>`;
-  }).join(''):`<div class="empty-state" style="grid-column:1/-1">${t('noBikes')}</div>`;
+  }).join(''):`<div class="empty-state">${t('noBikes')}</div>`;
   document.getElementById('tab-bikes').innerHTML=`
     <div class="section-header"><div class="page-title">${t('bikesTitle')}</div><button class="btn-primary" onclick="toggleAddBike()">${t('addBike')}</button></div>
     ${addForm}
@@ -2663,7 +2702,8 @@ function renderBikes(){
       <div class="stat-card"><div class="stat-num" style="color:var(--orange)">${nMtn}</div><div class="stat-label">${typeLabel('Mountain')}</div></div>
     </div>
     <div class="filter-row">${typePills}</div>
-    <div class="bikes-grid">${bkCards}</div>`;
+    <div class="sort-bar"><span class="sort-label">${t('sortBy')}:</span>${sortPills}</div>
+    <div class="bikes-list">${bkRows}</div>`;
   const nameEl=document.getElementById('bk-name');
   if(nameEl)nameEl.addEventListener('input',e=>S._bkName=e.target.value);
 }
@@ -2671,6 +2711,7 @@ function renderBikes(){
 function toggleAddBike(){S.showAddBike=!S.showAddBike;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S._bkName='';renderBikes();}
 function cancelBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeColors=['#6ee89a'];S._bkName='';renderBikes();}
 function setBkFilter(v){S.bkTypeFilter=v;renderBikes();}
+function setBkSort(v){S.bkSort=v;renderBikes();}
 async function addBike(){
   const name=document.getElementById('bk-name').value.trim();const size=document.getElementById('bk-size').value||'M';
   if(!name){toast(t('errBikeName'),'error');return;}
