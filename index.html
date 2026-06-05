@@ -328,7 +328,7 @@
     .table-wrapper{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:14px;border:1px solid rgba(255,255,255,.07);box-shadow:0 4px 20px rgba(0,0,0,.2);}
     .queue-table{width:100%;border-collapse:collapse;background:linear-gradient(160deg,#191919,#161616);}
     .queue-table th{font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;text-align:left;padding:12px 16px;border-bottom:1px solid rgba(255,255,255,.06);white-space:nowrap;background:#131313;}
-    .queue-table td{padding:13px 16px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle;}
+    .queue-table td{padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:top;}
     .queue-table tbody tr:last-child td{border-bottom:none;}
     .queue-table tbody tr:hover td{background:rgba(255,255,255,.018);}
     .queue-table tbody tr.row-active{background:rgba(110,232,154,.04);}
@@ -2005,16 +2005,37 @@ function renderMyRides(){
   const displayOrder=[...withIndex].sort((a,b)=>new Date(b.registeredAt)-new Date(a.registeredAt));
   const rows=displayOrder.length?displayOrder.map(e=>{
     const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
+    const grad=bike&&bike.colors?bikeGradient(bike.colors):null;
     const payColor=e.paid?'var(--green)':'var(--orange)';
     const canCancel=e.status==='waiting';
+    const payBadge=e.paid
+      ?`<span style="font-size:10px;font-weight:900;color:var(--green);background:rgba(110,232,154,.12);border:1px solid rgba(110,232,154,.25);padding:2px 8px;border-radius:20px;white-space:nowrap">${t('paidLabel')} ✓</span>`
+      :`<span style="font-size:10px;font-weight:900;color:var(--orange);background:rgba(224,136,40,.08);border:1px solid rgba(224,136,40,.2);padding:2px 8px;border-radius:20px;white-space:nowrap">${t('pendingLabel')}</span>`;
     return`<tr>
-      <td><span class="queue-num-cell">#${e.orderNum}</span></td>
-      <td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>
-      <td>${bike?esc(bike.name):'<span style="color:var(--muted)">-</span>'}</td>
-      <td style="white-space:nowrap">${e.size} &middot; ${typeBadge(e.typePreference)}</td>
-      <td style="font-weight:800;color:${payColor}">${e.paid?'SAR '+(e.price||DEFAULT_PRICE):'Pending'}</td>
+      <td>
+        <span class="queue-num-cell">#${e.queueNum}</span>
+        <div style="font-size:10px;color:var(--muted);margin-top:3px;font-weight:600">${t('rideHistory').split(' ')[0]} ${e.orderNum}</div>
+      </td>
+      <td>
+        <div style="font-weight:800;font-size:13px">${dayLabel(e.sessionDay)||''}</div>
+        <div style="color:var(--muted);font-size:12px;margin-top:1px">${shortDate(e.sessionDate)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;letter-spacing:.3px">09:00 – 11:00</div>
+      </td>
+      <td>
+        ${grad?`<div style="height:3px;border-radius:2px;background:${grad};margin-bottom:5px;width:44px"></div>`:''}
+        <div style="font-weight:700;font-size:13px">${bike?esc(bike.name):`<span style="color:var(--muted)">—</span>`}</div>
+        ${bike?`<div style="margin-top:3px">${typeBadge(bike.type)}</div>`:''}
+      </td>
+      <td style="white-space:nowrap">
+        <div style="font-weight:800;font-size:14px">${e.size}</div>
+        <div style="margin-top:4px">${typeBadge(e.typePreference)}</div>
+      </td>
+      <td>
+        <div style="font-weight:900;font-size:16px;color:${payColor}">SAR ${e.price||DEFAULT_PRICE}</div>
+        <div style="margin-top:4px">${payBadge}</div>
+      </td>
       <td>${statusBadge(e.status)}</td>
-      <td>${canCancel?`<button class="btn-sm btn-red" onclick="cancelBooking('${e.id}')">${t('cancelBooking')}</button>`:'<span style="color:var(--muted);font-size:12px">-</span>'}</td>
+      <td>${canCancel?`<button class="btn-sm btn-red" onclick="cancelBooking('${e.id}')">${t('cancelBooking')}</button>`:`<span style="color:var(--muted);font-size:13px">—</span>`}</td>
     </tr>`;
   }).join(''):`<tr><td colspan="7" class="empty-state">${t('noRides')}</td></tr>`;
   document.getElementById('tab-myrides').innerHTML=`
@@ -2038,13 +2059,18 @@ function renderMyRides(){
         <div class="rides-stat-label">${t('pendingPayment')}</div>
       </div>
     </div>
-    <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:16px 0">
-      <div style="padding:0 20px 12px;font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${t('rideHistory')}</div>
-      <div class="table-wrapper"><table class="queue-table">
-        <thead><tr><th>#</th><th class="hide-mobile">${t('colSession')}</th><th>${t('colBike')}</th><th>${t('colSizeType')}</th><th>${t('colPayment')}</th><th>${t('colStatus')}</th><th></th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>
-    </div>`;
+    <div class="table-wrapper" style="border-radius:14px;border:1px solid rgba(255,255,255,.07)"><table class="queue-table">
+      <thead><tr>
+        <th>#</th>
+        <th>${t('colSession')}</th>
+        <th>${t('colBike')}</th>
+        <th>${t('colSizeType')}</th>
+        <th>${t('colPayment')}</th>
+        <th>${t('colStatus')}</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
 }
 
 /* ══════════════════════════════════════════════
@@ -2697,28 +2723,52 @@ function renderHistory(){
     sessions.map(s=>`<option value="${s.id}"${S.histSess===s.id?' selected':''}>${s.day} ${s.display}</option>`).join('');
   const rows=filtered.map(e=>{
     const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
+    const grad=bike&&bike.colors?bikeGradient(bike.colors):null;
     const payColor=e.paid?'var(--green)':'var(--orange)';
     const hasEmail=e.email&&e.email.length>0;
     const wiTag=e.walkIn?`<span class="walk-in-badge">${t('addWalkin').replace(/^\+ /,'')}</span>`:'';
+    const regDate=e.registeredAt?new Date(e.registeredAt).toLocaleDateString('en-CA',{timeZone:KSA_TZ}):'';
     return`<tr>
-      <td><span class="queue-num-cell">#${e.queueNum}</span></td>
-      <td><div class="rider-name">${esc(e.name)}${wiTag}</div>
-        <div class="rider-sub">${hasEmail?esc(e.email):`<span style="font-style:italic">${t('noEmailLabel')}</span>`}</div>
-        <div class="rider-sub">${esc(e.phone)}</div></td>
-      <td class="hide-mobile">${dayLabel(e.sessionDay)||''}<br><span style="color:var(--muted);font-size:12px">${shortDate(e.sessionDate)}</span></td>
-      <td>${bike?esc(bike.name):'<span style="color:var(--muted)">-</span>'}</td>
-      <td><label class="pay-cell" onclick="event.stopPropagation()">
-        <input class="pay-cb" type="checkbox" ${e.paid?'checked':''} onchange="togglePayment('${e.id}',this.checked)">
-        <span class="pay-label" style="color:${payColor}">SAR ${e.price||DEFAULT_PRICE} &middot; ${e.paid?t('paidLabel'):t('pendingLabel')}</span>
-      </label></td>
+      <td>
+        <span class="queue-num-cell">#${e.queueNum}</span>
+        ${regDate?`<div style="font-size:10px;color:var(--muted);margin-top:3px;font-weight:600">${regDate}</div>`:''}
+      </td>
+      <td>
+        <div class="rider-name">${esc(e.name)}${wiTag}</div>
+        <div class="rider-sub" style="margin-top:3px">${esc(e.phone)||'—'}</div>
+        <div class="rider-sub">${hasEmail?esc(e.email):`<span style="font-style:italic;color:var(--muted)">${t('noEmailLabel')}</span>`}</div>
+      </td>
+      <td class="hide-mobile">
+        <div style="font-weight:800;font-size:13px">${dayLabel(e.sessionDay)||''}</div>
+        <div style="color:var(--muted);font-size:12px;margin-top:1px">${shortDate(e.sessionDate)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">09:00 – 11:00</div>
+      </td>
+      <td>
+        ${grad?`<div style="height:3px;border-radius:2px;background:${grad};margin-bottom:5px;width:44px"></div>`:''}
+        <div style="font-weight:700;font-size:13px">${bike?esc(bike.name):`<span style="color:var(--muted)">—</span>`}</div>
+        ${bike?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${typeLabel(bike.type)}</div>`:''}
+      </td>
+      <td style="white-space:nowrap">
+        <div style="font-weight:800;font-size:14px">${e.size}</div>
+        <div style="margin-top:4px">${typeBadge(e.typePreference)}</div>
+      </td>
+      <td>
+        <label class="pay-cell" onclick="event.stopPropagation()" style="flex-direction:column;align-items:flex-start;gap:5px">
+          <span style="font-weight:900;font-size:15px;color:${payColor}">SAR ${e.price||DEFAULT_PRICE}</span>
+          <span class="pay-cell" style="gap:5px">
+            <input class="pay-cb" type="checkbox" ${e.paid?'checked':''} onchange="togglePayment('${e.id}',this.checked)">
+            <span class="pay-label" style="color:${payColor}">${e.paid?t('paidLabel'):t('pendingLabel')}</span>
+          </span>
+        </label>
+      </td>
       <td>${statusBadge(e.status)}</td>
       <td><div class="actions-cell">
         ${hasEmail&&e.status==='done'?`<button class="btn-sm btn-purple" onclick="showReceipt('${e.id}')">${t('sendReceipt')}</button>`
-          :`<span style="font-size:11px;color:var(--muted)">${e.status==='noshow'?'-':hasEmail?'':t('noEmailLabel')}</span>`}
+          :`<span style="font-size:11px;color:var(--muted)">${e.status==='noshow'?'—':hasEmail?'':t('noEmailLabel')}</span>`}
       </div></td>
     </tr>`;
   }).join('');
-  const emptyRow=filtered.length===0?`<tr><td colspan="7" class="empty-state">${t('noHistory')}</td></tr>`:'';
+  const emptyRow=filtered.length===0?`<tr><td colspan="8" class="empty-state">${t('noHistory')}</td></tr>`:'';
   document.getElementById('tab-history').innerHTML=`
     <div class="page-title">${t('historyTitle')}</div>
     <div class="page-sub">${t('historySub')}</div>
@@ -2733,7 +2783,16 @@ function renderHistory(){
       ${payPills}<div class="filter-spacer"></div>
       <select style="width:auto;min-width:180px" onchange="setHistSess(this.value)">${sessOpts}</select></div>
     <div class="table-wrapper"><table class="queue-table">
-      <thead><tr><th>#</th><th>${t('colRider')}</th><th class="hide-mobile">${t('colSession')}</th><th>${t('colBike')}</th><th>${t('colPayment')}</th><th>${t('colStatus')}</th><th>${t('colActions')}</th></tr></thead>
+      <thead><tr>
+        <th>#</th>
+        <th>${t('colRider')}</th>
+        <th class="hide-mobile">${t('colSession')}</th>
+        <th>${t('colBike')}</th>
+        <th>${t('colSizeType')}</th>
+        <th>${t('colPayment')}</th>
+        <th>${t('colStatus')}</th>
+        <th>${t('colActions')}</th>
+      </tr></thead>
       <tbody>${rows}${emptyRow}</tbody>
     </table></div>`;
 }
