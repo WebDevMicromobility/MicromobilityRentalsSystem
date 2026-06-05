@@ -136,7 +136,15 @@
     .rides-stat-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
     .rides-empty{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:40px;text-align:center;color:var(--muted);font-size:14px;font-weight:600;}
 
-    /* ── SESSION PICKER ──────────────────────────────────── */
+    /* ── PRICE PREVIEW ───────────────────────────────────── */
+    .price-preview{display:flex;align-items:center;justify-content:space-between;background:rgba(110,232,154,.08);border:1px solid rgba(110,232,154,.28);border-radius:10px;padding:14px 18px;margin-bottom:14px;}
+    .price-preview-breakdown{font-size:13px;color:var(--muted);font-weight:600;}
+    .price-preview-total{font-size:20px;font-weight:900;color:var(--green);}
+    .qty-stepper{display:flex;align-items:center;gap:10px;}
+    .qty-btn{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--s3);color:var(--text);font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .2s;}
+    .qty-btn:hover{border-color:var(--green);}
+    .qty-val{font-size:18px;font-weight:900;min-width:24px;text-align:center;}
+    /* ── SESSION PICKER ───────────────────────────────────── */
     .session-picker-wrap{margin-bottom:24px;}
     .session-picker-label{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;}
     .session-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
@@ -619,7 +627,7 @@ const S={
   pinDigits:'',
   pinError:false,
   // register
-  _rDate:'',selSession:null,regType:null,lastTicket:null,
+  _rDate:'',selSession:null,regType:null,regQty:1,lastTicket:null,
   _rName:'',_rEmail:'',_rPhone:'',_rCC:'+966',_rHeight:'',
   // staff queue
   showWalkIn:false,sfStatus:'all',sfSession:'all',wiSize:null,wiType:null,wiCC:'+966',
@@ -1106,6 +1114,19 @@ function renderRegister(){
       </div>
       <div class="form-group full" style="margin-bottom:16px"><label>Bike Type Preference</label>
         <div class="toggle-group">${typeBtns}</div></div>
+      <div class="form-row" style="margin-bottom:16px">
+        <div class="form-group"><label>Number of Bikes</label>
+          <div class="qty-stepper">
+            <button class="qty-btn" onclick="S.regQty=Math.max(1,S.regQty-1);renderRegister()" type="button">-</button>
+            <span class="qty-val">${S.regQty}</span>
+            <button class="qty-btn" onclick="S.regQty=Math.min(6,S.regQty+1);renderRegister()" type="button">+</button>
+          </div>
+        </div>
+      </div>
+      ${S.regType?`<div class="price-preview">
+        <div class="price-preview-breakdown">${S.regQty>1?`${S.regQty} bikes &times; SAR ${priceForType(S.regType)}`:'Price per bike'}</div>
+        <div class="price-preview-total">SAR ${(S.regQty*priceForType(S.regType)).toFixed(2).replace(/\.00$/,'')}</div>
+      </div>`:''}
       <button class="btn-primary" style="width:100%" onclick="submitReg()">Join Queue</button>
     </div>
     ${ticket}`;
@@ -1136,21 +1157,26 @@ async function submitReg(){
   if(!openSessions().find(s=>s.id===S.selSession)){toast('That session is no longer open.','error');return;}
   if(isNaN(h)||h<100||h>250){toast('Please enter a valid height in cm.','error');return;}
   if(!S.regType){toast('Please select a bike type preference.','error');return;}
-  if(spotsLeft(S.selSession)===0){toast('This session is full.','error');return;}
+  const qty=S.regQty||1;
+  if(spotsLeft(S.selSession)<qty){toast(`Only ${spotsLeft(S.selSession)} spot(s) left in this session.`,'error');return;}
   const fullPhone=cc+phone;const size=heightToSize(h);
   const queue=getQueue();
   if(queue.find(e=>e.phone===fullPhone&&e.sessionId===S.selSession&&e.status!=='noshow'&&e.status!=='cancelled'))
     {toast('This phone number is already registered for that session.','error');return;}
   const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
   const cust=S.loggedIn||getSession();
-  const entry={id:uid(),name,email,phone:fullPhone,size,typePreference:S.regType,paid:false,
+  const baseQNum=nextQNum(S.selSession);
+  const unitPrice=priceForType(S.regType);
+  const entries=Array.from({length:qty},(_,i)=>({
+    id:uid(),name,email,phone:fullPhone,size,typePreference:S.regType,paid:false,
     assignedBikeId:null,sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
-    queueNum:nextQNum(S.selSession),status:'waiting',registeredAt:new Date().toISOString(),walkIn:false,
-    customerId:cust?cust.id:null,price:priceForType(S.regType),registeredAt:new Date().toISOString()};
-  await sb.from('queue_entries').insert(entryToDB(entry));
+    queueNum:baseQNum+i,status:'waiting',registeredAt:new Date().toISOString(),walkIn:false,
+    customerId:cust?cust.id:null,price:unitPrice
+  }));
+  await Promise.all(entries.map(e=>sb.from('queue_entries').insert(entryToDB(e))));
   await loadData();
-  S.lastTicket=entry;S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
-  toast(`Registered! Queue number #${entry.queueNum}`);renderRegister();
+  S.lastTicket=entries[0];S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;S.regQty=1;
+  toast(qty>1?`Registered! Queue numbers #${baseQNum}–#${baseQNum+qty-1}`:`Registered! Queue number #${baseQNum}`);renderRegister();
 }
 
 
@@ -1161,30 +1187,34 @@ function renderMyRides(){
   const cust=S.loggedIn;
   if(!cust){document.getElementById('tab-myrides').innerHTML='';return;}
   const allEntries=getQueue().filter(e=>e.customerId===cust.id);
-  const completed=allEntries.filter(e=>e.status==='done');
-  const totalRides=allEntries.filter(e=>e.status!=='noshow'&&e.status!=='cancelled').length;
-  const totalPaid=allEntries.filter(e=>e.paid).reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
-  const pending=allEntries.filter(e=>!e.paid&&(e.status==='done'||e.status==='waiting'||e.status==='active')).reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
-  const rows=allEntries.length?[...allEntries].sort((a,b)=>new Date(b.registeredAt)-new Date(a.registeredAt)).map(e=>{
+  const visible=allEntries.filter(e=>e.status==='waiting'||e.status==='active'||e.status==='done');
+  const completed=visible.filter(e=>e.status==='done');
+  const totalPaid=visible.filter(e=>e.paid).reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
+  const pending=visible.filter(e=>!e.paid&&e.status!=='cancelled').reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
+  // Assign personal order numbers chronologically, display newest first
+  const chronological=[...visible].sort((a,b)=>new Date(a.registeredAt)-new Date(b.registeredAt));
+  const withIndex=chronological.map((e,i)=>({...e,orderNum:i+1}));
+  const displayOrder=[...withIndex].sort((a,b)=>new Date(b.registeredAt)-new Date(a.registeredAt));
+  const rows=displayOrder.length?displayOrder.map(e=>{
     const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
     const payColor=e.paid?'var(--green)':'var(--orange)';
     const canCancel=e.status==='waiting';
     return`<tr>
-      <td><span class="queue-num-cell">#${e.queueNum}</span></td>
+      <td><span class="queue-num-cell">#${e.orderNum}</span></td>
       <td class="hide-mobile">${e.sessionDay||''} ${shortDate(e.sessionDate)}</td>
       <td>${bike?esc(bike.name):'<span style="color:var(--muted)">-</span>'}</td>
       <td>${e.size} &middot; ${typeBadge(e.typePreference)}</td>
-      <td style="font-weight:800;color:${payColor}">${e.paid?'SAR '+(e.price||DEFAULT_PRICE):(e.status==='cancelled'?'<span style="color:var(--muted)">-</span>':'Pending')}</td>
+      <td style="font-weight:800;color:${payColor}">${e.paid?'SAR '+(e.price||DEFAULT_PRICE):'Pending'}</td>
       <td>${statusBadge(e.status)}</td>
       <td>${canCancel?`<button class="btn-sm btn-red" onclick="cancelBooking('${e.id}')">Cancel</button>`:'<span style="color:var(--muted);font-size:12px">-</span>'}</td>
     </tr>`;
-  }).join(''):`<tr><td colspan="7" class="empty-state">No rides found.</td></tr>`;
+  }).join(''):`<tr><td colspan="7" class="empty-state">No bookings yet.</td></tr>`;
   document.getElementById('tab-myrides').innerHTML=`
     <div class="page-title">My Rides</div>
     <div class="page-sub">Your complete rental history with ${esc(cust.name)}.</div>
     <div class="rides-stat-row">
       <div class="rides-stat-card">
-        <div class="rides-stat-num">${totalRides}</div>
+        <div class="rides-stat-num">${visible.length}</div>
         <div class="rides-stat-label">Total Bookings</div>
       </div>
       <div class="rides-stat-card">
