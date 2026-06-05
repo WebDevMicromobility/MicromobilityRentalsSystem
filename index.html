@@ -740,10 +740,16 @@ en:{
   authCancel:'Cancel - Go Home',authIdentifier:'Email or Phone',
   authFullName:'Full Name',authEmail:'Email Address',authEmailOpt:'(optional if using phone)',
   forgotPwLink:'Forgot password?',forgotPwTitle:'Reset Password',
-  forgotPwSub:'Enter your registered name and email or phone to verify your identity.',
-  resetNameHint:'Full name as registered',resetNewPwd:'New Password',resetConfirmPwd:'Confirm New Password',
-  resetBtn:'Reset Password',backToLogin:'Back to login',
-  errNameMismatch:'Name does not match the account.',toastPwReset:'Password reset successfully. Welcome back!',
+  forgotPwSub:'Enter your email, then ask a staff member for your 6-digit reset code. The code expires in 10 minutes.',
+  resetEmailLabel:'Registered Email',resetCodeLabel:'Reset Code (from staff)',
+  resetNewPwd:'New Password',resetConfirmPwd:'Confirm New Password',
+  resetBtn:'Set New Password',backToLogin:'Back to login',
+  errAccountNotFound:'No account found with that email.',
+  errOTPInvalid:'Invalid or expired reset code. Ask staff for a new one.',
+  toastPwReset:'Password reset successfully. Welcome back!',
+  staffResetTool:'Customer Reset Code',staffResetDesc:'Enter the customer\'s registered email to generate their 10-minute reset code.',
+  staffResetEmailLabel:'Customer Email',staffResetGenerate:'Get Code',staffResetCode:'Reset Code',
+  staffResetExpiry:'Valid for 10 minutes · changes automatically',
   authPhone:'Phone Number',authPhoneOpt:'(optional if using email)',
   authPassword:'Password',authPasswordHint:'Choose a password (min 6 chars)',authConfirmPassword:'Confirm Password',
   tabReserve:'Reserve',tabMyRides:'My Rides',tabQueue:'Queue',tabSessions:'Sessions',tabBikes:'Bikes',tabHistory:'History',
@@ -884,10 +890,16 @@ ar:{
   authCancel:'إلغاء - الرئيسية',authIdentifier:'البريد الإلكتروني أو الهاتف',
   authFullName:'الاسم الكامل',authEmail:'البريد الإلكتروني',authEmailOpt:'(اختياري إذا استخدمت الهاتف)',
   forgotPwLink:'نسيت كلمة المرور؟',forgotPwTitle:'إعادة تعيين كلمة المرور',
-  forgotPwSub:'أدخل اسمك المسجل والبريد الإلكتروني أو رقم الهاتف للتحقق من هويتك.',
-  resetNameHint:'الاسم الكامل كما هو مسجل',resetNewPwd:'كلمة المرور الجديدة',resetConfirmPwd:'تأكيد كلمة المرور',
-  resetBtn:'إعادة التعيين',backToLogin:'العودة لتسجيل الدخول',
-  errNameMismatch:'الاسم لا يتطابق مع الحساب.',toastPwReset:'تم إعادة تعيين كلمة المرور. مرحباً بعودتك!',
+  forgotPwSub:'أدخل بريدك الإلكتروني ثم اطلب من أحد الموظفين رمز التحقق المكوّن من 6 أرقام. صالح لمدة 10 دقائق.',
+  resetEmailLabel:'البريد الإلكتروني المسجل',resetCodeLabel:'رمز التحقق (من الموظف)',
+  resetNewPwd:'كلمة المرور الجديدة',resetConfirmPwd:'تأكيد كلمة المرور',
+  resetBtn:'تعيين كلمة مرور جديدة',backToLogin:'العودة لتسجيل الدخول',
+  errAccountNotFound:'لا يوجد حساب بهذا البريد الإلكتروني.',
+  errOTPInvalid:'رمز التحقق غير صحيح أو منتهي الصلاحية. اطلب رمزاً جديداً من الموظف.',
+  toastPwReset:'تم إعادة تعيين كلمة المرور. مرحباً بعودتك!',
+  staffResetTool:'رمز إعادة تعيين العميل',staffResetDesc:'أدخل البريد الإلكتروني المسجل للعميل للحصول على رمز إعادة التعيين.',
+  staffResetEmailLabel:'بريد العميل الإلكتروني',staffResetGenerate:'الحصول على الرمز',staffResetCode:'رمز إعادة التعيين',
+  staffResetExpiry:'صالح لمدة 10 دقائق · يتغير تلقائياً',
   authPhone:'رقم الهاتف',authPhoneOpt:'(اختياري إذا استخدمت البريد)',
   authPassword:'كلمة المرور',authPasswordHint:'اختر كلمة مرور (6 أحرف على الأقل)',authConfirmPassword:'تأكيد كلمة المرور',
   tabReserve:'حجز',tabMyRides:'رحلاتي',tabQueue:'الطابور',tabSessions:'الجلسات',tabBikes:'الدراجات',tabHistory:'السجل',
@@ -1271,7 +1283,7 @@ const S={
   regBikeHeights:[], // one height string per bike slot, e.g. ['175','160']
   regBikeTypes:[],   // one type preference per bike slot, e.g. ['Road','Hybrid']
   // staff queue
-  showWalkIn:false,sfStatus:'all',sfSession:'all',wiSize:null,wiType:null,wiCC:'+966',
+  showWalkIn:false,showResetTool:false,sfStatus:'all',sfSession:'all',wiSize:null,wiType:null,wiCC:'+966',
   // bikes
   showAddBike:false,editBikeId:null,bkTypeFilter:'all',bkSort:'name',
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],_bkName:'',
@@ -1338,6 +1350,13 @@ function hashPwd(s){
   let h=5381;
   for(let i=0;i<s.length;i++)h=((h<<5)+h)^s.charCodeAt(i);
   return(h>>>0).toString(16);
+}
+function generateResetOTP(email,windowMs=10*60*1000){
+  const win=Math.floor(Date.now()/windowMs);
+  const seed=email.toLowerCase().trim()+':'+win+':mmreset';
+  let h=2166136261;
+  for(let i=0;i<seed.length;i++){h^=seed.charCodeAt(i);h=(h*16777619)>>>0;}
+  return String(h%1000000).padStart(6,'0');
 }
 function getSession(){try{const r=sessionStorage.getItem('cq_session');return r?JSON.parse(r):null;}catch{return null;}}
 function setSession(c){sessionStorage.setItem('cq_session',JSON.stringify(c));}
@@ -1428,10 +1447,13 @@ function renderAuthModal(){
   let body='';
   if(isForgot){
     body=`
-      <div class="auth-field"><label>${t('authFullName')}</label>
-        <input id="a-reset-name" type="text" placeholder="${t('resetNameHint')}"></div>
-      <div class="auth-field"><label>${t('authIdentifier')}</label>
-        <input id="a-reset-id" type="text" placeholder="email@example.com or +966..."></div>
+      <div class="auth-field"><label>${t('resetEmailLabel')}</label>
+        <input id="a-reset-email" type="email" placeholder="your@email.com" autocomplete="email"></div>
+      <div class="auth-field">
+        <label>${t('resetCodeLabel')}</label>
+        <input id="a-reset-code" type="text" inputmode="numeric" maxlength="6" placeholder="6-digit code" style="letter-spacing:6px;font-size:20px;font-weight:900;text-align:center">
+        <div style="font-size:11px;color:var(--muted);margin-top:5px;font-weight:600">🔒 ${S.lang==='ar'?'اطلب من الموظف رمز التحقق الخاص بك':'Ask a staff member for your personal reset code'}</div>
+      </div>
       <div class="auth-field"><label>${t('resetNewPwd')}</label>
         <input id="a-reset-pwd" type="password" placeholder="${t('resetNewPwd')}"></div>
       <div class="auth-field"><label>${t('resetConfirmPwd')}</label>
@@ -1538,21 +1560,21 @@ async function doLogin(){
 }
 
 async function doResetPassword(){
-  const name=(document.getElementById('a-reset-name')?.value||'').trim();
-  const identifier=(document.getElementById('a-reset-id')?.value||'').trim().toLowerCase();
+  const email=(document.getElementById('a-reset-email')?.value||'').trim().toLowerCase();
+  const code=(document.getElementById('a-reset-code')?.value||'').trim();
   const pwd=(document.getElementById('a-reset-pwd')?.value||'');
   const pwd2=(document.getElementById('a-reset-pwd2')?.value||'');
-  if(!name){authErr(t('errEnterName'));return;}
-  if(!identifier){authErr(t('errEmailOrPhone'));return;}
+  if(!email){authErr(t('errValidEmail'));return;}
+  if(!code){authErr(t('resetCodeLabel'));return;}
   if(pwd.length<6){authErr(t('errPasswordLen'));return;}
   if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
+  const expected=generateResetOTP(email);
+  if(code!==expected){authErr(t('errOTPInvalid'));return;}
   try{
     const{data:customer}=await sb.from('customers')
       .select('id,name,email,phone,height,created_at')
-      .or(`email.eq.${identifier},phone.eq.${identifier}`)
-      .maybeSingle();
-    if(!customer){authErr(t('errInvalidCredentials'));return;}
-    if(customer.name.trim().toLowerCase()!==name.toLowerCase()){authErr(t('errNameMismatch'));return;}
+      .eq('email',email).maybeSingle();
+    if(!customer){authErr(t('errAccountNotFound'));return;}
     const{error}=await sb.from('customers').update({password_hash:hashPwd(pwd)}).eq('id',customer.id);
     if(error)throw error;
     S.loggedIn=customer;setSession(customer);
@@ -2520,7 +2542,22 @@ function renderStaffQueue(){
   const emptyRow=filtered.length===0?`<tr><td colspan="8" class="empty-state">${t('noHistory')}</td></tr>`:'';
   document.getElementById('tab-queue').innerHTML=`
     <div class="section-header"><div class="page-title">${t('staffQueueTitle')}</div>
-      <button class="btn-primary" onclick="setWi('showWalkIn',${!S.showWalkIn})">+ Walk-in</button></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-secondary" onclick="toggleResetTool()" style="font-size:12px">🔑 ${t('staffResetTool')}</button>
+        <button class="btn-primary" onclick="setWi('showWalkIn',${!S.showWalkIn})">+ Walk-in</button>
+      </div></div>
+    ${S.showResetTool?`<div class="inline-form" style="max-width:420px">
+      <div class="form-title" style="display:flex;align-items:center;gap:8px">🔑 ${t('staffResetTool')}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px">${t('staffResetDesc')}</div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label>${t('staffResetEmailLabel')}</label>
+        <div style="display:flex;gap:8px">
+          <input type="email" id="staff-reset-email" placeholder="customer@email.com" style="flex:1">
+          <button class="btn-primary" onclick="staffShowResetCode()" style="white-space:nowrap">${t('staffResetGenerate')}</button>
+        </div>
+      </div>
+      <div id="staff-reset-result"></div>
+    </div>`:''}
     ${walkInForm}
     <div class="stats-row">
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('totalStat')}</div></div>
@@ -2540,6 +2577,21 @@ function renderStaffQueue(){
 function setSfStatus(v){S.sfStatus=v;renderStaffQueue();}
 function setSfSession(v){S.sfSession=v;renderStaffQueue();}
 function setWi(k,v){S[k]=v;renderStaffQueue();}
+function toggleResetTool(){S.showResetTool=!S.showResetTool;renderStaffQueue();}
+async function staffShowResetCode(){
+  const email=(document.getElementById('staff-reset-email')?.value||'').trim().toLowerCase();
+  const el=document.getElementById('staff-reset-result');if(!el)return;
+  if(!email||!/^\S+@\S+\.\S+$/.test(email)){el.innerHTML=`<div style="color:var(--red);font-size:13px;font-weight:700">${t('errValidEmail')}</div>`;return;}
+  const{data:cust}=await sb.from('customers').select('id,name').eq('email',email).maybeSingle();
+  if(!cust){el.innerHTML=`<div style="color:var(--red);font-size:13px;font-weight:700">${t('errAccountNotFound')}</div>`;return;}
+  const code=generateResetOTP(email);
+  const mins=10-Math.floor((Date.now()%(10*60*1000))/(60*1000));
+  el.innerHTML=`<div style="background:rgba(110,232,154,.07);border:1px solid rgba(110,232,154,.25);border-radius:12px;padding:16px 20px">
+    <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${t('staffResetCode')} — ${esc(cust.name)}</div>
+    <div style="font-size:42px;font-weight:900;letter-spacing:10px;color:var(--green);font-family:monospace;text-shadow:0 0 20px rgba(110,232,154,.35)">${code}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px;font-weight:600">⏱ ${t('staffResetExpiry').replace('10',String(mins))}</div>
+  </div>`;
+}
 
 async function togglePayment(id,paid){
   await sb.from('queue_entries').update({paid}).eq('id',id);
