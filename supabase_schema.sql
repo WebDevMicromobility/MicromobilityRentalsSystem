@@ -31,8 +31,12 @@ create table if not exists sessions (
   session_date text not null,
   capacity     integer not null default 12,
   status       text not null default 'closed',
-  created_at   bigint not null
+  created_at   bigint not null,
+  bike_slots   text             -- JSON: {"Road":{"XS":0,"S":0,"M":2,"L":1},"Hybrid":{...},"Mountain":{...}}
 );
+
+-- Migration for existing databases:
+-- alter table sessions add column if not exists bike_slots text;
 
 create table if not exists queue_entries (
   id               text primary key,

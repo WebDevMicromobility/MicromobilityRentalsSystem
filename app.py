@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     session_date TEXT NOT NULL,
     capacity     INTEGER NOT NULL DEFAULT 12,
     status       TEXT NOT NULL DEFAULT 'closed',
-    created_at   INTEGER NOT NULL
+    created_at   INTEGER NOT NULL,
+    bike_slots   TEXT
 );
 
 CREATE TABLE IF NOT EXISTS queue_entries (

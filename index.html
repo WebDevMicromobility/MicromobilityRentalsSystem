@@ -831,7 +831,8 @@ const S={
   // data cache (loaded from API)
   queue:[],bikes:[],customers:[],sessions:[],
   // session management form
-  showAddSession:false,newSessDate:'',newSessCap:12,
+  showAddSession:false,newSessDate:'',
+  newSessSlots:{RoadXS:0,RoadS:0,RoadM:0,RoadL:0,HybridXS:0,HybridS:0,HybridM:0,HybridL:0,MountainXS:0,MountainS:0,MountainM:0,MountainL:0},
 };
 
 /* ══════════════════════════════════════════════
@@ -888,7 +889,7 @@ function getSession(){try{const r=sessionStorage.getItem('cq_session');return r?
 function setSession(c){sessionStorage.setItem('cq_session',JSON.stringify(c));}
 function clearSession(){sessionStorage.removeItem('cq_session');}
 const DEFAULT_PRICE=30;
-const RIDE_PRICES={Road:75,Mountain:57.5,Hybrid:57.5,Gravel:30,Any:30};
+const RIDE_PRICES={Road:75,Mountain:57.5,Hybrid:57.5,Any:30};
 function priceForType(t){return RIDE_PRICES[t]||DEFAULT_PRICE;}
 
 /* ══════════════════════════════════════════════
@@ -1327,7 +1328,7 @@ function renderRegister(){
   }).join('');
 
   // Type preference
-  const typeBtns=['Road','Hybrid','Mountain','Gravel','Any'].map(ty=>
+  const typeBtns=['Road','Hybrid','Mountain','Any'].map(ty=>
     `<button class="toggle-btn${S.regType===ty?' active':''}" onclick="set('regType','${ty}')">${ty}</button>`).join('');
 
   // Last ticket confirmation
@@ -1643,39 +1644,112 @@ async function saveAccount(){
 }
 
 /* ══════════════════════════════════════════════
+   SESSION HELPERS
+══════════════════════════════════════════════ */
+function parseSlots(raw){
+  if(!raw)return null;
+  if(typeof raw==='string'){try{return JSON.parse(raw);}catch{return null;}}
+  return raw; // already an object
+}
+
+function slotsLabel(raw){
+  const s=parseSlots(raw);
+  if(!s)return '—';
+  const parts=[];
+  const abbr={Road:'Road',Hybrid:'Hybrid',Mountain:'Mtn'};
+  for(const[ty,szs]of Object.entries(s)){
+    const sum=Object.values(szs||{}).reduce((a,b)=>a+(b||0),0);
+    if(sum>0)parts.push(`${abbr[ty]||ty}×${sum}`);
+  }
+  return parts.join(', ')||'—';
+}
+
+function updateSessTotal(){
+  const types=['Road','Hybrid','Mountain'],sizes=['XS','S','M','L'];
+  let total=0;
+  for(const ty of types){
+    let row=0;
+    for(const sz of sizes){
+      const v=parseInt(document.getElementById(`ns-${ty}-${sz}`)?.value)||0;
+      S.newSessSlots[ty+sz]=v;
+      row+=v;total+=v;
+    }
+    const rowEl=document.getElementById(`ns-row-${ty}`);
+    if(rowEl)rowEl.textContent=row||0;
+  }
+  const totEl=document.getElementById('ns-total');
+  if(totEl)totEl.textContent=total;
+}
+
+/* ══════════════════════════════════════════════
    SESSIONS MANAGEMENT (staff)
 ══════════════════════════════════════════════ */
 function renderSessions(){
   const sessions=allSessions();
+  const types=['Road','Hybrid','Mountain'];
+  const sizes=['XS','S','M','L'];
+  const typeColor={Road:'var(--blue)',Hybrid:'var(--green-d)',Mountain:'var(--orange)'};
+  const nsTotal=Object.values(S.newSessSlots).reduce((a,b)=>a+b,0);
+
   const addForm=S.showAddSession?`
     <div class="inline-form" style="margin-bottom:24px">
       <div class="form-title">${t('newSessionTitle')}</div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>${t('dateLabel')}</label>
-          <input type="date" id="ns-date" value="${esc(S.newSessDate)}" min="${todayStr()}"
-            oninput="S.newSessDate=this.value">
-        </div>
-        <div class="form-group">
-          <label>${t('capacityLabel')}</label>
-          <input type="number" id="ns-cap" value="${S.newSessCap}" min="1" max="100"
-            oninput="S.newSessCap=parseInt(this.value)||12">
-        </div>
+      <div class="form-group" style="margin-bottom:20px">
+        <label>${t('dateLabel')}</label>
+        <input type="date" id="ns-date" value="${esc(S.newSessDate)}" min="${todayStr()}"
+          oninput="S.newSessDate=this.value" style="max-width:240px">
       </div>
-      <div style="display:flex;gap:8px;margin-top:4px">
+      <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">Bike Fleet Composition</label>
+      <div style="overflow-x:auto;margin-top:10px;margin-bottom:6px">
+        <table style="border-collapse:collapse;min-width:360px;font-size:13px">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:6px 12px 6px 0;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px">Type</th>
+              ${sizes.map(sz=>`<th style="padding:6px 10px;text-align:center;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px">${sz}</th>`).join('')}
+              <th style="padding:6px 10px;text-align:center;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px">Row</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${types.map(ty=>{
+              const rowTotal=sizes.reduce((a,sz)=>a+(S.newSessSlots[ty+sz]||0),0);
+              return`<tr style="border-top:1px solid var(--border)">
+                <td style="padding:8px 12px 8px 0;font-weight:800;color:${typeColor[ty]}">${ty}</td>
+                ${sizes.map(sz=>`<td style="padding:6px 8px;text-align:center">
+                  <input type="number" id="ns-${ty}-${sz}" value="${S.newSessSlots[ty+sz]||0}" min="0" max="20"
+                    style="width:54px;padding:7px 4px;text-align:center;background:var(--s3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;outline:none"
+                    oninput="updateSessTotal()">
+                </td>`).join('')}
+                <td id="ns-row-${ty}" style="padding:8px 10px;text-align:center;font-weight:900;color:${typeColor[ty]}">${rowTotal}</td>
+              </tr>`;
+            }).join('')}
+            <tr style="border-top:2px solid var(--border)">
+              <td colspan="${sizes.length+1}" style="padding:10px 0 4px;font-weight:900;font-size:13px;color:var(--muted)">Total bikes in session</td>
+              <td id="ns-total" style="padding:10px 10px 4px;text-align:center;font-size:20px;font-weight:900;color:var(--green)">${nsTotal}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px">
         <button class="btn-primary" onclick="addSession()">Create Session</button>
         <button class="btn-secondary" onclick="S.showAddSession=false;renderSessions()">Cancel</button>
       </div>
     </div>`:'';
+
   const rows=sessions.length?sessions.map(s=>{
     const booked=getQueue().filter(e=>e.sessionId===s.id&&e.status!=='noshow'&&e.status!=='cancelled').length;
-    const left=Math.max(0,(s.capacity||12)-booked);
+    const cap=s.capacity||12;
+    const left=Math.max(0,cap-booked);
     const isOpen=s.status==='open';
+    const slots=parseSlots(s.bike_slots);
+    const fleetInfo=slots?slotsLabel(slots):'—';
     return`<tr>
       <td style="font-weight:800">${shortDate(s.session_date||s.id)}</td>
       <td style="color:var(--muted)">${s.day||''}</td>
-      <td>${s.capacity||12}</td>
-      <td>${booked} / ${s.capacity||12} &nbsp;<span style="color:var(--muted);font-size:11px">(${left} left)</span></td>
+      <td>
+        <div style="font-weight:800">${cap}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${fleetInfo}</div>
+      </td>
+      <td>${booked} / ${cap} &nbsp;<span style="color:var(--muted);font-size:11px">(${left} left)</span></td>
       <td><span class="${isOpen?'badge-open':'badge-closed'}">${isOpen?t('statusOpen'):t('statusClosed')}</span></td>
       <td>
         <div class="actions-cell">
@@ -1687,6 +1761,7 @@ function renderSessions(){
       </td>
     </tr>`;
   }).join(''):`<tr><td colspan="6" class="empty-state">No sessions yet. Create one above.</td></tr>`;
+
   document.getElementById('tab-sessions').innerHTML=`
     <div class="section-header">
       <div>
@@ -1706,11 +1781,23 @@ function renderSessions(){
 
 async function addSession(){
   const date=document.getElementById('ns-date')?.value;
-  const cap=parseInt(document.getElementById('ns-cap')?.value)||12;
   if(!date){toast('Please pick a date.','error');return;}
+  const types=['Road','Hybrid','Mountain'],sizes=['XS','S','M','L'];
+  const slots={};
+  let total=0;
+  for(const ty of types){
+    slots[ty]={};
+    for(const sz of sizes){
+      const v=S.newSessSlots[ty+sz]||0;
+      slots[ty][sz]=v;
+      total+=v;
+    }
+  }
+  if(total===0){toast('Please add at least one bike to the session.','error');return;}
   const d=new Date(date+'T00:00:00');
   const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const session={id:date,day:dayNames[d.getDay()],session_date:date,capacity:cap,created_at:new Date().toISOString()};
+  const session={id:date,day:dayNames[d.getDay()],session_date:date,capacity:total,
+    bike_slots:JSON.stringify(slots),created_at:new Date().toISOString()};
   try{
     const{error}=await sb.from('sessions').insert(session);
     if(error){
@@ -1718,7 +1805,8 @@ async function addSession(){
       throw error;
     }
     await loadData();
-    S.showAddSession=false;S.newSessDate='';S.newSessCap=12;
+    S.showAddSession=false;S.newSessDate='';
+    for(const k of Object.keys(S.newSessSlots))S.newSessSlots[k]=0;
     toast(`Session created for ${shortDate(date)}. Open it when ready.`);
     renderSessions();
   }catch(e){toast('Error creating session.','error');}
@@ -1771,7 +1859,7 @@ function renderStaffQueue(){
   const sessOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>${t('allSessions')}</option>`+
     sessions.map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${s.day} ${s.display}</option>`).join('');
   const wiSizeBtns=['XS','S','M','L'].map(v=>`<button class="toggle-btn${S.wiSize===v?' active':''}" onclick="setWi('wiSize','${v}')">${v}</button>`).join('');
-  const wiTypeBtns=['Road','Hybrid','Mountain','Gravel','Any'].map(t=>`<button class="toggle-btn${S.wiType===t?' active':''}" onclick="setWi('wiType','${t}')">${t}</button>`).join('');
+  const wiTypeBtns=['Road','Hybrid','Mountain','Any'].map(t=>`<button class="toggle-btn${S.wiType===t?' active':''}" onclick="setWi('wiType','${t}')">${t}</button>`).join('');
   const wiSessOpts=sessions.map(s=>`<option value="${s.id}">${s.day}: ${s.display}</option>`).join('');
   const wiCcOpts=COUNTRY_CODES.map(([code,iso,name])=>`<option value="${code}"${S.wiCC===code?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
   const walkInForm=S.showWalkIn?`<div class="inline-form">
@@ -1906,28 +1994,52 @@ async function doRemove(id){
 function openModal(riderId){S.modalRider=riderId;S.modalBike=null;renderModal();}
 function renderModal(){
   const rider=getQueue().find(e=>e.id===S.modalRider);if(!rider)return;
-  const bikes=getBikes();
-  const cards=bikes.length?bikes.map(b=>{
+  const allBikes=getBikes();
+
+  // Filter to bikes planned for this session
+  const sess=S.sessions.find(s=>s.id===rider.sessionId);
+  const slots=sess?parseSlots(sess.bike_slots):null;
+  const eligible=slots
+    ?allBikes.filter(b=>slots[b.type]&&(slots[b.type][b.size]||0)>0)
+    :allBikes;
+
+  // Sort: available first, then by type preference match
+  const sorted=[...eligible].sort((a,b)=>{
+    const aPref=a.type===rider.typePreference?0:1;
+    const bPref=b.type===rider.typePreference?0:1;
+    const aFree=a.status==='available'?0:1;
+    const bFree=b.status==='available'?0:1;
+    return aFree-bFree||aPref-bPref;
+  });
+
+  const cards=sorted.length?sorted.map(b=>{
     const free=b.status==='available';
     const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-orange':'dot-red';
     const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
-    const icon={Road:'Road',Hybrid:'Hybrid',Mountain:'Mountain',Gravel:'Gravel'}[b.type]||b.type;
     const grad=bikeGradient(b.colors||['#6ee89a']);
+    const sizeMatch=b.size===rider.size;
     return`<div class="modal-bike-card${!free?' unavailable':''}${S.modalBike===b.id?' selected':''}" ${free?`onclick="pickBike('${b.id}')"`:''}>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><span style="font-size:24px">${icon}</span><span class="avail-dot ${dot}"></span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span class="avail-dot ${dot}"></span>
+        ${sizeMatch?`<span style="font-size:10px;font-weight:800;color:var(--green);background:rgba(110,232,154,.15);padding:2px 6px;border-radius:6px">Size match</span>`:''}
+      </div>
       <div style="height:5px;border-radius:3px;background:${grad};margin-bottom:8px"></div>
       <div style="font-weight:900;font-size:14px;margin-bottom:3px">${esc(b.name)}</div>
       <div style="font-size:12px;color:var(--muted)">${b.type} &middot; Size ${b.size}</div>
       <div style="margin-top:6px">${typeBadge(b.type)}</div>
       <div style="font-size:11px;color:var(--muted);margin-top:5px">${slbl}</div>
     </div>`;
-  }).join(''):`<div style="color:var(--muted);font-size:14px;padding:12px 0">No bikes in fleet yet.</div>`;
+  }).join(''):`<div style="color:var(--muted);font-size:14px;padding:12px 0">No bikes match this session's fleet. Check the fleet composition.</div>`;
+
+  const fleetLine=slots?`<div style="font-size:12px;color:var(--muted);margin-bottom:16px">Session fleet: ${slotsLabel(slots)}</div>`:'';
+
   const modal=document.getElementById('bike-modal');
   modal.style.display='flex';
   modal.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeModal()">
     <div class="modal-box">
       <div class="modal-title">${t('assignBikeTitle')}</div>
       <div class="modal-sub">#${rider.queueNum} ${esc(rider.name)} &middot; Size ${rider.size} &middot; Prefers ${rider.typePreference}</div>
+      ${fleetLine}
       <div class="modal-bikes-grid">${cards}</div>
       <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="confirmAssign()">${t('confirmCheckin')}</button></div>
     </div>
@@ -1959,14 +2071,14 @@ function renderBikes(){
   const bikes=getBikes();
   const total=bikes.length,nAvail=bikes.filter(b=>b.status==='available').length,
         nUse=bikes.filter(b=>b.status==='in-use').length,
-        nRoad=bikes.filter(b=>b.type==='Road').length,nGrav=bikes.filter(b=>b.type==='Gravel').length;
-  const typePills=['all','Road','Hybrid','Mountain','Gravel'].map(t=>
+        nRoad=bikes.filter(b=>b.type==='Road').length,nMtn=bikes.filter(b=>b.type==='Mountain').length;
+  const typePills=['all','Road','Hybrid','Mountain'].map(t=>
     `<button class="filter-pill${S.bkTypeFilter===t?' active':''}" onclick="setBkFilter('${t}')">${t==='all'?'All':t}</button>`).join('');
   const isEdit=!!S.editBikeId;const editBike=isEdit?bikes.find(b=>b.id===S.editBikeId):null;
   const curSize=(isEdit&&editBike)?(S.addBikeSize||editBike.size):S.addBikeSize;
   const sizeOpts=['XS','S','M','L'].map(v=>`<option value="${v}"${curSize===v?' selected':''}>${v}</option>`).join('');
-  const bkTypeBtns=['Road','Hybrid','Mountain','Gravel'].map(t=>{
-    const icon={Road:'Road',Hybrid:'Hybrid',Mountain:'Mountain',Gravel:'Gravel'}[t]||t;
+  const bkTypeBtns=['Road','Hybrid','Mountain'].map(t=>{
+    const icon={Road:'Road',Hybrid:'Hybrid',Mountain:'Mountain'}[t]||t;
     return`<button class="toggle-btn${S.addBikeType===t?' active':''}" onclick="S.addBikeType='${t}';renderBikes()">${icon} ${t}</button>`;}).join('');
   const colorSlots=S.addBikeColors.map((c,i)=>`
     <div class="color-slot"><input type="color" value="${c}" oninput="S.addBikeColors[${i}]=this.value;updateColorPreview()">
@@ -2019,7 +2131,7 @@ function renderBikes(){
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nAvail}</div><div class="stat-label">Available</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--orange)">${nUse}</div><div class="stat-label">In Use</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--blue)">${nRoad}</div><div class="stat-label">Road</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--purple)">${nGrav}</div><div class="stat-label">Gravel</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--orange)">${nMtn}</div><div class="stat-label">Mountain</div></div>
     </div>
     <div class="filter-row">${typePills}</div>
     <div class="bikes-grid">${bkCards}</div>`;
