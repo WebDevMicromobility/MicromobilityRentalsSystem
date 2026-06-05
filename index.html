@@ -39,6 +39,9 @@
     .topbar-btn{display:flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);color:var(--muted);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;}
     .topbar-btn:hover{border-color:rgba(110,232,154,.4);color:var(--text);background:rgba(110,232,154,.06);}
     .topbar-btn.danger:hover{border-color:rgba(224,64,64,.5);color:var(--red);background:rgba(224,64,64,.06);}
+    .topbar-btn.undo-btn{color:var(--orange);border-color:rgba(224,136,40,.3);}
+    .topbar-btn.undo-btn:hover{border-color:rgba(224,136,40,.55);background:rgba(224,136,40,.08);color:var(--orange);}
+    @keyframes undoPulse{0%,100%{box-shadow:0 0 0 0 rgba(224,136,40,.35);}60%{box-shadow:0 0 0 5px rgba(224,136,40,0);}}
 
     /* ── TAB NAV ─────────────────────────────────────────── */
     .tab-nav{background:linear-gradient(180deg,#111111 0%,#101010 100%);
@@ -1388,8 +1391,9 @@ const S={
   regBikeHeights:[], // one height string per bike slot, e.g. ['175','160']
   regBikeTypes:[],   // one type preference per bike slot, e.g. ['Road','Hybrid']
   // staff queue
-  showWalkIn:false,showResetTool:false,sfStatus:'all',sfSession:'all',wiSize:null,wiType:null,wiCC:'+966',
+  showResetTool:false,sfStatus:'all',sfSession:'all',
   sfSort:'queue',sfSearch:'',sfPay:'all',sfSize:'all',
+  undoStack:[],
   // bikes
   showAddBike:false,editBikeId:null,bkTypeFilter:'all',bkSort:'name',
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],_bkName:'',
@@ -1616,7 +1620,7 @@ function renderAuthModal(){
         </div></div>
       <div class="auth-field"><label>${t('authPassword')}</label><input id="a-pwd" type="password" placeholder="${t('authPasswordHint')}"></div>
       <div class="auth-field"><label>${t('authConfirmPassword')}</label><input id="a-pwd2" type="password" placeholder="${t('authConfirmPassword')}"></div>
-      <div class="auth-field"><label>${t('heightLabel')} <span style="font-weight:400;text-transform:none">${t('heightOptional')}</span></label>
+      <div class="auth-field"><label>${t('heightLabel')}</label>
         <input id="a-height" type="number" placeholder="cm, e.g. 175" min="100" max="250"></div>
       <button class="btn-primary auth-submit" onclick="doSignup()">${t('authSignupBtn')}</button>`;
   }
@@ -1654,12 +1658,13 @@ async function doSignup(){
   if(email&&!/^\S+@\S+\.\S+$/.test(email)){authErr(t('errValidEmail'));return;}
   if(pwd.length<6){authErr(t('errPasswordLen'));return;}
   if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
+  const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
+  if(isNaN(heightRaw)||heightRaw<100||heightRaw>250){authErr(t('errValidHeightCm'));return;}
   const fullPhone=phone?(cc+phone):'';
   try{
     if(email){const{data:ex}=await sb.from('customers').select('id').eq('email',email).maybeSingle();if(ex){authErr(t('errEmailExists'));return;}}
     if(fullPhone){const{data:ex}=await sb.from('customers').select('id').eq('phone',fullPhone).maybeSingle();if(ex){authErr(t('errPhoneExists'));return;}}
-    const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
-    const height=(!isNaN(heightRaw)&&heightRaw>=100&&heightRaw<=250)?heightRaw:null;
+    const height=heightRaw;
     const customer={id:uid(),name,email,phone:fullPhone,password_hash:hashPwd(pwd),created_at:new Date().toISOString(),height};
     const{error}=await sb.from('customers').insert(customer);
     if(error)throw error;
@@ -1862,8 +1867,10 @@ function renderTopbarRight(){
         <button class="topbar-btn" onclick="goLanding()">&#x2190; ${t('homeBtn')}</button>`;
     }
   } else if(S.view==='staff'){
+    const last=S.undoStack.length?S.undoStack[S.undoStack.length-1]:null;
     el.innerHTML=`
       <span class="view-badge staff">${t('staffBadge')}</span>
+      ${last?`<button class="topbar-btn undo-btn" onclick="doUndo()" title="${esc(last.label)}" style="animation:undoPulse 2s ease-in-out infinite">&#x21B6; Undo</button>`:''}
       <button class="topbar-btn danger" onclick="goLanding()">${t('lockBtn')}</button>`;
   } else {
     el.innerHTML='';
@@ -2670,11 +2677,17 @@ async function addSession(){
 
 async function toggleSession(id,newStatus){
   try{
+    const prev=allSessions().find(s=>s.id===id);
+    const prevStatus=prev?prev.status:'closed';
     await sb.from('sessions').update({status:newStatus}).eq('id',id);
     await loadData();
-    toast(newStatus==='open'?t('sessOpened'):t('sessClosed'));
-    renderSessions();
-    renderStaffQueue();
+    const lbl={open:t('sessOpened'),closed:t('sessClosed'),full:t('statusFull')+'.'}[newStatus]||newStatus;
+    toast(lbl);
+    pushUndo(`Session ${shortDate(prev?.session_date||id)} → ${newStatus}`,async()=>{
+      await sb.from('sessions').update({status:prevStatus}).eq('id',id);
+      await loadData();renderSessions();renderStaffQueue();
+    });
+    renderSessions();renderStaffQueue();
   }catch(e){toast(t('errServerError'),'error');}
 }
 
@@ -2682,9 +2695,15 @@ async function deleteSession(id){
   try{
     const bookings=getQueue().filter(e=>e.sessionId===id).length;
     if(bookings>0){toast(t('errHasBookings'),'error');return;}
+    const saved=allSessions().find(s=>s.id===id);
     await sb.from('sessions').delete().eq('id',id);
     await loadData();
-    toast(t('sessDeleted'));renderSessions();
+    toast(t('sessDeleted'));
+    if(saved)pushUndo(`Delete session ${shortDate(saved.session_date||id)}`,async()=>{
+      await sb.from('sessions').insert({id:saved.id,day:saved.day,session_date:saved.session_date||saved.id,capacity:saved.capacity||12,status:'closed',created_at:saved.created_at||new Date().toISOString(),bike_slots:saved.bike_slots||null});
+      await loadData();renderSessions();
+    });
+    renderSessions();
   }catch(e){toast(t('errDeleteSession'),'error');}
 }
 
@@ -2735,30 +2754,6 @@ function renderStaffQueue(){
   }).join('');
   const sessOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>${t('allSessions')}</option>`+
     sessions.map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${s.display}</option>`).join('');
-  const wiSizeBtns=['XS','S','M','L'].map(v=>`<button class="toggle-btn${S.wiSize===v?' active':''}" onclick="setWi('wiSize','${v}')">${v}</button>`).join('');
-  const wiTypeBtns=['Road','Hybrid','Mountain','Any'].map(ty=>`<button class="toggle-btn${S.wiType===ty?' active':''}" onclick="setWi('wiType','${ty}')">${typeLabel(ty)}</button>`).join('');
-  const wiSessOpts=sessions.map(s=>`<option value="${s.id}">${dayLabel(s.day)}: ${s.display}</option>`).join('');
-  const wiCcOpts=COUNTRY_CODES.map(([code,iso,name])=>`<option value="${code}"${S.wiCC===code?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
-  const walkInForm=S.showWalkIn?`<div class="inline-form">
-    <div class="form-title">${t('walkinTitle')}</div>
-    <div class="form-row">
-      <div class="form-group"><label>${t('walkinName')}</label><input type="text" id="wi-name" placeholder="${t('walkinName')}"></div>
-      <div class="form-group"><label>${t('phoneNum')}</label>
-        <div class="phone-row">
-          <select class="phone-cc" id="wi-cc" onchange="setWi('wiCC',this.value)">${wiCcOpts}</select>
-          <input type="tel" class="phone-num" id="wi-phone" placeholder="5x xxx xxxx">
-        </div></div>
-    </div>
-    <div class="form-group" style="margin-bottom:16px"><label>${t('walkinSession')}</label><select id="wi-sess">${wiSessOpts}</select></div>
-    <div class="form-row">
-      <div class="form-group"><label>${t('walkinSize')}</label><div class="toggle-group">${wiSizeBtns}</div></div>
-      <div class="form-group"><label>${t('bikeTypePref')}</label><div class="toggle-group">${wiTypeBtns}</div></div>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn-primary" onclick="submitWalkIn()">${t('addWalkinBtn')}</button>
-      <button class="btn-secondary" onclick="setWi('showWalkIn',false)">${t('cancelBtn')}</button>
-    </div>
-  </div>`:'';
   const rows=filtered.map(e=>{
     const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
     const rowCls=e.status==='active'?'row-active':(e.status==='done'||e.status==='noshow'||e.status==='cancelled')?'row-done':'';
@@ -2785,10 +2780,8 @@ function renderStaffQueue(){
   const emptyRow=filtered.length===0?`<tr><td colspan="8" class="empty-state">${t('noHistory')}</td></tr>`:'';
   document.getElementById('tab-queue').innerHTML=`
     <div class="section-header"><div class="page-title">${t('staffQueueTitle')}</div>
-      <div style="display:flex;gap:8px">
-        <button class="btn-secondary" onclick="toggleResetTool()" style="font-size:12px">🔑 ${t('staffResetTool')}</button>
-        <button class="btn-primary" onclick="setWi('showWalkIn',${!S.showWalkIn})">+ Walk-in</button>
-      </div></div>
+      <button class="btn-secondary" onclick="toggleResetTool()" style="font-size:12px">&#x1F511; ${t('staffResetTool')}</button>
+    </div>
     ${S.showResetTool?`<div class="inline-form" style="max-width:420px">
       <div class="form-title" style="display:flex;align-items:center;gap:8px">🔑 ${t('staffResetTool')}</div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:14px">${t('staffResetDesc')}</div>
@@ -2801,7 +2794,6 @@ function renderStaffQueue(){
       </div>
       <div id="staff-reset-result"></div>
     </div>`:''}
-    ${walkInForm}
     <div class="stats-row">
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('totalStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWait}</div><div class="stat-label">${t('waitingStat')}</div></div>
@@ -2847,7 +2839,6 @@ function setSfSort(v){S.sfSort=v;renderStaffQueue();}
 function setSfSearch(v){S.sfSearch=v;renderStaffQueue();}
 function setSfPay(v){S.sfPay=v;renderStaffQueue();}
 function setSfSize(v){S.sfSize=v;renderStaffQueue();}
-function setWi(k,v){S[k]=v;renderStaffQueue();}
 function toggleResetTool(){S.showResetTool=!S.showResetTool;renderStaffQueue();}
 async function staffShowResetCode(){
   const email=(document.getElementById('staff-reset-email')?.value||'').trim().toLowerCase();
@@ -2870,57 +2861,87 @@ async function togglePayment(id,paid){
   const cb=document.querySelector(`input.pay-cb[onchange*="${id}"]`);
   if(cb){const lbl=cb.nextElementSibling;if(lbl){lbl.textContent=paid?t('paidLabel'):t('pendingLabel');lbl.style.color=paid?'var(--green)':'var(--orange)';}}
   toast(paid?t('paidLabel')+'.':t('pendingLabel')+'.', paid?'':'warning');
+  const entry=getQueue().find(e=>e.id===id);const lbl=entry?`Payment #${entry.queueNum} ${entry.name}`:'Payment';
+  pushUndo(`${paid?'Mark paid':'Mark unpaid'} — ${lbl}`,async()=>{
+    await sb.from('queue_entries').update({paid:!paid}).eq('id',id);
+    await loadData();renderStaffQueue();renderHistory();
+  });
 }
 
-async function submitWalkIn(){
-  const name=document.getElementById('wi-name').value.trim();
-  const cc=document.getElementById('wi-cc').value;
-  const phone=document.getElementById('wi-phone').value.trim();
-  const fullPhone=cc+phone;
-  const sid=document.getElementById('wi-sess').value;
-  if(!name){toast(t('errRiderName'),'error');return;}
-  if(!phone){toast(t('errRiderPhone'),'error');return;}
-  if(!S.wiSize){toast(t('errSelectSizeGeneric'),'error');return;}
-  if(!S.wiType){toast(t('errSelectTypeGeneric'),'error');return;}
-  if(spotsLeft(sid)===0){toast(t('errSessionFull'),'error');return;}
-  const queue=getQueue();
-  if(queue.find(e=>e.phone===fullPhone&&e.sessionId===sid&&e.status!=='noshow'&&e.status!=='cancelled')){toast(t('errPhoneRegistered'),'error');return;}
-  const sess=allSessions().find(s=>s.id===sid);
-  const entry={id:uid(),name,email:'',phone:fullPhone,size:S.wiSize,typePreference:S.wiType,paid:false,
-    assignedBikeId:null,sessionId:sid,sessionDay:sess?sess.day:'',sessionDate:sid,
-    queueNum:nextQNum(sid),status:'waiting',registeredAt:new Date().toISOString(),walkIn:true,
-    customerId:null,price:priceForType(S.wiType)};
-  await sb.from('queue_entries').insert(entryToDB(entry));
-  await loadData();
-  S.showWalkIn=false;S.wiSize=null;S.wiType=null;
-  toast(`${t('toastWalkInAdded')}: #${entry.queueNum} ${name}`);renderStaffQueue();
+/* ══════════════════════════════════════════════
+   UNDO SYSTEM
+══════════════════════════════════════════════ */
+function pushUndo(label,fn){
+  S.undoStack.push({label,fn});
+  if(S.undoStack.length>20)S.undoStack.shift();
+  renderTopbarRight();
+}
+async function doUndo(){
+  const item=S.undoStack.pop();
+  if(!item)return;
+  try{
+    await item.fn();
+    toast(`Undone: ${item.label}`);
+  }catch(e){
+    S.undoStack.push(item);
+    toast(`Undo failed.`,'error');
+  }
+  renderTopbarRight();
 }
 
 async function cancelBooking(id){
   const entry=getQueue().find(e=>e.id===id);
   if(!entry||entry.status!=='waiting'){toast(t('errCancelWaiting'),'error');return;}
   const behind=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>entry.queueNum);
+  const savedBehind=behind.map(e=>({id:e.id,queueNum:e.queueNum}));
+  const savedQNum=entry.queueNum;
   await sb.from('queue_entries').update({status:'cancelled'}).eq('id',id);
-  await Promise.all(behind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
+  await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
   await loadData();
   toast(t('toastBookingCancelled'));
+  pushUndo(`Cancel booking #${savedQNum} ${entry.name}`,async()=>{
+    await sb.from('queue_entries').update({status:'waiting',queue_num:savedQNum}).eq('id',id);
+    await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum}).eq('id',e.id)));
+    await loadData();renderMyRides();renderStaffQueue();
+  });
   renderMyRides();
 }
 
 async function doNoShow(id){
+  const entry=getQueue().find(e=>e.id===id);if(!entry)return;
   await sb.from('queue_entries').update({status:'noshow'}).eq('id',id);
-  await loadData();toast(t('toastNoShow'));renderStaffQueue();
+  await loadData();toast(t('toastNoShow'));
+  pushUndo(`No-show #${entry.queueNum} ${entry.name}`,async()=>{
+    await sb.from('queue_entries').update({status:'waiting'}).eq('id',id);
+    await loadData();renderStaffQueue();
+  });
+  renderStaffQueue();
 }
 async function doReturn(id){
   const q=getQueue();const i=q.findIndex(e=>e.id===id);if(i<0)return;
+  const bikeId=q[i].assignedBikeId;const name=q[i].name;const qn=q[i].queueNum;
   const calls=[sb.from('queue_entries').update({status:'done'}).eq('id',id)];
-  if(q[i].assignedBikeId)calls.push(sb.from('bikes').update({status:'available'}).eq('id',q[i].assignedBikeId));
+  if(bikeId)calls.push(sb.from('bikes').update({status:'available'}).eq('id',bikeId));
   await Promise.all(calls);
-  await loadData();toast(t('toastBikeReturned'));renderStaffQueue();
+  await loadData();toast(t('toastBikeReturned'));
+  pushUndo(`Return bike — #${qn} ${name}`,async()=>{
+    const calls2=[sb.from('queue_entries').update({status:'active'}).eq('id',id)];
+    if(bikeId)calls2.push(sb.from('bikes').update({status:'in-use'}).eq('id',bikeId));
+    await Promise.all(calls2);
+    await loadData();renderStaffQueue();
+  });
+  renderStaffQueue();
 }
 async function doRemove(id){
+  const entry=getQueue().find(e=>e.id===id);if(!entry)return;
+  const saved={...entryToDB(entry)};
   await sb.from('queue_entries').delete().eq('id',id);
-  await loadData();toast(t('toastRiderRemoved'));renderStaffQueue();
+  await loadData();toast(t('toastRiderRemoved'));
+  pushUndo(`Remove #${entry.queueNum} ${entry.name}`,async()=>{
+    await sb.from('queue_entries').insert(saved);
+    await loadData();renderStaffQueue();
+  });
+  renderStaffQueue();
 }
 
 /* ══════════════════════════════════════════════
@@ -2986,13 +3007,22 @@ async function confirmAssign(){
   if(!S.modalBike){toast(t('errSelectBike'),'error');return;}
   const bikes=getBikes();const bi=bikes.findIndex(b=>b.id===S.modalBike);
   if(bi<0||bikes[bi].status!=='available'){toast(t('errBikeUnavailable'),'error');return;}
-  const bikeName=bikes[bi].name;
+  const bikeName=bikes[bi].name;const bikeId=S.modalBike;const riderId=S.modalRider;
+  const rider=getQueue().find(e=>e.id===riderId);const qn=rider?rider.queueNum:'?';const rName=rider?rider.name:'';
   await Promise.all([
-    sb.from('bikes').update({status:'in-use'}).eq('id',S.modalBike),
-    sb.from('queue_entries').update({status:'active',assigned_bike_id:S.modalBike}).eq('id',S.modalRider),
+    sb.from('bikes').update({status:'in-use'}).eq('id',bikeId),
+    sb.from('queue_entries').update({status:'active',assigned_bike_id:bikeId}).eq('id',riderId),
   ]);
   await loadData();closeModal();
-  toast(`${bikeName} ${t('toastAssignedChecked')}`);renderStaffQueue();
+  toast(`${bikeName} ${t('toastAssignedChecked')}`);
+  pushUndo(`Check-in #${qn} ${rName} on ${bikeName}`,async()=>{
+    await Promise.all([
+      sb.from('bikes').update({status:'available'}).eq('id',bikeId),
+      sb.from('queue_entries').update({status:'waiting',assigned_bike_id:null}).eq('id',riderId),
+    ]);
+    await loadData();renderStaffQueue();
+  });
+  renderStaffQueue();
 }
 
 /* ══════════════════════════════════════════════
@@ -3135,7 +3165,12 @@ async function addBike(){
   await sb.from('bikes').insert(bike);
   await loadData();
   S.showAddBike=false;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S._bkName='';
-  toast(`${name} ${t('toastAddedToFleet')}`);renderBikes();
+  toast(`${name} ${t('toastAddedToFleet')}`);
+  pushUndo(`Add bike ${name}`,async()=>{
+    await sb.from('bikes').delete().eq('id',bike.id);
+    await loadData();renderBikes();
+  });
+  renderBikes();
 }
 function startEdit(id){
   const bike=getBikes().find(b=>b.id===id);if(!bike)return;
@@ -3147,22 +3182,42 @@ async function saveBikeEdit(){
   if(!name){toast(t('errBikeName'),'error');return;}
   if(!S.addBikeType){toast(t('errBikeTypeReq'),'error');return;}
   const b=getBikes();const existing=b.find(x=>x.id===S.editBikeId);if(!existing)return;
-  await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],status:existing.status}).eq('id',S.editBikeId);
+  const prev={name:existing.name,size:existing.size,type:existing.type,colors:[...existing.colors],status:existing.status};
+  const bid=S.editBikeId;
+  await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],status:existing.status}).eq('id',bid);
   await loadData();
-  S.editBikeId=null;S.addBikeType=null;S.addBikeColors=['#6ee89a'];S._bkName='';toast(t('toastBikeUpdated'));renderBikes();
+  S.editBikeId=null;S.addBikeType=null;S.addBikeColors=['#6ee89a'];S._bkName='';
+  toast(t('toastBikeUpdated'));
+  pushUndo(`Edit bike ${name}`,async()=>{
+    await sb.from('bikes').update(prev).eq('id',bid);
+    await loadData();renderBikes();
+  });
+  renderBikes();
 }
 async function toggleMaint(id){
   const b=getBikes();const bike=b.find(x=>x.id===id);if(!bike)return;
   if(bike.status==='in-use'){toast(t('errBikeInUse'),'error');return;}
-  const newStatus=bike.status==='maintenance'?'available':'maintenance';
+  const prevStatus=bike.status;
+  const newStatus=prevStatus==='maintenance'?'available':'maintenance';
   await sb.from('bikes').update({status:newStatus}).eq('id',id);
-  await loadData();toast(`${t('toastStatusChanged')} ${newStatus}`);renderBikes();
+  await loadData();toast(`${t('toastStatusChanged')} ${newStatus}`);
+  pushUndo(`${newStatus==='maintenance'?'Maintenance':'Restore'} ${bike.name}`,async()=>{
+    await sb.from('bikes').update({status:prevStatus}).eq('id',id);
+    await loadData();renderBikes();
+  });
+  renderBikes();
 }
 async function delBike(id){
   const bike=getBikes().find(x=>x.id===id);
   if(!bike||bike.status==='in-use'){toast(t('errBikeInUse'),'error');return;}
+  const saved={id:bike.id,name:bike.name,size:bike.size,type:bike.type,colors:[...(bike.colors||[])],status:'available'};
   await sb.from('bikes').delete().eq('id',id);
-  await loadData();toast(`${bike.name} ${t('toastBikeRemoved')}`);renderBikes();
+  await loadData();toast(`${bike.name} ${t('toastBikeRemoved')}`);
+  pushUndo(`Delete bike ${bike.name}`,async()=>{
+    await sb.from('bikes').insert(saved);
+    await loadData();renderBikes();
+  });
+  renderBikes();
 }
 
 /* ══════════════════════════════════════════════
