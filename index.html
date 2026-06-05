@@ -969,7 +969,6 @@
     <img src="logo.png" alt="MicroMobility logo">
     <div class="topbar-brand">
       <span class="topbar-brand-name">MicroMobility</span>
-      <span class="topbar-brand-sub">Corniche Circuit Queue</span>
     </div>
   </a>
   <div style="display:flex;align-items:center;gap:10px">
@@ -981,18 +980,16 @@
 <!-- LANDING VIEW -->
 <div id="view-landing">
   <div id="landing-body">
-    <div class="landing-hero">
-      <div class="landing-brand-row">
-        <img class="landing-hero-img" src="hero.png" alt="Corniche Circuit">
-      </div>
-      <div class="landing-title" id="land-title"><span>MicroMobility</span> Corniche Circuit</div>
-      <div class="landing-sub" id="land-sub">Bicycle rental queue - Jeddah Corniche Circuit</div>
-    </div>
     <div class="landing-cards">
       <div class="landing-card" onclick="goCustomer('register')">
         <div class="landing-card-title" id="land-card-title">Reserve Your Spot</div>
         <div class="landing-card-desc" id="land-card-desc">Register for an available session and join the queue.</div>
         <div class="landing-card-arrow" id="land-card-arrow">&rarr;</div>
+      </div>
+    </div>
+    <div class="landing-hero">
+      <div class="landing-brand-row">
+        <img class="landing-hero-img" src="hero.png" alt="Corniche Circuit">
       </div>
     </div>
     <div class="landing-footer">
@@ -1089,7 +1086,7 @@ en:{
   myRidesTitle:'My Rides',myRidesSub:'Your complete rental history with',
   totalBookings:'Total Bookings',completedLabel:'Completed',totalPaid:'Total Paid',pendingPayment:'Pending Payment',
   rideHistory:'Ride History',noRides:'No bookings yet.',
-  colSession:'Session',colBike:'Bike',colSizeType:'Size / Type',colPayment:'Payment',colStatus:'Status',
+  colSession:'Session',colBike:'Bike',colSizeType:'Size / Type',colColor:'Color',colPayment:'Payment',colStatus:'Status',
   cancelBooking:'Cancel',
   statusWaiting:'Waiting',statusActive:'On Bike',statusDone:'Complete',statusNoshow:'No-Show',statusCancelled:'Cancelled',
   staffQueueTitle:'Staff Queue',addWalkin:'+ Walk-in',nextUpLabel:'Next Up',
@@ -1250,7 +1247,7 @@ ar:{
   myRidesTitle:'رحلاتي',myRidesSub:'سجل الإيجار الكامل لـ',
   totalBookings:'إجمالي الحجوزات',completedLabel:'مكتملة',totalPaid:'إجمالي المدفوع',pendingPayment:'مستحق الدفع',
   rideHistory:'سجل الرحلات',noRides:'لا توجد حجوزات بعد.',
-  colSession:'الجلسة',colBike:'الدراجة',colSizeType:'المقاس / النوع',colPayment:'الدفع',colStatus:'الحالة',
+  colSession:'الجلسة',colBike:'الدراجة',colSizeType:'المقاس / النوع',colColor:'اللون',colPayment:'الدفع',colStatus:'الحالة',
   cancelBooking:'إلغاء',
   statusWaiting:'بانتظار',statusActive:'على الدراجة',statusDone:'مكتمل',statusNoshow:'لم يحضر',statusCancelled:'ملغي',
   staffQueueTitle:'طابور الموظفين',addWalkin:'+ زيارة مباشرة',nextUpLabel:'التالي',
@@ -1365,7 +1362,7 @@ function setLang(lang){
   document.documentElement.dir=lang==='ar'?'rtl':'ltr';
   document.documentElement.lang=lang;
   document.getElementById('lang-btn').textContent=lang==='ar'?'English':'عربي';
-  document.querySelector('.topbar-brand-sub').textContent=t('appSub');
+  const subEl=document.querySelector('.topbar-brand-sub');if(subEl)subEl.textContent=t('appSub');
   const lt=document.getElementById('land-title');if(lt)lt.innerHTML=`<span>MicroMobility</span> Corniche Circuit`;
   const ls=document.getElementById('land-sub');if(ls)ls.textContent=t('landingSub');
   const lct=document.getElementById('land-card-title');if(lct)lct.textContent=t('reserveTitle');
@@ -2526,8 +2523,6 @@ function renderMyRides(){
     return`<button class="sort-pill${S.mySort===k?' active':''}" onclick="setMySort('${k}')">${lbl}</button>`;
   }).join('');
   const rows=displayOrder.length?displayOrder.map(e=>{
-    const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
-    const grad=bike&&bike.colors?bikeGradient(bike.colors):null;
     const payColor=e.paid?'var(--green)':'var(--orange)';
     const canCancel=e.status==='waiting';
     const payBadge=e.paid
@@ -2541,17 +2536,10 @@ function renderMyRides(){
       <td>
         <div style="font-weight:800;font-size:13px">${dayLabel(e.sessionDay)||''}</div>
         <div style="color:var(--muted);font-size:12px;margin-top:1px">${shortDate(e.sessionDate)}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px;letter-spacing:.3px">09:00 – 11:00</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">09:00 – 11:00</div>
       </td>
-      <td>
-        ${grad?`<div style="height:3px;border-radius:2px;background:${grad};margin-bottom:5px;width:44px"></div>`:''}
-        <div style="font-weight:700;font-size:13px">${bike?esc(bike.name):`<span style="color:var(--muted)">—</span>`}</div>
-        ${bike?`<div style="margin-top:3px">${typeBadge(bike.type)}</div>`:''}
-      </td>
-      <td style="white-space:nowrap">
-        <div style="font-weight:800;font-size:14px">${e.size}</div>
-        <div style="margin-top:4px">${typeBadge(e.typePreference)}</div>
-      </td>
+      <td style="font-weight:800;font-size:14px">${e.size}</td>
+      <td>${typeBadge(e.typePreference)}</td>
       <td>
         <div style="font-weight:900;font-size:16px;color:${payColor}">SAR ${e.price||DEFAULT_PRICE}</div>
         <div style="margin-top:4px">${payBadge}</div>
@@ -2559,29 +2547,11 @@ function renderMyRides(){
       <td>${statusBadge(e.status)}</td>
       <td>${canCancel?`<button class="btn-sm btn-red" onclick="cancelBooking('${e.id}')">${t('cancelBooking')}</button>`:`<span style="color:var(--muted);font-size:13px">—</span>`}</td>
     </tr>`;
-  }).join(''):`<tr><td colspan="7" class="empty-state">${t('noRides')}</td></tr>`;
+  }).join(''):`<tr><td colspan="6" class="empty-state">${t('noRides')}</td></tr>`;
   document.getElementById('tab-myrides').innerHTML=`
     <div class="page-title">${t('myRidesTitle')}</div>
     <div class="page-sub">${t('myRidesSub')} ${esc(cust.name)}.</div>
-    <div class="rides-stat-row">
-      <div class="rides-stat-card">
-        <div class="rides-stat-num">${visible.length}</div>
-        <div class="rides-stat-label">${t('totalBookings')}</div>
-      </div>
-      <div class="rides-stat-card">
-        <div class="rides-stat-num" style="color:var(--green)">${completed.length}</div>
-        <div class="rides-stat-label">${t('completedLabel')}</div>
-      </div>
-      <div class="rides-stat-card">
-        <div class="rides-stat-num" style="color:var(--blue)">SAR ${totalPaid}</div>
-        <div class="rides-stat-label">${t('totalPaid')}</div>
-      </div>
-      <div class="rides-stat-card">
-        <div class="rides-stat-num" style="color:var(--orange)">SAR ${pending}</div>
-        <div class="rides-stat-label">${t('pendingPayment')}</div>
-      </div>
-    </div>
-    <div class="filter-bar" style="margin-top:18px">
+    <div class="filter-bar" style="margin-top:8px">
       <div class="filter-bar-row">
         <span class="filter-group-label">Status:</span>
         ${myStatusPills}
@@ -2594,8 +2564,8 @@ function renderMyRides(){
       <thead><tr>
         <th>#</th>
         <th>${t('colSession')}</th>
-        <th>${t('colBike')}</th>
-        <th>${t('colSizeType')}</th>
+        <th>${t('frameSizeLabel')}</th>
+        <th>${t('bikeTypeLabel')}</th>
         <th>${t('colPayment')}</th>
         <th>${t('colStatus')}</th>
         <th></th>
@@ -3122,12 +3092,16 @@ function renderStaffQueue(){
     else if(e.status==='active')actions=`<button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button>`;
     else actions=`<button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
     const payColor=e.paid?'var(--green)':'var(--orange)';
+    const bikeColors=bike&&bike.colors&&bike.colors.length?bike.colors:null;
+    const colorSwatches=bikeColors?bikeColors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join(''):'<span style="color:var(--muted)">—</span>';
     return`<tr class="${rowCls}">
       <td><span class="queue-num-cell">#${e.queueNum}</span></td>
       <td><div class="rider-name">${esc(e.name)}${wiTag}</div><div class="rider-sub">${esc(e.phone)}</div></td>
-      <td style="white-space:nowrap">${e.size} &middot; ${typeBadge(e.typePreference)}</td>
+      <td style="font-weight:800">${e.size}</td>
+      <td>${typeBadge(e.typePreference)}</td>
       <td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>
-      <td>${bike?esc(bike.name):'<span style="color:var(--muted)">-</span>'}</td>
+      <td>${bike?esc(bike.name):'<span style="color:var(--muted)">—</span>'}</td>
+      <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
       <td><label class="pay-cell" onclick="event.stopPropagation()">
         <input class="pay-cb" type="checkbox" ${e.paid?'checked':''} onchange="togglePayment('${e.id}',this.checked)">
         <span class="pay-label" style="color:${payColor}">${e.paid?t('paidLabel'):t('pendingLabel')}</span>
@@ -3136,7 +3110,7 @@ function renderStaffQueue(){
       <td><div class="actions-cell">${actions}</div></td>
     </tr>`;
   }).join('');
-  const emptyRow=filtered.length===0?`<tr><td colspan="8" class="empty-state">${t('noHistory')}</td></tr>`:'';
+  const emptyRow=filtered.length===0?`<tr><td colspan="10" class="empty-state">${t('noHistory')}</td></tr>`:'';
   document.getElementById('tab-queue').innerHTML=`
     <div class="section-header"><div class="page-title">${t('staffQueueTitle')}</div>
       <button class="btn-secondary" onclick="toggleResetTool()" style="font-size:12px">&#x1F511; ${t('staffResetTool')}</button>
@@ -3187,7 +3161,7 @@ function renderStaffQueue(){
       ${filtered.length!==base.length?`<div class="result-count">${filtered.length} of ${base.length} riders</div>`:''}
     </div>
     <div class="table-wrapper"><table class="queue-table">
-      <thead><tr><th>#</th><th>${t('colRider')}</th><th>${t('colWants')}</th><th class="hide-mobile">${t('colSession')}</th><th>${t('colBike')}</th><th>${t('colPayment')}</th><th>${t('colStatus')}</th><th></th></tr></thead>
+      <thead><tr><th>#</th><th>${t('colRider')}</th><th>${t('frameSizeLabel')}</th><th>${t('bikeTypeLabel')}</th><th class="hide-mobile">${t('colSession')}</th><th>${t('colBike')}</th><th>${t('colColor')}</th><th>${t('colPayment')}</th><th>${t('colStatus')}</th><th></th></tr></thead>
       <tbody>${rows}${emptyRow}</tbody>
     </table></div>`;
 }
@@ -3641,15 +3615,12 @@ function renderHistory(){
         <div style="color:var(--muted);font-size:12px;margin-top:1px">${shortDate(e.sessionDate)}</div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px">09:00 – 11:00</div>
       </td>
-      <td>
-        ${grad?`<div style="height:3px;border-radius:2px;background:${grad};margin-bottom:5px;width:44px"></div>`:''}
-        <div style="font-weight:700;font-size:13px">${bike?esc(bike.name):`<span style="color:var(--muted)">—</span>`}</div>
-        ${bike?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${typeLabel(bike.type)}</div>`:''}
-      </td>
-      <td style="white-space:nowrap">
-        <div style="font-weight:800;font-size:14px">${e.size}</div>
-        <div style="margin-top:4px">${typeBadge(e.typePreference)}</div>
-      </td>
+      <td style="font-weight:700;font-size:13px">${bike?esc(bike.name):`<span style="color:var(--muted)">—</span>`}</td>
+      <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
+        ${bike&&bike.colors&&bike.colors.length?bike.colors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join(''):'<span style="color:var(--muted)">—</span>'}
+      </div></td>
+      <td style="font-weight:800;font-size:14px">${e.size}</td>
+      <td>${typeBadge(e.typePreference)}</td>
       <td>
         <label class="pay-cell" onclick="event.stopPropagation()" style="flex-direction:column;align-items:flex-start;gap:5px">
           <span style="font-weight:900;font-size:15px;color:${payColor}">SAR ${e.price||DEFAULT_PRICE}</span>
@@ -3666,7 +3637,7 @@ function renderHistory(){
       </div></td>
     </tr>`;
   }).join('');
-  const emptyRow=filtered.length===0?`<tr><td colspan="8" class="empty-state">${t('noHistory')}</td></tr>`:'';
+  const emptyRow=filtered.length===0?`<tr><td colspan="9" class="empty-state">${t('noHistory')}</td></tr>`:'';
   document.getElementById('tab-history').innerHTML=`
     <div class="page-title">${t('historyTitle')}</div>
     <div class="page-sub">${t('historySub')}</div>
@@ -3712,7 +3683,9 @@ function renderHistory(){
         <th>${t('colRider')}</th>
         <th class="hide-mobile">${t('colSession')}</th>
         <th>${t('colBike')}</th>
-        <th>${t('colSizeType')}</th>
+        <th>${t('colColor')}</th>
+        <th>${t('frameSizeLabel')}</th>
+        <th>${t('bikeTypeLabel')}</th>
         <th>${t('colPayment')}</th>
         <th>${t('colStatus')}</th>
         <th>${t('colActions')}</th>
