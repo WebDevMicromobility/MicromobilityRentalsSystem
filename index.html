@@ -2609,7 +2609,7 @@ async function confirmAssign(){
 /* ══════════════════════════════════════════════
    BIKES
 ══════════════════════════════════════════════ */
-function updateColorPreview(){const p=document.getElementById('color-prev');if(p)p.style.background=bikeGradient(S.addBikeColors);}
+function updateColorPreview(){const p=document.getElementById('color-prev');if(p)p.innerHTML=S.addBikeColors.map(c=>`<span style="display:inline-block;width:28px;height:28px;border-radius:50%;background:${c};border:2px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');}
 function addColorSlot(){if(S.addBikeColors.length>=4)return;S.addBikeColors.push('#ffffff');renderBikes();}
 function removeColor(i){if(S.addBikeColors.length<=1)return;S.addBikeColors.splice(i,1);renderBikes();}
 
@@ -2641,7 +2641,7 @@ function renderBikes(){
     <div class="form-group" style="margin-bottom:16px">
       <label>${t('bikeColorsLabel')} &nbsp;<span class="label-hint">${t('colorsHint')}</span></label>
       <div class="color-builder">
-        <div class="color-preview-bar" id="color-prev" style="background:${bikeGradient(S.addBikeColors)}"></div>
+        <div id="color-prev" style="display:flex;gap:8px;align-items:center;padding:6px 0">${S.addBikeColors.map(c=>`<span style="display:inline-block;width:28px;height:28px;border-radius:50%;background:${c};border:2px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('')}</div>
         <div class="color-slots">${colorSlots}${addColorBtn}</div>
       </div>
     </div>
