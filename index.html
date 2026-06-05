@@ -123,7 +123,7 @@
     .auth-submit{width:100%;margin-top:6px;}
     .auth-err{font-size:13px;color:var(--red);font-weight:700;margin-bottom:10px;min-height:18px;text-align:center;}
     .auth-cc-row{display:flex;gap:8px;}
-    .auth-cc-row select{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-family:'Nunito',sans-serif;font-size:14px;font-weight:500;outline:none;width:190px;flex-shrink:0;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M6 8L0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:30px;}
+    .auth-cc-row select{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:11px 10px;color:var(--text);font-family:'Nunito',sans-serif;font-size:14px;font-weight:500;outline:none;width:110px;flex-shrink:0;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M6 8L0 0h12z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center;padding-right:26px;}
     .auth-cc-row input{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:11px 14px;color:var(--text);font-family:'Nunito',sans-serif;font-size:14px;font-weight:500;outline:none;transition:border-color .2s;}
     .auth-cc-row input:focus{border-color:var(--green);}
 
@@ -208,7 +208,7 @@
       background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
       background-repeat:no-repeat;background-position:right 13px center;padding-right:34px;}
     .phone-row{display:flex;gap:8px;}
-    .phone-cc{width:190px!important;flex-shrink:0;}
+    .phone-cc{width:110px!important;flex-shrink:0;}
     .phone-num{flex:1;}
     .height-row{display:flex;align-items:center;gap:10px;}
     .height-row input{flex:1;}
@@ -815,7 +815,9 @@ const S={
   // register
   _rDate:'',selSession:null,regType:null,regQty:1,lastTicket:null,
   _rName:'',_rEmail:'',_rPhone:'',_rCC:'+966',_rHeight:'',
-  regBikeSizes:[],  // one size per bike slot, e.g. ['M','S']
+  regBikeSizes:[],   // one size per bike slot, e.g. ['M','S']
+  regBikeHeights:[], // one height string per bike slot, e.g. ['175','160']
+  regBikeTypes:[],   // one type preference per bike slot, e.g. ['Road','Hybrid']
   // staff queue
   showWalkIn:false,sfStatus:'all',sfSession:'all',wiSize:null,wiType:null,wiCC:'+966',
   // bikes
@@ -1035,7 +1037,7 @@ async function doLogin(){
 function doLogout(){
   S.loggedIn=null;clearSession();
   S._rName='';S._rEmail='';S._rPhone='';S._rHeight='';
-  S.regBikeSizes=[];S.regQty=1;S.regType=null;S.selSession=null;S.lastTicket=null;
+  S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regQty=1;S.regType=null;S.selSession=null;S.lastTicket=null;
   renderTopbarRight();
   goLanding();
   toast('Logged out successfully.');
@@ -1053,8 +1055,8 @@ function prefillFromAccount(){
   if(S.loggedIn.height){
     S._rHeight=String(S.loggedIn.height);
     const sz=heightToSize(S.loggedIn.height);
-    if(S.regBikeSizes.length===0)S.regBikeSizes=[sz];
-    else S.regBikeSizes[0]=sz;
+    if(S.regBikeSizes.length===0)S.regBikeSizes=[sz]; else S.regBikeSizes[0]=sz;
+    if(S.regBikeHeights.length===0)S.regBikeHeights=[String(S.loggedIn.height)]; else S.regBikeHeights[0]=String(S.loggedIn.height);
   }
 }
 
@@ -1243,8 +1245,6 @@ document.addEventListener('keydown',e=>{
 function renderRegister(){
   const cust=S.loggedIn||getSession();
   const available=openSessions();
-
-  // Keep bike sizes array in sync with qty
   ensureBikeSizes();
 
   // Session cards
@@ -1265,7 +1265,7 @@ function renderRegister(){
     : `<div class="no-sessions-msg">${t('noSessions')}</div>`;
   if(S.selSession&&!available.find(s=>s.id===S.selSession))S.selSession=null;
 
-  // Read-only account info block (no re-entering name/email/phone)
+  // Read-only account info block
   const accountInfoBlock=cust?`
     <div style="background:var(--s3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px">
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 20px">
@@ -1287,51 +1287,90 @@ function renderRegister(){
       </div>
     </div>`:'';
 
-  // Height / size section
-  const hasAccountHeight=cust&&cust.height;
-  const h=parseInt(S._rHeight);
-  const derivedSize=(!isNaN(h)&&h>=100&&h<=250)?heightToSize(h):null;
-
-  const heightSection=hasAccountHeight?`
-    <div class="form-group" style="margin-bottom:20px">
-      <label>${t('heightLabel')}</label>
-      <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
-        <div class="size-chip">${heightToSize(cust.height)}<span class="size-chip-label">${sizeLabel(heightToSize(cust.height))}</span></div>
-        <span style="font-size:12px;color:var(--muted)">${cust.height} cm &middot; <button onclick="setCustTab('account')" style="background:none;border:none;color:var(--blue);font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;cursor:pointer;padding:0">${t('changeInAccount')}</button></span>
-      </div>
-    </div>`:`
-    <div class="form-group" style="margin-bottom:20px">
-      <label>${t('heightLabel')} &nbsp;<span class="label-hint">${t('heightHint')}</span></label>
-      <div class="height-row">
-        <input type="number" id="reg-height" placeholder="cm, e.g. 175" min="100" max="250"
-          value="${esc(S._rHeight)}" oninput="S._rHeight=this.value;refreshSizeBadge()">
-        <div id="size-badge-wrap">${derivedSize
-          ?`<div class="size-chip">${derivedSize}<span class="size-chip-label">${sizeLabel(derivedSize)}</span></div>`
-          :`<div style="font-size:12px;color:var(--muted);padding:9px 0">${t('enterHeightAbove')}</div>`
-        }</div>
+  // Qty stepper at the top of the form
+  const qtyStepper=`
+    <div class="form-group" style="margin-bottom:24px">
+      <label>${t('numBikes')}</label>
+      <div class="qty-stepper">
+        <button class="qty-btn" onclick="changeRegQty(-1)" type="button">-</button>
+        <span class="qty-val">${S.regQty}</span>
+        <button class="qty-btn" onclick="changeRegQty(1)" type="button">+</button>
       </div>
     </div>`;
 
-  // Per-bike frame size selectors
-  const bikeSizeRows=Array.from({length:S.regQty},(_,i)=>{
-    const lbl=S.regQty>1?`${t('bike')} ${i+1} &mdash; ${t('frameSizeLabel')}`:t('frameSizeLabel');
-    const btns=['XS','S','M','L'].map(sz=>
-      `<button class="toggle-btn${S.regBikeSizes[i]===sz?' active':''}" data-slot="${i}" data-size="${sz}" onclick="setBikeSize(${i},'${sz}')">${sz}</button>`
+  // Per-bike sections
+  const bikeSections=Array.from({length:S.regQty},(_,i)=>{
+    const isFirst=i===0;
+    const hasAccH=isFirst&&cust&&cust.height;
+    const bikeH=S.regBikeHeights[i]||'';
+    const parsedH=parseInt(bikeH);
+    const autoSz=(!isNaN(parsedH)&&parsedH>=100&&parsedH<=250)?heightToSize(parsedH):null;
+    const selSz=S.regBikeSizes[i]||autoSz||null;
+    const selTy=S.regBikeTypes[i]||null;
+
+    // Height row
+    let hSection;
+    if(hasAccH){
+      const accSz=heightToSize(cust.height);
+      hSection=`<div class="form-group" style="margin-bottom:14px">
+        <label>${t('heightLabel')}</label>
+        <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
+          <div class="size-chip">${accSz}<span class="size-chip-label">${sizeLabel(accSz)}</span></div>
+          <span style="font-size:12px;color:var(--muted)">${cust.height} cm &middot; <button onclick="setCustTab('account')" style="background:none;border:none;color:var(--blue);font-family:'Nunito',sans-serif;font-size:12px;font-weight:700;cursor:pointer;padding:0">${t('changeInAccount')}</button></span>
+        </div>
+      </div>`;
+    }else{
+      const badgeHtml=autoSz?`<div class="size-chip">${autoSz}<span class="size-chip-label">${sizeLabel(autoSz)}</span></div>`:'';
+      hSection=`<div class="form-group" style="margin-bottom:14px">
+        <label>${t('heightLabel')} &nbsp;<span class="label-hint">${t('heightHint')}</span></label>
+        <div class="height-row">
+          <input type="number" id="reg-height-${i}" placeholder="cm" min="100" max="250"
+            value="${esc(String(bikeH))}" oninput="onBikeHeightInput(${i},this.value)">
+          <div id="bike-size-badge-${i}">${badgeHtml}</div>
+        </div>
+      </div>`;
+    }
+
+    // Size toggles
+    const sizeBtns=['XS','S','M','L'].map(sz=>
+      `<button class="toggle-btn${selSz===sz?' active':''}" data-slot="${i}" data-size="${sz}" onclick="setBikeSize(${i},'${sz}')">${sz}</button>`
     ).join('');
-    const desc=S.regBikeSizes[i]?`<span style="font-size:11px;color:var(--muted);margin-left:4px">${sizeLabel(S.regBikeSizes[i])}</span>`:'';
-    return`<div class="form-group" style="margin-bottom:14px">
-      <label>${lbl}</label>
+    const sizeDesc=selSz?`<span style="font-size:11px;color:var(--muted);margin-left:4px">${sizeLabel(selSz)}</span>`:'';
+
+    // Type toggles
+    const typeBtns=['Road','Hybrid','Mountain','Any'].map(ty=>
+      `<button class="toggle-btn${selTy===ty?' active':''}" data-type-slot="${i}" data-type="${ty}" onclick="setBikeType(${i},'${ty}')">${ty}</button>`
+    ).join('');
+
+    const divider=(S.regQty>1&&i<S.regQty-1)?`<div style="border-top:1px solid var(--border);margin:20px 0"></div>`:'';
+
+    return`${S.regQty>1?`<div style="font-size:11px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:14px">Bike ${i+1}</div>`:''}
+    ${hSection}
+    <div class="form-group" style="margin-bottom:14px">
+      <label>${t('frameSizeLabel')}</label>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <div class="toggle-group">${btns}</div>${desc}
+        <div class="toggle-group">${sizeBtns}</div>${sizeDesc}
       </div>
-    </div>`;
+    </div>
+    <div class="form-group" style="margin-bottom:8px">
+      <label>${t('bikeTypePref')}</label>
+      <div class="toggle-group">${typeBtns}</div>
+    </div>
+    ${divider}`;
   }).join('');
 
-  // Type preference
-  const typeBtns=['Road','Hybrid','Mountain','Any'].map(ty=>
-    `<button class="toggle-btn${S.regType===ty?' active':''}" onclick="set('regType','${ty}')">${ty}</button>`).join('');
+  // Price preview (live, updated by setBikeType too)
+  const allTypesSet=S.regBikeTypes.slice(0,S.regQty).every(ty=>ty);
+  const totalPrice=S.regBikeTypes.slice(0,S.regQty).reduce((s,ty)=>s+priceForType(ty||'Any'),0);
+  const breakdown=S.regQty>1
+    ?S.regBikeTypes.slice(0,S.regQty).map((ty,i)=>`Bike ${i+1}: ${ty} — SAR ${priceForType(ty)}`).join(' &nbsp;&middot;&nbsp; ')
+    :t('pricePerBike');
+  const pricePreview=allTypesSet?`<div class="price-preview">
+    <div class="price-preview-breakdown">${breakdown}</div>
+    <div class="price-preview-total">SAR ${totalPrice.toFixed(2).replace(/\.00$/,'')}</div>
+  </div>`:'';
 
-  // Last ticket confirmation
+  // Last ticket
   let ticket='';
   if(S.lastTicket){
     const tkt=S.lastTicket;
@@ -1363,53 +1402,62 @@ function renderRegister(){
     <div class="form-section">
       <div class="form-title">${t('riderDetails')}</div>
       ${accountInfoBlock}
-      ${heightSection}
-      <div style="margin-bottom:20px">${bikeSizeRows}</div>
-      <div class="form-group full" style="margin-bottom:16px"><label>${t('bikeTypePref')}</label>
-        <div class="toggle-group">${typeBtns}</div></div>
-      <div class="form-row" style="margin-bottom:16px">
-        <div class="form-group"><label>${t('numBikes')}</label>
-          <div class="qty-stepper">
-            <button class="qty-btn" onclick="changeRegQty(-1)" type="button">-</button>
-            <span class="qty-val">${S.regQty}</span>
-            <button class="qty-btn" onclick="changeRegQty(1)" type="button">+</button>
-          </div>
-        </div>
-      </div>
-      ${S.regType?`<div class="price-preview">
-        <div class="price-preview-breakdown">${S.regQty>1?`${S.regQty} ${t('bikesWord')} &times; SAR ${priceForType(S.regType)}`:t('pricePerBike')}</div>
-        <div class="price-preview-total">SAR ${(S.regQty*priceForType(S.regType)).toFixed(2).replace(/\.00$/,'')}</div>
-      </div>`:''}
-      <button class="btn-primary" style="width:100%" onclick="submitReg()">${t('joinQueue')}</button>
+      ${qtyStepper}
+      ${bikeSections}
+      <div id="price-preview-wrap" style="margin-top:16px">${pricePreview}</div>
+      <button class="btn-primary" style="width:100%;margin-top:16px" onclick="submitReg()">${t('joinQueue')}</button>
     </div>
     ${ticket}`;
 }
 
-function refreshSizeBadge(){
-  const h=parseInt(S._rHeight);
-  const wrap=document.getElementById('size-badge-wrap');
+function onBikeHeightInput(idx,value){
+  S.regBikeHeights[idx]=value;
+  const h=parseInt(value);
   if(!isNaN(h)&&h>=100&&h<=250){
     const sz=heightToSize(h);
-    if(wrap)wrap.innerHTML=`<div class="size-chip">${sz}<span class="size-chip-label">${sizeLabel(sz)}</span></div>`;
-    // Update slot 0 in state and toggle active class without full re-render
-    if(S.regBikeSizes.length>0)S.regBikeSizes[0]=sz;
-    else S.regBikeSizes=[sz];
-    document.querySelectorAll('[data-slot="0"]').forEach(btn=>{
+    S.regBikeSizes[idx]=sz;
+    const badge=document.getElementById(`bike-size-badge-${idx}`);
+    if(badge)badge.innerHTML=`<div class="size-chip">${sz}<span class="size-chip-label">${sizeLabel(sz)}</span></div>`;
+    document.querySelectorAll(`[data-slot="${idx}"]`).forEach(btn=>{
       btn.classList.toggle('active',btn.dataset.size===sz);
     });
   }else{
-    if(wrap)wrap.innerHTML=`<div style="font-size:12px;color:var(--muted);padding:9px 0">${t('enterHeightAbove')}</div>`;
+    const badge=document.getElementById(`bike-size-badge-${idx}`);
+    if(badge)badge.innerHTML='';
+  }
+}
+
+function setBikeType(idx,type){
+  S.regBikeTypes[idx]=type;
+  document.querySelectorAll(`[data-type-slot="${idx}"]`).forEach(btn=>{
+    btn.classList.toggle('active',btn.dataset.type===type);
+  });
+  // update price preview if visible
+  const pp=document.getElementById('price-preview-wrap');
+  if(pp){
+    const allSet=S.regBikeTypes.slice(0,S.regQty).every(ty=>ty);
+    if(allSet){
+      const total=S.regBikeTypes.slice(0,S.regQty).reduce((s,ty)=>s+priceForType(ty||'Any'),0);
+      const breakdown=S.regQty>1
+        ?S.regBikeTypes.slice(0,S.regQty).map((ty,i)=>`Bike ${i+1}: ${ty} — SAR ${priceForType(ty)}`).join(' &nbsp;&middot;&nbsp; ')
+        :t('pricePerBike');
+      pp.innerHTML=`<div class="price-preview">
+        <div class="price-preview-breakdown">${breakdown}</div>
+        <div class="price-preview-total">SAR ${total.toFixed(2).replace(/\.00$/,'')}</div>
+      </div>`;
+    }
   }
 }
 
 function ensureBikeSizes(){
   const h=parseInt(S._rHeight);
   const defaultSz=(!isNaN(h)&&h>=100&&h<=250)?heightToSize(h):'M';
-  while(S.regBikeSizes.length<S.regQty){
-    // slot 0 gets height-based default, all others get 'M'
-    S.regBikeSizes.push(S.regBikeSizes.length===0?defaultSz:'M');
-  }
-  while(S.regBikeSizes.length>S.regQty)S.regBikeSizes.pop();
+  while(S.regBikeSizes.length<S.regQty)  S.regBikeSizes.push(S.regBikeSizes.length===0?defaultSz:'M');
+  while(S.regBikeSizes.length>S.regQty)  S.regBikeSizes.pop();
+  while(S.regBikeHeights.length<S.regQty) S.regBikeHeights.push('');
+  while(S.regBikeHeights.length>S.regQty) S.regBikeHeights.pop();
+  while(S.regBikeTypes.length<S.regQty)  S.regBikeTypes.push('');
+  while(S.regBikeTypes.length>S.regQty)  S.regBikeTypes.pop();
 }
 
 function setBikeSize(idx,size){
@@ -1436,58 +1484,60 @@ async function submitReg(){
   if(!cust){toast('Please log in first.','error');return;}
   if(!S.selSession){toast('Please select a session above.','error');return;}
   if(!openSessions().find(s=>s.id===S.selSession)){toast('That session is no longer open.','error');return;}
-  if(!S.regType){toast('Please select a bike type preference.','error');return;}
-
-  // Resolve height: use account height or manual input
-  let h=cust.height;
-  if(!h){
-    h=parseInt(S._rHeight);
-    if(isNaN(h)||h<100||h>250){toast('Please enter a valid height in cm.','error');return;}
-  }
 
   const qty=S.regQty||1;
   ensureBikeSizes();
 
-  // Validate all bike sizes selected
+  // Resolve per-bike heights
+  const heights=[];
   for(let i=0;i<qty;i++){
-    if(!S.regBikeSizes[i]){
-      toast(qty>1?`Please select frame size for Bike ${i+1}.`:'Please select a frame size.','error');return;
+    if(i===0&&cust.height){
+      heights.push(cust.height);
+    }else{
+      const h=parseInt(S.regBikeHeights[i]);
+      if(isNaN(h)||h<100||h>250){
+        toast(qty>1?`Please enter a valid height for Bike ${i+1}.`:'Please enter a valid height in cm.','error');return;
+      }
+      heights.push(h);
     }
+  }
+
+  // Validate sizes and types per bike
+  for(let i=0;i<qty;i++){
+    if(!S.regBikeSizes[i]){toast(qty>1?`Please select frame size for Bike ${i+1}.`:'Please select a frame size.','error');return;}
+    if(!S.regBikeTypes[i]){toast(qty>1?`Please select bike type for Bike ${i+1}.`:'Please select a bike type.','error');return;}
   }
 
   if(spotsLeft(S.selSession)<qty){toast(`Only ${spotsLeft(S.selSession)} spot(s) left in this session.`,'error');return;}
 
-  const name=cust.name;
-  const email=cust.email||'';
-  const phone=cust.phone||'';
+  const name=cust.name,email=cust.email||'',phone=cust.phone||'';
   const queue=getQueue();
   if(phone&&queue.find(e=>e.phone===phone&&e.sessionId===S.selSession&&e.status!=='noshow'&&e.status!=='cancelled'))
     {toast('This phone number is already registered for that session.','error');return;}
 
   const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
   const baseQNum=nextQNum(S.selSession);
-  const unitPrice=priceForType(S.regType);
   const entries=Array.from({length:qty},(_,i)=>({
     id:uid(),name,email,phone,
-    size:S.regBikeSizes[i]||heightToSize(h),
-    typePreference:S.regType,paid:false,
+    size:S.regBikeSizes[i]||heightToSize(heights[i]),
+    typePreference:S.regBikeTypes[i],paid:false,
     assignedBikeId:null,sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
     queueNum:baseQNum+i,status:'waiting',registeredAt:new Date().toISOString(),walkIn:false,
-    customerId:cust.id,price:unitPrice
+    customerId:cust.id,price:priceForType(S.regBikeTypes[i])
   }));
   await Promise.all(entries.map(e=>sb.from('queue_entries').insert(entryToDB(e))));
 
-  // Save height to account if not already stored
-  if(!cust.height&&!isNaN(parseInt(S._rHeight))){
+  // Save bike 0 height to account if not already stored
+  if(!cust.height&&heights[0]){
     try{
-      const newH=parseInt(S._rHeight);
-      await sb.from('customers').update({height:newH}).eq('id',cust.id);
-      S.loggedIn.height=newH;setSession(S.loggedIn);
+      await sb.from('customers').update({height:heights[0]}).eq('id',cust.id);
+      S.loggedIn.height=heights[0];setSession(S.loggedIn);
     }catch(e){/* non-fatal */}
   }
 
   await loadData();
-  S.lastTicket=entries[0];S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;S.regQty=1;S.regBikeSizes=[];
+  S.lastTicket=entries[0];S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
+  S.regQty=1;S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];
   toast(qty>1?`Registered! Queue numbers #${baseQNum}–#${baseQNum+qty-1}`:`Registered! Queue number #${baseQNum}`);
   renderRegister();
 }
