@@ -648,6 +648,37 @@
       .view-main{padding:12px 12px 32px;}
     }
 
+    /* ── Analytics ── */
+    .analytics-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
+    @media(max-width:1023px){.analytics-kpi-grid{grid-template-columns:repeat(2,1fr);}}
+    @media(max-width:480px){.analytics-kpi-grid{grid-template-columns:1fr 1fr;gap:8px;}}
+    .analytics-kpi-card{background:linear-gradient(145deg,#1a1a1a,#161616);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:18px 20px;box-shadow:0 2px 12px rgba(0,0,0,.2);}
+    .analytics-kpi-value{font-size:28px;font-weight:900;letter-spacing:-.5px;line-height:1;margin-bottom:5px;}
+    .analytics-kpi-label{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;}
+    .analytics-kpi-sub{font-size:11px;color:var(--muted);margin-top:5px;font-weight:600;}
+    .analytics-section-title{font-size:12px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin:28px 0 14px;display:flex;align-items:center;gap:10px;}
+    .analytics-section-title::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.06);}
+    .analytics-bars-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:8px;}
+    @media(max-width:767px){.analytics-bars-grid{grid-template-columns:1fr;}}
+    .analytics-bars-card{background:linear-gradient(145deg,#1a1a1a,#161616);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:18px 20px;}
+    .analytics-bars-title{font-size:11px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;}
+    .analytics-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+    .analytics-bar-label{font-size:12px;font-weight:700;min-width:68px;color:var(--text);}
+    .analytics-bar-track{flex:1;height:7px;background:rgba(255,255,255,.06);border-radius:4px;overflow:hidden;}
+    .analytics-bar-fill{height:100%;border-radius:4px;transition:width .4s cubic-bezier(.2,.8,.2,1);}
+    .analytics-bar-value{font-size:12px;font-weight:800;min-width:32px;text-align:right;color:var(--text);}
+    .analytics-trend-table{width:100%;border-collapse:collapse;}
+    .analytics-trend-table th{font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;text-align:left;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.06);white-space:nowrap;background:#131313;}
+    .analytics-trend-table td{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px;vertical-align:middle;}
+    .analytics-trend-table tbody tr:hover td{background:rgba(255,255,255,.018);}
+    .analytics-occ-bar{display:flex;align-items:center;gap:8px;}
+    .analytics-occ-track{width:60px;height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden;flex-shrink:0;}
+    .analytics-occ-fill{height:100%;border-radius:3px;}
+    .analytics-insight-row{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:24px;}
+    @media(max-width:767px){.analytics-insight-row{grid-template-columns:1fr;}}
+    .analytics-insight-card{background:linear-gradient(145deg,#1a1a1a,#161616);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:18px 20px;}
+    .analytics-insight-title{font-size:11px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;}
+
     /* ── Search input ── */
     .search-wrap{position:relative;flex-shrink:0;}
     .search-wrap svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:.4;}
@@ -733,16 +764,18 @@
 <!-- STAFF VIEW -->
 <div id="view-staff">
   <nav class="tab-nav" id="staff-tab-nav">
-    <button class="tab-btn active" data-stab="queue"    onclick="setStaffTab('queue')">Queue</button>
-    <button class="tab-btn"        data-stab="sessions" onclick="setStaffTab('sessions')">Sessions</button>
-    <button class="tab-btn"        data-stab="bikes"    onclick="setStaffTab('bikes')">Bikes</button>
-    <button class="tab-btn"        data-stab="history"  onclick="setStaffTab('history')">History</button>
+    <button class="tab-btn active" data-stab="queue"     onclick="setStaffTab('queue')">Queue</button>
+    <button class="tab-btn"        data-stab="sessions"  onclick="setStaffTab('sessions')">Sessions</button>
+    <button class="tab-btn"        data-stab="bikes"     onclick="setStaffTab('bikes')">Bikes</button>
+    <button class="tab-btn"        data-stab="history"   onclick="setStaffTab('history')">History</button>
+    <button class="tab-btn"        data-stab="analytics" onclick="setStaffTab('analytics')">Analytics</button>
   </nav>
   <div class="view-main">
-    <div id="tab-queue"    class="tab-panel active"></div>
-    <div id="tab-sessions" class="tab-panel"></div>
-    <div id="tab-bikes"    class="tab-panel"></div>
-    <div id="tab-history"  class="tab-panel"></div>
+    <div id="tab-queue"     class="tab-panel active"></div>
+    <div id="tab-sessions"  class="tab-panel"></div>
+    <div id="tab-bikes"     class="tab-panel"></div>
+    <div id="tab-history"   class="tab-panel"></div>
+    <div id="tab-analytics" class="tab-panel"></div>
   </div>
 </div>
 
@@ -784,7 +817,14 @@ en:{
   staffResetExpiry:'Valid for 10 minutes · changes automatically',
   authPhone:'Phone Number',authPhoneOpt:'(optional if using email)',
   authPassword:'Password',authPasswordHint:'Choose a password (min 6 chars)',authConfirmPassword:'Confirm Password',
-  tabReserve:'Reserve',tabMyRides:'My Rides',tabQueue:'Queue',tabSessions:'Sessions',tabBikes:'Bikes',tabHistory:'History',
+  tabReserve:'Reserve',tabMyRides:'My Rides',tabQueue:'Queue',tabSessions:'Sessions',tabBikes:'Bikes',tabHistory:'History',tabAnalytics:'Analytics',
+  anRevCollected:'Revenue Collected',anRevPending:'Revenue Pending',anRevTotal:'Total Revenue',anAvgPerSession:'Avg / Session',
+  anTotalRides:'Completed Rides',anUniqueCustomers:'Unique Customers',anRepeatRiders:'Repeat Riders',anWalkIns:'Walk-ins',
+  anSessionsHeld:'Sessions Held',anAvgOccupancy:'Avg Occupancy',anNoShowRate:'No-Show Rate',anCollectionRate:'Collection Rate',
+  anByType:'Rides by Bike Type',anBySize:'Rides by Frame Size',anByDay:'Rides by Day of Week',anByRevType:'Revenue by Bike Type',
+  anSessionTrend:'Session-by-Session Performance',
+  anColDate:'Date',anColRiders:'Riders',anColRevenue:'Revenue',anColPending:'Pending',anColNoShows:'No-Shows',anColOccupancy:'Occupancy',anColTopType:'Top Type',
+  anNoData:'No completed rides yet. Data will appear here once sessions are done.',
   regTitle:'Reserve Your Spot',regSub:'Pick an available session, fill in your details, and join the queue.',
   availSessions:'Available Sessions',
   noSessions:'No sessions are currently open for reservation. Check back soon or contact the team.',
@@ -937,7 +977,14 @@ ar:{
   staffResetExpiry:'صالح لمدة 10 دقائق · يتغير تلقائياً',
   authPhone:'رقم الهاتف',authPhoneOpt:'(اختياري إذا استخدمت البريد)',
   authPassword:'كلمة المرور',authPasswordHint:'اختر كلمة مرور (6 أحرف على الأقل)',authConfirmPassword:'تأكيد كلمة المرور',
-  tabReserve:'حجز',tabMyRides:'رحلاتي',tabQueue:'الطابور',tabSessions:'الجلسات',tabBikes:'الدراجات',tabHistory:'السجل',
+  tabReserve:'حجز',tabMyRides:'رحلاتي',tabQueue:'الطابور',tabSessions:'الجلسات',tabBikes:'الدراجات',tabHistory:'السجل',tabAnalytics:'التحليلات',
+  anRevCollected:'الإيرادات المحصلة',anRevPending:'الإيرادات المعلقة',anRevTotal:'إجمالي الإيرادات',anAvgPerSession:'متوسط الجلسة',
+  anTotalRides:'الرحلات المكتملة',anUniqueCustomers:'العملاء الفريدون',anRepeatRiders:'الراكبون المتكررون',anWalkIns:'الزيارات المباشرة',
+  anSessionsHeld:'الجلسات المنعقدة',anAvgOccupancy:'متوسط الإشغال',anNoShowRate:'معدل الغياب',anCollectionRate:'معدل التحصيل',
+  anByType:'الرحلات حسب نوع الدراجة',anBySize:'الرحلات حسب مقاس الإطار',anByDay:'الرحلات حسب يوم الأسبوع',anByRevType:'الإيرادات حسب نوع الدراجة',
+  anSessionTrend:'أداء الجلسات',
+  anColDate:'التاريخ',anColRiders:'الراكبون',anColRevenue:'الإيرادات',anColPending:'المعلق',anColNoShows:'الغياب',anColOccupancy:'الإشغال',anColTopType:'النوع الأكثر',
+  anNoData:'لا توجد رحلات مكتملة بعد. ستظهر البيانات هنا عند اكتمال الجلسات.',
   regTitle:'احجز موقعك',regSub:'اختر جلسة متاحة، أدخل بياناتك، وانضم إلى الطابور.',
   availSessions:'الجلسات المتاحة',
   noSessions:'لا توجد جلسات مفتوحة للحجز حالياً. تحقق لاحقاً أو تواصل مع الفريق.',
@@ -1079,10 +1126,11 @@ function setLang(lang){
     if(b.dataset.stab==='sessions')b.textContent=t('tabSessions');
     if(b.dataset.stab==='bikes')b.textContent=t('tabBikes');
     if(b.dataset.stab==='history')b.textContent=t('tabHistory');
+    if(b.dataset.stab==='analytics')b.textContent=t('tabAnalytics');
   });
   renderTopbarRight();
   if(S.view==='customer'){renderRegister();renderMyRides();if(S.custTab==='account')renderAccount();}
-  else if(S.view==='staff'){renderStaffQueue();renderSessions();renderBikes();renderHistory();}
+  else if(S.view==='staff'){renderStaffQueue();renderSessions();renderBikes();renderHistory();if(S.staffTab==='analytics')renderAnalytics();}
   if(document.getElementById('auth-modal')?.style.display!=='none')renderAuthModal();
 }
 
@@ -1746,6 +1794,7 @@ function setStaffTab(t){
   else if(t==='queue')renderStaffQueue();
   else if(t==='bikes')renderBikes();
   else if(t==='history')renderHistory();
+  else if(t==='analytics')renderAnalytics();
 }
 
 function renderCustomerTabs(){
@@ -1761,10 +1810,11 @@ function renderStaffTabs(){
   document.querySelectorAll('#staff-tab-nav .tab-btn').forEach(b=>{
     b.classList.toggle('active',b.dataset.stab===S.staffTab);
   });
-  document.getElementById('tab-queue')   .classList.toggle('active',S.staffTab==='queue');
-  document.getElementById('tab-sessions').classList.toggle('active',S.staffTab==='sessions');
-  document.getElementById('tab-bikes')   .classList.toggle('active',S.staffTab==='bikes');
-  document.getElementById('tab-history') .classList.toggle('active',S.staffTab==='history');
+  document.getElementById('tab-queue')    .classList.toggle('active',S.staffTab==='queue');
+  document.getElementById('tab-sessions') .classList.toggle('active',S.staffTab==='sessions');
+  document.getElementById('tab-bikes')    .classList.toggle('active',S.staffTab==='bikes');
+  document.getElementById('tab-history')  .classList.toggle('active',S.staffTab==='history');
+  document.getElementById('tab-analytics').classList.toggle('active',S.staffTab==='analytics');
 }
 
 function renderTopbarRight(){
@@ -3288,6 +3338,276 @@ function showReceipt(id){
   </div>`;
 }
 function closeReceipt(){document.getElementById('receipt-modal').style.display='none';}
+
+/* ══════════════════════════════════════════════
+   ANALYTICS
+══════════════════════════════════════════════ */
+function renderAnalytics(){
+  const queue=getQueue();
+  const sessions=allSessions();
+  const done=queue.filter(e=>e.status==='done');
+  const noshow=queue.filter(e=>e.status==='noshow');
+
+  if(done.length===0&&noshow.length===0){
+    document.getElementById('tab-analytics').innerHTML=`
+      <div class="page-title">${t('tabAnalytics')}</div>
+      <div class="empty-state" style="margin-top:48px">${t('anNoData')}</div>`;
+    return;
+  }
+
+  // ── Revenue ──────────────────────────────────────────
+  const revCollected=done.filter(e=>e.paid).reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
+  const revPending  =done.filter(e=>!e.paid).reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
+  const revTotal    =revCollected+revPending;
+  const sessionsWithDone=sessions.filter(s=>done.some(e=>e.sessionId===s.id));
+  const avgRevPerSession=sessionsWithDone.length?Math.round(revTotal/sessionsWithDone.length):0;
+  const collectionRate=revTotal>0?Math.round((revCollected/revTotal)*100):0;
+
+  // ── Riders ───────────────────────────────────────────
+  const totalDone=done.length;
+  const uniqueCustIds=[...new Set(done.filter(e=>e.customerId).map(e=>e.customerId))];
+  const custRideCounts={};
+  done.filter(e=>e.customerId).forEach(e=>{custRideCounts[e.customerId]=(custRideCounts[e.customerId]||0)+1;});
+  const repeatCustomers=Object.values(custRideCounts).filter(c=>c>=2).length;
+  const walkInDone=done.filter(e=>e.walkIn).length;
+  const totalAttempted=done.length+noshow.length;
+  const noShowRate=totalAttempted>0?Math.round((noshow.length/totalAttempted)*100):0;
+  const sessionsHeld=sessionsWithDone.length;
+  const avgOccupancy=sessionsHeld>0
+    ?Math.round(sessionsWithDone.reduce((sum,s)=>{
+        const cap=s.capacity||12;
+        return sum+(done.filter(e=>e.sessionId===s.id).length/cap*100);
+      },0)/sessionsHeld)
+    :0;
+
+  // ── Breakdowns ───────────────────────────────────────
+  const typeBreak={};
+  done.forEach(e=>{typeBreak[e.typePreference]=(typeBreak[e.typePreference]||0)+1;});
+  const sizeBreak={XS:0,S:0,M:0,L:0};
+  done.forEach(e=>{if(sizeBreak.hasOwnProperty(e.size))sizeBreak[e.size]++;});
+  const dayBreak={};
+  done.forEach(e=>{if(e.sessionDay)dayBreak[e.sessionDay]=(dayBreak[e.sessionDay]||0)+1;});
+  const revByType={};
+  done.filter(e=>e.paid).forEach(e=>{revByType[e.typePreference]=(revByType[e.typePreference]||0)+(e.price||DEFAULT_PRICE);});
+
+  // ── Bar chart builder ─────────────────────────────────
+  function bars(data,colorFn,valueFmt){
+    const max=Math.max(...Object.values(data),1);
+    return Object.entries(data).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`
+      <div class="analytics-bar-row">
+        <div class="analytics-bar-label">${typeLabel(k)||k}</div>
+        <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(v/max*100)}%;background:${colorFn(k)}"></div></div>
+        <div class="analytics-bar-value">${valueFmt?valueFmt(v):v}</div>
+      </div>`).join('');
+  }
+  const typeColor={Road:'var(--blue)',Hybrid:'var(--green)',Mountain:'var(--orange)',Gravel:'var(--purple)',Any:'var(--muted)'};
+  const sizeColor={XS:'var(--purple)',S:'var(--blue)',M:'var(--green)',L:'var(--orange)'};
+  const dayColor=()=>'var(--green-d)';
+  const dayOrder=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const dayBreakOrdered=Object.fromEntries(dayOrder.filter(d=>dayBreak[d]).map(d=>[d,dayBreak[d]]));
+
+  // ── Top metrics ───────────────────────────────────────
+  const topType=Object.keys(typeBreak).sort((a,b)=>typeBreak[b]-typeBreak[a])[0]||'—';
+  const topSize=Object.keys(sizeBreak).sort((a,b)=>sizeBreak[b]-sizeBreak[a])[0]||'—';
+  const topDay=Object.keys(dayBreak).sort((a,b)=>dayBreak[b]-dayBreak[a])[0]||'—';
+
+  // ── Per-session trend ─────────────────────────────────
+  const trendRows=sessions
+    .filter(s=>done.some(e=>e.sessionId===s.id)||noshow.some(e=>e.sessionId===s.id))
+    .map(s=>{
+      const sDone=done.filter(e=>e.sessionId===s.id);
+      const sNo  =noshow.filter(e=>e.sessionId===s.id);
+      const cap  =s.capacity||12;
+      const rev  =sDone.filter(e=>e.paid).reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
+      const pend =sDone.filter(e=>!e.paid).reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
+      const occ  =Math.round(sDone.length/cap*100);
+      const types={};sDone.forEach(e=>{types[e.typePreference]=(types[e.typePreference]||0)+1;});
+      const topT =Object.keys(types).sort((a,b)=>types[b]-types[a])[0]||'—';
+      const occColor=occ>=80?'var(--green)':occ>=50?'var(--orange)':'var(--red)';
+      return`<tr>
+        <td style="font-weight:800;white-space:nowrap">${shortDate(s.session_date||s.id)}</td>
+        <td style="color:var(--muted);font-size:12px">${dayLabel(s.day)||''}</td>
+        <td style="font-weight:900;font-size:16px;color:var(--text)">${sDone.length}<span style="font-size:11px;color:var(--muted);font-weight:600"> / ${cap}</span></td>
+        <td style="color:var(--green);font-weight:800">SAR ${rev.toFixed(0)}</td>
+        <td style="color:var(--orange);font-weight:700">${pend>0?`SAR ${pend.toFixed(0)}`:'<span style="color:var(--muted)">—</span>'}</td>
+        <td style="color:${sNo.length>0?'var(--red)':'var(--muted)'};font-weight:700">${sNo.length||'—'}</td>
+        <td>
+          <div class="analytics-occ-bar">
+            <div class="analytics-occ-track"><div class="analytics-occ-fill" style="width:${occ}%;background:${occColor}"></div></div>
+            <span style="font-size:12px;font-weight:800;color:${occColor}">${occ}%</span>
+          </div>
+        </td>
+        <td>${topT!=='—'?`<span class="type-badge ${TYPE_CLS[topT]||'type-any'}">${typeLabel(topT)}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
+      </tr>`;
+    })
+    .sort((a,b)=>0) // already ordered by sessions array (date asc)
+    .reverse(); // newest first — we reverse after map
+
+  // Actually re-do sort properly
+  const trendSessions=[...sessions]
+    .filter(s=>done.some(e=>e.sessionId===s.id)||noshow.some(e=>e.sessionId===s.id))
+    .sort((a,b)=>new Date(b.session_date||b.id)-new Date(a.session_date||a.id));
+  const trendRowsSorted=trendSessions.map(s=>{
+      const sDone=done.filter(e=>e.sessionId===s.id);
+      const sNo  =noshow.filter(e=>e.sessionId===s.id);
+      const cap  =s.capacity||12;
+      const rev  =sDone.filter(e=>e.paid).reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
+      const pend =sDone.filter(e=>!e.paid).reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
+      const occ  =Math.round(sDone.length/cap*100);
+      const types={};sDone.forEach(e=>{types[e.typePreference]=(types[e.typePreference]||0)+1;});
+      const topT =Object.keys(types).sort((a,b)=>types[b]-types[a])[0]||'—';
+      const occColor=occ>=80?'var(--green)':occ>=50?'var(--orange)':'var(--red)';
+      return`<tr>
+        <td style="font-weight:800;white-space:nowrap">${shortDate(s.session_date||s.id)}</td>
+        <td style="color:var(--muted);font-size:12px">${dayLabel(s.day)||''}</td>
+        <td style="font-weight:900;font-size:16px">${sDone.length}<span style="font-size:11px;color:var(--muted);font-weight:600"> / ${cap}</span></td>
+        <td style="color:var(--green);font-weight:800">SAR ${rev.toFixed(0)}</td>
+        <td style="color:var(--orange);font-weight:700">${pend>0?`SAR ${pend.toFixed(0)}`:'<span style="color:var(--muted)">—</span>'}</td>
+        <td style="color:${sNo.length>0?'var(--red)':'var(--muted)'};font-weight:700">${sNo.length||'—'}</td>
+        <td><div class="analytics-occ-bar">
+          <div class="analytics-occ-track"><div class="analytics-occ-fill" style="width:${occ}%;background:${occColor}"></div></div>
+          <span style="font-size:12px;font-weight:800;color:${occColor}">${occ}%</span>
+        </div></td>
+        <td>${topT!=='—'?`<span class="type-badge ${TYPE_CLS[topT]||'type-any'}">${typeLabel(topT)}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
+      </tr>`;
+    });
+
+  // ── Render ────────────────────────────────────────────
+  document.getElementById('tab-analytics').innerHTML=`
+    <div class="page-title">${t('tabAnalytics')}</div>
+    <div class="page-sub">Business performance overview based on all completed sessions.</div>
+
+    <div class="analytics-section-title">Revenue</div>
+    <div class="analytics-kpi-grid">
+      <div class="analytics-kpi-card">
+        <div class="analytics-kpi-value" style="color:var(--green)">SAR ${revCollected.toFixed(0)}</div>
+        <div class="analytics-kpi-label">${t('anRevCollected')}</div>
+        <div class="analytics-kpi-sub">${collectionRate}% collection rate</div>
+      </div>
+      <div class="analytics-kpi-card">
+        <div class="analytics-kpi-value" style="color:var(--orange)">SAR ${revPending.toFixed(0)}</div>
+        <div class="analytics-kpi-label">${t('anRevPending')}</div>
+        <div class="analytics-kpi-sub">${done.filter(e=>!e.paid).length} unpaid rides</div>
+      </div>
+      <div class="analytics-kpi-card">
+        <div class="analytics-kpi-value">SAR ${revTotal.toFixed(0)}</div>
+        <div class="analytics-kpi-label">${t('anRevTotal')}</div>
+        <div class="analytics-kpi-sub">Across ${sessionsHeld} session${sessionsHeld!==1?'s':''}</div>
+      </div>
+      <div class="analytics-kpi-card">
+        <div class="analytics-kpi-value" style="color:var(--blue)">SAR ${avgRevPerSession}</div>
+        <div class="analytics-kpi-label">${t('anAvgPerSession')}</div>
+        <div class="analytics-kpi-sub">Total revenue ÷ sessions held</div>
+      </div>
+    </div>
+
+    <div class="analytics-section-title">Ridership</div>
+    <div class="analytics-kpi-grid">
+      <div class="analytics-kpi-card">
+        <div class="analytics-kpi-value">${totalDone}</div>
+        <div class="analytics-kpi-label">${t('anTotalRides')}</div>
+        <div class="analytics-kpi-sub">${noshow.length} no-show${noshow.length!==1?'s':''} excluded</div>
+      </div>
+      <div class="analytics-kpi-card">
+        <div class="analytics-kpi-value" style="color:var(--green)">${uniqueCustIds.length}</div>
+        <div class="analytics-kpi-label">${t('anUniqueCustomers')}</div>
+        <div class="analytics-kpi-sub">With registered accounts</div>
+      </div>
+      <div class="analytics-kpi-card">
+        <div class="analytics-kpi-value" style="color:var(--purple)">${repeatCustomers}</div>
+        <div class="analytics-kpi-label">${t('anRepeatRiders')}</div>
+        <div class="analytics-kpi-sub">Rented 2 or more times</div>
+      </div>
+      <div class="analytics-kpi-card">
+        <div class="analytics-kpi-value" style="color:var(--blue)">${walkInDone}</div>
+        <div class="analytics-kpi-label">${t('anWalkIns')}</div>
+        <div class="analytics-kpi-sub">${totalDone>0?Math.round(walkInDone/totalDone*100):0}% of completed rides</div>
+      </div>
+    </div>
+
+    <div class="analytics-section-title">Operations</div>
+    <div class="analytics-kpi-grid">
+      <div class="analytics-kpi-card">
+        <div class="analytics-kpi-value">${sessionsHeld}</div>
+        <div class="analytics-kpi-label">${t('anSessionsHeld')}</div>
+        <div class="analytics-kpi-sub">${sessions.length} total created</div>
+      </div>
+      <div class="analytics-kpi-card">
+        <div class="analytics-kpi-value" style="color:${avgOccupancy>=80?'var(--green)':avgOccupancy>=50?'var(--orange)':'var(--red)'}">${avgOccupancy}%</div>
+        <div class="analytics-kpi-label">${t('anAvgOccupancy')}</div>
+        <div class="analytics-kpi-sub">Riders ÷ session capacity</div>
+      </div>
+      <div class="analytics-kpi-card">
+        <div class="analytics-kpi-value" style="color:${noShowRate>15?'var(--red)':noShowRate>8?'var(--orange)':'var(--green)'}">${noShowRate}%</div>
+        <div class="analytics-kpi-label">${t('anNoShowRate')}</div>
+        <div class="analytics-kpi-sub">${noshow.length} no-show${noshow.length!==1?'s':''} out of ${totalAttempted}</div>
+      </div>
+      <div class="analytics-kpi-card">
+        <div class="analytics-kpi-value" style="color:var(--green)">${collectionRate}%</div>
+        <div class="analytics-kpi-label">${t('anCollectionRate')}</div>
+        <div class="analytics-kpi-sub">SAR ${revCollected.toFixed(0)} of SAR ${revTotal.toFixed(0)}</div>
+      </div>
+    </div>
+
+    <div class="analytics-section-title">Breakdowns</div>
+    <div class="analytics-bars-grid">
+      <div class="analytics-bars-card">
+        <div class="analytics-bars-title">${t('anByType')}</div>
+        ${Object.keys(typeBreak).length?bars(typeBreak,k=>typeColor[k]||'var(--muted)'):'<div style="color:var(--muted);font-size:13px">No data</div>'}
+      </div>
+      <div class="analytics-bars-card">
+        <div class="analytics-bars-title">${t('anBySize')}</div>
+        ${bars(sizeBreak,k=>sizeColor[k]||'var(--muted)')}
+      </div>
+      <div class="analytics-bars-card">
+        <div class="analytics-bars-title">${t('anByDay')}</div>
+        ${Object.keys(dayBreakOrdered).length?bars(dayBreakOrdered,dayColor):'<div style="color:var(--muted);font-size:13px">No data</div>'}
+      </div>
+    </div>
+
+    <div class="analytics-insight-row">
+      <div class="analytics-insight-card">
+        <div class="analytics-insight-title">${t('anByRevType')}</div>
+        ${Object.keys(revByType).length?bars(revByType,k=>typeColor[k]||'var(--muted)',v=>`SAR ${v.toFixed(0)}`):'<div style="color:var(--muted);font-size:13px">No data</div>'}
+      </div>
+      <div class="analytics-insight-card">
+        <div class="analytics-insight-title">Highlights</div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div><div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Most Popular Type</div>
+            <div style="font-size:18px;font-weight:900">${topType!=='—'?`<span class="type-badge ${TYPE_CLS[topType]||'type-any'}">${typeLabel(topType)}</span>`:topType}
+              ${topType!=='—'?`<span style="font-size:13px;color:var(--muted);font-weight:600;margin-left:6px">${typeBreak[topType]} rides</span>`:''}
+            </div></div>
+          <div><div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Most Popular Frame</div>
+            <div style="font-size:18px;font-weight:900;color:var(--text)">${topSize}
+              ${topSize!=='—'?`<span style="font-size:13px;color:var(--muted);font-weight:600;margin-left:6px">${sizeBreak[topSize]} rides</span>`:''}
+            </div></div>
+          <div><div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Busiest Day</div>
+            <div style="font-size:18px;font-weight:900;color:var(--text)">${dayLabel(topDay)}
+              ${topDay!=='—'?`<span style="font-size:13px;color:var(--muted);font-weight:600;margin-left:6px">${dayBreak[topDay]} rides</span>`:''}
+            </div></div>
+          <div><div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">Revenue / Ride</div>
+            <div style="font-size:18px;font-weight:900;color:var(--green)">SAR ${totalDone>0?(revTotal/totalDone).toFixed(1):0}</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="analytics-section-title">${t('anSessionTrend')}</div>
+    <div class="table-wrapper">
+      <table class="analytics-trend-table">
+        <thead><tr>
+          <th>${t('anColDate')}</th>
+          <th>${t('colDay')}</th>
+          <th>${t('anColRiders')}</th>
+          <th>${t('anColRevenue')}</th>
+          <th>${t('anColPending')}</th>
+          <th>${t('anColNoShows')}</th>
+          <th>${t('anColOccupancy')}</th>
+          <th>${t('anColTopType')}</th>
+        </tr></thead>
+        <tbody>${trendRowsSorted.length?trendRowsSorted.join(''):'<tr><td colspan="8" class="empty-state">No sessions with completed rides yet.</td></tr>'}</tbody>
+      </table>
+    </div>`;
+}
 
 /* ══════════════════════════════════════════════
    BOOT - load data from API then show landing
