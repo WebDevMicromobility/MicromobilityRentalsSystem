@@ -739,6 +739,11 @@ en:{
   authLogin:'Log In',authSignup:'Sign Up',authLoginBtn:'Log In',authSignupBtn:'Create Account',
   authCancel:'Cancel - Go Home',authIdentifier:'Email or Phone',
   authFullName:'Full Name',authEmail:'Email Address',authEmailOpt:'(optional if using phone)',
+  forgotPwLink:'Forgot password?',forgotPwTitle:'Reset Password',
+  forgotPwSub:'Enter your registered name and email or phone to verify your identity.',
+  resetNameHint:'Full name as registered',resetNewPwd:'New Password',resetConfirmPwd:'Confirm New Password',
+  resetBtn:'Reset Password',backToLogin:'Back to login',
+  errNameMismatch:'Name does not match the account.',toastPwReset:'Password reset successfully. Welcome back!',
   authPhone:'Phone Number',authPhoneOpt:'(optional if using email)',
   authPassword:'Password',authPasswordHint:'Choose a password (min 6 chars)',authConfirmPassword:'Confirm Password',
   tabReserve:'Reserve',tabMyRides:'My Rides',tabQueue:'Queue',tabSessions:'Sessions',tabBikes:'Bikes',tabHistory:'History',
@@ -878,6 +883,11 @@ ar:{
   authLogin:'تسجيل الدخول',authSignup:'إنشاء حساب',authLoginBtn:'تسجيل الدخول',authSignupBtn:'إنشاء الحساب',
   authCancel:'إلغاء - الرئيسية',authIdentifier:'البريد الإلكتروني أو الهاتف',
   authFullName:'الاسم الكامل',authEmail:'البريد الإلكتروني',authEmailOpt:'(اختياري إذا استخدمت الهاتف)',
+  forgotPwLink:'نسيت كلمة المرور؟',forgotPwTitle:'إعادة تعيين كلمة المرور',
+  forgotPwSub:'أدخل اسمك المسجل والبريد الإلكتروني أو رقم الهاتف للتحقق من هويتك.',
+  resetNameHint:'الاسم الكامل كما هو مسجل',resetNewPwd:'كلمة المرور الجديدة',resetConfirmPwd:'تأكيد كلمة المرور',
+  resetBtn:'إعادة التعيين',backToLogin:'العودة لتسجيل الدخول',
+  errNameMismatch:'الاسم لا يتطابق مع الحساب.',toastPwReset:'تم إعادة تعيين كلمة المرور. مرحباً بعودتك!',
   authPhone:'رقم الهاتف',authPhoneOpt:'(اختياري إذا استخدمت البريد)',
   authPassword:'كلمة المرور',authPasswordHint:'اختر كلمة مرور (6 أحرف على الأقل)',authConfirmPassword:'تأكيد كلمة المرور',
   tabReserve:'حجز',tabMyRides:'رحلاتي',tabQueue:'الطابور',tabSessions:'الجلسات',tabBikes:'الدراجات',tabHistory:'السجل',
@@ -1411,42 +1421,67 @@ function openAuthModal(){
 function closeAuthModal(){document.getElementById('auth-modal').style.display='none';}
 
 function renderAuthModal(){
+  const isForgot=S.authMode==='forgot';
   const isLogin=S.authMode==='login';
   const ccOpts=COUNTRY_CODES.map(([code,iso,name])=>`<option value="${code}"${code==='+966'&&iso==='SA'?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
   const logoSrc=document.querySelector('.topbar-logo img')?.src||'micromobilitylogo.jpeg';
+  let body='';
+  if(isForgot){
+    body=`
+      <div class="auth-field"><label>${t('authFullName')}</label>
+        <input id="a-reset-name" type="text" placeholder="${t('resetNameHint')}"></div>
+      <div class="auth-field"><label>${t('authIdentifier')}</label>
+        <input id="a-reset-id" type="text" placeholder="email@example.com or +966..."></div>
+      <div class="auth-field"><label>${t('resetNewPwd')}</label>
+        <input id="a-reset-pwd" type="password" placeholder="${t('resetNewPwd')}"></div>
+      <div class="auth-field"><label>${t('resetConfirmPwd')}</label>
+        <input id="a-reset-pwd2" type="password" placeholder="${t('resetConfirmPwd')}"></div>
+      <button class="btn-primary auth-submit" onclick="doResetPassword()">${t('resetBtn')}</button>
+      <div style="text-align:center;margin-top:10px">
+        <button style="background:none;border:none;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif" onclick="switchAuthMode('login')">← ${t('backToLogin')}</button>
+      </div>`;
+  } else if(isLogin){
+    body=`
+      <div class="auth-field"><label>${t('authIdentifier')}</label><input id="a-identifier" type="text" placeholder="email@example.com or +966..."></div>
+      <div class="auth-field">
+        <label style="display:flex;justify-content:space-between;align-items:center">
+          <span>${t('authPassword')}</span>
+          <button style="background:none;border:none;color:var(--green);font-size:11px;font-weight:700;cursor:pointer;font-family:'Nunito',sans-serif;padding:0" onclick="switchAuthMode('forgot')">${t('forgotPwLink')}</button>
+        </label>
+        <input id="a-pwd" type="password" placeholder="${t('authPassword')}">
+      </div>
+      <button class="btn-primary auth-submit" onclick="doLogin()">${t('authLoginBtn')}</button>`;
+  } else {
+    body=`
+      <div class="auth-field"><label>${t('authFullName')}</label><input id="a-name" type="text" placeholder="${t('authFullName')}"></div>
+      <div class="auth-field"><label>${t('authEmail')} <span style="font-weight:400;text-transform:none">${t('authEmailOpt')}</span></label>
+        <input id="a-email" type="email" placeholder="your@email.com"></div>
+      <div class="auth-field"><label>${t('authPhone')} <span style="font-weight:400;text-transform:none">${t('authPhoneOpt')}</span></label>
+        <div class="auth-cc-row">
+          <select id="a-cc">${ccOpts}</select>
+          <input id="a-phone" type="tel" placeholder="5x xxx xxxx">
+        </div></div>
+      <div class="auth-field"><label>${t('authPassword')}</label><input id="a-pwd" type="password" placeholder="${t('authPasswordHint')}"></div>
+      <div class="auth-field"><label>${t('authConfirmPassword')}</label><input id="a-pwd2" type="password" placeholder="${t('authConfirmPassword')}"></div>
+      <div class="auth-field"><label>${t('heightLabel')} <span style="font-weight:400;text-transform:none">${t('heightOptional')}</span></label>
+        <input id="a-height" type="number" placeholder="cm, e.g. 175" min="100" max="250"></div>
+      <button class="btn-primary auth-submit" onclick="doSignup()">${t('authSignupBtn')}</button>`;
+  }
   document.getElementById('auth-modal').innerHTML=`
   <div class="auth-backdrop">
     <div class="auth-box">
       <img class="auth-logo" src="${logoSrc}" alt="logo">
-      <div class="auth-title">${t('authWelcome')}</div>
-      <div class="auth-sub">${t('authSub')}</div>
-      <div class="auth-tabs">
+      <div class="auth-title">${isForgot?t('forgotPwTitle'):t('authWelcome')}</div>
+      <div class="auth-sub">${isForgot?t('forgotPwSub'):t('authSub')}</div>
+      ${!isForgot?`<div class="auth-tabs">
         <button class="auth-tab${isLogin?' active':''}" onclick="switchAuthMode('login')">${t('authLogin')}</button>
         <button class="auth-tab${!isLogin?' active':''}" onclick="switchAuthMode('signup')">${t('authSignup')}</button>
-      </div>
+      </div>`:''}
       <div class="auth-err" id="auth-err"></div>
-      ${isLogin?`
-        <div class="auth-field"><label>${t('authIdentifier')}</label><input id="a-identifier" type="text" placeholder="email@example.com or +966..."></div>
-        <div class="auth-field"><label>${t('authPassword')}</label><input id="a-pwd" type="password" placeholder="${t('authPassword')}"></div>
-        <button class="btn-primary auth-submit" onclick="doLogin()">${t('authLoginBtn')}</button>
-      `:`
-        <div class="auth-field"><label>${t('authFullName')}</label><input id="a-name" type="text" placeholder="${t('authFullName')}"></div>
-        <div class="auth-field"><label>${t('authEmail')} <span style="font-weight:400;text-transform:none">${t('authEmailOpt')}</span></label>
-          <input id="a-email" type="email" placeholder="your@email.com"></div>
-        <div class="auth-field"><label>${t('authPhone')} <span style="font-weight:400;text-transform:none">${t('authPhoneOpt')}</span></label>
-          <div class="auth-cc-row">
-            <select id="a-cc">${ccOpts}</select>
-            <input id="a-phone" type="tel" placeholder="5x xxx xxxx">
-          </div></div>
-        <div class="auth-field"><label>${t('authPassword')}</label><input id="a-pwd" type="password" placeholder="${t('authPasswordHint')}"></div>
-        <div class="auth-field"><label>${t('authConfirmPassword')}</label><input id="a-pwd2" type="password" placeholder="${t('authConfirmPassword')}"></div>
-        <div class="auth-field"><label>${t('heightLabel')} <span style="font-weight:400;text-transform:none">${t('heightOptional')}</span></label>
-          <input id="a-height" type="number" placeholder="cm, e.g. 175" min="100" max="250"></div>
-        <button class="btn-primary auth-submit" onclick="doSignup()">${t('authSignupBtn')}</button>
-      `}
-      <div style="text-align:center;margin-top:12px">
+      ${body}
+      ${!isForgot?`<div style="text-align:center;margin-top:12px">
         <button style="background:none;border:none;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;font-family:'Nunito',sans-serif" onclick="closeAuthModal();goLanding()">${t('authCancel')}</button>
-      </div>
+      </div>`:''}
     </div>
   </div>`;
 }
@@ -1499,6 +1534,31 @@ async function doLogin(){
     await loadData();
     closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
     toast(`${t('toastWelcomeBack')}, ${customer.name}!`);
+  }catch(e){authErr(t('errConnection'));}
+}
+
+async function doResetPassword(){
+  const name=(document.getElementById('a-reset-name')?.value||'').trim();
+  const identifier=(document.getElementById('a-reset-id')?.value||'').trim().toLowerCase();
+  const pwd=(document.getElementById('a-reset-pwd')?.value||'');
+  const pwd2=(document.getElementById('a-reset-pwd2')?.value||'');
+  if(!name){authErr(t('errEnterName'));return;}
+  if(!identifier){authErr(t('errEmailOrPhone'));return;}
+  if(pwd.length<6){authErr(t('errPasswordLen'));return;}
+  if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
+  try{
+    const{data:customer}=await sb.from('customers')
+      .select('id,name,email,phone,height,created_at')
+      .or(`email.eq.${identifier},phone.eq.${identifier}`)
+      .maybeSingle();
+    if(!customer){authErr(t('errInvalidCredentials'));return;}
+    if(customer.name.trim().toLowerCase()!==name.toLowerCase()){authErr(t('errNameMismatch'));return;}
+    const{error}=await sb.from('customers').update({password_hash:hashPwd(pwd)}).eq('id',customer.id);
+    if(error)throw error;
+    S.loggedIn=customer;setSession(customer);
+    await loadData();
+    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
+    toast(t('toastPwReset'));
   }catch(e){authErr(t('errConnection'));}
 }
 
