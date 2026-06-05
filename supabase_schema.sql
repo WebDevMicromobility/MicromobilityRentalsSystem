@@ -9,7 +9,7 @@ create table if not exists customers (
   email         text,
   phone         text,
   password_hash text not null,
-  created_at    bigint not null
+  created_at    text not null
 );
 
 create table if not exists bikes (
@@ -45,7 +45,7 @@ create table if not exists queue_entries (
   session_date     text not null,
   queue_num        integer not null,
   status           text not null default 'waiting',
-  registered_at    bigint not null,
+  registered_at    text not null,
   walk_in          boolean not null default false,
   customer_id      text references customers(id)
 );

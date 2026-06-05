@@ -809,7 +809,7 @@ async function doSignup(){
   try{
     if(email){const{data:ex}=await sb.from('customers').select('id').eq('email',email).maybeSingle();if(ex){authErr('An account with this email already exists.');return;}}
     if(fullPhone){const{data:ex}=await sb.from('customers').select('id').eq('phone',fullPhone).maybeSingle();if(ex){authErr('An account with this phone already exists.');return;}}
-    const customer={id:uid(),name,email,phone:fullPhone,password_hash:hashPwd(pwd),created_at:Date.now()};
+    const customer={id:uid(),name,email,phone:fullPhone,password_hash:hashPwd(pwd),created_at:new Date().toISOString()};
     const{error}=await sb.from('customers').insert(customer);
     if(error)throw error;
     await loadData();
@@ -1156,8 +1156,8 @@ async function submitReg(){
   const cust=S.loggedIn||getSession();
   const entry={id:uid(),name,email,phone:fullPhone,size,typePreference:S.regType,paid:false,
     assignedBikeId:null,sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
-    queueNum:nextQNum(S.selSession),status:'waiting',registeredAt:Date.now(),walkIn:false,
-    customerId:cust?cust.id:null,price:priceForType(S.regType)};
+    queueNum:nextQNum(S.selSession),status:'waiting',registeredAt:new Date().toISOString(),walkIn:false,
+    customerId:cust?cust.id:null,price:priceForType(S.regType),registeredAt:new Date().toISOString()};
   await sb.from('queue_entries').insert(entryToDB(entry));
   await loadData();
   S.lastTicket=entry;S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
@@ -1224,7 +1224,7 @@ function renderMyRides(){
   const totalRides=allEntries.filter(e=>e.status!=='noshow'&&e.status!=='cancelled').length;
   const totalPaid=allEntries.filter(e=>e.paid).reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
   const pending=allEntries.filter(e=>!e.paid&&(e.status==='done'||e.status==='waiting'||e.status==='active')).reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
-  const rows=allEntries.length?[...allEntries].sort((a,b)=>b.registeredAt-a.registeredAt).map(e=>{
+  const rows=allEntries.length?[...allEntries].sort((a,b)=>new Date(b.registeredAt)-new Date(a.registeredAt)).map(e=>{
     const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
     const payColor=e.paid?'var(--green)':'var(--orange)';
     const canCancel=e.status==='waiting';
@@ -1336,7 +1336,7 @@ async function addSession(){
   if(!date){toast('Please pick a date.','error');return;}
   const d=new Date(date+'T00:00:00');
   const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const session={id:date,day:dayNames[d.getDay()],session_date:date,capacity:cap,created_at:Date.now()};
+  const session={id:date,day:dayNames[d.getDay()],session_date:date,capacity:cap,created_at:new Date().toISOString()};
   try{
     const{error}=await sb.from('sessions').insert(session);
     if(error){
@@ -1491,7 +1491,7 @@ async function submitWalkIn(){
   const sess=allSessions().find(s=>s.id===sid);
   const entry={id:uid(),name,email:'',phone:fullPhone,size:S.wiSize,typePreference:S.wiType,paid:false,
     assignedBikeId:null,sessionId:sid,sessionDay:sess?sess.day:'',sessionDate:sid,
-    queueNum:nextQNum(sid),status:'waiting',registeredAt:Date.now(),walkIn:true,
+    queueNum:nextQNum(sid),status:'waiting',registeredAt:new Date().toISOString(),walkIn:true,
     customerId:null,price:priceForType(S.wiType)};
   await sb.from('queue_entries').insert(entryToDB(entry));
   await loadData();
