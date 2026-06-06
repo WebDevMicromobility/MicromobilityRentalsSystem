@@ -1994,7 +1994,7 @@ const S={
   // analytics
   analyticsRange:'all', analyticsTrendSort:'date', analyticsTrendDir:-1,
   // modals
-  modalRider:null,modalBike:null,
+  modalRider:null,modalBike:null,modalShowAll:false,
   // auth
   authMode:'login',   // 'login' | 'signup' | 'forgot'
   forgotStep:1,       // 1=enter email, 2=enter code+new password
@@ -3986,7 +3986,7 @@ async function doRemove(id){
 /* ══════════════════════════════════════════════
    BIKE ASSIGN MODAL
 ══════════════════════════════════════════════ */
-function openModal(riderId){S.modalRider=riderId;S.modalBike=null;renderModal();}
+function openModal(riderId){S.modalRider=riderId;S.modalBike=null;S.modalShowAll=false;renderModal();}
 function renderModal(){
   const rider=getQueue().find(e=>e.id===S.modalRider);if(!rider)return;
   const allBikes=getBikes();
@@ -4005,28 +4005,28 @@ function renderModal(){
     return slots[b.type]&&(typeof slots[b.type]==='number'?(slots[b.type]>0):(slots[b.type][b.size]||0)>0);
   }
 
-  // Always show all bikes — fleet bikes sorted/highlighted first, then others
-  const eligible=allBikes;
-
-  // Sort: available+fleet+sizeMatch first, then available+fleet, then available, then unavailable
-  const sorted=[...eligible].sort((a,b)=>{
-    const aFleet=inFleet(a)?0:1,bFleet=inFleet(b)?0:1;
-    const aPref=a.type===rider.typePreference?0:1,bPref=b.type===rider.typePreference?0:1;
-    const aSz=a.size===rider.size?0:1,bSz=b.size===rider.size?0:1;
+  // Separate into preferred-type bikes and others
+  const prefType=rider.typePreference;
+  const sortBikes=arr=>[...arr].sort((a,b)=>{
     const aFree=a.status==='available'?0:1,bFree=b.status==='available'?0:1;
-    return aFree-bFree||aFleet-bFleet||aPref-bPref||aSz-bSz;
+    const aSz=a.size===rider.size?0:1,bSz=b.size===rider.size?0:1;
+    const aFleet=inFleet(a)?0:1,bFleet=inFleet(b)?0:1;
+    return aFree-bFree||aSz-bSz||aFleet-bFleet||a.name.localeCompare(b.name);
   });
+  const prefBikes=sortBikes(allBikes.filter(b=>b.type===prefType));
+  const otherBikes=sortBikes(allBikes.filter(b=>b.type!==prefType));
+  const otherAvail=otherBikes.filter(b=>b.status==='available').length;
 
-  const cards=sorted.length?sorted.map(b=>{
+  function bikeCard(b,altType=false){
     const free=b.status==='available';
-    const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-orange':'dot-red';
-    const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
+    const dot=free?'dot-green':b.status==='in-use'?'dot-orange':'dot-red';
+    const slbl=free?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
     const grad=bikeGradient(b.colors||['#03ff89']);
     const sizeMatch=b.size===rider.size;
-    const fleet=inFleet(b);
     const badges=[];
     if(sizeMatch)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--green);background:rgba(3,255,137,.15);padding:2px 6px;border-radius:6px">${t('sizeMatchLabel')}</span>`);
-    if(fleet&&slots)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--blue);background:rgba(74,168,248,.12);padding:2px 6px;border-radius:6px">Fleet</span>`);
+    if(inFleet(b)&&slots)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--blue);background:rgba(74,168,248,.12);padding:2px 6px;border-radius:6px">Fleet</span>`);
+    if(altType)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--orange);background:rgba(224,136,40,.1);padding:2px 6px;border-radius:6px">Alt</span>`);
     return`<div class="modal-bike-card${!free?' unavailable':''}${S.modalBike===b.id?' selected':''}" ${free?`onclick="pickBike('${b.id}')"`:''}>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:4px;flex-wrap:wrap">
         <span class="avail-dot ${dot}"></span>
@@ -4038,7 +4038,39 @@ function renderModal(){
       <div style="margin-top:6px">${typeBadge(b.type)}</div>
       <div style="font-size:11px;color:var(--muted);margin-top:5px">${slbl}</div>
     </div>`;
-  }).join(''):`<div style="color:var(--muted);font-size:14px;padding:24px 0;text-align:center">${emptyIllustration(ILLUS_BIKE_OK,t('noBikesMatchFleet'))}</div>`;
+  }
+
+  const prefEmpty=prefBikes.length===0;
+  const prefSection=prefBikes.length
+    ?`<div class="modal-bikes-grid">${prefBikes.map(b=>bikeCard(b,false)).join('')}</div>`
+    :`<div style="color:var(--muted);font-size:13px;font-weight:700;padding:16px 0;text-align:center">
+        No ${typeLabel(prefType)} bikes in the fleet.
+      </div>`;
+
+  // "Show other types" toggle
+  const otherToggle=otherAvail>0||S.modalShowAll?`
+    <div style="margin-top:14px">
+      <button onclick="S.modalShowAll=!S.modalShowAll;renderModal()"
+        style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed rgba(255,255,255,.15);
+          background:rgba(255,255,255,.03);cursor:pointer;font-family:'Space Grotesk',sans-serif;
+          font-size:12px;font-weight:800;color:var(--muted);transition:all .2s"
+        onmouseover="this.style.borderColor='rgba(224,136,40,.4)';this.style.color='var(--orange)'"
+        onmouseout="this.style.borderColor='rgba(255,255,255,.15)';this.style.color='var(--muted)'">
+        ${S.modalShowAll
+          ?'↑ Hide other types'
+          :`↓ Show other types (${otherAvail} available)`}
+      </button>
+      ${S.modalShowAll?`
+        <div style="display:flex;align-items:center;gap:8px;margin:14px 0 10px">
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+          <span style="font-size:10px;font-weight:900;color:var(--orange);text-transform:uppercase;letter-spacing:.6px">Other Types</span>
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+        </div>
+        <div class="modal-bikes-grid">${otherBikes.map(b=>bikeCard(b,true)).join('')}</div>`:''}
+    </div>`:
+    (prefEmpty?`<div style="margin-top:10px;font-size:12px;color:var(--muted);font-weight:600;text-align:center">No other types available either.</div>`:'');
+
+  const cards=`${prefSection}${otherToggle}`;
 
   const fleetLine=slots?`<div style="font-size:12px;color:var(--muted);margin-bottom:16px">${t('sessionFleetLabel')}: ${slotsLabel(slots)}</div>`:'';
 
@@ -4054,16 +4086,16 @@ function renderModal(){
   modal.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeModal()">
     <div class="modal-box">
       <div class="modal-title">${t('assignBikeTitle')}</div>
-      <div class="modal-sub">#${rider.queueNum} ${esc(rider.name)} &middot; Size ${rider.size} &middot; Prefers ${rider.typePreference}</div>
+      <div class="modal-sub">#${rider.queueNum} ${esc(rider.name)} &middot; ${t('frameSizeLabel')} ${rider.size} &middot; ${typeBadge(rider.typePreference)}</div>
       ${payWarning}
       ${fleetLine}
-      <div class="modal-bikes-grid">${cards}</div>
+      ${cards}
       <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="confirmAssign()">${t('confirmCheckin')}</button></div>
     </div>
   </div>`;
 }
 function pickBike(id){S.modalBike=id;renderModal();}
-function closeModal(){document.getElementById('bike-modal').style.display='none';S.modalRider=null;S.modalBike=null;}
+function closeModal(){document.getElementById('bike-modal').style.display='none';S.modalRider=null;S.modalBike=null;S.modalShowAll=false;}
 async function confirmAssign(){
   if(!S.modalBike){toast(t('errSelectBike'),'error');return;}
   const bikes=getBikes();const bi=bikes.findIndex(b=>b.id===S.modalBike);
