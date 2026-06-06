@@ -15,7 +15,9 @@
       --bg:#191919; --s1:#1a1919; --s2:#1e1e1e; --s3:#242424;
       --green:#03ff89; --green-h:#00e07a; --green-d:#00cc6a;
       --red:#d90909; --orange:#e08828; --blue:#4aa8f8; --purple:#a06af0;
-      --text:#fcf9f4; --muted:#888888; --border:rgba(252,249,244,0.08);
+      --text:#fcf9f4; --muted:#6b6b6b; --muted-l:#888888; --border:rgba(252,249,244,0.08);
+      /* ── palette aliases: all non-green accents map to green/muted ── */
+      --accent2:rgba(3,255,137,.55); --warn:rgba(255,255,255,.55);
     }
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;}
@@ -37,13 +39,13 @@
     .topbar-right{display:flex;align-items:center;gap:10px;}
     .view-badge{font-size:11px;font-weight:900;padding:5px 12px;border-radius:20px;text-transform:uppercase;letter-spacing:.7px;}
     .view-badge.staff{background:rgba(3,255,137,.15);color:var(--green);border:1px solid rgba(3,255,137,.35);box-shadow:0 0 12px rgba(3,255,137,.12);}
-    .view-badge.customer{background:rgba(74,168,248,.12);color:var(--blue);border:1px solid rgba(74,168,248,.3);}
-    .topbar-btn{display:flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);color:var(--muted);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;}
+    .view-badge.customer{background:rgba(3,255,137,.1);color:var(--green);border:1px solid rgba(3,255,137,.25);}
+    .topbar-btn{display:flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);color:var(--muted-l);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;}
     .topbar-btn:hover{border-color:rgba(3,255,137,.4);color:var(--text);background:rgba(3,255,137,.06);}
     .topbar-btn.danger:hover{border-color:rgba(224,64,64,.5);color:var(--red);background:rgba(224,64,64,.06);}
-    .topbar-btn.undo-btn{color:var(--orange);border-color:rgba(224,136,40,.3);}
-    .topbar-btn.undo-btn:hover{border-color:rgba(224,136,40,.55);background:rgba(224,136,40,.08);color:var(--orange);}
-    @keyframes undoPulse{0%,100%{box-shadow:0 0 0 0 rgba(224,136,40,.35);}60%{box-shadow:0 0 0 5px rgba(224,136,40,0);}}
+    .topbar-btn.undo-btn{color:var(--green);border-color:rgba(3,255,137,.3);}
+    .topbar-btn.undo-btn:hover{border-color:rgba(3,255,137,.55);background:rgba(3,255,137,.08);color:var(--green);}
+    @keyframes undoPulse{0%,100%{box-shadow:0 0 0 0 rgba(3,255,137,.35);}60%{box-shadow:0 0 0 5px rgba(3,255,137,0);}}
 
     /* ── TAB NAV ─────────────────────────────────────────── */
     .tab-nav{background:linear-gradient(180deg,#111111 0%,#101010 100%);
@@ -151,7 +153,7 @@
       font-size:13px;font-weight:700;cursor:pointer;transition:all .22s;}
     .landing-avail-chip.has-spots{border-color:rgba(3,255,137,.3);background:rgba(3,255,137,.06);color:var(--green);}
     .landing-avail-chip.has-spots:hover{background:rgba(3,255,137,.14);border-color:rgba(3,255,137,.6);}
-    .landing-avail-chip.full{border-color:rgba(224,136,40,.3);background:rgba(224,136,40,.06);color:var(--orange);}
+    .landing-avail-chip.full{border-color:rgba(252,249,244,.15);background:rgba(255,255,255,.04);color:var(--muted-l);}
     .landing-avail-chip.no-sessions{color:var(--muted);}
     .landing-avail-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
     .landing-subtitle{font-size:15px;color:var(--muted);font-weight:500;text-align:center;margin-bottom:28px;line-height:1.6;}
@@ -576,7 +578,7 @@
     .sess-card-date{font-size:17px;font-weight:900;margin-bottom:6px;letter-spacing:-.2px;}
     .sess-card-spots{font-size:12px;font-weight:800;}
     .spots-green{color:var(--green);}
-    .spots-orange{color:var(--orange);}
+    .spots-orange{color:var(--muted-l);}
     .spots-red{color:var(--red);}
     .no-sessions-msg{background:linear-gradient(145deg,#181818,#151515);border:1px dashed rgba(255,255,255,.1);border-radius:14px;padding:32px;text-align:center;color:var(--muted);font-size:14px;font-weight:600;letter-spacing:.1px;}
     /* ── SESSIONS ADMIN TAB ──────────────────────────────── */
@@ -588,8 +590,8 @@
     .sess-admin-table th.an-sort-active{color:var(--green);}
     .sess-admin-table tbody tr:hover td{background:rgba(255,255,255,.018);}
     .badge-open{background:rgba(3,255,137,.12);color:var(--green);border:1px solid rgba(3,255,137,.3);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:900;box-shadow:0 0 10px rgba(3,255,137,.1);letter-spacing:.3px;}
-    .badge-closed{background:rgba(224,64,64,.08);color:var(--red);border:1px solid rgba(224,64,64,.22);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:900;letter-spacing:.3px;}
-    .badge-full{background:rgba(224,136,40,.1);color:var(--orange);border:1px solid rgba(224,136,40,.3);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:900;letter-spacing:.3px;}
+    .badge-closed{background:rgba(255,255,255,.05);color:var(--muted-l);border:1px solid rgba(255,255,255,.1);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:900;letter-spacing:.3px;}
+    .badge-full{background:rgba(255,255,255,.05);color:var(--muted-l);border:1px solid rgba(255,255,255,.1);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:900;letter-spacing:.3px;}
 
     /* ── FORM ────────────────────────────────────────────── */
     .form-section{background:linear-gradient(160deg,#181818 0%,#161616 100%);border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:28px;box-shadow:0 4px 28px rgba(0,0,0,.22);}
@@ -643,11 +645,11 @@
     .btn-green:hover{background:rgba(3,255,137,.22);border-color:rgba(3,255,137,.5);box-shadow:0 2px 10px rgba(3,255,137,.15);}
     .btn-red{background:rgba(224,64,64,.12);color:var(--red);border:1px solid rgba(224,64,64,.3);}
     .btn-red:hover{background:rgba(224,64,64,.22);border-color:rgba(224,64,64,.5);}
-    .btn-orange{background:rgba(224,136,40,.12);color:var(--orange);border:1px solid rgba(224,136,40,.3);}
-    .btn-orange:hover{background:rgba(224,136,40,.22);}
-    .btn-blue{background:rgba(74,168,248,.12);color:var(--blue);border:1px solid rgba(74,168,248,.3);}
-    .btn-blue:hover{background:rgba(74,168,248,.22);}
-    .btn-purple{background:rgba(160,106,240,.12);color:var(--purple);border:1px solid rgba(160,106,240,.3);}
+    .btn-orange{background:rgba(255,255,255,.06);color:var(--text);border:1px solid rgba(255,255,255,.14);}
+    .btn-orange:hover{background:rgba(255,255,255,.12);}
+    .btn-blue{background:rgba(3,255,137,.08);color:var(--green);border:1px solid rgba(3,255,137,.22);}
+    .btn-blue:hover{background:rgba(3,255,137,.16);}
+    .btn-purple{background:rgba(255,255,255,.06);color:var(--muted-l);border:1px solid rgba(255,255,255,.1);}
     .btn-muted{background:rgba(255,255,255,.04);color:var(--muted);border:1px solid rgba(255,255,255,.08);}
 
     /* ── COLOR PICKER ────────────────────────────────────── */
@@ -713,7 +715,7 @@
     .rider-name{font-weight:800;font-size:14px;letter-spacing:-.1px;}
     .rider-sub{font-size:11px;color:var(--muted);margin-top:2px;}
     .actions-cell{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
-    .walk-in-badge{font-size:10px;font-weight:800;background:rgba(74,168,248,.15);color:var(--blue);padding:1px 7px;border-radius:8px;margin-left:5px;}
+    .walk-in-badge{font-size:10px;font-weight:800;background:rgba(255,255,255,.09);color:var(--muted-l);padding:1px 7px;border-radius:8px;margin-left:5px;}
     .pay-cell{display:flex;align-items:center;gap:7px;cursor:pointer;}
     .pay-cb{display:none;}
     .pay-toggle{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:20px;border:1.5px solid;
@@ -721,21 +723,21 @@
       white-space:nowrap;letter-spacing:.2px;}
     .pay-toggle.paid{color:var(--green);border-color:rgba(3,255,137,.4);background:rgba(3,255,137,.09);}
     .pay-toggle.paid:hover{background:rgba(3,255,137,.18);border-color:rgba(3,255,137,.7);}
-    .pay-toggle.pending{color:var(--orange);border-color:rgba(224,136,40,.4);background:rgba(224,136,40,.08);}
+    .pay-toggle.pending{color:var(--muted-l);border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.04);}
     .pay-toggle.pending:hover{background:rgba(224,136,40,.18);border-color:rgba(224,136,40,.7);}
     .pay-label{font-size:12px;font-weight:800;white-space:nowrap;}
 
     /* ── BADGES ──────────────────────────────────────────── */
     .status-badge{display:inline-flex;align-items:center;padding:4px 11px;border-radius:20px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;}
-    .badge-waiting{background:rgba(74,168,248,.12);color:var(--blue);border:1px solid rgba(74,168,248,.25);box-shadow:0 0 8px rgba(74,168,248,.08);}
+    .badge-waiting{background:rgba(255,255,255,.07);color:var(--text);border:1px solid rgba(255,255,255,.14);}
     .badge-active{background:rgba(3,255,137,.14);color:var(--green);border:1px solid rgba(3,255,137,.28);box-shadow:0 0 10px rgba(3,255,137,.1);}
-    .badge-done{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid rgba(255,255,255,.07);}
+    .badge-done{background:rgba(255,255,255,.05);color:var(--muted-l);border:1px solid rgba(255,255,255,.07);}
     .badge-noshow{background:rgba(224,64,64,.12);color:var(--red);border:1px solid rgba(224,64,64,.25);}
     .type-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:800;white-space:nowrap;letter-spacing:.2px;}
-    .type-road{background:rgba(74,168,248,.12);color:var(--blue);border:1px solid rgba(74,168,248,.22);}
-    .type-hybrid{background:rgba(77,190,116,.12);color:var(--green-d);border:1px solid rgba(77,190,116,.22);}
-    .type-mountain{background:rgba(224,136,40,.12);color:var(--orange);border:1px solid rgba(224,136,40,.22);}
-    .type-any{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid rgba(255,255,255,.1);}
+    .type-road{background:rgba(255,255,255,.07);color:var(--text);border:1px solid rgba(255,255,255,.14);}
+    .type-hybrid{background:rgba(3,255,137,.1);color:var(--green);border:1px solid rgba(3,255,137,.22);}
+    .type-mountain{background:rgba(255,255,255,.07);color:var(--text);border:1px solid rgba(255,255,255,.14);}
+    .type-any{background:rgba(255,255,255,.05);color:var(--muted-l);border:1px solid rgba(255,255,255,.09);}
     .type-badge{display:inline-flex;align-items:center;gap:5px;}
 
     /* ── 2. Registration step progress ── */
@@ -803,7 +805,7 @@
     /* ── SPOTS ───────────────────────────────────────────── */
     .session-spots{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:800;}
     .spots-green{background:rgba(3,255,137,.15);color:var(--green);}
-    .spots-orange{background:rgba(224,136,40,.15);color:var(--orange);}
+    .spots-orange{background:rgba(255,255,255,.07);color:var(--muted-l);}
     .spots-red{background:rgba(224,64,64,.15);color:var(--red);}
 
     /* ── INLINE FORM ─────────────────────────────────────── */
@@ -848,7 +850,7 @@
     @keyframes dotPulse{0%,100%{box-shadow:0 0 0 0 rgba(3,255,137,.4);}60%{box-shadow:0 0 0 5px rgba(3,255,137,0);}}
     .avail-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
     .dot-green{background:var(--green);box-shadow:0 0 6px rgba(3,255,137,.5);animation:dotPulse 2.5s ease-in-out infinite;}
-    .dot-orange{background:var(--orange);box-shadow:0 0 4px rgba(224,136,40,.4);}
+    .dot-orange{background:rgba(255,255,255,.4);box-shadow:none;}
     .dot-red{background:var(--red);box-shadow:0 0 4px rgba(224,64,64,.4);}
     .bike-name{font-size:15px;font-weight:900;letter-spacing:-.1px;}
     .bike-meta{font-size:12px;color:var(--muted);}
@@ -871,7 +873,7 @@
     #toast-container{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:400;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;}
     .toast{background:linear-gradient(145deg,#1e1e1e,#191919);border:1px solid rgba(255,255,255,.1);border-left:3px solid var(--green);border-radius:12px;padding:12px 22px;font-size:13px;font-weight:700;white-space:nowrap;pointer-events:all;box-shadow:0 4px 24px rgba(0,0,0,.5),0 0 20px rgba(3,255,137,.12);animation:toastIn .28s cubic-bezier(.2,.8,.2,1);backdrop-filter:blur(12px);}
     .toast.error{border-left-color:var(--red);box-shadow:0 4px 24px rgba(0,0,0,.5),0 0 16px rgba(224,64,64,.1);}
-    .toast.warning{border-left-color:var(--orange);}
+    .toast.warning{border-left-color:var(--muted-l);}
     @keyframes toastIn{from{transform:translateY(20px);opacity:0;scale:.96;}to{transform:none;opacity:1;scale:1;}}
 
     .empty-state{text-align:center;padding:52px 24px;color:var(--muted);font-size:14px;font-weight:600;letter-spacing:.1px;}
@@ -1178,10 +1180,10 @@
     .insight-title{font-size:12px;font-weight:800;margin-bottom:3px;letter-spacing:.2px;}
     .insight-body{font-size:12px;color:var(--muted);line-height:1.5;font-weight:600;}
     .insight-card.good .insight-title{color:var(--green);}
-    .insight-card.warn .insight-title{color:var(--orange);}
+    .insight-card.warn .insight-title{color:var(--text);}
     .insight-card.alert .insight-title{color:var(--red);}
-    .insight-card.info .insight-title{color:var(--blue);}
-    .insight-card.purple .insight-title{color:var(--purple);}
+    .insight-card.info .insight-title{color:var(--green);}
+    .insight-card.purple .insight-title{color:var(--green);}
     /* ── KPI trend delta ── */
     .kpi-delta{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:800;padding:2px 7px;border-radius:20px;margin-top:4px;}
     .kpi-delta.up{background:rgba(3,255,137,.12);color:var(--green);}
@@ -2435,7 +2437,7 @@ function renderLandingAvail(){
     const left=spotsLeft(s.id);
     const full=left===0||s.status==='full';
     const cls=full?'full':'has-spots';
-    const dotClr=full?'var(--orange)':'var(--green)';
+    const dotClr=full?'var(--muted-l)':'var(--green)';
     const label=full?t('statusFull'):t('availLabel');
     const timeStr=sessionTime(s);
     return`<div class="landing-avail-chip ${cls}" onclick="goCustomer('register')">
@@ -2709,7 +2711,7 @@ function renderRegister(){
         </div>
       </div>
       <div style="margin-top:10px;font-size:12px;color:var(--muted)">
-        ${t('needToUpdate')} <button onclick="setCustTab('account')" style="background:none;border:none;color:var(--blue);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline">${t('tabAccount')}</button>
+        ${t('needToUpdate')} <button onclick="setCustTab('account')" style="background:none;border:none;color:var(--green);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer;padding:0;text-decoration:underline">${t('tabAccount')}</button>
       </div>
     </div>`:'';
 
@@ -2757,7 +2759,7 @@ function renderRegister(){
         <label>${t('heightLabel')}</label>
         <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
           <div class="size-chip">${accSz}<span class="size-chip-label">${sizeLabel(accSz)}</span></div>
-          <span style="font-size:12px;color:var(--muted)">${cust.height} cm &middot; <button onclick="setCustTab('account')" style="background:none;border:none;color:var(--blue);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer;padding:0">${t('changeInAccount')}</button></span>
+          <span style="font-size:12px;color:var(--muted)">${cust.height} cm &middot; <button onclick="setCustTab('account')" style="background:none;border:none;color:var(--green);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer;padding:0">${t('changeInAccount')}</button></span>
         </div>
       </div>`;
     }else{
@@ -2829,7 +2831,7 @@ function renderRegister(){
           <div class="ticket-label" style="margin-bottom:4px">${t('queueNumLabel')}</div>
           <div class="ticket-num">#${tkt.queueNum}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:6px;font-weight:600">${t('keepNumberMsg')}</div>
-          <div style="font-size:11px;color:var(--orange);margin-top:8px;font-weight:700;line-height:1.5;background:rgba(224,136,40,.08);border:1px solid rgba(224,136,40,.2);border-radius:8px;padding:8px 10px">${t('payAtBooth')}</div>
+          <div style="font-size:11px;color:var(--text);margin-top:8px;font-weight:700;line-height:1.5;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:8px 10px">${t('payAtBooth')}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
           <span class="status-badge badge-active">${t('registeredLabel')}</span>
@@ -3123,11 +3125,11 @@ function renderMyRides(){
     return`<button class="filter-pill${S.myStatus===s?' active':''}" onclick="setMyStatus('${s}')">${l}</button>`;
   }).join('');
   const rows=displayOrder.length?displayOrder.map(e=>{
-    const payColor=e.paid?'var(--green)':'var(--orange)';
+    const payColor=e.paid?'var(--green)':'var(--muted-l)';
     const canCancel=e.status==='waiting';
     const payBadge=e.paid
       ?`<span style="font-size:10px;font-weight:900;color:var(--green);background:rgba(3,255,137,.12);border:1px solid rgba(3,255,137,.25);padding:2px 8px;border-radius:20px;white-space:nowrap">${t('paidLabel')} ✓</span>`
-      :`<span style="font-size:10px;font-weight:900;color:var(--orange);background:rgba(224,136,40,.08);border:1px solid rgba(224,136,40,.2);padding:2px 8px;border-radius:20px;white-space:nowrap">${t('pendingLabel')}</span>`;
+      :`<span style="font-size:10px;font-weight:900;color:var(--muted-l);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.13);padding:2px 8px;border-radius:20px;white-space:nowrap">${t('pendingLabel')}</span>`;
     return`<tr>
       <td>
         <span class="queue-num-cell">#${e.queueNum}</span>
@@ -3209,11 +3211,11 @@ function renderAccount(){
         <div class="account-stat-lbl">${t('statTotalRides')}</div>
       </div>
       <div class="account-stat">
-        <div class="account-stat-val" style="color:var(--blue)">SAR ${mySpent.toFixed(0)}</div>
+        <div class="account-stat-val" style="color:var(--green)">SAR ${mySpent.toFixed(0)}</div>
         <div class="account-stat-lbl">${t('statTotalSpent')}</div>
       </div>
       <div class="account-stat">
-        <div class="account-stat-val" style="color:var(--purple);font-size:15px;padding-top:4px">${memberSince}</div>
+        <div class="account-stat-val" style="color:var(--muted-l);font-size:15px;padding-top:4px">${memberSince}</div>
         <div class="account-stat-lbl">${t('statMemberSince')}</div>
       </div>
       <div class="account-stat">
@@ -3459,7 +3461,7 @@ function renderSessions(){
           <label>${t('dateLabel')}</label>
           <input type="date" id="es-date" value="${esc(S.editSessDate)}"
             oninput="S.editSessDate=this.value" style="max-width:240px">
-          <div style="font-size:11px;color:var(--orange);margin-top:5px;font-weight:600">${t('dateWarning')}</div>
+          <div style="font-size:11px;color:var(--muted-l);margin-top:5px;font-weight:600">${t('dateWarning')}</div>
         </div>
         <div class="form-group">
           <label>${t('colStatus')}</label>
@@ -3779,7 +3781,7 @@ function renderStaffQueue(){
   const sessWaitCount={};
   allWaiting.forEach(e=>{sessWaitCount[e.sessionId]=(sessWaitCount[e.sessionId]||0)+1;});
 
-  function renderQRow(e,rowIdx){
+  function renderQRow(e){
     const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
     const rowCls=e.status==='active'?'row-active':(e.status==='done'||e.status==='noshow'||e.status==='cancelled')?'row-done':'';
     const wiTag=e.walkIn?`<span class="walk-in-badge">${t('addWalkin').replace(/^\+ /,'')}</span>`:'';
@@ -3797,10 +3799,20 @@ function renderStaffQueue(){
       ?`<div class="pos-badge" style="font-size:12px;padding:3px 8px">${lp} / ${totalW}</div>`
       :`<span style="color:var(--muted);font-size:12px">—</span>`;
     return`<tr class="${rowCls}">
-      <td style="color:var(--muted);font-size:12px;font-weight:700;text-align:center">${rowIdx}</td>
       <td style="min-width:52px"><span class="queue-num-cell" style="font-size:${e.status!=='waiting'?'18':'22'}px">#${e.queueNum}</span></td>
       <td style="text-align:center">${posCell}</td>
-      <td><div class="rider-name">${esc(e.name)}${wiTag}</div><div class="rider-sub">${esc(e.phone)}</div></td>
+      <td><div class="rider-name">${esc(e.name)}${wiTag}</div>
+        <div class="rider-sub" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span>${esc(e.phone)||'—'}</span>
+          ${e.phone?`
+            <a href="tel:${esc(e.phone)}" title="Call" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);text-decoration:none;flex-shrink:0;transition:all .18s" onmouseover="this.style.background='rgba(3,255,137,.22)'" onmouseout="this.style.background='rgba(3,255,137,.1)'">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13.1a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+            </a>
+            <a href="https://wa.me/${e.phone.replace(/\D/g,'')}" target="_blank" rel="noopener" title="WhatsApp" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);text-decoration:none;flex-shrink:0;transition:all .18s" onmouseover="this.style.background='rgba(3,255,137,.22)'" onmouseout="this.style.background='rgba(3,255,137,.1)'">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+            </a>`:''}
+        </div>
+      </td>
       <td style="font-weight:800">${e.size}</td>
       <td>${typeBadge(e.typePreference)}</td>
       ${S.sfSession==='all'?`<td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
@@ -3820,14 +3832,14 @@ function renderStaffQueue(){
   let rows,emptyRow='';
   if(S.sfSession==='all'){
     rows='';
-    emptyRow=`<tr><td colspan="12">
+    emptyRow=`<tr><td colspan="11">
       ${emptyIllustration(ILLUS_CALENDAR,
         'Select a session above',
         'Click a session chip to view and manage its queue independently.')}
     </td></tr>`;
   }else{
-    rows=filtered.map((e,i)=>renderQRow(e,i+1)).join('');
-    emptyRow=filtered.length===0?`<tr><td colspan="12"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`:'';
+    rows=filtered.map(e=>renderQRow(e)).join('');
+    emptyRow=filtered.length===0?`<tr><td colspan="11"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`:'';
   }
   document.getElementById('tab-queue').innerHTML=`
     <div class="section-header">
@@ -3869,7 +3881,7 @@ function renderStaffQueue(){
         const sDone=q.filter(e=>e.status==='done').length;
         const cap=s.capacity||12;
         const fillPct=Math.round(Math.min((sWait+sActive+sDone)/cap*100,100));
-        const fillClr=fillPct>=90?'var(--red)':fillPct>=60?'var(--orange)':'var(--green)';
+        const fillClr=fillPct>=90?'var(--red)':'var(--green)';
         const isCurrent=S.sfSession===s.id;
         return`<div class="sess-summary-chip${isCurrent?' active-sess':''}"
           onclick="setSfSession('${s.id}')" title="${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}">
@@ -3877,7 +3889,7 @@ function renderStaffQueue(){
             <div class="sess-chip-date">${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</div>
             <div class="sess-chip-counts">
               <span style="color:var(--green)">${sWait} ${t('waitingStat').toLowerCase()}</span>
-              ${sActive?` &middot; <span style="color:var(--orange)">${sActive} ${t('onBikeStat').toLowerCase()}</span>`:''}
+              ${sActive?` &middot; <span style="color:var(--text)">${sActive} ${t('onBikeStat').toLowerCase()}</span>`:''}
               ${sDone?` &middot; <span style="color:var(--muted)">${sDone} done</span>`:''}
             </div>
             <div class="sess-chip-bar"><div class="sess-chip-fill" style="width:${fillPct}%;background:${fillClr}"></div></div>
@@ -3918,7 +3930,6 @@ function renderStaffQueue(){
     </div>
     <div class="table-wrapper"><table class="queue-table${S.queueDensity==='compact'?' compact':''}">
       <thead><tr>
-        <th style="color:var(--muted);font-size:10px;text-align:center">#</th>
         ${thQSort('queue',t('colBookingNum'))}
         <th style="color:var(--muted);font-size:10px;text-align:center">${t('colPosition')}</th>
         ${thQSort('name',t('colRider'))}
@@ -4058,7 +4069,7 @@ function showReturnPayModal(id){
       <div class="modal-sub" style="margin-bottom:24px">${t('returnPayMsg')}</div>
       <div style="font-size:16px;font-weight:900;margin-bottom:24px">
         #${entry.queueNum} — ${esc(entry.name)}<br>
-        <span style="color:var(--orange);font-size:14px">SAR ${entry.price||DEFAULT_PRICE} ${t('pendingLabel')}</span>
+        <span style="color:var(--muted-l);font-size:14px">SAR ${entry.price||DEFAULT_PRICE} ${t('pendingLabel')}</span>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
         <button class="btn-primary" style="width:100%" onclick="closeReturnPayModal();_execReturn('${id}',true)">✓ ${t('returnMarkPaidBtn')}</button>
@@ -4159,8 +4170,8 @@ function renderModal(){
     const sizeMatch=b.size===rider.size;
     const badges=[];
     if(sizeMatch)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--green);background:rgba(3,255,137,.15);padding:2px 6px;border-radius:6px">${t('sizeMatchLabel')}</span>`);
-    if(inFleet(b)&&slots)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--blue);background:rgba(74,168,248,.12);padding:2px 6px;border-radius:6px">Fleet</span>`);
-    if(altType)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--orange);background:rgba(224,136,40,.1);padding:2px 6px;border-radius:6px">Alt</span>`);
+    if(inFleet(b)&&slots)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--green);background:rgba(3,255,137,.1);padding:2px 6px;border-radius:6px">Fleet</span>`);
+    if(altType)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--muted-l);background:rgba(255,255,255,.07);padding:2px 6px;border-radius:6px">Alt</span>`);
     return`<div class="modal-bike-card${!free?' unavailable':''}${S.modalBike===b.id?' selected':''}" ${free?`onclick="pickBike('${b.id}')"`:''}>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:4px;flex-wrap:wrap">
         <span class="avail-dot ${dot}"></span>
@@ -4188,8 +4199,8 @@ function renderModal(){
         style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed rgba(255,255,255,.15);
           background:rgba(255,255,255,.03);cursor:pointer;font-family:'Space Grotesk',sans-serif;
           font-size:12px;font-weight:800;color:var(--muted);transition:all .2s"
-        onmouseover="this.style.borderColor='rgba(224,136,40,.4)';this.style.color='var(--orange)'"
-        onmouseout="this.style.borderColor='rgba(255,255,255,.15)';this.style.color='var(--muted)'">
+        onmouseover="this.style.borderColor='rgba(3,255,137,.35)';this.style.color='var(--green)'"
+        onmouseout="this.style.borderColor='rgba(255,255,255,.15)';this.style.color='var(--muted-l)'">
         ${S.modalShowAll
           ?'↑ Hide other types'
           :`↓ Show other types (${otherAvail} available)`}
@@ -4197,7 +4208,7 @@ function renderModal(){
       ${S.modalShowAll?`
         <div style="display:flex;align-items:center;gap:8px;margin:14px 0 10px">
           <div style="flex:1;height:1px;background:var(--border)"></div>
-          <span style="font-size:10px;font-weight:900;color:var(--orange);text-transform:uppercase;letter-spacing:.6px">Other Types</span>
+          <span style="font-size:10px;font-weight:900;color:var(--muted-l);text-transform:uppercase;letter-spacing:.6px">Other Types</span>
           <div style="flex:1;height:1px;background:var(--border)"></div>
         </div>
         <div class="modal-bikes-grid">${otherBikes.map(b=>bikeCard(b,true)).join('')}</div>`:''}
@@ -4211,7 +4222,7 @@ function renderModal(){
   const payWarning=!rider.paid?`<div style="display:flex;align-items:center;gap:8px;background:rgba(224,136,40,.1);border:1px solid rgba(224,136,40,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px">
     <span style="font-size:16px">⚠️</span>
     <div>
-      <span style="font-size:12px;font-weight:800;color:var(--orange)">${t('payPendingWarning')} — SAR ${rider.price||DEFAULT_PRICE}</span>
+      <span style="font-size:12px;font-weight:800;color:var(--muted-l)">${t('payPendingWarning')} — SAR ${rider.price||DEFAULT_PRICE}</span>
       <button class="pay-toggle pending" style="margin-left:10px;font-size:11px" onclick="togglePayment('${rider.id}',true);renderModal()">⏳ ${t('paidLabel')}?</button>
     </div>
   </div>`:'';
@@ -4309,7 +4320,7 @@ function renderBikes(){
   function renderBikeRow(b){
     const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-orange':'dot-red';
     const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
-    const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--orange)':'var(--red)';
+    const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--muted-l)':'var(--red)';
     const colors=b.colors&&b.colors.length?b.colors:['#03ff89'];
     const colorSwatches=colors.map(c=>`<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');
     return`<div class="bike-list-row">
@@ -4356,7 +4367,7 @@ function renderBikes(){
             <div style="font-size:12px;color:var(--muted);margin-top:2px;font-weight:600">
               ${all.length} ${t('bike').toLowerCase()}${all.length!==1?'s':''} &nbsp;·&nbsp;
               <span style="color:var(--green)">${tyAvail} ${t('availLabel').toLowerCase()}</span>
-              ${tyUse>0?` &nbsp;·&nbsp; <span style="color:var(--orange)">${tyUse} ${t('inUseLabel').toLowerCase()}</span>`:''}
+              ${tyUse>0?` &nbsp;·&nbsp; <span style="color:var(--muted-l)">${tyUse} ${t('inUseLabel').toLowerCase()}</span>`:''}
               ${tyMaint>0?` &nbsp;·&nbsp; <span style="color:var(--red)">${tyMaint} ${t('maintLabel').toLowerCase()}</span>`:''}
             </div>
           </div>
@@ -4384,7 +4395,7 @@ function renderBikes(){
     <div class="stats-row" style="margin-bottom:20px">
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('totalStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nAvail}</div><div class="stat-label">${t('availLabel')}</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--orange)">${nUse}</div><div class="stat-label">${t('inUseLabel')}</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--text)">${nUse}</div><div class="stat-label">${t('inUseLabel')}</div></div>
     </div>
     <div class="filter-bar" style="margin-bottom:20px">
       <div class="filter-bar-row">
@@ -4521,7 +4532,7 @@ function renderHistory(){
   const rows=filtered.map(e=>{
     const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
     const grad=bike&&bike.colors?bikeGradient(bike.colors):null;
-    const payColor=e.paid?'var(--green)':'var(--orange)';
+    const payColor=e.paid?'var(--green)':'var(--muted-l)';
     const hasEmail=e.email&&e.email.length>0;
     const wiTag=e.walkIn?`<span class="walk-in-badge">${t('addWalkin').replace(/^\+ /,'')}</span>`:'';
     const regDate=e.registeredAt?new Date(e.registeredAt).toLocaleDateString('en-CA',{timeZone:KSA_TZ}):'';
@@ -4568,7 +4579,7 @@ function renderHistory(){
     <div class="stats-row">
       <div class="stat-card"><div class="stat-num">${nDone}</div><div class="stat-label">${t('completedLabel')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nPaid}</div><div class="stat-label">${t('filterPaid')}</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--orange)">${nPend}</div><div class="stat-label">${t('pendingLabel')}</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--muted-l)">${nPend}</div><div class="stat-label">${t('pendingLabel')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--red)">${nNoShow}</div><div class="stat-label">${t('filterNoshow')}</div></div>
     </div>
     <div class="filter-bar">
@@ -4846,7 +4857,7 @@ function renderAnalytics(){
     const cnt=done.filter(e=>e.paid&&e.typePreference===ty).length;
     typeRevPerRide[ty]=cnt>0?(revByType[ty]/cnt):0;
   });
-  const typeColor={Road:'var(--blue)',Hybrid:'var(--green)',Mountain:'var(--orange)',Any:'var(--muted)'};
+  const typeColor={Road:'var(--text)',Hybrid:'var(--green)',Mountain:'var(--text)',Any:'var(--muted-l)'};
   const typeColorHex={Road:'#4aa8f8',Hybrid:'#03ff89',Mountain:'#e08828',Any:'#777'};
   const sizeColorHex={XS:'#a06af0',S:'#4aa8f8',M:'#03ff89',L:'#e08828'};
   const dayColorHex='#03ff89';
@@ -4956,13 +4967,13 @@ function renderAnalytics(){
     return`<th class="an-sort-th${active?' an-sort-active':''}${active&&sd===1?' desc':''}" onclick="setAnSort('${col}')">${label}</th>`;
   }
   const trendRows=sortedTrend.map(({s,sDone,sNo,cap,rev,pend,occ,topT,riders,noShows})=>{
-    const occColor=occ>=80?'var(--green)':occ>=50?'var(--orange)':'var(--red)';
+    const occColor=occ>=50?'var(--green)':'var(--muted-l)';
     return`<tr>
       <td style="font-weight:800;white-space:nowrap">${shortDate(s.session_date||s.id)}</td>
       <td style="color:var(--muted);font-size:12px">${dayLabel(s.day)||''}</td>
       <td style="font-weight:900;font-size:16px">${riders}<span style="font-size:11px;color:var(--muted);font-weight:600"> / ${cap}</span></td>
       <td style="color:var(--green);font-weight:800">SAR ${rev.toFixed(0)}</td>
-      <td style="color:var(--orange);font-weight:700">${pend>0?`SAR ${pend.toFixed(0)}`:'<span style="color:var(--muted)">—</span>'}</td>
+      <td style="color:var(--muted-l);font-weight:700">${pend>0?`SAR ${pend.toFixed(0)}`:'<span style="color:var(--muted)">—</span>'}</td>
       <td style="color:${noShows>0?'var(--red)':'var(--muted)'};font-weight:700">${noShows||'—'}</td>
       <td><div class="analytics-occ-bar">
         <div class="analytics-occ-track"><div class="analytics-occ-fill" style="width:${occ}%;background:${occColor}"></div></div>
@@ -5048,12 +5059,12 @@ function renderAnalytics(){
         <div class="analytics-kpi-sub">${collectionRate}% ${t('anCollRateLabel')}</div>
       </div>
       <div class="analytics-kpi-card">
-        <div class="analytics-kpi-value" style="color:var(--orange)">SAR ${revPending.toFixed(0)}</div>
+        <div class="analytics-kpi-value" style="color:var(--muted-l)">SAR ${revPending.toFixed(0)}</div>
         <div class="analytics-kpi-label">${t('pendingLabel')}</div>
         <div class="analytics-kpi-sub">${done.filter(e=>!e.paid).length} ${t('anUnpaidRides')}</div>
       </div>
       <div class="analytics-kpi-card">
-        <div class="analytics-kpi-value" style="color:var(--blue)">SAR ${revPAS.toFixed(2)}</div>
+        <div class="analytics-kpi-value" style="color:var(--green)">SAR ${revPAS.toFixed(2)}</div>
         <div class="analytics-kpi-label">${t('anRevPAS')}</div>
         <div class="analytics-kpi-sub">${totalSeatsOffered} ${t('anTotalSeats').toLowerCase()}</div>
       </div>
@@ -5101,7 +5112,7 @@ function renderAnalytics(){
         <div class="analytics-kpi-sub">${noshow.length} ${t('filterNoshow').toLowerCase()} · ${cancelCount} ${t('anCancellations')}</div>
       </div>
       <div class="analytics-kpi-card">
-        <div class="analytics-kpi-value" style="color:${completionRate>=85?'var(--green)':completionRate>=70?'var(--orange)':'var(--red)'}">${completionRate}%</div>
+        <div class="analytics-kpi-value" style="color:${completionRate>=70?'var(--green)':'var(--red)'}">${completionRate}%</div>
         <div class="analytics-kpi-label">${t('anCompletionRate')}</div>
         <div class="analytics-kpi-sub">${done.length} ${t('anOf')} ${totalAttempted} ${t('anAttempts')}</div>
       </div>
@@ -5111,7 +5122,7 @@ function renderAnalytics(){
         <div class="analytics-kpi-sub">SAR ${revPerCustomer.toFixed(1)} ${t('anAvgSpend')}</div>
       </div>
       <div class="analytics-kpi-card">
-        <div class="analytics-kpi-value" style="color:var(--purple)">${uniqueCustIds.length>0?Math.round(repeatCustomers/uniqueCustIds.length*100):0}%</div>
+        <div class="analytics-kpi-value" style="color:var(--green)">${uniqueCustIds.length>0?Math.round(repeatCustomers/uniqueCustIds.length*100):0}%</div>
         <div class="analytics-kpi-label">${t('anCustRetention')}</div>
         <div class="analytics-kpi-sub">${repeatCustomers} ${t('anOf')} ${uniqueCustIds.length} ${t('anReturned')}</div>
       </div>
@@ -5142,17 +5153,17 @@ function renderAnalytics(){
         <div class="analytics-kpi-sub">${totalSeatsOffered} ${t('anTotalSeats').toLowerCase()}</div>
       </div>
       <div class="analytics-kpi-card">
-        <div class="analytics-kpi-value" style="color:${avgOccupancy>=80?'var(--green)':avgOccupancy>=50?'var(--orange)':'var(--red)'}">${avgOccupancy}%</div>
+        <div class="analytics-kpi-value" style="color:${avgOccupancy>=50?'var(--green)':'var(--red)'}">${avgOccupancy}%</div>
         <div class="analytics-kpi-label">${t('anAvgOccupancy')}</div>
         <div class="analytics-kpi-sub">${t('anRidersCapacity')}</div>
       </div>
       <div class="analytics-kpi-card">
-        <div class="analytics-kpi-value" style="color:${noShowRate>15?'var(--red)':noShowRate>8?'var(--orange)':'var(--green)'}">${noShowRate}%</div>
+        <div class="analytics-kpi-value" style="color:${noShowRate>15?'var(--red)':'var(--green)'}">${noShowRate}%</div>
         <div class="analytics-kpi-label">${t('anNoShowRate')}</div>
         <div class="analytics-kpi-sub">${noshow.length} ${t('anOf')} ${totalAttempted} ${t('anAttempts')}</div>
       </div>
       <div class="analytics-kpi-card">
-        <div class="analytics-kpi-value" style="color:${cancelRate>10?'var(--orange)':'var(--muted)'}">${cancelRate}%</div>
+        <div class="analytics-kpi-value" style="color:${cancelRate>10?'var(--red)':'var(--muted-l)'}">${cancelRate}%</div>
         <div class="analytics-kpi-label">${t('anCancellationRate')}</div>
         <div class="analytics-kpi-sub">${cancelCount} ${t('anCancellations')}</div>
       </div>
@@ -5226,15 +5237,15 @@ function renderAnalytics(){
         </div>
         <div class="hl-item">
           <div class="hl-label">${t('anRevPAS')}</div>
-          <div class="hl-value" style="color:var(--blue)">SAR ${revPAS.toFixed(2)}</div>
+          <div class="hl-value" style="color:var(--green)">SAR ${revPAS.toFixed(2)}</div>
         </div>
         <div class="hl-item">
           <div class="hl-label">${t('anRevPerCust')}</div>
-          <div class="hl-value" style="color:var(--purple)">SAR ${revPerCustomer.toFixed(2)}</div>
+          <div class="hl-value" style="color:var(--green)">SAR ${revPerCustomer.toFixed(2)}</div>
         </div>
         <div class="hl-item" style="margin-bottom:0">
           <div class="hl-label">${t('anCollectionRate')}</div>
-          <div class="hl-value" style="color:${collectionRate>=80?'var(--green)':collectionRate>=60?'var(--orange)':'var(--red)'}">${collectionRate}%
+          <div class="hl-value" style="color:${collectionRate>=60?'var(--green)':'var(--red)'}">${collectionRate}%
             <span style="font-size:13px;color:var(--muted);font-weight:600;margin-left:6px">SAR ${revCollected.toFixed(0)} / SAR ${revTotal.toFixed(0)}</span>
           </div>
         </div>
