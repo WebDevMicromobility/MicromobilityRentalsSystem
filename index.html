@@ -638,7 +638,14 @@
     .actions-cell{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
     .walk-in-badge{font-size:10px;font-weight:800;background:rgba(74,168,248,.15);color:var(--blue);padding:1px 7px;border-radius:8px;margin-left:5px;}
     .pay-cell{display:flex;align-items:center;gap:7px;cursor:pointer;}
-    .pay-cb{width:16px;height:16px;accent-color:var(--green);cursor:pointer;flex-shrink:0;}
+    .pay-cb{display:none;}
+    .pay-toggle{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:20px;border:1.5px solid;
+      font-size:11px;font-weight:800;cursor:pointer;transition:all .18s;background:none;font-family:'Space Grotesk',sans-serif;
+      white-space:nowrap;letter-spacing:.2px;}
+    .pay-toggle.paid{color:var(--green);border-color:rgba(3,255,137,.4);background:rgba(3,255,137,.09);}
+    .pay-toggle.paid:hover{background:rgba(3,255,137,.18);border-color:rgba(3,255,137,.7);}
+    .pay-toggle.pending{color:var(--orange);border-color:rgba(224,136,40,.4);background:rgba(224,136,40,.08);}
+    .pay-toggle.pending:hover{background:rgba(224,136,40,.18);border-color:rgba(224,136,40,.7);}
     .pay-label{font-size:12px;font-weight:800;white-space:nowrap;}
 
     /* ── BADGES ──────────────────────────────────────────── */
@@ -1159,10 +1166,11 @@
 </footer>
 
 <!-- MODALS -->
-<div id="pin-modal"     style="display:none"></div>
-<div id="bike-modal"    style="display:none"></div>
-<div id="receipt-modal" style="display:none"></div>
-<div id="auth-modal"    style="display:none"></div>
+<div id="pin-modal"        style="display:none"></div>
+<div id="bike-modal"       style="display:none"></div>
+<div id="receipt-modal"    style="display:none"></div>
+<div id="auth-modal"       style="display:none"></div>
+<div id="return-pay-modal" style="display:none"></div>
 <div id="toast-container"></div>
 
 <script>
@@ -1361,7 +1369,15 @@ en:{
   toastBookingCancelled:'Booking cancelled. Your spot has been freed.',
   toastNoShow:'Marked as No-Show.',
   toastBikeReturned:'Bike returned. Ride complete.',
+  toastBikeReturnedPaid:'Bike returned and marked as paid.',
   toastRiderRemoved:'Rider removed.',
+  toastReopened:'Booking re-opened — rider moved back to active.',
+  returnPayTitle:'Payment Pending',
+  returnPayMsg:'This rider has not paid yet. How would you like to proceed?',
+  returnMarkPaidBtn:'Mark Paid & Return',
+  returnAnywayBtn:'Return Without Payment',
+  reopenBookingBtn:'Re-open',
+  payPendingWarning:'Unpaid',
   toastBikeUpdated:'Bike updated.',
   toastAddedToFleet:'added to fleet.',
   toastBikeRemoved:'removed.',
@@ -1563,7 +1579,15 @@ ar:{
   toastBookingCancelled:'تم إلغاء الحجز. أُفرج عن دراجتك.',
   toastNoShow:'تم تسجيله كغائب.',
   toastBikeReturned:'الدراجة مُعادة. اكتملت الرحلة.',
+  toastBikeReturnedPaid:'الدراجة مُعادة وتم تسجيل الدفع.',
   toastRiderRemoved:'تم حذف الراكب.',
+  toastReopened:'تم إعادة فتح الحجز — الراكب عاد إلى الحالة النشطة.',
+  returnPayTitle:'الدفع معلق',
+  returnPayMsg:'لم يدفع هذا الراكب بعد. كيف تريد المتابعة؟',
+  returnMarkPaidBtn:'تسجيل الدفع وإعادة الدراجة',
+  returnAnywayBtn:'إعادة الدراجة بدون دفع',
+  reopenBookingBtn:'إعادة فتح',
+  payPendingWarning:'غير مدفوع',
   toastBikeUpdated:'تم تحديث الدراجة.',
   toastAddedToFleet:'أُضيفت للأسطول.',
   toastBikeRemoved:'تم إزالتها.',
@@ -2776,60 +2800,57 @@ async function submitModifyBooking(){
   const existing=getQueue().filter(e=>
     e.customerId===cust.id&&e.sessionId===S.selSession&&e.status==='waiting'
   );
-  const oldQty=existing.length;
   const newQty=S.regQty||1;
   ensureBikeSizes();
 
-  // Validate all bike slots
+  // Validate all new bike slots
   for(let i=0;i<newQty;i++){
     if(!S.regBikeSizes[i]){toast(newQty>1?`${t('errSelectSizeGeneric')} (${t('bike')} ${i+1})`:t('errSelectSizeGeneric'),'error');return;}
     if(!S.regBikeTypes[i]){toast(newQty>1?`${t('errSelectTypeGeneric')} (${t('bike')} ${i+1})`:t('errSelectTypeGeneric'),'error');return;}
   }
 
-  // Check enough free spots for any additional bikes
-  const additional=Math.max(0,newQty-oldQty);
-  if(additional>0&&spotsLeft(S.selSession)<additional){
-    toast(`${t('errNotEnoughSpots')} (${spotsLeft(S.selSession)})`,'error');return;
-  }
-
   const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
-  const keep=Math.min(oldQty,newQty);
 
-  // 1 — Update existing entries that are kept
-  await Promise.all(existing.slice(0,keep).map((e,i)=>
-    sb.from('queue_entries').update({
-      size:S.regBikeSizes[i],
-      type_preference:S.regBikeTypes[i],
-      price:priceForType(S.regBikeTypes[i])
-    }).eq('id',e.id)
-  ));
-
-  // 2 — Cancel surplus entries if qty decreased
-  if(newQty<oldQty){
-    await Promise.all(existing.slice(newQty).map(e=>
-      sb.from('queue_entries').update({status:'cancelled'}).eq('id',e.id)
-    ));
+  // For each slot: if size OR type changed vs original, OR brand new slot → add as a NEW independent booking
+  // Original unchanged bookings are left completely untouched
+  const newEntries=[];
+  let baseQNum=nextQNum(S.selSession);
+  for(let i=0;i<newQty;i++){
+    const orig=existing[i]||null;
+    const newSize=S.regBikeSizes[i];
+    const newType=S.regBikeTypes[i];
+    const isNew=!orig;
+    const isChanged=orig&&(orig.size!==newSize||orig.typePreference!==newType);
+    if(isNew||isChanged){
+      // Check there is a spot available (existing unchanged bookings already occupy their spots)
+      const spotsNeeded=newEntries.length+1;
+      if(spotsLeft(S.selSession)<spotsNeeded){
+        toast(`${t('errNotEnoughSpots')} (${spotsLeft(S.selSession)})`,'error');return;
+      }
+      newEntries.push({
+        id:uid(),name:cust.name,email:cust.email||'',phone:cust.phone||'',
+        size:newSize,typePreference:newType,
+        paid:false,assignedBikeId:null,
+        sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
+        queueNum:baseQNum+newEntries.length,status:'waiting',
+        registeredAt:new Date().toISOString(),walkIn:false,
+        customerId:cust.id,price:priceForType(newType)
+      });
+    }
+    // Unchanged original entry → do nothing, it stays as-is in the queue
   }
 
-  // 3 — Add new entries if qty increased
-  if(newQty>oldQty){
-    const baseQNum=nextQNum(S.selSession);
-    const newEntries=Array.from({length:newQty-oldQty},(_,i)=>({
-      id:uid(),name:cust.name,email:cust.email||'',phone:cust.phone||'',
-      size:S.regBikeSizes[oldQty+i],
-      typePreference:S.regBikeTypes[oldQty+i],
-      paid:false,assignedBikeId:null,
-      sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
-      queueNum:baseQNum+i,status:'waiting',registeredAt:new Date().toISOString(),
-      walkIn:false,customerId:cust.id,price:priceForType(S.regBikeTypes[oldQty+i])
-    }));
+  if(newEntries.length===0){
+    toast(t('toastBookingUpdated'));
+  }else{
     await Promise.all(newEntries.map(e=>sb.from('queue_entries').insert(entryToDB(e))));
+    await loadData();
+    const nums=newEntries.map(e=>`#${e.queueNum}`).join(', ');
+    toast(`${t('toastRegistered')} ${nums}`);
   }
 
-  await loadData();
   S.modifyEntryId=null;S.selSession=null;
   S.regBikeSizes=[];S.regBikeTypes=[];S.regQty=1;
-  toast(t('toastBookingUpdated'));
   renderRegister();renderMyRides();
 }
 
@@ -3428,6 +3449,7 @@ function renderStaffQueue(){
     let actions='';
     if(e.status==='waiting')actions=`<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="doNoShow('${e.id}')">${t('noShowBtn')}</button>`;
     else if(e.status==='active')actions=`<button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button>`;
+    else if(e.status==='done')actions=`<button class="btn-sm btn-blue" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
     else actions=`<button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
     const payColor=e.paid?'var(--green)':'var(--orange)';
     const bikeColors=bike&&bike.colors&&bike.colors.length?bike.colors:null;
@@ -3440,10 +3462,11 @@ function renderStaffQueue(){
       <td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>
       <td>${bike?esc(bike.name):'<span style="color:var(--muted)">—</span>'}</td>
       <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
-      <td><label class="pay-cell" onclick="event.stopPropagation()">
-        <input class="pay-cb" type="checkbox" ${e.paid?'checked':''} onchange="togglePayment('${e.id}',this.checked)">
-        <span class="pay-label" style="color:${payColor}">${e.paid?t('paidLabel'):t('pendingLabel')}</span>
-      </label></td>
+      <td onclick="event.stopPropagation()">
+        <button class="pay-toggle ${e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}',${!e.paid})">
+          ${e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+        </button>
+      </td>
       <td>${statusBadge(e.status)}</td>
       <td><div class="actions-cell">${actions}</div></td>
     </tr>`;
@@ -3529,9 +3552,7 @@ async function staffShowResetCode(){
 async function togglePayment(id,paid){
   await sb.from('queue_entries').update({paid}).eq('id',id);
   await loadData();
-  const cb=document.querySelector(`input.pay-cb[onchange*="${id}"]`);
-  if(cb){const lbl=cb.nextElementSibling;if(lbl){lbl.textContent=paid?t('paidLabel'):t('pendingLabel');lbl.style.color=paid?'var(--green)':'var(--orange)';}}
-  toast(paid?t('paidLabel')+'.':t('pendingLabel')+'.', paid?'':'warning');
+  toast(paid?'✓ '+t('paidLabel'):t('pendingLabel'), paid?'':'warning');
   const entry=getQueue().find(e=>e.id===id);const lbl=entry?`Payment #${entry.queueNum} ${entry.name}`:'Payment';
   pushUndo(`${paid?'Mark paid':'Mark unpaid'} — ${lbl}`,async()=>{
     await sb.from('queue_entries').update({paid:!paid}).eq('id',id);
@@ -3589,15 +3610,67 @@ async function doNoShow(id){
   renderStaffQueue();
 }
 async function doReturn(id){
-  const q=getQueue();const i=q.findIndex(e=>e.id===id);if(i<0)return;
-  const bikeId=q[i].assignedBikeId;const name=q[i].name;const qn=q[i].queueNum;
-  const calls=[sb.from('queue_entries').update({status:'done'}).eq('id',id)];
+  const q=getQueue();const entry=q.find(e=>e.id===id);if(!entry)return;
+  // If unpaid, show payment prompt before completing
+  if(!entry.paid){
+    showReturnPayModal(id);
+    return;
+  }
+  await _execReturn(id,false);
+}
+function showReturnPayModal(id){
+  const entry=getQueue().find(e=>e.id===id);if(!entry)return;
+  const m=document.getElementById('return-pay-modal');
+  m.style.display='flex';
+  m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeReturnPayModal()">
+    <div class="modal-box" style="max-width:400px;text-align:center">
+      <div style="font-size:32px;margin-bottom:12px">⚠️</div>
+      <div class="modal-title">${t('returnPayTitle')}</div>
+      <div class="modal-sub" style="margin-bottom:24px">${t('returnPayMsg')}</div>
+      <div style="font-size:16px;font-weight:900;margin-bottom:24px">
+        #${entry.queueNum} — ${esc(entry.name)}<br>
+        <span style="color:var(--orange);font-size:14px">SAR ${entry.price||DEFAULT_PRICE} ${t('pendingLabel')}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn-primary" style="width:100%" onclick="closeReturnPayModal();_execReturn('${id}',true)">✓ ${t('returnMarkPaidBtn')}</button>
+        <button class="btn-secondary" style="width:100%" onclick="closeReturnPayModal();_execReturn('${id}',false)">${t('returnAnywayBtn')}</button>
+        <button style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:'Space Grotesk',sans-serif" onclick="closeReturnPayModal()">${t('cancelBtn')}</button>
+      </div>
+    </div>
+  </div>`;
+}
+function closeReturnPayModal(){const m=document.getElementById('return-pay-modal');if(m)m.style.display='none';}
+async function _execReturn(id,markPaid){
+  const q=getQueue();const entry=q.find(e=>e.id===id);if(!entry)return;
+  const bikeId=entry.assignedBikeId;const name=entry.name;const qn=entry.queueNum;
+  const updates={status:'done'};if(markPaid)updates.paid=true;
+  const calls=[sb.from('queue_entries').update(updates).eq('id',id)];
   if(bikeId)calls.push(sb.from('bikes').update({status:'available'}).eq('id',bikeId));
   await Promise.all(calls);
-  await loadData();toast(t('toastBikeReturned'));
+  await loadData();
+  toast(markPaid?t('toastBikeReturnedPaid'):t('toastBikeReturned'));
   pushUndo(`Return bike — #${qn} ${name}`,async()=>{
-    const calls2=[sb.from('queue_entries').update({status:'active'}).eq('id',id)];
+    const u={status:'active'};if(markPaid)u.paid=false;
+    const calls2=[sb.from('queue_entries').update(u).eq('id',id)];
     if(bikeId)calls2.push(sb.from('bikes').update({status:'in-use'}).eq('id',bikeId));
+    await Promise.all(calls2);
+    await loadData();renderStaffQueue();
+  });
+  renderStaffQueue();
+}
+async function doReopen(id){
+  const entry=getQueue().find(e=>e.id===id);if(!entry)return;
+  const bikeId=entry.assignedBikeId;
+  const calls=[sb.from('queue_entries').update({status:'active'}).eq('id',id)];
+  if(bikeId){
+    const bike=bikeById(bikeId);
+    if(bike&&bike.status==='available')calls.push(sb.from('bikes').update({status:'in-use'}).eq('id',bikeId));
+  }
+  await Promise.all(calls);
+  await loadData();toast(t('toastReopened'));
+  pushUndo(`Re-open #${entry.queueNum} ${entry.name}`,async()=>{
+    const calls2=[sb.from('queue_entries').update({status:'done'}).eq('id',id)];
+    if(bikeId)calls2.push(sb.from('bikes').update({status:'available'}).eq('id',bikeId));
     await Promise.all(calls2);
     await loadData();renderStaffQueue();
   });
@@ -3660,12 +3733,20 @@ function renderModal(){
 
   const fleetLine=slots?`<div style="font-size:12px;color:var(--muted);margin-bottom:16px">${t('sessionFleetLabel')}: ${slotsLabel(slots)}</div>`:'';
 
+  const payWarning=!rider.paid?`<div style="display:flex;align-items:center;gap:8px;background:rgba(224,136,40,.1);border:1px solid rgba(224,136,40,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px">
+    <span style="font-size:16px">⚠️</span>
+    <div>
+      <span style="font-size:12px;font-weight:800;color:var(--orange)">${t('payPendingWarning')} — SAR ${rider.price||DEFAULT_PRICE}</span>
+      <button class="pay-toggle pending" style="margin-left:10px;font-size:11px" onclick="togglePayment('${rider.id}',true);renderModal()">⏳ ${t('paidLabel')}?</button>
+    </div>
+  </div>`:'';
   const modal=document.getElementById('bike-modal');
   modal.style.display='flex';
   modal.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeModal()">
     <div class="modal-box">
       <div class="modal-title">${t('assignBikeTitle')}</div>
       <div class="modal-sub">#${rider.queueNum} ${esc(rider.name)} &middot; Size ${rider.size} &middot; Prefers ${rider.typePreference}</div>
+      ${payWarning}
       ${fleetLine}
       <div class="modal-bikes-grid">${cards}</div>
       <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="confirmAssign()">${t('confirmCheckin')}</button></div>
@@ -3960,13 +4041,12 @@ function renderHistory(){
       <td style="font-weight:800;font-size:14px">${e.size}</td>
       <td>${typeBadge(e.typePreference)}</td>
       <td>
-        <label class="pay-cell" onclick="event.stopPropagation()" style="flex-direction:column;align-items:flex-start;gap:5px">
+        <div onclick="event.stopPropagation()" style="display:flex;flex-direction:column;align-items:flex-start;gap:6px">
           <span style="font-weight:900;font-size:15px;color:${payColor}">SAR ${e.price||DEFAULT_PRICE}</span>
-          <span class="pay-cell" style="gap:5px">
-            <input class="pay-cb" type="checkbox" ${e.paid?'checked':''} onchange="togglePayment('${e.id}',this.checked)">
-            <span class="pay-label" style="color:${payColor}">${e.paid?t('paidLabel'):t('pendingLabel')}</span>
-          </span>
-        </label>
+          <button class="pay-toggle ${e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}',${!e.paid})">
+            ${e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+          </button>
+        </div>
       </td>
       <td>${statusBadge(e.status)}</td>
       <td><div class="actions-cell">
