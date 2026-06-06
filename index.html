@@ -1890,16 +1890,16 @@ const S={
   regBikeTypes:[],   // one type preference per bike slot, e.g. ['Road','Hybrid']
   // staff queue
   showResetTool:false,sfStatus:'all',sfSession:'all',
-  sfSort:'queue',sfSearch:'',sfPay:'all',sfSize:'all',
+  sfSort:'queue',sfSortDir:1,sfSearch:'',sfPay:'all',sfSize:'all',
   undoStack:[],
   // bikes
   showAddBike:false,editBikeId:null,bkTypeFilter:'all',bkSort:'name',
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],_bkName:'',
   bkStatus:'all',bkSize:'all',
   // history
-  histStatus:'all',histPay:'all',histSess:'all',histSort:'newest',histType:'all',histSize:'all',histSearch:'',
+  histStatus:'all',histPay:'all',histSess:'all',histSort:'date',histSortDir:-1,histType:'all',histSize:'all',histSearch:'',
   // my rides
-  myStatus:'all',mySort:'newest',
+  myStatus:'all',mySort:'date',mySortDir:-1,
   // sessions
   sessSort:'date',sessSortDir:1,sessStatusFilter:'all',
   // analytics
@@ -2908,15 +2908,23 @@ function renderMyRides(){
   // Apply filters + sort
   let displayOrder=[...withIndex];
   if(S.myStatus!=='all') displayOrder=displayOrder.filter(e=>e.status===S.myStatus);
-  if(S.mySort==='oldest') displayOrder.sort((a,b)=>new Date(a.registeredAt)-new Date(b.registeredAt));
-  else displayOrder.sort((a,b)=>new Date(b.registeredAt)-new Date(a.registeredAt));
+  const _myd=S.mySortDir;
+  const _mySizeOrd={XS:0,S:1,M:2,L:3};
+  displayOrder.sort((a,b)=>{
+    if(S.mySort==='size')    return _myd*((_mySizeOrd[a.size]??9)-(_mySizeOrd[b.size]??9));
+    if(S.mySort==='type')    return _myd*(a.typePreference||'').localeCompare(b.typePreference||'');
+    if(S.mySort==='payment') return _myd*(Number(a.paid)-Number(b.paid));
+    if(S.mySort==='status')  return _myd*(a.status||'').localeCompare(b.status||'');
+    return _myd*(new Date(a.registeredAt)-new Date(b.registeredAt));
+  });
+  function thMySort(col,label,cls=''){
+    const active=S.mySort===col;
+    const arrow=active?(S.mySortDir===1?'↑':'↓'):'';
+    return`<th class="an-sort-th${active?' an-sort-active':''}${cls?' '+cls:''}" onclick="setMySort('${col}')">${label}${active?' '+arrow:''}</th>`;
+  }
   const myStatusPills=['all','waiting','active','done'].map(s=>{
     const l={all:t('filterAll'),waiting:t('filterWaiting'),active:t('filterOnBike'),done:t('filterDone')}[s];
     return`<button class="filter-pill${S.myStatus===s?' active':''}" onclick="setMyStatus('${s}')">${l}</button>`;
-  }).join('');
-  const mySortPills=['newest','oldest'].map(k=>{
-    const lbl={newest:t('sortNewest'),oldest:t('sortOldest')}[k];
-    return`<button class="sort-pill${S.mySort===k?' active':''}" onclick="setMySort('${k}')">${lbl}</button>`;
   }).join('');
   const rows=displayOrder.length?displayOrder.map(e=>{
     const payColor=e.paid?'var(--green)':'var(--orange)';
@@ -2951,19 +2959,17 @@ function renderMyRides(){
       <div class="filter-bar-row">
         <span class="filter-group-label">${t('filterStatus')}:</span>
         ${myStatusPills}
-        <div class="filter-spacer"></div>
-        ${mySortPills}
       </div>
       ${displayOrder.length!==visible.length?`<div class="result-count">${displayOrder.length} ${t('resultOf')} ${visible.length} ${t('resultRides')}</div>`:''}
     </div>
     <div class="table-wrapper" style="border-radius:14px;border:1px solid rgba(255,255,255,.07)"><table class="queue-table">
       <thead><tr>
         <th>#</th>
-        <th>${t('colSession')}</th>
-        <th>${t('frameSizeLabel')}</th>
-        <th>${t('bikeTypeLabel')}</th>
-        <th>${t('colPayment')}</th>
-        <th>${t('colStatus')}</th>
+        ${thMySort('date',t('colSession'))}
+        ${thMySort('size',t('frameSizeLabel'))}
+        ${thMySort('type',t('bikeTypeLabel'))}
+        ${thMySort('payment',t('colPayment'))}
+        ${thMySort('status',t('colStatus'))}
         <th></th>
       </tr></thead>
       <tbody>${rows}</tbody>
@@ -3496,13 +3502,20 @@ function renderStaffQueue(){
   if(S.sfPay==='pending')filtered=filtered.filter(e=>!e.paid);
   if(S.sfSearch.trim()){const q=S.sfSearch.trim().toLowerCase();filtered=filtered.filter(e=>e.name.toLowerCase().includes(q)||e.phone.includes(q));}
   const sizeOrder={XS:0,S:1,M:2,L:3};
+  const _sfd=S.sfSortDir;
   filtered.sort((a,b)=>{
-    if(S.sfSort==='name') return a.name.localeCompare(b.name);
-    if(S.sfSort==='size') return (sizeOrder[a.size]??9)-(sizeOrder[b.size]??9);
-    if(S.sfSort==='type') return a.typePreference.localeCompare(b.typePreference);
-    if(S.sfSort==='paid') return Number(b.paid)-Number(a.paid);
-    return a.sessionId.localeCompare(b.sessionId)||a.queueNum-b.queueNum;
+    if(S.sfSort==='name')   return _sfd*a.name.localeCompare(b.name);
+    if(S.sfSort==='size')   return _sfd*((sizeOrder[a.size]??9)-(sizeOrder[b.size]??9));
+    if(S.sfSort==='type')   return _sfd*a.typePreference.localeCompare(b.typePreference);
+    if(S.sfSort==='paid')   return _sfd*(Number(a.paid)-Number(b.paid));
+    if(S.sfSort==='status') return _sfd*(a.status||'').localeCompare(b.status||'');
+    return _sfd*(a.sessionId.localeCompare(b.sessionId)||a.queueNum-b.queueNum);
   });
+  function thQSort(col,label,cls=''){
+    const active=S.sfSort===col;
+    const arrow=active?(S.sfSortDir===1?'↑':'↓'):'';
+    return`<th class="an-sort-th${active?' an-sort-active':''}${cls?' '+cls:''}" onclick="setSfSort('${col}')">${label}${active?' '+arrow:''}</th>`;
+  }
   const nextRider=base.filter(e=>e.status==='waiting').sort((a,b)=>a.queueNum-b.queueNum)[0];
   const nextUp=nextRider?`<div class="next-up-banner">
     <div>
@@ -3521,10 +3534,6 @@ function renderStaffQueue(){
   const payPills=['all','paid','pending'].map(p=>{
     const lbl={all:t('filterAll'),paid:t('paidLabel'),pending:t('pendingLabel')}[p];
     return`<button class="filter-pill${S.sfPay===p?' active':''}" onclick="setSfPay('${p}')">${lbl}</button>`;
-  }).join('');
-  const sortPillsQ=['queue','name','size','type','paid'].map(k=>{
-    const lbl={queue:'#',name:t('sortName'),size:t('sortSize'),type:t('sortType'),paid:t('filterPaid')}[k];
-    return`<button class="sort-pill${S.sfSort===k?' active':''}" onclick="setSfSort('${k}')">${lbl}${S.sfSort===k?'<span class="sort-arrow">↑</span>':''}</button>`;
   }).join('');
   const sessOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>${t('allSessions')}</option>`+
     sessions.map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${s.display}</option>`).join('');
@@ -3596,8 +3605,6 @@ function renderStaffQueue(){
         ${payPills}
       </div>
       <div class="filter-bar-row">
-        <span class="filter-group-label">${t('sortBy')}:</span>
-        ${sortPillsQ}
         <div class="filter-spacer"></div>
         <div class="search-wrap">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="white" stroke-width="1.4"/><line x1="9.5" y1="9.5" x2="13" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>
@@ -3608,14 +3615,29 @@ function renderStaffQueue(){
       ${filtered.length!==base.length?`<div class="result-count">${filtered.length} ${t('resultOf')} ${base.length} ${t('resultRiders')}</div>`:''}
     </div>
     <div class="table-wrapper"><table class="queue-table">
-      <thead><tr><th>#</th><th>${t('colRider')}</th><th>${t('frameSizeLabel')}</th><th>${t('bikeTypeLabel')}</th><th class="hide-mobile">${t('colSession')}</th><th>${t('colBike')}</th><th>${t('colColor')}</th><th>${t('colPayment')}</th><th>${t('colStatus')}</th><th></th></tr></thead>
+      <thead><tr>
+        ${thQSort('queue','#')}
+        ${thQSort('name',t('colRider'))}
+        ${thQSort('size',t('frameSizeLabel'))}
+        ${thQSort('type',t('bikeTypeLabel'))}
+        ${thQSort('queue',t('colSession'),'hide-mobile')}
+        <th>${t('colBike')}</th>
+        <th>${t('colColor')}</th>
+        ${thQSort('paid',t('colPayment'))}
+        ${thQSort('status',t('colStatus'))}
+        <th></th>
+      </tr></thead>
       <tbody>${rows}${emptyRow}</tbody>
     </table></div>`;
 }
 
 function setSfStatus(v){S.sfStatus=v;renderStaffQueue();}
 function setSfSession(v){S.sfSession=v;renderStaffQueue();}
-function setSfSort(v){S.sfSort=v;renderStaffQueue();}
+function setSfSort(col){
+  if(S.sfSort===col) S.sfSortDir=-S.sfSortDir;
+  else{S.sfSort=col;S.sfSortDir=1;}
+  renderStaffQueue();
+}
 function setSfSearch(v){S.sfSearch=v;renderStaffQueue();}
 function setSfPay(v){S.sfPay=v;renderStaffQueue();}
 function setSfSize(v){S.sfSize=v;renderStaffQueue();}
@@ -4084,13 +4106,20 @@ function renderHistory(){
   if(S.histSize!=='all')   filtered=filtered.filter(e=>e.size===S.histSize);
   if(S.histSearch.trim()){const q=S.histSearch.trim().toLowerCase();filtered=filtered.filter(e=>e.name.toLowerCase().includes(q)||e.phone.includes(q)||(e.email||'').toLowerCase().includes(q));}
   const sizeOrdH={XS:0,S:1,M:2,L:3};
+  const _hd=S.histSortDir;
   filtered.sort((a,b)=>{
-    if(S.histSort==='oldest') return new Date(a.registeredAt)-new Date(b.registeredAt);
-    if(S.histSort==='name')   return a.name.localeCompare(b.name);
-    if(S.histSort==='amount-hi') return (b.price||0)-(a.price||0);
-    if(S.histSort==='amount-lo') return (a.price||0)-(b.price||0);
-    return new Date(b.registeredAt)-new Date(a.registeredAt);
+    if(S.histSort==='name')   return _hd*a.name.localeCompare(b.name);
+    if(S.histSort==='amount') return _hd*((a.price||0)-(b.price||0));
+    if(S.histSort==='size')   return _hd*((sizeOrdH[a.size]??9)-(sizeOrdH[b.size]??9));
+    if(S.histSort==='type')   return _hd*(a.typePreference||'').localeCompare(b.typePreference||'');
+    if(S.histSort==='status') return _hd*(a.status||'').localeCompare(b.status||'');
+    return _hd*(new Date(a.registeredAt)-new Date(b.registeredAt));
   });
+  function thHistSort(col,label,cls=''){
+    const active=S.histSort===col;
+    const arrow=active?(S.histSortDir===1?'↑':'↓'):'';
+    return`<th class="an-sort-th${active?' an-sort-active':''}${cls?' '+cls:''}" onclick="setHistSort('${col}')">${label}${active?' '+arrow:''}</th>`;
+  }
   const statusPills=['all','done','noshow','cancelled'].map(s=>{
     const l={all:t('filterAll'),done:t('filterDone'),noshow:t('filterNoshow'),cancelled:t('statusCancelled')}[s];
     return`<button class="filter-pill${S.histStatus===s?' active':''}" onclick="setHistStatus('${s}')">${l}</button>`;}).join('');
@@ -4101,10 +4130,6 @@ function renderHistory(){
     `<button class="filter-pill${S.histType===ty?' active':''}" onclick="setHistType('${ty}')">${ty==='all'?t('filterAll'):typeLabel(ty)}</button>`).join('');
   const sizePillsH=['all','XS','S','M','L'].map(sz=>
     `<button class="filter-pill${S.histSize===sz?' active':''}" onclick="setHistSize('${sz}')">${sz==='all'?t('filterAll'):sz}</button>`).join('');
-  const sortPillsH=['newest','oldest','name','amount-hi','amount-lo'].map(k=>{
-    const lbl={newest:t('sortNewest'),oldest:t('sortOldest'),name:t('sortName'),'amount-hi':t('sortSARHi'),'amount-lo':t('sortSARLo')}[k];
-    return`<button class="sort-pill${S.histSort===k?' active':''}" onclick="setHistSort('${k}')">${lbl}${S.histSort===k?'<span class="sort-arrow">↑</span>':''}</button>`;
-  }).join('');
   const sessOpts=`<option value="all"${S.histSess==='all'?' selected':''}>${t('allSessions')}</option>`+
     sessions.map(s=>`<option value="${s.id}"${S.histSess===s.id?' selected':''}>${s.day} ${s.display}</option>`).join('');
   const rows=filtered.map(e=>{
@@ -4179,8 +4204,6 @@ function renderHistory(){
         ${sizePillsH}
       </div>
       <div class="filter-bar-row">
-        <span class="filter-group-label">${t('sortBy')}:</span>
-        ${sortPillsH}
         <div class="filter-spacer"></div>
         <div class="search-wrap">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="white" stroke-width="1.4"/><line x1="9.5" y1="9.5" x2="13" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>
@@ -4193,14 +4216,14 @@ function renderHistory(){
     <div class="table-wrapper"><table class="queue-table">
       <thead><tr>
         <th>#</th>
-        <th>${t('colRider')}</th>
-        <th class="hide-mobile">${t('colSession')}</th>
+        ${thHistSort('name',t('colRider'))}
+        ${thHistSort('date',t('colSession'),'hide-mobile')}
         <th>${t('colBike')}</th>
         <th>${t('colColor')}</th>
-        <th>${t('frameSizeLabel')}</th>
-        <th>${t('bikeTypeLabel')}</th>
-        <th>${t('colPayment')}</th>
-        <th>${t('colStatus')}</th>
+        ${thHistSort('size',t('frameSizeLabel'))}
+        ${thHistSort('type',t('bikeTypeLabel'))}
+        ${thHistSort('amount',t('colPayment'))}
+        ${thHistSort('status',t('colStatus'))}
         <th>${t('colActions')}</th>
       </tr></thead>
       <tbody>${rows}${emptyRow}</tbody>
@@ -4210,12 +4233,20 @@ function renderHistory(){
 function setHistStatus(v){S.histStatus=v;renderHistory();}
 function setHistPay(v){S.histPay=v;renderHistory();}
 function setHistSess(v){S.histSess=v;renderHistory();}
-function setHistSort(v){S.histSort=v;renderHistory();}
+function setHistSort(col){
+  if(S.histSort===col) S.histSortDir=-S.histSortDir;
+  else{S.histSort=col;S.histSortDir=col==='date'?-1:1;}
+  renderHistory();
+}
 function setHistType(v){S.histType=v;renderHistory();}
 function setHistSize(v){S.histSize=v;renderHistory();}
 function setHistSearch(v){S.histSearch=v;renderHistory();}
 function setMyStatus(v){S.myStatus=v;renderMyRides();}
-function setMySort(v){S.mySort=v;renderMyRides();}
+function setMySort(col){
+  if(S.mySort===col) S.mySortDir=-S.mySortDir;
+  else{S.mySort=col;S.mySortDir=col==='date'?-1:1;}
+  renderMyRides();
+}
 function setSessSort(col){
   if(S.sessSort===col) S.sessSortDir=-S.sessSortDir;
   else{S.sessSort=col;S.sessSortDir=1;}
