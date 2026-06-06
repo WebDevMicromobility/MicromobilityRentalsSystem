@@ -690,6 +690,18 @@
     .sort-pill.active{background:rgba(3,255,137,.1);border-color:rgba(3,255,137,.4);color:var(--green);}
     .sort-pill .sort-arrow{font-size:10px;margin-left:4px;opacity:.7;}
     .bike-card{background:linear-gradient(145deg,#1a1a1a,#161616);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:7px;transition:border-color .2s,transform .2s,box-shadow .2s;box-shadow:0 2px 12px rgba(0,0,0,.2);}
+    /* ── Bike assign picker ── */
+    .bike-assign-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:16px;}
+    .bike-assign-card{background:var(--s2);border:1.5px solid var(--border);border-radius:10px;padding:11px 13px;cursor:pointer;transition:all .18s;user-select:none;}
+    .bike-assign-card:hover:not(.busy){border-color:rgba(3,255,137,.5);background:rgba(3,255,137,.05);}
+    .bike-assign-card.selected{border-color:var(--green);background:rgba(3,255,137,.09);box-shadow:0 0 0 2px rgba(3,255,137,.2);}
+    .bike-assign-card.busy{opacity:.45;cursor:not-allowed;}
+    .bike-assign-name{font-size:13px;font-weight:800;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .bike-assign-check{font-size:11px;font-weight:800;color:var(--green);margin-top:5px;}
+    .type-count-box{background:var(--s3);border:1px solid var(--border);border-radius:12px;padding:16px 14px;text-align:center;}
+    .type-count-input{width:80px;padding:10px 4px;text-align:center;font-size:28px;font-weight:900;background:var(--s2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;outline:none;display:block;margin:10px auto 6px;}
+    .type-count-input:focus{border-color:rgba(3,255,137,.5);}
+    @media(max-width:767px){.bike-assign-grid{grid-template-columns:repeat(2,1fr);}}
     .bike-card:hover{border-color:rgba(255,255,255,.14);transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.3);}
     .bike-card-top{display:flex;align-items:center;justify-content:space-between;}
     .bike-icon{font-size:28px;line-height:1;}
@@ -1896,9 +1908,9 @@ const S={
   queue:[],bikes:[],customers:[],sessions:[],
   // session management form
   showAddSession:false,newSessDate:'',
-  newSessSlots:{RoadXS:0,RoadS:0,RoadM:0,RoadL:0,HybridXS:0,HybridS:0,HybridM:0,HybridL:0,MountainXS:0,MountainS:0,MountainM:0,MountainL:0},
+  newSessTypeCounts:{Road:0,Hybrid:0,Mountain:0},
   editSessionId:null,
-  editSessSlots:{RoadXS:0,RoadS:0,RoadM:0,RoadL:0,HybridXS:0,HybridS:0,HybridM:0,HybridL:0,MountainXS:0,MountainS:0,MountainM:0,MountainL:0},
+  editSessAssignedIds:[],
   editSessDate:'',editSessStatus:'closed',
 };
 
@@ -3030,39 +3042,38 @@ async function saveAccount(){
 function parseSlots(raw){
   if(!raw)return null;
   if(typeof raw==='string'){try{return JSON.parse(raw);}catch{return null;}}
-  return raw; // already an object
+  return raw;
 }
-
+function slotsFormat(s){
+  // Returns 'ids' | 'counts' | 'legacy' | null
+  if(!s)return null;
+  if(s._bikes)return 'ids';
+  if(typeof s.Road==='number'||typeof s.Hybrid==='number'||typeof s.Mountain==='number')return 'counts';
+  return 'legacy';
+}
 function slotsLabel(raw){
-  const s=parseSlots(raw);
-  if(!s)return '—';
-  const parts=[];
+  const s=parseSlots(raw);if(!s)return'—';
+  const fmt=slotsFormat(s);
   const abbr={Road:'Road',Hybrid:'Hybrid',Mountain:'Mtn'};
+  if(fmt==='ids'){
+    // Count IDs by type from fleet
+    const counts={};
+    (s._bikes||[]).forEach(id=>{const b=bikeById(id);if(b)counts[b.type]=(counts[b.type]||0)+1;});
+    return Object.entries(counts).filter(([,v])=>v>0).map(([ty,v])=>`${abbr[ty]||ty}×${v}`).join(', ')||'—';
+  }
+  if(fmt==='counts'){
+    return Object.entries(s).filter(([k,v])=>v>0&&k!=='_bikes').map(([ty,v])=>`${abbr[ty]||ty}×${v}`).join(', ')||'—';
+  }
+  // Legacy type+size format
+  const parts=[];
   for(const[ty,szs]of Object.entries(s)){
-    const sum=Object.values(szs||{}).reduce((a,b)=>a+(b||0),0);
+    if(ty==='_bikes')continue;
+    const sum=typeof szs==='number'?szs:Object.values(szs||{}).reduce((a,b)=>a+(b||0),0);
     if(sum>0)parts.push(`${abbr[ty]||ty}×${sum}`);
   }
   return parts.join(', ')||'—';
 }
 
-function _updateSlotTotals(prefix,stateKey){
-  const types=['Road','Hybrid','Mountain'],sizes=['XS','S','M','L'];
-  let total=0;
-  for(const ty of types){
-    let row=0;
-    for(const sz of sizes){
-      const v=parseInt(document.getElementById(`${prefix}-${ty}-${sz}`)?.value)||0;
-      S[stateKey][ty+sz]=v;
-      row+=v;total+=v;
-    }
-    const rowEl=document.getElementById(`${prefix}-row-${ty}`);
-    if(rowEl)rowEl.textContent=row||0;
-  }
-  const totEl=document.getElementById(`${prefix}-total`);
-  if(totEl)totEl.textContent=total;
-}
-function updateSessTotal(){_updateSlotTotals('ns','newSessSlots');}
-function updateEditSessTotal(){_updateSlotTotals('es','editSessSlots');}
 
 function startEditSession(id){
   const sess=allSessions().find(s=>s.id===id);if(!sess)return;
@@ -3070,13 +3081,25 @@ function startEditSession(id){
   S.editSessDate=sess.session_date||sess.id;
   S.editSessStatus=sess.status||'closed';
   S.showAddSession=false;
-  const slots=parseSlots(sess.bike_slots)||{};
-  const types=['Road','Hybrid','Mountain'],sizes=['XS','S','M','L'];
-  for(const ty of types)for(const sz of sizes)
-    S.editSessSlots[ty+sz]=(slots[ty]&&slots[ty][sz])||0;
+  // Load existing assigned bikes from bike_slots
+  const slots=parseSlots(sess.bike_slots);
+  const fmt=slotsFormat(slots);
+  if(fmt==='ids'&&slots._bikes){
+    S.editSessAssignedIds=[...slots._bikes];
+  } else {
+    // Old format or counts-only — no specific bikes stored, start fresh
+    S.editSessAssignedIds=[];
+  }
   renderSessions();
-  // Scroll to edit form
   setTimeout(()=>document.getElementById('sess-edit-form')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
+}
+function toggleAssignBike(bikeId){
+  const idx=S.editSessAssignedIds.indexOf(bikeId);
+  if(idx>=0) S.editSessAssignedIds.splice(idx,1);
+  else S.editSessAssignedIds.push(bikeId);
+  renderSessions();
+  // Keep scroll position in the edit form
+  setTimeout(()=>document.getElementById('sess-edit-form')?.scrollIntoView({behavior:'smooth',block:'nearest'}),40);
 }
 
 /* ══════════════════════════════════════════════
@@ -3084,43 +3107,12 @@ function startEditSession(id){
 ══════════════════════════════════════════════ */
 function renderSessions(){
   const sessions=allSessions();
+  const allBikes=getBikes();
   const types=['Road','Hybrid','Mountain'];
-  const sizes=['XS','S','M','L'];
-  const typeColor={Road:'var(--blue)',Hybrid:'var(--green-d)',Mountain:'var(--orange)'};
-  const nsTotal=Object.values(S.newSessSlots).reduce((a,b)=>a+b,0);
-  const esTotal=Object.values(S.editSessSlots).reduce((a,b)=>a+b,0);
+  const typeColorHex={Road:'#4aa8f8',Hybrid:'#03ff89',Mountain:'#e08828'};
 
-  // ── Fleet table builder (shared by add and edit forms) ────
-  function fleetTable(prefix,slots,onchange){
-    return`<div style="overflow-x:auto;margin-top:10px;margin-bottom:6px">
-      <table style="border-collapse:collapse;min-width:360px;font-size:13px">
-        <thead><tr>
-          <th style="text-align:left;padding:6px 12px 6px 0;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px">Type</th>
-          ${sizes.map(sz=>`<th style="padding:6px 10px;text-align:center;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px">${sz}</th>`).join('')}
-          <th style="padding:6px 10px;text-align:center;color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px">${t('rowLabel')}</th>
-        </tr></thead>
-        <tbody>
-          ${types.map(ty=>{
-            const rowTotal=sizes.reduce((a,sz)=>a+(slots[ty+sz]||0),0);
-            return`<tr style="border-top:1px solid var(--border)">
-              <td style="padding:8px 12px 8px 0;font-weight:800;color:${typeColor[ty]}">${ty}</td>
-              ${sizes.map(sz=>`<td style="padding:6px 8px;text-align:center">
-                <input type="number" id="${prefix}-${ty}-${sz}" value="${slots[ty+sz]||0}" min="0" max="20"
-                  style="width:54px;padding:7px 4px;text-align:center;background:var(--s3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;outline:none"
-                  oninput="${onchange}">
-              </td>`).join('')}
-              <td id="${prefix}-row-${ty}" style="padding:8px 10px;text-align:center;font-weight:900;color:${typeColor[ty]}">${rowTotal}</td>
-            </tr>`;
-          }).join('')}
-          <tr style="border-top:2px solid var(--border)">
-            <td colspan="${sizes.length+1}" style="padding:10px 0 4px;font-weight:900;font-size:13px;color:var(--muted)">${t('totalBikesSession')}</td>
-            <td id="${prefix}-total" style="padding:10px 10px 4px;text-align:center;font-size:20px;font-weight:900;color:var(--green)">${prefix==='ns'?nsTotal:esTotal}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>`;
-  }
-
+  // ── New session form (type counts only) ───────────────
+  const nsTotal=Object.values(S.newSessTypeCounts).reduce((a,b)=>a+b,0);
   const addForm=S.showAddSession?`
     <div class="inline-form" style="margin-bottom:24px">
       <div class="form-title">${t('newSessionTitle')}</div>
@@ -3129,16 +3121,64 @@ function renderSessions(){
         <input type="date" id="ns-date" value="${esc(S.newSessDate)}" min="${todayStr()}"
           oninput="S.newSessDate=this.value" style="max-width:240px">
       </div>
-      <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${t('bikeFleetComp')}</label>
-      ${fleetTable('ns',S.newSessSlots,'updateSessTotal()')}
-      <div style="display:flex;gap:8px;margin-top:16px">
+      <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;display:block">${t('bikeFleetComp')}</label>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px">
+        ${types.map(ty=>`
+          <div class="type-count-box">
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:${typeColorHex[ty]}">${typeLabel(ty)}</div>
+            <input class="type-count-input" type="number" id="ns-${ty}-count"
+              value="${S.newSessTypeCounts[ty]||0}" min="0" max="50"
+              oninput="S.newSessTypeCounts['${ty}']=parseInt(this.value)||0;document.getElementById('ns-total').textContent=Object.values(S.newSessTypeCounts).reduce((a,b)=>a+b,0)">
+            <div style="font-size:11px;color:var(--muted);font-weight:600">${t('bike').toLowerCase()}s</div>
+          </div>`).join('')}
+      </div>
+      <div style="font-size:13px;font-weight:800;color:var(--muted);margin-bottom:16px">
+        ${t('totalBikesSession')}: <span id="ns-total" style="color:var(--green);font-size:18px">${nsTotal}</span>
+      </div>
+      <div style="display:flex;gap:8px">
         <button class="btn-primary" onclick="addSession()">${t('createSession')}</button>
         <button class="btn-secondary" onclick="S.showAddSession=false;renderSessions()">${t('cancelBtn')}</button>
       </div>
     </div>`:'';
 
-  // ── Edit form ─────────────────────────────────────────
+  // ── Edit form with exact bike picker ─────────────────
   const editSess=S.editSessionId?allSessions().find(s=>s.id===S.editSessionId):null;
+  const esAssigned=S.editSessAssignedIds;
+  const esTotal=esAssigned.length;
+
+  function bikePicker(){
+    const currentSessId=editSess?editSess.id:null;
+    const queue=getQueue();
+    // A bike is "busy" if it has an active/waiting booking in a DIFFERENT session
+    const busyIds=new Set(
+      queue.filter(e=>e.sessionId!==currentSessId&&(e.status==='active'||e.status==='waiting')&&e.assignedBikeId)
+        .map(e=>e.assignedBikeId)
+    );
+    return types.map(ty=>{
+      const typeBikes=allBikes.filter(b=>b.type===ty);
+      if(!typeBikes.length)return`<div style="color:var(--muted);font-size:13px;margin-bottom:12px">${typeLabel(ty)}: ${t('noBikes')}</div>`;
+      return`<div style="margin-bottom:18px">
+        <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.6px;color:${typeColorHex[ty]};margin-bottom:8px">${typeLabel(ty)} (${typeBikes.filter(b=>esAssigned.includes(b.id)).length} ${t('anOf')} ${typeBikes.length})</div>
+        <div class="bike-assign-grid">
+          ${typeBikes.map(b=>{
+            const sel=esAssigned.includes(b.id);
+            const busy=busyIds.has(b.id)&&!sel;
+            const dot=b.status==='available'?'🟢':b.status==='in-use'?'🟠':'🔴';
+            const grad=bikeGradient(b.colors||['#03ff89']);
+            return`<div class="bike-assign-card${sel?' selected':''}${busy?' busy':''}"
+              ${!busy?`onclick="toggleAssignBike('${b.id}')"`:'title="In use elsewhere"'}>
+              <div style="height:4px;border-radius:3px;background:${grad};margin-bottom:7px"></div>
+              <div class="bike-assign-name">${esc(b.name)}</div>
+              <div style="font-size:11px;color:var(--muted)">${dot} ${b.size} &middot; ${b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel')}</div>
+              ${sel?`<div class="bike-assign-check">✓ ${t('assignBikeTitle')}</div>`:''}
+              ${busy?`<div style="font-size:10px;color:var(--muted);margin-top:4px">${t('inUseLabel')}</div>`:''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
   const editForm=editSess?`
     <div class="inline-form" style="margin-bottom:24px;border-color:rgba(3,255,137,.25)" id="sess-edit-form">
       <div class="form-title" style="color:var(--green)">${t('editSessionTitle')}: ${shortDate(editSess.session_date||editSess.id)}</div>
@@ -3146,8 +3186,7 @@ function renderSessions(){
         <div class="form-group">
           <label>${t('dateLabel')}</label>
           <input type="date" id="es-date" value="${esc(S.editSessDate)}"
-            oninput="S.editSessDate=this.value"
-            style="max-width:240px">
+            oninput="S.editSessDate=this.value" style="max-width:240px">
           <div style="font-size:11px;color:var(--orange);margin-top:5px;font-weight:600">${t('dateWarning')}</div>
         </div>
         <div class="form-group">
@@ -3158,13 +3197,16 @@ function renderSessions(){
           </div>
         </div>
       </div>
-      <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${t('bikeFleetComp')}</label>
-      ${fleetTable('es',S.editSessSlots,'updateEditSessTotal()')}
+      <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;display:block">
+        ${t('bikeFleetComp')} &nbsp;·&nbsp; <span style="color:var(--green)">${esTotal} ${t('bike').toLowerCase()}${esTotal!==1?'s':''} ${t('assignBikeTitle').toLowerCase()}</span>
+      </label>
+      ${bikePicker()}
       <div style="display:flex;gap:8px;margin-top:16px">
         <button class="btn-primary" onclick="saveSessionEdit()">${t('saveSessionBtn')}</button>
         <button class="btn-secondary" onclick="S.editSessionId=null;renderSessions()">${t('cancelBtn')}</button>
       </div>
     </div>`:'';
+
 
 
   let sessList=[...sessions];
@@ -3262,16 +3304,14 @@ async function saveSessionEdit(){
   const oldId=S.editSessionId;
   const sess=allSessions().find(s=>s.id===oldId);if(!sess)return;
   const newDate=S.editSessDate||oldId;
-  const types=['Road','Hybrid','Mountain'],sizes=['XS','S','M','L'];
-  const slots={};let total=0;
-  for(const ty of types){
-    slots[ty]={};
-    for(const sz of sizes){
-      const v=S.editSessSlots[ty+sz]||0;
-      slots[ty][sz]=v;total+=v;
-    }
-  }
-  if(total===0){toast(t('errAddBikeToSession'),'error');return;}
+  const assignedIds=S.editSessAssignedIds;
+  if(assignedIds.length===0){toast(t('errAddBikeToSession'),'error');return;}
+  // Build slots object with IDs and a type summary
+  const allBk=getBikes();
+  const typeCounts={};
+  assignedIds.forEach(id=>{const b=allBk.find(x=>x.id===id);if(b)typeCounts[b.type]=(typeCounts[b.type]||0)+1;});
+  const slots={_bikes:assignedIds,...typeCounts};
+  const total=assignedIds.length;
   const newStatus=S.editSessStatus||sess.status;
   const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const newDay=dayNames[new Date(newDate+'T00:00:00').getDay()];
@@ -3333,18 +3373,18 @@ async function saveSessionEdit(){
 async function addSession(){
   const date=document.getElementById('ns-date')?.value;
   if(!date){toast(t('errPickDate'),'error');return;}
-  const types=['Road','Hybrid','Mountain'],sizes=['XS','S','M','L'];
-  const slots={};
-  let total=0;
-  for(const ty of types){
-    slots[ty]={};
-    for(const sz of sizes){
-      const v=S.newSessSlots[ty+sz]||0;
-      slots[ty][sz]=v;
-      total+=v;
-    }
-  }
+  // Re-read counts from inputs in case state wasn't updated
+  const types=['Road','Hybrid','Mountain'];
+  types.forEach(ty=>{
+    const el=document.getElementById(`ns-${ty}-count`);
+    if(el)S.newSessTypeCounts[ty]=parseInt(el.value)||0;
+  });
+  const counts=S.newSessTypeCounts;
+  const total=Object.values(counts).reduce((a,b)=>a+b,0);
   if(total===0){toast(t('errAddBikeToSession'),'error');return;}
+  // Store as simple type-count format {Road:N, Hybrid:N, Mountain:N}
+  const slots={};
+  types.forEach(ty=>{if(counts[ty]>0)slots[ty]=counts[ty];});
   const d=new Date(date+'T00:00:00');
   const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const session={id:date,day:dayNames[d.getDay()],session_date:date,capacity:total,
@@ -3357,7 +3397,7 @@ async function addSession(){
     }
     await loadData();
     S.showAddSession=false;S.newSessDate='';
-    for(const k of Object.keys(S.newSessSlots))S.newSessSlots[k]=0;
+    S.newSessTypeCounts={Road:0,Hybrid:0,Mountain:0};
     toast(`${shortDate(date)} — ${t('toastSessionReady')}`);
     renderSessions();
   }catch(e){toast(t('errCreateSession'),'error');}
@@ -3696,12 +3736,14 @@ function renderModal(){
   const rider=getQueue().find(e=>e.id===S.modalRider);if(!rider)return;
   const allBikes=getBikes();
 
-  // Filter to bikes planned for this session
+  // Filter to bikes assigned to this session
   const sess=S.sessions.find(s=>s.id===rider.sessionId);
   const slots=sess?parseSlots(sess.bike_slots):null;
-  const eligible=slots
-    ?allBikes.filter(b=>slots[b.type]&&(slots[b.type][b.size]||0)>0)
-    :allBikes;
+  const fmt=slotsFormat(slots);
+  const eligible=!slots?allBikes
+    :fmt==='ids'?allBikes.filter(b=>(slots._bikes||[]).includes(b.id))
+    :fmt==='counts'?allBikes.filter(b=>(slots[b.type]||0)>0)
+    :allBikes.filter(b=>slots[b.type]&&(typeof slots[b.type]==='number'?(slots[b.type]>0):(slots[b.type][b.size]||0)>0));
 
   // Sort: available first, then by type preference match
   const sorted=[...eligible].sort((a,b)=>{
