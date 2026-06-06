@@ -67,12 +67,50 @@
       background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(110,232,154,.055) 0%,transparent 65%),
                  radial-gradient(ellipse 40% 30% at 80% 80%,rgba(74,168,248,.03) 0%,transparent 60%);
     }
-    .landing-hero{text-align:center;margin-bottom:48px;}
-    .landing-brand-row{display:flex;align-items:center;justify-content:center;gap:28px;margin-bottom:28px;flex-wrap:wrap;}
-    .landing-logo{height:110px;width:110px;object-fit:contain;border-radius:18px;}
-    .landing-hero-img{height:260px;width:auto;max-width:520px;object-fit:contain;opacity:.96;
-      filter:drop-shadow(0 8px 32px rgba(110,232,154,.18));
-      animation:heroFloat 5.5s ease-in-out infinite;}
+    /* ── Landing main heading ── */
+    .landing-main-title{font-size:44px;font-weight:900;text-align:center;letter-spacing:-.6px;line-height:1.15;margin-bottom:32px;color:var(--text);}
+    .landing-main-title span{background:linear-gradient(135deg,var(--green) 0%,var(--green-h) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+    /* ── Hero card (clickable) ── */
+    .landing-hero-card{
+      max-width:500px;width:100%;
+      background:linear-gradient(145deg,#1a1a1a,#161616);
+      border:1.5px solid rgba(255,255,255,.1);
+      border-radius:22px;overflow:hidden;cursor:pointer;
+      transition:transform .28s cubic-bezier(.2,.8,.2,1),border-color .28s,box-shadow .28s;
+      box-shadow:0 6px 32px rgba(0,0,0,.38);
+      position:relative;
+      padding:0;text-align:left;display:block;
+    }
+    .landing-hero-card:hover{
+      border-color:rgba(110,232,154,.55);
+      transform:translateY(-8px) scale(1.012);
+      box-shadow:0 20px 56px rgba(110,232,154,.18),0 6px 32px rgba(0,0,0,.45);
+    }
+    .landing-hero-card img{width:100%;height:auto;display:block;opacity:.94;transition:opacity .28s;}
+    .landing-hero-card:hover img{opacity:1;}
+    .landing-hero-card-cta{
+      position:absolute;bottom:0;left:0;right:0;
+      padding:28px 24px 22px;
+      background:linear-gradient(to top,rgba(0,0,0,.72) 0%,transparent 100%);
+      display:flex;align-items:center;justify-content:flex-end;
+    }
+    html[dir="rtl"] .landing-hero-card-cta{justify-content:flex-start;}
+    .landing-hero-cta-btn{
+      width:46px;height:46px;border-radius:50%;
+      background:var(--green);
+      display:flex;align-items:center;justify-content:center;
+      color:#060f09;font-size:20px;font-weight:900;
+      transition:transform .28s cubic-bezier(.2,.8,.2,1),box-shadow .28s;
+      box-shadow:0 0 24px rgba(110,232,154,.45);
+      flex-shrink:0;
+    }
+    .landing-hero-card:hover .landing-hero-cta-btn{transform:scale(1.15) translateX(3px);box-shadow:0 0 32px rgba(110,232,154,.7);}
+    html[dir="rtl"] .landing-hero-card:hover .landing-hero-cta-btn{transform:scale(1.15) translateX(-3px);}
+    /* legacy hero kept for RTL setLang guard */
+    .landing-hero{display:none;}
+    .landing-brand-row{display:none;}
+    .landing-hero-img{display:none;}
+    .landing-cards{display:none;}
     .landing-title{font-size:34px;font-weight:900;margin-bottom:8px;letter-spacing:-.5px;}
     .landing-title span{
       background:linear-gradient(135deg,var(--green) 0%,var(--green-h) 100%);
@@ -284,6 +322,7 @@
     html[lang="ar"] .tab-btn{font-size:15px;font-weight:800;}
 
     /* Landing */
+    html[lang="ar"] .landing-main-title{font-size:40px;font-weight:900;line-height:1.3;}
     html[lang="ar"] .landing-title{font-size:36px;font-weight:900;line-height:1.4;}
     html[lang="ar"] .landing-sub{font-size:16px;font-weight:600;}
     html[lang="ar"] .landing-card-title{font-size:20px;font-weight:900;}
@@ -738,15 +777,9 @@
 
       /* ── Landing ── */
       #landing-body{padding:28px 14px 32px;justify-content:flex-start;}
-      .landing-hero{margin-bottom:20px;}
-      .landing-hero-img{height:140px;max-width:min(340px,calc(100vw - 28px));animation:none;}
-      .landing-brand-row{gap:16px;margin-bottom:18px;}
-      .landing-title{font-size:20px;letter-spacing:-.3px;}
-      .landing-sub{font-size:12px;}
-      .landing-cards{flex-direction:column;gap:10px;width:100%;}
-      .landing-card{max-width:100%;padding:18px 16px;border-radius:14px;gap:7px;}
-      .landing-card-title{font-size:15px;}
-      .landing-card-desc{font-size:12px;line-height:1.55;}
+      .landing-main-title{font-size:28px;margin-bottom:20px;}
+      .landing-hero-card{border-radius:16px;}
+      .landing-hero-cta-btn{width:38px;height:38px;font-size:17px;}
       .landing-footer{margin-top:20px;}
 
       /* ── Forms ── */
@@ -979,19 +1012,16 @@
 <!-- LANDING VIEW -->
 <div id="view-landing">
   <div id="landing-body">
-    <div class="landing-cards">
-      <div class="landing-card" onclick="goCustomer('register')">
-        <div class="landing-card-title" id="land-card-title">Reserve Your Spot</div>
-        <div class="landing-card-desc" id="land-card-desc">Register for an available session and join the queue.</div>
-        <div class="landing-card-arrow" id="land-card-arrow">&rarr;</div>
+    <h1 class="landing-main-title" id="land-main-title">Reserve Your <span>Spot Now</span></h1>
+
+    <button class="landing-hero-card" onclick="goCustomer('register')">
+      <img src="hero.png" alt="Corniche Circuit">
+      <div class="landing-hero-card-cta">
+        <div class="landing-hero-cta-btn" id="land-cta-arrow">&#8594;</div>
       </div>
-    </div>
-    <div class="landing-hero">
-      <div class="landing-brand-row">
-        <img class="landing-hero-img" src="hero.png" alt="Corniche Circuit">
-      </div>
-    </div>
-    <div class="landing-footer">
+    </button>
+
+    <div class="landing-footer" style="margin-top:32px">
       <button class="staff-access-btn" id="land-staff-btn" onclick="openPinModal()">Staff Access</button>
     </div>
   </div>
@@ -1414,9 +1444,9 @@ function setLang(lang){
   const subEl=document.querySelector('.topbar-brand-sub');if(subEl)subEl.textContent=t('appSub');
   const lt=document.getElementById('land-title');if(lt)lt.innerHTML=`<span>MicroMobility</span> Corniche Circuit`;
   const ls=document.getElementById('land-sub');if(ls)ls.textContent=t('landingSub');
-  const lct=document.getElementById('land-card-title');if(lct)lct.textContent=t('reserveTitle');
-  const lcd=document.getElementById('land-card-desc');if(lcd)lcd.textContent=t('reserveDesc');
-  const lca=document.getElementById('land-card-arrow');if(lca)lca.innerHTML=lang==='ar'?'&larr;':'&rarr;';
+  const lmt=document.getElementById('land-main-title');
+  if(lmt)lmt.innerHTML=lang==='ar'?'احجز <span>موقعك الآن</span>':'Reserve Your <span>Spot Now</span>';
+  const lca=document.getElementById('land-cta-arrow');if(lca)lca.innerHTML=lang==='ar'?'&#8592;':'&#8594;';
   const lsb=document.getElementById('land-staff-btn');if(lsb)lsb.textContent=t('staffAccess');
   document.querySelectorAll('#customer-tab-nav .tab-btn').forEach(b=>{
     if(b.dataset.ctab==='register')b.textContent=t('tabReserve');
