@@ -3991,34 +3991,46 @@ function renderModal(){
   const rider=getQueue().find(e=>e.id===S.modalRider);if(!rider)return;
   const allBikes=getBikes();
 
-  // Filter to bikes assigned to this session
+  // Determine session fleet plan (advisory — for sorting/badging only)
   const sess=S.sessions.find(s=>s.id===rider.sessionId);
   const slots=sess?parseSlots(sess.bike_slots):null;
   const fmt=slotsFormat(slots);
-  const eligible=!slots?allBikes
-    :fmt==='ids'?allBikes.filter(b=>(slots._bikes||[]).includes(b.id))
-    :fmt==='counts'?allBikes.filter(b=>(slots[b.type]||0)>0)
-    :allBikes.filter(b=>slots[b.type]&&(typeof slots[b.type]==='number'?(slots[b.type]>0):(slots[b.type][b.size]||0)>0));
 
-  // Sort: available first, then by type preference match
+  // Check if a bike is part of the session's fleet plan
+  function inFleet(b){
+    if(!slots)return true;
+    if(fmt==='ids')return(slots._bikes||[]).includes(b.id);
+    if(fmt==='counts')return(slots[b.type]||0)>0;
+    // legacy type×size format
+    return slots[b.type]&&(typeof slots[b.type]==='number'?(slots[b.type]>0):(slots[b.type][b.size]||0)>0);
+  }
+
+  // Always show all bikes — fleet bikes sorted/highlighted first, then others
+  const eligible=allBikes;
+
+  // Sort: available+fleet+sizeMatch first, then available+fleet, then available, then unavailable
   const sorted=[...eligible].sort((a,b)=>{
-    const aPref=a.type===rider.typePreference?0:1;
-    const bPref=b.type===rider.typePreference?0:1;
-    const aFree=a.status==='available'?0:1;
-    const bFree=b.status==='available'?0:1;
-    return aFree-bFree||aPref-bPref;
+    const aFleet=inFleet(a)?0:1,bFleet=inFleet(b)?0:1;
+    const aPref=a.type===rider.typePreference?0:1,bPref=b.type===rider.typePreference?0:1;
+    const aSz=a.size===rider.size?0:1,bSz=b.size===rider.size?0:1;
+    const aFree=a.status==='available'?0:1,bFree=b.status==='available'?0:1;
+    return aFree-bFree||aFleet-bFleet||aPref-bPref||aSz-bSz;
   });
 
   const cards=sorted.length?sorted.map(b=>{
     const free=b.status==='available';
     const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-orange':'dot-red';
     const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
-    const grad=bikeGradient(b.colors||['#6ee89a']);
+    const grad=bikeGradient(b.colors||['#03ff89']);
     const sizeMatch=b.size===rider.size;
+    const fleet=inFleet(b);
+    const badges=[];
+    if(sizeMatch)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--green);background:rgba(3,255,137,.15);padding:2px 6px;border-radius:6px">${t('sizeMatchLabel')}</span>`);
+    if(fleet&&slots)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--blue);background:rgba(74,168,248,.12);padding:2px 6px;border-radius:6px">Fleet</span>`);
     return`<div class="modal-bike-card${!free?' unavailable':''}${S.modalBike===b.id?' selected':''}" ${free?`onclick="pickBike('${b.id}')"`:''}>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:4px;flex-wrap:wrap">
         <span class="avail-dot ${dot}"></span>
-        ${sizeMatch?`<span style="font-size:10px;font-weight:800;color:var(--green);background:rgba(3,255,137,.15);padding:2px 6px;border-radius:6px">${t('sizeMatchLabel')}</span>`:''}
+        <div style="display:flex;gap:4px;flex-wrap:wrap">${badges.join('')}</div>
       </div>
       <div style="height:5px;border-radius:3px;background:${grad};margin-bottom:8px"></div>
       <div style="font-weight:900;font-size:14px;margin-bottom:3px">${esc(b.name)}</div>
@@ -4026,7 +4038,7 @@ function renderModal(){
       <div style="margin-top:6px">${typeBadge(b.type)}</div>
       <div style="font-size:11px;color:var(--muted);margin-top:5px">${slbl}</div>
     </div>`;
-  }).join(''):`<div style="color:var(--muted);font-size:14px;padding:12px 0">${t('noBikesMatchFleet')}</div>`;
+  }).join(''):`<div style="color:var(--muted);font-size:14px;padding:24px 0;text-align:center">${emptyIllustration(ILLUS_BIKE_OK,t('noBikesMatchFleet'))}</div>`;
 
   const fleetLine=slots?`<div style="font-size:12px;color:var(--muted);margin-bottom:16px">${t('sessionFleetLabel')}: ${slotsLabel(slots)}</div>`:'';
 
