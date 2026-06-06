@@ -374,9 +374,9 @@
     /* Base: switch to Cairo, lift size & weight */
     html[lang="ar"] body{
       font-family:'IBM Plex Arabic',sans-serif;
-      font-size:15.5px;
-      font-weight:500;
-      line-height:1.75;
+      font-size:17px;
+      font-weight:600;
+      line-height:1.8;
     }
     /* Kill letter-spacing everywhere — it destroys Arabic ligatures */
     html[lang="ar"] *{letter-spacing:0!important;}
@@ -546,7 +546,7 @@
 
     /* Mobile Arabic adjustments */
     @media(max-width:767px){
-      html[lang="ar"] body{font-size:15px;}
+      html[lang="ar"] body{font-size:16px;font-weight:600;}
       html[lang="ar"] .page-title{font-size:20px;}
       html[lang="ar"] .landing-title{font-size:24px;}
       html[lang="ar"] .tab-btn{font-size:13.5px;}
@@ -1501,7 +1501,7 @@ en:{
   // Misc
   noEmailLabel:'no email',hasBookingsTitle:'Has bookings',
   // Error messages
-  errEnterName:'Please enter your full name.',
+  errEnterName:'Please enter your full name (first and last name).',
   errEmailOrPhone:'Please enter at least an email or phone number.',
   errValidEmail:'Please enter a valid email address.',
   errPasswordLen:'Password must be at least 6 characters.',
@@ -1718,7 +1718,7 @@ ar:{
   sizeMatchLabel:'مقاس مناسب',sessionFleetLabel:'أسطول الجلسة',
   noBikesMatchFleet:'لا توجد دراجات مطابقة لأسطول هذه الجلسة.',
   noEmailLabel:'لا بريد إلكتروني',hasBookingsTitle:'لديه حجوزات',
-  errEnterName:'الرجاء إدخال اسمك الكامل.',
+  errEnterName:'الرجاء إدخال اسمك الكامل (الاسم الأول والأخير).',
   errEmailOrPhone:'الرجاء إدخال بريد إلكتروني أو رقم هاتف على الأقل.',
   errValidEmail:'الرجاء إدخال بريد إلكتروني صحيح.',
   errPasswordLen:'كلمة المرور يجب أن تكون 6 أحرف على الأقل.',
@@ -2368,7 +2368,7 @@ async function doSignup(){
   const phone=(document.getElementById('a-phone')?.value||'').trim();
   const pwd=(document.getElementById('a-pwd')?.value||'');
   const pwd2=(document.getElementById('a-pwd2')?.value||'');
-  if(!name){authErr(t('errEnterName'));return;}
+  if(!name||name.trim().split(/\s+/).length<2){authErr(t('errEnterName'));return;}
   if(!email){authErr(t('errValidEmail'));return;}
   if(!/^\S+@\S+\.\S+$/.test(email)){authErr(t('errValidEmail'));return;}
   if(!phone){authErr(t('errEmailOrPhone').replace('email or ',''));return;}
@@ -2549,10 +2549,22 @@ function goCustomer(tab){
 function goStaff(){
   showView('staff');
   renderStaffTabs();
+  // Auto-select the first open/full session so queues never overlap
+  _autoSelectSession();
   renderStaffQueue();
   renderSessions();
   renderBikes();
   renderHistory();
+}
+function _autoSelectSession(){
+  // Pick today's open session, or the first open session available
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});
+  const open=allSessions().filter(s=>s.status==='open'||s.status==='full')
+    .sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+  if(!open.length){S.sfSession='all';return;}
+  // Prefer today's session, else earliest open
+  const todaySess=open.find(s=>(s.session_date||s.id)===today);
+  S.sfSession=(todaySess||open[0]).id;
 }
 
 function setCustTab(tab){
@@ -3264,7 +3276,9 @@ function renderAccount(){
   const mySpent=myDone.filter(e=>e.paid).reduce((s,e)=>s+(e.price||0),0);
   const typeCount={};myDone.forEach(e=>{typeCount[e.typePreference]=(typeCount[e.typePreference]||0)+1;});
   const favType=Object.keys(typeCount).sort((a,b)=>typeCount[b]-typeCount[a])[0]||'—';
-  const memberYear=cust.created_at?new Date(cust.created_at).getFullYear():'—';
+  const memberSince=cust.created_at
+    ?new Date(cust.created_at).toLocaleDateString(S.lang==='ar'?'ar-SA':'en-GB',{month:'short',year:'numeric'})
+    :'—';
 
   document.getElementById('tab-account').innerHTML=`
     <div class="page-title">${t('accountTitle')}</div>
@@ -3279,7 +3293,7 @@ function renderAccount(){
         <div class="account-stat-lbl">${t('statTotalSpent')}</div>
       </div>
       <div class="account-stat">
-        <div class="account-stat-val" style="color:var(--purple)">${memberYear}</div>
+        <div class="account-stat-val" style="color:var(--purple);font-size:15px;padding-top:4px">${memberSince}</div>
         <div class="account-stat-lbl">${t('statMemberSince')}</div>
       </div>
       <div class="account-stat">
@@ -3867,7 +3881,7 @@ function renderStaffQueue(){
       <td><div class="rider-name">${esc(e.name)}${wiTag}</div><div class="rider-sub">${esc(e.phone)}</div></td>
       <td style="font-weight:800">${e.size}</td>
       <td>${typeBadge(e.typePreference)}</td>
-      <td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>
+      ${S.sfSession==='all'?`<td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
       <td>${bike?esc(bike.name):'<span style="color:var(--muted)">—</span>'}</td>
       <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
       <td onclick="event.stopPropagation()">
@@ -3880,29 +3894,16 @@ function renderStaffQueue(){
     </tr>`;
   }
 
-  // ── Session grouping or flat list ──
+  // ── Single-session queue (each session has its own independent queue) ──
   let rows,emptyRow='';
   if(S.sfSession==='all'){
-    const orderedSessions=[...allSessions()].sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
-    rows=orderedSessions.map(sess=>{
-      const sessFiltered=filtered.filter(e=>e.sessionId===sess.id);
-      if(!sessFiltered.length)return'';
-      const nW=sessFiltered.filter(e=>e.status==='waiting').length;
-      const nA=sessFiltered.filter(e=>e.status==='active').length;
-      const nD=sessFiltered.filter(e=>e.status==='done').length;
-      const hdr=`<tr class="sess-group-hdr"><td colspan="10">
-        📅 ${dayLabel(sess.day)||sess.day} &nbsp;${shortDate(sess.session_date||sess.id)}
-        &nbsp;&nbsp;
-        <span style="color:var(--green)">${nW} ${t('waitingStat').toLowerCase()}</span>
-        ${nA?` &nbsp;·&nbsp; <span style="color:var(--orange)">${nA} ${t('onBikeStat').toLowerCase()}</span>`:''}
-        ${nD?` &nbsp;·&nbsp; <span style="color:var(--muted)">${nD} ${t('doneStat').toLowerCase()}</span>`:''}
-        <span style="display:inline-flex;align-items:center;gap:6px;margin-left:12px">
-          <span class="badge-${sess.status}">${{open:t('statusOpen'),closed:t('statusClosed'),full:t('statusFull')}[sess.status]||sess.status}</span>
-        </span>
-      </td></tr>`;
-      return hdr+sessFiltered.map(renderQRow).join('');
-    }).join('');
-    if(!filtered.length)emptyRow=`<tr><td colspan="10"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`;
+    // No session selected — prompt staff to pick one
+    rows='';
+    emptyRow=`<tr><td colspan="10">
+      ${emptyIllustration(ILLUS_CALENDAR,
+        'Select a session above',
+        'Click a session chip to view and manage its queue independently.')}
+    </td></tr>`;
   }else{
     rows=filtered.map(renderQRow).join('');
     emptyRow=filtered.length===0?`<tr><td colspan="10"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`:'';
@@ -3976,8 +3977,6 @@ function renderStaffQueue(){
       <div class="filter-bar-row">
         <span class="filter-group-label">${t('filterStatus')}:</span>
         ${statusPills}
-        <div class="filter-spacer"></div>
-        <select style="width:auto;min-width:160px;font-size:12px" onchange="setSfSession(this.value)">${sessOpts}</select>
       </div>
       <div class="filter-bar-row">
         <span class="filter-group-label">${t('filterSize')}:</span>
@@ -4002,7 +4001,7 @@ function renderStaffQueue(){
         ${thQSort('name',t('colRider'))}
         ${thQSort('size',t('frameSizeLabel'))}
         ${thQSort('type',t('bikeTypeLabel'))}
-        ${thQSort('queue',t('colSession'),'hide-mobile')}
+        ${S.sfSession==='all'?thQSort('queue',t('colSession'),'hide-mobile'):'<th class="hide-mobile" style="display:none"></th>'}
         <th>${t('colBike')}</th>
         <th>${t('colColor')}</th>
         ${thQSort('paid',t('colPayment'))}
