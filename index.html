@@ -1242,6 +1242,14 @@ en:{
   historyTitle:'Ride History',historySub:'Log of all completed and no-show rides. Send receipts directly to customers.',
   filterPaid:'Paid',filterUnpaid:'Unpaid',filterCancelled:'Cancelled',
   sortBy:'Sort by',sortName:'Name',sortType:'Type',sortSize:'Size',sortStatus:'Status',
+  filterStatus:'Status',filterSize:'Size',filterPay:'Pay',filterType:'Type',
+  sortNewest:'Newest',sortOldest:'Oldest',
+  sortDateAsc:'Date ↑',sortDateDesc:'Date ↓',
+  sortSARHi:'SAR High',sortSARLo:'SAR Low',
+  searchPlaceholder:'Search name / phone…',
+  resultOf:'of',resultRides:'rides',resultSessions:'sessions',
+  resultRiders:'riders',resultBikes:'bikes',resultRecords:'records',
+  spotsLeft:'left',
   sendReceipt:'Receipt',noHistory:'No riders match the current filters.',
   assignBikeTitle:'Assign Bike',confirmCheckin:'Confirm & Check In',
   pinTitle:'Staff Access',pinSub:'Enter the 4-digit PIN to access the staff panel.',
@@ -1428,6 +1436,14 @@ ar:{
   historyTitle:'سجل الرحلات',historySub:'سجل جميع الرحلات المكتملة والغيابات.',
   filterPaid:'مدفوع',filterUnpaid:'غير مدفوع',filterCancelled:'ملغي',
   sortBy:'ترتيب حسب',sortName:'الاسم',sortType:'النوع',sortSize:'المقاس',sortStatus:'الحالة',
+  filterStatus:'الحالة',filterSize:'المقاس',filterPay:'الدفع',filterType:'النوع',
+  sortNewest:'الأحدث',sortOldest:'الأقدم',
+  sortDateAsc:'التاريخ ↑',sortDateDesc:'التاريخ ↓',
+  sortSARHi:'الأعلى سعراً',sortSARLo:'الأقل سعراً',
+  searchPlaceholder:'ابحث بالاسم أو الهاتف…',
+  resultOf:'من',resultRides:'رحلات',resultSessions:'جلسات',
+  resultRiders:'راكباً',resultBikes:'دراجة',resultRecords:'سجل',
+  spotsLeft:'متبقٍ',
   sendReceipt:'إيصال',noHistory:'لا يوجد راكبون يطابقون الفلتر الحالي.',
   assignBikeTitle:'تخصيص دراجة',confirmCheckin:'تأكيد وتسجيل الدخول',
   pinTitle:'دخول الموظفين',pinSub:'أدخل الرقم السري المكون من 4 أرقام للدخول إلى لوحة الموظفين.',
@@ -2671,7 +2687,7 @@ function renderMyRides(){
     return`<button class="filter-pill${S.myStatus===s?' active':''}" onclick="setMyStatus('${s}')">${l}</button>`;
   }).join('');
   const mySortPills=['newest','oldest'].map(k=>{
-    const lbl={newest:'Newest first',oldest:'Oldest first'}[k];
+    const lbl={newest:t('sortNewest'),oldest:t('sortOldest')}[k];
     return`<button class="sort-pill${S.mySort===k?' active':''}" onclick="setMySort('${k}')">${lbl}</button>`;
   }).join('');
   const rows=displayOrder.length?displayOrder.map(e=>{
@@ -2705,12 +2721,12 @@ function renderMyRides(){
     <div class="page-sub">${t('myRidesSub')} ${esc(cust.name)}.</div>
     <div class="filter-bar" style="margin-top:8px">
       <div class="filter-bar-row">
-        <span class="filter-group-label">Status:</span>
+        <span class="filter-group-label">${t('filterStatus')}:</span>
         ${myStatusPills}
         <div class="filter-spacer"></div>
         ${mySortPills}
       </div>
-      ${displayOrder.length!==visible.length?`<div class="result-count">${displayOrder.length} of ${visible.length} rides</div>`:''}
+      ${displayOrder.length!==visible.length?`<div class="result-count">${displayOrder.length} ${t('resultOf')} ${visible.length} ${t('resultRides')}</div>`:''}
     </div>
     <div class="table-wrapper" style="border-radius:14px;border:1px solid rgba(255,255,255,.07)"><table class="queue-table">
       <thead><tr>
@@ -2977,7 +2993,7 @@ function renderSessions(){
     return`<button class="filter-pill${S.sessStatusFilter===s?' active':''}" onclick="setSessStatusFilter('${s}')">${l}</button>`;
   }).join('');
   const sessSortPills=['date-asc','date-desc','bookings','capacity'].map(k=>{
-    const lbl={['date-asc']:'Date ↑',['date-desc']:'Date ↓',bookings:'Bookings',capacity:'Capacity'}[k];
+    const lbl={['date-asc']:t('sortDateAsc'),['date-desc']:t('sortDateDesc'),bookings:t('colBookings'),capacity:t('colCapacity')}[k];
     return`<button class="sort-pill${S.sessSort===k?' active':''}" onclick="setSessSort('${k}')">${lbl}</button>`;
   }).join('');
   const rows=sessList.length?sessList.map(s=>{
@@ -3011,13 +3027,13 @@ function renderSessions(){
         <div style="font-weight:800">${cap}</div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px">${fleetInfo}</div>
       </td>
-      <td>${booked} / ${cap} &nbsp;<span style="color:var(--muted);font-size:11px">(${left} left)</span></td>
+      <td>${booked} / ${cap} &nbsp;<span style="color:var(--muted);font-size:11px">(${left} ${t('spotsLeft')})</span></td>
       <td>${statusBadgeHtml}</td>
       <td>
         <div class="actions-cell">
           <button class="btn-sm btn-blue" onclick="startEditSession('${s.id}')">${t('editBtn2')}</button>
           ${actionBtns}
-          <button class="btn-sm btn-red" onclick="deleteSession('${s.id}')" ${booked>0?`disabled title="${t('hasBookingsTitle')}"`:''}>Delete</button>
+          <button class="btn-sm btn-red" onclick="deleteSession('${s.id}')" ${booked>0?`disabled title="${t('hasBookingsTitle')}"`:''}>${t('deleteBtn')}</button>
         </div>
       </td>
     </tr>`;
@@ -3035,13 +3051,13 @@ function renderSessions(){
     ${editForm}
     <div class="filter-bar">
       <div class="filter-bar-row">
-        <span class="filter-group-label">Status:</span>
+        <span class="filter-group-label">${t('filterStatus')}:</span>
         ${sessStatusPills}
         <div class="filter-spacer"></div>
         <span class="filter-group-label">${t('sortBy')}:</span>
         ${sessSortPills}
       </div>
-      ${sessList.length!==sessions.length?`<div class="result-count">${sessList.length} of ${sessions.length} sessions</div>`:''}
+      ${sessList.length!==sessions.length?`<div class="result-count">${sessList.length} ${t('resultOf')} ${sessions.length} ${t('resultSessions')}</div>`:''}
     </div>
     <div class="table-wrapper">
       <table class="sess-admin-table">
@@ -3288,16 +3304,16 @@ function renderStaffQueue(){
     ${nextUp}
     <div class="filter-bar">
       <div class="filter-bar-row">
-        <span class="filter-group-label">Status:</span>
+        <span class="filter-group-label">${t('filterStatus')}:</span>
         ${statusPills}
         <div class="filter-spacer"></div>
         <select style="width:auto;min-width:160px;font-size:12px" onchange="setSfSession(this.value)">${sessOpts}</select>
       </div>
       <div class="filter-bar-row">
-        <span class="filter-group-label">Size:</span>
+        <span class="filter-group-label">${t('filterSize')}:</span>
         ${sizePills}
         <div class="filter-spacer"></div>
-        <span class="filter-group-label">Pay:</span>
+        <span class="filter-group-label">${t('filterPay')}:</span>
         ${payPills}
       </div>
       <div class="filter-bar-row">
@@ -3306,11 +3322,11 @@ function renderStaffQueue(){
         <div class="filter-spacer"></div>
         <div class="search-wrap">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="white" stroke-width="1.4"/><line x1="9.5" y1="9.5" x2="13" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>
-          <input class="search-input" placeholder="Search name / phone…" value="${esc(S.sfSearch)}"
+          <input class="search-input" placeholder="${t('searchPlaceholder')}" value="${esc(S.sfSearch)}"
             oninput="setSfSearch(this.value)">
         </div>
       </div>
-      ${filtered.length!==base.length?`<div class="result-count">${filtered.length} of ${base.length} riders</div>`:''}
+      ${filtered.length!==base.length?`<div class="result-count">${filtered.length} ${t('resultOf')} ${base.length} ${t('resultRiders')}</div>`:''}
     </div>
     <div class="table-wrapper"><table class="queue-table">
       <thead><tr><th>#</th><th>${t('colRider')}</th><th>${t('frameSizeLabel')}</th><th>${t('bikeTypeLabel')}</th><th class="hide-mobile">${t('colSession')}</th><th>${t('colBike')}</th><th>${t('colColor')}</th><th>${t('colPayment')}</th><th>${t('colStatus')}</th><th></th></tr></thead>
@@ -3617,21 +3633,21 @@ function renderBikes(){
     </div>
     <div class="filter-bar">
       <div class="filter-bar-row">
-        <span class="filter-group-label">Type:</span>
+        <span class="filter-group-label">${t('filterType')}:</span>
         ${typePills}
       </div>
       <div class="filter-bar-row">
-        <span class="filter-group-label">Status:</span>
+        <span class="filter-group-label">${t('filterStatus')}:</span>
         ${statusPillsBk}
         <div class="filter-spacer"></div>
-        <span class="filter-group-label">Size:</span>
+        <span class="filter-group-label">${t('filterSize')}:</span>
         ${sizePillsBk}
       </div>
       <div class="filter-bar-row">
         <span class="filter-group-label">${t('sortBy')}:</span>
         ${sortPills}
       </div>
-      ${filtered.length!==bikes.length?`<div class="result-count">${filtered.length} of ${bikes.length} bikes</div>`:''}
+      ${filtered.length!==bikes.length?`<div class="result-count">${filtered.length} ${t('resultOf')} ${bikes.length} ${t('resultBikes')}</div>`:''}
     </div>
     <div class="bikes-list">${bkRows}</div>`;
   const nameEl=document.getElementById('bk-name');
@@ -3740,7 +3756,7 @@ function renderHistory(){
   const sizePillsH=['all','XS','S','M','L'].map(sz=>
     `<button class="filter-pill${S.histSize===sz?' active':''}" onclick="setHistSize('${sz}')">${sz==='all'?t('filterAll'):sz}</button>`).join('');
   const sortPillsH=['newest','oldest','name','amount-hi','amount-lo'].map(k=>{
-    const lbl={newest:'Newest',oldest:'Oldest',name:t('sortName'),'amount-hi':'SAR High','amount-lo':'SAR Low'}[k];
+    const lbl={newest:t('sortNewest'),oldest:t('sortOldest'),name:t('sortName'),'amount-hi':t('sortSARHi'),'amount-lo':t('sortSARLo')}[k];
     return`<button class="sort-pill${S.histSort===k?' active':''}" onclick="setHistSort('${k}')">${lbl}${S.histSort===k?'<span class="sort-arrow">↑</span>':''}</button>`;
   }).join('');
   const sessOpts=`<option value="all"${S.histSess==='all'?' selected':''}>${t('allSessions')}</option>`+
@@ -3801,20 +3817,20 @@ function renderHistory(){
     </div>
     <div class="filter-bar">
       <div class="filter-bar-row">
-        <span class="filter-group-label">Status:</span>
+        <span class="filter-group-label">${t('filterStatus')}:</span>
         ${statusPills}
         <div class="filter-spacer"></div>
         <select style="width:auto;min-width:160px;font-size:12px" onchange="setHistSess(this.value)">${sessOpts}</select>
       </div>
       <div class="filter-bar-row">
-        <span class="filter-group-label">Pay:</span>
+        <span class="filter-group-label">${t('filterPay')}:</span>
         ${payPills}
         <div class="filter-spacer"></div>
-        <span class="filter-group-label">Type:</span>
+        <span class="filter-group-label">${t('filterType')}:</span>
         ${typePills}
       </div>
       <div class="filter-bar-row">
-        <span class="filter-group-label">Size:</span>
+        <span class="filter-group-label">${t('filterSize')}:</span>
         ${sizePillsH}
       </div>
       <div class="filter-bar-row">
@@ -3823,11 +3839,11 @@ function renderHistory(){
         <div class="filter-spacer"></div>
         <div class="search-wrap">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="white" stroke-width="1.4"/><line x1="9.5" y1="9.5" x2="13" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>
-          <input class="search-input" placeholder="Search name / phone…" value="${esc(S.histSearch)}"
+          <input class="search-input" placeholder="${t('searchPlaceholder')}" value="${esc(S.histSearch)}"
             oninput="setHistSearch(this.value)">
         </div>
       </div>
-      ${filtered.length!==hist.length?`<div class="result-count">${filtered.length} of ${hist.length} records</div>`:''}
+      ${filtered.length!==hist.length?`<div class="result-count">${filtered.length} ${t('resultOf')} ${hist.length} ${t('resultRecords')}</div>`:''}
     </div>
     <div class="table-wrapper"><table class="queue-table">
       <thead><tr>
@@ -3910,7 +3926,7 @@ function _uid(){return Math.random().toString(36).slice(2,7);}
 function _areaChart(series,labels,opts={}){
   const {W=460,H=148,unitPfx=''}=opts;
   const n=labels.length;
-  if(!n)return'<div style="padding:28px 0;text-align:center;color:var(--muted);font-size:12px">No data</div>';
+  if(!n)return'<div style="padding:28px 0;text-align:center;color:var(--muted);font-size:12px">${t('anNoData2')}</div>';
   const pL=44,pR=14,pT=14,pB=28,cW=W-pL-pR,cH=H-pT-pB;
   const maxV=Math.max(...series.flatMap(s=>s.vals),1);
   const xOf=i=>pL+(n===1?cW/2:i/(n-1)*cW);
@@ -3943,7 +3959,7 @@ function _areaChart(series,labels,opts={}){
 
 function _donut(segs,size=110){
   const total=segs.reduce((s,d)=>s+d.v,0);
-  if(!total)return'<div style="padding:16px;text-align:center;color:var(--muted);font-size:12px">No data</div>';
+  if(!total)return'<div style="padding:16px;text-align:center;color:var(--muted);font-size:12px">${t('anNoData2')}</div>';
   const r=34,cx=size/2,cy=size/2,sw=13,C=2*Math.PI*r;
   let off=-0.25;
   const arcs=segs.filter(d=>d.v>0).map(d=>{
@@ -3957,7 +3973,7 @@ function _donut(segs,size=110){
 function _vbars(data,opts={}){
   const {W=320,H=130,color='#6ee89a',refVal=null}=opts;
   const n=data.length;
-  if(!n)return'<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">No data</div>';
+  if(!n)return'<div style="padding:20px;text-align:center;color:var(--muted);font-size:12px">${t('anNoData2')}</div>';
   const pL=8,pR=8,pT=10,pB=22,cW=W-pL-pR,cH=H-pT-pB;
   const maxV=Math.max(...data.map(d=>d.v),refVal||0,1);
   const bW=Math.max(5,cW/n-4);
