@@ -669,6 +669,69 @@
     .type-hybrid{background:rgba(77,190,116,.12);color:var(--green-d);border:1px solid rgba(77,190,116,.22);}
     .type-mountain{background:rgba(224,136,40,.12);color:var(--orange);border:1px solid rgba(224,136,40,.22);}
     .type-any{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid rgba(255,255,255,.1);}
+    .type-badge{display:inline-flex;align-items:center;gap:5px;}
+
+    /* ── 2. Registration step progress ── */
+    .reg-steps{display:flex;align-items:center;margin-bottom:24px;gap:0;}
+    .reg-step{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;}
+    .reg-step-circle{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;border:2px solid var(--border);color:var(--muted);background:var(--s2);transition:all .3s;}
+    .reg-step.active .reg-step-circle{border-color:var(--green);color:var(--green);background:rgba(3,255,137,.1);box-shadow:0 0 14px rgba(3,255,137,.22);}
+    .reg-step.done .reg-step-circle{border-color:var(--green);background:var(--green);color:#000;font-size:13px;}
+    .reg-step-label{font-size:10px;font-weight:800;color:var(--muted);text-align:center;white-space:nowrap;letter-spacing:.3px;text-transform:uppercase;}
+    .reg-step.active .reg-step-label,.reg-step.done .reg-step-label{color:var(--green);}
+    .reg-step.done .reg-step-label{opacity:.7;}
+    .reg-step-connector{flex:1;height:2px;background:var(--border);margin-bottom:18px;transition:background .3s;}
+    .reg-step-connector.done{background:rgba(3,255,137,.4);}
+    @media(max-width:767px){.reg-step-label{font-size:9px;}.reg-step-circle{width:26px;height:26px;font-size:11px;}}
+
+    /* ── 3. Animated booking ticket ── */
+    @keyframes ticketIn{from{opacity:0;transform:translateY(-16px) scale(.96);}to{opacity:1;transform:translateY(0) scale(1);}}
+    .ticket-card{animation:ticketIn .4s cubic-bezier(.2,.8,.2,1) both;}
+    .ticket-tear{position:relative;margin:0 -24px;border-top:2px dashed rgba(3,255,137,.2);padding-top:20px;margin-top:20px;}
+    .ticket-tear::before,.ticket-tear::after{content:'';position:absolute;top:-11px;width:22px;height:22px;border-radius:50%;background:var(--bg);}
+    .ticket-tear::before{left:-11px;}
+    .ticket-tear::after{right:-11px;}
+    .ticket-qr{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;width:52px;}
+    .ticket-qr-cell{height:10px;border-radius:1px;background:rgba(3,255,137,.25);}
+    .ticket-qr-cell.solid{background:rgba(3,255,137,.7);}
+
+    /* ── 4. Staff queue density toggle ── */
+    .density-toggle{display:flex;gap:3px;align-items:center;}
+    .density-btn{background:var(--s3);border:1px solid var(--border);border-radius:6px;padding:5px 9px;cursor:pointer;color:var(--muted);font-size:11px;font-weight:800;transition:all .2s;font-family:'Space Grotesk',sans-serif;letter-spacing:.3px;}
+    .density-btn.active{border-color:rgba(3,255,137,.4);color:var(--green);background:rgba(3,255,137,.07);}
+    .queue-table.compact th,.queue-table.compact td{padding:7px 10px;}
+    .queue-table.compact .queue-num-cell{font-size:19px;}
+    .queue-table.compact .rider-name{font-size:12px;}
+    .queue-table.compact .pos-badge{font-size:9px;}
+    .queue-table.compact .pay-toggle{font-size:10px;padding:3px 8px;}
+
+    /* ── 6. Empty state illustrations ── */
+    .empty-illustration{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px 20px;text-align:center;}
+    .empty-illus-icon{margin-bottom:16px;opacity:.45;}
+    .empty-illus-title{font-size:15px;font-weight:800;color:var(--muted);margin-bottom:6px;}
+    .empty-illus-sub{font-size:12px;color:var(--muted);opacity:.7;max-width:260px;line-height:1.6;font-weight:600;}
+    .empty-illus-action{margin-top:18px;}
+
+    /* ── 7. Customer mobile bottom nav ── */
+    #cust-bottom-nav{
+      position:fixed;bottom:0;left:0;right:0;z-index:106;
+      background:rgba(25,25,25,.97);border-top:1px solid rgba(252,249,244,.07);
+      backdrop-filter:blur(14px);
+      padding-bottom:env(safe-area-inset-bottom);display:none;}
+    .cust-bnav-grid{display:grid;grid-template-columns:repeat(3,1fr);}
+    .cust-bnav-btn{
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:4px;padding:10px 4px;background:none;border:none;cursor:pointer;
+      color:var(--muted);font-family:'Space Grotesk',sans-serif;
+      font-size:9px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;
+      transition:color .2s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+    .cust-bnav-btn.active{color:var(--green);}
+    .cust-bnav-btn svg{width:21px;height:21px;transition:transform .2s;}
+    .cust-bnav-btn.active svg{transform:scale(1.1);}
+    @media(max-width:767px){
+      #cust-bottom-nav{display:block;}
+      #view-customer .view-main{padding-bottom:calc(70px + env(safe-area-inset-bottom));}
+    }
 
     /* ── SPOTS ───────────────────────────────────────────── */
     .session-spots{display:inline-flex;align-items:center;gap:5px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:800;}
@@ -1133,6 +1196,23 @@
     <div id="tab-myrides"  class="tab-panel"></div>
     <div id="tab-account"  class="tab-panel"></div>
   </div>
+  <!-- Mobile bottom navigation (hidden on desktop via CSS) -->
+  <nav id="cust-bottom-nav" aria-label="Customer navigation">
+    <div class="cust-bnav-grid" id="cust-bnav-grid">
+      <button class="cust-bnav-btn active" onclick="setCustTab('register')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16L10 8l3.5 4L17 8"/><path d="M18 16L17 8"/><path d="M10 8L8.5 5.5Q10 5 11.5 5.5"/></svg>
+        <span id="bnav-reserve-lbl">Reserve</span>
+      </button>
+      <button class="cust-bnav-btn" onclick="setCustTab('myrides')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="14" x2="14" y2="14"/><line x1="8" y1="18" x2="12" y2="18"/></svg>
+        <span id="bnav-myrides-lbl">My Rides</span>
+      </button>
+      <button class="cust-bnav-btn" onclick="setCustTab('account')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="7" r="4"/><path d="M4 21Q4 15 12 15Q20 15 20 21"/></svg>
+        <span id="bnav-account-lbl">Account</span>
+      </button>
+    </div>
+  </nav>
 </div>
 
 <!-- STAFF VIEW -->
@@ -1899,7 +1979,7 @@ const S={
   regBikeTypes:[],   // one type preference per bike slot, e.g. ['Road','Hybrid']
   // staff queue
   showResetTool:false,sfStatus:'all',sfSession:'all',
-  sfSort:'queue',sfSortDir:1,sfSearch:'',sfPay:'all',sfSize:'all',
+  sfSort:'queue',sfSortDir:1,sfSearch:'',sfPay:'all',sfSize:'all',queueDensity:'comfortable',
   undoStack:[],
   // bikes
   showAddBike:false,editBikeId:null,bkTypeFilter:'all',bkSort:'name',
@@ -2049,7 +2129,7 @@ function spotsLeftLabel(n){
 }
 const TYPE_CLS={Road:'type-road',Hybrid:'type-hybrid',Mountain:'type-mountain',Any:'type-any'};
 function typeLabel(ty){const m={Road:t('typeRoad'),Hybrid:t('typeHybrid'),Mountain:t('typeMountain'),Any:t('typeAny')};return m[ty]||ty;}
-const typeBadge=ty=>`<span class="type-badge ${TYPE_CLS[ty]||'type-any'}">${typeLabel(ty)}</span>`;
+const typeBadge=ty=>`<span class="type-badge ${TYPE_CLS[ty]||'type-any'}">${bikeTypeIcon(ty,12)} ${typeLabel(ty)}</span>`;
 const STATUS_CLS={waiting:'badge-waiting',active:'badge-active',done:'badge-done',noshow:'badge-noshow',cancelled:'badge-noshow'};
 const STATUS_KEY={waiting:'statusWaiting',active:'statusActive',done:'statusDone',noshow:'statusNoshow',cancelled:'statusCancelled'};
 const statusBadge=s=>`<span class="status-badge ${STATUS_CLS[s]||'badge-done'}">${t(STATUS_KEY[s]||'statusDone')}</span>`;
@@ -2361,6 +2441,15 @@ function renderCustomerTabs(){
   document.getElementById('tab-register').classList.toggle('active',S.custTab==='register');
   document.getElementById('tab-myrides').classList.toggle('active',S.custTab==='myrides');
   document.getElementById('tab-account').classList.toggle('active',S.custTab==='account');
+  // Sync mobile bottom nav
+  document.querySelectorAll('.cust-bnav-btn').forEach((btn,i)=>{
+    const tabs=['register','myrides','account'];
+    btn.classList.toggle('active',tabs[i]===S.custTab);
+  });
+  // Translate bottom nav labels
+  const rl=document.getElementById('bnav-reserve-lbl');if(rl)rl.textContent=t('tabReserve');
+  const ml=document.getElementById('bnav-myrides-lbl');if(ml)ml.textContent=t('tabMyRides');
+  const al=document.getElementById('bnav-account-lbl');if(al)al.textContent=t('tabAccount');
 }
 
 function renderStaffTabs(){
@@ -2503,7 +2592,7 @@ function renderRegister(){
           <div class="sess-card-spots ${sc}">${sl}</div>
         </div>`;
       }).join('')
-    : `<div class="no-sessions-msg">${t('noSessions')}</div>`;
+    : emptyIllustration(ILLUS_CALENDAR,t('noSessions'),'');
   if(S.selSession&&!available.find(s=>s.id===S.selSession))S.selSession=null;
 
   // ── Modify mode: detect ALL existing waiting bookings for this customer/session ──
@@ -2656,31 +2745,57 @@ function renderRegister(){
     <div class="price-preview-total">${totalDisplay}</div>
   </div>`:'';
 
-  // Last ticket
+  // Last ticket (animated, tear-line design)
   let ticket='';
   if(S.lastTicket){
     const tkt=S.lastTicket;
+    // Mini QR-like pattern (decorative)
+    const qrPat=[1,0,1,1,0, 0,1,1,0,1, 1,1,0,1,0, 0,0,1,1,0, 1,0,0,0,1];
+    const qrHtml=`<div class="ticket-qr">${qrPat.map(v=>`<div class="ticket-qr-cell${v?' solid':''}"></div>`).join('')}</div>`;
     ticket=`<div class="ticket-card">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:4px">
-        <div><div class="ticket-label">${t('queueNumLabel')}</div><div class="ticket-num">#${tkt.queueNum}</div></div>
-        <span class="status-badge badge-active" style="margin-top:6px">${t('registeredLabel')}</span>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between">
+        <div>
+          <div class="ticket-label" style="margin-bottom:4px">${t('queueNumLabel')}</div>
+          <div class="ticket-num">#${tkt.queueNum}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px;font-weight:600">${t('keepNumberMsg')}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+          <span class="status-badge badge-active">${t('registeredLabel')}</span>
+          ${qrHtml}
+        </div>
       </div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:4px">${t('keepNumberMsg')}</div>
-      <div class="ticket-grid">
-        <div><div class="ticket-label">${t('nameLabel')}</div><div class="ticket-value">${esc(tkt.name)}</div></div>
-        <div><div class="ticket-label">${t('emailAddr')}</div><div class="ticket-value">${esc(tkt.email||'')}</div></div>
-        <div><div class="ticket-label">${t('colSession')}</div><div class="ticket-value">${dayLabel(tkt.sessionDay)}</div></div>
-        <div><div class="ticket-label">${t('colDate')}</div><div class="ticket-value">${shortDate(tkt.sessionDate)}</div></div>
-        <div><div class="ticket-label">${t('timeLabel')}</div><div class="ticket-value">09:00 &ndash; 11:00</div></div>
-        <div><div class="ticket-label">${t('frameSizeLabel')}</div><div class="ticket-value">${tkt.size}</div></div>
-        <div><div class="ticket-label">${t('preferenceLabel')}</div><div class="ticket-value">${tkt.typePreference}</div></div>
+      <div class="ticket-tear">
+        <div class="ticket-grid">
+          <div><div class="ticket-label">${t('nameLabel')}</div><div class="ticket-value">${esc(tkt.name)}</div></div>
+          <div><div class="ticket-label">${t('colSession')}</div><div class="ticket-value">${dayLabel(tkt.sessionDay)}, ${shortDate(tkt.sessionDate)}</div></div>
+          <div><div class="ticket-label">${t('timeLabel')}</div><div class="ticket-value">09:00 &ndash; 11:00</div></div>
+          <div><div class="ticket-label">${t('frameSizeLabel')}</div><div class="ticket-value">${tkt.size}</div></div>
+          <div><div class="ticket-label">${t('preferenceLabel')}</div><div class="ticket-value">${typeBadge(tkt.typePreference)}</div></div>
+          ${tkt.email?`<div><div class="ticket-label">${t('emailAddr')}</div><div class="ticket-value" style="font-size:12px">${esc(tkt.email)}</div></div>`:''}
+        </div>
       </div>
     </div>`;
   }
 
+  // Step progress (allTypesSet already declared above)
+  const step=!S.selSession?1:!allTypesSet?2:3;
+  function regStep(n,label){
+    const cls=step>n?'done':step===n?'active':'';
+    return`<div class="reg-step ${cls}">
+      <div class="reg-step-circle">${step>n?'✓':n}</div>
+      <div class="reg-step-label">${label}</div>
+    </div>`;
+  }
+  const stepBar=`<div class="reg-steps">
+    ${regStep(1,t('colSession'))}
+    <div class="reg-step-connector ${step>1?'done':''}"></div>
+    ${regStep(2,t('riderDetails'))}
+    <div class="reg-step-connector ${step>2?'done':''}"></div>
+    ${regStep(3,t('confirmCheckin').split(' ')[0])}
+  </div>`;
+
   document.getElementById('tab-register').innerHTML=`
-    <div class="page-title">${t('regTitle')}</div>
-    <div class="page-sub">${t('regSub')}</div>
+    ${stepBar}
     <div class="session-picker-wrap">
       <div class="session-picker-label">${t('availSessions')}</div>
       <div class="session-cards-grid">${sessCards}</div>
@@ -2960,7 +3075,7 @@ function renderMyRides(){
       <td>${statusBadge(e.status)}</td>
       <td>${canCancel?`<button class="btn-sm btn-red" onclick="cancelBooking('${e.id}')">${t('cancelBooking')}</button>`:`<span style="color:var(--muted);font-size:13px">—</span>`}</td>
     </tr>`;
-  }).join(''):`<tr><td colspan="6" class="empty-state">${t('noRides')}</td></tr>`;
+  }).join(''):`<tr><td colspan="6"><div style="padding:8px">${emptyIllustration(ILLUS_RIDES,t('noRides'))}</div></td></tr>`;
   document.getElementById('tab-myrides').innerHTML=`
     <div class="page-title">${t('myRidesTitle')}</div>
     <div class="page-sub">${t('myRidesSub')} ${esc(cust.name)}.</div>
@@ -3327,7 +3442,7 @@ function renderSessions(){
         </div>
       </td>
     </tr>`;
-  }).join(''):`<tr><td colspan="6" class="empty-state">${t('noSessionsYet')}</td></tr>`;
+  }).join(''):`<tr><td colspan="6"><div style="padding:8px">${emptyIllustration(ILLUS_CALENDAR,t('noSessionsYet'))}</div></td></tr>`;
 
   document.getElementById('tab-sessions').innerHTML=`
     <div class="section-header">
@@ -3614,14 +3729,21 @@ function renderStaffQueue(){
       </td></tr>`;
       return hdr+sessFiltered.map(renderQRow).join('');
     }).join('');
-    if(!filtered.length)emptyRow=`<tr><td colspan="10" class="empty-state">${t('noHistory')}</td></tr>`;
+    if(!filtered.length)emptyRow=`<tr><td colspan="10"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`;
   }else{
     rows=filtered.map(renderQRow).join('');
-    emptyRow=filtered.length===0?`<tr><td colspan="10" class="empty-state">${t('noHistory')}</td></tr>`:'';
+    emptyRow=filtered.length===0?`<tr><td colspan="10"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`:'';
   }
   document.getElementById('tab-queue').innerHTML=`
-    <div class="section-header"><div class="page-title">${t('staffQueueTitle')}</div>
-      <button class="btn-secondary" onclick="toggleResetTool()" style="font-size:12px">&#x1F511; ${t('staffResetTool')}</button>
+    <div class="section-header">
+      <div class="page-title">${t('staffQueueTitle')}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="density-toggle">
+          <button class="density-btn${S.queueDensity==='comfortable'?' active':''}" onclick="S.queueDensity='comfortable';renderStaffQueue()" title="Comfortable">⊡</button>
+          <button class="density-btn${S.queueDensity==='compact'?' active':''}" onclick="S.queueDensity='compact';renderStaffQueue()" title="Compact">⊟</button>
+        </div>
+        <button class="btn-secondary" onclick="toggleResetTool()" style="font-size:12px">&#x1F511; ${t('staffResetTool')}</button>
+      </div>
     </div>
     ${S.showResetTool?`<div class="inline-form" style="max-width:420px">
       <div class="form-title" style="display:flex;align-items:center;gap:8px">🔑 ${t('staffResetTool')}</div>
@@ -3666,7 +3788,7 @@ function renderStaffQueue(){
       </div>
       ${filtered.length!==base.length?`<div class="result-count">${filtered.length} ${t('resultOf')} ${base.length} ${t('resultRiders')}</div>`:''}
     </div>
-    <div class="table-wrapper"><table class="queue-table">
+    <div class="table-wrapper"><table class="queue-table${S.queueDensity==='compact'?' compact':''}">
       <thead><tr>
         ${thQSort('queue','#')}
         ${thQSort('name',t('colRider'))}
@@ -4046,7 +4168,7 @@ function renderBikes(){
     const tyMaint=all.filter(b=>b.status==='maintenance').length;
     const rows=typeBikes.length
       ?typeBikes.map(renderBikeRow).join('')
-      :`<div class="empty-state" style="padding:20px 0">${all.length?t('noBikes'):t('noBikes')}</div>`;
+      :emptyIllustration(ILLUS_BIKE_OK,t('noBikes'));
     return`<div style="margin-bottom:28px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:10px">
@@ -4261,7 +4383,7 @@ function renderHistory(){
       </div></td>
     </tr>`;
   }).join('');
-  const emptyRow=filtered.length===0?`<tr><td colspan="9" class="empty-state">${t('noHistory')}</td></tr>`:'';
+  const emptyRow=filtered.length===0?`<tr><td colspan="9"><div style="padding:8px">${emptyIllustration(ILLUS_HISTORY,t('noHistory'))}</div></td></tr>`:'';
   document.getElementById('tab-history').innerHTML=`
     <div class="page-title">${t('historyTitle')}</div>
     <div class="page-sub">${t('historySub')}</div>
@@ -4959,6 +5081,37 @@ function renderAnalytics(){
       </table>
     </div>`;
 }
+
+/* ══════════════════════════════════════════════
+   UI HELPERS
+══════════════════════════════════════════════ */
+// ── 5. Bike type SVG icons ──
+function bikeTypeIcon(type,size=14){
+  const a=`width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"`;
+  const icons={
+    Road:`<svg ${a} stroke-width="1.6"><circle cx="5.5" cy="17" r="4"/><circle cx="18.5" cy="17" r="4"/><path d="M5.5 17L9.5 8 13 12.5 16 8"/><path d="M18.5 17L16 8"/><path d="M9.5 8L8 5.5Q10 5 11.5 5.5"/></svg>`,
+    Hybrid:`<svg ${a} stroke-width="1.6"><circle cx="5.5" cy="17" r="4"/><circle cx="18.5" cy="17" r="4"/><path d="M5.5 17L9 9 12.5 13 16 9"/><path d="M18.5 17L16 9"/><path d="M9 9V6h3"/></svg>`,
+    Mountain:`<svg ${a} stroke-width="2"><circle cx="5.5" cy="17" r="4.5"/><circle cx="18.5" cy="17" r="4.5"/><path d="M5.5 17L9.5 8.5 13 13 16 8.5"/><path d="M18.5 17L16 8.5"/><path d="M9.5 8.5L8 6h3.5"/></svg>`,
+    Any:`<svg ${a} stroke-width="1.5"><circle cx="5.5" cy="17" r="4"/><circle cx="18.5" cy="17" r="4"/><path d="M5.5 17L10 9 13.5 13 17 9"/><path d="M18.5 17L17 9"/></svg>`,
+  };
+  return icons[type]||icons.Any;
+}
+
+// ── 6. Empty state illustrations ──
+function emptyIllustration(svgIcon,title,sub='',action=''){
+  return`<div class="empty-illustration">
+    <div class="empty-illus-icon">${svgIcon}</div>
+    <div class="empty-illus-title">${title}</div>
+    ${sub?`<div class="empty-illus-sub">${sub}</div>`:''}
+    ${action?`<div class="empty-illus-action">${action}</div>`:''}
+  </div>`;
+}
+const ILLUS_CALENDAR=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="var(--muted)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><rect x="10" y="16" width="52" height="46" rx="6"/><line x1="10" y1="30" x2="62" y2="30"/><line x1="24" y1="10" x2="24" y2="22"/><line x1="48" y1="10" x2="48" y2="22"/><circle cx="36" cy="48" r="10"/><path d="M31 43L41 53M41 43L31 53" stroke-width="2.5"/></svg>`;
+const ILLUS_BIKE=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="var(--muted)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><circle cx="18" cy="50" r="14"/><circle cx="54" cy="50" r="14"/><path d="M18 50L30 24 40 36 50 24"/><path d="M54 50L50 24"/><path d="M30 24L26 16h10"/><line x1="10" y1="10" x2="62" y2="62" stroke-width="3"/></svg>`;
+const ILLUS_BIKE_OK=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="var(--muted)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><circle cx="18" cy="50" r="14"/><circle cx="54" cy="50" r="14"/><path d="M18 50L30 24 40 36 50 24"/><path d="M54 50L50 24"/><path d="M30 24L26 16h10"/></svg>`;
+const ILLUS_PEOPLE=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="var(--muted)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><circle cx="36" cy="20" r="10"/><path d="M14 62Q14 42 36 42Q58 42 58 62"/><path d="M52 18a10 10 0 0 1 0 12"/><path d="M58 40Q66 44 66 54"/><path d="M20 18a10 10 0 0 0 0 12"/><path d="M14 40Q6 44 6 54"/></svg>`;
+const ILLUS_HISTORY=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="var(--muted)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><circle cx="36" cy="36" r="26"/><polyline points="36,18 36,36 46,42"/><path d="M10 36C10 22 22 10 36 10"/><path d="M10 26L10 36L20 36"/></svg>`;
+const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="var(--muted)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><circle cx="18" cy="50" r="14"/><circle cx="54" cy="50" r="14"/><path d="M18 50L30 24 40 36 50 24"/><path d="M54 50L50 24"/><path d="M30 24L26 16h10"/><circle cx="36" cy="18" r="7"/><path d="M24 62Q24 54 36 54Q48 54 48 62"/></svg>`;
 
 /* ══════════════════════════════════════════════
    BOOT - load data from API then show landing
