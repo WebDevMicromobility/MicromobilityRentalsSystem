@@ -183,6 +183,28 @@
     .sess-chip-badge{flex-shrink:0;}
     @media(max-width:767px){.sess-summary-bar{gap:6px;}.sess-summary-chip{min-width:140px;padding:8px 10px;}}
 
+    /* ── Account stats strip ── */
+    .account-stats-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:28px;}
+    .account-stat{background:linear-gradient(145deg,#1a1a1a,#161616);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:14px 16px;text-align:center;}
+    .account-stat-val{font-size:22px;font-weight:900;line-height:1;margin-bottom:4px;}
+    .account-stat-lbl{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+    @media(max-width:767px){.account-stats-strip{grid-template-columns:repeat(2,1fr);gap:8px;}}
+
+    /* ── Undo toast bar ── */
+    .undo-bar{
+      display:flex;align-items:center;gap:12px;
+      background:#1e1e1e;border:1px solid rgba(3,255,137,.3);border-radius:14px;
+      padding:12px 16px;pointer-events:all;min-width:260px;max-width:380px;
+      box-shadow:0 8px 32px rgba(0,0,0,.45),0 0 0 1px rgba(3,255,137,.08);
+      position:relative;overflow:hidden;}
+    .undo-bar-text{flex:1;font-size:13px;font-weight:700;color:var(--text);line-height:1.3;}
+    .undo-bar-action{background:var(--green);color:#060f09;border:none;border-radius:8px;
+      padding:6px 14px;font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:900;
+      cursor:pointer;flex-shrink:0;transition:all .18s;letter-spacing:.2px;}
+    .undo-bar-action:hover{background:var(--green-h);transform:scale(1.04);}
+    .undo-bar-progress{position:absolute;bottom:0;left:0;height:3px;background:rgba(3,255,137,.4);
+      border-radius:0 0 0 14px;transition:width linear;}
+
     /* ── Auto-refresh indicator ── */
     .refresh-indicator{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.2px;}
     .refresh-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
@@ -191,6 +213,7 @@
     /* ── MAIN CONTENT ────────────────────────────────────── */
     .view-main{max-width:1160px;margin:0 auto;padding:28px 28px;}
     /* ── App footer ── */
+    body.view-staff #app-footer{display:none;}
     #app-footer{
       background:#1a1919;border-top:1px solid rgba(252,249,244,.07);
       display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -1454,6 +1477,8 @@ en:{
   tabAccount:'Account',
   accountTitle:'Account Settings',accountSub:'Update your profile information and preferences.',
   saveAccountBtn:'Save Changes',accountSaved:'Profile updated successfully.',
+  statTotalRides:'Total Rides',statTotalSpent:'Total Spent',statMemberSince:'Member Since',statFavType:'Favourite Type',
+  undoBarMsg:'Action undone in',undoSeconds:'s',
   changeInAccount:'Change in Account',
   heightOptional:'(optional — auto-selects your bike size)',
   enterHeightAbove:'Enter height above',
@@ -1464,6 +1489,7 @@ en:{
   totalStat:'Total',waitingStat:'Waiting',onBikeStat:'On Bike',doneStat:'Done',
   // Ticket / confirmation
   queueNumLabel:'Queue Number',keepNumberMsg:'Keep this number — you will need it to check your status.',
+  payAtBooth:'💳 Payment is collected at the booth at the Corniche Circuit. Please have your queue number ready.',
   registeredLabel:'Registered',nameLabel:'Name',timeLabel:'Time',preferenceLabel:'Preference',
   // Account page
   profileInfo:'Profile Information',needToUpdate:'Need to update?',
@@ -1676,6 +1702,8 @@ ar:{
   tabAccount:'الحساب',
   accountTitle:'إعدادات الحساب',accountSub:'تحديث معلومات ملفك الشخصي.',
   saveAccountBtn:'حفظ التغييرات',accountSaved:'تم تحديث الملف الشخصي.',
+  statTotalRides:'مجموع الرحلات',statTotalSpent:'إجمالي الإنفاق',statMemberSince:'عضو منذ',statFavType:'النوع المفضل',
+  undoBarMsg:'تم التراجع خلال',undoSeconds:'ث',
   changeInAccount:'تغيير في الحساب',
   heightOptional:'(اختياري — يحدد مقاس الدراجة تلقائياً)',
   enterHeightAbove:'أدخل الطول أعلاه',
@@ -1683,6 +1711,7 @@ ar:{
   sessOpened:'تم فتح الجلسة.',sessClosed:'تم إغلاق الجلسة.',sessDeleted:'تم حذف الجلسة.',
   totalStat:'الكل',waitingStat:'بانتظار',onBikeStat:'على الدراجة',doneStat:'منتهٍ',
   queueNumLabel:'رقم الطابور',keepNumberMsg:'احتفظ بهذا الرقم — ستحتاجه للتحقق من حالتك.',
+  payAtBooth:'💳 الدفع يتم عند الكشك في دوار الكورنيش. يرجى إحضار رقم طابورك.',
   registeredLabel:'مُسجَّل',nameLabel:'الاسم',timeLabel:'الوقت',preferenceLabel:'التفضيل',
   profileInfo:'معلومات الملف الشخصي',needToUpdate:'تريد التحديث؟',
   bikeFleetComp:'تركيبة أسطول الدراجات',totalBikesSession:'إجمالي الدراجات في الجلسة',rowLabel:'الإجمالي',
@@ -2051,7 +2080,7 @@ const S={
   // data cache (loaded from API)
   queue:[],bikes:[],customers:[],sessions:[],
   // session management form
-  showAddSession:false,newSessDate:'',
+  showAddSession:false,newSessDate:'',newSessTime:'09:00 – 11:00',
   newSessTypeCounts:{Road:0,Hybrid:0,Mountain:0},
   editSessionId:null,
   editSessAssignedIds:[],
@@ -2141,6 +2170,12 @@ function fmtDate(d){return d.toLocaleDateString('en-CA',{timeZone:KSA_TZ});} // 
 function shortDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:KSA_TZ});}
 function longDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',timeZone:KSA_TZ});}
 function todayStr(){return new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});}
+function sessionTime(sess){
+  // Returns time string stored in bike_slots._time, or the default slot
+  if(!sess)return'09:00 – 11:00';
+  const s=parseSlots(sess.bike_slots);
+  return(s&&s._time)||'09:00 – 11:00';
+}
 function allSessions(){
   return S.sessions.map(s=>({...s,display:shortDate(s.session_date||s.id)}));
 }
@@ -2185,8 +2220,39 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').re
 function toast(msg,type){
   const el=document.createElement('div');
   el.className='toast'+(type?' '+type:'');el.textContent=msg;
-  document.getElementById('toast-container').appendChild(el);
-  setTimeout(()=>el.remove(),2600);
+  const container=document.getElementById('toast-container');
+  container.appendChild(el);
+  setTimeout(()=>el.remove(),2800);
+}
+
+let _undoBarTimer=null;
+function showUndoBar(label,fn){
+  // Clear any existing undo bar
+  const old=document.getElementById('undo-bar-el');if(old)old.remove();
+  clearInterval(_undoBarTimer);
+  const DURATION=5000;
+  const bar=document.createElement('div');
+  bar.id='undo-bar-el';bar.className='undo-bar';
+  bar.innerHTML=`
+    <div class="undo-bar-text">${esc(label)}</div>
+    <button class="undo-bar-action" id="undo-bar-btn">↩ Undo</button>
+    <div class="undo-bar-progress" id="undo-bar-prog" style="width:100%"></div>`;
+  document.getElementById('toast-container').appendChild(bar);
+  const prog=document.getElementById('undo-bar-prog');
+  const btn=document.getElementById('undo-bar-btn');
+  const start=Date.now();
+  // Countdown progress bar
+  _undoBarTimer=setInterval(()=>{
+    const elapsed=Date.now()-start;
+    const pct=Math.max(0,100-elapsed/DURATION*100);
+    if(prog)prog.style.width=pct+'%';
+    if(elapsed>=DURATION){clearInterval(_undoBarTimer);bar.remove();}
+  },80);
+  btn.onclick=async()=>{
+    clearInterval(_undoBarTimer);bar.remove();
+    try{await fn();toast('↩ Undone.');}catch(e){toast('Undo failed.','error');}
+    renderTopbarRight();renderStaffQueue();
+  };
 }
 
 /* ══════════════════════════════════════════════
@@ -2249,9 +2315,9 @@ function renderAuthModal(){
   } else {
     body=`
       <div class="auth-field"><label>${t('authFullName')}</label><input id="a-name" type="text" placeholder="${t('authFullName')}"></div>
-      <div class="auth-field"><label>${t('authEmail')} <span style="font-weight:400;text-transform:none">${t('authEmailOpt')}</span></label>
+      <div class="auth-field"><label>${t('authEmail')}</label>
         <input id="a-email" type="email" placeholder="your@email.com"></div>
-      <div class="auth-field"><label>${t('authPhone')} <span style="font-weight:400;text-transform:none">${t('authPhoneOpt')}</span></label>
+      <div class="auth-field"><label>${t('authPhone')}</label>
         <div class="auth-cc-row">
           <select id="a-cc">${ccOpts}</select>
           <input id="a-phone" type="tel" placeholder="5x xxx xxxx">
@@ -2303,8 +2369,9 @@ async function doSignup(){
   const pwd=(document.getElementById('a-pwd')?.value||'');
   const pwd2=(document.getElementById('a-pwd2')?.value||'');
   if(!name){authErr(t('errEnterName'));return;}
-  if(!email&&!phone){authErr(t('errEmailOrPhone'));return;}
-  if(email&&!/^\S+@\S+\.\S+$/.test(email)){authErr(t('errValidEmail'));return;}
+  if(!email){authErr(t('errValidEmail'));return;}
+  if(!/^\S+@\S+\.\S+$/.test(email)){authErr(t('errValidEmail'));return;}
+  if(!phone){authErr(t('errEmailOrPhone').replace('email or ',''));return;}
   if(pwd.length<6){authErr(t('errPasswordLen'));return;}
   if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
   const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
@@ -2432,6 +2499,7 @@ function showView(v){
   document.getElementById('view-landing').classList.toggle('active',v==='landing');
   document.getElementById('view-customer').classList.toggle('active',v==='customer');
   document.getElementById('view-staff').classList.toggle('active',v==='staff');
+  document.body.classList.toggle('view-staff',v==='staff');
   renderTopbarRight();
 }
 
@@ -2448,11 +2516,14 @@ function renderLandingAvail(){
     const full=left===0||s.status==='full';
     const cls=full?'full':'has-spots';
     const dotClr=full?'var(--orange)':'var(--green)';
-    const label=full?t('statusFull'):`${left} ${t('spotsLeft')}`;
+    const label=full?t('statusFull'):t('availLabel');
+    const timeStr=sessionTime(s);
     return`<div class="landing-avail-chip ${cls}" onclick="goCustomer('register')">
       <span class="landing-avail-dot" style="background:${dotClr}"></span>
-      <span>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</span>
-      <span style="opacity:.7;font-size:11px">${label}</span>
+      <div>
+        <div>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</div>
+        <div style="font-size:10px;opacity:.7;margin-top:1px">${timeStr} &nbsp;·&nbsp; ${label}</div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -2650,12 +2721,13 @@ function renderRegister(){
         const manuallyFull=s.status==='full';
         const full=manuallyFull||spotsLeft(s.id)===0;
         const sc=full?'spots-red':'spots-green';
-        const sl=full?(S.lang==='ar'?'ممتلئة':'Full'):(S.lang==='ar'?'متاح':'Available');
+        const sl=full?t('statusFull'):t('availLabel');
         const sel=S.selSession===s.id;
         return`<div class="sess-card${sel?' sess-selected':''}${full?' sess-full':''}"
           ${full?'':` onclick="S.selSession='${s.id}';renderRegister()"`}>
           <div class="sess-card-day">${dayLabel(s.day)}</div>
           <div class="sess-card-date">${shortDate(s.session_date||s.id)}</div>
+          <div style="font-size:10px;color:var(--muted);font-weight:700;margin-bottom:3px">${sessionTime(s)}</div>
           <div class="sess-card-spots ${sc}">${sl}</div>
         </div>`;
       }).join('')
@@ -2825,6 +2897,7 @@ function renderRegister(){
           <div class="ticket-label" style="margin-bottom:4px">${t('queueNumLabel')}</div>
           <div class="ticket-num">#${tkt.queueNum}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:6px;font-weight:600">${t('keepNumberMsg')}</div>
+          <div style="font-size:11px;color:var(--orange);margin-top:8px;font-weight:700;line-height:1.5;background:rgba(224,136,40,.08);border:1px solid rgba(224,136,40,.2);border-radius:8px;padding:8px 10px">${t('payAtBooth')}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
           <span class="status-badge badge-active">${t('registeredLabel')}</span>
@@ -2835,7 +2908,7 @@ function renderRegister(){
         <div class="ticket-grid">
           <div><div class="ticket-label">${t('nameLabel')}</div><div class="ticket-value">${esc(tkt.name)}</div></div>
           <div><div class="ticket-label">${t('colSession')}</div><div class="ticket-value">${dayLabel(tkt.sessionDay)}, ${shortDate(tkt.sessionDate)}</div></div>
-          <div><div class="ticket-label">${t('timeLabel')}</div><div class="ticket-value">09:00 &ndash; 11:00</div></div>
+          <div><div class="ticket-label">${t('timeLabel')}</div><div class="ticket-value">${sessionTime(allSessions().find(s=>s.id===tkt.sessionId))}</div></div>
           <div><div class="ticket-label">${t('frameSizeLabel')}</div><div class="ticket-value">${tkt.size}</div></div>
           <div><div class="ticket-label">${t('preferenceLabel')}</div><div class="ticket-value">${typeBadge(tkt.typePreference)}</div></div>
           ${tkt.email?`<div><div class="ticket-label">${t('emailAddr')}</div><div class="ticket-value" style="font-size:12px">${esc(tkt.email)}</div></div>`:''}
@@ -3131,7 +3204,7 @@ function renderMyRides(){
       <td>
         <div style="font-weight:800;font-size:13px">${dayLabel(e.sessionDay)||''}</div>
         <div style="color:var(--muted);font-size:12px;margin-top:1px">${shortDate(e.sessionDate)}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">09:00 – 11:00</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${sessionTime(allSessions().find(s=>s.id===e.sessionId))}</div>
       </td>
       <td style="font-weight:800;font-size:14px">${e.size}</td>
       <td>${typeBadge(e.typePreference)}</td>
@@ -3185,9 +3258,35 @@ function renderAccount(){
   const accSz=accH?heightToSize(accH):null;
   const sizeDisplay=accSz
     ?`<div class="size-chip">${accSz}<span class="size-chip-label">${sizeLabel(accSz)}</span></div>`:'';
+  // Compute ride stats from local queue data
+  const myEntries=getQueue().filter(e=>e.customerId===cust.id);
+  const myDone=myEntries.filter(e=>e.status==='done');
+  const mySpent=myDone.filter(e=>e.paid).reduce((s,e)=>s+(e.price||0),0);
+  const typeCount={};myDone.forEach(e=>{typeCount[e.typePreference]=(typeCount[e.typePreference]||0)+1;});
+  const favType=Object.keys(typeCount).sort((a,b)=>typeCount[b]-typeCount[a])[0]||'—';
+  const memberYear=cust.created_at?new Date(cust.created_at).getFullYear():'—';
+
   document.getElementById('tab-account').innerHTML=`
     <div class="page-title">${t('accountTitle')}</div>
     <div class="page-sub">${t('accountSub')}</div>
+    <div class="account-stats-strip">
+      <div class="account-stat">
+        <div class="account-stat-val" style="color:var(--green)">${myDone.length}</div>
+        <div class="account-stat-lbl">${t('statTotalRides')}</div>
+      </div>
+      <div class="account-stat">
+        <div class="account-stat-val" style="color:var(--blue)">SAR ${mySpent.toFixed(0)}</div>
+        <div class="account-stat-lbl">${t('statTotalSpent')}</div>
+      </div>
+      <div class="account-stat">
+        <div class="account-stat-val" style="color:var(--purple)">${memberYear}</div>
+        <div class="account-stat-lbl">${t('statMemberSince')}</div>
+      </div>
+      <div class="account-stat">
+        <div class="account-stat-val" style="font-size:16px;padding-top:4px">${favType!=='—'?typeBadge(favType):t('anNoData2')}</div>
+        <div class="account-stat-lbl">${t('statFavType')}</div>
+      </div>
+    </div>
     <div class="form-section" style="max-width:560px">
       <div class="form-title">${t('profileInfo')}</div>
       <div class="form-row">
@@ -3354,6 +3453,11 @@ function renderSessions(){
         <label>${t('dateLabel')}</label>
         <input type="date" id="ns-date" value="${esc(S.newSessDate)}" min="${todayStr()}"
           oninput="S.newSessDate=this.value" style="max-width:240px">
+      </div>
+      <div class="form-group" style="margin-bottom:20px">
+        <label>${t('timeLabel')}</label>
+        <input type="text" id="ns-time" value="${esc(S.newSessTime)}" placeholder="09:00 – 11:00"
+          oninput="S.newSessTime=this.value" style="max-width:200px">
       </div>
       <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;display:block">${t('bikeFleetComp')}</label>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px">
@@ -3625,8 +3729,10 @@ async function addSession(){
   const counts=S.newSessTypeCounts;
   const total=Object.values(counts).reduce((a,b)=>a+b,0);
   if(total===0){toast(t('errAddBikeToSession'),'error');return;}
-  // Store as simple type-count format {Road:N, Hybrid:N, Mountain:N}
+  // Store type counts + optional time in bike_slots
   const slots={};
+  const timeVal=(document.getElementById('ns-time')?.value||S.newSessTime||'').trim();
+  if(timeVal)slots._time=timeVal;
   types.forEach(ty=>{if(counts[ty]>0)slots[ty]=counts[ty];});
   const d=new Date(date+'T00:00:00');
   const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -3957,6 +4063,10 @@ async function togglePayment(id,paid){
 function pushUndo(label,fn){
   S.undoStack.push({label,fn});
   if(S.undoStack.length>20)S.undoStack.shift();
+  showUndoBar(label,async()=>{
+    S.undoStack=S.undoStack.filter(i=>i.label!==label||i.fn!==fn);
+    await fn();
+  });
   renderTopbarRight();
 }
 async function doUndo(){
@@ -3964,10 +4074,10 @@ async function doUndo(){
   if(!item)return;
   try{
     await item.fn();
-    toast(`Undone: ${item.label}`);
+    toast('↩ Undone.');
   }catch(e){
     S.undoStack.push(item);
-    toast(`Undo failed.`,'error');
+    toast('Undo failed.','error');
   }
   renderTopbarRight();
 }
@@ -4506,7 +4616,7 @@ function renderHistory(){
       <td class="hide-mobile">
         <div style="font-weight:800;font-size:13px">${dayLabel(e.sessionDay)||''}</div>
         <div style="color:var(--muted);font-size:12px;margin-top:1px">${shortDate(e.sessionDate)}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">09:00 – 11:00</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${sessionTime(allSessions().find(s=>s.id===e.sessionId))}</div>
       </td>
       <td style="font-weight:700;font-size:13px">${bike?esc(bike.name):`<span style="color:var(--muted)">—</span>`}</td>
       <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
@@ -4623,7 +4733,7 @@ function showReceipt(id){
     '──────────────────────────────────────',
     `${t('queueNumLabel').padEnd(14)}:  #${e.queueNum}`,
     `${t('colSession').padEnd(14)}:  ${dayLabel(e.sessionDay)}, ${shortDate(e.sessionDate)}`,
-    `${t('timeLabel').padEnd(14)}:  09:00 – 11:00`,
+    `${t('timeLabel').padEnd(14)}:  ${sessionTime(allSessions().find(s=>s.id===e.sessionId))}`,
     `${t('colBike').padEnd(14)}:  ${bike?bike.name:'N/A'}`,
     `${t('frameSizeLabel').padEnd(14)}:  ${e.size}`,
     `${t('bikeTypeLabel').padEnd(14)}:  ${e.typePreference}`,
