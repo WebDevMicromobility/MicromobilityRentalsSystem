@@ -1007,6 +1007,31 @@
     .hl-item{margin-bottom:14px;}
     .hl-label{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
     .hl-value{font-size:19px;font-weight:900;}
+    /* ── Insight cards ── */
+    .insights-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-bottom:24px;}
+    .insight-card{display:flex;gap:12px;align-items:flex-start;border-radius:12px;padding:13px 15px;border:1px solid;}
+    .insight-card.good{background:rgba(3,255,137,.06);border-color:rgba(3,255,137,.22);}
+    .insight-card.warn{background:rgba(224,136,40,.06);border-color:rgba(224,136,40,.25);}
+    .insight-card.alert{background:rgba(217,9,9,.06);border-color:rgba(217,9,9,.22);}
+    .insight-card.info{background:rgba(74,168,248,.06);border-color:rgba(74,168,248,.22);}
+    .insight-card.purple{background:rgba(160,106,240,.06);border-color:rgba(160,106,240,.22);}
+    .insight-icon{font-size:18px;line-height:1;flex-shrink:0;margin-top:1px;}
+    .insight-title{font-size:12px;font-weight:800;margin-bottom:3px;letter-spacing:.2px;}
+    .insight-body{font-size:12px;color:var(--muted);line-height:1.5;font-weight:600;}
+    .insight-card.good .insight-title{color:var(--green);}
+    .insight-card.warn .insight-title{color:var(--orange);}
+    .insight-card.alert .insight-title{color:var(--red);}
+    .insight-card.info .insight-title{color:var(--blue);}
+    .insight-card.purple .insight-title{color:var(--purple);}
+    /* ── KPI trend delta ── */
+    .kpi-delta{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:800;padding:2px 7px;border-radius:20px;margin-top:4px;}
+    .kpi-delta.up{background:rgba(3,255,137,.12);color:var(--green);}
+    .kpi-delta.down{background:rgba(217,9,9,.1);color:var(--red);}
+    .kpi-delta.flat{background:rgba(255,255,255,.06);color:var(--muted);}
+    /* ── Occupancy gauge ── */
+    .occ-gauge-wrap{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 0;}
+    .occ-gauge-svg{overflow:visible;}
+    @media(max-width:767px){.insights-grid{grid-template-columns:1fr;}}
 
     /* ── Search input ── */
     .search-wrap{position:relative;flex-shrink:0;}
@@ -1202,6 +1227,20 @@ en:{
   anRevPerRide:'Revenue per Ride',anRevPerCust:'Revenue per Unique Customer',
   anCustRetention:'Customer Retention',
   anSessPerformTable:'Session Performance Table',
+  anRevPAS:'Revenue Per Seat',anRevPASSub:'Collected ÷ total seats offered',
+  anCompletionRate:'Completion Rate',anCompletionSub:'Riders who completed the session',
+  anTotalSeats:'Total Seats Offered',anSeatsFilled:'seats sold',
+  anRevByDay:'Revenue by Day of Week',anRevByDaySub:'Average collected SAR per day — guides scheduling',
+  anTypeRevPerRide:'Avg Revenue per Ride by Type',anTypeRevPerRideSub:'How much each bike type earns per completed ride',
+  anInsights:'Business Insights',
+  anInsightGoodCollection:'Collection rate is strong — revenue is being captured effectively.',
+  anInsightLowCollection:'Collection rate is below 70%. Follow up on SAR {0} in pending payments.',
+  anInsightHighOcc:'Sessions are filling well. Consider adding more sessions to meet demand.',
+  anInsightLowOcc:'Average occupancy is low. Try marketing or reducing session frequency.',
+  anInsightTopDay:'Busiest day: {0}. Prioritize sessions on this day to maximize revenue.',
+  anInsightTopType:'Most-requested type: {0}. Ensure fleet stock matches demand.',
+  anInsightPendingHigh:'SAR {0} is outstanding ({1}% of billed). Prompt collection recommended.',
+  anInsightRetention:'Strong repeat rider rate ({0}%). Loyalty program could further boost returns.',
   anNoDataTrend:'No sessions with completed rides yet.',anNoData2:'No data',
   anColDay2:'Day',anColTopType2:'Top Type',
   regTitle:'Reserve Your Spot',regSub:'Pick an available session, fill in your details, and join the queue.',
@@ -1399,6 +1438,20 @@ ar:{
   anRevPerRide:'الإيراد لكل رحلة',anRevPerCust:'الإيراد لكل عميل',
   anCustRetention:'نسبة عودة العملاء',
   anSessPerformTable:'جدول أداء الجلسات',
+  anRevPAS:'الإيراد لكل مقعد',anRevPASSub:'المحصّل ÷ إجمالي المقاعد المتاحة',
+  anCompletionRate:'معدل الإتمام',anCompletionSub:'الراكبون الذين أكملوا الجلسة',
+  anTotalSeats:'إجمالي المقاعد المتاحة',anSeatsFilled:'مقعد محجوز',
+  anRevByDay:'الإيرادات حسب اليوم',anRevByDaySub:'متوسط الإيرادات المحصّلة يومياً — يُفيد في جدولة الجلسات',
+  anTypeRevPerRide:'متوسط الإيراد لكل رحلة حسب النوع',anTypeRevPerRideSub:'كم تحقق كل فئة دراجات لكل رحلة مكتملة',
+  anInsights:'رؤى تجارية',
+  anInsightGoodCollection:'معدل التحصيل ممتاز — الإيرادات تُحصَّل بكفاءة.',
+  anInsightLowCollection:'معدل التحصيل أقل من 70%. تابع {0} ريال مستحقة الدفع.',
+  anInsightHighOcc:'الجلسات تمتلئ بشكل جيد. فكر في إضافة جلسات لتلبية الطلب.',
+  anInsightLowOcc:'متوسط الإشغال منخفض. حاول تسويق الخدمة أو تقليل تكرار الجلسات.',
+  anInsightTopDay:'أكثر الأيام نشاطاً: {0}. أولوية إضافة الجلسات هذا اليوم.',
+  anInsightTopType:'الأكثر طلباً: {0}. تأكد من توافر الأسطول بما يتناسب مع الطلب.',
+  anInsightPendingHigh:'{0} ريال مستحقة ({1}% من المفوتر). يُنصح بالمتابعة الفورية.',
+  anInsightRetention:'معدل عودة العملاء مرتفع ({0}%). برنامج ولاء يمكن أن يعزز العودة أكثر.',
   anNoDataTrend:'لا توجد جلسات مكتملة بعد.',anNoData2:'لا بيانات',
   anColDay2:'اليوم',anColTopType2:'النوع الأكثر',
   regTitle:'احجز موقعك',regSub:'اختر جلسة متاحة، أدخل بياناتك، وانضم إلى الطابور.',
@@ -4169,6 +4222,11 @@ function renderAnalytics(){
       },0)/sessionsHeld)
     :0;
 
+  // ── RevPAS & Completion ──────────────────────────────
+  const totalSeatsOffered=sessions.reduce((s,sess)=>s+(sess.capacity||12),0);
+  const revPAS=totalSeatsOffered>0?(revCollected/totalSeatsOffered):0;
+  const completionRate=totalAttempted>0?Math.round((done.length/totalAttempted)*100):0;
+
   // ── Breakdowns ───────────────────────────────────────
   const typeBreak={};
   done.forEach(e=>{typeBreak[e.typePreference]=(typeBreak[e.typePreference]||0)+1;});
@@ -4178,9 +4236,24 @@ function renderAnalytics(){
   done.forEach(e=>{if(e.sessionDay)dayBreak[e.sessionDay]=(dayBreak[e.sessionDay]||0)+1;});
   const revByType={};
   done.filter(e=>e.paid).forEach(e=>{revByType[e.typePreference]=(revByType[e.typePreference]||0)+(e.price||DEFAULT_PRICE);});
+  // Revenue per day of week (collected)
+  const revByDay={};
+  const countByDay={};
+  done.filter(e=>e.paid).forEach(e=>{
+    if(!e.sessionDay)return;
+    revByDay[e.sessionDay]=(revByDay[e.sessionDay]||0)+(e.price||DEFAULT_PRICE);
+    countByDay[e.sessionDay]=(countByDay[e.sessionDay]||0)+1;
+  });
+  // Avg revenue per ride by type (collected only)
+  const typeRevPerRide={};
+  Object.keys(revByType).forEach(ty=>{
+    const cnt=done.filter(e=>e.paid&&e.typePreference===ty).length;
+    typeRevPerRide[ty]=cnt>0?(revByType[ty]/cnt):0;
+  });
   const typeColor={Road:'var(--blue)',Hybrid:'var(--green)',Mountain:'var(--orange)',Any:'var(--muted)'};
-  const typeColorHex={Road:'#4aa8f8',Hybrid:'#6ee89a',Mountain:'#e08828',Any:'#777'};
-  const sizeColorHex={XS:'#a06af0',S:'#4aa8f8',M:'#6ee89a',L:'#e08828'};
+  const typeColorHex={Road:'#4aa8f8',Hybrid:'#03ff89',Mountain:'#e08828',Any:'#777'};
+  const sizeColorHex={XS:'#a06af0',S:'#4aa8f8',M:'#03ff89',L:'#e08828'};
+  const dayColorHex='#03ff89';
   const dayOrder=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const dayBreakOrdered=Object.fromEntries(dayOrder.filter(d=>dayBreak[d]).map(d=>[d,dayBreak[d]]));
   const topType=Object.keys(typeBreak).sort((a,b)=>typeBreak[b]-typeBreak[a])[0]||'—';
@@ -4215,6 +4288,39 @@ function renderAnalytics(){
   // cumulative revenue
   let cumRev=0;
   const cumData=trendData.map(d=>{cumRev+=d.rev;return{...d,cumRev};});
+
+  // ── Auto business insights ────────────────────────────
+  function insightCard(type,icon,title,body){
+    return`<div class="insight-card ${type}"><div class="insight-icon">${icon}</div><div><div class="insight-title">${title}</div><div class="insight-body">${body}</div></div></div>`;
+  }
+  const insights=[];
+  if(collectionRate>=80) insights.push(insightCard('good','✅',t('anCollectionRate'),t('anInsightGoodCollection')));
+  else insights.push(insightCard('alert','⚠️',t('anCollectionRate'),t('anInsightLowCollection').replace('{0}',revPending.toFixed(0))));
+  if(revPending>0&&revTotal>0&&(revPending/revTotal)>0.2)
+    insights.push(insightCard('warn','💳',t('pendingLabel'),t('anInsightPendingHigh').replace('{0}',revPending.toFixed(0)).replace('{1}',Math.round(revPending/revTotal*100))));
+  if(avgOccupancy>=75) insights.push(insightCard('good','📈',t('anAvgOccupancy'),t('anInsightHighOcc')));
+  else if(avgOccupancy<50) insights.push(insightCard('warn','📉',t('anAvgOccupancy'),t('anInsightLowOcc')));
+  if(topDay&&topDay!=='—') insights.push(insightCard('info','📅',t('anBusiestDayLabel'),t('anInsightTopDay').replace('{0}',dayLabel(topDay)||topDay)));
+  if(topType&&topType!=='—') insights.push(insightCard('info','🚴',t('anMostPopType'),t('anInsightTopType').replace('{0}',typeLabel(topType))));
+  const retentionPct=uniqueCustIds.length>0?Math.round(repeatCustomers/uniqueCustIds.length*100):0;
+  if(retentionPct>=30) insights.push(insightCard('purple','🔄',t('anCustRetention'),t('anInsightRetention').replace('{0}',retentionPct)));
+
+  // ── Occupancy gauge SVG ───────────────────────────────
+  function occGauge(pct){
+    const r=44,cx=56,cy=56,sw=10;
+    const arc=r*Math.PI; // half-circle circumference
+    const filled=arc*(pct/100);
+    const c=pct>=80?'#03ff89':pct>=50?'#e08828':'#d90909';
+    return`<div class="occ-gauge-wrap">
+      <svg class="occ-gauge-svg" width="112" height="66" viewBox="0 0 112 66">
+        <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="${sw}" stroke-linecap="round"/>
+        <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}" fill="none" stroke="${c}" stroke-width="${sw}" stroke-linecap="round"
+          stroke-dasharray="${filled} ${arc}" stroke-dashoffset="0"/>
+      </svg>
+      <div style="font-size:26px;font-weight:900;color:${c};margin-top:-28px;line-height:1">${pct}%</div>
+      <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${t('anAvgOccupancy')}</div>
+    </div>`;
+  }
 
   // ── Bar chart builder (CSS) ───────────────────────────
   function bars(data,colorFn,valueFmt){
@@ -4273,33 +4379,33 @@ function renderAnalytics(){
   // ── SVG Charts ────────────────────────────────────────
   const chartLabels=trendData.map(d=>d.lbl);
   const revenueChart=_areaChart([
-    {vals:trendData.map(d=>d.rev),  color:'#6ee89a',label:'Collected',fill:true},
-    {vals:trendData.map(d=>d.revTotal),color:'rgba(3,255,137,.35)',label:'Total',fill:false,dashed:true},
+    {vals:trendData.map(d=>d.rev),     color:'#03ff89',label:t('anCollected'),fill:true},
+    {vals:trendData.map(d=>d.revTotal),color:'rgba(3,255,137,.3)',label:t('anTotal'),fill:false,dashed:true},
   ],chartLabels,{unitPfx:'SAR '});
 
   const ridersChart=_areaChart([
-    {vals:trendData.map(d=>d.riders),color:'#4aa8f8',label:'Riders',fill:true},
-    {vals:trendData.map(d=>d.cap),  color:'rgba(255,255,255,.18)',label:'Capacity',fill:false,dashed:true},
+    {vals:trendData.map(d=>d.riders),color:'#4aa8f8',label:t('anRiders'),fill:true},
+    {vals:trendData.map(d=>d.cap),   color:'rgba(255,255,255,.15)',label:t('anCapacity'),fill:false,dashed:true},
   ],chartLabels);
 
   const occChart=_vbars(
-    trendData.map(d=>({label:d.lbl,v:d.occ,c:d.occ>=80?'#6ee89a':d.occ>=50?'#e08828':'#e04040'})),
-    {color:'#6ee89a',refVal:100}
+    trendData.map(d=>({label:d.lbl,v:d.occ,c:d.occ>=80?'#03ff89':d.occ>=50?'#e08828':'#d90909'})),
+    {color:'#03ff89',refVal:100}
   );
 
   const cumChart=_areaChart([
-    {vals:cumData.map(d=>d.cumRev),color:'#a06af0',label:'Cumulative',fill:true},
+    {vals:cumData.map(d=>d.cumRev),color:'#a06af0',label:t('anChartCumRev'),fill:true},
   ],chartLabels,{unitPfx:'SAR '});
 
   const payDonut=_donut([
-    {v:done.filter(e=>e.paid).length,  c:'#6ee89a',label:'Paid'},
-    {v:done.filter(e=>!e.paid).length, c:'#e08828',label:'Pending'},
+    {v:done.filter(e=>e.paid).length,  c:'#03ff89',label:t('paidLabel')},
+    {v:done.filter(e=>!e.paid).length, c:'#e08828',label:t('pendingLabel')},
   ]);
   const payLegend=`<div class="donut-legend">
-    <div class="donut-legend-item"><span class="donut-dot" style="background:#6ee89a"></span>${t('paidLabel')} — ${done.filter(e=>e.paid).length} (${collectionRate}%)</div>
+    <div class="donut-legend-item"><span class="donut-dot" style="background:#03ff89"></span>${t('paidLabel')} — ${done.filter(e=>e.paid).length} (${collectionRate}%)</div>
     <div class="donut-legend-item"><span class="donut-dot" style="background:#e08828"></span>${t('pendingLabel')} — ${done.filter(e=>!e.paid).length}</div>
-    <div style="margin-top:6px;font-size:13px;font-weight:900;color:var(--green)">SAR ${revCollected.toFixed(0)}</div>
-    <div style="font-size:11px;color:var(--muted);font-weight:600">${t('anCollected').toLowerCase()}</div>
+    <div style="margin-top:8px;font-size:20px;font-weight:900;color:var(--green)">SAR ${revCollected.toFixed(0)}</div>
+    <div style="font-size:11px;color:var(--muted);font-weight:600">${t('anCollected')}</div>
   </div>`;
 
   const typeSegs=Object.entries(typeBreak).map(([k,v])=>({v,c:typeColorHex[k]||'#777',label:k}));
@@ -4316,6 +4422,16 @@ function renderAnalytics(){
     return`<div class="donut-legend-item"><span class="donut-dot" style="background:${d.c}"></span>${d.label} — ${d.v} (${pct}%)</div>`;
   }).join('')}</div>`;
 
+  // Rev by day (horizontal bars)
+  const dayOrder=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const revByDayOrdered=Object.fromEntries(dayOrder.filter(d=>revByDay[d]).map(d=>[d,revByDay[d]]));
+  // Type rev per ride (horizontal bars)
+  const typeRevPerRideOrdered=Object.fromEntries(
+    Object.keys(typeRevPerRide).filter(k=>typeRevPerRide[k]>0)
+      .sort((a,b)=>typeRevPerRide[b]-typeRevPerRide[a])
+      .map(k=>[k,typeRevPerRide[k]])
+  );
+
   const noDataStr=`<div style="color:var(--muted);font-size:13px;padding-top:8px">${t('anNoData2')}</div>`;
 
   // ── Render ────────────────────────────────────────────
@@ -4324,6 +4440,11 @@ function renderAnalytics(){
     <div class="page-sub">${t('anPageSub')}</div>
     ${_rangeBar()}
 
+    <!-- INSIGHTS -->
+    <div class="analytics-section-title">${t('anInsights')}</div>
+    <div class="insights-grid">${insights.join('')}</div>
+
+    <!-- REVENUE -->
     <div class="analytics-section-title">${t('anRevenue')}</div>
     <div class="analytics-kpi-grid">
       <div class="analytics-kpi-card">
@@ -4337,12 +4458,12 @@ function renderAnalytics(){
         <div class="analytics-kpi-sub">${done.filter(e=>!e.paid).length} ${t('anUnpaidRides')}</div>
       </div>
       <div class="analytics-kpi-card">
-        <div class="analytics-kpi-value">SAR ${revTotal.toFixed(0)}</div>
-        <div class="analytics-kpi-label">${t('anRevTotal')}</div>
-        <div class="analytics-kpi-sub">${sessionsHeld} ${t('anSessionsHeld').toLowerCase()}</div>
+        <div class="analytics-kpi-value" style="color:var(--blue)">SAR ${revPAS.toFixed(2)}</div>
+        <div class="analytics-kpi-label">${t('anRevPAS')}</div>
+        <div class="analytics-kpi-sub">${totalSeatsOffered} ${t('anTotalSeats').toLowerCase()}</div>
       </div>
       <div class="analytics-kpi-card">
-        <div class="analytics-kpi-value" style="color:var(--blue)">SAR ${avgRevPerSession}</div>
+        <div class="analytics-kpi-value">SAR ${avgRevPerSession}</div>
         <div class="analytics-kpi-label">${t('anAvgPerSession')}</div>
         <div class="analytics-kpi-sub">SAR ${revPerRide.toFixed(1)} ${t('anPerRide')}</div>
       </div>
@@ -4353,29 +4474,30 @@ function renderAnalytics(){
         <div class="chart-card-sub">${t('anChartRevSub')}</div>
         ${revenueChart}
         <div class="chart-legend">
-          <div class="chart-legend-item"><span class="chart-legend-dot" style="background:#6ee89a"></span>${t('anCollected')}</div>
-          <div class="chart-legend-item"><span class="chart-legend-dot" style="background:rgba(3,255,137,.5)"></span>${t('anTotal')}</div>
+          <div class="chart-legend-item"><span class="chart-legend-dot" style="background:#03ff89"></span>${t('anCollected')}</div>
+          <div class="chart-legend-item"><span class="chart-legend-dot" style="background:rgba(3,255,137,.4)"></span>${t('anTotal')}</div>
         </div>
       </div>
-      <div class="chart-card">
-        <div class="chart-card-title">${t('anChartPaySplit')}</div>
-        <div class="chart-card-sub">${t('anChartPaySub')}</div>
-        <div class="donut-wrap">${payDonut}${payLegend}</div>
-      </div>
-    </div>
-    <div class="chart-grid-wide">
       <div class="chart-card">
         <div class="chart-card-title">${t('anChartCumRev')}</div>
         <div class="chart-card-sub">${t('anChartCumSub')}</div>
         ${cumChart}
       </div>
+    </div>
+    <div class="chart-grid-wide">
       <div class="chart-card">
-        <div class="chart-card-title">${t('anByRevType')}</div>
-        <div class="chart-card-sub">${t('anCollectedOnly')}</div>
-        ${Object.keys(revByType).length?bars(revByType,k=>typeColorHex[k]||'#777',v=>`SAR ${v.toFixed(0)}`):noDataStr}
+        <div class="chart-card-title">${t('anChartPaySplit')}</div>
+        <div class="chart-card-sub">${t('anChartPaySub')}</div>
+        <div class="donut-wrap">${payDonut}${payLegend}</div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">${t('anRevByDay')}</div>
+        <div class="chart-card-sub">${t('anRevByDaySub')}</div>
+        ${Object.keys(revByDayOrdered).length?bars(revByDayOrdered,()=>dayColorHex,v=>`SAR ${v.toFixed(0)}`):noDataStr}
       </div>
     </div>
 
+    <!-- RIDERSHIP -->
     <div class="analytics-section-title">${t('anRidership')}</div>
     <div class="analytics-kpi-grid">
       <div class="analytics-kpi-card">
@@ -4384,19 +4506,19 @@ function renderAnalytics(){
         <div class="analytics-kpi-sub">${noshow.length} ${t('filterNoshow').toLowerCase()} · ${cancelCount} ${t('anCancellations')}</div>
       </div>
       <div class="analytics-kpi-card">
+        <div class="analytics-kpi-value" style="color:${completionRate>=85?'var(--green)':completionRate>=70?'var(--orange)':'var(--red)'}">${completionRate}%</div>
+        <div class="analytics-kpi-label">${t('anCompletionRate')}</div>
+        <div class="analytics-kpi-sub">${done.length} ${t('anOf')} ${totalAttempted} ${t('anAttempts')}</div>
+      </div>
+      <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:var(--green)">${uniqueCustIds.length}</div>
         <div class="analytics-kpi-label">${t('anUniqueCustomers')}</div>
         <div class="analytics-kpi-sub">SAR ${revPerCustomer.toFixed(1)} ${t('anAvgSpend')}</div>
       </div>
       <div class="analytics-kpi-card">
-        <div class="analytics-kpi-value" style="color:var(--purple)">${repeatCustomers}</div>
-        <div class="analytics-kpi-label">${t('anRepeatRiders')}</div>
-        <div class="analytics-kpi-sub">${repeatRideCount} ${t('anRidesFromReturning')}</div>
-      </div>
-      <div class="analytics-kpi-card">
-        <div class="analytics-kpi-value" style="color:${noShowRate>15?'var(--red)':noShowRate>8?'var(--orange)':'var(--green)'}">${noShowRate}%</div>
-        <div class="analytics-kpi-label">${t('anNoShowRate')}</div>
-        <div class="analytics-kpi-sub">${noshow.length} ${t('anOf')} ${totalAttempted} ${t('anAttempts')}</div>
+        <div class="analytics-kpi-value" style="color:var(--purple)">${uniqueCustIds.length>0?Math.round(repeatCustomers/uniqueCustIds.length*100):0}%</div>
+        <div class="analytics-kpi-label">${t('anCustRetention')}</div>
+        <div class="analytics-kpi-sub">${repeatCustomers} ${t('anOf')} ${uniqueCustIds.length} ${t('anReturned')}</div>
       </div>
     </div>
     <div class="chart-grid-wide">
@@ -4406,7 +4528,7 @@ function renderAnalytics(){
         ${ridersChart}
         <div class="chart-legend">
           <div class="chart-legend-item"><span class="chart-legend-dot" style="background:#4aa8f8"></span>${t('anRiders')}</div>
-          <div class="chart-legend-item"><span class="chart-legend-dot" style="background:rgba(255,255,255,.3)"></span>${t('anCapacity')}</div>
+          <div class="chart-legend-item"><span class="chart-legend-dot" style="background:rgba(255,255,255,.25)"></span>${t('anCapacity')}</div>
         </div>
       </div>
       <div class="chart-card">
@@ -4416,12 +4538,13 @@ function renderAnalytics(){
       </div>
     </div>
 
+    <!-- OPERATIONS -->
     <div class="analytics-section-title">${t('anOperations')}</div>
     <div class="analytics-kpi-grid">
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value">${sessionsHeld}</div>
         <div class="analytics-kpi-label">${t('anSessionsHeld')}</div>
-        <div class="analytics-kpi-sub">${allSess.length} ${t('anTotalCreated')}</div>
+        <div class="analytics-kpi-sub">${totalSeatsOffered} ${t('anTotalSeats').toLowerCase()}</div>
       </div>
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:${avgOccupancy>=80?'var(--green)':avgOccupancy>=50?'var(--orange)':'var(--red)'}">${avgOccupancy}%</div>
@@ -4429,14 +4552,14 @@ function renderAnalytics(){
         <div class="analytics-kpi-sub">${t('anRidersCapacity')}</div>
       </div>
       <div class="analytics-kpi-card">
+        <div class="analytics-kpi-value" style="color:${noShowRate>15?'var(--red)':noShowRate>8?'var(--orange)':'var(--green)'}">${noShowRate}%</div>
+        <div class="analytics-kpi-label">${t('anNoShowRate')}</div>
+        <div class="analytics-kpi-sub">${noshow.length} ${t('anOf')} ${totalAttempted} ${t('anAttempts')}</div>
+      </div>
+      <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:${cancelRate>10?'var(--orange)':'var(--muted)'}">${cancelRate}%</div>
         <div class="analytics-kpi-label">${t('anCancellationRate')}</div>
         <div class="analytics-kpi-sub">${cancelCount} ${t('anCancellations')}</div>
-      </div>
-      <div class="analytics-kpi-card">
-        <div class="analytics-kpi-value" style="color:var(--green)">${collectionRate}%</div>
-        <div class="analytics-kpi-label">${t('anCollectionRate')}</div>
-        <div class="analytics-kpi-sub">SAR ${revCollected.toFixed(0)} / SAR ${revTotal.toFixed(0)}</div>
       </div>
     </div>
     <div class="chart-grid-3">
@@ -4445,20 +4568,36 @@ function renderAnalytics(){
         <div class="chart-card-sub">${t('anChartOccSub')}</div>
         ${occChart}
       </div>
-      <div class="chart-card">
-        <div class="chart-card-title">${t('anBySize')}</div>
-        <div class="chart-card-sub">${t('anChartFrameSub')}</div>
-        <div class="donut-wrap" style="justify-content:center;flex-direction:column;gap:12px;align-items:flex-start">
-          ${sizeDonut}${sizeLegend}
+      <div class="chart-card" style="display:flex;flex-direction:column;gap:16px">
+        ${occGauge(avgOccupancy)}
+        <div style="border-top:1px solid var(--border);padding-top:14px">
+          <div class="chart-card-title" style="margin-bottom:6px">${t('anBySize')}</div>
+          <div class="donut-wrap">${sizeDonut}${sizeLegend}</div>
         </div>
       </div>
       <div class="chart-card">
         <div class="chart-card-title">${t('anByDay')}</div>
         <div class="chart-card-sub">${t('anChartDaySub')}</div>
-        ${Object.keys(dayBreakOrdered).length?bars(dayBreakOrdered,()=>'#6ee89a'):noDataStr}
+        ${Object.keys(dayBreakOrdered).length?bars(dayBreakOrdered,()=>'#03ff89'):noDataStr}
       </div>
     </div>
 
+    <!-- BIKE PROFITABILITY -->
+    <div class="analytics-section-title">${t('anByRevType')}</div>
+    <div class="chart-grid-wide">
+      <div class="chart-card">
+        <div class="chart-card-title">${t('anRevByDay')}</div>
+        <div class="chart-card-sub">${t('anCollectedOnly')}</div>
+        ${Object.keys(revByType).length?bars(revByType,k=>typeColorHex[k]||'#777',v=>`SAR ${v.toFixed(0)}`):noDataStr}
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">${t('anTypeRevPerRide')}</div>
+        <div class="chart-card-sub">${t('anTypeRevPerRideSub')}</div>
+        ${Object.keys(typeRevPerRideOrdered).length?bars(typeRevPerRideOrdered,k=>typeColorHex[k]||'#777',v=>`SAR ${v.toFixed(2)}`):noDataStr}
+      </div>
+    </div>
+
+    <!-- HIGHLIGHTS -->
     <div class="analytics-section-title">${t('anHighlights')}</div>
     <div class="analytics-highlight-row">
       <div class="analytics-highlight-card">
@@ -4470,13 +4609,13 @@ function renderAnalytics(){
         </div>
         <div class="hl-item">
           <div class="hl-label">${t('anMostPopFrame')}</div>
-          <div class="hl-value" style="color:var(--text)">${topSize}
+          <div class="hl-value">${topSize}
             ${topSize!=='—'?`<span style="font-size:13px;color:var(--muted);font-weight:600;margin-left:8px">${sizeBreak[topSize]} ${t('anRidesLabel')}</span>`:''}
           </div>
         </div>
         <div class="hl-item">
           <div class="hl-label">${t('anBusiestDayLabel')}</div>
-          <div class="hl-value" style="color:var(--text)">${dayLabel(topDay)}
+          <div class="hl-value">${dayLabel(topDay)||topDay}
             ${topDay!=='—'?`<span style="font-size:13px;color:var(--muted);font-weight:600;margin-left:8px">${dayBreak[topDay]} ${t('anRidesLabel')}</span>`:''}
           </div>
         </div>
@@ -4491,24 +4630,23 @@ function renderAnalytics(){
           <div class="hl-value" style="color:var(--green)">SAR ${revPerRide.toFixed(2)}</div>
         </div>
         <div class="hl-item">
-          <div class="hl-label">${t('anRevPerCust')}</div>
-          <div class="hl-value" style="color:var(--blue)">SAR ${revPerCustomer.toFixed(2)}</div>
+          <div class="hl-label">${t('anRevPAS')}</div>
+          <div class="hl-value" style="color:var(--blue)">SAR ${revPAS.toFixed(2)}</div>
         </div>
         <div class="hl-item">
-          <div class="hl-label">${t('anCollectionRate')}</div>
-          <div class="hl-value" style="color:${collectionRate>=80?'var(--green)':collectionRate>=60?'var(--orange)':'var(--red)'}">${collectionRate}%
-            <span style="font-size:13px;color:var(--muted);font-weight:600;margin-left:8px">SAR ${revCollected.toFixed(0)} / SAR ${revTotal.toFixed(0)}</span>
-          </div>
+          <div class="hl-label">${t('anRevPerCust')}</div>
+          <div class="hl-value" style="color:var(--purple)">SAR ${revPerCustomer.toFixed(2)}</div>
         </div>
         <div class="hl-item" style="margin-bottom:0">
-          <div class="hl-label">${t('anCustRetention')}</div>
-          <div class="hl-value" style="color:var(--purple)">${uniqueCustIds.length>0?Math.round(repeatCustomers/uniqueCustIds.length*100):0}%
-            <span style="font-size:13px;color:var(--muted);font-weight:600;margin-left:8px">${repeatCustomers} ${t('anOf')} ${uniqueCustIds.length} ${t('anReturned')}</span>
+          <div class="hl-label">${t('anCollectionRate')}</div>
+          <div class="hl-value" style="color:${collectionRate>=80?'var(--green)':collectionRate>=60?'var(--orange)':'var(--red)'}">${collectionRate}%
+            <span style="font-size:13px;color:var(--muted);font-weight:600;margin-left:6px">SAR ${revCollected.toFixed(0)} / SAR ${revTotal.toFixed(0)}</span>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- SESSION PERFORMANCE TABLE -->
     <div class="analytics-section-title">${t('anSessPerformTable')}</div>
     <div class="table-wrapper">
       <table class="analytics-trend-table">
