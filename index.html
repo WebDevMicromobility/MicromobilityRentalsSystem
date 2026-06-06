@@ -1269,6 +1269,8 @@ en:{
   riderDetails:'Rider Details',fullName:'Full Name',emailAddr:'Email Address',
   phoneNum:'Phone Number',heightLabel:'Height',heightHint:'- frame size auto-selected',
   bikeTypePref:'Bike Type Preference',numBikes:'Number of Bikes',joinQueue:'Join Queue',
+  typePrefHint:'We\'ll pre-select this each time you book.',
+  typePrefSaved:'Type preference saved.',
   pricePerBike:'Price per bike',bikesWord:'bikes',totalWord:'Total',
   myRidesTitle:'My Rides',myRidesSub:'Your complete rental history with',
   totalBookings:'Total Bookings',completedLabel:'Completed',totalPaid:'Total Paid',pendingPayment:'Pending Payment',
@@ -1412,7 +1414,7 @@ en:{
 ar:{
   appSub:'طابور حلبة الكورنيش',landingTitle:'مايكرو موبيليتي - حلبة الكورنيش',
   landingSub:'طابور تأجير الدراجات - حلبة كورنيش جدة',
-  reserveTitle:'احجز موقعك',reserveDesc:'سجل في جلسة متاحة وانضم إلى الطابور.',
+  reserveTitle:'احجز دراجتك',reserveDesc:'سجل في جلسة متاحة وانضم إلى الطابور.',
   staffAccess:'دخول الموظفين',customerBadge:'عميل',staffBadge:'لوحة الموظفين',
   lockBtn:'قفل',homeBtn:'الرئيسية',logOut:'تسجيل الخروج',
   authWelcome:'مرحباً بك في مايكرو موبيليتي',authSub:'سجل دخولك أو أنشئ حساباً لتتبع رحلاتك.',
@@ -1482,12 +1484,14 @@ ar:{
   anInsightRetention:'معدل عودة العملاء مرتفع ({0}%). برنامج ولاء يمكن أن يعزز العودة أكثر.',
   anNoDataTrend:'لا توجد جلسات مكتملة بعد.',anNoData2:'لا بيانات',
   anColDay2:'اليوم',anColTopType2:'النوع الأكثر',
-  regTitle:'احجز موقعك',regSub:'اختر جلسة متاحة، أدخل بياناتك، وانضم إلى الطابور.',
+  regTitle:'احجز دراجتك',regSub:'اختر جلسة متاحة، أدخل بياناتك، وانضم إلى الطابور.',
   availSessions:'الجلسات المتاحة',
   noSessions:'لا توجد جلسات مفتوحة للحجز حالياً. تحقق لاحقاً أو تواصل مع الفريق.',
   riderDetails:'بيانات الراكب',fullName:'الاسم الكامل',emailAddr:'البريد الإلكتروني',
   phoneNum:'رقم الهاتف',heightLabel:'الطول',heightHint:'- يتم اختيار المقاس تلقائياً',
   bikeTypePref:'تفضيل نوع الدراجة',numBikes:'عدد الدراجات',joinQueue:'انضم للطابور',
+  typePrefHint:'سيتم اختياره تلقائياً عند كل حجز.',
+  typePrefSaved:'تم حفظ تفضيل النوع.',
   pricePerBike:'السعر للدراجة',bikesWord:'دراجات',totalWord:'الإجمالي',
   myRidesTitle:'رحلاتي',myRidesSub:'سجل الإيجار الكامل لـ',
   totalBookings:'إجمالي الحجوزات',completedLabel:'مكتملة',totalPaid:'إجمالي المدفوع',pendingPayment:'مستحق الدفع',
@@ -1903,6 +1907,7 @@ const S={
   authMode:'login',   // 'login' | 'signup' | 'forgot'
   forgotStep:1,       // 1=enter email, 2=enter code+new password
   forgotEmail:'',
+  signupTypePref:'Any',
   loggedIn:null,      // customer object or null
   // data cache (loaded from API)
   queue:[],bikes:[],customers:[],sessions:[],
@@ -1955,7 +1960,7 @@ async function loadData(){
   const [q,b,c,ses]=await Promise.all([
     sb.from('queue_entries').select('*').order('session_id').order('queue_num'),
     sb.from('bikes').select('*'),
-    sb.from('customers').select('id,name,email,phone,height,created_at'),
+    sb.from('customers').select('id,name,email,phone,height,type_preference,created_at'),
     sb.from('sessions').select('*').order('session_date'),
   ]);
   S.queue=(q.data||[]).map(entryFromDB);
@@ -2116,6 +2121,17 @@ function renderAuthModal(){
       <div class="auth-field"><label>${t('authConfirmPassword')}</label><input id="a-pwd2" type="password" placeholder="${t('authConfirmPassword')}"></div>
       <div class="auth-field"><label>${t('heightLabel')}</label>
         <input id="a-height" type="number" placeholder="cm, e.g. 175" min="100" max="250"></div>
+      <div class="auth-field">
+        <label>${t('bikeTypePref')}</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+          ${['Road','Hybrid','Mountain','Any'].map(ty=>`
+            <button id="stp-${ty}" type="button"
+              class="toggle-btn${S.signupTypePref===ty?' active':''}"
+              onclick="S.signupTypePref='${ty}';['Road','Hybrid','Mountain','Any'].forEach(x=>document.getElementById('stp-'+x)?.classList.toggle('active',x==='${ty}'))"
+              >${typeLabel(ty)}</button>`).join('')}
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;font-weight:600">${t('typePrefHint')}</div>
+      </div>
       <button class="btn-primary auth-submit" onclick="doSignup()">${t('authSignupBtn')}</button>`;
   }
   document.getElementById('auth-modal').innerHTML=`
@@ -2159,11 +2175,12 @@ async function doSignup(){
     if(email){const{data:ex}=await sb.from('customers').select('id').eq('email',email).maybeSingle();if(ex){authErr(t('errEmailExists'));return;}}
     if(fullPhone){const{data:ex}=await sb.from('customers').select('id').eq('phone',fullPhone).maybeSingle();if(ex){authErr(t('errPhoneExists'));return;}}
     const height=heightRaw;
-    const customer={id:uid(),name,email,phone:fullPhone,password_hash:hashPwd(pwd),created_at:new Date().toISOString(),height};
+    const type_preference=S.signupTypePref||'Any';
+    const customer={id:uid(),name,email,phone:fullPhone,password_hash:hashPwd(pwd),created_at:new Date().toISOString(),height,type_preference};
     const{error}=await sb.from('customers').insert(customer);
     if(error)throw error;
     await loadData();
-    const safeCustomer={id:customer.id,name,email,phone:fullPhone,height,created_at:customer.created_at};
+    const safeCustomer={id:customer.id,name,email,phone:fullPhone,height,type_preference,created_at:customer.created_at};
     S.loggedIn=safeCustomer;setSession(safeCustomer);
     closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
     toast(`${name}! ${t('toastAccountCreated')}`);
@@ -2177,7 +2194,7 @@ async function doLogin(){
   if(!pwd){authErr(t('authPassword'));return;}
   try{
     const{data:customer}=await sb.from('customers')
-      .select('id,name,email,phone,height,created_at')
+      .select('id,name,email,phone,height,type_preference,created_at')
       .or(`email.eq.${identifier},phone.eq.${identifier}`)
       .eq('password_hash',hashPwd(pwd))
       .maybeSingle();
@@ -2225,7 +2242,7 @@ async function doResetPassword(){
   if(code!==expected){authErr(t('errOTPInvalid'));return;}
   try{
     const{data:customer}=await sb.from('customers')
-      .select('id,name,email,phone,height,created_at')
+      .select('id,name,email,phone,height,type_preference,created_at')
       .eq('email',S.forgotEmail).maybeSingle();
     if(!customer){authErr(t('errAccountNotFound'));return;}
     const{error}=await sb.from('customers').update({password_hash:hashPwd(pwd)}).eq('id',customer.id);
@@ -2260,6 +2277,11 @@ function prefillFromAccount(){
     const sz=heightToSize(S.loggedIn.height);
     if(S.regBikeSizes.length===0)S.regBikeSizes=[sz]; else S.regBikeSizes[0]=sz;
     if(S.regBikeHeights.length===0)S.regBikeHeights=[String(S.loggedIn.height)]; else S.regBikeHeights[0]=String(S.loggedIn.height);
+  }
+  // Pre-fill default bike type from saved preference (only if not already set by user)
+  if(S.loggedIn.type_preference&&S.loggedIn.type_preference!=='Any'){
+    if(S.regBikeTypes.length===0)S.regBikeTypes=[S.loggedIn.type_preference];
+    else if(!S.regBikeTypes[0])S.regBikeTypes[0]=S.loggedIn.type_preference;
   }
 }
 
@@ -2987,7 +3009,18 @@ function renderAccount(){
             <div id="acc-size-wrap">${sizeDisplay}</div>
           </div></div>
       </div>
-      <div id="acc-err" style="color:var(--red);font-size:13px;font-weight:700;min-height:18px;margin-bottom:10px"></div>
+      <div class="form-group" style="margin-top:4px">
+        <label>${t('bikeTypePref')}</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+          ${['Road','Hybrid','Mountain','Any'].map(ty=>`
+            <button id="atp-${ty}" type="button"
+              class="toggle-btn${(cust.type_preference||'Any')===ty?' active':''}"
+              onclick="S.loggedIn.type_preference='${ty}';['Road','Hybrid','Mountain','Any'].forEach(x=>document.getElementById('atp-'+x)?.classList.toggle('active',x==='${ty}'))"
+              >${typeLabel(ty)}</button>`).join('')}
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;font-weight:600">${t('typePrefHint')}</div>
+      </div>
+      <div id="acc-err" style="color:var(--red);font-size:13px;font-weight:700;min-height:18px;margin-bottom:10px;margin-top:14px"></div>
       <button class="btn-primary" onclick="saveAccount()">${t('saveAccountBtn')}</button>
     </div>`;
 }
@@ -3020,16 +3053,17 @@ async function saveAccount(){
   const fullPhone=phone?(cc+phone):'';
   const height=(!isNaN(heightRaw)&&heightRaw>=100&&heightRaw<=250)?heightRaw:null;
   try{
-    const updates={name};
+    const type_preference=S.loggedIn.type_preference||'Any';
+    const updates={name,height,type_preference};
     if(email!==undefined)updates.email=email;
     if(fullPhone!==undefined)updates.phone=fullPhone;
-    updates.height=height;
     const{error}=await sb.from('customers').update(updates).eq('id',cust.id);
     if(error)throw error;
-    S.loggedIn={...cust,name,email,phone:fullPhone,height};
+    S.loggedIn={...cust,name,email,phone:fullPhone,height,type_preference};
     setSession(S.loggedIn);
-    // Sync registration form if height changed
+    // Sync registration form defaults
     if(height){S._rHeight=String(height);S.regBikeSizes[0]=heightToSize(height);}
+    if(type_preference&&S.regBikeTypes.length===0)S.regBikeTypes=[type_preference];
     toast(t('accountSaved'));
     renderAccount();
     renderTopbarRight();
