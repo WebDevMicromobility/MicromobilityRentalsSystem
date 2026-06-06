@@ -2303,7 +2303,7 @@ function renderAuthModal(){
         </div>`;};
   } else if(isLogin){
     body=`
-      <div class="auth-field"><label>${t('authIdentifier')}</label><input id="a-identifier" type="text" placeholder="email@example.com or +966..."></div>
+      <div class="auth-field"><label>${t('authIdentifier')}</label><input id="a-identifier" type="text" placeholder="email@example.com or 05xxxxxxxx" autocomplete="username"></div>
       <div class="auth-field">
         <label style="display:flex;justify-content:space-between;align-items:center">
           <span>${t('authPassword')}</span>
@@ -2394,14 +2394,27 @@ async function doSignup(){
 }
 
 async function doLogin(){
-  const identifier=(document.getElementById('a-identifier')?.value||'').trim().toLowerCase();
+  const rawInput=(document.getElementById('a-identifier')?.value||'').trim();
+  const identifier=rawInput.toLowerCase();
   const pwd=(document.getElementById('a-pwd')?.value||'');
   if(!identifier){authErr(t('errEmailOrPhone'));return;}
   if(!pwd){authErr(t('authPassword'));return;}
   try{
+    // Build filter candidates — handles: email, +966xxx, 05xxx, 5xxx
+    const isEmail=identifier.includes('@');
+    const filters=[];
+    if(isEmail){
+      filters.push(`email.eq.${identifier}`);
+    }else{
+      const digits=rawInput.replace(/\D/g,''); // strip everything except digits
+      const bare=digits.replace(/^0+/,'');     // strip leading zeros (e.g. 0501 → 501)
+      // Try all reasonable formats the number could be stored as
+      const candidates=new Set([rawInput,digits,bare,`+966${bare}`,`00966${bare}`]);
+      candidates.forEach(c=>{if(c&&c.length>=5)filters.push(`phone.eq.${c}`);});
+    }
     const{data:customer}=await sb.from('customers')
       .select('id,name,email,phone,height,type_preference,created_at')
-      .or(`email.eq.${identifier},phone.eq.${identifier}`)
+      .or(filters.join(','))
       .eq('password_hash',hashPwd(pwd))
       .maybeSingle();
     if(!customer){authErr(t('errInvalidCredentials'));return;}
