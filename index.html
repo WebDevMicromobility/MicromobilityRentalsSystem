@@ -1292,6 +1292,9 @@ en:{
   errSelectSizeGeneric:'Please select a frame size.',
   errSelectTypeGeneric:'Please select a bike type.',
   errPhoneInSession:'This phone number is already registered for that session.',
+  modifyBanner:'You already have a booking in this session. Update your size or bike type preference below.',
+  modifyBookingBtn:'Update Booking',
+  toastBookingUpdated:'Your booking has been updated.',
   errAccountName:'Please enter your name.',
   errSaveAccount:'Error saving changes. Please try again.',
   errPickDate:'Please pick a date.',
@@ -1478,6 +1481,9 @@ ar:{
   errSelectSizeGeneric:'الرجاء اختيار مقاس الإطار.',
   errSelectTypeGeneric:'الرجاء اختيار نوع الدراجة.',
   errPhoneInSession:'رقم الهاتف مسجّل في هذه الجلسة مسبقاً.',
+  modifyBanner:'لديك حجز قائم في هذه الجلسة. يمكنك تعديل المقاس أو نوع الدراجة أدناه.',
+  modifyBookingBtn:'تعديل الحجز',
+  toastBookingUpdated:'تم تحديث حجزك بنجاح.',
   errAccountName:'الرجاء إدخال اسمك.',
   errSaveAccount:'حدث خطأ في الحفظ. حاول مجدداً.',
   errPickDate:'الرجاء اختيار تاريخ.',
@@ -1781,7 +1787,7 @@ const S={
   pinDigits:'',
   pinError:false,
   // register
-  _rDate:'',selSession:null,regType:null,regQty:1,lastTicket:null,
+  _rDate:'',selSession:null,regType:null,regQty:1,lastTicket:null,modifyEntryId:null,
   _rName:'',_rEmail:'',_rPhone:'',_rCC:'+966',_rHeight:'',
   regBikeSizes:[],   // one size per bike slot, e.g. ['M','S']
   regBikeHeights:[], // one height string per bike slot, e.g. ['175','160']
@@ -2377,6 +2383,27 @@ function renderRegister(){
     : `<div class="no-sessions-msg">${t('noSessions')}</div>`;
   if(S.selSession&&!available.find(s=>s.id===S.selSession))S.selSession=null;
 
+  // ── Modify mode: detect existing waiting booking for this session ──
+  let existingEntry=null;
+  if(S.selSession&&cust&&cust.id){
+    existingEntry=getQueue().find(e=>
+      e.customerId===cust.id&&
+      e.sessionId===S.selSession&&
+      e.status==='waiting'
+    )||null;
+    if(existingEntry&&S.modifyEntryId!==existingEntry.id){
+      // First time landing on this session with an existing booking — pre-fill
+      S.modifyEntryId=existingEntry.id;
+      S.regBikeSizes=[existingEntry.size];
+      S.regBikeTypes=[existingEntry.typePreference];
+      S.regQty=1;
+    }else if(!existingEntry){
+      S.modifyEntryId=null;
+    }
+  }else{
+    existingEntry=null;S.modifyEntryId=null;
+  }
+
   // Read-only account info block
   const accountInfoBlock=cust?`
     <div style="background:var(--s3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px">
@@ -2399,8 +2426,22 @@ function renderRegister(){
       </div>
     </div>`:'';
 
-  // Qty stepper at the top of the form
-  const qtyStepper=`
+  // Modify-mode banner (shown instead of qty stepper when customer has existing booking)
+  const modifyBannerHtml=existingEntry?`
+    <div style="display:flex;align-items:flex-start;gap:10px;background:rgba(3,255,137,.07);
+      border:1px solid rgba(3,255,137,.25);border-radius:12px;padding:14px 16px;margin-bottom:20px">
+      <span style="font-size:18px;line-height:1">✏️</span>
+      <div>
+        <div style="font-size:13px;font-weight:800;color:var(--green);margin-bottom:3px">${t('modifyBookingBtn')}</div>
+        <div style="font-size:12px;color:var(--text);line-height:1.5">${t('modifyBanner')}</div>
+        <div style="margin-top:8px;font-size:11px;color:var(--muted)">
+          ${t('queueNumLabel')}: <strong style="color:var(--text)">#${existingEntry.queueNum}</strong>
+        </div>
+      </div>
+    </div>`:'';
+
+  // Qty stepper at the top of the form (hidden in modify mode)
+  const qtyStepper=existingEntry?'':(`
     <div class="form-group" style="margin-bottom:24px">
       <label>${t('numBikes')}</label>
       <div class="qty-stepper">
@@ -2408,7 +2449,7 @@ function renderRegister(){
         <span class="qty-val">${S.regQty}</span>
         <button class="qty-btn" onclick="changeRegQty(1)" type="button">+</button>
       </div>
-    </div>`;
+    </div>`);
 
   // Per-bike sections
   const bikeSections=Array.from({length:S.regQty},(_,i)=>{
@@ -2519,10 +2560,14 @@ function renderRegister(){
     <div class="form-section">
       <div class="form-title">${t('riderDetails')}</div>
       ${accountInfoBlock}
+      ${modifyBannerHtml}
       ${qtyStepper}
       ${bikeSections}
       <div id="price-preview-wrap" style="margin-top:16px">${pricePreview}</div>
-      <button class="btn-primary" style="width:100%;margin-top:16px" onclick="submitReg()">${t('joinQueue')}</button>
+      ${existingEntry
+        ?`<button class="btn-primary" style="width:100%;margin-top:16px" onclick="submitModifyBooking('${existingEntry.id}')">${t('modifyBookingBtn')}</button>`
+        :`<button class="btn-primary" style="width:100%;margin-top:16px" onclick="submitReg()">${t('joinQueue')}</button>`
+      }
     </div>
     ${ticket}`;
 }
@@ -2632,6 +2677,9 @@ async function submitReg(){
 
   const name=cust.name,email=cust.email||'',phone=cust.phone||'';
   const queue=getQueue();
+  // If customer already has a waiting booking in this session, they should be in modify mode — safety guard
+  if(cust.id&&queue.find(e=>e.customerId===cust.id&&e.sessionId===S.selSession&&e.status==='waiting'))
+    {renderRegister();return;}
   if(phone&&queue.find(e=>e.phone===phone&&e.sessionId===S.selSession&&e.status!=='noshow'&&e.status!=='cancelled'))
     {toast(t('errPhoneInSession'),'error');return;}
 
@@ -2662,6 +2710,24 @@ async function submitReg(){
   renderRegister();
 }
 
+async function submitModifyBooking(entryId){
+  const cust=S.loggedIn||getSession();
+  if(!cust){toast(t('errLoginFirst'),'error');return;}
+  const size=S.regBikeSizes[0];
+  const typePreference=S.regBikeTypes[0];
+  if(!size){toast(t('errSelectSizeGeneric'),'error');return;}
+  if(!typePreference){toast(t('errSelectTypeGeneric'),'error');return;}
+  const newPrice=priceForType(typePreference);
+  const{error}=await sb.from('queue_entries')
+    .update({size,type_preference:typePreference,price:newPrice})
+    .eq('id',entryId);
+  if(error){toast(error.message||'Error','error');return;}
+  await loadData();
+  S.modifyEntryId=null;S.selSession=null;
+  S.regBikeSizes=[];S.regBikeTypes=[];S.regQty=1;
+  toast(t('toastBookingUpdated'));
+  renderRegister();renderMyRides();
+}
 
 /* ══════════════════════════════════════════════
    MY RIDES (customer account history)
