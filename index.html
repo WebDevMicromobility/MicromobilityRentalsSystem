@@ -144,6 +144,50 @@
     .staff-access-btn{background:none;border:none;color:var(--muted);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:600;cursor:pointer;padding:8px 16px;border-radius:8px;transition:all .2s;opacity:.45;}
     .staff-access-btn:hover{color:var(--green);opacity:1;}
 
+    /* ── Landing availability strip ── */
+    .landing-avail-strip{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:24px;}
+    .landing-avail-chip{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:24px;
+      border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);
+      font-size:13px;font-weight:700;cursor:pointer;transition:all .22s;}
+    .landing-avail-chip.has-spots{border-color:rgba(3,255,137,.3);background:rgba(3,255,137,.06);color:var(--green);}
+    .landing-avail-chip.has-spots:hover{background:rgba(3,255,137,.14);border-color:rgba(3,255,137,.6);}
+    .landing-avail-chip.full{border-color:rgba(224,136,40,.3);background:rgba(224,136,40,.06);color:var(--orange);}
+    .landing-avail-chip.no-sessions{color:var(--muted);}
+    .landing-avail-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+    .landing-subtitle{font-size:15px;color:var(--muted);font-weight:500;text-align:center;margin-bottom:28px;line-height:1.6;}
+
+    /* ── Modal animations ── */
+    @keyframes modalFadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes modalSlideUp{from{transform:translateY(28px) scale(.97);opacity:0}to{transform:translateY(0) scale(1);opacity:1}}
+    @keyframes modalSheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+    .modal-backdrop{animation:modalFadeIn .22s ease both;}
+    .modal-box{animation:modalSlideUp .28s cubic-bezier(.2,.8,.2,1) both;}
+    @media(max-width:767px){
+      .modal-box{animation:modalSheetUp .32s cubic-bezier(.2,.8,.2,1) both;}
+    }
+
+    /* ── Staff session summary bar ── */
+    .sess-summary-bar{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+    .sess-summary-chip{
+      display:flex;align-items:center;gap:10px;
+      background:linear-gradient(145deg,#1a1a1a,#161616);
+      border:1px solid rgba(255,255,255,.07);border-radius:12px;
+      padding:10px 14px;cursor:pointer;transition:all .2s;flex:1;min-width:160px;}
+    .sess-summary-chip:hover{border-color:rgba(3,255,137,.35);background:#1c1f1c;}
+    .sess-summary-chip.active-sess{border-color:rgba(3,255,137,.3);}
+    .sess-chip-info{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;}
+    .sess-chip-date{font-size:12px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .sess-chip-counts{font-size:11px;color:var(--muted);font-weight:700;}
+    .sess-chip-bar{height:4px;border-radius:2px;background:var(--border);overflow:hidden;margin-top:6px;}
+    .sess-chip-fill{height:100%;border-radius:2px;background:var(--green);transition:width .4s;}
+    .sess-chip-badge{flex-shrink:0;}
+    @media(max-width:767px){.sess-summary-bar{gap:6px;}.sess-summary-chip{min-width:140px;padding:8px 10px;}}
+
+    /* ── Auto-refresh indicator ── */
+    .refresh-indicator{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.2px;}
+    .refresh-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+    @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+
     /* ── MAIN CONTENT ────────────────────────────────────── */
     .view-main{max-width:1160px;margin:0 auto;padding:28px 28px;}
     /* ── App footer ── */
@@ -1170,6 +1214,8 @@
 <div id="view-landing">
   <div id="landing-body">
     <h1 class="landing-main-title" id="land-main-title">Reserve Your <span>Bicycle Now!</span></h1>
+    <div class="landing-subtitle" id="land-subtitle">Corniche Circuit &nbsp;·&nbsp; Jeddah</div>
+    <div class="landing-avail-strip" id="land-avail-strip"></div>
 
     <button class="landing-hero-card" onclick="goCustomer('register')">
       <img src="hero.png" alt="Corniche Circuit">
@@ -1743,6 +1789,7 @@ function setLang(lang){
   renderTopbarRight();
   if(S.view==='customer'){renderRegister();renderMyRides();if(S.custTab==='account')renderAccount();}
   else if(S.view==='staff'){renderStaffQueue();renderSessions();renderBikes();renderHistory();if(S.staffTab==='analytics')renderAnalytics();}
+  else if(S.view==='landing')renderLandingAvail();
   if(document.getElementById('auth-modal')?.style.display!=='none')renderAuthModal();
 }
 
@@ -2216,10 +2263,10 @@ function renderAuthModal(){
       <div class="auth-field">
         <label>${t('bikeTypePref')}</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
-          ${['Road','Hybrid','Mountain','Any'].map(ty=>`
+          ${['Any','Road','Hybrid','Mountain'].map(ty=>`
             <button id="stp-${ty}" type="button"
               class="toggle-btn${S.signupTypePref===ty?' active':''}"
-              onclick="S.signupTypePref='${ty}';['Road','Hybrid','Mountain','Any'].forEach(x=>document.getElementById('stp-'+x)?.classList.toggle('active',x==='${ty}'))"
+              onclick="S.signupTypePref='${ty}';['Any','Road','Hybrid','Mountain'].forEach(x=>document.getElementById('stp-'+x)?.classList.toggle('active',x==='${ty}'))"
               >${typeLabel(ty)}</button>`).join('')}
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:6px;font-weight:600">${t('typePrefHint')}</div>
@@ -2388,7 +2435,27 @@ function showView(v){
   renderTopbarRight();
 }
 
-function goLanding(){showView('landing');}
+function goLanding(){showView('landing');renderLandingAvail();}
+function renderLandingAvail(){
+  const strip=document.getElementById('land-avail-strip');if(!strip)return;
+  const open=openSessions();
+  if(!open.length){
+    strip.innerHTML=`<div class="landing-avail-chip no-sessions"><span class="landing-avail-dot" style="background:var(--muted)"></span>${t('noSessions')}</div>`;
+    return;
+  }
+  strip.innerHTML=open.map(s=>{
+    const left=spotsLeft(s.id);
+    const full=left===0||s.status==='full';
+    const cls=full?'full':'has-spots';
+    const dotClr=full?'var(--orange)':'var(--green)';
+    const label=full?t('statusFull'):`${left} ${t('spotsLeft')}`;
+    return`<div class="landing-avail-chip ${cls}" onclick="goCustomer('register')">
+      <span class="landing-avail-dot" style="background:${dotClr}"></span>
+      <span>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</span>
+      <span style="opacity:.7;font-size:11px">${label}</span>
+    </div>`;
+  }).join('');
+}
 
 function goCustomer(tab){
   S.loggedIn=getSession();
@@ -2710,7 +2777,7 @@ function renderRegister(){
     ).join('');
 
     // Type toggles
-    const typeBtns=['Road','Hybrid','Mountain','Any'].map(ty=>
+    const typeBtns=['Any','Road','Hybrid','Mountain'].map(ty=>
       `<button class="toggle-btn${selTy===ty?' active':''}" data-type-slot="${i}" data-type="${ty}" onclick="setBikeType(${i},'${ty}')">${typeLabel(ty)}</button>`
     ).join('');
 
@@ -3145,10 +3212,10 @@ function renderAccount(){
       <div class="form-group" style="margin-top:4px">
         <label>${t('bikeTypePref')}</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-          ${['Road','Hybrid','Mountain','Any'].map(ty=>`
+          ${['Any','Road','Hybrid','Mountain'].map(ty=>`
             <button id="atp-${ty}" type="button"
               class="toggle-btn${(cust.type_preference||'Any')===ty?' active':''}"
-              onclick="S.loggedIn.type_preference='${ty}';['Road','Hybrid','Mountain','Any'].forEach(x=>document.getElementById('atp-'+x)?.classList.toggle('active',x==='${ty}'))"
+              onclick="S.loggedIn.type_preference='${ty}';['Any','Road','Hybrid','Mountain'].forEach(x=>document.getElementById('atp-'+x)?.classList.toggle('active',x==='${ty}'))"
               >${typeLabel(ty)}</button>`).join('')}
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:6px;font-weight:600">${t('typePrefHint')}</div>
@@ -3736,7 +3803,14 @@ function renderStaffQueue(){
   }
   document.getElementById('tab-queue').innerHTML=`
     <div class="section-header">
-      <div class="page-title">${t('staffQueueTitle')}</div>
+      <div>
+        <div class="page-title">${t('staffQueueTitle')}</div>
+        <div class="refresh-indicator" style="margin-top:3px">
+          <span class="refresh-dot"></span>
+          <span>Live &nbsp;·&nbsp; </span>
+          <span id="staff-refresh-label">just now</span>
+        </div>
+      </div>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="density-toggle">
           <button class="density-btn${S.queueDensity==='comfortable'?' active':''}" onclick="S.queueDensity='comfortable';renderStaffQueue()" title="Comfortable">⊡</button>
@@ -3757,6 +3831,34 @@ function renderStaffQueue(){
       </div>
       <div id="staff-reset-result"></div>
     </div>`:''}
+    ${(()=>{
+      const openSess=allSessions().filter(s=>s.status==='open'||s.status==='full').sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+      if(!openSess.length)return'';
+      const chips=openSess.map(s=>{
+        const q=getQueue().filter(e=>e.sessionId===s.id);
+        const sWait=q.filter(e=>e.status==='waiting').length;
+        const sActive=q.filter(e=>e.status==='active').length;
+        const sDone=q.filter(e=>e.status==='done').length;
+        const cap=s.capacity||12;
+        const fillPct=Math.round(Math.min((sWait+sActive+sDone)/cap*100,100));
+        const fillClr=fillPct>=90?'var(--red)':fillPct>=60?'var(--orange)':'var(--green)';
+        const isCurrent=S.sfSession===s.id;
+        return`<div class="sess-summary-chip${isCurrent?' active-sess':''}"
+          onclick="setSfSession('${s.id}')" title="${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}">
+          <div class="sess-chip-info">
+            <div class="sess-chip-date">${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</div>
+            <div class="sess-chip-counts">
+              <span style="color:var(--green)">${sWait} ${t('waitingStat').toLowerCase()}</span>
+              ${sActive?` &middot; <span style="color:var(--orange)">${sActive} ${t('onBikeStat').toLowerCase()}</span>`:''}
+              ${sDone?` &middot; <span style="color:var(--muted)">${sDone} done</span>`:''}
+            </div>
+            <div class="sess-chip-bar"><div class="sess-chip-fill" style="width:${fillPct}%;background:${fillClr}"></div></div>
+          </div>
+          <div class="sess-chip-badge"><span class="badge-${s.status}">${{open:t('statusOpen'),full:t('statusFull'),closed:t('statusClosed')}[s.status]}</span></div>
+        </div>`;
+      }).join('');
+      return`<div class="sess-summary-bar">${chips}</div>`;
+    })()}
     <div class="stats-row">
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('totalStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWait}</div><div class="stat-label">${t('waitingStat')}</div></div>
@@ -5168,7 +5270,30 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   }
   S.loggedIn=getSession();
   showView('landing');
+  renderLandingAvail();
 })();
+
+// ── Auto-refresh for staff view ──
+let _lastRefresh=Date.now();
+let _refreshTimer=null;
+function _tickRefreshLabel(){
+  const el=document.getElementById('staff-refresh-label');
+  if(!el)return;
+  const sec=Math.round((Date.now()-_lastRefresh)/1000);
+  el.textContent=sec<5?'just now':sec<60?`${sec}s ago`:`${Math.round(sec/60)}m ago`;
+}
+async function _autoRefresh(){
+  if(S.view!=='staff')return;
+  try{
+    await loadData();
+    _lastRefresh=Date.now();
+    renderStaffQueue();renderSessions();
+    if(S.staffTab==='analytics')renderAnalytics();
+    renderLandingAvail();
+  }catch(e){/* silent */}
+}
+setInterval(()=>{_tickRefreshLabel();},5000);
+setInterval(()=>{_autoRefresh();},30000);
 </script>
 </body>
 </html>
