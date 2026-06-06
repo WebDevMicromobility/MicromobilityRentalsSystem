@@ -3590,10 +3590,17 @@ async function staffShowResetCode(){
 }
 
 async function togglePayment(id,paid){
+  // Optimistic update: flip state locally and re-render immediately so button responds instantly
+  const entry=getQueue().find(e=>e.id===id);
+  if(!entry)return;
+  entry.paid=paid;
+  renderStaffQueue();renderHistory();
+  toast(paid?'✓ '+t('paidLabel'):t('pendingLabel'), paid?'':'warning');
+  // Persist to database in background, then sync
   await sb.from('queue_entries').update({paid}).eq('id',id);
   await loadData();
-  toast(paid?'✓ '+t('paidLabel'):t('pendingLabel'), paid?'':'warning');
-  const entry=getQueue().find(e=>e.id===id);const lbl=entry?`Payment #${entry.queueNum} ${entry.name}`:'Payment';
+  renderStaffQueue();renderHistory();
+  const lbl=`Payment #${entry.queueNum} ${entry.name}`;
   pushUndo(`${paid?'Mark paid':'Mark unpaid'} — ${lbl}`,async()=>{
     await sb.from('queue_entries').update({paid:!paid}).eq('id',id);
     await loadData();renderStaffQueue();renderHistory();
