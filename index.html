@@ -417,8 +417,8 @@
     html[lang="ar"] .sess-card-day{font-size:11.5px;font-weight:800;}
     html[lang="ar"] .sess-card-date{font-size:18px;font-weight:900;}
     html[lang="ar"] .sess-card-spots{font-size:13px;font-weight:800;}
-    html[lang="ar"] .sess-admin-table th{font-size:12px;font-weight:900;}
-    html[lang="ar"] .sess-admin-table td{font-size:14px;}
+    html[lang="ar"] .sess-admin-table th{font-size:13px;font-weight:900;text-transform:none;letter-spacing:0;}
+    html[lang="ar"] .sess-admin-table td{font-size:15px;}
 
     /* Bikes */
     html[lang="ar"] .bike-name,.bike-list-name{font-size:15px;font-weight:900;}
@@ -516,6 +516,9 @@
     .sess-admin-table{width:100%;border-collapse:collapse;background:linear-gradient(160deg,#181818,#151515);}
     .sess-admin-table th,.sess-admin-table td{padding:12px 16px;text-align:left;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px;}
     .sess-admin-table th{font-weight:900;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.7px;background:#121212;}
+    .sess-admin-table th.an-sort-th{cursor:pointer;user-select:none;transition:color .15s;white-space:nowrap;}
+    .sess-admin-table th.an-sort-th:hover{color:rgba(255,255,255,.8);}
+    .sess-admin-table th.an-sort-active{color:var(--green);}
     .sess-admin-table tbody tr:hover td{background:rgba(255,255,255,.018);}
     .badge-open{background:rgba(3,255,137,.12);color:var(--green);border:1px solid rgba(3,255,137,.3);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:900;box-shadow:0 0 10px rgba(3,255,137,.1);letter-spacing:.3px;}
     .badge-closed{background:rgba(224,64,64,.08);color:var(--red);border:1px solid rgba(224,64,64,.22);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:900;letter-spacing:.3px;}
@@ -1898,7 +1901,7 @@ const S={
   // my rides
   myStatus:'all',mySort:'newest',
   // sessions
-  sessSort:'date-asc',sessStatusFilter:'all',
+  sessSort:'date',sessSortDir:1,sessStatusFilter:'all',
   // analytics
   analyticsRange:'all', analyticsTrendSort:'date', analyticsTrendDir:-1,
   // modals
@@ -3245,23 +3248,28 @@ function renderSessions(){
 
   let sessList=[...sessions];
   if(S.sessStatusFilter!=='all') sessList=sessList.filter(s=>s.status===S.sessStatusFilter);
+  const _sd=S.sessSortDir;
   sessList.sort((a,b)=>{
-    if(S.sessSort==='date-desc') return new Date(b.session_date||b.id)-new Date(a.session_date||a.id);
+    if(S.sessSort==='day')      return _sd*(a.day||'').localeCompare(b.day||'');
+    if(S.sessSort==='capacity') return _sd*((a.capacity||12)-(b.capacity||12));
     if(S.sessSort==='bookings'){
       const ba=getQueue().filter(e=>e.sessionId===a.id&&e.status!=='noshow'&&e.status!=='cancelled').length;
       const bb=getQueue().filter(e=>e.sessionId===b.id&&e.status!=='noshow'&&e.status!=='cancelled').length;
-      return bb-ba;
+      return _sd*(ba-bb);
     }
-    if(S.sessSort==='capacity') return (b.capacity||12)-(a.capacity||12);
-    return new Date(a.session_date||a.id)-new Date(b.session_date||b.id);
+    if(S.sessSort==='status')   return _sd*(a.status||'').localeCompare(b.status||'');
+    return _sd*(new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
   });
+
+  function thSessSort(col,label){
+    const active=S.sessSort===col;
+    const arrow=active?(S.sessSortDir===1?'↑':'↓'):'';
+    return`<th class="an-sort-th${active?' an-sort-active':''}" onclick="setSessSort('${col}')">${label}${active?` ${arrow}`:''}</th>`;
+  }
+
   const sessStatusPills=['all','open','full','closed'].map(s=>{
     const l={all:t('filterAll'),open:t('statusOpen'),full:t('statusFull'),closed:t('statusClosed')}[s];
     return`<button class="filter-pill${S.sessStatusFilter===s?' active':''}" onclick="setSessStatusFilter('${s}')">${l}</button>`;
-  }).join('');
-  const sessSortPills=['date-asc','date-desc','bookings','capacity'].map(k=>{
-    const lbl={['date-asc']:t('sortDateAsc'),['date-desc']:t('sortDateDesc'),bookings:t('colBookings'),capacity:t('colCapacity')}[k];
-    return`<button class="sort-pill${S.sessSort===k?' active':''}" onclick="setSessSort('${k}')">${lbl}</button>`;
   }).join('');
   const rows=sessList.length?sessList.map(s=>{
     const booked=getQueue().filter(e=>e.sessionId===s.id&&e.status!=='noshow'&&e.status!=='cancelled').length;
@@ -3320,15 +3328,19 @@ function renderSessions(){
       <div class="filter-bar-row">
         <span class="filter-group-label">${t('filterStatus')}:</span>
         ${sessStatusPills}
-        <div class="filter-spacer"></div>
-        <span class="filter-group-label">${t('sortBy')}:</span>
-        ${sessSortPills}
       </div>
       ${sessList.length!==sessions.length?`<div class="result-count">${sessList.length} ${t('resultOf')} ${sessions.length} ${t('resultSessions')}</div>`:''}
     </div>
     <div class="table-wrapper">
       <table class="sess-admin-table">
-        <thead><tr><th>${t('colDate')}</th><th>${t('colDay')}</th><th>${t('colCapacity')}</th><th>${t('colBookings')}</th><th>${t('colStatus')}</th><th>${t('colActions')}</th></tr></thead>
+        <thead><tr>
+          ${thSessSort('date',t('colDate'))}
+          ${thSessSort('day',t('colDay'))}
+          ${thSessSort('capacity',t('colCapacity'))}
+          ${thSessSort('bookings',t('colBookings'))}
+          ${thSessSort('status',t('colStatus'))}
+          <th>${t('colActions')}</th>
+        </tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`;
@@ -4204,7 +4216,11 @@ function setHistSize(v){S.histSize=v;renderHistory();}
 function setHistSearch(v){S.histSearch=v;renderHistory();}
 function setMyStatus(v){S.myStatus=v;renderMyRides();}
 function setMySort(v){S.mySort=v;renderMyRides();}
-function setSessSort(v){S.sessSort=v;renderSessions();}
+function setSessSort(col){
+  if(S.sessSort===col) S.sessSortDir=-S.sessSortDir;
+  else{S.sessSort=col;S.sessSortDir=1;}
+  renderSessions();
+}
 function setSessStatusFilter(v){S.sessStatusFilter=v;renderSessions();}
 function setBkStatus(v){S.bkStatus=v;renderBikes();}
 function setBkSize(v){S.bkSize=v;renderBikes();}
