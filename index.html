@@ -1569,6 +1569,16 @@ en:{
   receiptThankYou:'Thank you for riding with us at the Jeddah Corniche Circuit!',
   receiptSeeYou:'We hope to see you at the Corniche Circuit again soon!',
   typeRoad:'Road',typeHybrid:'Hybrid',typeMountain:'Mountain',typeAny:'Any',
+  // Hardcoded strings now using t()
+  liveLabel:'Live',justNow:'just now',secondsAgo:'s ago',minutesAgo:'m ago',
+  selectSessionPrompt:'Select a session above',selectSessionSub:'Click a session chip to view and manage its queue independently.',
+  undoBtn:'↩ Undo',undoneMsg:'↩ Undone.',undoFailed:'Undo failed.',
+  fleetBadge:'Fleet',altBadge:'Alt',
+  showOtherTypes:'↓ Show other types',hideOtherTypes:'↑ Hide other types',available2:'available',
+  noOtherTypes:'No other types available either.',
+  noBikesForType:'No {0} bikes in the fleet.',
+  doneSessChip:'done',activeSessChip:'on bike',
+  colContact:'Contact',callLabel:'Call',
 },
 ar:{
   appSub:'طابور حلبة الكورنيش',landingTitle:'مايكرو موبيليتي - حلبة الكورنيش',
@@ -1611,7 +1621,7 @@ ar:{
   anChartPaySplit:'توزيع المدفوعات',anChartPaySub:'المحصّل مقابل المعلق عبر كل الرحلات',
   anChartCumRev:'الإيرادات التراكمية',anChartCumSub:'المجموع التراكمي للإيرادات المحصّلة مع الوقت',
   anCollectedOnly:'المحصّل فقط',
-  anChartRidersPerSession:'الراكبون لكل جلسة',anChartRidersSub:'أزرق = راكبون · منقط = الطاقة',
+  anChartRidersPerSession:'الراكبون لكل جلسة',anChartRidersSub:'أخضر = راكبون · منقط = الطاقة',
   anChartTypeDistrib:'توزيع أنواع الدراجات',anChartTypeSubtext:'حصة كل نوع من إجمالي الرحلات',
   anChartOccupancy:'إشغال الجلسة',anChartOccSub:'نسبة الطاقة المستخدمة لكل جلسة',
   anChartFrameSub:'التوزيع عبر XS · S · M · L',anChartDaySub:'أكثر الأيام ازدحاماً يوجّه قرارات الجدولة',
@@ -1778,7 +1788,16 @@ ar:{
   receiptTitle:'إيصال الرحلة',receiptDear:'عزيزي',
   receiptThankYou:'شكراً لركوبك معنا في حلبة كورنيش جدة!',
   receiptSeeYou:'نأمل رؤيتك في حلبة الكورنيش مجدداً!',
-  typeRoad:'Road / طريق',typeHybrid:'Hybrid / هجين',typeMountain:'Mountain / جبلي',typeAny:'أي نوع',
+  typeRoad:'طريق',typeHybrid:'هجين',typeMountain:'جبلي',typeAny:'أي نوع',
+  liveLabel:'مباشر',justNow:'الآن',secondsAgo:'ث مضت',minutesAgo:'د مضت',
+  selectSessionPrompt:'اختر جلسة من الأعلى',selectSessionSub:'انقر على إحدى الجلسات لعرض طابورها وإدارته بشكل مستقل.',
+  undoBtn:'↩ تراجع',undoneMsg:'↩ تم التراجع.',undoFailed:'فشل التراجع.',
+  fleetBadge:'الأسطول',altBadge:'بديل',
+  showOtherTypes:'↓ عرض أنواع أخرى',hideOtherTypes:'↑ إخفاء الأنواع الأخرى',available2:'متاح',
+  noOtherTypes:'لا توجد أنواع أخرى متاحة.',
+  noBikesForType:'لا توجد دراجات من نوع {0} في الأسطول.',
+  doneSessChip:'منتهٍ',activeSessChip:'على الدراجة',
+  colContact:'تواصل',callLabel:'اتصال',
 }};
 function t(k){return(LANG[S&&S.lang?S.lang:'en']||LANG.en)[k]||LANG.en[k]||k;}
 
@@ -2223,7 +2242,7 @@ function showUndoBar(label,fn){
   bar.id='undo-bar-el';bar.className='undo-bar';
   bar.innerHTML=`
     <div class="undo-bar-text">${esc(label)}</div>
-    <button class="undo-bar-action" id="undo-bar-btn">↩ Undo</button>
+    <button class="undo-bar-action" id="undo-bar-btn">${t('undoBtn')}</button>
     <div class="undo-bar-progress" id="undo-bar-prog" style="width:100%"></div>`;
   document.getElementById('toast-container').appendChild(bar);
   const prog=document.getElementById('undo-bar-prog');
@@ -2238,7 +2257,7 @@ function showUndoBar(label,fn){
   },80);
   btn.onclick=async()=>{
     clearInterval(_undoBarTimer);bar.remove();
-    try{await fn();toast('↩ Undone.');}catch(e){toast('Undo failed.','error');}
+    try{await fn();toast(t('undoneMsg'));}catch(e){toast(t('undoFailed'),'error');}
     renderTopbarRight();renderStaffQueue();
   };
 }
@@ -3801,18 +3820,7 @@ function renderStaffQueue(){
     return`<tr class="${rowCls}">
       <td style="min-width:52px"><span class="queue-num-cell" style="font-size:${e.status!=='waiting'?'18':'22'}px">#${e.queueNum}</span></td>
       <td style="text-align:center">${posCell}</td>
-      <td><div class="rider-name">${esc(e.name)}${wiTag}</div>
-        <div class="rider-sub" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span>${esc(e.phone)||'—'}</span>
-          ${e.phone?`
-            <a href="tel:${esc(e.phone)}" title="Call" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);text-decoration:none;flex-shrink:0;transition:all .18s" onmouseover="this.style.background='rgba(3,255,137,.22)'" onmouseout="this.style.background='rgba(3,255,137,.1)'">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13.1a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-            </a>
-            <a href="https://wa.me/${e.phone.replace(/\D/g,'')}" target="_blank" rel="noopener" title="WhatsApp" style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);text-decoration:none;flex-shrink:0;transition:all .18s" onmouseover="this.style.background='rgba(3,255,137,.22)'" onmouseout="this.style.background='rgba(3,255,137,.1)'">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
-            </a>`:''}
-        </div>
-      </td>
+      <td><div class="rider-name">${esc(e.name)}${wiTag}</div><div class="rider-sub">${esc(e.phone)||'—'}</div></td>
       <td style="font-weight:800">${e.size}</td>
       <td>${typeBadge(e.typePreference)}</td>
       ${S.sfSession==='all'?`<td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
@@ -3824,6 +3832,14 @@ function renderStaffQueue(){
         </button>
       </td>
       <td>${statusBadge(e.status)}</td>
+      <td>${e.phone?`<div style="display:flex;gap:5px;align-items:center">
+        <a href="tel:${esc(e.phone)}" title="${t('callLabel')||'Call'}" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);text-decoration:none;transition:all .18s" onmouseover="this.style.background='rgba(3,255,137,.22)'" onmouseout="this.style.background='rgba(3,255,137,.1)'">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13.1a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        </a>
+        <a href="https://wa.me/${e.phone.replace(/\D/g,'')}" target="_blank" rel="noopener" title="WhatsApp" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);text-decoration:none;transition:all .18s" onmouseover="this.style.background='rgba(3,255,137,.22)'" onmouseout="this.style.background='rgba(3,255,137,.1)'">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+        </a>
+      </div>`:'<span style="color:var(--muted)">—</span>'}</td>
       <td><div class="actions-cell">${actions}</div></td>
     </tr>`;
   }
@@ -3832,14 +3848,12 @@ function renderStaffQueue(){
   let rows,emptyRow='';
   if(S.sfSession==='all'){
     rows='';
-    emptyRow=`<tr><td colspan="11">
-      ${emptyIllustration(ILLUS_CALENDAR,
-        'Select a session above',
-        'Click a session chip to view and manage its queue independently.')}
+    emptyRow=`<tr><td colspan="12">
+      ${emptyIllustration(ILLUS_CALENDAR,t('selectSessionPrompt'),t('selectSessionSub'))}
     </td></tr>`;
   }else{
     rows=filtered.map(e=>renderQRow(e)).join('');
-    emptyRow=filtered.length===0?`<tr><td colspan="11"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`:'';
+    emptyRow=filtered.length===0?`<tr><td colspan="12"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`:'';
   }
   document.getElementById('tab-queue').innerHTML=`
     <div class="section-header">
@@ -3847,8 +3861,8 @@ function renderStaffQueue(){
         <div class="page-title">${t('staffQueueTitle')}</div>
         <div class="refresh-indicator" style="margin-top:3px">
           <span class="refresh-dot"></span>
-          <span>Live &nbsp;·&nbsp; </span>
-          <span id="staff-refresh-label">just now</span>
+          <span>${t('liveLabel')} &nbsp;·&nbsp; </span>
+          <span id="staff-refresh-label">${t('justNow')}</span>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
@@ -3889,8 +3903,8 @@ function renderStaffQueue(){
             <div class="sess-chip-date">${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</div>
             <div class="sess-chip-counts">
               <span style="color:var(--green)">${sWait} ${t('waitingStat').toLowerCase()}</span>
-              ${sActive?` &middot; <span style="color:var(--text)">${sActive} ${t('onBikeStat').toLowerCase()}</span>`:''}
-              ${sDone?` &middot; <span style="color:var(--muted)">${sDone} done</span>`:''}
+              ${sActive?` &middot; <span style="color:var(--text)">${sActive} ${t('activeSessChip')}</span>`:''}
+              ${sDone?` &middot; <span style="color:var(--muted)">${sDone} ${t('doneSessChip')}</span>`:''}
             </div>
             <div class="sess-chip-bar"><div class="sess-chip-fill" style="width:${fillPct}%;background:${fillClr}"></div></div>
           </div>
@@ -3922,7 +3936,7 @@ function renderStaffQueue(){
         <div class="filter-spacer"></div>
         <div class="search-wrap">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="white" stroke-width="1.4"/><line x1="9.5" y1="9.5" x2="13" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>
-          <input class="search-input" placeholder="${t('searchPlaceholder')}" value="${esc(S.sfSearch)}"
+          <input id="sf-search-input" class="search-input" placeholder="${t('searchPlaceholder')}" value="${esc(S.sfSearch)}"
             oninput="setSfSearch(this.value)">
         </div>
       </div>
@@ -3940,6 +3954,7 @@ function renderStaffQueue(){
         <th>${t('colColor')}</th>
         ${thQSort('paid',t('colPayment'))}
         ${thQSort('status',t('colStatus'))}
+        <th style="font-size:10px;color:var(--muted)">${t('colContact')}</th>
         <th></th>
       </tr></thead>
       <tbody>${rows}${emptyRow}</tbody>
@@ -3953,7 +3968,13 @@ function setSfSort(col){
   else{S.sfSort=col;S.sfSortDir=1;}
   renderStaffQueue();
 }
-function setSfSearch(v){S.sfSearch=v;renderStaffQueue();}
+function setSfSearch(v){
+  S.sfSearch=v;
+  renderStaffQueue();
+  // Restore focus and caret position after re-render
+  const inp=document.getElementById('sf-search-input');
+  if(inp){inp.focus();const l=v.length;inp.setSelectionRange(l,l);}
+}
 function setSfPay(v){S.sfPay=v;renderStaffQueue();}
 function setSfSize(v){S.sfSize=v;renderStaffQueue();}
 function toggleResetTool(){S.showResetTool=!S.showResetTool;renderStaffQueue();}
@@ -4007,7 +4028,7 @@ async function doUndo(){
   if(!item)return;
   try{
     await item.fn();
-    toast('↩ Undone.');
+    toast(t('undoneMsg'));
   }catch(e){
     S.undoStack.push(item);
     toast('Undo failed.','error');
@@ -4170,8 +4191,8 @@ function renderModal(){
     const sizeMatch=b.size===rider.size;
     const badges=[];
     if(sizeMatch)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--green);background:rgba(3,255,137,.15);padding:2px 6px;border-radius:6px">${t('sizeMatchLabel')}</span>`);
-    if(inFleet(b)&&slots)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--green);background:rgba(3,255,137,.1);padding:2px 6px;border-radius:6px">Fleet</span>`);
-    if(altType)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--muted-l);background:rgba(255,255,255,.07);padding:2px 6px;border-radius:6px">Alt</span>`);
+    if(inFleet(b)&&slots)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--green);background:rgba(3,255,137,.1);padding:2px 6px;border-radius:6px">${t('fleetBadge')}</span>`);
+    if(altType)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--muted-l);background:rgba(255,255,255,.07);padding:2px 6px;border-radius:6px">${t('altBadge')}</span>`);
     return`<div class="modal-bike-card${!free?' unavailable':''}${S.modalBike===b.id?' selected':''}" ${free?`onclick="pickBike('${b.id}')"`:''}>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:4px;flex-wrap:wrap">
         <span class="avail-dot ${dot}"></span>
@@ -4189,7 +4210,7 @@ function renderModal(){
   const prefSection=prefBikes.length
     ?`<div class="modal-bikes-grid">${prefBikes.map(b=>bikeCard(b,false)).join('')}</div>`
     :`<div style="color:var(--muted);font-size:13px;font-weight:700;padding:16px 0;text-align:center">
-        No ${typeLabel(prefType)} bikes in the fleet.
+        ${t('noBikesForType').replace('{0}',typeLabel(prefType))}
       </div>`;
 
   // "Show other types" toggle
@@ -4202,18 +4223,18 @@ function renderModal(){
         onmouseover="this.style.borderColor='rgba(3,255,137,.35)';this.style.color='var(--green)'"
         onmouseout="this.style.borderColor='rgba(255,255,255,.15)';this.style.color='var(--muted-l)'">
         ${S.modalShowAll
-          ?'↑ Hide other types'
-          :`↓ Show other types (${otherAvail} available)`}
+          ?t('hideOtherTypes')
+          :`${t('showOtherTypes')} (${otherAvail} ${t('available2')})`}
       </button>
       ${S.modalShowAll?`
         <div style="display:flex;align-items:center;gap:8px;margin:14px 0 10px">
           <div style="flex:1;height:1px;background:var(--border)"></div>
-          <span style="font-size:10px;font-weight:900;color:var(--muted-l);text-transform:uppercase;letter-spacing:.6px">Other Types</span>
+          <span style="font-size:10px;font-weight:900;color:var(--muted-l);text-transform:uppercase;letter-spacing:.6px">${t('showOtherTypes').replace(/^[↓↑]\s*/,'')}</span>
           <div style="flex:1;height:1px;background:var(--border)"></div>
         </div>
         <div class="modal-bikes-grid">${otherBikes.map(b=>bikeCard(b,true)).join('')}</div>`:''}
     </div>`:
-    (prefEmpty?`<div style="margin-top:10px;font-size:12px;color:var(--muted);font-weight:600;text-align:center">No other types available either.</div>`:'');
+    (prefEmpty?`<div style="margin-top:10px;font-size:12px;color:var(--muted);font-weight:600;text-align:center">${t('noOtherTypes')}</div>`:'');
 
   const cards=`${prefSection}${otherToggle}`;
 
@@ -5323,7 +5344,7 @@ function _tickRefreshLabel(){
   const el=document.getElementById('staff-refresh-label');
   if(!el)return;
   const sec=Math.round((Date.now()-_lastRefresh)/1000);
-  el.textContent=sec<5?'just now':sec<60?`${sec}s ago`:`${Math.round(sec/60)}m ago`;
+  el.textContent=sec<5?t('justNow'):sec<60?`${sec}${t('secondsAgo')}`:`${Math.round(sec/60)}${t('minutesAgo')}`;
 }
 async function _autoRefresh(){
   if(S.view!=='staff')return;
