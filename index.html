@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>MicroMobility: Corniche Circuit Queue</title>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="logo.png">
@@ -46,11 +48,12 @@
     /* ── TAB NAV ─────────────────────────────────────────── */
     .tab-nav{background:linear-gradient(180deg,#111111 0%,#101010 100%);
       border-bottom:1px solid rgba(255,255,255,.06);
-      padding:0 28px;display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;}
+      padding:0 16px;display:flex;justify-content:center;gap:2px;overflow-x:auto;scrollbar-width:none;}
     .tab-nav::-webkit-scrollbar{display:none;}
-    .tab-btn{padding:15px 22px;background:none;border:none;border-bottom:2px solid transparent;
+    .tab-btn{padding:15px 20px;min-height:48px;background:none;border:none;border-bottom:2px solid transparent;
       color:var(--muted);font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;
-      cursor:pointer;white-space:nowrap;transition:color .2s,border-color .2s;}
+      cursor:pointer;white-space:nowrap;transition:color .2s,border-color .2s;
+      touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
     .tab-btn:hover{color:rgba(255,255,255,.75);}
     .tab-btn.active{color:var(--green);border-bottom-color:var(--green);
       text-shadow:0 0 16px rgba(3,255,137,.3);}
@@ -774,8 +777,15 @@
       html,body{overflow-x:clip;}
       #view-landing,#view-customer,#view-staff{overflow-x:clip;}
 
+      /* ── iPhone safe areas ── */
+      #topbar{padding-left:max(14px,env(safe-area-inset-left));
+               padding-right:max(14px,env(safe-area-inset-right));}
+      #app-footer{padding-bottom:max(28px,calc(env(safe-area-inset-bottom) + 16px));
+                  padding-left:max(16px,env(safe-area-inset-left));
+                  padding-right:max(16px,env(safe-area-inset-right));}
+
       /* ── Topbar ── */
-      #topbar{padding:0 14px;height:54px;gap:6px;}
+      #topbar{height:54px;gap:6px;}
       .topbar-logo{gap:8px;flex-shrink:0;}
       .topbar-logo img{height:28px;width:auto;max-width:100px;}
       .topbar-brand-name{font-size:13px;}
@@ -787,8 +797,8 @@
       .view-badge{font-size:10px;padding:4px 8px;letter-spacing:.4px;}
 
       /* ── Tab nav ── */
-      .tab-nav{padding:0 4px;}
-      .tab-btn{padding:11px 14px;font-size:12px;}
+      .tab-nav{padding:0;justify-content:center;}
+      .tab-btn{padding:13px 14px;font-size:12px;min-height:44px;flex:1;text-align:center;}
 
       /* ── Main layout ── */
       .view-main{padding:14px 14px 32px;}
@@ -798,10 +808,10 @@
       .section-header > div{flex:1;min-width:0;}
 
       /* ── Landing ── */
-      #landing-body{padding:28px 14px 32px;justify-content:flex-start;}
-      .landing-main-title{font-size:26px;margin-bottom:18px;}
-      .landing-hero-card{max-width:260px;border-radius:14px;}
-      .landing-hero-cta-btn{width:38px;height:38px;font-size:17px;}
+      #landing-body{padding:24px 16px 40px;justify-content:center;min-height:calc(100dvh - 54px);text-align:center;}
+      .landing-main-title{font-size:26px;margin-bottom:20px;letter-spacing:.2px;}
+      .landing-hero-card{max-width:min(300px,calc(100vw - 40px));border-radius:16px;}
+      .landing-hero-cta-btn{width:40px;height:40px;font-size:18px;}
       .landing-footer{margin-top:20px;}
 
       /* ── Forms ── */
@@ -810,7 +820,7 @@
       .form-row{grid-template-columns:1fr;gap:10px;margin-bottom:10px;}
       .inline-form{padding:14px;border-radius:12px;}
       input[type="text"],input[type="tel"],input[type="number"],input[type="email"],
-      input[type="date"],select{padding:10px 12px;font-size:14px;}
+      input[type="date"],input[type="password"],select{padding:11px 12px;font-size:16px;}
 
       /* ── Stats ── */
       .stats-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;flex-wrap:unset;}
@@ -866,9 +876,12 @@
       .qty-val{font-size:18px;}
 
       /* ── Filter row ── */
-      .filter-row{gap:5px;margin-bottom:12px;overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px;}
+      .filter-row{gap:5px;margin-bottom:12px;overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px;}
       .filter-row::-webkit-scrollbar{display:none;}
-      .filter-pill{flex-shrink:0;padding:5px 11px;font-size:11px;}
+      .filter-pill{flex-shrink:0;padding:7px 12px;font-size:12px;min-height:36px;}
+      .sort-pill{flex-shrink:0;padding:7px 12px;font-size:12px;min-height:36px;}
+      .btn-primary,.btn-secondary{min-height:44px;}
+      .btn-sm{padding:7px 10px;font-size:12px;min-height:36px;}
 
       /* ── Next-up banner ── */
       .next-up-banner{padding:12px 14px;flex-direction:column;align-items:flex-start;gap:8px;}
@@ -891,8 +904,9 @@
       .size-chip{min-width:64px;padding:7px 10px;font-size:14px;}
 
       /* ── Modals ── */
-      .modal-backdrop{padding:8px;align-items:flex-end;}
-      .modal-box{padding:18px 16px;border-radius:18px 18px 14px 14px;max-height:92vh;width:100%;max-width:100%;}
+      .modal-backdrop{padding:0;align-items:flex-end;}
+      .modal-box{padding:20px 16px;border-radius:20px 20px 0 0;max-height:90dvh;width:100%;max-width:100%;
+        padding-bottom:max(20px,env(safe-area-inset-bottom));}
       .modal-bikes-grid{grid-template-columns:repeat(2,1fr);gap:8px;}
       .modal-title{font-size:16px;margin-bottom:4px;}
       .modal-sub{font-size:12px;margin-bottom:14px;}
@@ -903,10 +917,13 @@
       .pin-box{padding:24px 18px;border-radius:18px;}
       .pin-numpad{gap:8px;}
       .pin-key{padding:13px 8px;font-size:18px;}
-      .auth-box{padding:20px 16px;border-radius:18px;margin:0;}
+      .auth-backdrop{align-items:flex-end;padding:0;}
+      .auth-box{padding:24px 16px max(24px,env(safe-area-inset-bottom));
+        border-radius:20px 20px 0 0;width:100%;max-width:100%;margin:0;}
       .auth-title{font-size:18px;}
-      .auth-sub{font-size:12px;margin-bottom:18px;}
+      .auth-sub{font-size:12px;margin-bottom:16px;}
       .auth-field{margin-bottom:10px;}
+      .auth-submit{min-height:50px;font-size:16px;}
 
       /* ── Empty states ── */
       .empty-state{padding:32px 16px;font-size:13px;}
@@ -928,10 +945,14 @@
       .toggle-btn{padding:6px 9px;font-size:11px;}
       .size-toggle{min-width:52px;padding:7px 6px;}
       .size-toggle .size-name{font-size:13px;}
-      .tab-btn{padding:10px 11px;font-size:11px;}
+      .tab-btn{padding:10px 10px;font-size:11px;flex:1;}
       .stats-row{grid-template-columns:repeat(2,1fr);}
       .ticket-num{font-size:38px;}
       .view-main{padding:12px 12px 32px;}
+      .landing-main-title{font-size:22px;}
+      .topbar-right{gap:4px;}
+      .lang-toggle{padding:5px 6px;font-size:10px;}
+      #topbar{gap:4px;}
     }
 
     /* ── Analytics ── */
