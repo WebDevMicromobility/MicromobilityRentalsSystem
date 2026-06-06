@@ -3944,30 +3944,15 @@ function renderBikes(){
       <button class="btn-secondary" onclick="cancelBikeForm()">${t('cancelBtn')}</button>
     </div>
   </div>`:'';
-  // Filter
-  let filtered=[...bikes];
-  if(S.bkTypeFilter!=='all') filtered=filtered.filter(b=>b.type===S.bkTypeFilter);
-  if(S.bkStatus!=='all')     filtered=filtered.filter(b=>b.status===S.bkStatus);
-  if(S.bkSize!=='all')       filtered=filtered.filter(b=>b.size===S.bkSize);
-  // Sort
+  // Active filters (status + size only — type is now handled by sections)
   const sortOrder={available:0,'in-use':1,maintenance:2};
   const sizeOrder={XS:0,S:1,M:2,L:3};
-  filtered.sort((a,b)=>{
-    if(S.bkSort==='type')  return a.type.localeCompare(b.type)||a.name.localeCompare(b.name);
-    if(S.bkSort==='size')  return (sizeOrder[a.size]??9)-(sizeOrder[b.size]??9)||a.name.localeCompare(b.name);
-    if(S.bkSort==='status')return (sortOrder[a.status]??9)-(sortOrder[b.status]??9)||a.name.localeCompare(b.name);
-    return a.name.localeCompare(b.name); // default: name
-  });
-  const sortPills=['name','type','size','status'].map(k=>{
-    const labels={name:t('sortName'),type:t('sortType'),size:t('sortSize'),status:t('sortStatus')};
-    const active=S.bkSort===k;
-    return`<button class="sort-pill${active?' active':''}" onclick="setBkSort('${k}')">${labels[k]}${active?'<span class="sort-arrow">↑</span>':''}</button>`;
-  }).join('');
-  const bkRows=filtered.length?filtered.map(b=>{
+
+  function renderBikeRow(b){
     const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-orange':'dot-red';
     const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
     const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--orange)':'var(--red)';
-    const colors=b.colors&&b.colors.length?b.colors:['#6ee89a'];
+    const colors=b.colors&&b.colors.length?b.colors:['#03ff89'];
     const colorSwatches=colors.map(c=>`<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');
     return`<div class="bike-list-row">
       <div class="bike-list-strip" style="background:${bikeStrip(colors)}"></div>
@@ -3975,7 +3960,6 @@ function renderBikes(){
       <div class="bike-list-info">
         <div class="bike-list-name">${esc(b.name)}</div>
         <div class="bike-list-meta">
-          ${typeBadge(b.type)}
           <span class="bike-meta">${b.size}</span>
           <div style="display:flex;align-items:center;gap:4px">${colorSwatches}</div>
         </div>
@@ -3987,23 +3971,64 @@ function renderBikes(){
         <button class="btn-sm btn-red" ${b.status!=='in-use'?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
       </div>
     </div>`;
-  }).join(''):`<div class="empty-state">${t('noBikes')}</div>`;
+  }
+
+  function renderTypeSection(ty,color){
+    let typeBikes=bikes.filter(b=>b.type===ty);
+    if(S.bkStatus!=='all') typeBikes=typeBikes.filter(b=>b.status===S.bkStatus);
+    if(S.bkSize!=='all')   typeBikes=typeBikes.filter(b=>b.size===S.bkSize);
+    typeBikes.sort((a,b)=>{
+      if(S.bkSort==='size')  return (sizeOrder[a.size]??9)-(sizeOrder[b.size]??9)||a.name.localeCompare(b.name);
+      if(S.bkSort==='status')return (sortOrder[a.status]??9)-(sortOrder[b.status]??9)||a.name.localeCompare(b.name);
+      return a.name.localeCompare(b.name);
+    });
+    const all=bikes.filter(b=>b.type===ty);
+    const tyAvail=all.filter(b=>b.status==='available').length;
+    const tyUse  =all.filter(b=>b.status==='in-use').length;
+    const tyMaint=all.filter(b=>b.status==='maintenance').length;
+    const rows=typeBikes.length
+      ?typeBikes.map(renderBikeRow).join('')
+      :`<div class="empty-state" style="padding:20px 0">${all.length?t('noBikes'):t('noBikes')}</div>`;
+    return`<div style="margin-bottom:28px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:4px;height:32px;border-radius:3px;background:${color};flex-shrink:0"></div>
+          <div>
+            <div style="font-size:17px;font-weight:900;color:${color}">${typeLabel(ty)}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;font-weight:600">
+              ${all.length} ${t('bike').toLowerCase()}${all.length!==1?'s':''} &nbsp;·&nbsp;
+              <span style="color:var(--green)">${tyAvail} ${t('availLabel').toLowerCase()}</span>
+              ${tyUse>0?` &nbsp;·&nbsp; <span style="color:var(--orange)">${tyUse} ${t('inUseLabel').toLowerCase()}</span>`:''}
+              ${tyMaint>0?` &nbsp;·&nbsp; <span style="color:var(--red)">${tyMaint} ${t('maintLabel').toLowerCase()}</span>`:''}
+            </div>
+          </div>
+        </div>
+        <button class="btn-secondary" style="font-size:12px;padding:6px 12px"
+          onclick="S.showAddBike=true;S.addBikeType='${ty}';S.editBikeId=null;S.addBikeSize='M';S.addBikeColors=['#03ff89'];S._bkName='';renderBikes()">
+          + ${typeLabel(ty)}
+        </button>
+      </div>
+      <div class="bikes-list">${rows}</div>
+    </div>`;
+  }
+
+  const typeColorMap={Road:'#4aa8f8',Hybrid:'#03ff89',Mountain:'#e08828'};
+  const typeSections=['Road','Hybrid','Mountain'].map(ty=>renderTypeSection(ty,typeColorMap[ty])).join('');
+
   document.getElementById('tab-bikes').innerHTML=`
-    <div class="section-header"><div class="page-title">${t('bikesTitle')}</div><button class="btn-primary" onclick="toggleAddBike()">${t('addBike')}</button></div>
+    <div class="section-header">
+      <div>
+        <div class="page-title">${t('bikesTitle')}</div>
+      </div>
+      <button class="btn-primary" onclick="toggleAddBike()">${t('addBike')}</button>
+    </div>
     ${addForm}
-    <div class="stats-row">
+    <div class="stats-row" style="margin-bottom:20px">
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('totalStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nAvail}</div><div class="stat-label">${t('availLabel')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--orange)">${nUse}</div><div class="stat-label">${t('inUseLabel')}</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--blue)">${nRoad}</div><div class="stat-label">${typeLabel('Road')}</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:#a78bfa">${nHybrid}</div><div class="stat-label">${typeLabel('Hybrid')}</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--orange)">${nMtn}</div><div class="stat-label">${typeLabel('Mountain')}</div></div>
     </div>
-    <div class="filter-bar">
-      <div class="filter-bar-row">
-        <span class="filter-group-label">${t('filterType')}:</span>
-        ${typePills}
-      </div>
+    <div class="filter-bar" style="margin-bottom:20px">
       <div class="filter-bar-row">
         <span class="filter-group-label">${t('filterStatus')}:</span>
         ${statusPillsBk}
@@ -4013,11 +4038,14 @@ function renderBikes(){
       </div>
       <div class="filter-bar-row">
         <span class="filter-group-label">${t('sortBy')}:</span>
-        ${sortPills}
+        ${['name','size','status'].map(k=>{
+          const labels={name:t('sortName'),size:t('sortSize'),status:t('sortStatus')};
+          const active=S.bkSort===k;
+          return`<button class="sort-pill${active?' active':''}" onclick="setBkSort('${k}')">${labels[k]}${active?'<span class="sort-arrow">↑</span>':''}</button>`;
+        }).join('')}
       </div>
-      ${filtered.length!==bikes.length?`<div class="result-count">${filtered.length} ${t('resultOf')} ${bikes.length} ${t('resultBikes')}</div>`:''}
     </div>
-    <div class="bikes-list">${bkRows}</div>`;
+    ${typeSections}`;
   const nameEl=document.getElementById('bk-name');
   if(nameEl)nameEl.addEventListener('input',e=>S._bkName=e.target.value);
 }
