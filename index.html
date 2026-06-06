@@ -635,6 +635,13 @@
     .queue-table tbody tr.row-active{background:rgba(3,255,137,.04);}
     .queue-table tbody tr.row-active:hover td{background:rgba(3,255,137,.06);}
     .queue-table tbody tr.row-done{opacity:.42;}
+    .queue-table tbody tr.sess-group-hdr td{
+      background:#161616;border-top:2px solid rgba(3,255,137,.18);border-bottom:1px solid rgba(255,255,255,.06);
+      padding:10px 16px;font-size:12px;font-weight:800;color:var(--muted);letter-spacing:.2px;}
+    .queue-table tbody tr.sess-group-hdr:hover td{background:#161616;}
+    .pos-badge{display:inline-block;font-size:10px;font-weight:900;color:var(--green);
+      background:rgba(3,255,137,.12);border:1px solid rgba(3,255,137,.25);
+      padding:1px 6px;border-radius:10px;margin-bottom:3px;white-space:nowrap;}
     .queue-num-cell{font-size:26px;font-weight:900;color:var(--green);text-shadow:0 0 16px rgba(3,255,137,.3);letter-spacing:-.5px;}
     .rider-name{font-weight:800;font-size:14px;letter-spacing:-.1px;}
     .rider-sub{font-size:11px;color:var(--muted);margin-top:2px;}
@@ -1282,6 +1289,7 @@ en:{
   cancelBooking:'Cancel',
   statusWaiting:'Waiting',statusActive:'On Bike',statusDone:'Complete',statusNoshow:'No-Show',statusCancelled:'Cancelled',
   staffQueueTitle:'Staff Queue',addWalkin:'+ Walk-in',nextUpLabel:'Next Up',
+  posLabel:'Pos.',inLine:'in line',
   assignBikeCheckin:'Assign Bike & Check In',
   filterAll:'All',filterWaiting:'Waiting',filterOnBike:'On Bike',filterDone:'Done',filterNoshow:'No-Show',
   allSessions:'All Sessions',colRider:'Rider',colWants:'Wants',
@@ -1503,6 +1511,7 @@ ar:{
   cancelBooking:'إلغاء',
   statusWaiting:'بانتظار',statusActive:'على الدراجة',statusDone:'مكتمل',statusNoshow:'لم يحضر',statusCancelled:'ملغي',
   staffQueueTitle:'طابور الموظفين',addWalkin:'+ زيارة مباشرة',nextUpLabel:'التالي',
+  posLabel:'مركز',inLine:'في الطابور',
   assignBikeCheckin:'تخصيص دراجة وتسجيل الدخول',
   filterAll:'الكل',filterWaiting:'بانتظار',filterOnBike:'على الدراجة',filterDone:'منتهي',filterNoshow:'لم يحضر',
   allSessions:'جميع الجلسات',colRider:'الراكب',colWants:'الطلب',
@@ -3516,12 +3525,14 @@ function renderStaffQueue(){
     const arrow=active?(S.sfSortDir===1?'↑':'↓'):'';
     return`<th class="an-sort-th${active?' an-sort-active':''}${cls?' '+cls:''}" onclick="setSfSort('${col}')">${label}${active?' '+arrow:''}</th>`;
   }
-  const nextRider=base.filter(e=>e.status==='waiting').sort((a,b)=>a.queueNum-b.queueNum)[0];
+  const waitingBase=base.filter(e=>e.status==='waiting').sort((a,b)=>a.queueNum-b.queueNum);
+  const nextRider=waitingBase[0];
+  const totalWaiting=waitingBase.length;
   const nextUp=nextRider?`<div class="next-up-banner">
     <div>
-      <div class="next-up-label">${t('nextUpLabel')}</div>
-      <div class="next-up-name">#${nextRider.queueNum} - ${esc(nextRider.name)}</div>
-      <div class="next-up-details">Size ${nextRider.size} &middot; ${typeLabel(nextRider.typePreference)} &middot; ${dayLabel(nextRider.sessionDay)} ${shortDate(nextRider.sessionDate)}</div>
+      <div class="next-up-label">${t('nextUpLabel')} &nbsp;<span style="font-size:12px;color:var(--muted);font-weight:600">${totalWaiting} ${t('inLine')}</span></div>
+      <div class="next-up-name">#${nextRider.queueNum} — ${esc(nextRider.name)}</div>
+      <div class="next-up-details">${nextRider.size} &middot; ${typeLabel(nextRider.typePreference)} &middot; ${nextRider.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}</div>
     </div>
     <button class="btn-primary" onclick="openModal('${nextRider.id}')">${t('assignBikeCheckin')}</button>
   </div>`:'';
@@ -3537,7 +3548,16 @@ function renderStaffQueue(){
   }).join('');
   const sessOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>${t('allSessions')}</option>`+
     sessions.map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${s.display}</option>`).join('');
-  const rows=filtered.map(e=>{
+  // ── Compute live queue positions (per session, waiting riders only, by queueNum order) ──
+  const livePosMap={};
+  const allWaiting=getQueue().filter(e=>e.status==='waiting').sort((a,b)=>a.sessionId.localeCompare(b.sessionId)||a.queueNum-b.queueNum);
+  const sessPosCounter={};
+  allWaiting.forEach(e=>{sessPosCounter[e.sessionId]=(sessPosCounter[e.sessionId]||0)+1;livePosMap[e.id]=sessPosCounter[e.sessionId];});
+  // Total waiting per session (for "X of Y" label)
+  const sessWaitCount={};
+  allWaiting.forEach(e=>{sessWaitCount[e.sessionId]=(sessWaitCount[e.sessionId]||0)+1;});
+
+  function renderQRow(e){
     const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
     const rowCls=e.status==='active'?'row-active':(e.status==='done'||e.status==='noshow'||e.status==='cancelled')?'row-done':'';
     const wiTag=e.walkIn?`<span class="walk-in-badge">${t('addWalkin').replace(/^\+ /,'')}</span>`:'';
@@ -3546,11 +3566,16 @@ function renderStaffQueue(){
     else if(e.status==='active')actions=`<button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button>`;
     else if(e.status==='done')actions=`<button class="btn-sm btn-blue" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
     else actions=`<button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
-    const payColor=e.paid?'var(--green)':'var(--orange)';
     const bikeColors=bike&&bike.colors&&bike.colors.length?bike.colors:null;
     const colorSwatches=bikeColors?bikeColors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join(''):'<span style="color:var(--muted)">—</span>';
+    const lp=livePosMap[e.id];
+    const totalW=sessWaitCount[e.sessionId]||0;
+    const posBadge=e.status==='waiting'&&lp?`<div class="pos-badge">${t('posLabel')} ${lp} / ${totalW}</div>`:'';
     return`<tr class="${rowCls}">
-      <td><span class="queue-num-cell">#${e.queueNum}</span></td>
+      <td style="min-width:56px">
+        ${posBadge}
+        <span class="queue-num-cell" style="${e.status!=='waiting'?'font-size:18px;':''}">#${e.queueNum}</span>
+      </td>
       <td><div class="rider-name">${esc(e.name)}${wiTag}</div><div class="rider-sub">${esc(e.phone)}</div></td>
       <td style="font-weight:800">${e.size}</td>
       <td>${typeBadge(e.typePreference)}</td>
@@ -3565,8 +3590,35 @@ function renderStaffQueue(){
       <td>${statusBadge(e.status)}</td>
       <td><div class="actions-cell">${actions}</div></td>
     </tr>`;
-  }).join('');
-  const emptyRow=filtered.length===0?`<tr><td colspan="10" class="empty-state">${t('noHistory')}</td></tr>`:'';
+  }
+
+  // ── Session grouping or flat list ──
+  let rows,emptyRow='';
+  if(S.sfSession==='all'){
+    const orderedSessions=[...allSessions()].sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+    rows=orderedSessions.map(sess=>{
+      const sessFiltered=filtered.filter(e=>e.sessionId===sess.id);
+      if(!sessFiltered.length)return'';
+      const nW=sessFiltered.filter(e=>e.status==='waiting').length;
+      const nA=sessFiltered.filter(e=>e.status==='active').length;
+      const nD=sessFiltered.filter(e=>e.status==='done').length;
+      const hdr=`<tr class="sess-group-hdr"><td colspan="10">
+        📅 ${dayLabel(sess.day)||sess.day} &nbsp;${shortDate(sess.session_date||sess.id)}
+        &nbsp;&nbsp;
+        <span style="color:var(--green)">${nW} ${t('waitingStat').toLowerCase()}</span>
+        ${nA?` &nbsp;·&nbsp; <span style="color:var(--orange)">${nA} ${t('onBikeStat').toLowerCase()}</span>`:''}
+        ${nD?` &nbsp;·&nbsp; <span style="color:var(--muted)">${nD} ${t('doneStat').toLowerCase()}</span>`:''}
+        <span style="display:inline-flex;align-items:center;gap:6px;margin-left:12px">
+          <span class="badge-${sess.status}">${{open:t('statusOpen'),closed:t('statusClosed'),full:t('statusFull')}[sess.status]||sess.status}</span>
+        </span>
+      </td></tr>`;
+      return hdr+sessFiltered.map(renderQRow).join('');
+    }).join('');
+    if(!filtered.length)emptyRow=`<tr><td colspan="10" class="empty-state">${t('noHistory')}</td></tr>`;
+  }else{
+    rows=filtered.map(renderQRow).join('');
+    emptyRow=filtered.length===0?`<tr><td colspan="10" class="empty-state">${t('noHistory')}</td></tr>`:'';
+  }
   document.getElementById('tab-queue').innerHTML=`
     <div class="section-header"><div class="page-title">${t('staffQueueTitle')}</div>
       <button class="btn-secondary" onclick="toggleResetTool()" style="font-size:12px">&#x1F511; ${t('staffResetTool')}</button>
@@ -3716,10 +3768,16 @@ async function cancelBooking(id){
 
 async function doNoShow(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
+  // Shift subsequent waiting riders down (same as cancel — keeps numbers gapless)
+  const behind=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>entry.queueNum);
+  const savedBehind=behind.map(e=>({id:e.id,queueNum:e.queueNum}));
+  const savedQNum=entry.queueNum;
   await sb.from('queue_entries').update({status:'noshow'}).eq('id',id);
+  await Promise.all(behind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
   await loadData();toast(t('toastNoShow'));
-  pushUndo(`No-show #${entry.queueNum} ${entry.name}`,async()=>{
-    await sb.from('queue_entries').update({status:'waiting'}).eq('id',id);
+  pushUndo(`No-show #${savedQNum} ${entry.name}`,async()=>{
+    await sb.from('queue_entries').update({status:'waiting',queue_num:savedQNum}).eq('id',id);
+    await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum}).eq('id',e.id)));
     await loadData();renderStaffQueue();
   });
   renderStaffQueue();
