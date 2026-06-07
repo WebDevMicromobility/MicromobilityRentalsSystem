@@ -1499,7 +1499,7 @@ en:{
   authFullName:'Full Name',authEmail:'Email Address',authEmailOpt:'(optional if using phone)',
   resetCodeLabel:'6-Digit Code',resetNewPwd:'New Password',resetConfirmPwd:'Confirm New Password',
   resetBtn:'Set New Password',backToLogin:'Back to login',
-  forgotPwLink:'Forgot password?',sendCodeBtn:'Send Code',
+  forgotPwLink:'Forgot password?',sendCodeBtn:'Send Code',rememberMe:'Remember me',
   forgotStep1Title:'Reset Your Password',
   forgotStep1Sub:'Enter your registered email. Ask a staff member to look up your 6-digit code.',
   forgotStep2Title:'Enter Code and New Password',
@@ -1744,7 +1744,7 @@ ar:{
   authFullName:'الاسم الكامل',authEmail:'البريد الإلكتروني',authEmailOpt:'(اختياري إذا استخدمت الهاتف)',
   resetCodeLabel:'الرمز المكوّن من 6 أرقام',resetNewPwd:'كلمة المرور الجديدة',resetConfirmPwd:'تأكيد كلمة المرور',
   resetBtn:'تعيين كلمة مرور جديدة',backToLogin:'العودة لتسجيل الدخول',
-  forgotPwLink:'نسيت كلمة المرور؟',sendCodeBtn:'إرسال الرمز',
+  forgotPwLink:'نسيت كلمة المرور؟',sendCodeBtn:'إرسال الرمز',rememberMe:'تذكرني',
   forgotStep1Title:'إعادة تعيين كلمة المرور',
   forgotStep1Sub:'أدخل بريدك الإلكتروني المسجل، ثم اطلب من أحد الموظفين رمز إعادة التعيين المكوّن من 6 أرقام.',
   forgotStep2Title:'أدخل الرمز وكلمة المرور الجديدة',
@@ -2251,6 +2251,7 @@ const S={
   // auth
   authMode:'login',   // 'login' | 'signup' | 'forgot'
   forgotEmail:'',forgotStep:1,
+  rememberMe:true,  // default: remember the user
   signupTypePref:'Any',
   loggedIn:null,      // customer object or null
   // data cache (loaded from API)
@@ -2326,9 +2327,26 @@ function generateResetOTP(email,windowMs=10*60*1000){
   for(let i=0;i<seed.length;i++){h^=seed.charCodeAt(i);h=(h*16777619)>>>0;}
   return String(h%1000000).padStart(6,'0');
 }
-function getSession(){try{const r=localStorage.getItem('cq_session');return r?JSON.parse(r):null;}catch{return null;}}
-function setSession(c){localStorage.setItem('cq_session',JSON.stringify(c));}
-function clearSession(){localStorage.removeItem('cq_session');}
+function getSession(){
+  try{
+    const r=localStorage.getItem('cq_session')||sessionStorage.getItem('cq_session');
+    return r?JSON.parse(r):null;
+  }catch{return null;}
+}
+function setSession(c){
+  // Remember Me checked → localStorage (persists); unchecked → sessionStorage (clears on close)
+  if(S&&S.rememberMe){
+    localStorage.setItem('cq_session',JSON.stringify(c));
+    sessionStorage.removeItem('cq_session');
+  }else{
+    sessionStorage.setItem('cq_session',JSON.stringify(c));
+    localStorage.removeItem('cq_session');
+  }
+}
+function clearSession(){
+  localStorage.removeItem('cq_session');
+  sessionStorage.removeItem('cq_session');
+}
 const DEFAULT_PRICE=30;
 const RIDE_PRICES={Road:75,Mountain:57.5,Hybrid:57.5,Any:57.5};
 const RIDE_PRICES_MAX={Road:75,Mountain:57.5,Hybrid:57.5,Any:75};
@@ -2523,6 +2541,11 @@ function renderAuthModal(){
         </label>
         <input id="a-pwd" type="password" placeholder="${t('authPassword')}">
       </div>
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:16px;margin-top:4px;user-select:none">
+        <input type="checkbox" id="a-remember" style="width:18px;height:18px;accent-color:var(--green);cursor:pointer;flex-shrink:0"
+          ${S.rememberMe?'checked':''} onchange="S.rememberMe=this.checked">
+        <span style="font-size:13px;font-weight:600;color:var(--muted-l)">${t('rememberMe')||'Remember me'}</span>
+      </label>
       <button class="btn-primary auth-submit" onclick="doLogin()">${t('authLoginBtn')}</button>`;
   } else {
     tabs=`<div class="auth-tabs">
