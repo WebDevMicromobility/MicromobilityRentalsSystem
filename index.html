@@ -5399,14 +5399,7 @@ function renderAnalytics(){
     </div>`;
   }
 
-  if(done.length===0&&noshow.length===0){
-    document.getElementById('tab-analytics').innerHTML=`
-      <div class="page-title">${t('tabAnalytics')}</div>
-      <div class="page-sub">${t('anPageSub')}</div>
-      ${_rangeBar()}
-      <div class="empty-state" style="margin-top:48px">${t('anNoData')}</div>`;
-    return;
-  }
+  // No early return — always render the full dashboard (values show 0 when no data)
 
   // ── Revenue ──────────────────────────────────────────
   const revCollected=done.filter(e=>e.paid).reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
