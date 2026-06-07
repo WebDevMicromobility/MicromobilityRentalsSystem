@@ -3410,6 +3410,15 @@ async function submitModifyBooking(){
   if(calls.length>0)await Promise.all(calls);
   await loadData();
 
+  // Refresh the ticket to reflect updated booking details
+  // Use the first existing entry (now updated) or first new entry
+  const updatedSessionId=S.selSession;
+  const updatedFirstId=existing[0]?.id||addedEntries[0]?.id;
+  if(updatedFirstId){
+    const refreshed=getQueue().find(e=>e.id===updatedFirstId);
+    if(refreshed)S.lastTicket={...refreshed,sessionId:refreshed.sessionId,sessionDay:refreshed.sessionDay,sessionDate:refreshed.sessionDate};
+  }
+
   if(addedEntries.length>0){
     toast(`${t('toastBookingUpdated')} + ${t('toastRegistered')} ${addedEntries.map(e=>`#${e.queueNum}`).join(', ')}`);
   }else{
