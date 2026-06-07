@@ -2361,7 +2361,8 @@ function openSessions(){return allSessions().filter(s=>s.status==='open'||s.stat
 function spotsLeft(sid){
   const sess=S.sessions.find(s=>s.id===sid);
   const cap=(sess&&sess.capacity)||12;
-  return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&e.status!=='noshow'&&e.status!=='cancelled').length);
+  // Exclude noshow, cancelled, and removed (soft-deleted) — they don't occupy spots
+  return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed').length);
 }
 function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid&&e.status!=='removed'&&e.status!=='cancelled').map(e=>e.queueNum);return nums.length?Math.max(...nums)+1:1;}
 const bikeById=id=>getBikes().find(b=>b.id===id);
@@ -2718,7 +2719,7 @@ function renderLandingAvail(){
   }
   strip.innerHTML=open.map(s=>{
     const left=spotsLeft(s.id);
-    const full=left===0||s.status==='full';
+    const full=left===0;
     const cls=full?'full':'has-spots';
     const dotClr=full?'var(--muted-l)':'var(--green)';
     const label=full?t('statusFull'):t('availLabel');
@@ -2937,8 +2938,8 @@ function renderRegister(){
   // Session cards
   const sessCards=available.length
     ? available.map(s=>{
-        const manuallyFull=s.status==='full';
-        const full=manuallyFull||spotsLeft(s.id)===0;
+        // Only treat as full if spots actually ran out — ignore manual 'full' status when spots are available
+        const full=spotsLeft(s.id)===0;
         const sl=full?t('statusFull'):t('availLabel');
         const sc=full?'spots-orange':'spots-green';
         const sel=S.selSession===s.id;
