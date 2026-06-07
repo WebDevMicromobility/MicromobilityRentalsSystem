@@ -1757,7 +1757,7 @@ ar:{
   newSession:'+ جلسة جديدة',newSessionTitle:'جلسة جديدة',dateLabel:'التاريخ',capacityLabel:'الطاقة الاستيعابية',
   createSession:'إنشاء جلسة',colDate:'التاريخ',colDay:'اليوم',colCapacity:'الطاقة',
   colBookings:'الحجوزات',colActions:'الإجراءات',openBtn:'فتح',closeBtn:'إغلاق',deleteBtn:'حذف',
-  statusOpen:'مفتوح',statusClosed:'مغلق',statusFull:'مكتمل',markFullBtn:'تعيين كمكتمل',reopenBtn:'إعادة فتح',noSessionsYet:'لا توجد جلسات بعد. أنشئ واحدة أعلاه.',
+  statusOpen:'مفتوح',statusClosed:'مغلق',statusFull:'محجوز بالكامل',markFullBtn:'تعيين كمكتمل',reopenBtn:'إعادة فتح',noSessionsYet:'لا توجد جلسات بعد. أنشئ واحدة أعلاه.',
   editSessionTitle:'تعديل الجلسة',saveSessionBtn:'حفظ التغييرات',editBtn2:'تعديل',dateWarning:'تغيير التاريخ سيحدّث جميع الحجوزات الموجودة لهذه الجلسة.',
   bikesTitle:'الأسطول',addBike:'+ إضافة دراجة',editBikeTitle:'تعديل الدراجة',addBikeTitle:'إضافة دراجة جديدة',
   bikeNameLabel:'اسم الدراجة',frameSizeLabel:'مقاس الإطار',bikeTypeLabel:'نوع الدراجة',
@@ -2564,7 +2564,7 @@ function renderLandingAvail(){
       <div style="font-size:13px;font-weight:700;opacity:.85">${shortDate(s.session_date||s.id)}</div>
       <div style="display:flex;align-items:center;gap:5px;font-size:11px;margin-top:2px">
         <span class="landing-avail-dot" style="background:${dotClr};width:7px;height:7px;border-radius:50%;flex-shrink:0"></span>
-        <span style="opacity:.8">${timeStr} &nbsp;·&nbsp; ${full?label:left+' '+t('spotsLeft')}</span>
+        <span style="opacity:.8">${timeStr} &nbsp;·&nbsp; ${label}</span>
       </div>
     </div>`;
   }).join('');
@@ -2774,8 +2774,8 @@ function renderRegister(){
     ? available.map(s=>{
         const manuallyFull=s.status==='full';
         const full=manuallyFull||spotsLeft(s.id)===0;
-        const sc=full?'spots-red':'spots-green';
         const sl=full?t('statusFull'):t('availLabel');
+        const sc=full?'spots-orange':'spots-green';
         const sel=S.selSession===s.id;
         return`<div class="sess-card${sel?' sess-selected':''}${full?' sess-full':''}"
           ${full?'':` onclick="S.selSession='${s.id}';renderRegister()"`}>
