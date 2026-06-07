@@ -4732,8 +4732,10 @@ function renderHistory(){
       <td><div class="actions-cell">
         ${e.status==='removed'
           ?`<button class="btn-sm btn-green" onclick="doRestoreEntry('${e.id}')">${t('restoreEntryBtn')||'Restore'}</button>`
-          :hasEmail&&e.status==='done'?`<button class="btn-sm btn-purple" onclick="showReceipt('${e.id}')">${t('sendReceipt')}</button>`
-          :`<span style="font-size:11px;color:var(--muted)">${e.status==='noshow'?'-':hasEmail?'':t('noEmailLabel')}</span>`}
+          :`<div style="display:flex;gap:5px;flex-wrap:nowrap;align-items:center">
+              ${hasEmail&&e.status==='done'?`<button class="btn-sm btn-blue" onclick="showReceipt('${e.id}')">${t('sendReceipt')}</button>`:''}
+              <button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>
+            </div>`}
       </div></td>
     </tr>`;
   }).join('');
@@ -4822,11 +4824,17 @@ function setBkStatus(v){S.bkStatus=v;renderBikes();}
 function setBkSize(v){S.bkSize=v;renderBikes();}
 
 function exportHistoryCSV(){
-  const hist=getQueue().filter(e=>e.status==='done'||e.status==='noshow'||e.status==='cancelled'||e.status==='removed');
-  const headers=['#','Name','Phone','Email','Session','Date','Time','Bike','Size','Type','Price','Paid','Status'];
+  // Respect the currently selected session filter
+  let hist=getQueue().filter(e=>e.status==='done'||e.status==='noshow'||e.status==='cancelled'||e.status==='removed');
+  if(S.histSess!=='all') hist=hist.filter(e=>e.sessionId===S.histSess);
+  const sess=S.histSess!=='all'?allSessions().find(s=>s.id===S.histSess):null;
+  const filename=sess
+    ?`rides_${dayLabel(sess.day)}_${sess.session_date||sess.id}.csv`
+    :'rides_all_sessions.csv';
+  const headers=['#','Name','Phone','Email','Session','Date','Time','Bike','Size','Type','Price (SAR)','Paid','Status'];
   const rows=hist.map(e=>{
     const bike=e.assignedBikeId?getBikes().find(b=>b.id===e.assignedBikeId):null;
-    const sess=allSessions().find(s=>s.id===e.sessionId);
+    const entSess=allSessions().find(s=>s.id===e.sessionId);
     return[
       e.queueNum,
       e.name,
@@ -4834,19 +4842,20 @@ function exportHistoryCSV(){
       e.email||'',
       dayLabel(e.sessionDay)+' '+shortDate(e.sessionDate),
       shortDate(e.sessionDate),
-      sessionTime(sess),
+      sessionTime(entSess),
       bike?bike.name:'',
       e.size,
       e.typePreference,
-      e.price||30,
+      e.price||DEFAULT_PRICE,
       e.paid?'Yes':'No',
       e.status
     ].map(v=>'"'+String(v).replace(/"/g,'""')+'"');
   });
+  if(!rows.length){toast(t('noHistory'),'warning');return;}
   const csv=[headers.map(h=>'"'+h+'"').join(','),...rows.map(r=>r.join(','))].join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download='rides_export.csv';a.click();
+  const a=document.createElement('a');a.href=url;a.download=filename;a.click();
   URL.revokeObjectURL(url);
 }
 
