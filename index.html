@@ -1302,7 +1302,6 @@
 <div id="view-landing">
   <div id="landing-body">
     <h1 class="landing-main-title" id="land-main-title">Reserve Your <span>Bicycle Now!</span></h1>
-    <div class="landing-subtitle" id="land-subtitle">Corniche Circuit &nbsp;·&nbsp; Jeddah</div>
 
     <button class="landing-hero-card" onclick="goCustomer('register')">
       <img src="hero.png" alt="Corniche Circuit">
@@ -2159,6 +2158,7 @@ const S={
   bkStatus:'all',bkSize:'all',
   // history
   histStatus:'all',histPay:'all',histSess:'all',histSort:'date',histSortDir:-1,histType:'all',histSize:'all',histSearch:'',
+  histLog:[],showHistLog:false,
   // my rides
   myStatus:'all',mySort:'date',mySortDir:-1,
   // sessions
@@ -3300,9 +3300,6 @@ function renderMyRides(){
       <div class="filter-row">
         <span class="filter-label">${t('filterStatus')}:</span>
         <select class="filter-select" onchange="setMyStatus(this.value)">${myStatusOpts}</select>
-        <span class="filter-label" style="margin-left:8px">${t('sortBy')}:</span>
-        <select class="filter-select" onchange="S.mySort=this.value;renderMyRides()">${mySortOpts}</select>
-        <button class="filter-select" style="min-width:44px;padding:0;text-align:center;cursor:pointer" onclick="S.mySortDir*=-1;renderMyRides()">${S.mySortDir===1?'↑':'↓'}</button>
       </div>
       ${displayOrder.length!==visible.length?`<div class="result-count">${displayOrder.length} ${t('resultOf')} ${visible.length} ${t('resultRides')}</div>`:''}
     </div>
@@ -3712,9 +3709,6 @@ function renderSessions(){
       <div class="filter-row">
         <span class="filter-label">${t('filterStatus')}:</span>
         <select class="filter-select" onchange="setSessStatusFilter(this.value)">${sessStatusOpts}</select>
-        <span class="filter-label" style="margin-left:8px">${t('sortBy')}:</span>
-        <select class="filter-select" onchange="S.sessSort=this.value;S.sessSortDir=1;renderSessions()">${sessSortOpts}</select>
-        <button class="filter-select" style="min-width:44px;padding:0;text-align:center;cursor:pointer" onclick="S.sessSortDir*=-1;renderSessions()">${S.sessSortDir===1?'↑':'↓'}</button>
       </div>
       ${sessList.length!==sessions.length?`<div class="result-count">${sessList.length} ${t('resultOf')} ${sessions.length} ${t('resultSessions')}</div>`:''}
     </div>
@@ -3912,6 +3906,8 @@ function renderStaffQueue(){
     </div>
     <button class="btn-primary" onclick="openModal('${nextRider.id}')">${t('assignBikeCheckin')}</button>
   </div>`:'';
+  const qSessOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>${t('allSessions')}</option>`+
+    sessions.map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</option>`).join('');
   const qStatusOpts=['all','waiting','active','done','noshow','cancelled'].map(s=>{
     const l={all:t('filterAll'),waiting:t('filterWaiting'),active:t('filterOnBike'),done:t('filterDone'),noshow:t('filterNoshow'),cancelled:t('statusCancelled')}[s];
     return`<option value="${s}"${S.sfStatus===s?' selected':''}>${l}</option>`;}).join('');
@@ -4067,6 +4063,8 @@ function renderStaffQueue(){
           <input id="sf-search-input" class="search-input" placeholder="${t('searchPlaceholder')}" value="${esc(S.sfSearch)}"
             oninput="setSfSearch(this.value)">
         </div>
+        <span class="filter-label">${t('colSession')}:</span>
+        <select class="filter-select" style="min-width:160px" onchange="setSfSession(this.value)">${qSessOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('filterStatus')}:</span>
         <select class="filter-select" onchange="setSfStatus(this.value)">${qStatusOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('filterSize')}:</span>
@@ -4272,12 +4270,32 @@ async function doReopen(id){
   });
   renderStaffQueue();
 }
+function addHistLog(action,entry){
+  S.histLog.unshift({
+    action,
+    name:entry.name,
+    queueNum:entry.queueNum,
+    session:dayLabel(entry.sessionDay)+' '+shortDate(entry.sessionDate),
+    time:new Date().toLocaleTimeString(S.lang==='ar'?'ar-SA':'en-GB',{hour:'2-digit',minute:'2-digit'})
+  });
+  if(S.histLog.length>200)S.histLog.pop();
+}
+
+function confirmHistRemove(id){
+  const entry=getQueue().find(e=>e.id===id);if(!entry)return;
+  const msg=`${t('removeBtn')} #${entry.queueNum} ${entry.name}?`;
+  if(!confirm(msg))return;
+  doRemove(id);
+}
+
 async function doRemove(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
+  addHistLog('Removed',entry);
   await sb.from('queue_entries').update({status:'removed'}).eq('id',id);
   await loadData();toast(t('toastRiderRemoved'));
   pushUndo(`Remove #${entry.queueNum} ${entry.name}`,async()=>{
     const prevStatus=entry.status==='done'?'done':'waiting';
+    addHistLog('Restored',entry);
     await sb.from('queue_entries').update({status:prevStatus}).eq('id',id);
     await loadData();renderStaffQueue();renderHistory();
   });
@@ -4286,6 +4304,7 @@ async function doRemove(id){
 
 async function doRestoreEntry(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
+  addHistLog('Restored',entry);
   await sb.from('queue_entries').update({status:'done'}).eq('id',id);
   await loadData();toast(t('restoreEntryBtn')||'Restored');
   renderHistory();
@@ -4484,24 +4503,19 @@ function renderBikes(){
     const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
     const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--muted-l)':'var(--red)';
     const colors=b.colors&&b.colors.length?b.colors:['#03ff89'];
-    const colorSwatches=colors.map(c=>`<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');
-    return`<div class="bike-list-row">
-      <div class="bike-list-strip" style="background:${bikeStrip(colors)}"></div>
-      <div class="bike-list-dot-col"><span class="avail-dot ${dot}"></span></div>
-      <div class="bike-list-info">
-        <div class="bike-list-name">${esc(b.name)}</div>
-        <div class="bike-list-meta">
-          <span class="bike-meta">${b.size}</span>
-          <div style="display:flex;align-items:center;gap:4px">${colorSwatches}</div>
-        </div>
-      </div>
-      <div class="bike-list-status" style="color:${sclr}">${slbl}</div>
-      <div class="bike-list-actions">
+    const colorSwatches=colors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');
+    return`<tr>
+      <td><div class="rider-name">${esc(b.name)}</div></td>
+      <td>${typeBadge(b.type)}</td>
+      <td style="font-weight:800">${b.size}</td>
+      <td><div style="display:flex;gap:4px;align-items:center">${colorSwatches}</div></td>
+      <td><span class="avail-dot ${dot}" style="display:inline-block;margin-right:6px"></span><span style="color:${sclr};font-weight:700;font-size:12px">${slbl}</span></td>
+      <td><div class="actions-cell">
         <button class="btn-sm btn-blue" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
         <button class="btn-sm btn-orange" onclick="toggleMaint('${b.id}')">${b.status==='maintenance'?t('restoreBtn'):t('maintBtn')}</button>
         <button class="btn-sm btn-red" ${b.status!=='in-use'?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
-      </div>
-    </div>`;
+      </div></td>
+    </tr>`;
   }
 
   function renderTypeSection(ty,color){
@@ -4519,13 +4533,13 @@ function renderBikes(){
     const tyMaint=all.filter(b=>b.status==='maintenance').length;
     const rows=typeBikes.length
       ?typeBikes.map(renderBikeRow).join('')
-      :emptyIllustration(ILLUS_BIKE_OK,t('noBikes'));
+      :`<tr><td colspan="6" style="padding:16px 0">${emptyIllustration(ILLUS_BIKE_OK,t('noBikes'))}</td></tr>`;
     return`<div style="margin-bottom:28px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="width:4px;height:32px;border-radius:3px;background:${color};flex-shrink:0"></div>
           <div>
-            <div style="font-size:17px;font-weight:900;color:${color}">${typeLabel(ty)}</div>
+            <div style="font-size:17px;font-weight:900">${typeLabel(ty)}</div>
             <div style="font-size:12px;color:var(--muted);margin-top:2px;font-weight:600">
               ${all.length} ${t('bike').toLowerCase()}${all.length!==1?'s':''} &nbsp;·&nbsp;
               <span style="color:var(--green)">${tyAvail} ${t('availLabel').toLowerCase()}</span>
@@ -4539,7 +4553,17 @@ function renderBikes(){
           + ${typeLabel(ty)}
         </button>
       </div>
-      <div class="bikes-list">${rows}</div>
+      <div class="table-wrapper"><table class="queue-table">
+        <thead><tr>
+          <th>${t('bikeNameLabel')}</th>
+          <th>${t('bikeTypeLabel')}</th>
+          <th>${t('frameSizeLabel')}</th>
+          <th>${t('colColor')}</th>
+          <th>${t('colStatus')}</th>
+          <th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
     </div>`;
   }
 
@@ -4565,12 +4589,6 @@ function renderBikes(){
         <select class="filter-select" onchange="setBkStatus(this.value)">${bkStatusOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('filterSize')}:</span>
         <select class="filter-select" onchange="setBkSize(this.value)">${bkSizeOpts}</select>
-        <span class="filter-label" style="margin-left:8px">${t('sortBy')}:</span>
-        <select class="filter-select" onchange="setBkSort(this.value)">
-          ${['name','size','status'].map(k=>{
-            const l={name:t('sortName'),size:t('sortSize'),status:t('sortStatus')}[k];
-            return`<option value="${k}"${S.bkSort===k?' selected':''}>${l}</option>`;}).join('')}
-        </select>
       </div>
     </div>
     ${typeSections}`;
@@ -4734,7 +4752,7 @@ function renderHistory(){
           ?`<button class="btn-sm btn-green" onclick="doRestoreEntry('${e.id}')">${t('restoreEntryBtn')||'Restore'}</button>`
           :`<div style="display:flex;gap:5px;flex-wrap:nowrap;align-items:center">
               ${hasEmail&&e.status==='done'?`<button class="btn-sm btn-blue" onclick="showReceipt('${e.id}')">${t('sendReceipt')}</button>`:''}
-              <button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>
+              <button class="btn-sm btn-muted" onclick="confirmHistRemove('${e.id}')">${t('removeBtn')}</button>
             </div>`}
       </div></td>
     </tr>`;
@@ -4746,8 +4764,22 @@ function renderHistory(){
         <div class="page-title">${t('historyTitle')}</div>
         <div class="page-sub" style="margin-bottom:0">${t('historySub')}</div>
       </div>
-      <button class="btn-secondary" onclick="exportHistoryCSV()" style="white-space:nowrap;flex-shrink:0">&#x2B07; ${t('exportBtn')||'Export CSV'}</button>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        <button class="btn-secondary" onclick="S.showHistLog=!S.showHistLog;renderHistory()" style="white-space:nowrap">&#x1F4CB; Log ${S.histLog.length>0?`(${S.histLog.length})`:''}</button>
+        <button class="btn-secondary" onclick="exportHistoryCSV()" style="white-space:nowrap">&#x2B07; ${t('exportBtn')||'Export CSV'}</button>
+      </div>
     </div>
+    ${S.showHistLog?`<div style="margin-bottom:20px;background:#1a1a1a;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px;max-height:240px;overflow-y:auto">
+      <div style="font-size:11px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Activity Log</div>
+      ${S.histLog.length===0
+        ?`<div style="color:var(--muted);font-size:13px">No actions recorded yet.</div>`
+        :S.histLog.map(l=>`<div style="display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">
+            <span style="color:var(--muted);font-size:10px;white-space:nowrap;flex-shrink:0">${l.time}</span>
+            <span style="font-weight:800;color:${l.action==='Removed'?'var(--red)':'var(--green)'}">${l.action}</span>
+            <span style="font-weight:700">#${l.queueNum} ${esc(l.name)}</span>
+            <span style="color:var(--muted);font-size:12px;margin-left:auto;white-space:nowrap">${l.session}</span>
+          </div>`).join('')}
+    </div>`:''}
     <div class="stats-row">
       <div class="stat-card"><div class="stat-num">${nDone}</div><div class="stat-label">${t('completedLabel')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nPaid}</div><div class="stat-label">${t('filterPaid')}</div></div>
@@ -4756,7 +4788,12 @@ function renderHistory(){
     </div>
     <div class="filter-bar">
       <div class="filter-row">
-        <span class="filter-label">${t('filterStatus')}:</span>
+        <div class="search-wrap" style="flex-shrink:0">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="white" stroke-width="1.4"/><line x1="9.5" y1="9.5" x2="13" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <input class="search-input" placeholder="${t('searchPlaceholder')}" value="${esc(S.histSearch)}"
+            oninput="setHistSearch(this.value)">
+        </div>
+        <span class="filter-label" style="margin-left:8px">${t('filterStatus')}:</span>
         <select class="filter-select" onchange="setHistStatus(this.value)">${hStatusOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('filterPay')}:</span>
         <select class="filter-select" onchange="setHistPay(this.value)">${hPayOpts}</select>
@@ -4764,19 +4801,8 @@ function renderHistory(){
         <select class="filter-select" onchange="setHistType(this.value)">${hTypeOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('filterSize')}:</span>
         <select class="filter-select" onchange="setHistSize(this.value)">${hSizeOpts}</select>
-      </div>
-      <div class="filter-row">
-        <span class="filter-label">${t('colSession')}:</span>
+        <span class="filter-label" style="margin-left:8px">${t('colSession')}:</span>
         <select class="filter-select" onchange="setHistSess(this.value)">${sessOpts}</select>
-        <span class="filter-label" style="margin-left:8px">${t('sortBy')}:</span>
-        <select class="filter-select" onchange="S.histSort=this.value;S.histSortDir=-1;renderHistory()">${hSortOpts}</select>
-        <button class="filter-select" style="min-width:44px;padding:0;text-align:center;cursor:pointer" onclick="S.histSortDir*=-1;renderHistory()">${S.histSortDir===1?'↑':'↓'}</button>
-        <div class="filter-spacer"></div>
-        <div class="search-wrap">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="white" stroke-width="1.4"/><line x1="9.5" y1="9.5" x2="13" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>
-          <input class="search-input" placeholder="${t('searchPlaceholder')}" value="${esc(S.histSearch)}"
-            oninput="setHistSearch(this.value)">
-        </div>
       </div>
       ${filtered.length!==hist.length?`<div class="result-count">${filtered.length} ${t('resultOf')} ${hist.length} ${t('resultRecords')}</div>`:''}
     </div>
@@ -5008,11 +5034,28 @@ function renderAnalytics(){
   const sessions=sessCandidates;
   const done=queue.filter(e=>e.status==='done');
   const noshow=queue.filter(e=>e.status==='noshow');
+  // Pre-compute these before any early return so _rangeBar can use them
+  const sessionsHeld=sessions.filter(s=>queue.some(e=>e.sessionId===s.id&&e.status==='done')).length;
+  const totalDone=done.length;
+
+  function _rangeBar(){
+    const rangeLabels={all:t('anAllTime'),last5:t('anLast5'),last10:t('anLast10'),month:t('anThisMonth'),custom:t('anCustom')||'Custom'};
+    return`<div class="an-range-bar">
+      <span class="an-range-label">${t('anShowing')}</span>
+      ${['all','last5','last10','month','custom'].map(r=>
+        `<button class="filter-pill${S.analyticsRange===r?' active':''}" onclick="setAnRange('${r}')">${rangeLabels[r]}</button>`
+      ).join('')}
+      ${S.analyticsRange==='custom'?`<input type="number" min="1" max="200" value="${S.analyticsCustomN||20}"
+        style="width:64px;padding:4px 8px;background:#1a1a1a;border:1px solid rgba(255,255,255,.15);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700"
+        oninput="S.analyticsCustomN=Math.max(1,parseInt(this.value)||1);renderAnalytics()">`:``}
+      <span class="result-count" style="margin-left:4px">${sessionsHeld} ${t('anSessionsHeld').toLowerCase()} · ${totalDone} ${t('anRidesLabel')}</span>
+    </div>`;
+  }
 
   if(done.length===0&&noshow.length===0){
     document.getElementById('tab-analytics').innerHTML=`
       <div class="page-title">${t('tabAnalytics')}</div>
-      <div class="page-sub">Business performance overview.</div>
+      <div class="page-sub">${t('anPageSub')}</div>
       ${_rangeBar()}
       <div class="empty-state" style="margin-top:48px">${t('anNoData')}</div>`;
     return;
@@ -5154,21 +5197,6 @@ function renderAnalytics(){
         <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(v/max*100)}%;background:${colorFn(k)}"></div></div>
         <div class="analytics-bar-value">${valueFmt?valueFmt(v):v}</div>
       </div>`).join('');
-  }
-
-  // ── Range bar helper ──────────────────────────────────
-  function _rangeBar(){
-    const rangeLabels={all:t('anAllTime'),last5:t('anLast5'),last10:t('anLast10'),month:t('anThisMonth'),custom:t('anCustom')||'Custom'};
-    return`<div class="an-range-bar">
-      <span class="an-range-label">${t('anShowing')}</span>
-      ${['all','last5','last10','month','custom'].map(r=>
-        `<button class="filter-pill${S.analyticsRange===r?' active':''}" onclick="setAnRange('${r}')">${rangeLabels[r]}</button>`
-      ).join('')}
-      ${S.analyticsRange==='custom'?`<input type="number" min="1" max="200" value="${S.analyticsCustomN||20}"
-        style="width:64px;padding:4px 8px;background:#1a1a1a;border:1px solid rgba(255,255,255,.15);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700"
-        oninput="S.analyticsCustomN=Math.max(1,parseInt(this.value)||1);renderAnalytics()">`:``}
-      <span class="result-count" style="margin-left:4px">${sessionsHeld} ${t('anSessionsHeld').toLowerCase()} · ${totalDone} ${t('anRidesLabel')}</span>
-    </div>`;
   }
 
   // ── Sort trend table ──────────────────────────────────
