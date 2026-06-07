@@ -3001,16 +3001,22 @@ function renderRegister(){
   // Modify-mode banner (shown above form when customer has existing bookings)
   const qNums=existingEntries.map(e=>`#${e.queueNum}`).join(', ');
   const modifyBannerHtml=isModifyMode?`
-    <div style="display:flex;align-items:flex-start;gap:10px;background:rgba(3,255,137,.07);
-      border:1px solid rgba(3,255,137,.25);border-radius:12px;padding:14px 16px;margin-bottom:20px">
-      <span style="font-size:18px;line-height:1">✏️</span>
-      <div>
-        <div style="font-size:13px;font-weight:800;color:var(--green);margin-bottom:3px">${t('modifyBookingBtn')}</div>
-        <div style="font-size:12px;color:var(--text);line-height:1.5">${t('modifyBanner')}</div>
-        <div style="margin-top:8px;font-size:11px;color:var(--muted)">
-          ${t('queueNumLabel')}: <strong style="color:var(--text)">${qNums}</strong>
-        </div>
+    <div style="background:rgba(3,255,137,.06);border:1.5px solid rgba(3,255,137,.28);border-radius:14px;padding:16px 18px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span style="font-size:18px">✏️</span>
+        <div style="font-size:14px;font-weight:800;color:var(--green)">${t('modifyBookingBtn')}</div>
+        <div style="margin-left:auto;font-size:11px;font-weight:700;color:var(--muted)">${t('queueNumLabel')}: <span style="color:var(--text)">${qNums}</span></div>
       </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${existingEntries.map((e,i)=>`
+          <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;flex-shrink:0">
+            ${existingEntries.length>1?`<span style="color:var(--muted);font-size:10px;display:block;margin-bottom:2px">${t('bike')} ${i+1}</span>`:''}
+            <span style="color:var(--muted)">#${e.queueNum}</span>
+            &nbsp;·&nbsp;<span>${e.size}</span>
+            &nbsp;·&nbsp;${typeBadge(e.typePreference)}
+          </div>`).join('')}
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">${t('modifyBanner')}</div>
     </div>`:'';
 
   // Qty stepper — always shown (in modify mode, starts at existing qty)
@@ -3339,7 +3345,8 @@ async function submitModifyBooking(){
 
   const existing=getQueue().filter(e=>
     e.customerId===cust.id&&e.sessionId===S.selSession&&e.status==='waiting'
-  );
+  ).sort((a,b)=>a.queueNum-b.queueNum);
+
   const newQty=S.regQty||1;
   ensureBikeSizes();
 
@@ -3350,43 +3357,56 @@ async function submitModifyBooking(){
   }
 
   const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
+  const calls=[];
 
-  // For each slot: if size OR type changed vs original, OR brand new slot → add as a NEW independent booking
-  // Original unchanged bookings are left completely untouched
-  const newEntries=[];
-  let baseQNum=nextQNum(S.selSession);
-  for(let i=0;i<newQty;i++){
-    const orig=existing[i]||null;
+  // ── Update existing entries in-place (same queue number, same position) ──
+  for(let i=0;i<Math.min(newQty,existing.length);i++){
+    const entry=existing[i];
     const newSize=S.regBikeSizes[i];
     const newType=S.regBikeTypes[i];
-    const isNew=!orig;
-    const isChanged=orig&&(orig.size!==newSize||orig.typePreference!==newType);
-    if(isNew||isChanged){
-      // Check there is a spot available (existing unchanged bookings already occupy their spots)
-      const spotsNeeded=newEntries.length+1;
-      if(spotsLeft(S.selSession)<spotsNeeded){
-        toast(`${t('errNotEnoughSpots')} (${spotsLeft(S.selSession)})`,'error');return;
-      }
-      newEntries.push({
-        id:uid(),name:cust.name,email:cust.email||'',phone:cust.phone||'',
-        size:newSize,typePreference:newType,
-        paid:false,assignedBikeId:null,
-        sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
-        queueNum:baseQNum+newEntries.length,status:'waiting',
-        registeredAt:new Date().toISOString(),walkIn:false,
-        customerId:cust.id,price:priceForType(newType)
-      });
+    if(entry.size!==newSize||entry.typePreference!==newType){
+      calls.push(sb.from('queue_entries').update({
+        size:newSize,type_preference:newType,price:priceForType(newType)
+      }).eq('id',entry.id));
     }
-    // Unchanged original entry → do nothing, it stays as-is in the queue
   }
 
-  if(newEntries.length===0){
-    toast(t('toastBookingUpdated'));
+  // ── Remove extra existing entries if qty reduced ──
+  if(newQty<existing.length){
+    const toRemove=existing.slice(newQty);
+    toRemove.forEach(e=>calls.push(sb.from('queue_entries').update({status:'cancelled'}).eq('id',e.id)));
+  }
+
+  // ── Add new entries if qty increased ──
+  const addedEntries=[];
+  if(newQty>existing.length){
+    const extra=newQty-existing.length;
+    // Check spots available for new additions
+    const freeSpots=spotsLeft(S.selSession);
+    if(freeSpots<extra){toast(`${t('errNotEnoughSpots')} (${freeSpots})`,'error');return;}
+    let baseQNum=nextQNum(S.selSession);
+    for(let i=existing.length;i<newQty;i++){
+      const entry={
+        id:uid(),name:cust.name,email:cust.email||'',phone:cust.phone||'',
+        size:S.regBikeSizes[i],typePreference:S.regBikeTypes[i],
+        paid:false,assignedBikeId:null,
+        sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
+        queueNum:baseQNum+addedEntries.length,status:'waiting',
+        registeredAt:new Date().toISOString(),walkIn:false,
+        customerId:cust.id,price:priceForType(S.regBikeTypes[i])
+      };
+      addedEntries.push(entry);
+      calls.push(sb.from('queue_entries').insert(entryToDB(entry)));
+    }
+  }
+
+  if(calls.length>0)await Promise.all(calls);
+  await loadData();
+
+  if(addedEntries.length>0){
+    toast(`${t('toastBookingUpdated')} + ${t('toastRegistered')} ${addedEntries.map(e=>`#${e.queueNum}`).join(', ')}`);
   }else{
-    await Promise.all(newEntries.map(e=>sb.from('queue_entries').insert(entryToDB(e))));
-    await loadData();
-    const nums=newEntries.map(e=>`#${e.queueNum}`).join(', ');
-    toast(`${t('toastRegistered')} ${nums}`);
+    toast(t('toastBookingUpdated'));
   }
 
   S.modifyEntryId=null;S.selSession=null;
