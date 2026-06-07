@@ -178,7 +178,7 @@
     .sess-summary-chip:hover{border-color:rgba(3,255,137,.35);background:#1c1f1c;}
     .sess-summary-chip.active-sess{border-color:rgba(3,255,137,.3);}
     .sess-chip-info{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;}
-    .sess-chip-date{font-size:12px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .sess-chip-date{font-size:12px;font-weight:900;white-space:nowrap;}
     .sess-chip-counts{font-size:11px;color:var(--muted);font-weight:700;}
     .sess-chip-bar{height:4px;border-radius:2px;background:var(--border);overflow:hidden;margin-top:6px;}
     .sess-chip-fill{height:100%;border-radius:2px;background:var(--green);transition:width .4s;}
@@ -261,9 +261,9 @@
     .pin-box.shake{animation:pinShake .35s ease;}
 
     /* ── AUTH OVERLAY ────────────────────────────────────── */
-    .auth-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
-    .auth-box{background:linear-gradient(160deg,#161616 0%,#131313 100%);border:1px solid rgba(255,255,255,.09);border-radius:24px;padding:36px 32px;width:100%;max-width:420px;box-shadow:0 32px 80px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.04) inset;}
-    .auth-logo{height:72px;width:auto;object-fit:contain;margin-bottom:18px;display:block;margin-left:auto;margin-right:auto;}
+    .auth-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto;}
+    .auth-box{background:linear-gradient(160deg,#161616 0%,#131313 100%);border:1px solid rgba(255,255,255,.09);border-radius:24px;padding:36px 32px;width:100%;max-width:420px;box-shadow:0 32px 80px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.04) inset;margin:auto;}
+    .auth-logo{height:80px;width:auto;object-fit:contain;margin-bottom:20px;display:block;margin-left:auto;margin-right:auto;}
     .auth-title{font-size:22px;font-weight:900;margin-bottom:4px;letter-spacing:-.3px;}
     .auth-sub{font-size:13px;color:var(--muted);margin-bottom:28px;line-height:1.5;}
     .auth-tabs{display:flex;gap:0;margin-bottom:28px;background:rgba(255,255,255,.04);border-radius:12px;padding:4px;border:1px solid rgba(255,255,255,.06);}
@@ -1169,10 +1169,12 @@
       .pin-box{padding:24px 18px;border-radius:18px;}
       .pin-numpad{gap:8px;}
       .pin-key{padding:14px 8px;font-size:18px;min-height:52px;}
-      .auth-backdrop{align-items:flex-end;padding:0;}
+      .auth-backdrop{align-items:flex-end;padding:0;overflow-y:auto;}
       .auth-box{
         padding:24px 16px max(24px,env(safe-area-inset-bottom));
         border-radius:20px 20px 0 0;width:100%;max-width:100%;margin:0;
+        overflow-y:auto;-webkit-overflow-scrolling:touch;
+        max-height:95dvh;
       }
       .auth-logo{max-height:44px;}
       .auth-title{font-size:18px;}
@@ -2463,7 +2465,7 @@ function renderAuthModal(){
   const isLogin=mode==='login';
   const isForgot=mode==='forgot';
   const ccOpts=COUNTRY_CODES.map(([code,iso])=>`<option value="${code}"${code==='+966'?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
-  const logoSrc='logo.png';
+  const logoSrc='brand.png';
   let title=t('authWelcome'),subtitle=t('authSub'),tabs='',body='';
 
   if(isForgot){
@@ -3304,10 +3306,14 @@ async function submitReg(){
 
   const name=cust.name,email=cust.email||'',phone=cust.phone||'';
   const queue=getQueue();
-  // If logged-in customer already has a waiting booking, redirect to modify mode
+  // If logged-in customer already has a WAITING booking, redirect to modify mode
   if(cust.id&&queue.some(e=>e.customerId===cust.id&&e.sessionId===S.selSession&&e.status==='waiting'))
     {S.modifyEntryId=null;renderRegister();return;}
-  if(phone&&queue.find(e=>e.phone===phone&&e.sessionId===S.selSession&&e.status!=='noshow'&&e.status!=='cancelled'))
+  // Block duplicate only for active/waiting bookings — completed (done) bookings allow re-booking
+  const activeStatuses=['waiting','active'];
+  if(phone&&queue.find(e=>e.phone===phone&&e.sessionId===S.selSession&&activeStatuses.includes(e.status)))
+    {toast(t('errPhoneInSession'),'error');return;}
+  if(cust.id&&queue.some(e=>e.customerId===cust.id&&e.sessionId===S.selSession&&activeStatuses.includes(e.status)))
     {toast(t('errPhoneInSession'),'error');return;}
 
   const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
@@ -4279,7 +4285,7 @@ function renderStaffQueue(){
       return`<div class="sess-summary-chip${isCurrent?' active-sess':''}"
         onclick="setSfSession('${s.id}')" title="${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}">
         <div class="sess-chip-info">
-          <div class="sess-chip-date">${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</div>
+          <div class="sess-chip-date">${dayLabel(s.day)}, ${shortDate(s.session_date||s.id)} &nbsp;·&nbsp; ${sessionTime(s)}</div>
           <div class="sess-chip-counts">
             <span style="color:var(--green)">${sWait} ${t('waitingStat').toLowerCase()}</span>
             ${sActive?` &middot; <span style="color:var(--text)">${sActive} ${t('activeSessChip')}</span>`:''}
@@ -4539,13 +4545,17 @@ async function doReopen(id){
   });
   renderStaffQueue();
 }
-function addHistLog(action,entry){
+function addHistLog(action,entry,undoFn){
   S.histLog.unshift({
+    id:'log-'+Date.now()+'-'+Math.random().toString(36).slice(2),
     action,
+    entryId:entry.id,
     name:entry.name,
     queueNum:entry.queueNum,
     session:dayLabel(entry.sessionDay)+' '+shortDate(entry.sessionDate),
-    time:new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})
+    time:new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
+    undoFn:undoFn||null,
+    undone:false
   });
   if(S.histLog.length>200)S.histLog.pop();
 }
@@ -4559,24 +4569,36 @@ function confirmHistRemove(id){
 
 async function doRemove(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
-  addHistLog('Removed',entry);
-  await sb.from('queue_entries').update({status:'removed'}).eq('id',id);
-  await loadData();toast(t('toastRiderRemoved'));
-  pushUndo(`Remove #${entry.queueNum} ${entry.name}`,async()=>{
-    const prevStatus=entry.status==='done'?'done':'waiting';
-    addHistLog('Restored',entry);
-    await sb.from('queue_entries').update({status:prevStatus}).eq('id',id);
+  const prevStatus=entry.status;
+  addHistLog('Removed',entry,async()=>{
+    await sb.from('queue_entries').update({status:prevStatus==='done'?'done':'waiting'}).eq('id',id);
     await loadData();renderStaffQueue();renderHistory();
   });
+  await sb.from('queue_entries').update({status:'removed'}).eq('id',id);
+  await loadData();toast(t('toastRiderRemoved'));
   renderStaffQueue();renderHistory();
 }
 
 async function doRestoreEntry(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
-  addHistLog('Restored',entry);
+  addHistLog('Restored',entry,async()=>{
+    await sb.from('queue_entries').update({status:'removed'}).eq('id',id);
+    await loadData();renderHistory();
+  });
   await sb.from('queue_entries').update({status:'done'}).eq('id',id);
   await loadData();toast(t('restoreEntryBtn')||'Restored');
   renderHistory();
+}
+
+async function undoHistLog(logId){
+  const log=S.histLog.find(l=>l.id===logId);
+  if(!log||log.undone||!log.undoFn){toast('Nothing to undo','warning');return;}
+  try{
+    await log.undoFn();
+    log.undone=true;
+    renderHistory();
+    toast(t('undoneMsg'));
+  }catch(e){toast(t('undoFailed'),'error');}
 }
 
 /* ══════════════════════════════════════════════
@@ -5105,11 +5127,14 @@ function renderHistory(){
       <div style="font-size:11px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Activity Log</div>
       ${S.histLog.length===0
         ?`<div style="color:var(--muted);font-size:13px">No actions recorded yet.</div>`
-        :S.histLog.map(l=>`<div style="display:flex;gap:10px;align-items:baseline;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">
+        :S.histLog.map(l=>`<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px">
             <span style="color:var(--muted);font-size:10px;white-space:nowrap;flex-shrink:0">${l.time}</span>
-            <span style="font-weight:800;color:${l.action==='Removed'?'var(--red)':'var(--green)'}">${l.action}</span>
-            <span style="font-weight:700">#${l.queueNum} ${esc(l.name)}</span>
-            <span style="color:var(--muted);font-size:12px;margin-left:auto;white-space:nowrap">${l.session}</span>
+            <span style="font-weight:800;color:${l.action==='Removed'?'var(--red)':'var(--green)'}${l.undone?';text-decoration:line-through;opacity:.5':''}">${l.action}</span>
+            <span style="font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">#${l.queueNum} ${esc(l.name)}</span>
+            <span style="color:var(--muted);font-size:11px;white-space:nowrap">${l.session}</span>
+            ${l.undoFn&&!l.undone
+              ?`<button onclick="undoHistLog('${l.id}')" style="flex-shrink:0;padding:3px 8px;border-radius:6px;border:1px solid rgba(3,255,137,.3);background:rgba(3,255,137,.08);color:var(--green);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap">↩ ${t('undoBtn')||'Undo'}</button>`
+              :l.undone?`<span style="font-size:10px;color:var(--muted)">undone</span>`:''}
           </div>`).join('')}
     </div>`:''}
     <div class="stats-row">
