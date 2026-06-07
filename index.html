@@ -4664,29 +4664,44 @@ function showFactoryReset(){
 }
 function closeFactoryReset(){const m=document.getElementById('factory-reset-modal');if(m)m.style.display='none';}
 async function execFactoryReset(){
-  const queue=document.getElementById('rst-queue')?.checked;
-  const sessions=document.getElementById('rst-sessions')?.checked;
-  const bikes=document.getElementById('rst-bikes')?.checked;
-  const customers=document.getElementById('rst-customers')?.checked;
+  const doQueue    =document.getElementById('rst-queue')?.checked;
+  const doSessions =document.getElementById('rst-sessions')?.checked;
+  const doBikes    =document.getElementById('rst-bikes')?.checked;
+  const doCustomers=document.getElementById('rst-customers')?.checked;
   closeFactoryReset();
-  const calls=[];
-  if(queue)   calls.push(sb.from('queue_entries').delete().neq('id','__placeholder__'));
-  if(sessions)calls.push(sb.from('sessions').delete().neq('id','__placeholder__'));
-  if(bikes)   calls.push(sb.from('bikes').delete().neq('id','__placeholder__'));
-  if(customers)calls.push(sb.from('customers').delete().neq('id','__placeholder__'));
   try{
-    await Promise.all(calls);
-    // Clear local state
-    if(queue||sessions||bikes||customers){
-      localStorage.removeItem('cq_cancellations');
-      S.cancellationLog=[];S.histLog=[];
+    // Delete in FK dependency order: queue_entries first, then sessions/bikes, then customers last
+    // If deleting customers, queue_entries MUST also be cleared (FK constraint)
+    const needQueueClear=doQueue||doCustomers;
+    if(needQueueClear){
+      const{error}=await sb.from('queue_entries').delete().neq('id','__none__');
+      if(error)throw error;
     }
-    if(customers){clearSession();S.loggedIn=null;}
+    if(doSessions){
+      const{error}=await sb.from('sessions').delete().neq('id','__none__');
+      if(error)throw error;
+    }
+    if(doBikes){
+      const{error}=await sb.from('bikes').delete().neq('id','__none__');
+      if(error)throw error;
+    }
+    if(doCustomers){
+      const{error}=await sb.from('customers').delete().neq('id','__none__');
+      if(error)throw error;
+    }
+    // Clear local state
+    localStorage.removeItem('cq_cancellations');
+    S.cancellationLog=[];S.histLog=[];
+    if(doCustomers){clearSession();S.loggedIn=null;}
     await loadData();
-    toast('Reset complete. Selected data has been deleted.','warning');
-    renderStaffQueue();if(sessions)renderSessions();if(bikes)renderBikes();if(queue)renderHistory();
+    toast('Reset complete.','warning');
+    renderStaffQueue();
+    if(doSessions)renderSessions();
+    if(doBikes)renderBikes();
+    if(needQueueClear)renderHistory();
   }catch(e){
-    toast('Reset failed. Check your Supabase permissions.','error');
+    console.error('Factory reset error:',e);
+    toast('Reset failed: '+((e&&e.message)||'check Supabase permissions.'),'error');
   }
 }
 async function _execReturn(id,markPaid){
