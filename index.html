@@ -1303,7 +1303,6 @@
   <div id="landing-body">
     <h1 class="landing-main-title" id="land-main-title">Reserve Your <span>Bicycle Now!</span></h1>
     <div class="landing-subtitle" id="land-subtitle">Corniche Circuit &nbsp;·&nbsp; Jeddah</div>
-    <div class="landing-avail-strip" id="land-avail-strip"></div>
 
     <button class="landing-hero-card" onclick="goCustomer('register')">
       <img src="hero.png" alt="Corniche Circuit">
@@ -2589,6 +2588,7 @@ function goCustomer(tab){
 }
 
 function goStaff(){
+  localStorage.setItem('cq_staff','1');
   showView('staff');
   renderStaffTabs();
   // Auto-select the first open/full session so queues never overlap
@@ -2680,7 +2680,7 @@ function renderTopbarRight(){
     el.innerHTML=`
       <span class="view-badge staff">${t('staffBadge')}</span>
       ${last?`<button class="topbar-btn undo-btn" onclick="doUndo()" title="${esc(last.label)}" style="animation:undoPulse 2s ease-in-out infinite">&#x21B6; Undo</button>`:''}
-      <button class="topbar-btn danger" onclick="goLanding()">${t('lockBtn')}</button>`;
+      <button class="topbar-btn danger" onclick="localStorage.removeItem('cq_staff');goLanding()">${t('lockBtn')}</button>`;
   } else {
     el.innerHTML='';
   }
@@ -5531,8 +5531,15 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
     console.warn('Could not reach backend:',e.message);
   }
   S.loggedIn=getSession();
-  showView('landing');
-  renderLandingAvail();
+  // Restore previous view after refresh
+  if(localStorage.getItem('cq_staff')==='1'){
+    goStaff();
+  } else if(S.loggedIn){
+    goCustomer('register');
+  } else {
+    showView('landing');
+    renderLandingAvail();
+  }
 })();
 
 // ── Auto-refresh for staff view ──
