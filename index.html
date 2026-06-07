@@ -2238,7 +2238,7 @@ const S={
   // analytics
   analyticsRange:'all', analyticsTrendSort:'date', analyticsTrendDir:-1, analyticsCustomN:20,
   // modals
-  modalRider:null,modalBike:null,modalShowAll:false,
+  modalRider:null,modalBikes:[],modalShowAll:false,
   // auth
   authMode:'login',   // 'login' | 'signup' | 'forgot'
   forgotEmail:'',forgotStep:1,
@@ -2339,7 +2339,9 @@ function shortDate(ds){
   if(!ds)return'';
   try{
     const d=new Date(ds+'T12:00:00');
-    return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:KSA_TZ});
+    // ar-u-ca-gregory-nu-latn = Arabic month names + Gregorian calendar + Latin numerals
+    const locale=S&&S.lang==='ar'?'ar-u-ca-gregory-nu-latn':'en-GB';
+    return d.toLocaleDateString(locale,{day:'numeric',month:'short',year:'numeric',timeZone:KSA_TZ});
   }catch{return ds;}
 }
 function longDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',timeZone:KSA_TZ});}
@@ -2361,6 +2363,11 @@ function spotsLeft(sid){
 }
 function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid&&e.status!=='removed'&&e.status!=='cancelled').map(e=>e.queueNum);return nums.length?Math.max(...nums)+1:1;}
 const bikeById=id=>getBikes().find(b=>b.id===id);
+function getAssignedBikeIds(entry){
+  if(!entry||!entry.assignedBikeId)return[];
+  try{const p=JSON.parse(entry.assignedBikeId);return Array.isArray(p)?p:[p];}catch{return[entry.assignedBikeId];}
+}
+function getAssignedBikes(entry){return getAssignedBikeIds(entry).map(id=>bikeById(id)).filter(Boolean);}
 function heightToSize(h){if(h<=166)return'XS';if(h<=172)return'S';if(h<=178)return'M';return'L';}
 function sizeLabel(sz){return{XS:'XS (166 cm & under)',S:'S (167-172 cm)',M:'M (173-178 cm)',L:'L (179 cm & up)'}[sz]||sz;}
 function sizeRange(sz){
@@ -4150,16 +4157,17 @@ function renderStaffQueue(){
   allWaiting.forEach(e=>{sessWaitCount[e.sessionId]=(sessWaitCount[e.sessionId]||0)+1;});
 
   function renderQRow(e){
-    const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
+    const assignedBikes=getAssignedBikes(e); // array in order
+    const bike=assignedBikes[0]||null;       // primary bike (backward compat)
     const rowCls=e.status==='active'?'row-active':(e.status==='done'||e.status==='noshow'||e.status==='cancelled')?'row-done':'';
     const wiTag=e.walkIn?`<span class="walk-in-badge">${t('addWalkin').replace(/^\+ /,'')}</span>`:'';
     let actions='';
     if(e.status==='waiting')actions=`<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="doNoShow('${e.id}')">${t('noShowBtn')}</button>`;
-    else if(e.status==='active')actions=`<button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button>`;
+    else if(e.status==='active')actions=`<button class="btn-sm btn-green" onclick="openModal('${e.id}')" title="Add/change bikes">+&#x1F6B4;</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button>`;
     else if(e.status==='done')actions=`<button class="btn-sm btn-blue" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
     else actions=`<button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
-    const bikeColors=bike&&bike.colors&&bike.colors.length?bike.colors:null;
-    const colorSwatches=bikeColors?bikeColors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join(''):'<span style="color:var(--muted)">—</span>';
+    const allColors=assignedBikes.flatMap(b=>b.colors&&b.colors.length?b.colors:[]);
+    const colorSwatches=allColors.length?allColors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join(''):'<span style="color:var(--muted)">—</span>';
     const lp=livePosMap[e.id];
     const totalW=sessWaitCount[e.sessionId]||0;
     // Three separate columns: row index | booking # | queue position
@@ -4173,7 +4181,12 @@ function renderStaffQueue(){
       <td style="font-weight:800">${e.size}</td>
       <td>${typeBadge(e.typePreference)}</td>
       ${S.sfSession==='all'?`<td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
-      <td>${bike?esc(bike.name):'<span style="color:var(--muted)">—</span>'}</td>
+      <td>${assignedBikes.length>0
+        ?assignedBikes.map((b,i)=>`<div style="display:flex;align-items:center;gap:5px;${i>0?'margin-top:3px':''}">
+            <span style="font-size:9px;font-weight:900;color:var(--muted);min-width:12px">${i+1}.</span>
+            <span style="font-weight:700;font-size:13px">${esc(b.name)}</span>
+          </div>`).join('')
+        :'<span style="color:var(--muted)">—</span>'}</td>
       <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
       <td style="font-weight:800;white-space:nowrap">SAR ${e.price||DEFAULT_PRICE}</td>
       <td onclick="event.stopPropagation()">
@@ -4469,30 +4482,29 @@ function showReturnPayModal(id){
 function closeReturnPayModal(){const m=document.getElementById('return-pay-modal');if(m)m.style.display='none';}
 async function _execReturn(id,markPaid){
   const q=getQueue();const entry=q.find(e=>e.id===id);if(!entry)return;
-  const bikeId=entry.assignedBikeId;const name=entry.name;const qn=entry.queueNum;
+  const bikeIds=getAssignedBikeIds(entry);const name=entry.name;const qn=entry.queueNum;
   const updates={status:'done'};if(markPaid)updates.paid=true;
-  const calls=[sb.from('queue_entries').update(updates).eq('id',id)];
-  if(bikeId)calls.push(sb.from('bikes').update({status:'available'}).eq('id',bikeId));
-  await Promise.all(calls);
+  await Promise.all([
+    sb.from('queue_entries').update(updates).eq('id',id),
+    ...bikeIds.map(bid=>sb.from('bikes').update({status:'available'}).eq('id',bid)),
+  ]);
   await loadData();
   toast(markPaid?t('toastBikeReturnedPaid'):t('toastBikeReturned'));
-  pushUndo(`Return bike - #${qn} ${name}`,async()=>{
+  pushUndo(`Return - #${qn} ${name}`,async()=>{
     const u={status:'active'};if(markPaid)u.paid=false;
-    const calls2=[sb.from('queue_entries').update(u).eq('id',id)];
-    if(bikeId)calls2.push(sb.from('bikes').update({status:'in-use'}).eq('id',bikeId));
-    await Promise.all(calls2);
+    await Promise.all([
+      sb.from('queue_entries').update(u).eq('id',id),
+      ...bikeIds.map(bid=>sb.from('bikes').update({status:'in-use'}).eq('id',bid)),
+    ]);
     await loadData();renderStaffQueue();
   });
   renderStaffQueue();
 }
 async function doReopen(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
-  const bikeId=entry.assignedBikeId;
+  const bikeIds=getAssignedBikeIds(entry);
   const calls=[sb.from('queue_entries').update({status:'active'}).eq('id',id)];
-  if(bikeId){
-    const bike=bikeById(bikeId);
-    if(bike&&bike.status==='available')calls.push(sb.from('bikes').update({status:'in-use'}).eq('id',bikeId));
-  }
+  bikeIds.forEach(bid=>{const bike=bikeById(bid);if(bike&&bike.status==='available')calls.push(sb.from('bikes').update({status:'in-use'}).eq('id',bid));});
   await Promise.all(calls);
   await loadData();toast(t('toastReopened'));
   pushUndo(`Re-open #${entry.queueNum} ${entry.name}`,async()=>{
@@ -4546,7 +4558,13 @@ async function doRestoreEntry(id){
 /* ══════════════════════════════════════════════
    BIKE ASSIGN MODAL
 ══════════════════════════════════════════════ */
-function openModal(riderId){S.modalRider=riderId;S.modalBike=null;S.modalShowAll=false;renderModal();}
+function openModal(riderId){
+  S.modalRider=riderId;S.modalBikes=[];S.modalShowAll=false;
+  // Pre-populate with already-assigned bikes if reopening mid-session
+  const entry=getQueue().find(e=>e.id===riderId);
+  if(entry&&entry.status==='active')S.modalBikes=getAssignedBikeIds(entry);
+  renderModal();
+}
 function renderModal(){
   const rider=getQueue().find(e=>e.id===S.modalRider);if(!rider)return;
   const allBikes=getBikes();
@@ -4579,6 +4597,8 @@ function renderModal(){
 
   function bikeCard(b,altType=false){
     const free=b.status==='available';
+    const selIdx=S.modalBikes.indexOf(b.id); // -1 if not selected
+    const sel=selIdx>=0;
     const dot=free?'dot-green':b.status==='in-use'?'dot-orange':'dot-red';
     const slbl=free?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
     const grad=bikeGradient(b.colors||['#03ff89']);
@@ -4587,7 +4607,11 @@ function renderModal(){
     if(sizeMatch)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--green);background:rgba(3,255,137,.15);padding:2px 6px;border-radius:6px">${t('sizeMatchLabel')}</span>`);
     if(inFleet(b)&&slots)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--green);background:rgba(3,255,137,.1);padding:2px 6px;border-radius:6px">${t('fleetBadge')}</span>`);
     if(altType)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--muted-l);background:rgba(255,255,255,.07);padding:2px 6px;border-radius:6px">${t('altBadge')}</span>`);
-    return`<div class="modal-bike-card${!free?' unavailable':''}${S.modalBike===b.id?' selected':''}" ${free?`onclick="pickBike('${b.id}')"`:''}>
+    // Order badge for selected bikes
+    const orderBadge=sel?`<div style="position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:var(--green);color:#000;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center">${selIdx+1}</div>`:'';
+    return`<div class="modal-bike-card${!free&&!sel?' unavailable':''}${sel?' selected':''}" style="position:relative"
+      ${free||sel?`onclick="pickBike('${b.id}')"`:''}>
+      ${orderBadge}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:4px;flex-wrap:wrap">
         <span class="avail-dot ${dot}"></span>
         <div style="display:flex;gap:4px;flex-wrap:wrap">${badges.join('')}</div>
@@ -4596,7 +4620,7 @@ function renderModal(){
       <div style="font-weight:900;font-size:14px;margin-bottom:3px">${esc(b.name)}</div>
       <div style="font-size:12px;color:var(--muted)">${typeLabel(b.type)} &middot; ${t('frameSizeLabel')} ${b.size}</div>
       <div style="margin-top:6px">${typeBadge(b.type)}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:5px">${slbl}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">${sel?`<span style="color:var(--green);font-weight:800">&#x2713; #${selIdx+1}</span>`:slbl}</div>
     </div>`;
   }
 
@@ -4650,27 +4674,41 @@ function renderModal(){
       ${payWarning}
       ${fleetLine}
       ${cards}
-      <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="confirmAssign()">${t('confirmCheckin')}</button></div>
+      <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">${t('cancelBtn')}</button><button class="btn-primary" onclick="confirmAssign()">${t('confirmCheckin')}${S.modalBikes.length>0?` (${S.modalBikes.length})`:''}</button></div>
     </div>
   </div>`;
 }
-function pickBike(id){S.modalBike=id;renderModal();}
-function closeModal(){document.getElementById('bike-modal').style.display='none';S.modalRider=null;S.modalBike=null;S.modalShowAll=false;}
+function pickBike(id){
+  const idx=S.modalBikes.indexOf(id);
+  if(idx>=0)S.modalBikes.splice(idx,1);
+  else S.modalBikes.push(id);
+  renderModal();
+}
+function closeModal(){document.getElementById('bike-modal').style.display='none';S.modalRider=null;S.modalBikes=[];S.modalShowAll=false;}
 async function confirmAssign(){
-  if(!S.modalBike){toast(t('errSelectBike'),'error');return;}
-  const bikes=getBikes();const bi=bikes.findIndex(b=>b.id===S.modalBike);
-  if(bi<0||bikes[bi].status!=='available'){toast(t('errBikeUnavailable'),'error');return;}
-  const bikeName=bikes[bi].name;const bikeId=S.modalBike;const riderId=S.modalRider;
-  const rider=getQueue().find(e=>e.id===riderId);const qn=rider?rider.queueNum:'?';const rName=rider?rider.name:'';
+  if(S.modalBikes.length===0){toast(t('errSelectBike'),'error');return;}
+  const allBikes=getBikes();
+  const selected=S.modalBikes.map(id=>allBikes.find(b=>b.id===id)).filter(Boolean);
+  // Check all selected bikes are still available (unless already assigned to this rider)
+  const rider=getQueue().find(e=>e.id===S.modalRider);
+  const alreadyAssigned=rider?getAssignedBikeIds(rider):[];
+  const needsUpdate=selected.filter(b=>!alreadyAssigned.includes(b.id));
+  const unavail=needsUpdate.filter(b=>b.status!=='available');
+  if(unavail.length>0){toast(`${unavail[0].name}: ${t('errBikeUnavailable')}`,'error');return;}
+  const riderId=S.modalRider;
+  const qn=rider?rider.queueNum:'?';const rName=rider?rider.name:'';
+  // Store as JSON array (single bike stored as JSON array for consistency)
+  const assignedVal=S.modalBikes.length===1?S.modalBikes[0]:JSON.stringify(S.modalBikes);
+  const bikeNames=selected.map(b=>b.name).join(', ');
   await Promise.all([
-    sb.from('bikes').update({status:'in-use'}).eq('id',bikeId),
-    sb.from('queue_entries').update({status:'active',assigned_bike_id:bikeId}).eq('id',riderId),
+    ...needsUpdate.map(b=>sb.from('bikes').update({status:'in-use'}).eq('id',b.id)),
+    sb.from('queue_entries').update({status:'active',assigned_bike_id:assignedVal}).eq('id',riderId),
   ]);
   await loadData();closeModal();
-  toast(`${bikeName} ${t('toastAssignedChecked')}`);
-  pushUndo(`Check-in #${qn} ${rName} on ${bikeName}`,async()=>{
+  toast(`${bikeNames} ${t('toastAssignedChecked')}`);
+  pushUndo(`Check-in #${qn} ${rName}`,async()=>{
     await Promise.all([
-      sb.from('bikes').update({status:'available'}).eq('id',bikeId),
+      ...needsUpdate.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b.id)),
       sb.from('queue_entries').update({status:'waiting',assigned_bike_id:null}).eq('id',riderId),
     ]);
     await loadData();renderStaffQueue();
