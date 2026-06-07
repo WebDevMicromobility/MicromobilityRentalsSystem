@@ -976,199 +976,238 @@
        MOBILE  ≤ 767 px  (iPhone / small Android)
     ══════════════════════════════════════════════════════════ */
     @media(max-width:767px){
-      /* Prevent horizontal overflow */
+      /* ── Overflow & base ── */
       html,body{overflow-x:clip;}
       #view-landing,#view-customer,#view-staff{overflow-x:clip;}
+      *{-webkit-tap-highlight-color:transparent;}
 
-      /* ── iPhone safe areas ── */
-      #topbar{padding-left:max(14px,env(safe-area-inset-left));
-               padding-right:max(14px,env(safe-area-inset-right));}
-      #app-footer{padding-bottom:max(28px,calc(env(safe-area-inset-bottom) + 16px));
-                  padding-left:max(16px,env(safe-area-inset-left));
-                  padding-right:max(16px,env(safe-area-inset-right));}
+      /* ── Safe areas ── */
+      #topbar{
+        padding-left:max(16px,env(safe-area-inset-left));
+        padding-right:max(16px,env(safe-area-inset-right));
+      }
+      #app-footer{
+        padding-bottom:max(28px,calc(env(safe-area-inset-bottom)+16px));
+        padding-left:max(16px,env(safe-area-inset-left));
+        padding-right:max(16px,env(safe-area-inset-right));
+      }
+      #cust-bottom-nav{
+        padding-bottom:max(8px,env(safe-area-inset-bottom));
+        padding-left:max(0px,env(safe-area-inset-left));
+        padding-right:max(0px,env(safe-area-inset-right));
+      }
 
       /* ── Topbar ── */
-      #topbar{height:54px;gap:6px;}
+      #topbar{height:52px;gap:6px;}
       .topbar-logo{gap:8px;flex-shrink:0;}
-      .topbar-logo img{height:28px;width:auto;max-width:100px;}
+      .topbar-logo img{height:28px;max-width:96px;}
       .topbar-brand-name{font-size:13px;}
+      .topbar-brand-sub{display:none;}
       .cust-topbar-email{display:none;}
-      .cust-topbar-name{font-size:12px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-      .lang-toggle{padding:5px 8px;font-size:11px;flex-shrink:0;}
-      .topbar-btn{padding:5px 9px;font-size:11px;flex-shrink:0;}
+      .cust-topbar-name{font-size:12px;max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+      .lang-toggle{padding:6px 9px;font-size:11px;flex-shrink:0;}
+      .topbar-btn{padding:6px 10px;font-size:11px;flex-shrink:0;min-height:36px;}
       .topbar-right{gap:5px;flex-shrink:0;}
-      .view-badge{font-size:10px;padding:4px 8px;letter-spacing:.4px;}
+      .view-badge{font-size:10px;padding:4px 8px;letter-spacing:.3px;}
 
-      /* ── Tab nav ── */
-      .tab-nav{padding:0;justify-content:center;}
-      .tab-btn{padding:13px 14px;font-size:12px;min-height:44px;flex:1;text-align:center;}
+      /* ── Staff tab nav ── */
+      .tab-nav{padding:0 4px;justify-content:stretch;}
+      .tab-btn{padding:12px 10px;font-size:11px;min-height:44px;flex:1;text-align:center;white-space:nowrap;}
+
+      /* ── Customer top nav hidden — bottom nav handles it ── */
+      #customer-tab-nav{display:none;}
 
       /* ── Main layout ── */
-      .view-main{padding:14px 14px 32px;}
-      .page-title{font-size:18px;margin-bottom:2px;}
+      .view-main{padding:12px 14px 24px;}
+      .page-title{font-size:20px;margin-bottom:3px;}
       .page-sub{font-size:12px;margin-bottom:12px;line-height:1.4;}
       .section-header{flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:flex-start;}
       .section-header > div{flex:1;min-width:0;}
 
+      /* ── Bottom padding so content clears bottom nav ── */
+      #view-customer .view-main{padding-bottom:calc(74px + env(safe-area-inset-bottom));}
+      #view-staff .view-main{padding-bottom:24px;}
+      #app-footer{padding-bottom:calc(70px + env(safe-area-inset-bottom));}
+
       /* ── Landing ── */
-      #landing-body{padding:24px 16px 40px;justify-content:center;min-height:calc(100dvh - 54px);text-align:center;}
-      .landing-main-title{font-size:26px;margin-bottom:20px;letter-spacing:.2px;}
-      .landing-hero-card{max-width:min(300px,calc(100vw - 40px));border-radius:16px;}
-      .landing-hero-cta-btn{width:40px;height:40px;font-size:18px;}
+      #landing-body{padding:28px 16px 48px;min-height:calc(100dvh - 52px);text-align:center;}
+      .landing-main-title{font-size:28px;margin-bottom:24px;line-height:1.1;}
+      .landing-hero-card{max-width:min(320px,calc(100vw - 32px));border-radius:16px;}
+      .landing-hero-cta-btn{width:42px;height:42px;font-size:18px;}
       .landing-footer{margin-top:20px;}
 
       /* ── Forms ── */
-      .form-section{padding:14px 14px;border-radius:12px;}
-      .form-title{font-size:14px;margin-bottom:14px;}
+      .form-section{padding:16px;border-radius:14px;}
+      .form-title{font-size:15px;margin-bottom:14px;}
       .form-row{grid-template-columns:1fr;gap:10px;margin-bottom:10px;}
-      .inline-form{padding:14px;border-radius:12px;}
+      .inline-form{padding:16px;border-radius:14px;}
+      .form-group label{font-size:12px;}
       input[type="text"],input[type="tel"],input[type="number"],input[type="email"],
-      input[type="date"],input[type="password"],select{padding:11px 12px;font-size:16px;}
+      input[type="date"],input[type="time"],input[type="password"],select{
+        padding:12px 14px;font-size:16px;border-radius:10px;min-height:46px;
+      }
+      .filter-select{height:40px;font-size:13px;min-height:40px;}
 
-      /* ── Stats ── */
+      /* ── Stats cards ── */
       .stats-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;flex-wrap:unset;}
-      .stat-card{padding:11px 12px;min-width:0;}
-      .stat-num{font-size:22px;}
+      .stat-card{padding:12px;min-width:0;}
+      .stat-num{font-size:24px;}
       .stat-label{font-size:9px;letter-spacing:.4px;}
       .rides-stat-row{grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px;}
       .rides-stat-card{padding:12px;}
       .rides-stat-num{font-size:20px;}
-      .rides-stat-label{font-size:9px;letter-spacing:.4px;}
+      .rides-stat-label{font-size:9px;}
 
       /* ── Session picker ── */
       .session-picker-wrap{margin-bottom:16px;}
       .session-cards-grid{grid-template-columns:repeat(2,1fr);gap:8px;}
       .sess-card{padding:12px 10px;}
-      .sess-card-day{font-size:9px;letter-spacing:.4px;}
-      .sess-card-date{font-size:14px;margin-bottom:3px;}
+      .sess-card-day{font-size:9px;letter-spacing:.3px;}
+      .sess-card-date{font-size:15px;margin-bottom:3px;}
       .sess-card-spots{font-size:11px;}
 
-      /* ── Bikes ── */
-      .bikes-grid{grid-template-columns:repeat(2,1fr);gap:10px;}
-      .bike-card{padding:12px;}
-      .bike-name{font-size:13px;}
-      .bike-meta{font-size:11px;}
-      .bike-actions{gap:4px;flex-wrap:wrap;}
-      .bike-list-row{grid-template-columns:4px 32px 1fr auto;gap:0 10px;padding:12px 14px;border-radius:12px;}
-      .bike-list-actions{grid-column:1/-1;display:flex;gap:5px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.04);}
-      .bike-list-status{display:none;}
-      .sort-bar{gap:5px;}
+      /* ── Session summary chips ── */
+      .sess-summary-bar{gap:6px;overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px;}
+      .sess-summary-bar::-webkit-scrollbar{display:none;}
+      .sess-summary-chip{min-width:150px;padding:8px 10px;}
 
-      /* ── Tables ── */
+      /* ── Tables — horizontal scroll ── */
       .hide-mobile{display:none!important;}
-      .table-wrapper{border-radius:12px;}
-      .queue-table th{padding:8px 8px;font-size:10px;letter-spacing:0;}
-      .queue-table td{padding:9px 8px;}
+      .table-wrapper{border-radius:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+      .queue-table{min-width:680px;}
+      .queue-table th{padding:8px 8px;font-size:10px;letter-spacing:0;white-space:nowrap;}
+      .queue-table td{padding:9px 8px;white-space:nowrap;}
       .queue-num-cell{font-size:18px;}
       .rider-name{font-size:13px;}
       .rider-sub{font-size:10px;}
-      .sess-admin-table th,.sess-admin-table td{padding:8px 10px;font-size:12px;}
-      .actions-cell{gap:4px;flex-wrap:wrap;}
-      .btn-sm{padding:5px 8px;font-size:11px;}
+      .sess-admin-table{min-width:480px;}
+      .sess-admin-table th,.sess-admin-table td{padding:9px 10px;font-size:12px;}
+      .actions-cell{display:flex;gap:4px;flex-wrap:nowrap;align-items:center;}
+      .btn-sm{padding:6px 10px;font-size:11px;min-height:34px;white-space:nowrap;}
+
+      /* ── Buttons ── */
+      .btn-primary,.btn-secondary{min-height:46px;font-size:14px;}
 
       /* ── Toggle groups ── */
       .toggle-group{gap:6px;flex-wrap:wrap;}
-      .toggle-btn{padding:7px 11px;font-size:12px;min-width:0;}
-      .size-toggle{min-width:60px;padding:8px 8px;border-radius:10px;}
+      .toggle-btn{padding:8px 12px;font-size:13px;min-height:40px;min-width:0;}
+      .size-toggle{min-width:60px;padding:8px;border-radius:10px;}
       .size-toggle .size-name{font-size:14px;}
       .size-toggle .size-range{font-size:9px;}
 
       /* ── Qty stepper ── */
-      .qty-stepper{gap:10px;}
-      .qty-btn{width:34px;height:34px;font-size:18px;}
-      .qty-val{font-size:18px;}
+      .qty-stepper{gap:12px;}
+      .qty-btn{width:36px;height:36px;font-size:20px;}
+      .qty-val{font-size:20px;}
 
-      /* ── Filter row ── */
-      .filter-row{gap:5px;margin-bottom:12px;overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px;}
+      /* ── Filter row — horizontal scroll ── */
+      .filter-row{gap:6px;margin-bottom:10px;overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px;}
       .filter-row::-webkit-scrollbar{display:none;}
-      .filter-pill{flex-shrink:0;padding:7px 12px;font-size:12px;min-height:36px;}
-      .sort-pill{flex-shrink:0;padding:7px 12px;font-size:12px;min-height:36px;}
-      .btn-primary,.btn-secondary{min-height:44px;}
-      .btn-sm{padding:7px 10px;font-size:12px;min-height:36px;}
+      .filter-label{font-size:10px;}
+      .search-input{width:120px!important;}
+      .search-wrap{flex-shrink:0;}
 
       /* ── Next-up banner ── */
-      .next-up-banner{padding:12px 14px;flex-direction:column;align-items:flex-start;gap:8px;}
+      .next-up-banner{padding:12px 14px;flex-direction:column;align-items:flex-start;gap:10px;}
+      .next-up-banner .btn-primary{width:100%;text-align:center;}
       .next-up-name{font-size:16px;}
       .next-up-details{font-size:12px;}
 
       /* ── Price preview ── */
       .price-preview{flex-direction:column;gap:4px;align-items:flex-start;padding:12px 14px;}
-      .price-preview-total{font-size:17px;}
+      .price-preview-total{font-size:18px;}
       .price-preview-breakdown{font-size:12px;line-height:1.5;}
 
       /* ── Ticket ── */
-      .ticket-header{padding:18px 16px 16px;}
-      .ticket-num{font-size:54px;letter-spacing:-2px;}
-      .ticket-body{padding:16px 16px 14px;}
+      .ticket-card{margin-top:20px;}
+      .ticket-header{padding:16px 14px 14px;}
+      .ticket-num{font-size:52px;letter-spacing:-2px;}
+      .ticket-body{padding:14px;}
       .ticket-grid{grid-template-columns:repeat(2,1fr);}
-      .ticket-cell{padding:10px 12px;}
-      .ticket-notice{margin:0 16px 16px;}
+      .ticket-cell{padding:10px 11px;}
+      .ticket-notice{margin:0 14px 16px;font-size:11px;}
+
+      /* ── Account stats ── */
+      .account-stats-strip{grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:20px;}
+      .account-stat{padding:12px;}
+      .account-stat-val{font-size:18px;}
 
       /* ── Size chip ── */
-      .size-chip{min-width:64px;padding:7px 10px;font-size:14px;}
+      .size-chip{min-width:60px;padding:7px 10px;font-size:14px;}
 
-      /* ── Modals ── */
+      /* ── Bike assign grid ── */
+      .bike-assign-grid{grid-template-columns:repeat(2,1fr);}
+
+      /* ── Modals — full-width bottom sheet ── */
       .modal-backdrop{padding:0;align-items:flex-end;}
-      .modal-box{padding:20px 16px;border-radius:20px 20px 0 0;max-height:90dvh;width:100%;max-width:100%;
-        padding-bottom:max(20px,env(safe-area-inset-bottom));}
+      .modal-box{
+        padding:20px 16px;border-radius:20px 20px 0 0;
+        max-height:92dvh;width:100%;max-width:100%;
+        padding-bottom:max(20px,env(safe-area-inset-bottom));
+      }
       .modal-bikes-grid{grid-template-columns:repeat(2,1fr);gap:8px;}
       .modal-title{font-size:16px;margin-bottom:4px;}
-      .modal-sub{font-size:12px;margin-bottom:14px;}
+      .modal-sub{font-size:12px;margin-bottom:12px;}
       .modal-footer{flex-direction:column-reverse;gap:8px;}
       .modal-footer .btn-primary,.modal-footer .btn-secondary{width:100%;text-align:center;padding:13px;}
 
-      /* ── PIN & Auth modals ── */
+      /* ── PIN & Auth — bottom sheet ── */
       .pin-box{padding:24px 18px;border-radius:18px;}
       .pin-numpad{gap:8px;}
-      .pin-key{padding:13px 8px;font-size:18px;}
+      .pin-key{padding:14px 8px;font-size:18px;min-height:52px;}
       .auth-backdrop{align-items:flex-end;padding:0;}
-      .auth-box{padding:24px 16px max(24px,env(safe-area-inset-bottom));
-        border-radius:20px 20px 0 0;width:100%;max-width:100%;margin:0;}
+      .auth-box{
+        padding:24px 16px max(24px,env(safe-area-inset-bottom));
+        border-radius:20px 20px 0 0;width:100%;max-width:100%;margin:0;
+      }
+      .auth-logo{max-height:44px;}
       .auth-title{font-size:18px;}
-      .auth-sub{font-size:12px;margin-bottom:16px;}
+      .auth-sub{font-size:12px;margin-bottom:14px;}
+      .auth-tabs{margin-bottom:14px;}
+      .auth-tab{padding:9px 16px;font-size:13px;}
       .auth-field{margin-bottom:10px;}
       .auth-submit{min-height:50px;font-size:16px;}
 
+      /* ── Undo bar ── */
+      .undo-bar{min-width:0;width:calc(100vw - 28px);}
+
       /* ── Empty states ── */
-      .empty-state{padding:32px 16px;font-size:13px;}
-      .rides-empty{padding:32px 16px;}
-      .no-sessions-msg{padding:22px 14px;}
+      .empty-state{padding:28px 16px;font-size:13px;}
+      .rides-empty{padding:28px 16px;}
 
       /* ── Toast ── */
       .toast{font-size:12px;padding:10px 14px;white-space:normal;
-        max-width:calc(100vw - 28px);text-align:center;word-break:break-word;}
-      #toast-container{width:100%;align-items:center;bottom:20px;left:0;transform:none;padding:0 14px;}
-      /* Change 3: hide customer top tab-nav on mobile (bottom nav handles it) */
-      #customer-tab-nav{display:none;}
-      /* Change 4: footer padding so bottom nav doesn't cover it */
-      #app-footer{padding-bottom:calc(70px + env(safe-area-inset-bottom));}
-      /* Change 4: staff view main also needs bottom padding */
-      #view-staff .view-main{padding-bottom:calc(70px + env(safe-area-inset-bottom));}
-      /* Change 5: search bar full width on mobile */
-      .search-input{width:100%!important;min-width:0!important;}
-      .search-wrap{width:100%;flex:1;}
-      /* Change 6: action buttons side by side, table scrollable */
-      .actions-cell{display:flex;gap:4px;flex-wrap:nowrap;}
-      .queue-table{min-width:700px;}
+        max-width:calc(100vw - 28px);text-align:center;}
+      #toast-container{
+        width:100%;align-items:center;
+        bottom:calc(70px + env(safe-area-inset-bottom) + 8px);
+        left:0;transform:none;padding:0 14px;
+      }
     }
 
     /* ══════════════════════════════════════════════════════════
        VERY SMALL PHONES  ≤ 390 px
     ══════════════════════════════════════════════════════════ */
     @media(max-width:390px){
+      .view-main{padding:10px 12px 20px;}
+      .landing-main-title{font-size:22px;}
       .session-cards-grid{grid-template-columns:1fr 1fr;}
+      .stats-row{grid-template-columns:repeat(2,1fr);}
+      .account-stats-strip{grid-template-columns:repeat(2,1fr);}
       .bikes-grid{grid-template-columns:1fr 1fr;}
-      .toggle-btn{padding:6px 9px;font-size:11px;}
+      .toggle-btn{padding:6px 9px;font-size:12px;}
       .size-toggle{min-width:52px;padding:7px 6px;}
       .size-toggle .size-name{font-size:13px;}
-      .tab-btn{padding:10px 10px;font-size:11px;flex:1;}
-      .stats-row{grid-template-columns:repeat(2,1fr);}
-      .ticket-num{font-size:38px;}
-      .view-main{padding:12px 12px 32px;}
-      .landing-main-title{font-size:22px;}
+      .tab-btn{padding:10px 8px;font-size:10px;flex:1;}
+      .ticket-num{font-size:40px;}
+      .ticket-grid{grid-template-columns:1fr 1fr;}
       .topbar-right{gap:4px;}
+      .topbar-brand-name{display:none;}
       .lang-toggle{padding:5px 6px;font-size:10px;}
       #topbar{gap:4px;}
+      .queue-table{min-width:620px;}
+      .filter-select{font-size:12px;height:38px;}
+      .btn-sm{padding:5px 8px;font-size:11px;}
     }
 
     /* ── Analytics ── */
