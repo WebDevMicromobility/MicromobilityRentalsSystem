@@ -2217,7 +2217,7 @@ const S={
   pinDigits:'',
   pinError:false,
   // register
-  _rDate:'',selSession:null,regType:null,regQty:1,lastTicket:null,modifyEntryId:null,
+  _rDate:'',selSession:null,regType:null,regQty:1,lastTickets:[],modifyEntryId:null,
   _rName:'',_rEmail:'',_rPhone:'',_rCC:'+966',_rHeight:'',
   regBikeSizes:[],   // one size per bike slot, e.g. ['M','S']
   regBikeHeights:[], // one height string per bike slot, e.g. ['175','160']
@@ -2669,7 +2669,7 @@ async function doLogin(){
 function doLogout(){
   S.loggedIn=null;clearSession();
   S._rName='';S._rEmail='';S._rPhone='';S._rHeight='';
-  S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regQty=1;S.regType=null;S.selSession=null;S.lastTicket=null;
+  S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regQty=1;S.regType=null;S.selSession=null;S.lastTickets=[];
   renderTopbarRight();
   goLanding();
   toast(t('toastLoggedOut'));
@@ -3110,16 +3110,14 @@ function renderRegister(){
     <div class="price-preview-total">${totalDisplay}</div>
   </div>`:'';
 
-  // Last ticket (animated, tear-line design)
-  let ticket='';
-  if(S.lastTicket){
-    const tkt=S.lastTicket;
-    // Mini QR-like pattern (decorative)
+  // All tickets (one per bike booked)
+  function renderOneTicket(tkt,idx,total){
     const qrPat=[1,0,1,1,0, 0,1,1,0,1, 1,1,0,1,0, 0,0,1,1,0, 1,0,0,0,1];
     const qrHtml=`<div class="ticket-qr">${qrPat.map(v=>`<div class="ticket-qr-cell${v?' solid':''}"></div>`).join('')}</div>`;
     const sessTime=sessionTime(allSessions().find(s=>s.id===tkt.sessionId));
-    ticket=`<div class="ticket-card">
-      <!-- Header: number + status + QR -->
+    const label=total>1?`${t('bike')} ${idx+1} / ${total}`:'';
+    return`<div class="ticket-card" style="${idx>0?'margin-top:16px':''}">
+      ${label?`<div style="font-size:11px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding:12px 24px 0;border-bottom:1px solid var(--border)">${label}</div>`:''}
       <div class="ticket-header">
         <div class="ticket-num-block">
           <div class="ticket-num-label">${t('queueNumLabel')}</div>
@@ -3132,30 +3130,14 @@ function renderRegister(){
           <div style="font-size:10px;color:var(--muted);font-weight:700;text-align:right;line-height:1.4">${dayLabel(tkt.sessionDay)}<br>${shortDate(tkt.sessionDate)}<br>${sessTime}</div>
         </div>
       </div>
-      <!-- Info grid -->
       <div class="ticket-body">
         <div class="ticket-grid">
-          <div class="ticket-cell">
-            <div class="ticket-label">${t('nameLabel')}</div>
-            <div class="ticket-value">${esc(tkt.name)}</div>
-          </div>
-          <div class="ticket-cell">
-            <div class="ticket-label">${t('frameSizeLabel')}</div>
-            <div class="ticket-value">${tkt.size}</div>
-          </div>
-          <div class="ticket-cell">
-            <div class="ticket-label">${t('colPayment')}</div>
-            <div class="ticket-value" style="color:var(--muted-l)">${t('pendingLabel')}</div>
-          </div>
-          ${tkt.phone?`<div class="ticket-cell">
-            <div class="ticket-label">${t('phoneNum')}</div>
-            <div class="ticket-value" style="font-size:12px">${esc(tkt.phone)}</div>
-          </div>`:''}
-          ${tkt.email?`<div class="ticket-cell" style="${tkt.phone?'':'grid-column:span 2'}">
-            <div class="ticket-label">${t('emailAddr')}</div>
-            <div class="ticket-value" style="font-size:12px">${esc(tkt.email)}</div>
-          </div>`:''}
-          <div class="ticket-cell${!tkt.phone&&!tkt.email?' style="grid-column:span 3"':''}">
+          <div class="ticket-cell"><div class="ticket-label">${t('nameLabel')}</div><div class="ticket-value">${esc(tkt.name)}</div></div>
+          <div class="ticket-cell"><div class="ticket-label">${t('frameSizeLabel')}</div><div class="ticket-value">${tkt.size}</div></div>
+          <div class="ticket-cell"><div class="ticket-label">${t('colPayment')}</div><div class="ticket-value" style="color:var(--muted-l)">${t('pendingLabel')}</div></div>
+          ${tkt.phone?`<div class="ticket-cell"><div class="ticket-label">${t('phoneNum')}</div><div class="ticket-value" style="font-size:12px">${esc(tkt.phone)}</div></div>`:''}
+          ${tkt.email?`<div class="ticket-cell"><div class="ticket-label">${t('emailAddr')}</div><div class="ticket-value" style="font-size:12px">${esc(tkt.email)}</div></div>`:''}
+          <div class="ticket-cell" style="grid-column:span 3">
             <div class="ticket-label">${t('colSession')}</div>
             <div class="ticket-value" style="font-size:12px">${dayLabel(tkt.sessionDay)}, ${shortDate(tkt.sessionDate)} · ${sessTime}</div>
           </div>
@@ -3163,6 +3145,10 @@ function renderRegister(){
       </div>
     </div>`;
   }
+  const tickets=S.lastTickets||[];
+  const ticket=tickets.length>0
+    ?tickets.map((tkt,i)=>renderOneTicket(tkt,i,tickets.length)).join('')
+    :'';
 
   // Step progress (allTypesSet already declared above)
   const step=!S.selSession?1:!allTypesSet?2:3;
@@ -3338,7 +3324,7 @@ async function submitReg(){
   }
 
   await loadData();
-  S.lastTicket=entries[0];S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
+  S.lastTickets=entries;S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
   S.regQty=1;S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];
   toast(qty>1?`${t('toastRegisteredRange')} #${baseQNum}-#${baseQNum+qty-1}`:`${t('toastRegistered')} #${baseQNum}`);
   renderRegister();
@@ -3410,14 +3396,9 @@ async function submitModifyBooking(){
   if(calls.length>0)await Promise.all(calls);
   await loadData();
 
-  // Refresh the ticket to reflect updated booking details
-  // Use the first existing entry (now updated) or first new entry
-  const updatedSessionId=S.selSession;
-  const updatedFirstId=existing[0]?.id||addedEntries[0]?.id;
-  if(updatedFirstId){
-    const refreshed=getQueue().find(e=>e.id===updatedFirstId);
-    if(refreshed)S.lastTicket={...refreshed,sessionId:refreshed.sessionId,sessionDay:refreshed.sessionDay,sessionDate:refreshed.sessionDate};
-  }
+  // Refresh all tickets (updated entries + newly added)
+  const allUpdatedIds=[...existing.map(e=>e.id),...addedEntries.map(e=>e.id)];
+  S.lastTickets=allUpdatedIds.map(id=>getQueue().find(e=>e.id===id)).filter(Boolean).slice(0,newQty);
 
   if(addedEntries.length>0){
     toast(`${t('toastBookingUpdated')} + ${t('toastRegistered')} ${addedEntries.map(e=>`#${e.queueNum}`).join(', ')}`);
