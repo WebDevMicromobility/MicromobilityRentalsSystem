@@ -4033,22 +4033,31 @@ function renderStaffQueue(){
     return`<div class="sess-summary-bar">${chips}</div>`;
   })();
 
-  // ── If no session selected, show prominent session picker and early return ──
+  // ── Build rows: group by session for All Sessions, flat for single session ──
+  let rows,emptyRow='';
   if(S.sfSession==='all'){
-    const openSess=allSessions().filter(s=>s.status==='open'||s.status==='full').sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
-    const pickCards=openSess.length
-      ?openSess.map(s=>`<div onclick="setSfSession('${s.id}')" style="cursor:pointer;padding:18px 22px;background:#1a1a1a;border:1.5px solid rgba(3,255,137,.25);border-radius:14px;margin-bottom:10px;transition:all .2s" onmouseover="this.style.borderColor='rgba(3,255,137,.6)'" onmouseout="this.style.borderColor='rgba(3,255,137,.25)'">
-          <div style="font-size:18px;font-weight:900">${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:4px">${sessionTime(s)} &nbsp;·&nbsp; ${getQueue().filter(e=>e.sessionId===s.id&&e.status==='waiting').length} ${t('waitingStat').toLowerCase()}</div>
-        </div>`).join('')
-      :`<div style="color:var(--muted);font-size:14px">No open sessions found.</div>`;
-    document.getElementById('tab-queue').innerHTML=_queueHeader+_sessSummaryBar+`<div style="max-width:480px;margin:32px auto;padding:0 24px"><div style="font-size:20px;font-weight:900;margin-bottom:16px">${t('selectSessionPrompt')}</div>${pickCards}</div>`;
-    return;
+    const orderedSessions=[...allSessions()].sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+    rows=orderedSessions.map(sess=>{
+      const sessFiltered=filtered.filter(e=>e.sessionId===sess.id);
+      if(!sessFiltered.length)return'';
+      const nW=sessFiltered.filter(e=>e.status==='waiting').length;
+      const nA=sessFiltered.filter(e=>e.status==='active').length;
+      const nD=sessFiltered.filter(e=>e.status==='done').length;
+      const hdr=`<tr class="sess-group-hdr"><td colspan="13">
+        ${dayLabel(sess.day)} &nbsp;${shortDate(sess.session_date||sess.id)} &nbsp;&middot;&nbsp; ${sessionTime(sess)}
+        &nbsp;&nbsp;
+        <span style="color:var(--green)">${nW} ${t('waitingStat').toLowerCase()}</span>
+        ${nA?` &middot; <span style="color:var(--text)">${nA} ${t('onBikeStat').toLowerCase()}</span>`:''}
+        ${nD?` &middot; <span style="color:var(--muted)">${nD} ${t('doneStat').toLowerCase()}</span>`:''}
+        &nbsp;<span class="badge-${sess.status}" style="margin-left:8px">${{open:t('statusOpen'),closed:t('statusClosed'),full:t('statusFull')}[sess.status]||sess.status}</span>
+      </td></tr>`;
+      return hdr+sessFiltered.map(e=>renderQRow(e)).join('');
+    }).join('');
+    if(!filtered.length)emptyRow=`<tr><td colspan="13"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`;
+  }else{
+    rows=filtered.map(e=>renderQRow(e)).join('');
+    emptyRow=filtered.length===0?`<tr><td colspan="13"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`:'';
   }
-
-  // ── Single-session queue (each session has its own independent queue) ──
-  const rows=filtered.map(e=>renderQRow(e)).join('');
-  const emptyRow=filtered.length===0?`<tr><td colspan="13"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`:'';
   document.getElementById('tab-queue').innerHTML=_queueHeader+_sessSummaryBar+`
     <div class="stats-row">
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('totalStat')}</div></div>
@@ -4059,11 +4068,6 @@ function renderStaffQueue(){
     ${nextUp}
     <div class="filter-bar">
       <div class="filter-row">
-        <div class="search-wrap">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="white" stroke-width="1.4"/><line x1="9.5" y1="9.5" x2="13" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>
-          <input id="sf-search-input" class="search-input" placeholder="${t('searchPlaceholder')}" value="${esc(S.sfSearch)}"
-            oninput="setSfSearch(this.value)">
-        </div>
         <span class="filter-label">${t('colSession')}:</span>
         <select class="filter-select" style="min-width:160px" onchange="setSfSession(this.value)">${qSessOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('filterStatus')}:</span>
@@ -4072,6 +4076,11 @@ function renderStaffQueue(){
         <select class="filter-select" onchange="setSfSize(this.value)">${qSizeOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('filterPay')}:</span>
         <select class="filter-select" onchange="setSfPay(this.value)">${qPayOpts}</select>
+        <div class="search-wrap" style="margin-left:8px">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="white" stroke-width="1.4"/><line x1="9.5" y1="9.5" x2="13" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>
+          <input id="sf-search-input" class="search-input" placeholder="${t('searchPlaceholder')}" value="${esc(S.sfSearch)}"
+            oninput="setSfSearch(this.value)">
+        </div>
       </div>
       ${filtered.length!==base.length?`<div class="result-count">${filtered.length} ${t('resultOf')} ${base.length} ${t('resultRiders')}</div>`:''}
     </div>
