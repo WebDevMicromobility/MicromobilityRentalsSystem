@@ -2180,6 +2180,7 @@ const S={
   editSessionId:null,
   editSessAssignedIds:[],
   editSessDate:'',editSessStatus:'closed',
+  newSessAssignedIds:[],
 };
 
 /* ══════════════════════════════════════════════
@@ -3511,8 +3512,14 @@ function toggleAssignBike(bikeId){
   if(idx>=0) S.editSessAssignedIds.splice(idx,1);
   else S.editSessAssignedIds.push(bikeId);
   renderSessions();
-  // Keep scroll position in the edit form
   setTimeout(()=>document.getElementById('sess-edit-form')?.scrollIntoView({behavior:'smooth',block:'nearest'}),40);
+}
+function toggleNewSessBike(bikeId){
+  const idx=S.newSessAssignedIds.indexOf(bikeId);
+  if(idx>=0) S.newSessAssignedIds.splice(idx,1);
+  else S.newSessAssignedIds.push(bikeId);
+  renderSessions();
+  setTimeout(()=>document.getElementById('sess-add-form')?.scrollIntoView({behavior:'smooth',block:'nearest'}),40);
 }
 
 /* ══════════════════════════════════════════════
@@ -3524,38 +3531,63 @@ function renderSessions(){
   const types=['Road','Hybrid','Mountain'];
   const typeColorHex={Road:'#4aa8f8',Hybrid:'#03ff89',Mountain:'#e08828'};
 
-  // ── New session form (type counts only) ───────────────
-  const nsTotal=Object.values(S.newSessTypeCounts).reduce((a,b)=>a+b,0);
+  // ── New session form with exact bike picker ───────────
+  const nsAssigned=S.newSessAssignedIds;
+  const nsTotal=nsAssigned.length;
+  function newBikePicker(){
+    const queue=getQueue();
+    const busyIds=new Set(
+      queue.filter(e=>(e.status==='active'||e.status==='waiting')&&e.assignedBikeId)
+        .map(e=>e.assignedBikeId)
+    );
+    return types.map(ty=>{
+      const typeBikes=allBikes.filter(b=>b.type===ty);
+      if(!typeBikes.length)return`<div style="color:var(--muted);font-size:13px;margin-bottom:12px">${typeLabel(ty)}: ${t('noBikes')}</div>`;
+      return`<div style="margin-bottom:18px">
+        <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.6px;color:${typeColorHex[ty]};margin-bottom:8px">${typeLabel(ty)} (${typeBikes.filter(b=>nsAssigned.includes(b.id)).length} ${t('anOf')} ${typeBikes.length})</div>
+        <div class="bike-assign-grid">
+          ${typeBikes.map(b=>{
+            const sel=nsAssigned.includes(b.id);
+            const busy=busyIds.has(b.id)&&!sel;
+            const dot=b.status==='available'?'&#x1F7E2;':b.status==='in-use'?'&#x1F7E0;':'&#x1F534;';
+            const grad=bikeGradient(b.colors||['#03ff89']);
+            return`<div class="bike-assign-card${sel?' selected':''}${busy?' busy':''}"
+              ${!busy?`onclick="toggleNewSessBike('${b.id}')"`:'title="In use"'}>
+              <div style="height:4px;border-radius:3px;background:${grad};margin-bottom:7px"></div>
+              <div class="bike-assign-name">${esc(b.name)}</div>
+              <div style="font-size:11px;color:var(--muted)">${dot} ${b.size}</div>
+              ${sel?`<div class="bike-assign-check">&#x2713; ${t('assignBikeTitle')}</div>`:''}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('');
+  }
   const addForm=S.showAddSession?`
-    <div class="inline-form" style="margin-bottom:24px">
+    <div class="inline-form" style="margin-bottom:24px" id="sess-add-form">
       <div class="form-title">${t('newSessionTitle')}</div>
-      <div class="form-group" style="margin-bottom:20px">
-        <label>${t('dateLabel')}</label>
-        <input type="date" id="ns-date" value="${esc(S.newSessDate)}" min="${todayStr()}"
-          oninput="S.newSessDate=this.value" style="max-width:240px">
+      <div class="form-row" style="margin-bottom:20px">
+        <div class="form-group">
+          <label>${t('dateLabel')}</label>
+          <input type="date" id="ns-date" value="${esc(S.newSessDate)}" min="${todayStr()}"
+            oninput="S.newSessDate=this.value" style="max-width:240px">
+        </div>
+        <div class="form-group">
+          <label>${t('timeLabel')}</label>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+            <input type="time" id="ns-start" value="09:00" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
+            <span style="color:var(--muted);font-weight:700">-</span>
+            <input type="time" id="ns-end" value="11:00" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
+          </div>
+        </div>
       </div>
-      <div class="form-group" style="margin-bottom:20px">
-        <label>${t('timeLabel')}</label>
-        <input type="text" id="ns-time" value="${esc(S.newSessTime)}" placeholder="09:00 - 11:00"
-          oninput="S.newSessTime=this.value" style="max-width:200px">
-      </div>
-      <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;display:block">${t('bikeFleetComp')}</label>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px">
-        ${types.map(ty=>`
-          <div class="type-count-box">
-            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:${typeColorHex[ty]}">${typeLabel(ty)}</div>
-            <input class="type-count-input" type="number" id="ns-${ty}-count"
-              value="${S.newSessTypeCounts[ty]||0}" min="0" max="50"
-              oninput="S.newSessTypeCounts['${ty}']=parseInt(this.value)||0;document.getElementById('ns-total').textContent=Object.values(S.newSessTypeCounts).reduce((a,b)=>a+b,0)">
-            <div style="font-size:11px;color:var(--muted);font-weight:600">${t('bike').toLowerCase()}s</div>
-          </div>`).join('')}
-      </div>
-      <div style="font-size:13px;font-weight:800;color:var(--muted);margin-bottom:16px">
-        ${t('totalBikesSession')}: <span id="ns-total" style="color:var(--green);font-size:18px">${nsTotal}</span>
-      </div>
-      <div style="display:flex;gap:8px">
+      <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;display:block">
+        ${t('bikeFleetComp')} &nbsp;&middot;&nbsp; <span style="color:var(--green)">${nsTotal} ${t('bike').toLowerCase()}${nsTotal!==1?'s':''} ${t('assignBikeTitle').toLowerCase()}</span>
+      </label>
+      ${newBikePicker()}
+      <div style="display:flex;gap:8px;margin-top:16px">
         <button class="btn-primary" onclick="addSession()">${t('createSession')}</button>
-        <button class="btn-secondary" onclick="S.showAddSession=false;renderSessions()">${t('cancelBtn')}</button>
+        <button class="btn-secondary" onclick="S.showAddSession=false;S.newSessAssignedIds=[];renderSessions()">${t('cancelBtn')}</button>
       </div>
     </div>`:'';
 
@@ -3612,6 +3644,14 @@ function renderSessions(){
           <div class="toggle-group" style="margin-top:4px">
             ${['closed','open','full'].map(st=>`<button class="toggle-btn${S.editSessStatus===st?' active':''}"
               onclick="S.editSessStatus='${st}';renderSessions()">${{closed:t('statusClosed'),open:t('statusOpen'),full:t('statusFull')}[st]}</button>`).join('')}
+          </div>
+        </div>
+        <div class="form-group">
+          <label>${t('timeLabel')}</label>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+            <input type="time" id="es-start" value="${(()=>{const sl=parseSlots(editSess.bike_slots);const t=(sl&&sl._time)||'09:00 - 11:00';return t.split(/\s*-\s*/)[0]||'09:00';})()}" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
+            <span style="color:var(--muted);font-weight:700">-</span>
+            <input type="time" id="es-end" value="${(()=>{const sl=parseSlots(editSess.bike_slots);const t=(sl&&sl._time)||'09:00 - 11:00';return t.split(/\s*-\s*/)[1]||'11:00';})()}" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
           </div>
         </div>
       </div>
@@ -3768,7 +3808,9 @@ async function saveSessionEdit(){
   const allBk=getBikes();
   const typeCounts={};
   assignedIds.forEach(id=>{const b=allBk.find(x=>x.id===id);if(b)typeCounts[b.type]=(typeCounts[b.type]||0)+1;});
-  const slots={_bikes:assignedIds,...typeCounts};
+  const esStart=document.getElementById('es-start')?.value||'09:00';
+  const esEnd=document.getElementById('es-end')?.value||'11:00';
+  const slots={_bikes:assignedIds,...typeCounts,_time:`${esStart} - ${esEnd}`};
   const total=assignedIds.length;
   const newStatus=S.editSessStatus||sess.status;
   const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -3831,20 +3873,17 @@ async function saveSessionEdit(){
 async function addSession(){
   const date=document.getElementById('ns-date')?.value;
   if(!date){toast(t('errPickDate'),'error');return;}
-  // Re-read counts from inputs in case state wasn't updated
-  const types=['Road','Hybrid','Mountain'];
-  types.forEach(ty=>{
-    const el=document.getElementById(`ns-${ty}-count`);
-    if(el)S.newSessTypeCounts[ty]=parseInt(el.value)||0;
-  });
-  const counts=S.newSessTypeCounts;
-  const total=Object.values(counts).reduce((a,b)=>a+b,0);
-  if(total===0){toast(t('errAddBikeToSession'),'error');return;}
-  // Store type counts + optional time in bike_slots
-  const slots={};
-  const timeVal=(document.getElementById('ns-time')?.value||S.newSessTime||'').trim();
-  if(timeVal)slots._time=timeVal;
-  types.forEach(ty=>{if(counts[ty]>0)slots[ty]=counts[ty];});
+  const assignedIds=S.newSessAssignedIds;
+  if(assignedIds.length===0){toast(t('errAddBikeToSession'),'error');return;}
+  // Build slots with exact bike IDs and type counts
+  const allBk=getBikes();
+  const typeCounts={};
+  assignedIds.forEach(id=>{const b=allBk.find(x=>x.id===id);if(b)typeCounts[b.type]=(typeCounts[b.type]||0)+1;});
+  const startEl=document.getElementById('ns-start');const endEl=document.getElementById('ns-end');
+  const startT=startEl?startEl.value:'09:00';const endT=endEl?endEl.value:'11:00';
+  const timeVal=startT&&endT?`${startT} - ${endT}`:(S.newSessTime||'09:00 - 11:00');
+  const slots={_bikes:assignedIds,...typeCounts,_time:timeVal};
+  const total=assignedIds.length;
   const d=new Date(date+'T00:00:00');
   const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const session={id:date,day:dayNames[d.getDay()],session_date:date,capacity:total,
@@ -3856,8 +3895,7 @@ async function addSession(){
       throw error;
     }
     await loadData();
-    S.showAddSession=false;S.newSessDate='';
-    S.newSessTypeCounts={Road:0,Hybrid:0,Mountain:0};
+    S.showAddSession=false;S.newSessDate='';S.newSessAssignedIds=[];S.newSessTime='09:00 - 11:00';
     toast(`${shortDate(date)} - ${t('toastSessionReady')}`);
     renderSessions();
   }catch(e){toast(t('errCreateSession'),'error');}
