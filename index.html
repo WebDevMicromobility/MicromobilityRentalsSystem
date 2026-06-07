@@ -2384,7 +2384,7 @@ function sessionTime(sess){
 function allSessions(){
   return S.sessions.map(s=>({...s,display:shortDate(s.session_date||s.id)}));
 }
-function openSessions(){return allSessions().filter(s=>s.status==='open'||s.status==='full');}
+function openSessions(){return allSessions().filter(s=>s.status==='open');}
 function spotsLeft(sid){
   const sess=S.sessions.find(s=>s.id===sid);
   const cap=(sess&&sess.capacity)||12;
@@ -2731,18 +2731,13 @@ function renderLandingAvail(){
     return;
   }
   strip.innerHTML=open.map(s=>{
-    const left=spotsLeft(s.id);
-    const full=left===0;
-    const cls=full?'full':'has-spots';
-    const dotClr=full?'var(--muted-l)':'var(--green)';
-    const label=full?t('statusFull'):t('availLabel');
     const timeStr=sessionTime(s);
-    return`<div class="landing-avail-chip ${cls}" onclick="goCustomer('register')">
+    return`<div class="landing-avail-chip has-spots" onclick="goCustomer('register')">
       <div style="font-size:18px;font-weight:900;line-height:1.2">${dayLabel(s.day)}</div>
       <div style="font-size:13px;font-weight:700;opacity:.85">${shortDate(s.session_date||s.id)}</div>
       <div style="display:flex;align-items:center;gap:5px;font-size:11px;margin-top:2px">
-        <span class="landing-avail-dot" style="background:${dotClr};width:7px;height:7px;border-radius:50%;flex-shrink:0"></span>
-        <span style="opacity:.8">${timeStr} &nbsp;·&nbsp; ${label}</span>
+        <span class="landing-avail-dot" style="background:var(--green);width:7px;height:7px;border-radius:50%;flex-shrink:0"></span>
+        <span style="opacity:.8">${timeStr} &nbsp;·&nbsp; ${t('availLabel')}</span>
       </div>
     </div>`;
   }).join('');
@@ -2951,17 +2946,12 @@ function renderRegister(){
   // Session cards
   const sessCards=available.length
     ? available.map(s=>{
-        // Only treat as full if spots actually ran out — ignore manual 'full' status when spots are available
-        const full=spotsLeft(s.id)===0;
-        const sl=full?t('statusFull'):t('availLabel');
-        const sc=full?'spots-orange':'spots-green';
         const sel=S.selSession===s.id;
-        return`<div class="sess-card${sel?' sess-selected':''}${full?' sess-full':''}"
-          ${full?'':` onclick="S.selSession='${s.id}';renderRegister()"`}>
+        return`<div class="sess-card${sel?' sess-selected':''}" onclick="S.selSession='${s.id}';renderRegister()">
           <div class="sess-card-day">${dayLabel(s.day)}</div>
           <div class="sess-card-date">${shortDate(s.session_date||s.id)}</div>
           <div style="font-size:10px;color:var(--muted);font-weight:700;margin-bottom:3px">${sessionTime(s)}</div>
-          <div class="sess-card-spots ${sc}">${sl}</div>
+          <div class="sess-card-spots spots-green">${t('availLabel')}</div>
         </div>`;
       }).join('')
     : emptyIllustration(ILLUS_CALENDAR,t('noSessions'),'');
@@ -3302,7 +3292,9 @@ async function submitReg(){
     if(!S.regBikeTypes[i]){toast(qty>1?`${t('errSelectTypeGeneric')} (${t('bike')} ${i+1})`:t('errSelectTypeGeneric'),'error');return;}
   }
 
-  if(spotsLeft(S.selSession)<qty){toast(`${t('errNotEnoughSpots')} (${spotsLeft(S.selSession)})`,'error');return;}
+  // Bookings only blocked when admin manually marks session as 'full' — not by capacity
+  const sess0=allSessions().find(s=>s.id===S.selSession);
+  if(sess0&&sess0.status==='full'){toast(t('errSessionClosed'),'error');return;}
 
   const name=cust.name,email=cust.email||'',phone=cust.phone||'';
   const queue=getQueue();
@@ -3388,8 +3380,7 @@ async function submitModifyBooking(){
   if(newQty>existing.length){
     const extra=newQty-existing.length;
     // Check spots available for new additions
-    const freeSpots=spotsLeft(S.selSession);
-    if(freeSpots<extra){toast(`${t('errNotEnoughSpots')} (${freeSpots})`,'error');return;}
+    // No capacity cap — only admin can block by marking session full
     let baseQNum=nextQNum(S.selSession);
     for(let i=existing.length;i<newQty;i++){
       const entry={
