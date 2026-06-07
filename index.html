@@ -5034,11 +5034,10 @@ function renderAnalytics(){
   const sessions=sessCandidates;
   const done=queue.filter(e=>e.status==='done');
   const noshow=queue.filter(e=>e.status==='noshow');
-  // Pre-compute these before any early return so _rangeBar can use them
-  const sessionsHeld=sessions.filter(s=>queue.some(e=>e.sessionId===s.id&&e.status==='done')).length;
-  const totalDone=done.length;
-
+  // _rangeBar uses lazy counts — safe because it's only called after this point
   function _rangeBar(){
+    const _sh=sessions.filter(s=>queue.some(e=>e.sessionId===s.id&&e.status==='done')).length;
+    const _td=done.length;
     const rangeLabels={all:t('anAllTime'),last5:t('anLast5'),last10:t('anLast10'),month:t('anThisMonth'),custom:t('anCustom')||'Custom'};
     return`<div class="an-range-bar">
       <span class="an-range-label">${t('anShowing')}</span>
@@ -5048,7 +5047,7 @@ function renderAnalytics(){
       ${S.analyticsRange==='custom'?`<input type="number" min="1" max="200" value="${S.analyticsCustomN||20}"
         style="width:64px;padding:4px 8px;background:#1a1a1a;border:1px solid rgba(255,255,255,.15);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700"
         oninput="S.analyticsCustomN=Math.max(1,parseInt(this.value)||1);renderAnalytics()">`:``}
-      <span class="result-count" style="margin-left:4px">${sessionsHeld} ${t('anSessionsHeld').toLowerCase()} · ${totalDone} ${t('anRidesLabel')}</span>
+      <span class="result-count" style="margin-left:4px">${_sh} ${t('anSessionsHeld').toLowerCase()} · ${_td} ${t('anRidesLabel')}</span>
     </div>`;
   }
 
