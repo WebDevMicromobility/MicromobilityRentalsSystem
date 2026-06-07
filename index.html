@@ -170,6 +170,7 @@
 
     /* ── Staff session summary bar ── */
     .sess-summary-bar{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap;}
+    .sess-bar-mobile{display:none;}  /* hidden on desktop */
     .sess-summary-chip{
       display:flex;align-items:center;gap:10px;
       background:linear-gradient(145deg,#1a1a1a,#161616);
@@ -1077,9 +1078,8 @@
       .sess-card-spots{font-size:11px;}
 
       /* ── Session summary chips ── */
-      .sess-summary-bar{gap:6px;overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px;}
-      .sess-summary-bar::-webkit-scrollbar{display:none;}
-      .sess-summary-chip{min-width:150px;padding:8px 10px;}
+      .sess-bar-desktop{display:none!important;}  /* hide chips on mobile */
+      .sess-bar-mobile{display:block;}             /* show dropdown on mobile */
 
       /* ── Tables — horizontal scroll ── */
       .hide-mobile{display:none!important;}
@@ -4293,7 +4293,21 @@ function renderStaffQueue(){
         <div class="sess-chip-badge"><span class="badge-${s.status}">${{open:t('statusOpen'),full:t('statusFull'),closed:t('statusClosed')}[s.status]}</span></div>
       </div>`;
     }).join('');
-    return`<div class="sess-summary-bar">${chips}</div>`;
+
+    // Mobile: dropdown instead of chips
+    const dropdownOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>${t('allSessions')}</option>`+
+      openSess.map(s=>{
+        const q=getQueue().filter(e=>e.sessionId===s.id);
+        const sWait=q.filter(e=>e.status==='waiting').length;
+        const label=`${dayLabel(s.day)}, ${shortDate(s.session_date||s.id)} · ${sessionTime(s)} — ${sWait} ${t('waitingStat').toLowerCase()}`;
+        return`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${label}</option>`;
+      }).join('');
+
+    return`
+      <div class="sess-summary-bar sess-bar-desktop">${chips}</div>
+      <div class="sess-bar-mobile" style="margin-bottom:14px">
+        <select class="filter-select" style="width:100%;font-size:14px;height:44px" onchange="setSfSession(this.value)">${dropdownOpts}</select>
+      </div>`;
   })();
 
   // ── Build rows: group by session for All Sessions, flat for single session ──
