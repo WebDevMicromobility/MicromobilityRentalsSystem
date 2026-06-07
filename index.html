@@ -1500,6 +1500,7 @@ en:{
   resetCodeLabel:'6-Digit Code',resetNewPwd:'New Password',resetConfirmPwd:'Confirm New Password',
   resetBtn:'Set New Password',backToLogin:'Back to login',
   forgotPwLink:'Forgot password?',sendCodeBtn:'Send Code',rememberMe:'Remember me',
+  forgotContactStaffMsg:'To reset your password, please visit a staff member at the Corniche Circuit booth. They will reset it for you.',
   forgotStep1Title:'Reset Your Password',
   forgotStep1Sub:'Enter your registered email. Ask a staff member to look up your 6-digit code.',
   forgotStep2Title:'Enter Code and New Password',
@@ -1745,6 +1746,7 @@ ar:{
   resetCodeLabel:'الرمز المكوّن من 6 أرقام',resetNewPwd:'كلمة المرور الجديدة',resetConfirmPwd:'تأكيد كلمة المرور',
   resetBtn:'تعيين كلمة مرور جديدة',backToLogin:'العودة لتسجيل الدخول',
   forgotPwLink:'نسيت كلمة المرور؟',sendCodeBtn:'إرسال الرمز',rememberMe:'تذكرني',
+  forgotContactStaffMsg:'لإعادة تعيين كلمة المرور، يرجى زيارة أحد الموظفين في كشك حلبة الكورنيش. سيقوم بإعادة تعيينها لك.',
   forgotStep1Title:'إعادة تعيين كلمة المرور',
   forgotStep1Sub:'أدخل بريدك الإلكتروني المسجل، ثم اطلب من أحد الموظفين رمز إعادة التعيين المكوّن من 6 أرقام.',
   forgotStep2Title:'أدخل الرمز وكلمة المرور الجديدة',
@@ -2497,35 +2499,15 @@ function renderAuthModal(){
   if(isForgot){
     title=S.forgotStep===1?t('forgotStep1Title'):t('forgotStep2Title');
     subtitle='';
-    if(S.forgotStep===1){
-      body=`
-        <div style="background:rgba(3,255,137,.06);border:1px solid rgba(3,255,137,.18);border-radius:12px;padding:14px 16px;margin-bottom:18px">
-          <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:6px">&#x2139;&#xFE0F; ${t('forgotAskStaff')}</div>
-          <div style="font-size:11px;color:var(--muted);font-weight:600">${t('forgotStaffNote')}</div>
-        </div>
-        <div class="auth-field"><label>${t('authEmail')}</label>
-          <input id="a-forgot-email" type="email" placeholder="${t('enterEmail')}" autocomplete="email"></div>
-        <button class="btn-primary auth-submit" onclick="doForgotStep1()">${t('sendCodeBtn')||'Continue'}</button>
-        <div style="text-align:center;margin-top:10px">
-          <button style="background:none;border:none;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif" onclick="switchAuthMode('login')">&#8592; ${t('backToLogin')}</button>
-        </div>`;
-    } else {
-      body=`
-        <div style="background:rgba(3,255,137,.06);border:1px solid rgba(3,255,137,.18);border-radius:12px;padding:12px 16px;margin-bottom:16px;font-size:13px;font-weight:600">
-          ${t('forgotStep2Sub')}: <strong>${esc(S.forgotEmail)}</strong>
-        </div>
-        <div class="auth-field"><label>${t('resetCodeLabel')}</label>
-          <input id="a-reset-code" type="text" inputmode="numeric" maxlength="6" placeholder="000000"
-            style="letter-spacing:8px;font-size:24px;font-weight:900;text-align:center;padding:14px"></div>
-        <div class="auth-field"><label>${t('resetNewPwd')}</label>
-          <input id="a-reset-pwd" type="password" placeholder="${t('authPasswordHint')}"></div>
-        <div class="auth-field"><label>${t('resetConfirmPwd')}</label>
-          <input id="a-reset-pwd2" type="password" placeholder="${t('resetConfirmPwd')}"></div>
-        <button class="btn-primary auth-submit" onclick="doResetPassword()">${t('resetBtn')}</button>
-        <div style="text-align:center;margin-top:10px;display:flex;justify-content:center;gap:16px">
-          <button style="background:none;border:none;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif" onclick="S.forgotStep=1;renderAuthModal()">&#8592; ${t('backToLogin')}</button>
-        </div>`;
-    }
+    body=`
+      <div style="text-align:center;padding:8px 0 16px">
+        <div style="font-size:40px;margin-bottom:16px">🔒</div>
+        <div style="font-size:15px;font-weight:800;margin-bottom:10px">${t('forgotStep1Title')}</div>
+        <div style="font-size:13px;color:var(--muted-l);line-height:1.7;margin-bottom:20px">${t('forgotContactStaffMsg')||'To reset your password, please visit a staff member at the Corniche Circuit booth. They will reset it for you.'}</div>
+      </div>
+      <div style="text-align:center;margin-top:4px">
+        <button style="background:none;border:none;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif" onclick="switchAuthMode('login')">&#8592; ${t('backToLogin')}</button>
+      </div>`;
   } else if(isLogin){
     tabs=`<div class="auth-tabs">
       <button class="auth-tab active" onclick="switchAuthMode('login')">${t('authLogin')}</button>
