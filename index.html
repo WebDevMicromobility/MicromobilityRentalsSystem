@@ -148,9 +148,9 @@
 
     /* ── Landing availability strip ── */
     .landing-avail-strip{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:24px;}
-    .landing-avail-chip{display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:24px;
+    .landing-avail-chip{display:flex;flex-direction:column;align-items:center;gap:6px;padding:16px 24px;border-radius:16px;min-width:140px;
       border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);
-      font-size:13px;font-weight:700;cursor:pointer;transition:all .22s;}
+      font-size:15px;font-weight:800;cursor:pointer;transition:all .22s;text-align:center;}
     .landing-avail-chip.has-spots{border-color:rgba(3,255,137,.3);background:rgba(3,255,137,.06);color:var(--green);}
     .landing-avail-chip.has-spots:hover{background:rgba(3,255,137,.14);border-color:rgba(3,255,137,.6);}
     .landing-avail-chip.full{border-color:rgba(252,249,244,.15);background:rgba(255,255,255,.04);color:var(--muted-l);}
@@ -369,7 +369,7 @@
 
     /* ══════════════════════════════════════════
        ARABIC TYPOGRAPHY ENHANCEMENTS
-       Cairo is optimised for Arabic — all sizes
+       Cairo is optimised for Arabic - all sizes
        and weights lifted for visual clarity.
     ══════════════════════════════════════════ */
 
@@ -380,9 +380,9 @@
       font-weight:600;
       line-height:1.8;
     }
-    /* Kill letter-spacing everywhere — it destroys Arabic ligatures */
+    /* Kill letter-spacing everywhere - it destroys Arabic ligatures */
     html[lang="ar"] *{letter-spacing:0!important;}
-    /* Kill uppercase — meaningless in Arabic */
+    /* Kill uppercase - meaningless in Arabic */
     html[lang="ar"] .view-badge,
     html[lang="ar"] label,
     html[lang="ar"] .filter-group-label,
@@ -501,9 +501,9 @@
     /* Price preview & ticket */
     html[lang="ar"] .price-preview-breakdown{font-size:14px;font-weight:600;}
     html[lang="ar"] .price-preview-total{font-size:22px;font-weight:900;}
-    html[lang="ar"] .ticket-num{font-size:56px;font-weight:900;}
-    html[lang="ar"] .ticket-label{font-size:11px;font-weight:800;}
-    html[lang="ar"] .ticket-value{font-size:15px;font-weight:700;}
+    html[lang="ar"] .ticket-num{font-size:62px;}
+    html[lang="ar"] .ticket-label{font-size:10px;font-weight:900;}
+    html[lang="ar"] .ticket-value{font-size:14px;font-weight:800;}
 
     /* Auth modals */
     html[lang="ar"] .auth-title{font-size:24px;font-weight:900;}
@@ -665,11 +665,40 @@
     .bike-color-strip{height:6px;border-radius:4px;margin-bottom:4px;box-shadow:0 1px 6px rgba(0,0,0,.3);}
 
     /* ── TICKET ──────────────────────────────────────────── */
-    .ticket-card{background:linear-gradient(145deg,#1a1f1a,#161a16);border:1px solid rgba(3,255,137,.3);border-radius:16px;padding:24px;margin-top:24px;box-shadow:0 0 40px rgba(3,255,137,.08),0 8px 32px rgba(0,0,0,.25);}
-    .ticket-num{font-size:56px;font-weight:900;color:var(--green);line-height:1;letter-spacing:-2px;text-shadow:0 0 28px rgba(3,255,137,.35);}
-    .ticket-label{font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;}
-    .ticket-value{font-size:14px;font-weight:700;margin-top:4px;}
-    .ticket-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px;margin-top:20px;border-top:1px solid rgba(255,255,255,.06);padding-top:18px;}
+    /* ── Ticket card ── */
+    .ticket-card{
+      background:linear-gradient(160deg,#1a1f1a 0%,#141814 100%);
+      border:1px solid rgba(3,255,137,.28);
+      border-radius:20px;margin-top:28px;
+      box-shadow:0 0 60px rgba(3,255,137,.07),0 12px 40px rgba(0,0,0,.35);
+      overflow:hidden;
+    }
+    .ticket-header{
+      padding:24px 24px 20px;
+      display:flex;align-items:center;justify-content:space-between;gap:16px;
+      background:linear-gradient(135deg,rgba(3,255,137,.06) 0%,transparent 60%);
+      border-bottom:2px dashed rgba(3,255,137,.15);
+      position:relative;
+    }
+    .ticket-header::after,.ticket-header::before{
+      content:'';position:absolute;bottom:-12px;
+      width:24px;height:24px;border-radius:50%;background:var(--bg);
+      border:1px solid rgba(3,255,137,.15);
+    }
+    .ticket-header::before{left:-12px;}
+    .ticket-header::after{right:-12px;}
+    .ticket-num-block{display:flex;flex-direction:column;gap:4px;}
+    .ticket-num{font-size:72px;font-weight:900;color:var(--green);line-height:.9;letter-spacing:-3px;text-shadow:0 0 40px rgba(3,255,137,.4);}
+    .ticket-num-label{font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px;}
+    .ticket-right{display:flex;flex-direction:column;align-items:flex-end;gap:10px;}
+    .ticket-body{padding:22px 24px 20px;}
+    .ticket-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:0;}
+    .ticket-cell{padding:12px 14px;border-right:1px solid rgba(255,255,255,.05);border-bottom:1px solid rgba(255,255,255,.05);}
+    .ticket-cell:nth-child(3n){border-right:none;}
+    .ticket-cell:nth-last-child(-n+3){border-bottom:none;}
+    .ticket-label{font-size:9px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;}
+    .ticket-value{font-size:13px;font-weight:800;line-height:1.3;}
+    .ticket-notice{margin:0 24px 20px;padding:10px 14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;font-size:11px;font-weight:700;color:var(--muted-l);line-height:1.6;text-align:center;}
 
     /* ── STATS ───────────────────────────────────────────── */
     .stats-row{display:flex;gap:10px;margin-bottom:22px;flex-wrap:wrap;}
@@ -682,6 +711,22 @@
     .filter-pill{padding:6px 15px;background:#1a1a1a;border:1px solid rgba(255,255,255,.08);border-radius:20px;color:var(--muted);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 1px 3px rgba(0,0,0,.15);}
     .filter-pill:hover{border-color:rgba(3,255,137,.35);color:rgba(255,255,255,.8);}
     .filter-pill.active{background:rgba(3,255,137,.13);border-color:rgba(3,255,137,.5);color:var(--green);box-shadow:0 0 10px rgba(3,255,137,.12);}
+    /* ── Filter dropdowns ── */
+    .filter-select{
+      height:34px;padding:0 30px 0 12px;
+      background:#1a1a1a url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E") no-repeat right 10px center;
+      background-size:10px 6px;
+      border:1px solid rgba(255,255,255,.1);border-radius:8px;
+      color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;
+      cursor:pointer;appearance:none;-webkit-appearance:none;
+      transition:border-color .2s;min-width:120px;
+    }
+    .filter-select:focus{outline:none;border-color:rgba(3,255,137,.5);}
+    .filter-select:hover{border-color:rgba(3,255,137,.35);}
+    html[dir="rtl"] .filter-select{padding:0 12px 0 30px;background-position:left 10px center;}
+    .filter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+    .filter-label{font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;}
+    @media(max-width:767px){.filter-select{font-size:12px;min-width:100px;height:36px;}}
     .filter-spacer{flex:1;}
 
     /* ── NEXT UP ─────────────────────────────────────────── */
@@ -754,15 +799,11 @@
     @media(max-width:767px){.reg-step-label{font-size:9px;}.reg-step-circle{width:26px;height:26px;font-size:11px;}}
 
     /* ── 3. Animated booking ticket ── */
-    @keyframes ticketIn{from{opacity:0;transform:translateY(-16px) scale(.96);}to{opacity:1;transform:translateY(0) scale(1);}}
-    .ticket-card{animation:ticketIn .4s cubic-bezier(.2,.8,.2,1) both;}
-    .ticket-tear{position:relative;margin:0 -24px;border-top:2px dashed rgba(3,255,137,.2);padding-top:20px;margin-top:20px;}
-    .ticket-tear::before,.ticket-tear::after{content:'';position:absolute;top:-11px;width:22px;height:22px;border-radius:50%;background:var(--bg);}
-    .ticket-tear::before{left:-11px;}
-    .ticket-tear::after{right:-11px;}
-    .ticket-qr{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;width:52px;}
-    .ticket-qr-cell{height:10px;border-radius:1px;background:rgba(3,255,137,.25);}
-    .ticket-qr-cell.solid{background:rgba(3,255,137,.7);}
+    @keyframes ticketIn{from{opacity:0;transform:translateY(20px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
+    .ticket-card{animation:ticketIn .45s cubic-bezier(.2,.8,.2,1) both;}
+    .ticket-qr{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;width:56px;}
+    .ticket-qr-cell{height:11px;border-radius:2px;background:rgba(3,255,137,.18);}
+    .ticket-qr-cell.solid{background:rgba(3,255,137,.65);}
 
     /* ── 4. Staff queue density toggle ── */
     .density-toggle{display:flex;gap:3px;align-items:center;}
@@ -893,15 +934,15 @@
     @keyframes shimmer{0%{background-position:200% center;}100%{background-position:-200% center;}}
     .tab-panel.active{animation:tabFadeIn .22s ease;}
 
-    /* ── TABLET  768–1023px ──────────────────────────────────── */
+    /* ── TABLET  768-1023px ──────────────────────────────────── */
     /* ══════════════════════════════════════════════════════════
-       TABLET  768 – 1023 px  (iPad / iPad Mini / iPad Air)
+       TABLET  768-1023 px  (iPad / iPad Mini / iPad Air)
     ══════════════════════════════════════════════════════════ */
     @media(min-width:768px) and (max-width:1023px){
       /* Layout */
       .view-main{padding:20px 20px 36px;}
 
-      /* Landing — side-by-side cards */
+      /* Landing - side-by-side cards */
       #landing-body{padding:40px 24px;}
       .landing-hero-img{height:200px;}
       .landing-title{font-size:28px;}
@@ -917,7 +958,7 @@
       .bikes-grid{grid-template-columns:repeat(3,1fr);}
       .modal-bikes-grid{grid-template-columns:repeat(3,1fr);}
 
-      /* Tables — show most columns */
+      /* Tables - show most columns */
       .hide-mobile{display:table-cell!important;}
       .queue-table th,.queue-table td{padding:11px 12px;}
       .sess-admin-table th,.sess-admin-table td{padding:10px 12px;}
@@ -1055,11 +1096,12 @@
       .price-preview-breakdown{font-size:12px;line-height:1.5;}
 
       /* ── Ticket ── */
-      .ticket-card{padding:14px;}
-      .ticket-num{font-size:44px;letter-spacing:-1.5px;}
-      .ticket-grid{grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px;}
-      .ticket-label{font-size:9px;}
-      .ticket-value{font-size:13px;}
+      .ticket-header{padding:18px 16px 16px;}
+      .ticket-num{font-size:54px;letter-spacing:-2px;}
+      .ticket-body{padding:16px 16px 14px;}
+      .ticket-grid{grid-template-columns:repeat(2,1fr);}
+      .ticket-cell{padding:10px 12px;}
+      .ticket-notice{margin:0 16px 16px;}
 
       /* ── Size chip ── */
       .size-chip{min-width:64px;padding:7px 10px;font-size:14px;}
@@ -1095,6 +1137,18 @@
       .toast{font-size:12px;padding:10px 14px;white-space:normal;
         max-width:calc(100vw - 28px);text-align:center;word-break:break-word;}
       #toast-container{width:100%;align-items:center;bottom:20px;left:0;transform:none;padding:0 14px;}
+      /* Change 3: hide customer top tab-nav on mobile (bottom nav handles it) */
+      #customer-tab-nav{display:none;}
+      /* Change 4: footer padding so bottom nav doesn't cover it */
+      #app-footer{padding-bottom:calc(70px + env(safe-area-inset-bottom));}
+      /* Change 4: staff view main also needs bottom padding */
+      #view-staff .view-main{padding-bottom:calc(70px + env(safe-area-inset-bottom));}
+      /* Change 5: search bar full width on mobile */
+      .search-input{width:100%!important;min-width:0!important;}
+      .search-wrap{width:100%;flex:1;}
+      /* Change 6: action buttons side by side, table scrollable */
+      .actions-cell{display:flex;gap:4px;flex-wrap:nowrap;}
+      .queue-table{min-width:700px;}
     }
 
     /* ══════════════════════════════════════════════════════════
@@ -1220,6 +1274,15 @@
 
     /* ── Result count ── */
     .result-count{font-size:11px;font-weight:700;color:var(--muted);padding:0 4px;}
+
+    /* ── Booth payment popup ── */
+    #booth-popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:500;align-items:center;justify-content:center;padding:24px;}
+    .booth-popup-box{background:#1a1a1a;border:1px solid rgba(3,255,137,.3);border-radius:20px;padding:32px;max-width:380px;width:100%;text-align:center;position:relative;}
+    .booth-popup-close{position:absolute;top:14px;right:14px;background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1;font-family:'Space Grotesk',sans-serif;}
+    .booth-popup-close:hover{color:var(--text);}
+    .booth-popup-icon{font-size:48px;margin-bottom:16px;}
+    .booth-popup-title{font-size:20px;font-weight:900;margin-bottom:10px;}
+    .booth-popup-msg{font-size:14px;font-weight:600;color:var(--muted-l);line-height:1.7;}
   </style>
 </head>
 <body>
@@ -1344,6 +1407,17 @@
 <div id="receipt-modal"    style="display:none"></div>
 <div id="auth-modal"       style="display:none"></div>
 <div id="return-pay-modal" style="display:none"></div>
+
+<!-- BOOTH PAYMENT POPUP -->
+<div id="booth-popup">
+  <div class="booth-popup-box">
+    <button class="booth-popup-close" onclick="closeBoothPopup()">&#x2715;</button>
+    <div class="booth-popup-icon">💳</div>
+    <div class="booth-popup-title" id="booth-popup-title"></div>
+    <div class="booth-popup-msg" id="booth-popup-msg"></div>
+  </div>
+</div>
+
 <div id="toast-container"></div>
 
 <script>
@@ -1404,10 +1478,10 @@ en:{
   anRevPAS:'Revenue Per Seat',anRevPASSub:'Collected ÷ total seats offered',
   anCompletionRate:'Completion Rate',anCompletionSub:'Riders who completed the session',
   anTotalSeats:'Total Seats Offered',anSeatsFilled:'seats sold',
-  anRevByDay:'Revenue by Day of Week',anRevByDaySub:'Average collected SAR per day — guides scheduling',
+  anRevByDay:'Revenue by Day of Week',anRevByDaySub:'Average collected SAR per day - guides scheduling',
   anTypeRevPerRide:'Avg Revenue per Ride by Type',anTypeRevPerRideSub:'How much each bike type earns per completed ride',
   anInsights:'Business Insights',
-  anInsightGoodCollection:'Collection rate is strong — revenue is being captured effectively.',
+  anInsightGoodCollection:'Collection rate is strong - revenue is being captured effectively.',
   anInsightLowCollection:'Collection rate is below 70%. Follow up on SAR {0} in pending payments.',
   anInsightHighOcc:'Sessions are filling well. Consider adding more sessions to meet demand.',
   anInsightLowOcc:'Average occupancy is low. Try marketing or reducing session frequency.',
@@ -1476,7 +1550,7 @@ en:{
   statTotalRides:'Total Rides',statTotalSpent:'Total Spent',statMemberSince:'Member Since',statFavType:'Favourite Type',
   undoBarMsg:'Action undone in',undoSeconds:'s',
   changeInAccount:'Change in Account',
-  heightOptional:'(optional — auto-selects your bike size)',
+  heightOptional:'(optional - auto-selects your bike size)',
   enterHeightAbove:'Enter height above',
   bike:'Bike',
   // Session status toasts
@@ -1484,7 +1558,7 @@ en:{
   // Stats
   totalStat:'Total',waitingStat:'Waiting',onBikeStat:'On Bike',doneStat:'Done',
   // Ticket / confirmation
-  queueNumLabel:'Queue Number',keepNumberMsg:'Keep this number — you will need it to check your status.',
+  queueNumLabel:'Queue Number',keepNumberMsg:'Keep this number - you will need it to check your status.',
   payAtBooth:'💳 Payment is collected at the booth at the Corniche Circuit. Please have your queue number ready.',
   registeredLabel:'Registered',nameLabel:'Name',timeLabel:'Time',preferenceLabel:'Preference',
   // Account page
@@ -1544,7 +1618,7 @@ en:{
   toastBikeReturned:'Bike returned. Ride complete.',
   toastBikeReturnedPaid:'Bike returned and marked as paid.',
   toastRiderRemoved:'Rider removed.',
-  toastReopened:'Booking re-opened — rider moved back to active.',
+  toastReopened:'Booking re-opened - rider moved back to active.',
   returnPayTitle:'Payment Pending',
   returnPayMsg:'This rider has not paid yet. How would you like to proceed?',
   returnMarkPaidBtn:'Mark Paid & Return',
@@ -1579,6 +1653,13 @@ en:{
   noBikesForType:'No {0} bikes in the fleet.',
   doneSessChip:'done',activeSessChip:'on bike',
   colContact:'Contact',callLabel:'Call',
+  colPrice:'Price',
+  exportBtn:'Export CSV',
+  anCustom:'Custom',
+  payAtBoothTitle:'Payment Info',
+  payAtBoothMsg:'Payment is collected at the booth at the Corniche Circuit. Please have your queue number ready when you arrive.',
+  removedLabel:'Removed',restoreEntryBtn:'Restore',
+  heightPlaceholder:'Enter your height (cm)',
 },
 ar:{
   appSub:'طابور حلبة الكورنيش',landingTitle:'مايكرو موبيليتي - حلبة الكورنيش',
@@ -1633,10 +1714,10 @@ ar:{
   anRevPAS:'الإيراد لكل مقعد',anRevPASSub:'المحصّل ÷ إجمالي المقاعد المتاحة',
   anCompletionRate:'معدل الإتمام',anCompletionSub:'الراكبون الذين أكملوا الجلسة',
   anTotalSeats:'إجمالي المقاعد المتاحة',anSeatsFilled:'مقعد محجوز',
-  anRevByDay:'الإيرادات حسب اليوم',anRevByDaySub:'متوسط الإيرادات المحصّلة يومياً — يُفيد في جدولة الجلسات',
+  anRevByDay:'الإيرادات حسب اليوم',anRevByDaySub:'متوسط الإيرادات المحصّلة يومياً - يُفيد في جدولة الجلسات',
   anTypeRevPerRide:'متوسط الإيراد لكل رحلة حسب النوع',anTypeRevPerRideSub:'كم تحقق كل فئة دراجات لكل رحلة مكتملة',
   anInsights:'رؤى تجارية',
-  anInsightGoodCollection:'معدل التحصيل ممتاز — الإيرادات تُحصَّل بكفاءة.',
+  anInsightGoodCollection:'معدل التحصيل ممتاز - الإيرادات تُحصَّل بكفاءة.',
   anInsightLowCollection:'معدل التحصيل أقل من 70%. تابع {0} ريال مستحقة الدفع.',
   anInsightHighOcc:'الجلسات تمتلئ بشكل جيد. فكر في إضافة جلسات لتلبية الطلب.',
   anInsightLowOcc:'متوسط الإشغال منخفض. حاول تسويق الخدمة أو تقليل تكرار الجلسات.',
@@ -1705,12 +1786,12 @@ ar:{
   statTotalRides:'مجموع الرحلات',statTotalSpent:'إجمالي الإنفاق',statMemberSince:'عضو منذ',statFavType:'النوع المفضل',
   undoBarMsg:'تم التراجع خلال',undoSeconds:'ث',
   changeInAccount:'تغيير في الحساب',
-  heightOptional:'(اختياري — يحدد مقاس الدراجة تلقائياً)',
+  heightOptional:'(اختياري - يحدد مقاس الدراجة تلقائياً)',
   enterHeightAbove:'أدخل الطول أعلاه',
   bike:'دراجة',
   sessOpened:'تم فتح الجلسة.',sessClosed:'تم إغلاق الجلسة.',sessDeleted:'تم حذف الجلسة.',
   totalStat:'الكل',waitingStat:'بانتظار',onBikeStat:'على الدراجة',doneStat:'منتهٍ',
-  queueNumLabel:'رقم الطابور',keepNumberMsg:'احتفظ بهذا الرقم — ستحتاجه للتحقق من حالتك.',
+  queueNumLabel:'رقم الطابور',keepNumberMsg:'احتفظ بهذا الرقم - ستحتاجه للتحقق من حالتك.',
   payAtBooth:'💳 الدفع يتم عند الكشك في دوار الكورنيش. يرجى إحضار رقم طابورك.',
   registeredLabel:'مُسجَّل',nameLabel:'الاسم',timeLabel:'الوقت',preferenceLabel:'التفضيل',
   profileInfo:'معلومات الملف الشخصي',needToUpdate:'تريد التحديث؟',
@@ -1764,7 +1845,7 @@ ar:{
   toastBikeReturned:'الدراجة مُعادة. اكتملت الرحلة.',
   toastBikeReturnedPaid:'الدراجة مُعادة وتم تسجيل الدفع.',
   toastRiderRemoved:'تم حذف الراكب.',
-  toastReopened:'تم إعادة فتح الحجز — الراكب عاد إلى الحالة النشطة.',
+  toastReopened:'تم إعادة فتح الحجز - الراكب عاد إلى الحالة النشطة.',
   returnPayTitle:'الدفع معلق',
   returnPayMsg:'لم يدفع هذا الراكب بعد. كيف تريد المتابعة؟',
   returnMarkPaidBtn:'تسجيل الدفع وإعادة الدراجة',
@@ -1798,6 +1879,13 @@ ar:{
   noBikesForType:'لا توجد دراجات من نوع {0} في الأسطول.',
   doneSessChip:'منتهٍ',activeSessChip:'على الدراجة',
   colContact:'تواصل',callLabel:'اتصال',
+  colPrice:'السعر',
+  exportBtn:'تصدير CSV',
+  anCustom:'مخصص',
+  payAtBoothTitle:'معلومات الدفع',
+  payAtBoothMsg:'يتم الدفع عند الكشك في حلبة الكورنيش. يرجى إحضار رقم طابورك عند وصولك.',
+  removedLabel:'محذوف',restoreEntryBtn:'استعادة',
+  heightPlaceholder:'أدخل طولك (سم)',
 }};
 function t(k){return(LANG[S&&S.lang?S.lang:'en']||LANG.en)[k]||LANG.en[k]||k;}
 
@@ -1834,7 +1922,7 @@ function setLang(lang){
 /* ══════════════════════════════════════════════
    CONFIG
 ══════════════════════════════════════════════ */
-const STAFF_PIN = '1234'; // change this to your preferred PIN
+const STAFF_PIN = '1425'; // change this to your preferred PIN
 
 const COUNTRY_CODES=[
   // ── Gulf countries first ───────────────────────────────
@@ -2077,7 +2165,7 @@ const S={
   // sessions
   sessSort:'date',sessSortDir:1,sessStatusFilter:'all',
   // analytics
-  analyticsRange:'all', analyticsTrendSort:'date', analyticsTrendDir:-1,
+  analyticsRange:'all', analyticsTrendSort:'date', analyticsTrendDir:-1, analyticsCustomN:20,
   // modals
   modalRider:null,modalBike:null,modalShowAll:false,
   // auth
@@ -2087,7 +2175,7 @@ const S={
   // data cache (loaded from API)
   queue:[],bikes:[],customers:[],sessions:[],
   // session management form
-  showAddSession:false,newSessDate:'',newSessTime:'09:00 – 11:00',
+  showAddSession:false,newSessDate:'',newSessTime:'09:00 - 11:00',
   newSessTypeCounts:{Road:0,Hybrid:0,Mountain:0},
   editSessionId:null,
   editSessAssignedIds:[],
@@ -2174,14 +2262,20 @@ function priceDisplay(ty){
 ══════════════════════════════════════════════ */
 const KSA_TZ='Asia/Riyadh';
 function fmtDate(d){return d.toLocaleDateString('en-CA',{timeZone:KSA_TZ});} // returns YYYY-MM-DD in KSA time
-function shortDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:KSA_TZ});}
+function shortDate(ds){
+  if(!ds)return'';
+  try{
+    const d=new Date(ds+'T12:00:00');
+    return d.toLocaleDateString(S&&S.lang==='ar'?'ar-SA':'en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:KSA_TZ});
+  }catch{return ds;}
+}
 function longDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',timeZone:KSA_TZ});}
 function todayStr(){return new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});}
 function sessionTime(sess){
   // Returns time string stored in bike_slots._time, or the default slot
-  if(!sess)return'09:00 – 11:00';
+  if(!sess)return'09:00 - 11:00';
   const s=parseSlots(sess.bike_slots);
-  return(s&&s._time)||'09:00 – 11:00';
+  return(s&&s._time)||'09:00 - 11:00';
 }
 function allSessions(){
   return S.sessions.map(s=>({...s,display:shortDate(s.session_date||s.id)}));
@@ -2195,10 +2289,10 @@ function spotsLeft(sid){
 function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid).map(e=>e.queueNum);return nums.length?Math.max(...nums)+1:1;}
 const bikeById=id=>getBikes().find(b=>b.id===id);
 function heightToSize(h){if(h<=166)return'XS';if(h<=172)return'S';if(h<=178)return'M';return'L';}
-function sizeLabel(sz){return{XS:'XS (166 cm & under)',S:'S (167–172 cm)',M:'M (173–178 cm)',L:'L (179 cm & up)'}[sz]||sz;}
+function sizeLabel(sz){return{XS:'XS (166 cm & under)',S:'S (167-172 cm)',M:'M (173-178 cm)',L:'L (179 cm & up)'}[sz]||sz;}
 function sizeRange(sz){
   const cm=S.lang==='ar'?'سم':'cm';
-  return{XS:`≤ 166 ${cm}`,S:`167–172 ${cm}`,M:`173–178 ${cm}`,L:`≥ 179 ${cm}`}[sz]||'';
+  return{XS:`≤ 166 ${cm}`,S:`167-172 ${cm}`,M:`173-178 ${cm}`,L:`≥ 179 ${cm}`}[sz]||'';
 }
 function bikeGradient(c){if(!c||!c.length)return'var(--green)';if(c.length===1)return c[0];return`linear-gradient(135deg,${c.join(',')})`;}
 function bikeStrip(c){
@@ -2219,11 +2313,17 @@ function spotsLeftLabel(n){
 const TYPE_CLS={Road:'type-road',Hybrid:'type-hybrid',Mountain:'type-mountain',Any:'type-any'};
 function typeLabel(ty){const m={Road:t('typeRoad'),Hybrid:t('typeHybrid'),Mountain:t('typeMountain'),Any:t('typeAny')};return m[ty]||ty;}
 const typeBadge=ty=>`<span class="type-badge ${TYPE_CLS[ty]||'type-any'}">${bikeTypeIcon(ty,12)} ${typeLabel(ty)}</span>`;
-const STATUS_CLS={waiting:'badge-waiting',active:'badge-active',done:'badge-done',noshow:'badge-noshow',cancelled:'badge-noshow'};
-const STATUS_KEY={waiting:'statusWaiting',active:'statusActive',done:'statusDone',noshow:'statusNoshow',cancelled:'statusCancelled'};
+const STATUS_CLS={waiting:'badge-waiting',active:'badge-active',done:'badge-done',noshow:'badge-noshow',cancelled:'badge-noshow',removed:'badge-noshow'};
+const STATUS_KEY={waiting:'statusWaiting',active:'statusActive',done:'statusDone',noshow:'statusNoshow',cancelled:'statusCancelled',removed:'removedLabel'};
 const statusBadge=s=>`<span class="status-badge ${STATUS_CLS[s]||'badge-done'}">${t(STATUS_KEY[s]||'statusDone')}</span>`;
 function isoToFlag(iso){return iso.toUpperCase().replace(/./g,c=>String.fromCodePoint(c.charCodeAt(0)-65+0x1F1E6));}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function fmtPhone(p){
+  if(!p)return'';
+  const match=COUNTRY_CODES.find(([code])=>p.startsWith(code));
+  if(match)return match[0]+' '+p.slice(match[0].length);
+  return p;
+}
 function toast(msg,type){
   const el=document.createElement('div');
   el.className='toast'+(type?' '+type:'');el.textContent=msg;
@@ -2300,7 +2400,7 @@ function renderAuthModal(){
       <div class="auth-field"><label>${t('authPassword')}</label><input id="a-pwd" type="password" placeholder="${t('authPasswordHint')}"></div>
       <div class="auth-field"><label>${t('authConfirmPassword')}</label><input id="a-pwd2" type="password" placeholder="${t('authConfirmPassword')}"></div>
       <div class="auth-field"><label>${t('heightLabel')}</label>
-        <input id="a-height" type="number" placeholder="cm, e.g. 175" min="100" max="250"></div>
+        <input id="a-height" type="number" placeholder="${t('heightPlaceholder')}" min="100" max="250"></div>
       <div class="auth-field">
         <label>${t('bikeTypePref')}</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
@@ -2460,10 +2560,11 @@ function renderLandingAvail(){
     const label=full?t('statusFull'):t('availLabel');
     const timeStr=sessionTime(s);
     return`<div class="landing-avail-chip ${cls}" onclick="goCustomer('register')">
-      <span class="landing-avail-dot" style="background:${dotClr}"></span>
-      <div>
-        <div>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</div>
-        <div style="font-size:10px;opacity:.7;margin-top:1px">${timeStr} &nbsp;·&nbsp; ${label}</div>
+      <div style="font-size:18px;font-weight:900;line-height:1.2">${dayLabel(s.day)}</div>
+      <div style="font-size:13px;font-weight:700;opacity:.85">${shortDate(s.session_date||s.id)}</div>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;margin-top:2px">
+        <span class="landing-avail-dot" style="background:${dotClr};width:7px;height:7px;border-radius:50%;flex-shrink:0"></span>
+        <span style="opacity:.8">${timeStr} &nbsp;·&nbsp; ${full?label:left+' '+t('spotsLeft')}</span>
       </div>
     </div>`;
   }).join('');
@@ -2722,11 +2823,11 @@ function renderRegister(){
         </div>
         <div>
           <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">${t('emailAddr')}</div>
-          <div style="font-size:14px;font-weight:700">${esc(cust.email||'&mdash;')}</div>
+          <div style="font-size:14px;font-weight:700">${esc(cust.email||'-')}</div>
         </div>
         <div>
           <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">${t('phoneNum')}</div>
-          <div style="font-size:14px;font-weight:700">${esc(cust.phone||'&mdash;')}</div>
+          <div style="font-size:14px;font-weight:700">${esc(cust.phone||'-')}</div>
         </div>
       </div>
       <div style="margin-top:10px;font-size:12px;color:var(--muted)">
@@ -2786,7 +2887,7 @@ function renderRegister(){
       hSection=`<div class="form-group" style="margin-bottom:14px">
         <label>${t('heightLabel')} &nbsp;<span class="label-hint">${t('heightHint')}</span></label>
         <div class="height-row">
-          <input type="number" id="reg-height-${i}" placeholder="cm" min="100" max="250"
+          <input type="number" id="reg-height-${i}" placeholder="${t('heightPlaceholder')}" min="100" max="250"
             value="${esc(String(bikeH))}" oninput="onBikeHeightInput(${i},this.value)">
           <div id="bike-size-badge-${i}">${badgeHtml}</div>
         </div>
@@ -2844,27 +2945,48 @@ function renderRegister(){
     // Mini QR-like pattern (decorative)
     const qrPat=[1,0,1,1,0, 0,1,1,0,1, 1,1,0,1,0, 0,0,1,1,0, 1,0,0,0,1];
     const qrHtml=`<div class="ticket-qr">${qrPat.map(v=>`<div class="ticket-qr-cell${v?' solid':''}"></div>`).join('')}</div>`;
+    const sessTime=sessionTime(allSessions().find(s=>s.id===tkt.sessionId));
     ticket=`<div class="ticket-card">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between">
-        <div>
-          <div class="ticket-label" style="margin-bottom:4px">${t('queueNumLabel')}</div>
+      <!-- Header: number + status + QR -->
+      <div class="ticket-header">
+        <div class="ticket-num-block">
+          <div class="ticket-num-label">${t('queueNumLabel')}</div>
           <div class="ticket-num">#${tkt.queueNum}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:6px;font-weight:600">${t('keepNumberMsg')}</div>
-          <div style="font-size:11px;color:var(--text);margin-top:8px;font-weight:700;line-height:1.5;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:8px 10px">${t('payAtBooth')}</div>
+          <div style="margin-top:8px">${typeBadge(tkt.typePreference)}</div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
-          <span class="status-badge badge-active">${t('registeredLabel')}</span>
+        <div class="ticket-right">
+          <span class="status-badge badge-active" style="font-size:11px">${t('registeredLabel')}</span>
           ${qrHtml}
+          <div style="font-size:10px;color:var(--muted);font-weight:700;text-align:right;line-height:1.4">${dayLabel(tkt.sessionDay)}<br>${shortDate(tkt.sessionDate)}<br>${sessTime}</div>
         </div>
       </div>
-      <div class="ticket-tear">
+      <!-- Info grid -->
+      <div class="ticket-body">
         <div class="ticket-grid">
-          <div><div class="ticket-label">${t('nameLabel')}</div><div class="ticket-value">${esc(tkt.name)}</div></div>
-          <div><div class="ticket-label">${t('colSession')}</div><div class="ticket-value">${dayLabel(tkt.sessionDay)}, ${shortDate(tkt.sessionDate)}</div></div>
-          <div><div class="ticket-label">${t('timeLabel')}</div><div class="ticket-value">${sessionTime(allSessions().find(s=>s.id===tkt.sessionId))}</div></div>
-          <div><div class="ticket-label">${t('frameSizeLabel')}</div><div class="ticket-value">${tkt.size}</div></div>
-          <div><div class="ticket-label">${t('preferenceLabel')}</div><div class="ticket-value">${typeBadge(tkt.typePreference)}</div></div>
-          ${tkt.email?`<div><div class="ticket-label">${t('emailAddr')}</div><div class="ticket-value" style="font-size:12px">${esc(tkt.email)}</div></div>`:''}
+          <div class="ticket-cell">
+            <div class="ticket-label">${t('nameLabel')}</div>
+            <div class="ticket-value">${esc(tkt.name)}</div>
+          </div>
+          <div class="ticket-cell">
+            <div class="ticket-label">${t('frameSizeLabel')}</div>
+            <div class="ticket-value">${tkt.size}</div>
+          </div>
+          <div class="ticket-cell">
+            <div class="ticket-label">${t('colPayment')}</div>
+            <div class="ticket-value" style="color:var(--muted-l)">${t('pendingLabel')}</div>
+          </div>
+          ${tkt.phone?`<div class="ticket-cell">
+            <div class="ticket-label">${t('phoneNum')}</div>
+            <div class="ticket-value" style="font-size:12px">${esc(tkt.phone)}</div>
+          </div>`:''}
+          ${tkt.email?`<div class="ticket-cell" style="${tkt.phone?'':'grid-column:span 2'}">
+            <div class="ticket-label">${t('emailAddr')}</div>
+            <div class="ticket-value" style="font-size:12px">${esc(tkt.email)}</div>
+          </div>`:''}
+          <div class="ticket-cell${!tkt.phone&&!tkt.email?' style="grid-column:span 3"':''}">
+            <div class="ticket-label">${t('colSession')}</div>
+            <div class="ticket-value" style="font-size:12px">${dayLabel(tkt.sessionDay)}, ${shortDate(tkt.sessionDate)} · ${sessTime}</div>
+          </div>
         </div>
       </div>
     </div>`;
@@ -3042,8 +3164,9 @@ async function submitReg(){
   await loadData();
   S.lastTicket=entries[0];S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
   S.regQty=1;S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];
-  toast(qty>1?`${t('toastRegisteredRange')} #${baseQNum}–#${baseQNum+qty-1}`:`${t('toastRegistered')} #${baseQNum}`);
+  toast(qty>1?`${t('toastRegisteredRange')} #${baseQNum}-#${baseQNum+qty-1}`:`${t('toastRegistered')} #${baseQNum}`);
   renderRegister();
+  showBoothPopup();
 }
 
 async function submitModifyBooking(){
@@ -3139,10 +3262,11 @@ function renderMyRides(){
     const arrow=active?(S.mySortDir===1?'↑':'↓'):'';
     return`<th class="an-sort-th${active?' an-sort-active':''}${cls?' '+cls:''}" onclick="setMySort('${col}')">${label}${active?' '+arrow:''}</th>`;
   }
-  const myStatusPills=['all','waiting','active','done'].map(s=>{
+  const myStatusOpts=['all','waiting','active','done'].map(s=>{
     const l={all:t('filterAll'),waiting:t('filterWaiting'),active:t('filterOnBike'),done:t('filterDone')}[s];
-    return`<button class="filter-pill${S.myStatus===s?' active':''}" onclick="setMyStatus('${s}')">${l}</button>`;
-  }).join('');
+    return`<option value="${s}"${S.myStatus===s?' selected':''}>${l}</option>`;}).join('');
+  const mySortOpts=[['date',t('colSession')],['size',t('frameSizeLabel')],['type',t('bikeTypeLabel')],['payment',t('colPayment')],['status',t('colStatus')]].map(([v,l])=>
+    `<option value="${v}"${S.mySort===v?' selected':''}>${l}</option>`).join('');
   const rows=displayOrder.length?displayOrder.map(e=>{
     const payColor=e.paid?'var(--green)':'var(--muted-l)';
     const canCancel=e.status==='waiting';
@@ -3173,9 +3297,12 @@ function renderMyRides(){
     <div class="page-title">${t('myRidesTitle')}</div>
     <div class="page-sub">${t('myRidesSub')} ${esc(cust.name)}.</div>
     <div class="filter-bar" style="margin-top:8px">
-      <div class="filter-bar-row">
-        <span class="filter-group-label">${t('filterStatus')}:</span>
-        ${myStatusPills}
+      <div class="filter-row">
+        <span class="filter-label">${t('filterStatus')}:</span>
+        <select class="filter-select" onchange="setMyStatus(this.value)">${myStatusOpts}</select>
+        <span class="filter-label" style="margin-left:8px">${t('sortBy')}:</span>
+        <select class="filter-select" onchange="S.mySort=this.value;renderMyRides()">${mySortOpts}</select>
+        <button class="filter-select" style="min-width:44px;padding:0;text-align:center;cursor:pointer" onclick="S.mySortDir*=-1;renderMyRides()">${S.mySortDir===1?'↑':'↓'}</button>
       </div>
       ${displayOrder.length!==visible.length?`<div class="result-count">${displayOrder.length} ${t('resultOf')} ${visible.length} ${t('resultRides')}</div>`:''}
     </div>
@@ -3258,7 +3385,7 @@ function renderAccount(){
           </div></div>
         <div class="form-group"><label>${t('heightLabel')} &nbsp;<span class="label-hint">${t('heightHint')}</span></label>
           <div class="height-row">
-            <input type="number" id="acc-height" value="${esc(String(accH))}" placeholder="cm, e.g. 175" min="100" max="250"
+            <input type="number" id="acc-height" value="${esc(String(accH))}" placeholder="${t('heightPlaceholder')}" min="100" max="250"
               oninput="refreshAccSizeBadge()">
             <div id="acc-size-wrap">${sizeDisplay}</div>
           </div></div>
@@ -3411,7 +3538,7 @@ function renderSessions(){
       </div>
       <div class="form-group" style="margin-bottom:20px">
         <label>${t('timeLabel')}</label>
-        <input type="text" id="ns-time" value="${esc(S.newSessTime)}" placeholder="09:00 – 11:00"
+        <input type="text" id="ns-time" value="${esc(S.newSessTime)}" placeholder="09:00 - 11:00"
           oninput="S.newSessTime=this.value" style="max-width:200px">
       </div>
       <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;display:block">${t('bikeFleetComp')}</label>
@@ -3523,10 +3650,11 @@ function renderSessions(){
     return`<th class="an-sort-th${active?' an-sort-active':''}" onclick="setSessSort('${col}')">${label}${active?` ${arrow}`:''}</th>`;
   }
 
-  const sessStatusPills=['all','open','full','closed'].map(s=>{
+  const sessStatusOpts=['all','open','full','closed'].map(s=>{
     const l={all:t('filterAll'),open:t('statusOpen'),full:t('statusFull'),closed:t('statusClosed')}[s];
-    return`<button class="filter-pill${S.sessStatusFilter===s?' active':''}" onclick="setSessStatusFilter('${s}')">${l}</button>`;
-  }).join('');
+    return`<option value="${s}"${S.sessStatusFilter===s?' selected':''}>${l}</option>`;}).join('');
+  const sessSortOpts=[['date',t('colDate')],['day',t('colDay')],['capacity',t('colCapacity')],['bookings',t('colBookings')],['status',t('colStatus')]].map(([v,l])=>
+    `<option value="${v}"${S.sessSort===v?' selected':''}>${l}</option>`).join('');
   const rows=sessList.length?sessList.map(s=>{
     const booked=getQueue().filter(e=>e.sessionId===s.id&&e.status!=='noshow'&&e.status!=='cancelled').length;
     const cap=s.capacity||12;
@@ -3581,9 +3709,12 @@ function renderSessions(){
     ${addForm}
     ${editForm}
     <div class="filter-bar">
-      <div class="filter-bar-row">
-        <span class="filter-group-label">${t('filterStatus')}:</span>
-        ${sessStatusPills}
+      <div class="filter-row">
+        <span class="filter-label">${t('filterStatus')}:</span>
+        <select class="filter-select" onchange="setSessStatusFilter(this.value)">${sessStatusOpts}</select>
+        <span class="filter-label" style="margin-left:8px">${t('sortBy')}:</span>
+        <select class="filter-select" onchange="S.sessSort=this.value;S.sessSortDir=1;renderSessions()">${sessSortOpts}</select>
+        <button class="filter-select" style="min-width:44px;padding:0;text-align:center;cursor:pointer" onclick="S.sessSortDir*=-1;renderSessions()">${S.sessSortDir===1?'↑':'↓'}</button>
       </div>
       ${sessList.length!==sessions.length?`<div class="result-count">${sessList.length} ${t('resultOf')} ${sessions.length} ${t('resultSessions')}</div>`:''}
     </div>
@@ -3702,7 +3833,7 @@ async function addSession(){
     await loadData();
     S.showAddSession=false;S.newSessDate='';
     S.newSessTypeCounts={Road:0,Hybrid:0,Mountain:0};
-    toast(`${shortDate(date)} — ${t('toastSessionReady')}`);
+    toast(`${shortDate(date)} - ${t('toastSessionReady')}`);
     renderSessions();
   }catch(e){toast(t('errCreateSession'),'error');}
 }
@@ -3744,7 +3875,9 @@ async function deleteSession(id){
 ══════════════════════════════════════════════ */
 function renderStaffQueue(){
   const queue=getQueue();const sessions=allSessions();
-  const base=S.sfSession!=='all'?queue.filter(e=>e.sessionId===S.sfSession):queue;
+  const base=S.sfSession!=='all'
+    ?queue.filter(e=>e.sessionId===S.sfSession&&e.status!=='removed')
+    :queue.filter(e=>e.status!=='removed');
   const total=base.length,nWait=base.filter(e=>e.status==='waiting').length,
         nBike=base.filter(e=>e.status==='active').length,nDone=base.filter(e=>e.status==='done').length;
   let filtered=[...base];
@@ -3774,23 +3907,19 @@ function renderStaffQueue(){
   const nextUp=nextRider?`<div class="next-up-banner">
     <div>
       <div class="next-up-label">${t('nextUpLabel')} &nbsp;<span style="font-size:12px;color:var(--muted);font-weight:600">${totalWaiting} ${t('inLine')}</span></div>
-      <div class="next-up-name">#${nextRider.queueNum} — ${esc(nextRider.name)}</div>
+      <div class="next-up-name">#${nextRider.queueNum} - ${esc(nextRider.name)}</div>
       <div class="next-up-details">${nextRider.size} &middot; ${typeLabel(nextRider.typePreference)} &middot; ${nextRider.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}</div>
     </div>
     <button class="btn-primary" onclick="openModal('${nextRider.id}')">${t('assignBikeCheckin')}</button>
   </div>`:'';
-  const statusPills=['all','waiting','active','done','noshow','cancelled'].map(s=>{
-    const label={all:t('filterAll'),waiting:t('filterWaiting'),active:t('filterOnBike'),done:t('filterDone'),noshow:t('filterNoshow'),cancelled:t('statusCancelled')}[s];
-    return`<button class="filter-pill${S.sfStatus===s?' active':''}" onclick="setSfStatus('${s}')">${label}</button>`;
-  }).join('');
-  const sizePills=['all','XS','S','M','L'].map(sz=>
-    `<button class="filter-pill${S.sfSize===sz?' active':''}" onclick="setSfSize('${sz}')">${sz==='all'?t('filterAll'):sz}</button>`).join('');
-  const payPills=['all','paid','pending'].map(p=>{
-    const lbl={all:t('filterAll'),paid:t('paidLabel'),pending:t('pendingLabel')}[p];
-    return`<button class="filter-pill${S.sfPay===p?' active':''}" onclick="setSfPay('${p}')">${lbl}</button>`;
-  }).join('');
-  const sessOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>${t('allSessions')}</option>`+
-    sessions.map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${s.display}</option>`).join('');
+  const qStatusOpts=['all','waiting','active','done','noshow','cancelled'].map(s=>{
+    const l={all:t('filterAll'),waiting:t('filterWaiting'),active:t('filterOnBike'),done:t('filterDone'),noshow:t('filterNoshow'),cancelled:t('statusCancelled')}[s];
+    return`<option value="${s}"${S.sfStatus===s?' selected':''}>${l}</option>`;}).join('');
+  const qSizeOpts=['all','XS','S','M','L'].map(sz=>
+    `<option value="${sz}"${S.sfSize===sz?' selected':''}>${sz==='all'?t('filterAll'):sz}</option>`).join('');
+  const qPayOpts=['all','paid','pending'].map(p=>{
+    const l={all:t('filterAll'),paid:t('paidLabel'),pending:t('pendingLabel')}[p];
+    return`<option value="${p}"${S.sfPay===p?' selected':''}>${l}</option>`;}).join('');
   // ── Compute live queue positions (per session, waiting riders only, by queueNum order) ──
   const livePosMap={};
   const allWaiting=getQueue().filter(e=>e.status==='waiting').sort((a,b)=>a.sessionId.localeCompare(b.sessionId)||a.queueNum-b.queueNum);
@@ -3820,12 +3949,13 @@ function renderStaffQueue(){
     return`<tr class="${rowCls}">
       <td style="min-width:52px"><span class="queue-num-cell" style="font-size:${e.status!=='waiting'?'18':'22'}px">#${e.queueNum}</span></td>
       <td style="text-align:center">${posCell}</td>
-      <td><div class="rider-name">${esc(e.name)}${wiTag}</div><div class="rider-sub">${esc(e.phone)||'—'}</div></td>
+      <td><div class="rider-name">${esc(e.name)}${wiTag}</div><div class="rider-sub">${esc(fmtPhone(e.phone))||'—'}</div></td>
       <td style="font-weight:800">${e.size}</td>
       <td>${typeBadge(e.typePreference)}</td>
       ${S.sfSession==='all'?`<td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
       <td>${bike?esc(bike.name):'<span style="color:var(--muted)">—</span>'}</td>
       <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
+      <td style="font-weight:800;white-space:nowrap">SAR ${e.price||DEFAULT_PRICE}</td>
       <td onclick="event.stopPropagation()">
         <button class="pay-toggle ${e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}',${!e.paid})">
           ${e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
@@ -3844,18 +3974,8 @@ function renderStaffQueue(){
     </tr>`;
   }
 
-  // ── Single-session queue (each session has its own independent queue) ──
-  let rows,emptyRow='';
-  if(S.sfSession==='all'){
-    rows='';
-    emptyRow=`<tr><td colspan="12">
-      ${emptyIllustration(ILLUS_CALENDAR,t('selectSessionPrompt'),t('selectSessionSub'))}
-    </td></tr>`;
-  }else{
-    rows=filtered.map(e=>renderQRow(e)).join('');
-    emptyRow=filtered.length===0?`<tr><td colspan="12"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`:'';
-  }
-  document.getElementById('tab-queue').innerHTML=`
+  // ── Common header HTML (used in both early-return and full render) ──
+  const _queueHeader=`
     <div class="section-header">
       <div>
         <div class="page-title">${t('staffQueueTitle')}</div>
@@ -3884,35 +4004,55 @@ function renderStaffQueue(){
         </div>
       </div>
       <div id="staff-reset-result"></div>
-    </div>`:''}
-    ${(()=>{
-      const openSess=allSessions().filter(s=>s.status==='open'||s.status==='full').sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
-      if(!openSess.length)return'';
-      const chips=openSess.map(s=>{
-        const q=getQueue().filter(e=>e.sessionId===s.id);
-        const sWait=q.filter(e=>e.status==='waiting').length;
-        const sActive=q.filter(e=>e.status==='active').length;
-        const sDone=q.filter(e=>e.status==='done').length;
-        const cap=s.capacity||12;
-        const fillPct=Math.round(Math.min((sWait+sActive+sDone)/cap*100,100));
-        const fillClr=fillPct>=90?'var(--red)':'var(--green)';
-        const isCurrent=S.sfSession===s.id;
-        return`<div class="sess-summary-chip${isCurrent?' active-sess':''}"
-          onclick="setSfSession('${s.id}')" title="${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}">
-          <div class="sess-chip-info">
-            <div class="sess-chip-date">${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</div>
-            <div class="sess-chip-counts">
-              <span style="color:var(--green)">${sWait} ${t('waitingStat').toLowerCase()}</span>
-              ${sActive?` &middot; <span style="color:var(--text)">${sActive} ${t('activeSessChip')}</span>`:''}
-              ${sDone?` &middot; <span style="color:var(--muted)">${sDone} ${t('doneSessChip')}</span>`:''}
-            </div>
-            <div class="sess-chip-bar"><div class="sess-chip-fill" style="width:${fillPct}%;background:${fillClr}"></div></div>
+    </div>`:''}`;
+
+  // ── Build session summary chips (always shown) ──
+  const _sessSummaryBar=(()=>{
+    const openSess=allSessions().filter(s=>s.status==='open'||s.status==='full').sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+    if(!openSess.length)return'';
+    const chips=openSess.map(s=>{
+      const q=getQueue().filter(e=>e.sessionId===s.id);
+      const sWait=q.filter(e=>e.status==='waiting').length;
+      const sActive=q.filter(e=>e.status==='active').length;
+      const sDone=q.filter(e=>e.status==='done').length;
+      const cap=s.capacity||12;
+      const fillPct=Math.round(Math.min((sWait+sActive+sDone)/cap*100,100));
+      const fillClr=fillPct>=90?'var(--red)':'var(--green)';
+      const isCurrent=S.sfSession===s.id;
+      return`<div class="sess-summary-chip${isCurrent?' active-sess':''}"
+        onclick="setSfSession('${s.id}')" title="${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}">
+        <div class="sess-chip-info">
+          <div class="sess-chip-date">${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</div>
+          <div class="sess-chip-counts">
+            <span style="color:var(--green)">${sWait} ${t('waitingStat').toLowerCase()}</span>
+            ${sActive?` &middot; <span style="color:var(--text)">${sActive} ${t('activeSessChip')}</span>`:''}
+            ${sDone?` &middot; <span style="color:var(--muted)">${sDone} ${t('doneSessChip')}</span>`:''}
           </div>
-          <div class="sess-chip-badge"><span class="badge-${s.status}">${{open:t('statusOpen'),full:t('statusFull'),closed:t('statusClosed')}[s.status]}</span></div>
-        </div>`;
-      }).join('');
-      return`<div class="sess-summary-bar">${chips}</div>`;
-    })()}
+          <div class="sess-chip-bar"><div class="sess-chip-fill" style="width:${fillPct}%;background:${fillClr}"></div></div>
+        </div>
+        <div class="sess-chip-badge"><span class="badge-${s.status}">${{open:t('statusOpen'),full:t('statusFull'),closed:t('statusClosed')}[s.status]}</span></div>
+      </div>`;
+    }).join('');
+    return`<div class="sess-summary-bar">${chips}</div>`;
+  })();
+
+  // ── If no session selected, show prominent session picker and early return ──
+  if(S.sfSession==='all'){
+    const openSess=allSessions().filter(s=>s.status==='open'||s.status==='full').sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+    const pickCards=openSess.length
+      ?openSess.map(s=>`<div onclick="setSfSession('${s.id}')" style="cursor:pointer;padding:18px 22px;background:#1a1a1a;border:1.5px solid rgba(3,255,137,.25);border-radius:14px;margin-bottom:10px;transition:all .2s" onmouseover="this.style.borderColor='rgba(3,255,137,.6)'" onmouseout="this.style.borderColor='rgba(3,255,137,.25)'">
+          <div style="font-size:18px;font-weight:900">${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:4px">${sessionTime(s)} &nbsp;·&nbsp; ${getQueue().filter(e=>e.sessionId===s.id&&e.status==='waiting').length} ${t('waitingStat').toLowerCase()}</div>
+        </div>`).join('')
+      :`<div style="color:var(--muted);font-size:14px">No open sessions found.</div>`;
+    document.getElementById('tab-queue').innerHTML=_queueHeader+_sessSummaryBar+`<div style="max-width:480px;margin:32px auto;padding:0 24px"><div style="font-size:20px;font-weight:900;margin-bottom:16px">${t('selectSessionPrompt')}</div>${pickCards}</div>`;
+    return;
+  }
+
+  // ── Single-session queue (each session has its own independent queue) ──
+  const rows=filtered.map(e=>renderQRow(e)).join('');
+  const emptyRow=filtered.length===0?`<tr><td colspan="13"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`:'';
+  document.getElementById('tab-queue').innerHTML=_queueHeader+_sessSummaryBar+`
     <div class="stats-row">
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('totalStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWait}</div><div class="stat-label">${t('waitingStat')}</div></div>
@@ -3921,24 +4061,18 @@ function renderStaffQueue(){
     </div>
     ${nextUp}
     <div class="filter-bar">
-      <div class="filter-bar-row">
-        <span class="filter-group-label">${t('filterStatus')}:</span>
-        ${statusPills}
-      </div>
-      <div class="filter-bar-row">
-        <span class="filter-group-label">${t('filterSize')}:</span>
-        ${sizePills}
-        <div class="filter-spacer"></div>
-        <span class="filter-group-label">${t('filterPay')}:</span>
-        ${payPills}
-      </div>
-      <div class="filter-bar-row">
-        <div class="filter-spacer"></div>
+      <div class="filter-row">
         <div class="search-wrap">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="white" stroke-width="1.4"/><line x1="9.5" y1="9.5" x2="13" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>
           <input id="sf-search-input" class="search-input" placeholder="${t('searchPlaceholder')}" value="${esc(S.sfSearch)}"
             oninput="setSfSearch(this.value)">
         </div>
+        <span class="filter-label" style="margin-left:8px">${t('filterStatus')}:</span>
+        <select class="filter-select" onchange="setSfStatus(this.value)">${qStatusOpts}</select>
+        <span class="filter-label" style="margin-left:8px">${t('filterSize')}:</span>
+        <select class="filter-select" onchange="setSfSize(this.value)">${qSizeOpts}</select>
+        <span class="filter-label" style="margin-left:8px">${t('filterPay')}:</span>
+        <select class="filter-select" onchange="setSfPay(this.value)">${qPayOpts}</select>
       </div>
       ${filtered.length!==base.length?`<div class="result-count">${filtered.length} ${t('resultOf')} ${base.length} ${t('resultRiders')}</div>`:''}
     </div>
@@ -3949,9 +4083,10 @@ function renderStaffQueue(){
         ${thQSort('name',t('colRider'))}
         ${thQSort('size',t('frameSizeLabel'))}
         ${thQSort('type',t('bikeTypeLabel'))}
-        ${S.sfSession==='all'?thQSort('queue',t('colSession'),'hide-mobile'):'<th class="hide-mobile" style="display:none"></th>'}
+        <th class="hide-mobile" style="display:none"></th>
         <th>${t('colBike')}</th>
         <th>${t('colColor')}</th>
+        <th>${t('colPrice')||'Price'}</th>
         ${thQSort('paid',t('colPayment'))}
         ${thQSort('status',t('colStatus'))}
         <th style="font-size:10px;color:var(--muted)">${t('colContact')}</th>
@@ -3987,7 +4122,7 @@ async function staffShowResetCode(){
   const code=generateResetOTP(email);
   const mins=10-Math.floor((Date.now()%(10*60*1000))/(60*1000));
   el.innerHTML=`<div style="background:rgba(3,255,137,.07);border:1px solid rgba(3,255,137,.25);border-radius:12px;padding:16px 20px">
-    <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${t('staffResetCode')} — ${esc(cust.name)}</div>
+    <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${t('staffResetCode')} - ${esc(cust.name)}</div>
     <div style="font-size:42px;font-weight:900;letter-spacing:10px;color:var(--green);font-family:monospace;text-shadow:0 0 20px rgba(3,255,137,.35)">${code}</div>
     <div style="font-size:11px;color:var(--muted);margin-top:8px;font-weight:600">⏱ ${t('staffResetExpiry').replace('10',String(mins))}</div>
   </div>`;
@@ -4005,7 +4140,7 @@ async function togglePayment(id,paid){
   await loadData();
   renderStaffQueue();renderHistory();
   const lbl=`Payment #${entry.queueNum} ${entry.name}`;
-  pushUndo(`${paid?'Mark paid':'Mark unpaid'} — ${lbl}`,async()=>{
+  pushUndo(`${paid?'Mark paid':'Mark unpaid'} - ${lbl}`,async()=>{
     await sb.from('queue_entries').update({paid:!paid}).eq('id',id);
     await loadData();renderStaffQueue();renderHistory();
   });
@@ -4089,7 +4224,7 @@ function showReturnPayModal(id){
       <div class="modal-title">${t('returnPayTitle')}</div>
       <div class="modal-sub" style="margin-bottom:24px">${t('returnPayMsg')}</div>
       <div style="font-size:16px;font-weight:900;margin-bottom:24px">
-        #${entry.queueNum} — ${esc(entry.name)}<br>
+        #${entry.queueNum} - ${esc(entry.name)}<br>
         <span style="color:var(--muted-l);font-size:14px">SAR ${entry.price||DEFAULT_PRICE} ${t('pendingLabel')}</span>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
@@ -4110,7 +4245,7 @@ async function _execReturn(id,markPaid){
   await Promise.all(calls);
   await loadData();
   toast(markPaid?t('toastBikeReturnedPaid'):t('toastBikeReturned'));
-  pushUndo(`Return bike — #${qn} ${name}`,async()=>{
+  pushUndo(`Return bike - #${qn} ${name}`,async()=>{
     const u={status:'active'};if(markPaid)u.paid=false;
     const calls2=[sb.from('queue_entries').update(u).eq('id',id)];
     if(bikeId)calls2.push(sb.from('bikes').update({status:'in-use'}).eq('id',bikeId));
@@ -4139,14 +4274,21 @@ async function doReopen(id){
 }
 async function doRemove(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
-  const saved={...entryToDB(entry)};
-  await sb.from('queue_entries').delete().eq('id',id);
+  await sb.from('queue_entries').update({status:'removed'}).eq('id',id);
   await loadData();toast(t('toastRiderRemoved'));
   pushUndo(`Remove #${entry.queueNum} ${entry.name}`,async()=>{
-    await sb.from('queue_entries').insert(saved);
-    await loadData();renderStaffQueue();
+    const prevStatus=entry.status==='done'?'done':'waiting';
+    await sb.from('queue_entries').update({status:prevStatus}).eq('id',id);
+    await loadData();renderStaffQueue();renderHistory();
   });
-  renderStaffQueue();
+  renderStaffQueue();renderHistory();
+}
+
+async function doRestoreEntry(id){
+  const entry=getQueue().find(e=>e.id===id);if(!entry)return;
+  await sb.from('queue_entries').update({status:'done'}).eq('id',id);
+  await loadData();toast(t('restoreEntryBtn')||'Restored');
+  renderHistory();
 }
 
 /* ══════════════════════════════════════════════
@@ -4243,7 +4385,7 @@ function renderModal(){
   const payWarning=!rider.paid?`<div style="display:flex;align-items:center;gap:8px;background:rgba(224,136,40,.1);border:1px solid rgba(224,136,40,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px">
     <span style="font-size:16px">⚠️</span>
     <div>
-      <span style="font-size:12px;font-weight:800;color:var(--muted-l)">${t('payPendingWarning')} — SAR ${rider.price||DEFAULT_PRICE}</span>
+      <span style="font-size:12px;font-weight:800;color:var(--muted-l)">${t('payPendingWarning')} - SAR ${rider.price||DEFAULT_PRICE}</span>
       <button class="pay-toggle pending" style="margin-left:10px;font-size:11px" onclick="togglePayment('${rider.id}',true);renderModal()">⏳ ${t('paidLabel')}?</button>
     </div>
   </div>`:'';
@@ -4298,14 +4440,13 @@ function renderBikes(){
         nRoad=bikes.filter(b=>b.type==='Road').length,
         nHybrid=bikes.filter(b=>b.type==='Hybrid').length,
         nMtn=bikes.filter(b=>b.type==='Mountain').length;
-  const typePills=['all','Road','Hybrid','Mountain'].map(ty=>
-    `<button class="filter-pill${S.bkTypeFilter===ty?' active':''}" onclick="setBkFilter('${ty}')">${ty==='all'?t('filterAll'):typeLabel(ty)}</button>`).join('');
-  const statusPillsBk=['all','available','in-use','maintenance'].map(s=>{
+  const bkTypeOpts=['all','Road','Hybrid','Mountain'].map(ty=>
+    `<option value="${ty}"${S.bkTypeFilter===ty?' selected':''}>${ty==='all'?t('filterAll'):typeLabel(ty)}</option>`).join('');
+  const bkStatusOpts=['all','available','in-use','maintenance'].map(s=>{
     const l={all:t('filterAll'),available:t('availLabel'),'in-use':t('inUseLabel'),maintenance:t('maintLabel')}[s];
-    return`<button class="filter-pill${S.bkStatus===s?' active':''}" onclick="setBkStatus('${s}')">${l}</button>`;
-  }).join('');
-  const sizePillsBk=['all','XS','S','M','L'].map(sz=>
-    `<button class="filter-pill${S.bkSize===sz?' active':''}" onclick="setBkSize('${sz}')">${sz==='all'?t('filterAll'):sz}</button>`).join('');
+    return`<option value="${s}"${S.bkStatus===s?' selected':''}>${l}</option>`;}).join('');
+  const bkSizeOpts=['all','XS','S','M','L'].map(sz=>
+    `<option value="${sz}"${S.bkSize===sz?' selected':''}>${sz==='all'?t('filterAll'):sz}</option>`).join('');
   const isEdit=!!S.editBikeId;const editBike=isEdit?bikes.find(b=>b.id===S.editBikeId):null;
   const curSize=(isEdit&&editBike)?(S.addBikeSize||editBike.size):S.addBikeSize;
   const sizeOpts=['XS','S','M','L'].map(v=>`<option value="${v}"${curSize===v?' selected':''}>${v}</option>`).join('');
@@ -4419,20 +4560,17 @@ function renderBikes(){
       <div class="stat-card"><div class="stat-num" style="color:var(--text)">${nUse}</div><div class="stat-label">${t('inUseLabel')}</div></div>
     </div>
     <div class="filter-bar" style="margin-bottom:20px">
-      <div class="filter-bar-row">
-        <span class="filter-group-label">${t('filterStatus')}:</span>
-        ${statusPillsBk}
-        <div class="filter-spacer"></div>
-        <span class="filter-group-label">${t('filterSize')}:</span>
-        ${sizePillsBk}
-      </div>
-      <div class="filter-bar-row">
-        <span class="filter-group-label">${t('sortBy')}:</span>
-        ${['name','size','status'].map(k=>{
-          const labels={name:t('sortName'),size:t('sortSize'),status:t('sortStatus')};
-          const active=S.bkSort===k;
-          return`<button class="sort-pill${active?' active':''}" onclick="setBkSort('${k}')">${labels[k]}${active?'<span class="sort-arrow">↑</span>':''}</button>`;
-        }).join('')}
+      <div class="filter-row">
+        <span class="filter-label">${t('filterStatus')}:</span>
+        <select class="filter-select" onchange="setBkStatus(this.value)">${bkStatusOpts}</select>
+        <span class="filter-label" style="margin-left:8px">${t('filterSize')}:</span>
+        <select class="filter-select" onchange="setBkSize(this.value)">${bkSizeOpts}</select>
+        <span class="filter-label" style="margin-left:8px">${t('sortBy')}:</span>
+        <select class="filter-select" onchange="setBkSort(this.value)">
+          ${['name','size','status'].map(k=>{
+            const l={name:t('sortName'),size:t('sortSize'),status:t('sortStatus')}[k];
+            return`<option value="${k}"${S.bkSort===k?' selected':''}>${l}</option>`;}).join('')}
+        </select>
       </div>
     </div>
     ${typeSections}`;
@@ -4511,13 +4649,15 @@ async function delBike(id){
    HISTORY
 ══════════════════════════════════════════════ */
 function renderHistory(){
-  const queue=getQueue();const hist=queue.filter(e=>e.status==='done'||e.status==='noshow'||e.status==='cancelled');
+  const queue=getQueue();const hist=queue.filter(e=>e.status==='done'||e.status==='noshow'||e.status==='cancelled'||e.status==='removed');
   const sessions=allSessions();
   const nDone=hist.filter(e=>e.status==='done').length,nPaid=hist.filter(e=>e.status==='done'&&e.paid).length,
         nPend=hist.filter(e=>e.status==='done'&&!e.paid).length,nNoShow=hist.filter(e=>e.status==='noshow').length;
   let filtered=[...hist];
   if(S.histSess!=='all')   filtered=filtered.filter(e=>e.sessionId===S.histSess);
   if(S.histStatus!=='all') filtered=filtered.filter(e=>e.status===S.histStatus);
+  // By default, exclude removed unless explicitly filtered
+  if(S.histStatus==='all') filtered=filtered.filter(e=>e.status!=='removed');
   if(S.histPay==='paid')   filtered=filtered.filter(e=>e.paid);
   if(S.histPay==='pending')filtered=filtered.filter(e=>!e.paid&&e.status==='done');
   if(S.histType!=='all')   filtered=filtered.filter(e=>e.typePreference===S.histType);
@@ -4538,16 +4678,18 @@ function renderHistory(){
     const arrow=active?(S.histSortDir===1?'↑':'↓'):'';
     return`<th class="an-sort-th${active?' an-sort-active':''}${cls?' '+cls:''}" onclick="setHistSort('${col}')">${label}${active?' '+arrow:''}</th>`;
   }
-  const statusPills=['all','done','noshow','cancelled'].map(s=>{
-    const l={all:t('filterAll'),done:t('filterDone'),noshow:t('filterNoshow'),cancelled:t('statusCancelled')}[s];
-    return`<button class="filter-pill${S.histStatus===s?' active':''}" onclick="setHistStatus('${s}')">${l}</button>`;}).join('');
-  const payPills=['all','paid','pending'].map(s=>{
+  const hStatusOpts=['all','done','noshow','cancelled','removed'].map(s=>{
+    const l={all:t('filterAll'),done:t('filterDone'),noshow:t('filterNoshow'),cancelled:t('statusCancelled'),removed:t('removedLabel')||'Removed'}[s];
+    return`<option value="${s}"${S.histStatus===s?' selected':''}>${l}</option>`;}).join('');
+  const hPayOpts=['all','paid','pending'].map(s=>{
     const l={all:t('filterAll'),paid:t('filterPaid'),pending:t('pendingLabel')}[s];
-    return`<button class="filter-pill${S.histPay===s?' active':''}" onclick="setHistPay('${s}')">${l}</button>`;}).join('');
-  const typePills=['all','Road','Hybrid','Mountain','Any'].map(ty=>
-    `<button class="filter-pill${S.histType===ty?' active':''}" onclick="setHistType('${ty}')">${ty==='all'?t('filterAll'):typeLabel(ty)}</button>`).join('');
-  const sizePillsH=['all','XS','S','M','L'].map(sz=>
-    `<button class="filter-pill${S.histSize===sz?' active':''}" onclick="setHistSize('${sz}')">${sz==='all'?t('filterAll'):sz}</button>`).join('');
+    return`<option value="${s}"${S.histPay===s?' selected':''}>${l}</option>`;}).join('');
+  const hTypeOpts=['all','Road','Hybrid','Mountain','Any'].map(ty=>
+    `<option value="${ty}"${S.histType===ty?' selected':''}>${ty==='all'?t('filterAll'):typeLabel(ty)}</option>`).join('');
+  const hSizeOpts=['all','XS','S','M','L'].map(sz=>
+    `<option value="${sz}"${S.histSize===sz?' selected':''}>${sz==='all'?t('filterAll'):sz}</option>`).join('');
+  const hSortOpts=[['date',t('sortNewest')],['name',t('sortName')],['size',t('sortSize')],['type',t('sortType')],['amount',t('colPayment')],['status',t('colStatus')]].map(([v,l])=>
+    `<option value="${v}"${S.histSort===v?' selected':''}>${l}</option>`).join('');
   const sessOpts=`<option value="all"${S.histSess==='all'?' selected':''}>${t('allSessions')}</option>`+
     sessions.map(s=>`<option value="${s.id}"${S.histSess===s.id?' selected':''}>${s.day} ${s.display}</option>`).join('');
   const rows=filtered.map(e=>{
@@ -4564,7 +4706,7 @@ function renderHistory(){
       </td>
       <td>
         <div class="rider-name">${esc(e.name)}${wiTag}</div>
-        <div class="rider-sub" style="margin-top:3px">${esc(e.phone)||'—'}</div>
+        <div class="rider-sub" style="margin-top:3px">${esc(fmtPhone(e.phone))||'—'}</div>
         <div class="rider-sub">${hasEmail?esc(e.email):`<span style="font-style:italic;color:var(--muted)">${t('noEmailLabel')}</span>`}</div>
       </td>
       <td class="hide-mobile">
@@ -4588,15 +4730,22 @@ function renderHistory(){
       </td>
       <td>${statusBadge(e.status)}</td>
       <td><div class="actions-cell">
-        ${hasEmail&&e.status==='done'?`<button class="btn-sm btn-purple" onclick="showReceipt('${e.id}')">${t('sendReceipt')}</button>`
-          :`<span style="font-size:11px;color:var(--muted)">${e.status==='noshow'?'—':hasEmail?'':t('noEmailLabel')}</span>`}
+        ${e.status==='removed'
+          ?`<button class="btn-sm btn-green" onclick="doRestoreEntry('${e.id}')">${t('restoreEntryBtn')||'Restore'}</button>`
+          :hasEmail&&e.status==='done'?`<button class="btn-sm btn-purple" onclick="showReceipt('${e.id}')">${t('sendReceipt')}</button>`
+          :`<span style="font-size:11px;color:var(--muted)">${e.status==='noshow'?'-':hasEmail?'':t('noEmailLabel')}</span>`}
       </div></td>
     </tr>`;
   }).join('');
   const emptyRow=filtered.length===0?`<tr><td colspan="9"><div style="padding:8px">${emptyIllustration(ILLUS_HISTORY,t('noHistory'))}</div></td></tr>`:'';
   document.getElementById('tab-history').innerHTML=`
-    <div class="page-title">${t('historyTitle')}</div>
-    <div class="page-sub">${t('historySub')}</div>
+    <div class="section-header" style="margin-bottom:8px">
+      <div>
+        <div class="page-title">${t('historyTitle')}</div>
+        <div class="page-sub" style="margin-bottom:0">${t('historySub')}</div>
+      </div>
+      <button class="btn-secondary" onclick="exportHistoryCSV()" style="white-space:nowrap;flex-shrink:0">&#x2B07; ${t('exportBtn')||'Export CSV'}</button>
+    </div>
     <div class="stats-row">
       <div class="stat-card"><div class="stat-num">${nDone}</div><div class="stat-label">${t('completedLabel')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nPaid}</div><div class="stat-label">${t('filterPaid')}</div></div>
@@ -4604,24 +4753,22 @@ function renderHistory(){
       <div class="stat-card"><div class="stat-num" style="color:var(--red)">${nNoShow}</div><div class="stat-label">${t('filterNoshow')}</div></div>
     </div>
     <div class="filter-bar">
-      <div class="filter-bar-row">
-        <span class="filter-group-label">${t('filterStatus')}:</span>
-        ${statusPills}
-        <div class="filter-spacer"></div>
-        <select style="width:auto;min-width:160px;font-size:12px" onchange="setHistSess(this.value)">${sessOpts}</select>
+      <div class="filter-row">
+        <span class="filter-label">${t('filterStatus')}:</span>
+        <select class="filter-select" onchange="setHistStatus(this.value)">${hStatusOpts}</select>
+        <span class="filter-label" style="margin-left:8px">${t('filterPay')}:</span>
+        <select class="filter-select" onchange="setHistPay(this.value)">${hPayOpts}</select>
+        <span class="filter-label" style="margin-left:8px">${t('filterType')}:</span>
+        <select class="filter-select" onchange="setHistType(this.value)">${hTypeOpts}</select>
+        <span class="filter-label" style="margin-left:8px">${t('filterSize')}:</span>
+        <select class="filter-select" onchange="setHistSize(this.value)">${hSizeOpts}</select>
       </div>
-      <div class="filter-bar-row">
-        <span class="filter-group-label">${t('filterPay')}:</span>
-        ${payPills}
-        <div class="filter-spacer"></div>
-        <span class="filter-group-label">${t('filterType')}:</span>
-        ${typePills}
-      </div>
-      <div class="filter-bar-row">
-        <span class="filter-group-label">${t('filterSize')}:</span>
-        ${sizePillsH}
-      </div>
-      <div class="filter-bar-row">
+      <div class="filter-row">
+        <span class="filter-label">${t('colSession')}:</span>
+        <select class="filter-select" onchange="setHistSess(this.value)">${sessOpts}</select>
+        <span class="filter-label" style="margin-left:8px">${t('sortBy')}:</span>
+        <select class="filter-select" onchange="S.histSort=this.value;S.histSortDir=-1;renderHistory()">${hSortOpts}</select>
+        <button class="filter-select" style="min-width:44px;padding:0;text-align:center;cursor:pointer" onclick="S.histSortDir*=-1;renderHistory()">${S.histSortDir===1?'↑':'↓'}</button>
         <div class="filter-spacer"></div>
         <div class="search-wrap">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="white" stroke-width="1.4"/><line x1="9.5" y1="9.5" x2="13" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>
@@ -4674,6 +4821,35 @@ function setSessStatusFilter(v){S.sessStatusFilter=v;renderSessions();}
 function setBkStatus(v){S.bkStatus=v;renderBikes();}
 function setBkSize(v){S.bkSize=v;renderBikes();}
 
+function exportHistoryCSV(){
+  const hist=getQueue().filter(e=>e.status==='done'||e.status==='noshow'||e.status==='cancelled'||e.status==='removed');
+  const headers=['#','Name','Phone','Email','Session','Date','Time','Bike','Size','Type','Price','Paid','Status'];
+  const rows=hist.map(e=>{
+    const bike=e.assignedBikeId?getBikes().find(b=>b.id===e.assignedBikeId):null;
+    const sess=allSessions().find(s=>s.id===e.sessionId);
+    return[
+      e.queueNum,
+      e.name,
+      e.phone||'',
+      e.email||'',
+      dayLabel(e.sessionDay)+' '+shortDate(e.sessionDate),
+      shortDate(e.sessionDate),
+      sessionTime(sess),
+      bike?bike.name:'',
+      e.size,
+      e.typePreference,
+      e.price||30,
+      e.paid?'Yes':'No',
+      e.status
+    ].map(v=>'"'+String(v).replace(/"/g,'""')+'"');
+  });
+  const csv=[headers.map(h=>'"'+h+'"').join(','),...rows.map(r=>r.join(','))].join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='rides_export.csv';a.click();
+  URL.revokeObjectURL(url);
+}
+
 function showReceipt(id){
   const e=getQueue().find(x=>x.id===id);if(!e)return;
   const bike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
@@ -4716,8 +4892,16 @@ function showReceipt(id){
 }
 function closeReceipt(){document.getElementById('receipt-modal').style.display='none';}
 
+function showBoothPopup(){
+  document.getElementById('booth-popup-title').textContent=t('payAtBoothTitle')||'Payment at the Booth';
+  document.getElementById('booth-popup-msg').textContent=t('payAtBoothMsg')||t('payAtBooth');
+  const el=document.getElementById('booth-popup');
+  el.style.display='flex';
+}
+function closeBoothPopup(){document.getElementById('booth-popup').style.display='none';}
+
 /* ══════════════════════════════════════════════
-   ANALYTICS — SVG HELPERS
+   ANALYTICS - SVG HELPERS
 ══════════════════════════════════════════════ */
 function _uid(){return Math.random().toString(36).slice(2,7);}
 
@@ -4807,6 +4991,8 @@ function renderAnalytics(){
   else if(S.analyticsRange==='month'){
     const mo=new Date();mo.setDate(1);mo.setHours(0,0,0,0);
     sessCandidates=sessCandidates.filter(s=>new Date(s.session_date||s.id)>=mo);
+  } else if(S.analyticsRange==='custom'){
+    sessCandidates=sessCandidates.slice(-Math.max(1,S.analyticsCustomN||20));
   }
   const sessIds=new Set(sessCandidates.map(s=>s.id));
   const queue=allQ.filter(e=>sessIds.has(e.sessionId));
@@ -4963,12 +5149,15 @@ function renderAnalytics(){
 
   // ── Range bar helper ──────────────────────────────────
   function _rangeBar(){
-    const rangeLabels={all:t('anAllTime'),last5:t('anLast5'),last10:t('anLast10'),month:t('anThisMonth')};
+    const rangeLabels={all:t('anAllTime'),last5:t('anLast5'),last10:t('anLast10'),month:t('anThisMonth'),custom:t('anCustom')||'Custom'};
     return`<div class="an-range-bar">
       <span class="an-range-label">${t('anShowing')}</span>
-      ${['all','last5','last10','month'].map(r=>
+      ${['all','last5','last10','month','custom'].map(r=>
         `<button class="filter-pill${S.analyticsRange===r?' active':''}" onclick="setAnRange('${r}')">${rangeLabels[r]}</button>`
       ).join('')}
+      ${S.analyticsRange==='custom'?`<input type="number" min="1" max="200" value="${S.analyticsCustomN||20}"
+        style="width:64px;padding:4px 8px;background:#1a1a1a;border:1px solid rgba(255,255,255,.15);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700"
+        oninput="S.analyticsCustomN=Math.max(1,parseInt(this.value)||1);renderAnalytics()">`:``}
       <span class="result-count" style="margin-left:4px">${sessionsHeld} ${t('anSessionsHeld').toLowerCase()} · ${totalDone} ${t('anRidesLabel')}</span>
     </div>`;
   }
@@ -5030,8 +5219,8 @@ function renderAnalytics(){
     {v:done.filter(e=>!e.paid).length, c:'#e08828',label:t('pendingLabel')},
   ]);
   const payLegend=`<div class="donut-legend">
-    <div class="donut-legend-item"><span class="donut-dot" style="background:#03ff89"></span>${t('paidLabel')} — ${done.filter(e=>e.paid).length} (${collectionRate}%)</div>
-    <div class="donut-legend-item"><span class="donut-dot" style="background:#e08828"></span>${t('pendingLabel')} — ${done.filter(e=>!e.paid).length}</div>
+    <div class="donut-legend-item"><span class="donut-dot" style="background:#03ff89"></span>${t('paidLabel')} - ${done.filter(e=>e.paid).length} (${collectionRate}%)</div>
+    <div class="donut-legend-item"><span class="donut-dot" style="background:#e08828"></span>${t('pendingLabel')} - ${done.filter(e=>!e.paid).length}</div>
     <div style="margin-top:8px;font-size:20px;font-weight:900;color:var(--green)">SAR ${revCollected.toFixed(0)}</div>
     <div style="font-size:11px;color:var(--muted);font-weight:600">${t('anCollected')}</div>
   </div>`;
@@ -5040,14 +5229,14 @@ function renderAnalytics(){
   const typeDonut=_donut(typeSegs);
   const typeLegend=`<div class="donut-legend">${typeSegs.sort((a,b)=>b.v-a.v).map(d=>{
     const pct=Math.round(d.v/totalDone*100);
-    return`<div class="donut-legend-item"><span class="donut-dot" style="background:${d.c}"></span>${typeLabel(d.label)} — ${d.v} (${pct}%)</div>`;
+    return`<div class="donut-legend-item"><span class="donut-dot" style="background:${d.c}"></span>${typeLabel(d.label)} - ${d.v} (${pct}%)</div>`;
   }).join('')}</div>`;
 
   const sizeSegs=Object.entries(sizeBreak).filter(([,v])=>v>0).map(([k,v])=>({v,c:sizeColorHex[k]||'#777',label:k}));
   const sizeDonut=_donut(sizeSegs);
   const sizeLegend=`<div class="donut-legend">${sizeSegs.sort((a,b)=>b.v-a.v).map(d=>{
     const pct=Math.round(d.v/totalDone*100);
-    return`<div class="donut-legend-item"><span class="donut-dot" style="background:${d.c}"></span>${d.label} — ${d.v} (${pct}%)</div>`;
+    return`<div class="donut-legend-item"><span class="donut-dot" style="background:${d.c}"></span>${d.label} - ${d.v} (${pct}%)</div>`;
   }).join('')}</div>`;
 
   // Rev by day (horizontal bars) — dayOrder already declared above
@@ -5248,7 +5437,7 @@ function renderAnalytics(){
         </div>
         <div class="hl-item" style="margin-bottom:0">
           <div class="hl-label">${t('anBestSession')}</div>
-          <div class="hl-value" style="color:var(--green)">${bestSession.s?`SAR ${bestSession.r.toFixed(0)} — ${shortDate(bestSession.s.session_date||bestSession.s.id)}`:'—'}</div>
+          <div class="hl-value" style="color:var(--green)">${bestSession.s?`SAR ${bestSession.r.toFixed(0)} - ${shortDate(bestSession.s.session_date||bestSession.s.id)}`:'—'}</div>
         </div>
       </div>
       <div class="analytics-highlight-card">
