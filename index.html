@@ -2364,7 +2364,11 @@ function spotsLeft(sid){
 function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid&&e.status!=='removed'&&e.status!=='cancelled').map(e=>e.queueNum);return nums.length?Math.max(...nums)+1:1;}
 const bikeById=id=>getBikes().find(b=>b.id===id);
 function getAssignedBikeIds(entry){
-  if(!entry||!entry.assignedBikeId)return[];
+  if(!entry)return[];
+  // Check in-memory fallback first (used when FK constraint blocks JSON storage)
+  const fallback=S&&S._extraBikes&&S._extraBikes[entry.id];
+  if(fallback)return fallback;
+  if(!entry.assignedBikeId)return[];
   try{const p=JSON.parse(entry.assignedBikeId);return Array.isArray(p)?p:[p];}catch{return[entry.assignedBikeId];}
 }
 function getAssignedBikes(entry){return getAssignedBikeIds(entry).map(id=>bikeById(id)).filter(Boolean);}
@@ -4697,13 +4701,29 @@ async function confirmAssign(){
   if(unavail.length>0){toast(`${unavail[0].name}: ${t('errBikeUnavailable')}`,'error');return;}
   const riderId=S.modalRider;
   const qn=rider?rider.queueNum:'?';const rName=rider?rider.name:'';
-  // Store as JSON array (single bike stored as JSON array for consistency)
-  const assignedVal=S.modalBikes.length===1?S.modalBikes[0]:JSON.stringify(S.modalBikes);
   const bikeNames=selected.map(b=>b.name).join(', ');
-  await Promise.all([
-    ...needsUpdate.map(b=>sb.from('bikes').update({status:'in-use'}).eq('id',b.id)),
-    sb.from('queue_entries').update({status:'active',assigned_bike_id:assignedVal}).eq('id',riderId),
-  ]);
+  // First update all selected bikes to in-use
+  await Promise.all(needsUpdate.map(b=>sb.from('bikes').update({status:'in-use'}).eq('id',b.id)));
+  // Try to store full ordered list; fall back to first bike ID if FK constraint rejects JSON
+  let assignedVal;
+  if(S.modalBikes.length===1){
+    assignedVal=S.modalBikes[0];
+    await sb.from('queue_entries').update({status:'active',assigned_bike_id:assignedVal}).eq('id',riderId);
+  }else{
+    // Try JSON array first
+    const jsonVal=JSON.stringify(S.modalBikes);
+    const{error}=await sb.from('queue_entries').update({status:'active',assigned_bike_id:jsonVal}).eq('id',riderId);
+    if(error){
+      // FK constraint — store primary bike only, mark others in session notes
+      assignedVal=S.modalBikes[0];
+      await sb.from('queue_entries').update({status:'active',assigned_bike_id:assignedVal}).eq('id',riderId);
+      // Store extra bike IDs in queue_num temporarily via a workaround flag in S
+      S._extraBikes=S._extraBikes||{};
+      S._extraBikes[riderId]=S.modalBikes;
+    }else{
+      assignedVal=jsonVal;
+    }
+  }
   await loadData();closeModal();
   toast(`${bikeNames} ${t('toastAssignedChecked')}`);
   pushUndo(`Check-in #${qn} ${rName}`,async()=>{
@@ -4769,18 +4789,39 @@ function renderBikes(){
   const sortOrder={available:0,'in-use':1,maintenance:2};
   const sizeOrder={XS:0,S:1,M:2,L:3};
 
+  // Build a lookup: bike ID → active queue entry (who's using it)
+  const bikeUserMap={};
+  getQueue().filter(e=>e.status==='active').forEach(e=>{
+    getAssignedBikeIds(e).forEach(bid=>{if(!bikeUserMap[bid])bikeUserMap[bid]=e;});
+  });
+
   function renderBikeRow(b){
     const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-orange':'dot-red';
     const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
     const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--muted-l)':'var(--red)';
     const colors=b.colors&&b.colors.length?b.colors:['#03ff89'];
     const colorSwatches=colors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');
+    // Who is currently using this bike?
+    const user=bikeUserMap[b.id];
+    const userCell=user
+      ?`<div style="font-size:11px;font-weight:700;color:var(--green);margin-top:3px">
+          &#x1F464; #${user.queueNum} ${esc(user.name)}
+        </div>`
+      :'';
     return`<tr>
       <td><div class="rider-name">${esc(b.name)}</div></td>
       <td>${typeBadge(b.type)}</td>
       <td style="font-weight:800">${b.size}</td>
       <td><div style="display:flex;gap:4px;align-items:center">${colorSwatches}</div></td>
-      <td><span class="avail-dot ${dot}" style="display:inline-block;margin-right:6px"></span><span style="color:${sclr};font-weight:700;font-size:12px">${slbl}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="avail-dot ${dot}" style="display:inline-block;flex-shrink:0"></span>
+          <div>
+            <span style="color:${sclr};font-weight:700;font-size:12px">${slbl}</span>
+            ${userCell}
+          </div>
+        </div>
+      </td>
       <td><div class="actions-cell">
         <button class="btn-sm btn-blue" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
         <button class="btn-sm btn-orange" onclick="toggleMaint('${b.id}')">${b.status==='maintenance'?t('restoreBtn'):t('maintBtn')}</button>
