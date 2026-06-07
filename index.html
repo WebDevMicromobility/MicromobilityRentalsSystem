@@ -2266,7 +2266,7 @@ function shortDate(ds){
   if(!ds)return'';
   try{
     const d=new Date(ds+'T12:00:00');
-    return d.toLocaleDateString(S&&S.lang==='ar'?'ar-SA':'en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:KSA_TZ});
+    return d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:KSA_TZ});
   }catch{return ds;}
 }
 function longDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',timeZone:KSA_TZ});}
@@ -3343,7 +3343,7 @@ function renderAccount(){
   const typeCount={};myDone.forEach(e=>{typeCount[e.typePreference]=(typeCount[e.typePreference]||0)+1;});
   const favType=Object.keys(typeCount).sort((a,b)=>typeCount[b]-typeCount[a])[0]||'—';
   const memberSince=cust.created_at
-    ?new Date(cust.created_at).toLocaleDateString(S.lang==='ar'?'ar-SA':'en-GB',{month:'short',year:'numeric'})
+    ?new Date(cust.created_at).toLocaleDateString('en-GB',{month:'short',year:'numeric'})
     :'—';
 
   document.getElementById('tab-account').innerHTML=`
@@ -4290,7 +4290,7 @@ function addHistLog(action,entry){
     name:entry.name,
     queueNum:entry.queueNum,
     session:dayLabel(entry.sessionDay)+' '+shortDate(entry.sessionDate),
-    time:new Date().toLocaleTimeString(S.lang==='ar'?'ar-SA':'en-GB',{hour:'2-digit',minute:'2-digit'})
+    time:new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})
   });
   if(S.histLog.length>200)S.histLog.pop();
 }
