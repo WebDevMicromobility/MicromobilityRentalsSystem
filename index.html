@@ -1021,8 +1021,15 @@
       .view-main{padding:12px 14px 24px;}
       .page-title{font-size:20px;margin-bottom:3px;}
       .page-sub{font-size:12px;margin-bottom:12px;line-height:1.4;}
-      .section-header{flex-wrap:wrap;gap:8px;margin-bottom:14px;align-items:flex-start;}
-      .section-header > div{flex:1;min-width:0;}
+      /* ── Section header: title full-width, buttons below ── */
+      .section-header{flex-direction:column;align-items:stretch;gap:10px;margin-bottom:14px;}
+      .section-header > div:first-child{width:100%;}
+      .section-header > button,
+      .section-header > div:last-child:not(:first-child){width:100%;display:flex;gap:8px;flex-wrap:wrap;}
+      .section-header .btn-primary,
+      .section-header .btn-secondary{flex:1;text-align:center;justify-content:center;padding:10px 12px;font-size:13px;}
+      .page-title{font-size:20px;}
+      .page-sub{font-size:12px;line-height:1.4;margin-bottom:4px;}
 
       /* ── Bottom padding so content clears bottom nav ── */
       #view-customer .view-main{padding-bottom:calc(74px + env(safe-area-inset-bottom));}
@@ -1050,12 +1057,13 @@
 
       /* ── Stats cards ── */
       .stats-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px;flex-wrap:unset;}
-      .stat-card{padding:12px;min-width:0;}
-      .stat-num{font-size:24px;}
-      .stat-label{font-size:9px;letter-spacing:.4px;}
-      .rides-stat-row{grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px;}
-      .rides-stat-card{padding:12px;}
-      .rides-stat-num{font-size:20px;}
+      .stats-row{gap:6px;margin-bottom:10px;}
+      .stat-card{padding:10px 12px;min-width:0;border-radius:10px;}
+      .stat-num{font-size:22px;line-height:1.1;}
+      .stat-label{font-size:9px;letter-spacing:.3px;margin-top:2px;}
+      .rides-stat-row{grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:12px;}
+      .rides-stat-card{padding:10px 12px;}
+      .rides-stat-num{font-size:18px;}
       .rides-stat-label{font-size:9px;}
 
       /* ── Session picker ── */
@@ -1100,11 +1108,15 @@
       .qty-btn{width:36px;height:36px;font-size:20px;}
       .qty-val{font-size:20px;}
 
+      /* ── History action buttons ── */
+      .hist-action-btns{width:100%;flex-shrink:unset;}
+      .hist-action-btns .btn-secondary{flex:1;text-align:center;padding:9px 10px;font-size:12px;}
+
       /* ── Filter row — horizontal scroll ── */
       .filter-row{gap:6px;margin-bottom:10px;overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px;}
       .filter-row::-webkit-scrollbar{display:none;}
       .filter-label{font-size:10px;}
-      .search-input{width:120px!important;}
+      .search-input{width:110px!important;}
       .search-wrap{flex-shrink:0;}
 
       /* ── Next-up banner ── */
@@ -4983,8 +4995,8 @@ function renderHistory(){
         <div class="page-title">${t('historyTitle')}</div>
         <div class="page-sub" style="margin-bottom:0">${t('historySub')}</div>
       </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
-        <button class="btn-secondary" onclick="S.showHistLog=!S.showHistLog;renderHistory()" style="white-space:nowrap">&#x1F4CB; Log ${S.histLog.length>0?`(${S.histLog.length})`:''}</button>
+      <div class="hist-action-btns" style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        <button class="btn-secondary" onclick="S.showHistLog=!S.showHistLog;renderHistory()" style="white-space:nowrap">&#x1F4CB; Log${S.histLog.length>0?` (${S.histLog.length})`:''}</button>
         <button class="btn-secondary" onclick="exportHistoryCSV()" style="white-space:nowrap">&#x2B07; ${t('exportBtn')||'Export CSV'}</button>
       </div>
     </div>
