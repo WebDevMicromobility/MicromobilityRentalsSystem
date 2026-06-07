@@ -1468,6 +1468,7 @@
 <div id="receipt-modal"    style="display:none"></div>
 <div id="auth-modal"       style="display:none"></div>
 <div id="return-pay-modal" style="display:none"></div>
+<div id="cancel-reason-modal" style="display:none"></div>
 
 <!-- BOOTH PAYMENT POPUP -->
 <div id="booth-popup">
@@ -1685,6 +1686,12 @@ en:{
   toastLoggedOut:'Logged out successfully.',
   toastStaffPanel:'Welcome to the Staff Panel.',
   toastBookingCancelled:'Booking cancelled. Your spot has been freed.',
+  cancelReasonTitle:'Why are you cancelling?',
+  cancelReason1:'Change of plans',cancelReason2:'Session time doesn\'t work',
+  cancelReason3:'Found another activity',cancelReason4:'Other',
+  cancelConfirmBtn:'Confirm Cancellation',
+  noShowCustomerMsg:'The staff marked you as a No-Show for this session.',
+  cancelledAdminNote:'Cancelled by customer',
   toastNoShow:'Marked as No-Show.',
   toastBikeReturned:'Bike returned. Ride complete.',
   toastBikeReturnedPaid:'Bike returned and marked as paid.',
@@ -1922,6 +1929,12 @@ ar:{
   toastLoggedOut:'تم تسجيل الخروج بنجاح.',
   toastStaffPanel:'مرحباً بك في لوحة الموظفين.',
   toastBookingCancelled:'تم إلغاء الحجز. أُفرج عن دراجتك.',
+  cancelReasonTitle:'ما سبب الإلغاء؟',
+  cancelReason1:'تغيير في الخطط',cancelReason2:'وقت الجلسة لا يناسبني',
+  cancelReason3:'وجدت نشاطاً آخر',cancelReason4:'سبب آخر',
+  cancelConfirmBtn:'تأكيد الإلغاء',
+  noShowCustomerMsg:'تم تسجيلك كغائب في هذه الجلسة من قِبَل الموظفين.',
+  cancelledAdminNote:'ملغى من قِبَل العميل',
   toastNoShow:'تم تسجيله كغائب.',
   toastBikeReturned:'الدراجة مُعادة. اكتملت الرحلة.',
   toastBikeReturnedPaid:'الدراجة مُعادة وتم تسجيل الدفع.',
@@ -2254,6 +2267,7 @@ const S={
   authMode:'login',   // 'login' | 'signup' | 'forgot'
   forgotEmail:'',forgotStep:1,
   rememberMe:false,  // default: sign out when browser closes
+  cancellationLog:[],  // {entryId, name, queueNum, reason, time, session}
   signupTypePref:'Any',
   loggedIn:null,      // customer object or null
   // data cache (loaded from API)
@@ -3473,8 +3487,11 @@ function renderMyRides(){
         <div style="font-weight:900;font-size:16px;color:${payColor}">SAR ${e.price||DEFAULT_PRICE}</div>
         <div style="margin-top:4px">${payBadge}</div>
       </td>
-      <td>${statusBadge(e.status)}</td>
-      <td>${canCancel?`<button class="btn-sm btn-red" onclick="cancelBooking('${e.id}')">${t('cancelBooking')}</button>`:`<span style="color:var(--muted);font-size:13px">—</span>`}</td>
+      <td>
+        ${statusBadge(e.status)}
+        ${e.status==='noshow'?`<div style="font-size:11px;color:var(--red);margin-top:5px;font-weight:600;line-height:1.4;max-width:130px">${t('noShowCustomerMsg')}</div>`:''}
+      </td>
+      <td>${canCancel?`<button class="btn-sm btn-red" onclick="showCancelReasonModal('${e.id}')">${t('cancelBooking')}</button>`:`<span style="color:var(--muted);font-size:13px">—</span>`}</td>
     </tr>`;
   }).join(''):`<tr><td colspan="6"><div style="padding:8px">${emptyIllustration(ILLUS_RIDES,t('noRides'))}</div></td></tr>`;
   document.getElementById('tab-myrides').innerHTML=`
@@ -4248,7 +4265,7 @@ function renderStaffQueue(){
           <button class="density-btn${S.queueDensity==='comfortable'?' active':''}" onclick="S.queueDensity='comfortable';renderStaffQueue()" title="Comfortable">⊡</button>
           <button class="density-btn${S.queueDensity==='compact'?' active':''}" onclick="S.queueDensity='compact';renderStaffQueue()" title="Compact">⊟</button>
         </div>
-        <button class="btn-secondary" onclick="toggleResetTool()" style="font-size:12px">&#x1F511; ${t('staffResetTool')}</button>
+        <button onclick="toggleResetTool()" title="${t('staffResetTool')}" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 9px;cursor:pointer;font-size:15px;line-height:1;transition:all .18s" onmouseover="this.style.borderColor='rgba(3,255,137,.35)'" onmouseout="this.style.borderColor='rgba(255,255,255,.1)'">&#x1F511;</button>
       </div>
     </div>
     ${S.showResetTool?`<div class="inline-form" style="max-width:420px">
@@ -4341,6 +4358,26 @@ function renderStaffQueue(){
       <div class="stat-card"><div class="stat-num" style="color:var(--muted)">${nDone}</div><div class="stat-label">${t('doneStat')}</div></div>
     </div>
     ${nextUp}
+    ${(()=>{
+      // Show recent customer cancellations (last 5 minutes) as an alert strip
+      const cutoff=Date.now()-5*60*1000;
+      const recent=S.cancellationLog.filter(c=>{
+        const [h,m]=c.time.split(':').map(Number);
+        const d=new Date();d.setHours(h,m,0,0);
+        return d.getTime()>=cutoff;
+      }).slice(0,3);
+      if(!recent.length)return'';
+      return`<div style="margin-bottom:14px">
+        ${recent.map(c=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;margin-bottom:6px;background:rgba(224,64,64,.07);border:1px solid rgba(224,64,64,.2);border-radius:10px;font-size:12px">
+          <span style="font-size:14px">❌</span>
+          <span style="font-weight:800;color:var(--red)">Cancelled</span>
+          <span style="font-weight:700">#${c.queueNum} ${esc(c.name)}</span>
+          <span style="color:var(--muted)">${c.session}</span>
+          ${c.reason?`<span style="margin-left:auto;background:rgba(255,255,255,.07);padding:2px 8px;border-radius:6px;color:var(--muted-l);font-size:11px">${esc(c.reason)}</span>`:''}
+          <button onclick="S.cancellationLog=S.cancellationLog.filter(x=>x.entryId!=='${c.entryId}');try{localStorage.setItem('cq_cancellations',JSON.stringify(S.cancellationLog));}catch(e){}renderStaffQueue()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0;margin-left:auto;flex-shrink:0">&#x2715;</button>
+        </div>`).join('')}
+      </div>`;
+    })()}
     <div class="filter-bar">
       <div class="filter-row">
         <span class="filter-label">${t('colSession')}:</span>
@@ -4454,7 +4491,45 @@ async function doUndo(){
   renderTopbarRight();
 }
 
-async function cancelBooking(id){
+function showCancelReasonModal(id){
+  const reasons=[t('cancelReason1'),t('cancelReason2'),t('cancelReason3'),t('cancelReason4')];
+  const m=document.getElementById('cancel-reason-modal');
+  m.style.display='flex';
+  m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeCancelReasonModal()">
+    <div class="modal-box" style="max-width:380px">
+      <div class="modal-title">${t('cancelReasonTitle')}</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin:16px 0">
+        ${reasons.map((r,i)=>`
+          <button onclick="document.querySelectorAll('.cancel-reason-opt').forEach(b=>b.classList.remove('active'));this.classList.add('active');window._cancelReason='${i}'"
+            class="cancel-reason-opt" style="padding:12px 16px;border-radius:10px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:start;transition:all .18s"
+            onmouseover="this.style.borderColor='rgba(3,255,137,.4)'" onmouseout="if(!this.classList.contains('active'))this.style.borderColor='rgba(255,255,255,.1)'"
+            data-reason="${r}">${r}</button>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-secondary" style="flex:1" onclick="closeCancelReasonModal()">${t('cancelBtn')}</button>
+        <button class="btn-primary" style="flex:2;background:var(--red);border-color:var(--red)" onclick="confirmCancelWithReason('${id}')">${t('cancelConfirmBtn')}</button>
+      </div>
+    </div>
+  </div>`;
+  // Style active selection
+  m.querySelectorAll('.cancel-reason-opt').forEach(b=>{
+    b.addEventListener('click',()=>{
+      m.querySelectorAll('.cancel-reason-opt').forEach(x=>{x.style.borderColor='rgba(255,255,255,.1)';x.style.background='rgba(255,255,255,.04)';x.style.color='var(--text)';});
+      b.style.borderColor='var(--green)';b.style.background='rgba(3,255,137,.08)';b.style.color='var(--green)';
+    });
+  });
+  window._cancelReason=null;
+}
+function closeCancelReasonModal(){const m=document.getElementById('cancel-reason-modal');if(m)m.style.display='none';window._cancelReason=null;}
+async function confirmCancelWithReason(id){
+  const reasons=[t('cancelReason1'),t('cancelReason2'),t('cancelReason3'),t('cancelReason4')];
+  const idx=window._cancelReason;
+  const reason=idx!=null?reasons[idx]:t('cancelReason4');
+  closeCancelReasonModal();
+  await cancelBooking(id,reason);
+}
+
+async function cancelBooking(id,reason){
   const entry=getQueue().find(e=>e.id===id);
   if(!entry||entry.status!=='waiting'){toast(t('errCancelWaiting'),'error');return;}
   const behind=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>entry.queueNum);
@@ -4462,6 +4537,16 @@ async function cancelBooking(id){
   const savedQNum=entry.queueNum;
   await sb.from('queue_entries').update({status:'cancelled'}).eq('id',id);
   await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
+  // Log cancellation with reason for staff to see
+  if(reason){
+    S.cancellationLog.unshift({
+      entryId:id,name:entry.name,queueNum:savedQNum,reason,
+      session:dayLabel(entry.sessionDay)+' '+shortDate(entry.sessionDate),
+      time:new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})
+    });
+    if(S.cancellationLog.length>100)S.cancellationLog.pop();
+    try{localStorage.setItem('cq_cancellations',JSON.stringify(S.cancellationLog));}catch(e){}
+  }
   await loadData();
   toast(t('toastBookingCancelled'));
   pushUndo(`Cancel booking #${savedQNum} ${entry.name}`,async()=>{
@@ -5917,6 +6002,8 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
     console.warn('Could not reach backend:',e.message);
   }
   S.loggedIn=getSession();
+  // Restore cancellation log from localStorage
+  try{const cl=localStorage.getItem('cq_cancellations');if(cl)S.cancellationLog=JSON.parse(cl);}catch(e){}
   // Restore previous view after refresh
   if(localStorage.getItem('cq_staff')==='1'){
     goStaff();
