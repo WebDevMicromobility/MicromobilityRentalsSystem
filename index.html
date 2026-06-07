@@ -3654,7 +3654,7 @@ function renderSessions(){
   const sessSortOpts=[['date',t('colDate')],['day',t('colDay')],['capacity',t('colCapacity')],['bookings',t('colBookings')],['status',t('colStatus')]].map(([v,l])=>
     `<option value="${v}"${S.sessSort===v?' selected':''}>${l}</option>`).join('');
   const rows=sessList.length?sessList.map(s=>{
-    const booked=getQueue().filter(e=>e.sessionId===s.id&&e.status!=='noshow'&&e.status!=='cancelled').length;
+    const booked=getQueue().filter(e=>e.sessionId===s.id&&e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed').length;
     const cap=s.capacity||12;
     const left=Math.max(0,cap-booked);
     const isOpen=s.status==='open';
@@ -3851,8 +3851,12 @@ async function toggleSession(id,newStatus){
 
 async function deleteSession(id){
   try{
-    const bookings=getQueue().filter(e=>e.sessionId===id).length;
+    // Only count active entries — removed/cancelled/noshow entries don't block deletion
+    const bookings=getQueue().filter(e=>e.sessionId===id&&e.status!=='removed'&&e.status!=='cancelled'&&e.status!=='noshow').length;
     if(bookings>0){toast(t('errHasBookings'),'error');return;}
+    // Hard-delete any soft-deleted entries for this session first
+    const removed=getQueue().filter(e=>e.sessionId===id);
+    await Promise.all(removed.map(e=>sb.from('queue_entries').delete().eq('id',e.id)));
     const saved=allSessions().find(s=>s.id===id);
     await sb.from('sessions').delete().eq('id',id);
     await loadData();
