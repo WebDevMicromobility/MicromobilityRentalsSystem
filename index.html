@@ -3599,50 +3599,107 @@ function renderMyRides(){
   }
   const mySortOpts=[['date',t('colSession')],['size',t('frameSizeLabel')],['type',t('bikeTypeLabel')],['payment',t('colPayment')],['status',t('colStatus')]].map(([v,l])=>
     `<option value="${v}"${S.mySort===v?' selected':''}>${l}</option>`).join('');
-  const rows=displayOrder.length?displayOrder.map(e=>{
-    const payColor=e.paid?'var(--green)':'var(--muted-l)';
-    const canEdit=e.status==='waiting';
-    const canCancel=e.status==='waiting';
-    const assignedBike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
-    const regDate=e.registeredAt?new Date(e.registeredAt).toLocaleDateString('en-CA',{timeZone:KSA_TZ}):'';
-    const payBadge=e.paid
-      ?`<span style="font-size:10px;font-weight:900;color:var(--green);background:rgba(3,255,137,.12);border:1px solid rgba(3,255,137,.25);padding:2px 8px;border-radius:20px;white-space:nowrap">${t('paidLabel')} ✓</span>`
-      :`<span style="font-size:10px;font-weight:900;color:var(--muted-l);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.13);padding:2px 8px;border-radius:20px;white-space:nowrap">${t('pendingLabel')}</span>`;
-    return`<tr>
-      <td>
-        <span class="queue-num-cell">#${e.queueNum}</span>
-        ${regDate?`<div style="font-size:10px;color:var(--muted);margin-top:3px;font-weight:600">${regDate}</div>`:''}
-      </td>
-      <td style="font-weight:800;font-size:13px">${esc(e.name)}</td>
-      <td>
-        <div style="font-weight:800;font-size:13px">${dayLabel(e.sessionDay)||''}</div>
-        <div style="color:var(--muted);font-size:12px;margin-top:1px">${shortDate(e.sessionDate)}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px">${sessionTime(allSessions().find(s=>s.id===e.sessionId))}</div>
-      </td>
-      <td>
-        ${assignedBike
+  const rows=(()=>{
+    if(!displayOrder.length){
+      return`<tr><td colspan="9"><div style="padding:8px">${emptyIllustration(ILLUS_RIDES,t('noRides'))}</div></td></tr>`;
+    }
+    // Group entries by sessionId, preserving displayOrder sequence
+    const handled=new Set();
+    const groups=[];
+    for(const e of displayOrder){
+      if(handled.has(e.id))continue;
+      const siblings=displayOrder.filter(x=>!handled.has(x.id)&&x.sessionId===e.sessionId)
+        .sort((a,b)=>a.queueNum-b.queueNum);
+      siblings.forEach(x=>handled.add(x.id));
+      groups.push(siblings);
+    }
+    return groups.map(group=>{
+      const n=group.length;
+      const primary=group[0];
+      const allSameQ=group.every(e=>e.queueNum===primary.queueNum);
+      const isConsec=!allSameQ&&group.every((e,i)=>i===0||e.queueNum===group[i-1].queueNum+1);
+      const qNumDisplay=allSameQ
+        ?`#${primary.queueNum}`
+        :isConsec
+          ?`#${primary.queueNum}&thinsp;-&thinsp;#${group[n-1].queueNum}`
+          :group.map(e=>`#${e.queueNum}`).join(', ');
+      const regDate=primary.registeredAt?new Date(primary.registeredAt).toLocaleDateString('en-CA',{timeZone:KSA_TZ}):'';
+      const sess=allSessions().find(s=>s.id===primary.sessionId);
+      const sessionCellContent=`<div style="font-weight:800;font-size:13px">${dayLabel(primary.sessionDay)||''}</div>
+          <div style="color:var(--muted);font-size:12px;margin-top:1px">${shortDate(primary.sessionDate)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${sessionTime(sess)}</div>`;
+      return group.map((e,i)=>{
+        const isFirst=i===0;
+        const rowCls=e.status==='active'?'row-active':(e.status==='noshow'||e.status==='cancelled')?'row-noshow-cancel':(e.status==='done'&&e.paid)?'row-done-paid':(e.status==='done')?'row-done':'';
+        const groupLine=n>1&&isFirst?'border-top:2px solid rgba(3,255,137,.15)':'';
+        const bottomLine=n>1&&i===n-1?'border-bottom:2px solid rgba(3,255,137,.15)':'';
+        const leftLine=n>1?'border-left:2px solid rgba(3,255,137,.2)':'';
+        const trStyle=[groupLine,bottomLine,leftLine].filter(Boolean).join(';');
+        const payColor=e.paid?'var(--green)':'var(--muted-l)';
+        const canEdit=e.status==='waiting';
+        const assignedBike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
+        const payBadge=e.paid
+          ?`<span style="font-size:10px;font-weight:900;color:var(--green);background:rgba(3,255,137,.12);border:1px solid rgba(3,255,137,.25);padding:2px 8px;border-radius:20px;white-space:nowrap">${t('paidLabel')} ✓</span>`
+          :`<span style="font-size:10px;font-weight:900;color:var(--muted-l);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.13);padding:2px 8px;border-radius:20px;white-space:nowrap">${t('pendingLabel')}</span>`;
+        const nameCell=n>1
+          ?`<div style="display:flex;align-items:baseline;gap:5px">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--green);color:#000;font-size:10px;font-weight:900;flex-shrink:0">${i+1}</span>
+              <span style="font-weight:800;font-size:13px">${esc(e.name)}</span>
+            </div>`
+          :`<span style="font-weight:800;font-size:13px">${esc(e.name)}</span>`;
+        const bikeCell=assignedBike
           ?`<div style="font-weight:800;font-size:13px">${esc(assignedBike.name)}</div>
              ${assignedBike.brand?`<div style="font-size:11px;color:var(--muted-l);font-weight:600;margin-top:1px">${esc(assignedBike.brand)}${assignedBike.model?' · '+esc(assignedBike.model):''}</div>`:''}
              ${(assignedBike.groupset||assignedBike.speeds)?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">${[assignedBike.groupset,assignedBike.speeds?assignedBike.speeds+'sp':''].filter(Boolean).join(' · ')}</div>`:''}
              <div style="display:flex;gap:3px;margin-top:4px">${(assignedBike.colors||['#03ff89']).map(c=>`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};border:1px solid rgba(0,0,0,.3)"></span>`).join('')}</div>`
-          :`<span style="color:var(--muted)">—</span>`}
-      </td>
-      <td style="font-weight:800;font-size:14px">${e.size}</td>
-      <td>${typeBadge(e.typePreference)}</td>
-      <td>
-        <div style="font-weight:900;font-size:16px;color:${payColor}">SAR ${e.price??DEFAULT_PRICE}</div>
-        <div style="margin-top:4px">${payBadge}</div>
-      </td>
-      <td>
-        ${statusBadge(e.status)}
-        ${e.status==='noshow'?`<div style="font-size:11px;color:var(--red);margin-top:5px;font-weight:600;line-height:1.4;max-width:130px">${t('noShowCustomerMsg')}</div>`:''}
-      </td>
-      <td>${canEdit?`<div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn-sm btn-blue" onclick="S.selSession='${e.sessionId}';setCustTab('register')">✏️ ${t('editBtn')}</button>
-        <button class="btn-sm btn-red" onclick="showCancelReasonModal('${e.id}')">${t('cancelBooking')}</button>
-      </div>`:`<span style="color:var(--muted);font-size:13px">—</span>`}</td>
-    </tr>`;
-  }).join(''):`<tr><td colspan="9"><div style="padding:8px">${emptyIllustration(ILLUS_RIDES,t('noRides'))}</div></td></tr>`;
+          :`<span style="color:var(--muted)">—</span>`;
+        const actionsCell=canEdit?`<div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn-sm btn-blue" onclick="S.selSession='${e.sessionId}';setCustTab('register')">✏️ ${t('editBtn')}</button>
+            <button class="btn-sm btn-red" onclick="showCancelReasonModal('${e.id}')">${t('cancelBooking')}</button>
+          </div>`:`<span style="color:var(--muted);font-size:13px">—</span>`;
+        if(isFirst){
+          return`<tr class="${rowCls}"${trStyle?' style="'+trStyle+'"':''}>
+            <td rowspan="${n}" style="vertical-align:middle;min-width:52px">
+              <span class="queue-num-cell" style="font-size:${n>1?'15':'18'}px;line-height:1.25">${qNumDisplay}</span>
+              ${regDate?`<div style="font-size:10px;color:var(--muted);margin-top:3px;font-weight:600">${regDate}</div>`:''}
+              ${n>1?`<div style="font-size:10px;color:var(--green);font-weight:800;margin-top:3px">${n} ${t('bike')||'Bikes'}</div>`:''}
+            </td>
+            <td style="vertical-align:middle">${nameCell}</td>
+            <td rowspan="${n}" style="vertical-align:middle">
+              ${sessionCellContent}
+            </td>
+            <td style="vertical-align:middle">${bikeCell}</td>
+            <td style="font-weight:800;font-size:14px;vertical-align:middle">${e.size}</td>
+            <td style="vertical-align:middle">${typeBadge(e.typePreference)}</td>
+            <td style="vertical-align:middle">
+              <div style="font-weight:900;font-size:16px;color:${payColor}">SAR ${e.price??DEFAULT_PRICE}</div>
+              <div style="margin-top:4px">${payBadge}</div>
+            </td>
+            <td style="vertical-align:middle">
+              ${statusBadge(e.status)}
+              ${e.status==='noshow'?`<div style="font-size:11px;color:var(--red);margin-top:5px;font-weight:600;line-height:1.4;max-width:130px">${t('noShowCustomerMsg')}</div>`:''}
+            </td>
+            <td style="vertical-align:middle">${actionsCell}</td>
+          </tr>`;
+        }
+        return`<tr class="${rowCls}"${trStyle?' style="'+trStyle+'"':''}>
+          <td style="vertical-align:middle">${nameCell}</td>
+          <td style="vertical-align:middle">${bikeCell}</td>
+          <td style="font-weight:800;font-size:14px;vertical-align:middle">${e.size}</td>
+          <td style="vertical-align:middle">${typeBadge(e.typePreference)}</td>
+          <td style="vertical-align:middle">
+            <div style="font-weight:900;font-size:16px;color:${payColor}">SAR ${e.price??DEFAULT_PRICE}</div>
+            <div style="margin-top:4px">${payBadge}</div>
+          </td>
+          <td style="vertical-align:middle">
+            ${statusBadge(e.status)}
+            ${e.status==='noshow'?`<div style="font-size:11px;color:var(--red);margin-top:5px;font-weight:600;line-height:1.4;max-width:130px">${t('noShowCustomerMsg')}</div>`:''}
+          </td>
+          <td style="vertical-align:middle">${actionsCell}</td>
+        </tr>`;
+      }).join('');
+    }).join('');
+  })();
   document.getElementById('tab-myrides').innerHTML=`
     <div class="page-title">${t('myRidesTitle')}</div>
     <div class="page-sub">${t('myRidesSub')} ${esc(cust.name)}.</div>
