@@ -4391,75 +4391,89 @@ function renderStaffQueue(){
   function renderGroupRow(group){
     if(group.length===1)return renderQRow(group[0]);
     const primary=group[0];
+    const n=group.length;
     const isConsec=group.every((e,i)=>i===0||e.queueNum===group[i-1].queueNum+1);
     const qNumDisplay=isConsec
-      ?`#${primary.queueNum}&thinsp;-&thinsp;#${group[group.length-1].queueNum}`
+      ?`#${primary.queueNum}&thinsp;-&thinsp;#${group[n-1].queueNum}`
       :group.map(e=>`#${e.queueNum}`).join(', ');
-    const rowCls=group.some(e=>e.status==='active')?'row-active'
+    const groupCls=group.some(e=>e.status==='active')?'row-active'
       :group.every(e=>['done','noshow','cancelled'].includes(e.status))?'row-done':'';
     const lp=livePosMap[primary.id];
     const totalW=sessWaitCount[primary.sessionId]||0;
     const posCell=primary.status==='waiting'&&lp
       ?`<div class="pos-badge" style="font-size:12px;padding:3px 8px">${lp} / ${totalW}</div>`
       :`<span style="color:var(--muted);font-size:12px">—</span>`;
-    const sep='display:flex;align-items:baseline;gap:5px;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.06)';
-    const riderLines=group.map((e,i)=>`<div style="${i>0?sep:'display:flex;align-items:baseline;gap:5px'}">
-      <span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--green);color:#000;font-size:10px;font-weight:900;flex-shrink:0">${i+1}</span>
-      <span style="font-weight:700;font-size:13px">${esc(e.name)}</span>
-      ${e.height?`<span style="font-size:11px;color:var(--muted);font-weight:600;flex-shrink:0">${e.height} cm</span>`:''}
-    </div>`).join('');
-    const sizeLines=group.map((e,i)=>`<div style="font-weight:800;${i>0?'margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.06)':''}">${e.size}</div>`).join('');
-    const typeLines=group.map((e,i)=>`<div style="${i>0?'margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.06)':''}">${typeBadge(e.typePreference)}</div>`).join('');
-    const allBikes=group.flatMap(e=>getAssignedBikes(e));
-    const bikeCell=allBikes.length
-      ?allBikes.map((b,i)=>`<div style="display:flex;align-items:center;gap:5px;${i>0?'margin-top:3px':''}">
-          <span style="font-size:9px;font-weight:900;color:var(--muted);min-width:12px">${i+1}.</span>
-          <span style="font-weight:700;font-size:13px">${esc(b.name)}</span>
-        </div>`).join('')
-      :'<span style="color:var(--muted)">—</span>';
-    const allColors=allBikes.flatMap(b=>b.colors&&b.colors.length?b.colors:[]);
-    const colorSwatches=allColors.length
-      ?allColors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('')
-      :'<span style="color:var(--muted)">—</span>';
     const totalPrice=group.reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
+    const paidAmt=group.filter(e=>e.paid).reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
+    const remaining=totalPrice-paidAmt;
     const paidCount=group.filter(e=>e.paid).length;
-    const payToggles=group.map((e,i)=>`<div style="display:flex;align-items:center;gap:5px;${i>0?'margin-top:4px':''}">
-      <span style="font-size:10px;color:var(--muted);font-weight:700;flex-shrink:0">#${e.queueNum}</span>
-      <button class="pay-toggle ${e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}',${!e.paid})">
-        ${e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
-      </button>
-    </div>`).join('');
-    const statusBadges=group.map((e,i)=>`<div style="${i>0?'margin-top:4px':''}">
-      <span style="font-size:10px;color:var(--muted);font-weight:700">#${e.queueNum}</span>&nbsp;${statusBadge(e.status)}
-    </div>`).join('');
-    const actionsPerRider=group.map((e,i)=>`<div style="${i>0?'margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.06)':''}">
-      <div style="font-size:10px;color:var(--green);font-weight:800;margin-bottom:3px">#${e.queueNum} ${esc(e.name)}</div>
-      <div class="actions-cell">${_entryActions(e)}</div>
-    </div>`).join('');
-    return`<tr class="${rowCls}">
-      <td style="min-width:52px;vertical-align:top;padding-top:10px">
-        <span class="queue-num-cell" style="font-size:15px;line-height:1.25">${qNumDisplay}</span>
-        <div style="font-size:10px;color:var(--green);font-weight:800;margin-top:3px">${group.length} ${t('bike')||'Bikes'}</div>
-      </td>
-      <td style="text-align:center;vertical-align:top;padding-top:10px">${posCell}</td>
-      <td style="vertical-align:top">
-        ${riderLines}
-        <div class="rider-sub" style="margin-top:5px">${esc(fmtPhone(primary.phone))||'—'}</div>
-      </td>
-      <td style="vertical-align:top">${sizeLines}</td>
-      <td style="vertical-align:top">${typeLines}</td>
-      ${S.sfSession==='all'?`<td class="hide-mobile" style="vertical-align:top">${dayLabel(primary.sessionDay)||''} ${shortDate(primary.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
-      <td style="vertical-align:top">${bikeCell}</td>
-      <td style="vertical-align:top"><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
-      <td style="vertical-align:top;white-space:nowrap">
-        <span style="font-weight:800">SAR ${totalPrice}</span>
-        <div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${paidCount}/${group.length} ${t('paidLabel')}</div>
-      </td>
-      <td style="vertical-align:top" onclick="event.stopPropagation()">${payToggles}</td>
-      <td style="vertical-align:top">${statusBadges}</td>
-      <td style="vertical-align:top">${_contactCell(primary.phone)}</td>
-      <td style="vertical-align:top"><div>${actionsPerRider}</div></td>
-    </tr>`;
+    const priceSpan=`<span style="font-weight:800;white-space:nowrap">SAR ${totalPrice}</span>
+      <div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${paidCount}/${n} ${t('paidLabel')}</div>
+      ${remaining>0?`<div style="font-size:11px;font-weight:800;color:#e08828;margin-top:3px">SAR ${remaining} due</div>`:'<div style="font-size:11px;font-weight:800;color:var(--green);margin-top:3px">✓ Settled</div>'}`;
+
+    return group.map((e,i)=>{
+      const isFirst=i===0;
+      const isLast=i===n-1;
+      const rowCls=e.status==='active'?'row-active':(e.status==='done'||e.status==='noshow'||e.status==='cancelled')?'row-done':groupCls;
+      const assignedBikes=getAssignedBikes(e);
+      const allColors=assignedBikes.flatMap(b=>b.colors&&b.colors.length?b.colors:[]);
+      const colorSwatches=allColors.length
+        ?allColors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('')
+        :'<span style="color:var(--muted)">—</span>';
+      const bikeNames=assignedBikes.length
+        ?assignedBikes.map(b=>`<span style="font-weight:700;font-size:13px">${esc(b.name)}</span>`).join('<br>')
+        :'<span style="color:var(--muted)">—</span>';
+      const riderCell=`<div style="display:flex;align-items:baseline;gap:5px">
+        <span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--green);color:#000;font-size:10px;font-weight:900;flex-shrink:0">${i+1}</span>
+        <span class="rider-name" style="margin:0">${esc(e.name)}</span>
+        ${e.height?`<span style="font-size:11px;color:var(--muted);font-weight:600;flex-shrink:0">${e.height} cm</span>`:''}
+      </div>${isLast?`<div class="rider-sub" style="margin-top:4px;padding-left:22px">${esc(fmtPhone(primary.phone))||'—'}</div>`:''}`;
+      const groupLine=isFirst?'border-top:2px solid rgba(3,255,137,.15)':'';
+      const bottomLine=isLast?'border-bottom:2px solid rgba(3,255,137,.15)':'';
+      const leftLine='border-left:2px solid rgba(3,255,137,.2)';
+      const trStyle=[groupLine,bottomLine,leftLine].filter(Boolean).join(';');
+
+      if(isFirst){
+        return`<tr class="${rowCls}" style="${trStyle}">
+          <td rowspan="${n}" style="min-width:52px;vertical-align:middle">
+            <span class="queue-num-cell" style="font-size:15px;line-height:1.25">${qNumDisplay}</span>
+            <div style="font-size:10px;color:var(--green);font-weight:800;margin-top:3px">${n} ${t('bike')||'Bikes'}</div>
+          </td>
+          <td rowspan="${n}" style="text-align:center;vertical-align:middle">${posCell}</td>
+          <td style="vertical-align:middle">${riderCell}</td>
+          <td style="font-weight:800;vertical-align:middle">${e.size}</td>
+          <td style="vertical-align:middle">${typeBadge(e.typePreference)}</td>
+          ${S.sfSession==='all'?`<td class="hide-mobile" rowspan="${n}" style="vertical-align:middle">${dayLabel(primary.sessionDay)||''} ${shortDate(primary.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
+          <td style="vertical-align:middle">${bikeNames}</td>
+          <td style="vertical-align:middle"><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
+          <td rowspan="${n}" style="vertical-align:middle">${priceSpan}</td>
+          <td style="vertical-align:middle" onclick="event.stopPropagation()">
+            <button class="pay-toggle ${e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}',${!e.paid})">
+              ${e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+            </button>
+          </td>
+          <td style="vertical-align:middle">${statusBadge(e.status)}</td>
+          <td rowspan="${n}" style="vertical-align:middle">${_contactCell(primary.phone)}</td>
+          <td style="vertical-align:middle"><div class="actions-cell">${_entryActions(e)}</div></td>
+        </tr>`;
+      }else{
+        return`<tr class="${rowCls}" style="${trStyle}">
+          <td style="vertical-align:middle">${riderCell}</td>
+          <td style="font-weight:800;vertical-align:middle">${e.size}</td>
+          <td style="vertical-align:middle">${typeBadge(e.typePreference)}</td>
+          ${S.sfSession!=='all'?'<td class="hide-mobile" style="display:none"></td>':''}
+          <td style="vertical-align:middle">${bikeNames}</td>
+          <td style="vertical-align:middle"><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
+          <td style="vertical-align:middle" onclick="event.stopPropagation()">
+            <button class="pay-toggle ${e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}',${!e.paid})">
+              ${e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+            </button>
+          </td>
+          <td style="vertical-align:middle">${statusBadge(e.status)}</td>
+          <td style="vertical-align:middle"><div class="actions-cell">${_entryActions(e)}</div></td>
+        </tr>`;
+      }
+    }).join('');
   }
 
   // ── Common header HTML (used in both early-return and full render) ──
