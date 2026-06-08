@@ -1635,7 +1635,7 @@ en:{
   resultRiders:'riders',resultBikes:'bikes',resultRecords:'records',
   spotsLeft:'left',
   sendReceipt:'Receipt',noHistory:'No riders match the current filters.',
-  assignBikeTitle:'Assign Bike',confirmCheckin:'Confirm & Check In',changeBikeTitle:'Change Assigned Bike',confirmBikeChange:'Confirm Change',
+  assignBikeTitle:'Assign Bike',assignedBikeLabel:'Assigned Bike',confirmCheckin:'Confirm & Check In',changeBikeTitle:'Change Assigned Bike',confirmBikeChange:'Confirm Change',
   pinTitle:'Staff Access',pinSub:'Enter the 4-digit PIN to access the staff panel.',
   tabAccount:'Account',
   accountTitle:'Account Settings',accountSub:'Update your profile information and preferences.',
@@ -1711,8 +1711,8 @@ en:{
   toastStaffPanel:'Welcome to the Staff Panel.',
   toastBookingCancelled:'Booking cancelled. Your spot has been freed.',
   cancelReasonTitle:'Why are you cancelling?',
-  cancelReason1:'Change of plans',cancelReason2:'Session time doesn\'t work',
-  cancelReason3:'Found another activity',cancelReason4:'Other',
+  cancelReason1:'Change of plans',cancelReason2:'Found a better price elsewhere',
+  cancelReason3:'Other',cancelOtherPlaceholder:'Please describe your reason...',
   cancelConfirmBtn:'Confirm Cancellation',
   noShowCustomerMsg:'The staff marked you as a No-Show for this session.',
   cancelledAdminNote:'Cancelled by customer',
@@ -1898,7 +1898,7 @@ ar:{
   resultRiders:'راكباً',resultBikes:'دراجة',resultRecords:'سجل',
   spotsLeft:'متبقٍ',
   sendReceipt:'إيصال',noHistory:'لا يوجد راكبون يطابقون الفلتر الحالي.',
-  assignBikeTitle:'تخصيص دراجة',confirmCheckin:'تأكيد وتسجيل الدخول',changeBikeTitle:'تغيير الدراجة المخصصة',confirmBikeChange:'تأكيد التغيير',
+  assignBikeTitle:'تخصيص دراجة',assignedBikeLabel:'الدراجة المخصصة',confirmCheckin:'تأكيد وتسجيل الدخول',changeBikeTitle:'تغيير الدراجة المخصصة',confirmBikeChange:'تأكيد التغيير',
   pinTitle:'دخول الموظفين',pinSub:'أدخل الرقم السري المكون من 4 أرقام للدخول إلى لوحة الموظفين.',
   tabAccount:'الحساب',
   accountTitle:'إعدادات الحساب',accountSub:'تحديث معلومات ملفك الشخصي.',
@@ -1965,8 +1965,8 @@ ar:{
   toastStaffPanel:'مرحباً بك في لوحة الموظفين.',
   toastBookingCancelled:'تم إلغاء الحجز. أُفرج عن دراجتك.',
   cancelReasonTitle:'ما سبب الإلغاء؟',
-  cancelReason1:'تغيير في الخطط',cancelReason2:'وقت الجلسة لا يناسبني',
-  cancelReason3:'وجدت نشاطاً آخر',cancelReason4:'سبب آخر',
+  cancelReason1:'تغيير في الخطط',cancelReason2:'وجدت سعراً أفضل في مكان آخر',
+  cancelReason3:'سبب آخر',cancelOtherPlaceholder:'يرجى وصف سببك...',
   cancelConfirmBtn:'تأكيد الإلغاء',
   noShowCustomerMsg:'تم تسجيلك كغائب في هذه الجلسة من قِبَل الموظفين.',
   cancelledAdminNote:'ملغى من قِبَل العميل',
@@ -3593,19 +3593,27 @@ function renderMyRides(){
     const payColor=e.paid?'var(--green)':'var(--muted-l)';
     const canEdit=e.status==='waiting';
     const canCancel=e.status==='waiting';
+    const assignedBike=e.assignedBikeId?bikeById(e.assignedBikeId):null;
+    const regDate=e.registeredAt?new Date(e.registeredAt).toLocaleDateString('en-CA',{timeZone:KSA_TZ}):'';
     const payBadge=e.paid
       ?`<span style="font-size:10px;font-weight:900;color:var(--green);background:rgba(3,255,137,.12);border:1px solid rgba(3,255,137,.25);padding:2px 8px;border-radius:20px;white-space:nowrap">${t('paidLabel')} ✓</span>`
       :`<span style="font-size:10px;font-weight:900;color:var(--muted-l);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.13);padding:2px 8px;border-radius:20px;white-space:nowrap">${t('pendingLabel')}</span>`;
     return`<tr>
       <td>
         <span class="queue-num-cell">#${e.queueNum}</span>
-        <div style="font-size:10px;color:var(--muted);margin-top:3px;font-weight:600">${t('rideHistory').split(' ')[0]} ${e.orderNum}</div>
+        ${regDate?`<div style="font-size:10px;color:var(--muted);margin-top:3px;font-weight:600">${regDate}</div>`:''}
       </td>
       <td style="font-weight:800;font-size:13px">${esc(e.name)}</td>
       <td>
         <div style="font-weight:800;font-size:13px">${dayLabel(e.sessionDay)||''}</div>
         <div style="color:var(--muted);font-size:12px;margin-top:1px">${shortDate(e.sessionDate)}</div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px">${sessionTime(allSessions().find(s=>s.id===e.sessionId))}</div>
+      </td>
+      <td>
+        ${assignedBike
+          ?`<div style="font-weight:800;font-size:13px">${esc(assignedBike.name)}</div>
+             <div style="display:flex;gap:3px;margin-top:4px">${(assignedBike.colors||['#03ff89']).map(c=>`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};border:1px solid rgba(0,0,0,.3)"></span>`).join('')}</div>`
+          :`<span style="color:var(--muted)">—</span>`}
       </td>
       <td style="font-weight:800;font-size:14px">${e.size}</td>
       <td>${typeBadge(e.typePreference)}</td>
@@ -3622,7 +3630,7 @@ function renderMyRides(){
         <button class="btn-sm btn-red" onclick="showCancelReasonModal('${e.id}')">${t('cancelBooking')}</button>
       </div>`:`<span style="color:var(--muted);font-size:13px">—</span>`}</td>
     </tr>`;
-  }).join(''):`<tr><td colspan="7"><div style="padding:8px">${emptyIllustration(ILLUS_RIDES,t('noRides'))}</div></td></tr>`;
+  }).join(''):`<tr><td colspan="9"><div style="padding:8px">${emptyIllustration(ILLUS_RIDES,t('noRides'))}</div></td></tr>`;
   document.getElementById('tab-myrides').innerHTML=`
     <div class="page-title">${t('myRidesTitle')}</div>
     <div class="page-sub">${t('myRidesSub')} ${esc(cust.name)}.</div>
@@ -3631,6 +3639,7 @@ function renderMyRides(){
         <th>#</th>
         <th>${t('nameLabel')}</th>
         ${thMySort('date',t('colSession'))}
+        <th>${t('assignedBikeLabel')||'Assigned Bike'}</th>
         ${thMySort('size',t('frameSizeLabel'))}
         ${thMySort('type',t('bikeTypeLabel'))}
         ${thMySort('payment',t('colPayment'))}
@@ -4834,7 +4843,7 @@ async function doUndo(){
 }
 
 function showCancelReasonModal(id){
-  const reasons=[t('cancelReason1'),t('cancelReason2'),t('cancelReason3'),t('cancelReason4')];
+  const reasons=[t('cancelReason1'),t('cancelReason2'),t('cancelReason3')];
   const m=document.getElementById('cancel-reason-modal');
   m.style.display='flex';
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeCancelReasonModal()">
@@ -4842,10 +4851,14 @@ function showCancelReasonModal(id){
       <div class="modal-title">${t('cancelReasonTitle')}</div>
       <div style="display:flex;flex-direction:column;gap:8px;margin:16px 0">
         ${reasons.map((r,i)=>`
-          <button onclick="document.querySelectorAll('.cancel-reason-opt').forEach(b=>b.classList.remove('active'));this.classList.add('active');window._cancelReason='${i}'"
-            class="cancel-reason-opt" style="padding:12px 16px;border-radius:10px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:start;transition:all .18s"
-            onmouseover="this.style.borderColor='rgba(3,255,137,.4)'" onmouseout="if(!this.classList.contains('active'))this.style.borderColor='rgba(255,255,255,.1)'"
-            data-reason="${r}">${r}</button>`).join('')}
+          <button class="cancel-reason-opt" data-idx="${i}"
+            style="padding:12px 16px;border-radius:10px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:start;transition:all .18s"
+            onmouseover="if(!this.classList.contains('active'))this.style.borderColor='rgba(3,255,137,.4)'" onmouseout="if(!this.classList.contains('active'))this.style.borderColor='rgba(255,255,255,.1)'">${r}</button>`).join('')}
+        <div id="cancel-other-wrap" style="display:none;margin-top:2px">
+          <textarea id="cancel-other-text" placeholder="${t('cancelOtherPlaceholder')||'Please describe your reason...'}"
+            style="width:100%;padding:10px 14px;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.1);border-radius:10px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;resize:vertical;min-height:80px;outline:none"
+            oninput="window._cancelCustomReason=this.value"></textarea>
+        </div>
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn-secondary" style="flex:1" onclick="closeCancelReasonModal()">${t('cancelBtn')}</button>
@@ -4853,20 +4866,30 @@ function showCancelReasonModal(id){
       </div>
     </div>
   </div>`;
-  // Style active selection
   m.querySelectorAll('.cancel-reason-opt').forEach(b=>{
     b.addEventListener('click',()=>{
-      m.querySelectorAll('.cancel-reason-opt').forEach(x=>{x.style.borderColor='rgba(255,255,255,.1)';x.style.background='rgba(255,255,255,.04)';x.style.color='var(--text)';});
-      b.style.borderColor='var(--green)';b.style.background='rgba(3,255,137,.08)';b.style.color='var(--green)';
+      m.querySelectorAll('.cancel-reason-opt').forEach(x=>{x.style.borderColor='rgba(255,255,255,.1)';x.style.background='rgba(255,255,255,.04)';x.style.color='var(--text)';x.classList.remove('active');});
+      b.style.borderColor='var(--green)';b.style.background='rgba(3,255,137,.08)';b.style.color='var(--green)';b.classList.add('active');
+      const idx=parseInt(b.dataset.idx);
+      window._cancelReason=idx;
+      const wrap=document.getElementById('cancel-other-wrap');
+      if(wrap)wrap.style.display=idx===2?'block':'none';
+      if(idx!==2)window._cancelCustomReason='';
     });
   });
-  window._cancelReason=null;
+  window._cancelReason=null;window._cancelCustomReason='';
 }
-function closeCancelReasonModal(){const m=document.getElementById('cancel-reason-modal');if(m)m.style.display='none';window._cancelReason=null;}
+function closeCancelReasonModal(){const m=document.getElementById('cancel-reason-modal');if(m)m.style.display='none';window._cancelReason=null;window._cancelCustomReason='';}
 async function confirmCancelWithReason(id){
-  const reasons=[t('cancelReason1'),t('cancelReason2'),t('cancelReason3'),t('cancelReason4')];
   const idx=window._cancelReason;
-  const reason=idx!=null?reasons[idx]:t('cancelReason4');
+  if(idx===null||idx===undefined){toast(t('cancelReasonTitle'),'error');return;}
+  let reason;
+  if(idx===2){
+    reason=(window._cancelCustomReason||'').trim();
+    if(!reason){toast(t('cancelOtherPlaceholder')||'Please describe your reason.','error');return;}
+  }else{
+    reason=[t('cancelReason1'),t('cancelReason2')][idx];
+  }
   closeCancelReasonModal();
   await cancelBooking(id,reason);
 }
