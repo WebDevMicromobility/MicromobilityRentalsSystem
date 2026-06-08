@@ -753,6 +753,13 @@
     .queue-table tbody tr.row-active{background:rgba(3,255,137,.04);}
     .queue-table tbody tr.row-active:hover td{background:rgba(3,255,137,.06);}
     .queue-table tbody tr.row-done{opacity:.42;}
+    .queue-table tbody tr.row-noshow-cancel{background:rgba(224,64,64,.06);opacity:.75;}
+    .queue-table tbody tr.row-noshow-cancel td{border-bottom-color:rgba(224,64,64,.12)!important;}
+    .queue-table tbody tr.row-done-paid{background:rgba(3,255,137,.05);}
+    #loading-screen{display:flex;position:fixed;inset:0;background:#111;z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:20px;transition:opacity .4s;}
+    #loading-screen img{height:90px;width:auto;object-fit:contain;}
+    #loading-screen .ld-txt{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.6px;animation:ldpulse 1.4s ease-in-out infinite;}
+    @keyframes ldpulse{0%,100%{opacity:.4;}50%{opacity:1;}}
     .queue-table tbody tr.sess-group-hdr td{
       background:#161616;border-top:2px solid rgba(3,255,137,.18);border-bottom:1px solid rgba(255,255,255,.06);
       padding:10px 16px;font-size:12px;font-weight:800;color:var(--muted);letter-spacing:.2px;}
@@ -1351,6 +1358,10 @@
   </style>
 </head>
 <body>
+<div id="loading-screen">
+  <img src="brand.png" alt="logo">
+  <div class="ld-txt">Loading...</div>
+</div>
 
 <!-- TOPBAR -->
 <header id="topbar">
@@ -1467,6 +1478,7 @@
 <!-- MODALS -->
 <div id="pin-modal"        style="display:none"></div>
 <div id="bike-modal"       style="display:none"></div>
+<div id="edit-price-modal"  style="display:none"></div>
 <div id="receipt-modal"    style="display:none"></div>
 <div id="auth-modal"       style="display:none"></div>
 <div id="return-pay-modal" style="display:none"></div>
@@ -1480,6 +1492,7 @@
     <div class="booth-popup-icon">💳</div>
     <div class="booth-popup-title" id="booth-popup-title"></div>
     <div class="booth-popup-msg" id="booth-popup-msg"></div>
+    <div id="booth-popup-extra" style="margin-top:14px;font-size:12px;font-weight:700;color:var(--muted);line-height:1.6;background:rgba(255,255,255,.04);border-radius:10px;padding:10px 14px;text-align:left"></div>
   </div>
 </div>
 
@@ -1706,9 +1719,9 @@ en:{
   toastRiderRemoved:'Rider removed.',
   toastReopened:'Booking re-opened - rider moved back to active.',
   returnPayTitle:'Payment Pending',
-  returnPayMsg:'This rider has not paid yet. How would you like to proceed?',
+  returnPayMsg:'This rider has not paid yet. The bike will be returned and payment will be marked as pending.',
   returnMarkPaidBtn:'Mark Paid & Return',
-  returnAnywayBtn:'Return Without Payment',
+  returnPendingBtn:'Return - Pending Payment',
   reopenBookingBtn:'Re-open',
   payPendingWarning:'Unpaid',
   toastBikeUpdated:'Bike updated.',
@@ -1745,6 +1758,11 @@ en:{
   anCustom:'Custom',
   payAtBoothTitle:'Payment Info',
   payAtBoothMsg:'Payment is collected at the booth at the Corniche Circuit. Please have your queue number ready when you arrive.',
+  payAtBoothFCFS:'Bikes are assigned on a First Come, First Serve basis. Come early to get the bike type you chose.',
+  noSessionsAvail:'No sessions are available right now.',
+  noSessionsSocial:'Follow us on social media for updates on upcoming sessions!',
+  editPriceBtn:'Edit Price',editPriceTitle:'Edit Payment Amount',editPriceCustom:'Custom Amount',
+  addBikeToFleetBtn:'Add New Bike to Fleet',quickAddBikeTitle:'Quick Add Bike',quickAddBikeSubmit:'Add & Select',
   removedLabel:'Removed',restoreEntryBtn:'Restore',
   heightPlaceholder:'Enter your height (cm)',
 },
@@ -1955,9 +1973,9 @@ ar:{
   toastRiderRemoved:'تم حذف الراكب.',
   toastReopened:'تم إعادة فتح الحجز - الراكب عاد إلى الحالة النشطة.',
   returnPayTitle:'الدفع معلق',
-  returnPayMsg:'لم يدفع هذا الراكب بعد. كيف تريد المتابعة؟',
+  returnPayMsg:'لم يدفع هذا الراكب بعد. سيتم إرجاع الدراجة وسيُسجَّل الدفع كمعلق.',
   returnMarkPaidBtn:'تسجيل الدفع وإعادة الدراجة',
-  returnAnywayBtn:'إعادة الدراجة بدون دفع',
+  returnPendingBtn:'إرجاع الدراجة - دفع معلق',
   reopenBookingBtn:'إعادة فتح',
   payPendingWarning:'غير مدفوع',
   toastBikeUpdated:'تم تحديث الدراجة.',
@@ -1993,6 +2011,11 @@ ar:{
   anCustom:'مخصص',
   payAtBoothTitle:'معلومات الدفع',
   payAtBoothMsg:'يتم الدفع عند الكشك في حلبة الكورنيش. يرجى إحضار رقم طابورك عند وصولك.',
+  payAtBoothFCFS:'يتم توزيع الدراجات على أساس الأول فالأول. تعال مبكراً للحصول على نوع الدراجة الذي اخترته.',
+  noSessionsAvail:'لا توجد جلسات متاحة الآن.',
+  noSessionsSocial:'تابعنا على وسائل التواصل الاجتماعي للاطلاع على الجلسات القادمة!',
+  editPriceBtn:'تعديل السعر',editPriceTitle:'تعديل مبلغ الدفع',editPriceCustom:'مبلغ مخصص',
+  addBikeToFleetBtn:'إضافة دراجة جديدة للأسطول',quickAddBikeTitle:'إضافة دراجة سريعة',quickAddBikeSubmit:'إضافة وتحديد',
   removedLabel:'محذوف',restoreEntryBtn:'استعادة',
   heightPlaceholder:'أدخل طولك (سم)',
 }};
@@ -2268,7 +2291,7 @@ const S={
   showAddBike:false,editBikeId:null,bkTypeFilter:'all',bkSort:'name',
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],addBikeColorNames:[''],_bkName:'',
   _bkBrand:'',_bkModel:'',_bkGroupset:'',_bkSpeeds:'',
-  bkStatus:'all',bkSize:'all',
+  bkStatus:'all',bkSize:'all',bkSearch:'',bkSortCol:'name',bkSortDir:1,
   // history
   histStatus:'all',histPay:'all',histSess:'all',histSort:'date',histSortDir:-1,histType:'all',histSize:'all',histSearch:'',
   histLog:[],showHistLog:false,
@@ -2279,7 +2302,7 @@ const S={
   // analytics
   analyticsRange:'all', analyticsTrendSort:'date', analyticsTrendDir:-1, analyticsCustomN:20,
   // modals
-  modalRider:null,modalBikes:[],modalShowAll:false,
+  modalRider:null,modalBikes:[],modalShowAll:false,modalShowAddBike:false,modalAddBikeName:'',modalAddBikeType:null,modalAddBikeSize:'M',
   // auth
   authMode:'login',   // 'login' | 'signup' | 'forgot'
   forgotEmail:'',forgotStep:1,
@@ -2337,7 +2360,8 @@ function entryToDB(e){
     walk_in:e.walkIn||false,customer_id:e.customerId||null};
 }
 
-async function loadData(){
+async function loadData(showLoader=false){
+  if(showLoader){const ls=document.getElementById('loading-screen');if(ls)ls.style.display='flex';}
   const [q,b,c,ses]=await Promise.all([
     sb.from('queue_entries').select('*').order('session_id').order('queue_num'),
     sb.from('bikes').select('*'),
@@ -2989,7 +3013,16 @@ function renderRegister(){
           <div class="sess-card-spots spots-green">${t('availLabel')}</div>
         </div>`;
       }).join('')
-    : emptyIllustration(ILLUS_CALENDAR,t('noSessions'),'');
+    : `<div style="text-align:center;padding:28px 20px 20px">
+        <div style="font-size:40px;margin-bottom:12px">🚲</div>
+        <div style="font-size:16px;font-weight:900;margin-bottom:8px">${t('noSessionsAvail')}</div>
+        <div style="font-size:13px;color:var(--muted-l);font-weight:600;margin-bottom:18px">${t('noSessionsSocial')}</div>
+        <a href="https://www.instagram.com/MicroMobilitySA/" target="_blank" rel="noopener noreferrer"
+          style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:12px;background:rgba(3,255,137,.08);border:1.5px solid rgba(3,255,137,.25);color:var(--green);font-size:13px;font-weight:800;text-decoration:none">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4.5"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
+          @MicroMobilitySA
+        </a>
+      </div>`;
   if(S.selSession&&!available.find(s=>s.id===S.selSession))S.selSession=null;
 
   // ── Modify mode: detect ALL existing waiting bookings for this customer/session ──
@@ -3104,14 +3137,6 @@ function renderRegister(){
       </div>`;
     }
 
-    // Size toggles
-    const sizeBtns=['XS','S','M','L'].map(sz=>
-      `<button class="toggle-btn size-toggle${selSz===sz?' active':''}" data-slot="${i}" data-size="${sz}" onclick="setBikeSize(${i},'${sz}')">
-        <span class="size-name">${sz}</span>
-        <span class="size-range">${sizeRange(sz)}</span>
-      </button>`
-    ).join('');
-
     // Type toggles
     const typeBtns=['Any','Road','Hybrid','Mountain'].map(ty=>
       `<button class="toggle-btn${selTy===ty?' active':''}" data-type-slot="${i}" data-type="${ty}" onclick="setBikeType(${i},'${ty}')">${typeLabel(ty)}</button>`
@@ -3134,13 +3159,7 @@ function renderRegister(){
     </div>`:''}
     ${riderNameSection}
     ${hSection}
-    <div class="form-group" style="margin-bottom:14px">
-      <label>${t('frameSizeLabel')}</label>
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <div class="toggle-group">${sizeBtns}</div>
-      </div>
-    </div>
-    <div class="form-group" style="margin-bottom:8px">
+    <div id="reg-type-wrap-${i}" class="form-group" style="margin-bottom:8px">
       <label>${t('bikeTypePref')}</label>
       <div class="toggle-group">${typeBtns}</div>
     </div>
@@ -3220,11 +3239,11 @@ function renderRegister(){
 
   document.getElementById('tab-register').innerHTML=`
     ${stepBar}
-    <div class="session-picker-wrap">
+    <div class="session-picker-wrap" id="session-picker-wrap">
       <div class="session-picker-label">${t('availSessions')}</div>
       <div class="session-cards-grid">${sessCards}</div>
     </div>
-    <div class="form-section">
+    <div class="form-section" id="reg-form-section" style="${!S.selSession&&available.length?'opacity:0.35;pointer-events:none;user-select:none;':''}transition:opacity .25s">
       <div class="form-title">${t('riderDetails')}</div>
       ${accountInfoBlock}
       ${modifyBannerHtml}
@@ -3333,7 +3352,13 @@ async function submitReg(){
   if(S.regSubmitting)return;
   const cust=S.loggedIn||getSession();
   if(!cust){toast(t('errLoginFirst'),'error');return;}
-  if(!S.selSession){toast(t('errSelectSession'),'error');return;}
+  if(!S.selSession){
+    const sp=document.getElementById('session-picker-wrap');
+    if(sp){sp.style.outline='2px solid var(--red)';sp.style.borderRadius='14px';setTimeout(()=>{sp.style.outline='';sp.style.borderRadius='';},2500);}
+    toast(t('errSelectSession'),'error');
+    document.getElementById('session-picker-wrap')?.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
   if(!openSessions().find(s=>s.id===S.selSession)){toast(t('errSessionClosed'),'error');return;}
 
   const qty=S.regQty||1;
@@ -3347,18 +3372,39 @@ async function submitReg(){
     }else{
       const h=parseInt(S.regBikeHeights[i]);
       if(isNaN(h)||h<100||h>250){
+        const hInp=document.getElementById(`reg-height-${i}`);
+        if(hInp){hInp.style.outline='2px solid var(--red)';hInp.style.borderColor='var(--red)';setTimeout(()=>{hInp.style.outline='';hInp.style.borderColor='';},2500);hInp.scrollIntoView({behavior:'smooth',block:'center'});}
         toast(qty>1?`${t('errValidHeightCm')} (${t('bike')} ${i+1})`:t('errValidHeightCm'),'error');return;
       }
       heights.push(h);
     }
   }
 
-  // Validate sizes, types, and rider names per bike
+  // Auto-derive sizes from heights (customers no longer manually choose frame size)
   for(let i=0;i<qty;i++){
-    if(!S.regBikeSizes[i]){toast(qty>1?`${t('errSelectSizeGeneric')} (${t('bike')} ${i+1})`:t('errSelectSizeGeneric'),'error');return;}
-    if(!S.regBikeTypes[i]){toast(qty>1?`${t('errSelectTypeGeneric')} (${t('bike')} ${i+1})`:t('errSelectTypeGeneric'),'error');return;}
+    if(!S.regBikeSizes[i]) S.regBikeSizes[i]=heightToSize(heights[i]);
+  }
+
+  // Validate types and rider names per bike
+  let firstErrEl=null;
+  function markErr(el){if(el&&!firstErrEl){firstErrEl=el;el.style.outline='2px solid var(--red)';el.style.borderRadius='10px';}}
+  function clearFieldErr(el){if(el){el.style.outline='';el.style.borderRadius='';}}
+  document.querySelectorAll('[data-type-slot]').forEach(b=>b.closest('.form-group')?.style&&clearFieldErr(b.closest('.form-group')));
+
+  for(let i=0;i<qty;i++){
+    if(!S.regBikeTypes[i]){
+      const wrap=document.getElementById(`reg-type-wrap-${i}`);
+      markErr(wrap);
+      toast(qty>1?`${t('errSelectTypeGeneric')} (${t('bike')} ${i+1})`:t('errSelectTypeGeneric'),'error');
+      if(firstErrEl)firstErrEl.scrollIntoView({behavior:'smooth',block:'center'});
+      return;
+    }
     if(qty>1&&!(S.regRiderNames[i]!==undefined?S.regRiderNames[i]:i===0?cust.name:'').trim()){
-      toast(`${t('riderName')||"Rider's Full Name"} (${t('bike')} ${i+1})`,'error');return;
+      const inp=document.getElementById(`reg-rider-name-${i}`);
+      markErr(inp);
+      toast(`${t('riderName')||"Rider's Full Name"} (${t('bike')} ${i+1})`,'error');
+      if(firstErrEl)firstErrEl.scrollIntoView({behavior:'smooth',block:'center'});
+      return;
     }
   }
 
@@ -3435,10 +3481,18 @@ async function submitModifyBooking(){
   const newQty=S.regQty||1;
   ensureBikeSizes();
 
-  // Validate all new bike slots
+  // Validate all new bike slots (size is auto-derived from height, no manual check needed)
   for(let i=0;i<newQty;i++){
-    if(!S.regBikeSizes[i]){toast(newQty>1?`${t('errSelectSizeGeneric')} (${t('bike')} ${i+1})`:t('errSelectSizeGeneric'),'error');return;}
-    if(!S.regBikeTypes[i]){toast(newQty>1?`${t('errSelectTypeGeneric')} (${t('bike')} ${i+1})`:t('errSelectTypeGeneric'),'error');return;}
+    if(!S.regBikeTypes[i]){
+      const wrap=document.getElementById(`reg-type-wrap-${i}`);
+      if(wrap){wrap.style.outline='2px solid var(--red)';wrap.style.borderRadius='10px';setTimeout(()=>{wrap.style.outline='';wrap.style.borderRadius='';},2500);wrap.scrollIntoView({behavior:'smooth',block:'center'});}
+      toast(newQty>1?`${t('errSelectTypeGeneric')} (${t('bike')} ${newQty})`:t('errSelectTypeGeneric'),'error');return;
+    }
+    if(!S.regBikeSizes[i]){
+      const cust2=S.loggedIn||getSession();
+      const h=i===0&&cust2?.height?cust2.height:parseInt(S.regBikeHeights[i]);
+      S.regBikeSizes[i]=(!isNaN(h)&&h>=100&&h<=250)?heightToSize(h):'M';
+    }
   }
 
   const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
@@ -4382,7 +4436,7 @@ function renderStaffQueue(){
 
   function renderQRow(e){
     const assignedBikes=getAssignedBikes(e);
-    const rowCls=e.status==='active'?'row-active':(e.status==='done'||e.status==='noshow'||e.status==='cancelled')?'row-done':'';
+    const rowCls=e.status==='active'?'row-active':(e.status==='noshow'||e.status==='cancelled')?'row-noshow-cancel':(e.status==='done'&&e.paid)?'row-done-paid':(e.status==='done')?'row-done':'';
     const wiTag=e.walkIn?`<span class="walk-in-badge">${t('addWalkin').replace(/^\+ /,'')}</span>`:'';
     const allColors=assignedBikes.flatMap(b=>b.colors&&b.colors.length?b.colors:[]);
     const colorSwatches=allColors.length?allColors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join(''):'<span style="color:var(--muted)">—</span>';
@@ -4408,9 +4462,12 @@ function renderStaffQueue(){
       <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
       <td style="font-weight:800;white-space:nowrap">SAR ${e.price||DEFAULT_PRICE}</td>
       <td onclick="event.stopPropagation()">
-        <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}')">
-          ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
-        </button>
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+          <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}')">
+            ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+          </button>
+          <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">✏️</button>
+        </div>
       </td>
       <td>${statusBadge(e.status)}</td>
       <td>${_contactCell(e.phone)}</td>
@@ -4429,8 +4486,11 @@ function renderStaffQueue(){
       :isConsec
         ?`#${primary.queueNum}&thinsp;-&thinsp;#${group[n-1].queueNum}`
         :group.map(e=>`#${e.queueNum}`).join(', ');
+    const allTerminal=group.every(e=>['done','noshow','cancelled'].includes(e.status));
     const groupCls=group.some(e=>e.status==='active')?'row-active'
-      :group.every(e=>['done','noshow','cancelled'].includes(e.status))?'row-done':'';
+      :group.every(e=>['noshow','cancelled'].includes(e.status))?'row-noshow-cancel'
+      :(allTerminal&&group.filter(e=>e.status==='done').every(e=>e.paid)&&group.some(e=>e.status==='done'))?'row-done-paid'
+      :allTerminal?'row-done':'';
     const lp=livePosMap[primary.id];
     const totalW=sessWaitCount[primary.sessionId]||0;
     const posCell=primary.status==='waiting'&&lp
@@ -4449,7 +4509,7 @@ function renderStaffQueue(){
     return group.map((e,i)=>{
       const isFirst=i===0;
       const isLast=i===n-1;
-      const rowCls=e.status==='active'?'row-active':(e.status==='done'||e.status==='noshow'||e.status==='cancelled')?'row-done':groupCls;
+      const rowCls=e.status==='active'?'row-active':(e.status==='noshow'||e.status==='cancelled')?'row-noshow-cancel':(e.status==='done'&&e.paid)?'row-done-paid':(e.status==='done')?'row-done':groupCls;
       const assignedBikes=getAssignedBikes(e);
       const allColors=assignedBikes.flatMap(b=>b.colors&&b.colors.length?b.colors:[]);
       const colorSwatches=allColors.length
@@ -4483,9 +4543,12 @@ function renderStaffQueue(){
           <td style="vertical-align:middle"><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
           <td rowspan="${n}" style="vertical-align:middle">${priceSpan}</td>
           <td style="vertical-align:middle" onclick="event.stopPropagation()">
-            <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}')">
-              ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
-            </button>
+            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+              <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}')">
+                ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+              </button>
+              <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">✏️</button>
+            </div>
           </td>
           <td style="vertical-align:middle">${statusBadge(e.status)}</td>
           <td rowspan="${n}" style="vertical-align:middle">${_contactCell(primary.phone)}</td>
@@ -4500,9 +4563,12 @@ function renderStaffQueue(){
           <td style="vertical-align:middle">${bikeNames}</td>
           <td style="vertical-align:middle"><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
           <td style="vertical-align:middle" onclick="event.stopPropagation()">
-            <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}')">
-              ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
-            </button>
+            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+              <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}')">
+                ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+              </button>
+              <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">✏️</button>
+            </div>
           </td>
           <td style="vertical-align:middle">${statusBadge(e.status)}</td>
           <td style="vertical-align:middle"><div class="actions-cell">${_entryActions(e)}</div></td>
@@ -4884,13 +4950,57 @@ function showReturnPayModal(id){
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
         <button class="btn-primary" style="width:100%" onclick="closeReturnPayModal();_execReturn('${id}',true)">✓ ${t('returnMarkPaidBtn')}</button>
-        <button class="btn-secondary" style="width:100%" onclick="closeReturnPayModal();_execReturn('${id}',false)">${t('returnAnywayBtn')}</button>
+        <button style="width:100%;padding:10px 16px;border-radius:12px;background:rgba(224,136,40,.12);border:1.5px solid rgba(224,136,40,.4);color:#e08828;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:800;cursor:pointer" onclick="closeReturnPayModal();_execReturn('${id}',false)">⏳ ${t('returnPendingBtn')}</button>
         <button style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:'Space Grotesk',sans-serif" onclick="closeReturnPayModal()">${t('cancelBtn')}</button>
       </div>
     </div>
   </div>`;
 }
 function closeReturnPayModal(){const m=document.getElementById('return-pay-modal');if(m)m.style.display='none';}
+
+function showEditPriceModal(id){
+  const entry=getQueue().find(e=>e.id===id);if(!entry)return;
+  const m=document.getElementById('edit-price-modal');
+  m.style.display='flex';
+  const cur=entry.price!=null?entry.price:DEFAULT_PRICE;
+  m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeEditPriceModal()">
+    <div class="modal-box" style="max-width:360px">
+      <div class="modal-title">${t('editPriceTitle')}</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:20px">#${entry.queueNum} - ${esc(entry.name)}</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+        ${[57.5,75].map(p=>`
+          <button style="padding:12px 16px;border-radius:12px;border:1.5px solid ${cur===p?'var(--green)':'rgba(255,255,255,.12)'};background:${cur===p?'rgba(3,255,137,.08)':'rgba(255,255,255,.03)'};color:${cur===p?'var(--green)':'var(--text)'};font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:800;cursor:pointer;text-align:left"
+            onclick="saveEditedPrice('${id}',${p})">
+            SAR ${p.toFixed(2)} ${cur===p?'<span style="float:right;font-size:11px">✓ Current</span>':''}
+          </button>`).join('')}
+        <div style="border-top:1px solid var(--border);padding-top:12px">
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">${t('editPriceCustom')}</label>
+          <div style="display:flex;gap:8px">
+            <input id="ep-custom" type="number" min="0" step="0.01" value="${cur}"
+              style="flex:1;background:#1a1a1a;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 12px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;outline:none">
+            <button class="btn-primary" style="padding:10px 16px" onclick="saveEditedPrice('${id}',parseFloat(document.getElementById('ep-custom').value))">✓</button>
+          </div>
+        </div>
+      </div>
+      <button style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:'Space Grotesk',sans-serif;width:100%" onclick="closeEditPriceModal()">${t('cancelBtn')}</button>
+    </div>
+  </div>`;
+}
+function closeEditPriceModal(){const m=document.getElementById('edit-price-modal');if(m)m.style.display='none';}
+async function saveEditedPrice(id,newPrice){
+  if(isNaN(newPrice)||newPrice<0){toast(t('errBikeName'),'error');return;}
+  const entry=getQueue().find(e=>e.id===id);if(!entry)return;
+  const prevPrice=entry.price;
+  entry.price=newPrice;
+  closeEditPriceModal();
+  await sb.from('queue_entries').update({price:newPrice}).eq('id',id);
+  await loadData();renderStaffQueue();renderHistory();
+  pushUndo(`Edit price #${entry.queueNum} ${entry.name}`,async()=>{
+    await sb.from('queue_entries').update({price:prevPrice}).eq('id',id);
+    await loadData();renderStaffQueue();renderHistory();
+  });
+  toast(`SAR ${newPrice.toFixed(2)}`);
+}
 
 /* ── Factory Reset ── */
 function showFactoryReset(){
@@ -5084,7 +5194,7 @@ async function undoHistLog(logId){
    BIKE ASSIGN MODAL
 ══════════════════════════════════════════════ */
 function openModal(riderId){
-  S.modalRider=riderId;S.modalBikes=[];S.modalShowAll=false;
+  S.modalRider=riderId;S.modalBikes=[];S.modalShowAll=false;S.modalShowAddBike=false;S.modalAddBikeName='';S.modalAddBikeType=null;S.modalAddBikeSize='M';
   // Pre-populate with already-assigned bikes if reopening mid-session
   const entry=getQueue().find(e=>e.id===riderId);
   if(entry&&entry.status==='active')S.modalBikes=getAssignedBikeIds(entry);
@@ -5195,6 +5305,46 @@ function renderModal(){
     </div>
   </div>`:'';
   const heightBadge=rider.height?`<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(110,232,154,.12);border:1px solid rgba(110,232,154,.3);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;color:var(--green)">${rider.height} cm</span>`:'';
+
+  // Quick-add bike form
+  const addBikeTypeBtns=['Road','Hybrid','Mountain'].map(ty=>
+    `<button type="button" class="toggle-btn${S.modalAddBikeType===ty?' active':''}" style="font-size:11px;padding:5px 10px"
+      onclick="S.modalAddBikeType='${ty}';renderModal()">${typeLabel(ty)}</button>`).join('');
+  const addBikeSizeBtns=['XS','S','M','L'].map(sz=>
+    `<button type="button" class="toggle-btn${S.modalAddBikeSize===sz?' active':''}" style="font-size:11px;padding:5px 10px"
+      onclick="S.modalAddBikeSize='${sz}';renderModal()">${sz}</button>`).join('');
+  const quickAddForm=S.modalShowAddBike?`
+    <div style="margin-top:16px;padding:16px;background:rgba(255,255,255,.03);border:1.5px solid rgba(255,255,255,.1);border-radius:14px">
+      <div style="font-size:13px;font-weight:800;margin-bottom:12px">${t('quickAddBikeTitle')}</div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label style="font-size:11px">${t('bikeNameLabel')}</label>
+        <input type="text" id="modal-bike-name" placeholder="e.g. Trek FX 3" value="${esc(S.modalAddBikeName)}"
+          oninput="S.modalAddBikeName=this.value" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:8px 12px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;width:100%;outline:none">
+      </div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label style="font-size:11px">${t('bikeTypeLabel')}</label>
+        <div class="toggle-group" style="margin-top:4px">${addBikeTypeBtns}</div>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <label style="font-size:11px">${t('frameSizeLabel')}</label>
+        <div class="toggle-group" style="margin-top:4px">${addBikeSizeBtns}</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-primary" style="font-size:12px;padding:8px 14px" onclick="modalQuickAddBike()">${t('quickAddBikeSubmit')}</button>
+        <button class="btn-secondary" style="font-size:12px;padding:8px 14px" onclick="S.modalShowAddBike=false;renderModal()">${t('cancelBtn')}</button>
+      </div>
+    </div>`:'';
+
+  const addBikeToggle=`<div style="margin-top:12px">
+    <button onclick="S.modalShowAddBike=!S.modalShowAddBike;renderModal()"
+      style="width:100%;padding:9px;border-radius:10px;border:1.5px dashed rgba(255,255,255,.15);background:rgba(255,255,255,.02);cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:800;color:var(--muted);transition:all .2s"
+      onmouseover="this.style.borderColor='rgba(3,255,137,.35)';this.style.color='var(--green)'"
+      onmouseout="this.style.borderColor='rgba(255,255,255,.15)';this.style.color='var(--muted)'">
+      + ${t('addBikeToFleetBtn')}
+    </button>
+    ${quickAddForm}
+  </div>`;
+
   const modal=document.getElementById('bike-modal');
   modal.style.display='flex';
   modal.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeModal()">
@@ -5209,6 +5359,7 @@ function renderModal(){
       ${payWarning}
       ${fleetLine}
       ${cards}
+      ${addBikeToggle}
       <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">${t('cancelBtn')}</button><button class="btn-primary" onclick="confirmAssign()">${rider.status==='active'?t('confirmBikeChange'):t('confirmCheckin')}${S.modalBikes.length>0?` (${S.modalBikes.length})`:''}</button></div>
     </div>
   </div>`;
@@ -5219,7 +5370,19 @@ function pickBike(id){
   else S.modalBikes.push(id);
   renderModal();
 }
-function closeModal(){document.getElementById('bike-modal').style.display='none';S.modalRider=null;S.modalBikes=[];S.modalShowAll=false;}
+function closeModal(){document.getElementById('bike-modal').style.display='none';S.modalRider=null;S.modalBikes=[];S.modalShowAll=false;S.modalShowAddBike=false;}
+async function modalQuickAddBike(){
+  const name=(document.getElementById('modal-bike-name')?.value||S.modalAddBikeName||'').trim();
+  if(!name){toast(t('errBikeName'),'error');return;}
+  if(!S.modalAddBikeType){toast(t('errBikeTypeReq'),'error');return;}
+  const bike={id:uid(),name,size:S.modalAddBikeSize||'M',type:S.modalAddBikeType,colors:['#6ee89a'],color_names:[''],status:'available',brand:null,model:null,groupset:null,speeds:null};
+  await sb.from('bikes').insert(bike);
+  await loadData();
+  S.modalBikes.push(bike.id);
+  S.modalShowAddBike=false;S.modalAddBikeName='';S.modalAddBikeType=null;S.modalAddBikeSize='M';
+  toast(`${name} ${t('toastAddedToFleet')}`);
+  renderModal();
+}
 async function confirmAssign(){
   if(S.modalBikes.length===0){toast(t('errSelectBike'),'error');return;}
   const allBikes=getBikes();
@@ -5311,6 +5474,7 @@ function renderBikes(){
     return`<option value="${s}"${S.bkStatus===s?' selected':''}>${l}</option>`;}).join('');
   const bkSizeOpts=['all','XS','S','M','L'].map(sz=>
     `<option value="${sz}"${S.bkSize===sz?' selected':''}>${sz==='all'?t('filterAll'):sz}</option>`).join('');
+  const bkSearch=S.bkSearch||'';
   const isEdit=!!S.editBikeId;const editBike=isEdit?bikes.find(b=>b.id===S.editBikeId):null;
   const curSize=(isEdit&&editBike)?(S.addBikeSize||editBike.size):S.addBikeSize;
   const sizeOpts=['XS','S','M','L'].map(v=>`<option value="${v}"${curSize===v?' selected':''}>${v}</option>`).join('');
@@ -5406,14 +5570,33 @@ function renderBikes(){
     </tr>`;
   }
 
+  function sortDir(col){return S.bkSortCol===col?S.bkSortDir:0;}
+  function sortHdr(col,label){
+    const d=sortDir(col);
+    const arrow=d===1?' ↑':d===-1?' ↓':'';
+    return`<th style="cursor:pointer;user-select:none;white-space:nowrap${d?';color:var(--green)':''}" onclick="S.bkSortDir=(S.bkSortCol==='${col}'&&S.bkSortDir===1)?-1:1;S.bkSortCol='${col}';renderBikes()">${label}${arrow}</th>`;
+  }
+
   function renderTypeSection(ty,color){
+    if(S.bkTypeFilter!=='all'&&S.bkTypeFilter!==ty) return '';
     let typeBikes=bikes.filter(b=>b.type===ty);
     if(S.bkStatus!=='all') typeBikes=typeBikes.filter(b=>b.status===S.bkStatus);
     if(S.bkSize!=='all')   typeBikes=typeBikes.filter(b=>b.size===S.bkSize);
+    if(bkSearch){
+      const q=bkSearch.toLowerCase();
+      typeBikes=typeBikes.filter(b=>[b.name,b.brand,b.model,b.groupset,b.size,b.type].some(v=>v&&String(v).toLowerCase().includes(q)));
+    }
+    const col=S.bkSortCol||'name';const dir=S.bkSortDir||1;
     typeBikes.sort((a,b)=>{
-      if(S.bkSort==='size')  return (sizeOrder[a.size]??9)-(sizeOrder[b.size]??9)||a.name.localeCompare(b.name);
-      if(S.bkSort==='status')return (sortOrder[a.status]??9)-(sortOrder[b.status]??9)||a.name.localeCompare(b.name);
-      return a.name.localeCompare(b.name);
+      let v=0;
+      if(col==='name')    v=a.name.localeCompare(b.name);
+      else if(col==='brand')   v=(a.brand||'').localeCompare(b.brand||'');
+      else if(col==='model')   v=(a.model||'').localeCompare(b.model||'');
+      else if(col==='groupset')v=(a.groupset||'').localeCompare(b.groupset||'');
+      else if(col==='speeds')  v=(a.speeds||0)-(b.speeds||0);
+      else if(col==='size')    v=(sizeOrder[a.size]??9)-(sizeOrder[b.size]??9);
+      else if(col==='status')  v=(sortOrder[a.status]??9)-(sortOrder[b.status]??9);
+      return v!==0?v*dir:a.name.localeCompare(b.name);
     });
     const all=bikes.filter(b=>b.type===ty);
     const tyAvail=all.filter(b=>b.status==='available').length;
@@ -5443,15 +5626,15 @@ function renderBikes(){
       </div>
       <div class="table-wrapper"><table class="queue-table">
         <thead><tr>
-          <th>${t('bikeNameLabel')}</th>
-          <th>${t('bikeBrand')}</th>
-          <th>${t('bikeModel')}</th>
-          <th>${t('bikeGroupset')}</th>
-          <th>${t('bikeSpeeds')}</th>
+          ${sortHdr('name',t('bikeNameLabel'))}
+          ${sortHdr('brand',t('bikeBrand'))}
+          ${sortHdr('model',t('bikeModel'))}
+          ${sortHdr('groupset',t('bikeGroupset'))}
+          ${sortHdr('speeds',t('bikeSpeeds'))}
           <th>${t('bikeTypeLabel')}</th>
-          <th>${t('frameSizeLabel')}</th>
+          ${sortHdr('size',t('frameSizeLabel'))}
           <th>${t('colColor')}</th>
-          <th>${t('colStatus')}</th>
+          ${sortHdr('status',t('colStatus'))}
           <th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
@@ -5476,11 +5659,14 @@ function renderBikes(){
       <div class="stat-card"><div class="stat-num" style="color:var(--text)">${nUse}</div><div class="stat-label">${t('inUseLabel')}</div></div>
     </div>
     <div class="filter-bar" style="margin-bottom:20px">
-      <div class="filter-row">
-        <span class="filter-label">${t('filterStatus')}:</span>
+      <div class="filter-row" style="flex-wrap:wrap;gap:8px">
+        <input id="bk-search-input" type="text" class="filter-select" placeholder="🔍 Search by name, brand, model…" value="${esc(bkSearch)}"
+          oninput="setBkSearch(this.value)"
+          style="min-width:180px;flex:1;max-width:280px">
+        <select class="filter-select" onchange="S.bkTypeFilter=this.value;renderBikes()">${bkTypeOpts}</select>
         <select class="filter-select" onchange="setBkStatus(this.value)">${bkStatusOpts}</select>
-        <span class="filter-label" style="margin-left:8px">${t('filterSize')}:</span>
         <select class="filter-select" onchange="setBkSize(this.value)">${bkSizeOpts}</select>
+        ${bkSearch||S.bkTypeFilter!=='all'||S.bkStatus!=='all'||S.bkSize!=='all'?`<button class="btn-secondary" style="font-size:12px;padding:5px 10px" onclick="S.bkSearch='';S.bkTypeFilter='all';S.bkStatus='all';S.bkSize='all';renderBikes()">✕ Clear</button>`:''}
       </div>
     </div>
     ${typeSections}`;
@@ -5493,6 +5679,7 @@ function toggleAddBike(){S._resetBikeForm?.();_resetBikeForm();S.showAddBike=tru
 function cancelBikeForm(){_resetBikeForm();renderBikes();}
 function setBkFilter(v){S.bkTypeFilter=v;renderBikes();}
 function setBkSort(v){S.bkSort=v;renderBikes();}
+function setBkSearch(v){S.bkSearch=v;renderBikes();const inp=document.getElementById('bk-search-input');if(inp){inp.focus();const l=v.length;inp.setSelectionRange(l,l);}}
 async function addBike(){
   const name=document.getElementById('bk-name').value.trim();
   const size=document.getElementById('bk-size').value||'M';
@@ -5652,9 +5839,12 @@ function renderHistory(){
       <td>
         <div onclick="event.stopPropagation()" style="display:flex;flex-direction:column;align-items:flex-start;gap:6px">
           <span style="font-weight:900;font-size:15px;color:${payColor}">SAR ${e.price||DEFAULT_PRICE}</span>
-          <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}')">
-            ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
-          </button>
+          <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+            <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}')">
+              ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+            </button>
+            <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">✏️</button>
+          </div>
         </div>
       </td>
       <td>${statusBadge(e.status)}</td>
@@ -5765,7 +5955,7 @@ function setBkSize(v){S.bkSize=v;renderBikes();}
 
 function exportHistoryCSV(){
   // Respect the currently selected session filter
-  let hist=getQueue().filter(e=>(e.status==='done'||e.status==='noshow'||e.status==='cancelled'||e.status==='removed')&&e.paid);
+  let hist=getQueue().filter(e=>e.status==='done'&&e.paid);
   if(S.histSess!=='all') hist=hist.filter(e=>e.sessionId===S.histSess);
   const sess=S.histSess!=='all'?allSessions().find(s=>s.id===S.histSess):null;
   const filename=sess
@@ -5844,6 +6034,8 @@ function closeReceipt(){document.getElementById('receipt-modal').style.display='
 function showBoothPopup(){
   document.getElementById('booth-popup-title').textContent=t('payAtBoothTitle')||'Payment at the Booth';
   document.getElementById('booth-popup-msg').textContent=t('payAtBoothMsg')||t('payAtBooth');
+  const extra=document.getElementById('booth-popup-extra');
+  if(extra)extra.innerHTML=`<span style="font-size:16px">🚲</span> ${t('payAtBoothFCFS')}`;
   const el=document.getElementById('booth-popup');
   el.style.display='flex';
 }
@@ -6469,6 +6661,8 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   }catch(e){
     console.warn('Could not reach backend:',e.message);
   }
+  const ls=document.getElementById('loading-screen');
+  if(ls){ls.style.opacity='0';setTimeout(()=>{ls.style.display='none';},400);}
   S.loggedIn=getSession();
   // Restore cancellation log from localStorage
   try{const cl=localStorage.getItem('cq_cancellations');if(cl)S.cancellationLog=JSON.parse(cl);}catch(e){}
