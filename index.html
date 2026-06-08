@@ -1600,6 +1600,7 @@ en:{
   bikeNameLabel:'Bike Name',frameSizeLabel:'Frame Size',bikeTypeLabel:'Bike Type',
   bikeColorsLabel:'Bike Color(s)',colorsHint:'1 required - up to 4',
   saveBikeBtn:'Save Changes',addBikeBtn:'Add Bike',
+  bikeBrand:'Brand',bikeModel:'Model',bikeGroupset:'Groupset',bikeSpeeds:'Speeds',
   availLabel:'Available',inUseLabel:'In Use',maintLabel:'Maintenance',
   editBtn:'Edit',maintBtn:'Maintenance',restoreBtn:'Restore',
   noBikes:'No bikes found. Add your first bike above.',
@@ -1852,6 +1853,7 @@ ar:{
   bikeNameLabel:'اسم الدراجة',frameSizeLabel:'مقاس الإطار',bikeTypeLabel:'نوع الدراجة',
   bikeColorsLabel:'لون الدراجة',colorsHint:'مطلوب 1 - حتى 4',
   saveBikeBtn:'حفظ التغييرات',addBikeBtn:'إضافة دراجة',
+  bikeBrand:'الماركة',bikeModel:'الموديل',bikeGroupset:'منظومة التروس',bikeSpeeds:'عدد السرعات',
   availLabel:'متاح',inUseLabel:'قيد الاستخدام',maintLabel:'صيانة',
   editBtn:'تعديل',maintBtn:'صيانة',restoreBtn:'استعادة',
   noBikes:'لا توجد دراجات. أضف أول دراجة أعلاه.',
@@ -2252,6 +2254,7 @@ const S={
   // bikes
   showAddBike:false,editBikeId:null,bkTypeFilter:'all',bkSort:'name',
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],_bkName:'',
+  _bkBrand:'',_bkModel:'',_bkGroupset:'',_bkSpeeds:'',
   bkStatus:'all',bkSize:'all',
   // history
   histStatus:'all',histPay:'all',histSess:'all',histSort:'date',histSortDir:-1,histType:'all',histSize:'all',histSearch:'',
@@ -5056,6 +5059,14 @@ function renderBikes(){
       <div class="form-group"><label>${t('bikeNameLabel')}</label><input type="text" id="bk-name" placeholder="e.g. Spectra One" value="${esc(S._bkName)}"></div>
       <div class="form-group"><label>${t('walkinSize')}</label><select id="bk-size" onchange="S.addBikeSize=this.value">${sizeOpts}</select></div>
     </div>
+    <div class="form-row">
+      <div class="form-group"><label>${t('bikeBrand')}</label><input type="text" id="bk-brand" placeholder="e.g. Trek, Giant, Cannondale" value="${esc(S._bkBrand)}"></div>
+      <div class="form-group"><label>${t('bikeModel')}</label><input type="text" id="bk-model" placeholder="e.g. FX Sport 4" value="${esc(S._bkModel)}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>${t('bikeGroupset')}</label><input type="text" id="bk-groupset" placeholder="e.g. Shimano 105, SRAM Rival" value="${esc(S._bkGroupset)}"></div>
+      <div class="form-group"><label>${t('bikeSpeeds')}</label><input type="number" id="bk-speeds" min="1" max="33" placeholder="e.g. 21" value="${esc(S._bkSpeeds)}" style="max-width:140px"></div>
+    </div>
     <div class="form-group" style="margin-bottom:16px"><label>${t('bikeTypeLabel')}</label><div class="toggle-group">${bkTypeBtns}</div></div>
     <div class="form-group" style="margin-bottom:16px">
       <label>${t('bikeColorsLabel')} &nbsp;<span class="label-hint">${t('colorsHint')}</span></label>
@@ -5092,8 +5103,14 @@ function renderBikes(){
           &#x1F464; #${user.queueNum} ${esc(user.name)}
         </div>`
       :'';
+    const brandModel=[b.brand,b.model].filter(Boolean).join(' ');
+    const specsLine=[b.groupset,b.speeds?`${b.speeds}-speed`:null].filter(Boolean).join(' · ');
     return`<tr>
-      <td><div class="rider-name">${esc(b.name)}</div></td>
+      <td>
+        <div class="rider-name">${esc(b.name)}</div>
+        ${brandModel?`<div style="font-size:11px;color:var(--muted-l);font-weight:600;margin-top:2px">${esc(brandModel)}</div>`:''}
+        ${specsLine?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">${esc(specsLine)}</div>`:''}
+      </td>
       <td>${typeBadge(b.type)}</td>
       <td style="font-weight:800">${b.size}</td>
       <td><div style="display:flex;gap:4px;align-items:center">${colorSwatches}</div></td>
@@ -5192,18 +5209,25 @@ function renderBikes(){
   if(nameEl)nameEl.addEventListener('input',e=>S._bkName=e.target.value);
 }
 
-function toggleAddBike(){S.showAddBike=!S.showAddBike;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S._bkName='';renderBikes();}
-function cancelBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeColors=['#6ee89a'];S._bkName='';renderBikes();}
+function _resetBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S._bkName='';S._bkBrand='';S._bkModel='';S._bkGroupset='';S._bkSpeeds='';}
+function toggleAddBike(){S._resetBikeForm?.();_resetBikeForm();S.showAddBike=true;renderBikes();}
+function cancelBikeForm(){_resetBikeForm();renderBikes();}
 function setBkFilter(v){S.bkTypeFilter=v;renderBikes();}
 function setBkSort(v){S.bkSort=v;renderBikes();}
 async function addBike(){
-  const name=document.getElementById('bk-name').value.trim();const size=document.getElementById('bk-size').value||'M';
+  const name=document.getElementById('bk-name').value.trim();
+  const size=document.getElementById('bk-size').value||'M';
+  const brand=document.getElementById('bk-brand')?.value.trim()||null;
+  const model=document.getElementById('bk-model')?.value.trim()||null;
+  const groupset=document.getElementById('bk-groupset')?.value.trim()||null;
+  const speedsRaw=document.getElementById('bk-speeds')?.value.trim();
+  const speeds=speedsRaw?parseInt(speedsRaw)||null:null;
   if(!name){toast(t('errBikeName'),'error');return;}
   if(!S.addBikeType){toast(t('errBikeTypeReq'),'error');return;}
-  const bike={id:uid(),name,size,type:S.addBikeType,colors:[...S.addBikeColors],status:'available'};
+  const bike={id:uid(),name,size,type:S.addBikeType,colors:[...S.addBikeColors],status:'available',brand,model,groupset,speeds};
   await sb.from('bikes').insert(bike);
   await loadData();
-  S.showAddBike=false;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S._bkName='';
+  _resetBikeForm();
   toast(`${name} ${t('toastAddedToFleet')}`);
   pushUndo(`Add bike ${name}`,async()=>{
     await sb.from('bikes').delete().eq('id',bike.id);
@@ -5214,18 +5238,27 @@ async function addBike(){
 function startEdit(id){
   const bike=getBikes().find(b=>b.id===id);if(!bike)return;
   S.editBikeId=id;S.showAddBike=false;S.addBikeType=bike.type;S.addBikeSize=bike.size;
-  S.addBikeColors=bike.colors&&bike.colors.length?[...bike.colors]:['#6ee89a'];S._bkName=bike.name;renderBikes();
+  S.addBikeColors=bike.colors&&bike.colors.length?[...bike.colors]:['#6ee89a'];
+  S._bkName=bike.name;S._bkBrand=bike.brand||'';S._bkModel=bike.model||'';
+  S._bkGroupset=bike.groupset||'';S._bkSpeeds=bike.speeds!=null?String(bike.speeds):'';
+  renderBikes();
 }
 async function saveBikeEdit(){
-  const name=document.getElementById('bk-name').value.trim();const size=document.getElementById('bk-size').value||'M';
+  const name=document.getElementById('bk-name').value.trim();
+  const size=document.getElementById('bk-size').value||'M';
+  const brand=document.getElementById('bk-brand')?.value.trim()||null;
+  const model=document.getElementById('bk-model')?.value.trim()||null;
+  const groupset=document.getElementById('bk-groupset')?.value.trim()||null;
+  const speedsRaw=document.getElementById('bk-speeds')?.value.trim();
+  const speeds=speedsRaw?parseInt(speedsRaw)||null:null;
   if(!name){toast(t('errBikeName'),'error');return;}
   if(!S.addBikeType){toast(t('errBikeTypeReq'),'error');return;}
   const b=getBikes();const existing=b.find(x=>x.id===S.editBikeId);if(!existing)return;
-  const prev={name:existing.name,size:existing.size,type:existing.type,colors:[...existing.colors],status:existing.status};
+  const prev={name:existing.name,size:existing.size,type:existing.type,colors:[...existing.colors],status:existing.status,brand:existing.brand||null,model:existing.model||null,groupset:existing.groupset||null,speeds:existing.speeds||null};
   const bid=S.editBikeId;
-  await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],status:existing.status}).eq('id',bid);
+  await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],status:existing.status,brand,model,groupset,speeds}).eq('id',bid);
   await loadData();
-  S.editBikeId=null;S.addBikeType=null;S.addBikeColors=['#6ee89a'];S._bkName='';
+  _resetBikeForm();
   toast(t('toastBikeUpdated'));
   pushUndo(`Edit bike ${name}`,async()=>{
     await sb.from('bikes').update(prev).eq('id',bid);
