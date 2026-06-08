@@ -4263,12 +4263,18 @@ async function restoreSession(id){
 function renderStaffQueue(){
   const queue=getQueue();const sessions=allSessions();
   const base=S.sfSession!=='all'
-    ?queue.filter(e=>e.sessionId===S.sfSession&&e.status!=='removed')
-    :queue.filter(e=>e.status!=='removed');
+    ?queue.filter(e=>e.sessionId===S.sfSession&&e.status!=='removed'&&e.status!=='cancelled')
+    :queue.filter(e=>e.status!=='removed'&&e.status!=='cancelled');
   const total=base.length,nWait=base.filter(e=>e.status==='waiting').length,
         nBike=base.filter(e=>e.status==='active').length,nDone=base.filter(e=>e.status==='done').length;
   let filtered=[...base];
-  if(S.sfStatus!=='all')filtered=filtered.filter(e=>e.status===S.sfStatus);
+  if(S.sfStatus==='cancelled'){
+    filtered=S.sfSession!=='all'
+      ?queue.filter(e=>e.sessionId===S.sfSession&&e.status==='cancelled')
+      :queue.filter(e=>e.status==='cancelled');
+  }else if(S.sfStatus!=='all'){
+    filtered=filtered.filter(e=>e.status===S.sfStatus);
+  }
   if(S.sfSize!=='all')  filtered=filtered.filter(e=>e.size===S.sfSize);
   if(S.sfPay==='paid')  filtered=filtered.filter(e=>e.paid);
   if(S.sfPay==='pending')filtered=filtered.filter(e=>!e.paid);
