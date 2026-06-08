@@ -3540,6 +3540,7 @@ function renderMyRides(){
     `<option value="${v}"${S.mySort===v?' selected':''}>${l}</option>`).join('');
   const rows=displayOrder.length?displayOrder.map(e=>{
     const payColor=e.paid?'var(--green)':'var(--muted-l)';
+    const canEdit=e.status==='waiting';
     const canCancel=e.status==='waiting';
     const payBadge=e.paid
       ?`<span style="font-size:10px;font-weight:900;color:var(--green);background:rgba(3,255,137,.12);border:1px solid rgba(3,255,137,.25);padding:2px 8px;border-radius:20px;white-space:nowrap">${t('paidLabel')} ✓</span>`
@@ -3564,7 +3565,10 @@ function renderMyRides(){
         ${statusBadge(e.status)}
         ${e.status==='noshow'?`<div style="font-size:11px;color:var(--red);margin-top:5px;font-weight:600;line-height:1.4;max-width:130px">${t('noShowCustomerMsg')}</div>`:''}
       </td>
-      <td>${canCancel?`<button class="btn-sm btn-red" onclick="showCancelReasonModal('${e.id}')">${t('cancelBooking')}</button>`:`<span style="color:var(--muted);font-size:13px">—</span>`}</td>
+      <td>${canEdit?`<div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn-sm btn-blue" onclick="S.selSession='${e.sessionId}';setCustTab('register')">✏️ ${t('editBtn')}</button>
+        <button class="btn-sm btn-red" onclick="showCancelReasonModal('${e.id}')">${t('cancelBooking')}</button>
+      </div>`:`<span style="color:var(--muted);font-size:13px">—</span>`}</td>
     </tr>`;
   }).join(''):`<tr><td colspan="6"><div style="padding:8px">${emptyIllustration(ILLUS_RIDES,t('noRides'))}</div></td></tr>`;
   document.getElementById('tab-myrides').innerHTML=`
