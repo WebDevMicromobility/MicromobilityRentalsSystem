@@ -12,7 +12,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <style>
     :root {
-      --bg:#191919; --s1:#1a1919; --s2:#1e1e1e; --s3:#242424;
+      --bg:#090909; --s1:#0d0d0d; --s2:#121212; --s3:#181818;
       --green:#03ff89; --green-h:#00e07a; --green-d:#00cc6a;
       --red:#d90909; --orange:#e08828; --blue:#4aa8f8; --purple:#a06af0;
       --text:#fcf9f4; --muted:#6b6b6b; --muted-l:#888888; --border:rgba(252,249,244,0.08);
@@ -24,7 +24,7 @@
 
     /* ── TOPBAR ──────────────────────────────────────────── */
     #topbar{position:sticky;top:0;z-index:100;
-      background:linear-gradient(180deg,#191919 0%,#1a1919 100%);
+      background:linear-gradient(180deg,#090909 0%,#0d0d0d 100%);
       border-bottom:1px solid rgba(3,255,137,.14);
       box-shadow:0 1px 0 rgba(3,255,137,.06),0 8px 32px rgba(0,0,0,.55);
       backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
@@ -1755,7 +1755,7 @@ en:{
   colContact:'Contact',callLabel:'Call',
   colPrice:'Price',
   exportBtn:'Export CSV',
-  anCustom:'Custom',
+  anCustom:'Custom',anDateRange:'Date Range',anFromDate:'From',anToDate:'To',
   payAtBoothTitle:'Payment Info',
   payAtBoothMsg:'Payment is collected at the booth at the Corniche Circuit. Please have your queue number ready when you arrive.',
   payAtBoothFCFS:'Bikes are assigned on a First Come, First Serve basis. Come early to get the bike type you chose.',
@@ -2008,7 +2008,7 @@ ar:{
   colContact:'تواصل',callLabel:'اتصال',
   colPrice:'السعر',
   exportBtn:'تصدير CSV',
-  anCustom:'مخصص',
+  anCustom:'مخصص',anDateRange:'نطاق تاريخ',anFromDate:'من',anToDate:'إلى',
   payAtBoothTitle:'معلومات الدفع',
   payAtBoothMsg:'يتم الدفع عند الكشك في حلبة الكورنيش. يرجى إحضار رقم طابورك عند وصولك.',
   payAtBoothFCFS:'يتم توزيع الدراجات على أساس الأول فالأول. تعال مبكراً للحصول على نوع الدراجة الذي اخترته.',
@@ -2301,6 +2301,7 @@ const S={
   sessSort:'date',sessSortDir:1,sessStatusFilter:'all',showDeletedSess:false,
   // analytics
   analyticsRange:'all', analyticsTrendSort:'date', analyticsTrendDir:-1, analyticsCustomN:20,
+  analyticsDateFrom:'', analyticsDateTo:'',
   // modals
   modalRider:null,modalBikes:[],modalShowAll:false,modalShowAddBike:false,modalAddBikeName:'',modalAddBikeType:null,modalAddBikeSize:'M',
   // auth
@@ -3883,10 +3884,10 @@ function renderSessions(){
             const sel=nsAssigned.includes(b.id);
             const busy=busyIds.has(b.id)&&!sel;
             const dot=b.status==='available'?'&#x1F7E2;':b.status==='in-use'?'&#x1F7E0;':'&#x1F534;';
-            const grad=bikeGradient(b.colors||['#03ff89']);
+            const colorDots=(b.colors||['#03ff89']).map(c=>`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');
             return`<div class="bike-assign-card${sel?' selected':''}${busy?' busy':''}"
               ${!busy?`onclick="toggleNewSessBike('${b.id}')"`:'title="In use"'}>
-              <div style="height:4px;border-radius:3px;background:${grad};margin-bottom:7px"></div>
+              <div style="display:flex;gap:3px;align-items:center;margin-bottom:7px">${colorDots}</div>
               <div class="bike-assign-name">${esc(b.name)}</div>
               <div style="font-size:11px;color:var(--muted)">${dot} ${b.size}</div>
               ${sel?`<div class="bike-assign-check">&#x2713; ${t('assignBikeTitle')}</div>`:''}
@@ -3978,10 +3979,10 @@ function renderSessions(){
             const sel=esAssigned.includes(b.id);
             const busy=busyIds.has(b.id)&&!sel;
             const dot=b.status==='available'?'🟢':b.status==='in-use'?'🟠':'🔴';
-            const grad=bikeGradient(b.colors||['#03ff89']);
+            const colorDots=(b.colors||['#03ff89']).map(c=>`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');
             return`<div class="bike-assign-card${sel?' selected':''}${busy?' busy':''}"
               ${!busy?`onclick="toggleAssignBike('${b.id}')"`:'title="In use elsewhere"'}>
-              <div style="height:4px;border-radius:3px;background:${grad};margin-bottom:7px"></div>
+              <div style="display:flex;gap:3px;align-items:center;margin-bottom:7px">${colorDots}</div>
               <div class="bike-assign-name">${esc(b.name)}</div>
               <div style="font-size:11px;color:var(--muted)">${dot} ${b.size} &middot; ${b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel')}</div>
               ${sel?`<div class="bike-assign-check">✓ ${t('assignBikeTitle')}</div>`:''}
@@ -5767,8 +5768,9 @@ async function delBike(id){
 function renderHistory(){
   const queue=getQueue();const hist=queue.filter(e=>e.status==='done'||e.status==='noshow'||e.status==='cancelled'||e.status==='removed');
   const sessions=allSessions();
-  const nDone=hist.filter(e=>e.status==='done').length,nPaid=hist.filter(e=>e.status==='done'&&e.paid).length,
-        nPend=hist.filter(e=>e.status==='done'&&!e.paid).length,nNoShow=hist.filter(e=>e.status==='noshow').length;
+  const sessionFiltered=S.histSess!=='all'?hist.filter(e=>e.sessionId===S.histSess):hist;
+  const nDone=sessionFiltered.filter(e=>e.status==='done').length,nPaid=sessionFiltered.filter(e=>e.status==='done'&&e.paid).length,
+        nPend=sessionFiltered.filter(e=>e.status==='done'&&!e.paid).length,nNoShow=sessionFiltered.filter(e=>e.status==='noshow').length;
   let filtered=[...hist];
   if(S.histSess!=='all')   filtered=filtered.filter(e=>e.sessionId===S.histSess);
   if(S.histStatus!=='all') filtered=filtered.filter(e=>e.status===S.histStatus);
@@ -6134,6 +6136,9 @@ function renderAnalytics(){
     sessCandidates=sessCandidates.filter(s=>new Date(s.session_date||s.id)>=mo);
   } else if(S.analyticsRange==='custom'){
     sessCandidates=sessCandidates.slice(-Math.max(1,S.analyticsCustomN||20));
+  } else if(S.analyticsRange==='daterange'){
+    if(S.analyticsDateFrom) sessCandidates=sessCandidates.filter(s=>(s.session_date||'')>=S.analyticsDateFrom);
+    if(S.analyticsDateTo)   sessCandidates=sessCandidates.filter(s=>(s.session_date||'')<=S.analyticsDateTo);
   }
   const sessIds=new Set(sessCandidates.map(s=>s.id));
   const queue=allQ.filter(e=>sessIds.has(e.sessionId));
@@ -6144,15 +6149,25 @@ function renderAnalytics(){
   function _rangeBar(){
     const _sh=sessions.filter(s=>queue.some(e=>e.sessionId===s.id&&e.status==='done')).length;
     const _td=done.length;
-    const rangeLabels={all:t('anAllTime'),last5:t('anLast5'),last10:t('anLast10'),month:t('anThisMonth'),custom:t('anCustom')||'Custom'};
+    const rangeLabels={all:t('anAllTime'),last5:t('anLast5'),last10:t('anLast10'),month:t('anThisMonth'),custom:t('anCustom')||'Custom',daterange:t('anDateRange')||'Date Range'};
     return`<div class="an-range-bar">
       <span class="an-range-label">${t('anShowing')}</span>
-      ${['all','last5','last10','month','custom'].map(r=>
+      ${['all','last5','last10','month','custom','daterange'].map(r=>
         `<button class="filter-pill${S.analyticsRange===r?' active':''}" onclick="setAnRange('${r}')">${rangeLabels[r]}</button>`
       ).join('')}
       ${S.analyticsRange==='custom'?`<input type="number" min="1" max="200" value="${S.analyticsCustomN||20}"
         style="width:64px;padding:4px 8px;background:#1a1a1a;border:1px solid rgba(255,255,255,.15);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700"
         oninput="S.analyticsCustomN=Math.max(1,parseInt(this.value)||1);renderAnalytics()">`:``}
+      ${S.analyticsRange==='daterange'?`
+        <span style="font-size:12px;font-weight:700;color:var(--muted)">${t('anFromDate')||'From'}:</span>
+        <input type="date" value="${S.analyticsDateFrom||''}"
+          style="background:#1a1a1a;border:1px solid rgba(255,255,255,.15);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;padding:4px 8px;cursor:pointer"
+          onchange="S.analyticsDateFrom=this.value;renderAnalytics()">
+        <span style="font-size:12px;font-weight:700;color:var(--muted)">${t('anToDate')||'To'}:</span>
+        <input type="date" value="${S.analyticsDateTo||''}"
+          style="background:#1a1a1a;border:1px solid rgba(255,255,255,.15);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;padding:4px 8px;cursor:pointer"
+          onchange="S.analyticsDateTo=this.value;renderAnalytics()">
+      `:''}
       <span class="result-count" style="margin-left:4px">${_sh} ${t('anSessionsHeld').toLowerCase()} · ${_td} ${t('anRidesLabel')}</span>
     </div>`;
   }
