@@ -3566,8 +3566,8 @@ function renderMyRides(){
   const allEntries=getQueue().filter(e=>e.customerId===cust.id);
   const visible=allEntries.filter(e=>e.status==='waiting'||e.status==='active'||e.status==='done');
   const completed=visible.filter(e=>e.status==='done');
-  const totalPaid=visible.filter(e=>e.paid).reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
-  const pending=visible.filter(e=>!e.paid&&e.status!=='cancelled').reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
+  const totalPaid=visible.filter(e=>e.paid).reduce((sum,e)=>sum+(e.price??DEFAULT_PRICE),0);
+  const pending=visible.filter(e=>!e.paid&&e.status!=='cancelled').reduce((sum,e)=>sum+(e.price??DEFAULT_PRICE),0);
   // Assign personal order numbers chronologically
   const chronological=[...visible].sort((a,b)=>new Date(a.registeredAt)-new Date(b.registeredAt));
   const withIndex=chronological.map((e,i)=>({...e,orderNum:i+1}));
@@ -3620,7 +3620,7 @@ function renderMyRides(){
       <td style="font-weight:800;font-size:14px">${e.size}</td>
       <td>${typeBadge(e.typePreference)}</td>
       <td>
-        <div style="font-weight:900;font-size:16px;color:${payColor}">SAR ${e.price||DEFAULT_PRICE}</div>
+        <div style="font-weight:900;font-size:16px;color:${payColor}">SAR ${e.price??DEFAULT_PRICE}</div>
         <div style="margin-top:4px">${payBadge}</div>
       </td>
       <td>
@@ -4452,11 +4452,11 @@ function renderStaffQueue(){
           </div>`).join('')
         :'<span style="color:var(--muted)">—</span>'}</td>
       <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
-      <td style="font-weight:800;white-space:nowrap">SAR ${e.price||DEFAULT_PRICE}</td>
+      <td style="font-weight:800;white-space:nowrap">SAR ${e.price??DEFAULT_PRICE}</td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-          <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
-            ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+          <button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
+            ${e.paid&&(e.price??DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
           </button>
           <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">✏️</button>
         </div>
@@ -4489,11 +4489,11 @@ function renderStaffQueue(){
       ?`<div class="pos-badge" style="font-size:12px;padding:3px 8px">${lp} / ${totalW}</div>`
       :`<span style="color:var(--muted);font-size:12px">—</span>`;
     const activeGroup=group.filter(e=>!['cancelled','noshow'].includes(e.status));
-    const totalPrice=activeGroup.reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
-    const paidAmt=activeGroup.filter(e=>e.paid&&(e.price||DEFAULT_PRICE)>0).reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
-    const houseAmt=activeGroup.filter(e=>e.paid&&(e.price||DEFAULT_PRICE)===0).length;
+    const totalPrice=activeGroup.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
+    const paidAmt=activeGroup.filter(e=>e.paid&&(e.price??DEFAULT_PRICE)>0).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
+    const houseAmt=activeGroup.filter(e=>e.paid&&(e.price??DEFAULT_PRICE)===0).length;
     const remaining=totalPrice-paidAmt;
-    const paidCount=activeGroup.filter(e=>e.paid&&(e.price||DEFAULT_PRICE)>0).length;
+    const paidCount=activeGroup.filter(e=>e.paid&&(e.price??DEFAULT_PRICE)>0).length;
     const priceSpan=`<span style="font-weight:800;white-space:nowrap">SAR ${totalPrice}</span>
       <div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${paidCount}/${activeGroup.length} ${t('paidLabel')}${houseAmt>0?` · ${houseAmt} 🏠`:''}</div>
       ${remaining>0?`<div style="font-size:11px;font-weight:800;color:#e08828;margin-top:3px">SAR ${remaining} due</div>`:'<div style="font-size:11px;font-weight:800;color:var(--green);margin-top:3px">✓ Settled</div>'}`;
@@ -4536,8 +4536,8 @@ function renderStaffQueue(){
           <td rowspan="${n}" style="vertical-align:middle">${priceSpan}</td>
           <td style="vertical-align:middle" onclick="event.stopPropagation()">
             <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-              <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
-                ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+              <button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
+                ${e.paid&&(e.price??DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
               </button>
               <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">✏️</button>
             </div>
@@ -4556,8 +4556,8 @@ function renderStaffQueue(){
           <td style="vertical-align:middle"><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
           <td style="vertical-align:middle" onclick="event.stopPropagation()">
             <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-              <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
-                ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+              <button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
+                ${e.paid&&(e.price??DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
               </button>
               <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">✏️</button>
             </div>
@@ -4772,7 +4772,7 @@ function showPayMenu(id,evt){
   document.querySelectorAll('.pay-menu-popup').forEach(m=>m.remove());
   const entry=getQueue().find(e=>e.id===id);
   if(!entry)return;
-  const isHouse=entry.paid&&(entry.price||DEFAULT_PRICE)===0;
+  const isHouse=entry.paid&&(entry.price??DEFAULT_PRICE)===0;
   const opts=[
     {label:`⏳ ${t('pendingLabel')}`,mode:'pending',active:!entry.paid},
     {label:`✓ ${t('paidLabel')}`,mode:'paid',active:entry.paid&&!isHouse},
@@ -4794,12 +4794,12 @@ function showPayMenu(id,evt){
 async function togglePayment(id,mode){
   const entry=getQueue().find(e=>e.id===id);
   if(!entry)return;
-  const isHouse=entry.paid&&(entry.price||DEFAULT_PRICE)===0;
+  const isHouse=entry.paid&&(entry.price??DEFAULT_PRICE)===0;
   // Determine next state: explicit mode or cycle pending→paid→house→pending
   let newPaid,newPrice;
   if(mode==='house'){newPaid=true;newPrice=0;}
-  else if(mode===true||mode==='paid'){newPaid=true;newPrice=(entry.price||DEFAULT_PRICE)===0?priceForType(entry.typePreference):entry.price;}
-  else if(mode===false||mode==='pending'){newPaid=false;newPrice=(entry.price||DEFAULT_PRICE)===0?priceForType(entry.typePreference):entry.price;}
+  else if(mode===true||mode==='paid'){newPaid=true;newPrice=entry.price===0?priceForType(entry.typePreference):(entry.price??DEFAULT_PRICE);}
+  else if(mode===false||mode==='pending'){newPaid=false;newPrice=entry.price===0?priceForType(entry.typePreference):(entry.price??DEFAULT_PRICE);}
   else{
     // cycle
     if(!entry.paid){newPaid=true;newPrice=entry.price;}
@@ -4975,7 +4975,7 @@ function showReturnPayModal(id){
       <div class="modal-sub" style="margin-bottom:24px">${t('returnPayMsg')}</div>
       <div style="font-size:16px;font-weight:900;margin-bottom:24px">
         #${entry.queueNum} - ${esc(entry.name)}<br>
-        <span style="color:var(--muted-l);font-size:14px">SAR ${entry.price||DEFAULT_PRICE} ${t('pendingLabel')}</span>
+        <span style="color:var(--muted-l);font-size:14px">SAR ${entry.price??DEFAULT_PRICE} ${t('pendingLabel')}</span>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
         <button class="btn-primary" style="width:100%" onclick="closeReturnPayModal();_execReturn('${id}',true)">✓ ${t('returnMarkPaidBtn')}</button>
@@ -5355,7 +5355,7 @@ function renderModal(){
   const payWarning=!rider.paid?`<div style="display:flex;align-items:center;gap:8px;background:rgba(224,136,40,.1);border:1px solid rgba(224,136,40,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px">
     <span style="font-size:16px">⚠️</span>
     <div>
-      <span style="font-size:12px;font-weight:800;color:var(--muted-l)">${t('payPendingWarning')} - SAR ${rider.price||DEFAULT_PRICE}</span>
+      <span style="font-size:12px;font-weight:800;color:var(--muted-l)">${t('payPendingWarning')} - SAR ${rider.price??DEFAULT_PRICE}</span>
       <button class="pay-toggle pending" style="margin-left:10px;font-size:11px" onclick="togglePayment('${rider.id}',true);renderModal()">⏳ ${t('paidLabel')}?</button>
     </div>
   </div>`:'';
@@ -5894,10 +5894,10 @@ function renderHistory(){
       <td>${typeBadge(e.typePreference)}</td>
       <td>
         <div onclick="event.stopPropagation()" style="display:flex;flex-direction:column;align-items:flex-start;gap:6px">
-          <span style="font-weight:900;font-size:15px;color:${payColor}">SAR ${e.price||DEFAULT_PRICE}</span>
+          <span style="font-weight:900;font-size:15px;color:${payColor}">SAR ${e.price??DEFAULT_PRICE}</span>
           <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-            <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
-              ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+            <button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
+              ${e.paid&&(e.price??DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
             </button>
             <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">✏️</button>
           </div>
@@ -6032,7 +6032,7 @@ function exportHistoryCSV(){
       bike?bike.name:'',
       e.size,
       e.typePreference,
-      e.price||DEFAULT_PRICE,
+      e.price??DEFAULT_PRICE,
       e.paid?'Yes':'No',
       e.status
     ].map(v=>'"'+String(v).replace(/"/g,'""')+'"');
@@ -6229,8 +6229,8 @@ function renderAnalytics(){
   // No early return — always render the full dashboard (values show 0 when no data)
 
   // ── Revenue ──────────────────────────────────────────
-  const revCollected=done.filter(e=>e.paid).reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
-  const revPending  =done.filter(e=>!e.paid).reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
+  const revCollected=done.filter(e=>e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
+  const revPending  =done.filter(e=>!e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
   const revTotal    =revCollected+revPending;
   // VAT exclusive helpers (15% VAT: excl = incl / 1.15)
   function excVAT(v){return v/1.15;}
@@ -6273,13 +6273,13 @@ function renderAnalytics(){
   const dayBreak={};
   done.forEach(e=>{if(e.sessionDay)dayBreak[e.sessionDay]=(dayBreak[e.sessionDay]||0)+1;});
   const revByType={};
-  done.filter(e=>e.paid).forEach(e=>{revByType[e.typePreference]=(revByType[e.typePreference]||0)+(e.price||DEFAULT_PRICE);});
+  done.filter(e=>e.paid).forEach(e=>{revByType[e.typePreference]=(revByType[e.typePreference]||0)+(e.price??DEFAULT_PRICE);});
   // Revenue per day of week (collected)
   const revByDay={};
   const countByDay={};
   done.filter(e=>e.paid).forEach(e=>{
     if(!e.sessionDay)return;
-    revByDay[e.sessionDay]=(revByDay[e.sessionDay]||0)+(e.price||DEFAULT_PRICE);
+    revByDay[e.sessionDay]=(revByDay[e.sessionDay]||0)+(e.price??DEFAULT_PRICE);
     countByDay[e.sessionDay]=(countByDay[e.sessionDay]||0)+1;
   });
   // Avg revenue per ride by type (collected only)
@@ -6301,7 +6301,7 @@ function renderAnalytics(){
   const revPerCustomer=uniqueCustIds.length>0?(revTotal/uniqueCustIds.length):0;
   const bestSession=sessionsWithDone.length
     ?sessionsWithDone.reduce((best,s)=>{
-        const r=done.filter(e=>e.sessionId===s.id&&e.paid).reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
+        const r=done.filter(e=>e.sessionId===s.id&&e.paid).reduce((sum,e)=>sum+(e.price??DEFAULT_PRICE),0);
         return r>best.r?{s,r}:best;
       },{s:null,r:-1})
     :{s:null,r:0};
@@ -6314,8 +6314,8 @@ function renderAnalytics(){
       const sDone=done.filter(e=>e.sessionId===s.id);
       const sNo  =noshow.filter(e=>e.sessionId===s.id);
       const cap  =s.capacity||12;
-      const rev  =sDone.filter(e=>e.paid).reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
-      const pend =sDone.filter(e=>!e.paid).reduce((sum,e)=>sum+(e.price||DEFAULT_PRICE),0);
+      const rev  =sDone.filter(e=>e.paid).reduce((sum,e)=>sum+(e.price??DEFAULT_PRICE),0);
+      const pend =sDone.filter(e=>!e.paid).reduce((sum,e)=>sum+(e.price??DEFAULT_PRICE),0);
       const occ  =Math.round(sDone.length/cap*100);
       const types={};sDone.forEach(e=>{types[e.typePreference]=(types[e.typePreference]||0)+1;});
       const topT =Object.keys(types).sort((a,b)=>types[b]-types[a])[0]||'—';
