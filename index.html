@@ -5191,21 +5191,26 @@ async function confirmAssign(){
   const riderId=S.modalRider;
   const qn=rider?rider.queueNum:'?';const rName=rider?rider.name:'';
   const bikeNames=selected.map(b=>b.name).join(', ');
+  // Resolve final price: if rider chose 'Any', lock in price based on assigned bike type
+  const priceUpdate={};
+  if(rider&&rider.typePreference==='Any'&&selected.length>0){
+    priceUpdate.price=selected[0].type==='Road'?75:57.5;
+  }
   // First update all selected bikes to in-use
   await Promise.all(needsUpdate.map(b=>sb.from('bikes').update({status:'in-use'}).eq('id',b.id)));
   // Try to store full ordered list; fall back to first bike ID if FK constraint rejects JSON
   let assignedVal;
   if(S.modalBikes.length===1){
     assignedVal=S.modalBikes[0];
-    await sb.from('queue_entries').update({status:'active',assigned_bike_id:assignedVal}).eq('id',riderId);
+    await sb.from('queue_entries').update({status:'active',assigned_bike_id:assignedVal,...priceUpdate}).eq('id',riderId);
   }else{
     // Try JSON array first
     const jsonVal=JSON.stringify(S.modalBikes);
-    const{error}=await sb.from('queue_entries').update({status:'active',assigned_bike_id:jsonVal}).eq('id',riderId);
+    const{error}=await sb.from('queue_entries').update({status:'active',assigned_bike_id:jsonVal,...priceUpdate}).eq('id',riderId);
     if(error){
       // FK constraint — store primary bike only, mark others in session notes
       assignedVal=S.modalBikes[0];
-      await sb.from('queue_entries').update({status:'active',assigned_bike_id:assignedVal}).eq('id',riderId);
+      await sb.from('queue_entries').update({status:'active',assigned_bike_id:assignedVal,...priceUpdate}).eq('id',riderId);
       // Store extra bike IDs in queue_num temporarily via a workaround flag in S
       S._extraBikes=S._extraBikes||{};
       S._extraBikes[riderId]=S.modalBikes;
