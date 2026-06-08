@@ -1590,7 +1590,7 @@ en:{
   walkinTitle:'Walk-in Registration',walkinName:'Full Name',walkinPhone:'Phone Number',
   walkinSession:'Session',walkinSize:'Frame Size',walkinType:'Bike Type Preference',
   addWalkinBtn:'Add Walk-in',cancelBtn:'Cancel',
-  checkInBtn:'Check In',returnBikeBtn:'Return Bike',removeBtn:'Remove',noShowBtn:'No-Show',
+  checkInBtn:'Check In',returnBikeBtn:'Return Bike',removeBtn:'Remove',noShowBtn:'No-Show',customerShowedBtn:'Customer Showed',
   paidLabel:'Paid',pendingLabel:'Pending',
   sessionsTitle:'Sessions',sessionsSub:'Create sessions and open them to accept reservations. Closed by default.',
   newSession:'+ New Session',newSessionTitle:'New Session',dateLabel:'Date',capacityLabel:'Capacity (spots)',
@@ -1700,7 +1700,7 @@ en:{
   cancelConfirmBtn:'Confirm Cancellation',
   noShowCustomerMsg:'The staff marked you as a No-Show for this session.',
   cancelledAdminNote:'Cancelled by customer',
-  toastNoShow:'Marked as No-Show.',
+  toastNoShow:'Marked as No-Show.',toastUndoNoShow:'Restored to waiting queue.',
   toastBikeReturned:'Bike returned. Ride complete.',
   toastBikeReturnedPaid:'Bike returned and marked as paid.',
   toastRiderRemoved:'Rider removed.',
@@ -1848,7 +1848,7 @@ ar:{
   walkinTitle:'تسجيل زيارة مباشرة',walkinName:'الاسم الكامل',walkinPhone:'رقم الهاتف',
   walkinSession:'الجلسة',walkinSize:'مقاس الإطار',walkinType:'تفضيل نوع الدراجة',
   addWalkinBtn:'إضافة زيارة',cancelBtn:'إلغاء',
-  checkInBtn:'تسجيل الدخول',returnBikeBtn:'إرجاع الدراجة',removeBtn:'حذف',noShowBtn:'لم يحضر',
+  checkInBtn:'تسجيل الدخول',returnBikeBtn:'إرجاع الدراجة',removeBtn:'حذف',noShowBtn:'لم يحضر',customerShowedBtn:'العميل حضر',
   paidLabel:'مدفوع',pendingLabel:'معلق',
   sessionsTitle:'الجلسات',sessionsSub:'أنشئ الجلسات وافتحها لقبول الحجوزات. مغلقة بشكل افتراضي.',
   newSession:'+ جلسة جديدة',newSessionTitle:'جلسة جديدة',dateLabel:'التاريخ',capacityLabel:'الطاقة الاستيعابية',
@@ -1949,7 +1949,7 @@ ar:{
   cancelConfirmBtn:'تأكيد الإلغاء',
   noShowCustomerMsg:'تم تسجيلك كغائب في هذه الجلسة من قِبَل الموظفين.',
   cancelledAdminNote:'ملغى من قِبَل العميل',
-  toastNoShow:'تم تسجيله كغائب.',
+  toastNoShow:'تم تسجيله كغائب.',toastUndoNoShow:'تمت إعادته لقائمة الانتظار.',
   toastBikeReturned:'الدراجة مُعادة. اكتملت الرحلة.',
   toastBikeReturnedPaid:'الدراجة مُعادة وتم تسجيل الدفع.',
   toastRiderRemoved:'تم حذف الراكب.',
@@ -4376,6 +4376,7 @@ function renderStaffQueue(){
     if(e.status==='waiting')return`<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="doNoShow('${e.id}')">${t('noShowBtn')}</button>`;
     if(e.status==='active')return`<button class="btn-sm btn-blue" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button>`;
     if(e.status==='done')return`<button class="btn-sm btn-blue" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
+    if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button><button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
     return`<button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
   }
 
@@ -4840,6 +4841,21 @@ async function doNoShow(id){
   pushUndo(`No-show #${savedQNum} ${entry.name}`,async()=>{
     await sb.from('queue_entries').update({status:'waiting',queue_num:savedQNum}).eq('id',id);
     await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum}).eq('id',e.id)));
+    await loadData();renderStaffQueue();
+  });
+  renderStaffQueue();
+}
+async function doUndoNoShow(id){
+  const entry=getQueue().find(e=>e.id===id);if(!entry||entry.status!=='noshow')return;
+  // Re-insert at original queueNum: bump up waiting entries >= entry.queueNum
+  const ahead=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>=entry.queueNum);
+  const savedAhead=ahead.map(e=>({id:e.id,queueNum:e.queueNum}));
+  await Promise.all(ahead.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum+1}).eq('id',e.id)));
+  await sb.from('queue_entries').update({status:'waiting'}).eq('id',id);
+  await loadData();toast(t('toastUndoNoShow'));
+  pushUndo(`Undo no-show #${entry.queueNum} ${entry.name}`,async()=>{
+    await sb.from('queue_entries').update({status:'noshow'}).eq('id',id);
+    await Promise.all(savedAhead.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum}).eq('id',e.id)));
     await loadData();renderStaffQueue();
   });
   renderStaffQueue();
@@ -5952,10 +5968,14 @@ function renderAnalytics(){
   // No early return — always render the full dashboard (values show 0 when no data)
 
   // ── Revenue ──────────────────────────────────────────
-  const vatFactor=S.analyticsVAT==='exclusive'?(1/1.15):1;
-  const revCollected=done.filter(e=>e.paid).reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0)*vatFactor;
-  const revPending  =done.filter(e=>!e.paid).reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0)*vatFactor;
+  const revCollected=done.filter(e=>e.paid).reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
+  const revPending  =done.filter(e=>!e.paid).reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
   const revTotal    =revCollected+revPending;
+  // VAT exclusive helpers (15% VAT: excl = incl / 1.15)
+  function excVAT(v){return v/1.15;}
+  function sarBoth(v,precision=0){
+    return`SAR ${v.toFixed(precision)}<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">SAR ${excVAT(v).toFixed(precision)} <span style="font-size:10px">excl.</span></div>`;
+  }
   const sessionsWithDone=sessions.filter(s=>done.some(e=>e.sessionId===s.id));
   const sessionsHeld=sessionsWithDone.length;
   const avgRevPerSession=sessionsHeld?Math.round(revTotal/sessionsHeld):0;
@@ -6110,8 +6130,8 @@ function renderAnalytics(){
       <td style="font-weight:800;white-space:nowrap">${shortDate(s.session_date||s.id)}</td>
       <td style="color:var(--muted);font-size:12px">${dayLabel(s.day)||''}</td>
       <td style="font-weight:900;font-size:16px">${riders}<span style="font-size:11px;color:var(--muted);font-weight:600"> / ${cap}</span></td>
-      <td style="color:var(--green);font-weight:800">SAR ${rev.toFixed(0)}</td>
-      <td style="color:var(--muted-l);font-weight:700">${pend>0?`SAR ${pend.toFixed(0)}`:'<span style="color:var(--muted)">—</span>'}</td>
+      <td style="color:var(--green);font-weight:800">${sarBoth(rev)}</td>
+      <td style="color:var(--muted-l);font-weight:700">${pend>0?sarBoth(pend):'<span style="color:var(--muted)">—</span>'}</td>
       <td style="color:${noShows>0?'var(--red)':'var(--muted)'};font-weight:700">${noShows||'—'}</td>
       <td><div class="analytics-occ-bar">
         <div class="analytics-occ-track"><div class="analytics-occ-fill" style="width:${occ}%;background:${occColor}"></div></div>
@@ -6149,7 +6169,7 @@ function renderAnalytics(){
   const payLegend=`<div class="donut-legend">
     <div class="donut-legend-item"><span class="donut-dot" style="background:#03ff89"></span>${t('paidLabel')} - ${done.filter(e=>e.paid).length} (${collectionRate}%)</div>
     <div class="donut-legend-item"><span class="donut-dot" style="background:#e08828"></span>${t('pendingLabel')} - ${done.filter(e=>!e.paid).length}</div>
-    <div style="margin-top:8px;font-size:20px;font-weight:900;color:var(--green)">SAR ${revCollected.toFixed(0)}</div>
+    <div style="margin-top:8px;font-size:20px;font-weight:900;color:var(--green)">${sarBoth(revCollected)}</div>
     <div style="font-size:11px;color:var(--muted);font-weight:600">${t('anCollected')}</div>
   </div>`;
 
@@ -6190,30 +6210,26 @@ function renderAnalytics(){
 
     <!-- REVENUE -->
     <div class="analytics-section-title">${t('anRevenue')}</div>
-    <div style="display:flex;gap:8px;margin-bottom:14px">
-      <button class="filter-pill${S.analyticsVAT==='inclusive'?' active':''}" onclick="S.analyticsVAT='inclusive';renderAnalytics()">${t('vatInclusive')}</button>
-      <button class="filter-pill${S.analyticsVAT==='exclusive'?' active':''}" onclick="S.analyticsVAT='exclusive';renderAnalytics()">${t('vatExclusive')}</button>
-    </div>
     <div class="analytics-kpi-grid">
       <div class="analytics-kpi-card">
-        <div class="analytics-kpi-value" style="color:var(--green)">SAR ${revCollected.toFixed(0)}</div>
+        <div class="analytics-kpi-value" style="color:var(--green)">${sarBoth(revCollected)}</div>
         <div class="analytics-kpi-label">${t('anCollected')}</div>
         <div class="analytics-kpi-sub">${collectionRate}% ${t('anCollRateLabel')}</div>
       </div>
       <div class="analytics-kpi-card">
-        <div class="analytics-kpi-value" style="color:var(--muted-l)">SAR ${revPending.toFixed(0)}</div>
+        <div class="analytics-kpi-value" style="color:var(--muted-l)">${sarBoth(revPending)}</div>
         <div class="analytics-kpi-label">${t('pendingLabel')}</div>
         <div class="analytics-kpi-sub">${done.filter(e=>!e.paid).length} ${t('anUnpaidRides')}</div>
       </div>
       <div class="analytics-kpi-card">
-        <div class="analytics-kpi-value" style="color:var(--green)">SAR ${revPAS.toFixed(2)}</div>
+        <div class="analytics-kpi-value" style="color:var(--green)">${sarBoth(revPAS,2)}</div>
         <div class="analytics-kpi-label">${t('anRevPAS')}</div>
         <div class="analytics-kpi-sub">${totalSeatsOffered} ${t('anTotalSeats').toLowerCase()}</div>
       </div>
       <div class="analytics-kpi-card">
-        <div class="analytics-kpi-value">SAR ${avgRevPerSession}</div>
+        <div class="analytics-kpi-value">${sarBoth(avgRevPerSession)}</div>
         <div class="analytics-kpi-label">${t('anAvgPerSession')}</div>
-        <div class="analytics-kpi-sub">SAR ${revPerRide.toFixed(1)} ${t('anPerRide')}</div>
+        <div class="analytics-kpi-sub">${sarBoth(revPerRide,1)} ${t('anPerRide')}</div>
       </div>
     </div>
     <div class="chart-grid-wide">
@@ -6241,7 +6257,7 @@ function renderAnalytics(){
       <div class="chart-card">
         <div class="chart-card-title">${t('anRevByDay')}</div>
         <div class="chart-card-sub">${t('anRevByDaySub')}</div>
-        ${Object.keys(revByDayOrdered).length?bars(revByDayOrdered,()=>dayColorHex,v=>`SAR ${v.toFixed(0)}`):noDataStr}
+        ${Object.keys(revByDayOrdered).length?bars(revByDayOrdered,()=>dayColorHex,v=>sarBoth(v)):noDataStr}
       </div>
     </div>
 
@@ -6261,7 +6277,7 @@ function renderAnalytics(){
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:var(--green)">${uniqueCustIds.length}</div>
         <div class="analytics-kpi-label">${t('anUniqueCustomers')}</div>
-        <div class="analytics-kpi-sub">SAR ${revPerCustomer.toFixed(1)} ${t('anAvgSpend')}</div>
+        <div class="analytics-kpi-sub">${sarBoth(revPerCustomer,1)} ${t('anAvgSpend')}</div>
       </div>
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:var(--green)">${uniqueCustIds.length>0?Math.round(repeatCustomers/uniqueCustIds.length*100):0}%</div>
@@ -6336,12 +6352,12 @@ function renderAnalytics(){
       <div class="chart-card">
         <div class="chart-card-title">${t('anRevByDay')}</div>
         <div class="chart-card-sub">${t('anCollectedOnly')}</div>
-        ${Object.keys(revByType).length?bars(revByType,k=>typeColorHex[k]||'#777',v=>`SAR ${v.toFixed(0)}`):noDataStr}
+        ${Object.keys(revByType).length?bars(revByType,k=>typeColorHex[k]||'#777',v=>sarBoth(v)):noDataStr}
       </div>
       <div class="chart-card">
         <div class="chart-card-title">${t('anTypeRevPerRide')}</div>
         <div class="chart-card-sub">${t('anTypeRevPerRideSub')}</div>
-        ${Object.keys(typeRevPerRideOrdered).length?bars(typeRevPerRideOrdered,k=>typeColorHex[k]||'#777',v=>`SAR ${v.toFixed(2)}`):noDataStr}
+        ${Object.keys(typeRevPerRideOrdered).length?bars(typeRevPerRideOrdered,k=>typeColorHex[k]||'#777',v=>sarBoth(v,2)):noDataStr}
       </div>
     </div>
 
@@ -6369,26 +6385,26 @@ function renderAnalytics(){
         </div>
         <div class="hl-item" style="margin-bottom:0">
           <div class="hl-label">${t('anBestSession')}</div>
-          <div class="hl-value" style="color:var(--green)">${bestSession.s?`SAR ${bestSession.r.toFixed(0)} - ${shortDate(bestSession.s.session_date||bestSession.s.id)}`:'—'}</div>
+          <div class="hl-value" style="color:var(--green)">${bestSession.s?`${sarBoth(bestSession.r)} <span style="font-size:13px;font-weight:600;color:var(--muted)">${shortDate(bestSession.s.session_date||bestSession.s.id)}</span>`:'—'}</div>
         </div>
       </div>
       <div class="analytics-highlight-card">
         <div class="hl-item">
           <div class="hl-label">${t('anRevPerRide')}</div>
-          <div class="hl-value" style="color:var(--green)">SAR ${revPerRide.toFixed(2)}</div>
+          <div class="hl-value" style="color:var(--green)">${sarBoth(revPerRide,2)}</div>
         </div>
         <div class="hl-item">
           <div class="hl-label">${t('anRevPAS')}</div>
-          <div class="hl-value" style="color:var(--green)">SAR ${revPAS.toFixed(2)}</div>
+          <div class="hl-value" style="color:var(--green)">${sarBoth(revPAS,2)}</div>
         </div>
         <div class="hl-item">
           <div class="hl-label">${t('anRevPerCust')}</div>
-          <div class="hl-value" style="color:var(--green)">SAR ${revPerCustomer.toFixed(2)}</div>
+          <div class="hl-value" style="color:var(--green)">${sarBoth(revPerCustomer,2)}</div>
         </div>
         <div class="hl-item" style="margin-bottom:0">
           <div class="hl-label">${t('anCollectionRate')}</div>
           <div class="hl-value" style="color:${collectionRate>=60?'var(--green)':'var(--red)'}">${collectionRate}%
-            <span style="font-size:13px;color:var(--muted);font-weight:600;margin-left:6px">SAR ${revCollected.toFixed(0)} / SAR ${revTotal.toFixed(0)}</span>
+            <span style="font-size:13px;color:var(--muted);font-weight:600;margin-left:6px">${sarBoth(revCollected)} / ${sarBoth(revTotal)}</span>
           </div>
         </div>
       </div>
