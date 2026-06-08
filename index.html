@@ -951,6 +951,22 @@
     @keyframes shimmer{0%{background-position:200% center;}100%{background-position:-200% center;}}
     .tab-panel.active{animation:tabFadeIn .22s ease;}
 
+    /* ── SESSION DASHBOARD ──────────────────────────────────── */
+    .sess-dashboard{background:var(--s2);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:14px 16px 12px;margin-bottom:16px;}
+    .sess-dash-header{display:flex;align-items:baseline;gap:12px;margin-bottom:10px;flex-wrap:wrap;}
+    .sess-dash-stats{display:flex;gap:8px;flex-wrap:wrap;}
+    .sess-dash-chip{background:var(--s3);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:9px 14px;min-width:80px;flex:1;}
+    .sess-dash-num{font-size:20px;font-weight:900;line-height:1.1;white-space:nowrap;}
+    .sess-dash-lbl{font-size:9px;font-weight:800;color:var(--muted);letter-spacing:.5px;margin-top:3px;text-transform:uppercase;}
+
+    /* ── MOBILE QUEUE CARDS ─────────────────────────────────── */
+    .queue-mobile-view{display:none;}
+    .q-card{background:var(--s2);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px 14px;margin-bottom:8px;}
+    .q-card.row-active{background:rgba(3,255,137,.04);border-color:rgba(3,255,137,.15);}
+    .q-card.row-done-paid{background:rgba(3,255,137,.015);}
+    .q-card.row-done{opacity:.85;}
+    .q-card.row-noshow-cancel{opacity:.5;}
+
     /* ── TABLET  768-1023px ──────────────────────────────────── */
     /* ══════════════════════════════════════════════════════════
        TABLET  768-1023 px  (iPad / iPad Mini / iPad Air)
@@ -1202,6 +1218,14 @@
       .auth-tab{padding:9px 16px;font-size:13px;}
       .auth-field{margin-bottom:10px;}
       .auth-submit{min-height:50px;font-size:16px;}
+
+      /* ── Queue: cards on mobile, table on desktop ── */
+      .queue-mobile-view{display:block;}
+      .queue-table-desktop-wrap{display:none;}
+      .q-card .btn-sm{flex:1;padding:10px 12px;font-size:12px;min-height:40px;text-align:center;justify-content:center;}
+      .sess-dash-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+      .sess-dash-chip{min-width:0;padding:8px 10px;}
+      .sess-dash-num{font-size:15px;}
 
       /* ── Undo bar ── */
       .undo-bar{min-width:0;width:calc(100vw - 28px);}
@@ -4636,6 +4660,51 @@ function renderStaffQueue(){
     }).join('');
   }
 
+  // ── Mobile card renderer ──
+  function renderGroupCard(group){
+    const n=group.length;
+    const primary=group[0];
+    const allSameQ=group.every(e=>e.queueNum===primary.queueNum);
+    const isConsec=!allSameQ&&group.every((e,i)=>i===0||e.queueNum===group[i-1].queueNum+1);
+    const qNumDisplay=allSameQ?`#${primary.queueNum}`:isConsec?`#${primary.queueNum}&ndash;#${group[n-1].queueNum}`:group.map(e=>`#${e.queueNum}`).join(', ');
+    const groupCls=group.some(e=>e.status==='active')?'row-active':group.every(e=>['noshow','cancelled'].includes(e.status))?'row-noshow-cancel':group.every(e=>['done','noshow','cancelled'].includes(e.status))&&group.some(e=>e.status==='done'&&e.paid)?'row-done-paid':group.every(e=>['done','noshow','cancelled'].includes(e.status))?'row-done':'';
+    const lp=livePosMap[primary.id];const totalW=sessWaitCount[primary.sessionId]||0;
+    const posTag=primary.status==='waiting'&&lp?`<span class="pos-badge" style="font-size:11px;padding:2px 7px">${lp}/${totalW}</span>`:'';
+    const sessLabel=S.sfSession==='all'?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:6px">${dayLabel(primary.sessionDay)||''} &middot; ${shortDate(primary.sessionDate)}</div>`:'';
+    const riderRows=group.map((e,i)=>{
+      const assignedBikes=getAssignedBikes(e);
+      const bikeInfo=assignedBikes.length?assignedBikes.map(b=>b.name).join(', '):'';
+      const isHouse=e.paid&&(e.price??DEFAULT_PRICE)===0;
+      const payTag=isHouse?`<span style="font-size:12px">🏠</span>`:e.paid?`<span style="font-size:12px;font-weight:800;color:var(--green)">✓</span>`:`<span style="font-size:12px;font-weight:800;color:var(--muted)">⏳</span>`;
+      return`<div style="padding:6px 0;${i>0?'border-top:1px solid rgba(255,255,255,.05)':''}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div style="display:flex;align-items:center;gap:6px;min-width:0">
+            ${n>1?`<span style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;background:var(--green);color:#000;font-size:9px;font-weight:900;flex-shrink:0">${i+1}</span>`:''}
+            <span style="font-weight:800;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px">${esc(e.name)}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${statusBadge(e.status)}${payTag}</div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;${n>1?'padding-left:22px':''}">
+          ${e.size} &middot; ${typeLabel(e.typePreference)}${bikeInfo?` &middot; <span style="color:var(--muted-l)">${esc(bikeInfo)}</span>`:''}
+        </div>
+      </div>`;
+    }).join('');
+    const actionsHtml=group.map((e,i)=>`<div style="${n>1&&i>0?'border-top:1px solid rgba(255,255,255,.05);padding-top:6px;margin-top:2px':''}">
+      ${n>1?`<div style="font-size:10px;color:var(--muted);font-weight:700;margin-bottom:4px">${esc(e.name)}</div>`:''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap">${_entryActions(e)}</div>
+    </div>`).join('');
+    return`<div class="q-card${groupCls?' '+groupCls:''}" style="${n>1?'border-left:2px solid rgba(3,255,137,.25)':''}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:${sessLabel?'4':'6'}px">
+        <span class="queue-num-cell" style="font-size:22px">${qNumDisplay}</span>
+        ${n>1?`<span style="font-size:10px;color:var(--green);font-weight:800">${n} ${t('bike')||'Bikes'}</span>`:''}
+        ${posTag}
+      </div>
+      ${sessLabel}
+      <div>${riderRows}</div>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">${actionsHtml}</div>
+    </div>`;
+  }
+
   // ── Common header HTML (used in both early-return and full render) ──
   const _queueHeader=`
     <div class="section-header">
@@ -4712,8 +4781,57 @@ function renderStaffQueue(){
       </div>`;
   })();
 
+  // ── Session dashboard (single-session view only) ──
+  const _sessionDashboard=(()=>{
+    if(S.sfSession==='all')return'';
+    const sess=allSessions().find(s=>s.id===S.sfSession);
+    if(!sess)return'';
+    const q=getQueue().filter(e=>e.sessionId===S.sfSession&&e.status!=='removed'&&e.status!=='cancelled');
+    const sWait=q.filter(e=>e.status==='waiting').length;
+    const sActive=q.filter(e=>e.status==='active').length;
+    const sDone=q.filter(e=>e.status==='done').length;
+    const sPaid=q.filter(e=>e.status==='done'&&e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
+    const sPend=q.filter(e=>!e.paid&&['done','active','waiting'].includes(e.status)).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
+    const cap=sess.capacity||12;
+    const fillPct=Math.round(Math.min((sWait+sActive+sDone)/cap*100,100));
+    const fillClr=fillPct>=90?'var(--red)':fillPct>=70?'#e08828':'var(--green)';
+    return`<div class="sess-dashboard">
+      <div class="sess-dash-header">
+        <div style="font-weight:900;font-size:15px">${dayLabel(sess.day)} &nbsp;&middot;&nbsp; ${shortDate(sess.session_date||sess.id)}</div>
+        <div style="font-size:12px;color:var(--muted);font-weight:600">${sessionTime(sess)}</div>
+      </div>
+      <div class="sess-dash-stats">
+        <div class="sess-dash-chip" style="border-color:rgba(3,255,137,.2)">
+          <div class="sess-dash-num" style="color:var(--green)">${sWait}</div>
+          <div class="sess-dash-lbl">${t('waitingStat')}</div>
+        </div>
+        <div class="sess-dash-chip">
+          <div class="sess-dash-num">${sActive}</div>
+          <div class="sess-dash-lbl">${t('onBikeStat')}</div>
+        </div>
+        <div class="sess-dash-chip">
+          <div class="sess-dash-num" style="color:var(--muted)">${sDone}</div>
+          <div class="sess-dash-lbl">${t('doneStat')}</div>
+        </div>
+        <div class="sess-dash-chip" style="border-color:rgba(3,255,137,.15)">
+          <div class="sess-dash-num" style="color:var(--green);font-size:${sPaid>=1000?'14':sPaid>=100?'16':'20'}px">SAR&nbsp;${sPaid}</div>
+          <div class="sess-dash-lbl">${t('paidLabel')}</div>
+        </div>
+        <div class="sess-dash-chip" style="border-color:rgba(224,136,40,.2)">
+          <div class="sess-dash-num" style="color:#e08828;font-size:${sPend>=1000?'14':sPend>=100?'16':'20'}px">SAR&nbsp;${sPend}</div>
+          <div class="sess-dash-lbl">${t('pendingLabel')}</div>
+        </div>
+      </div>
+      <div style="height:4px;background:rgba(255,255,255,.07);border-radius:4px;overflow:hidden;margin-top:12px">
+        <div style="height:100%;width:${fillPct}%;background:${fillClr};border-radius:4px;transition:width .3s ease"></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);font-weight:700;margin-top:4px">${fillPct}% &nbsp;&middot;&nbsp; ${sWait+sActive+sDone} / ${cap} ${t('resultRiders')||'riders'}</div>
+    </div>`;
+  })();
+
   // ── Build rows: group by session for All Sessions, flat for single session ──
   let rows,emptyRow='';
+  let mobileCards='';
   if(S.sfSession==='all'){
     const orderedSessions=[...allSessions()].sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
     rows=orderedSessions.map(sess=>{
@@ -4733,11 +4851,21 @@ function renderStaffQueue(){
       return hdr+buildQueueGroups(sessFiltered).map(g=>renderGroupRow(g)).join('');
     }).join('');
     if(!filtered.length)emptyRow=`<tr><td colspan="13"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`;
+    // Mobile cards
+    mobileCards=orderedSessions.map(sess=>{
+      const sessFiltered=filtered.filter(e=>e.sessionId===sess.id);
+      if(!sessFiltered.length)return'';
+      const hdr=`<div style="font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:6px 0 4px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:8px">${dayLabel(sess.day)} &middot; ${shortDate(sess.session_date||sess.id)} &middot; ${sessionTime(sess)}</div>`;
+      return hdr+buildQueueGroups(sessFiltered).map(g=>renderGroupCard(g)).join('');
+    }).join('');
+    if(!filtered.length)mobileCards=`<div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div>`;
   }else{
     rows=buildQueueGroups(filtered).map(g=>renderGroupRow(g)).join('');
     emptyRow=filtered.length===0?`<tr><td colspan="13"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`:'';
+    mobileCards=buildQueueGroups(filtered).map(g=>renderGroupCard(g)).join('');
+    if(!filtered.length)mobileCards=`<div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div>`;
   }
-  document.getElementById('tab-queue').innerHTML=_queueHeader+_sessSummaryBar+`
+  document.getElementById('tab-queue').innerHTML=_queueHeader+_sessSummaryBar+_sessionDashboard+`
     <div class="stats-row">
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('totalStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWait}</div><div class="stat-label">${t('waitingStat')}</div></div>
@@ -4783,7 +4911,8 @@ function renderStaffQueue(){
       </div>
       ${filtered.length!==base.length?`<div class="result-count">${filtered.length} ${t('resultOf')} ${base.length} ${t('resultRiders')}</div>`:''}
     </div>
-    <div class="table-wrapper"><table class="queue-table${S.queueDensity==='compact'?' compact':''}">
+    <div class="queue-mobile-view">${mobileCards}</div>
+    <div class="table-wrapper queue-table-desktop-wrap"><table class="queue-table${S.queueDensity==='compact'?' compact':''}">
       <thead><tr>
         ${thQSort('queue',t('colBookingNum'))}
         <th style="color:var(--muted);font-size:10px;text-align:center">${t('colPosition')}</th>
@@ -5666,7 +5795,9 @@ function renderBikes(){
           &#x1F464; #${user.queueNum} ${esc(user.name)}
         </div>`
       :'';
-    return`<tr>
+    const rowBorderClr=b.status==='available'?'rgba(3,255,137,.45)':b.status==='in-use'?'rgba(74,168,248,.45)':'rgba(224,64,64,.45)';
+    const rowBg=b.status==='in-use'?'background:rgba(74,168,248,.025);':b.status==='maintenance'?'background:rgba(224,64,64,.025);opacity:.8;':'';
+    return`<tr style="border-left:3px solid ${rowBorderClr};${rowBg}">
       <td><div class="rider-name">${esc(b.name)}</div></td>
       <td style="font-weight:700;font-size:13px">${b.brand?esc(b.brand):`<span style="color:var(--muted)">—</span>`}</td>
       <td style="font-weight:700;font-size:13px">${b.model?esc(b.model):`<span style="color:var(--muted)">—</span>`}</td>
