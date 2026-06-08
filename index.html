@@ -783,6 +783,9 @@
     .pay-toggle.pending:hover{background:rgba(224,136,40,.18);border-color:rgba(224,136,40,.7);}
     .pay-toggle.house{color:#a78bfa;border-color:rgba(167,139,250,.4);background:rgba(167,139,250,.09);}
     .pay-toggle.house:hover{background:rgba(167,139,250,.18);border-color:rgba(167,139,250,.7);}
+    .pay-menu-opt{display:block;width:100%;padding:8px 12px;text-align:left;background:none;border:none;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;cursor:pointer;border-radius:7px;transition:background .1s;}
+    .pay-menu-opt:hover{background:rgba(255,255,255,.08);}
+    .pay-menu-opt.active{color:var(--green);background:rgba(3,255,137,.08);}
     .pay-label{font-size:12px;font-weight:800;white-space:nowrap;}
 
     /* ── BADGES ──────────────────────────────────────────── */
@@ -2314,12 +2317,12 @@ const S={
   // data cache (loaded from API)
   queue:[],bikes:[],customers:[],sessions:[],
   // session management form
-  showAddSession:false,newSessDate:'',newSessTime:'14:00 - 16:00',
+  showAddSession:false,newSessDate:'',newSessStartTime:'21:00',newSessEndTime:'23:00',
   newSessMode:'counts',  // 'counts' | 'fleet'
   newSessTypeSizes:{Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}},
   editSessionId:null,
   editSessAssignedIds:[],
-  editSessDate:'',editSessStatus:'closed',
+  editSessDate:'',editSessStatus:'closed',editSessStartTime:'21:00',editSessEndTime:'23:00',
   newSessAssignedIds:[],
 };
 
@@ -2433,11 +2436,17 @@ function shortDate(ds){
 }
 function longDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',timeZone:KSA_TZ});}
 function todayStr(){return new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});}
+function fmt12h(timeStr){
+  if(!timeStr)return timeStr;
+  return timeStr.replace(/(\d{1,2}):(\d{2})/g,(_,h,m)=>{
+    const hr=parseInt(h);const suf=hr>=12?'PM':'AM';const h12=hr%12||12;
+    return m==='00'?`${h12} ${suf}`:`${h12}:${m} ${suf}`;
+  });
+}
 function sessionTime(sess){
-  // Returns time string stored in bike_slots._time, or the default slot
-  if(!sess)return'09:00 - 11:00';
+  if(!sess)return fmt12h('09:00 - 11:00');
   const s=parseSlots(sess.bike_slots);
-  return(s&&s._time)||'09:00 - 11:00';
+  return fmt12h((s&&s._time)||'09:00 - 11:00');
 }
 function allSessions(){
   return S.sessions.map(s=>({...s,display:shortDate(s.session_date||s.id)}));
@@ -3121,19 +3130,16 @@ function renderRegister(){
       const accSz=heightToSize(cust.height);
       hSection=`<div class="form-group" style="margin-bottom:14px">
         <label>${t('heightLabel')}</label>
-        <div style="display:flex;align-items:center;gap:10px;padding:4px 0">
-          <div class="size-chip">${accSz}<span class="size-chip-label">${sizeLabel(accSz)}</span></div>
-          <span style="font-size:12px;color:var(--muted)">${cust.height} cm &middot; <button onclick="setCustTab('account')" style="background:none;border:none;color:var(--green);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer;padding:0">${t('changeInAccount')}</button></span>
+        <div style="padding:4px 0;font-size:13px;font-weight:700;color:var(--muted)">
+          ${cust.height} cm &middot; <button onclick="setCustTab('account')" style="background:none;border:none;color:var(--green);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer;padding:0">${t('changeInAccount')}</button>
         </div>
       </div>`;
     }else{
-      const badgeHtml=autoSz?`<div class="size-chip">${autoSz}<span class="size-chip-label">${sizeLabel(autoSz)}</span></div>`:'';
       hSection=`<div class="form-group" style="margin-bottom:14px">
         <label>${t('heightLabel')} &nbsp;<span class="label-hint">${t('heightHint')}</span></label>
         <div class="height-row">
           <input type="number" id="reg-height-${i}" placeholder="${t('heightPlaceholder')}" min="100" max="250"
             value="${esc(String(bikeH))}" oninput="onBikeHeightInput(${i},this.value)">
-          <div id="bike-size-badge-${i}">${badgeHtml}</div>
         </div>
       </div>`;
     }
@@ -3279,16 +3285,7 @@ function onBikeHeightInput(idx,value){
   S.regBikeHeights[idx]=value;
   const h=parseInt(value);
   if(!isNaN(h)&&h>=100&&h<=250){
-    const sz=heightToSize(h);
-    S.regBikeSizes[idx]=sz;
-    const badge=document.getElementById(`bike-size-badge-${idx}`);
-    if(badge)badge.innerHTML=`<div class="size-chip">${sz}<span class="size-chip-label">${sizeLabel(sz)}</span></div>`;
-    document.querySelectorAll(`[data-slot="${idx}"]`).forEach(btn=>{
-      btn.classList.toggle('active',btn.dataset.size===sz);
-    });
-  }else{
-    const badge=document.getElementById(`bike-size-badge-${idx}`);
-    if(badge)badge.innerHTML='';
+    S.regBikeSizes[idx]=heightToSize(h);
   }
 }
 
@@ -3576,7 +3573,6 @@ function renderMyRides(){
   const withIndex=chronological.map((e,i)=>({...e,orderNum:i+1}));
   // Apply filters + sort
   let displayOrder=[...withIndex];
-  if(S.myStatus!=='all') displayOrder=displayOrder.filter(e=>e.status===S.myStatus);
   const _myd=S.mySortDir;
   const _mySizeOrd={XS:0,S:1,M:2,L:3};
   displayOrder.sort((a,b)=>{
@@ -3591,9 +3587,6 @@ function renderMyRides(){
     const arrow=active?(S.mySortDir===1?'↑':'↓'):'';
     return`<th class="an-sort-th${active?' an-sort-active':''}${cls?' '+cls:''}" onclick="setMySort('${col}')">${label}${active?' '+arrow:''}</th>`;
   }
-  const myStatusOpts=['all','waiting','active','done'].map(s=>{
-    const l={all:t('filterAll'),waiting:t('filterWaiting'),active:t('filterOnBike'),done:t('filterDone')}[s];
-    return`<option value="${s}"${S.myStatus===s?' selected':''}>${l}</option>`;}).join('');
   const mySortOpts=[['date',t('colSession')],['size',t('frameSizeLabel')],['type',t('bikeTypeLabel')],['payment',t('colPayment')],['status',t('colStatus')]].map(([v,l])=>
     `<option value="${v}"${S.mySort===v?' selected':''}>${l}</option>`).join('');
   const rows=displayOrder.length?displayOrder.map(e=>{
@@ -3608,6 +3601,7 @@ function renderMyRides(){
         <span class="queue-num-cell">#${e.queueNum}</span>
         <div style="font-size:10px;color:var(--muted);margin-top:3px;font-weight:600">${t('rideHistory').split(' ')[0]} ${e.orderNum}</div>
       </td>
+      <td style="font-weight:800;font-size:13px">${esc(e.name)}</td>
       <td>
         <div style="font-weight:800;font-size:13px">${dayLabel(e.sessionDay)||''}</div>
         <div style="color:var(--muted);font-size:12px;margin-top:1px">${shortDate(e.sessionDate)}</div>
@@ -3628,20 +3622,14 @@ function renderMyRides(){
         <button class="btn-sm btn-red" onclick="showCancelReasonModal('${e.id}')">${t('cancelBooking')}</button>
       </div>`:`<span style="color:var(--muted);font-size:13px">—</span>`}</td>
     </tr>`;
-  }).join(''):`<tr><td colspan="6"><div style="padding:8px">${emptyIllustration(ILLUS_RIDES,t('noRides'))}</div></td></tr>`;
+  }).join(''):`<tr><td colspan="7"><div style="padding:8px">${emptyIllustration(ILLUS_RIDES,t('noRides'))}</div></td></tr>`;
   document.getElementById('tab-myrides').innerHTML=`
     <div class="page-title">${t('myRidesTitle')}</div>
     <div class="page-sub">${t('myRidesSub')} ${esc(cust.name)}.</div>
-    <div class="filter-bar" style="margin-top:8px">
-      <div class="filter-row">
-        <span class="filter-label">${t('filterStatus')}:</span>
-        <select class="filter-select" onchange="setMyStatus(this.value)">${myStatusOpts}</select>
-      </div>
-      ${displayOrder.length!==visible.length?`<div class="result-count">${displayOrder.length} ${t('resultOf')} ${visible.length} ${t('resultRides')}</div>`:''}
-    </div>
-    <div class="table-wrapper" style="border-radius:14px;border:1px solid rgba(255,255,255,.07)"><table class="queue-table">
+    <div class="table-wrapper" style="border-radius:14px;border:1px solid rgba(255,255,255,.07);margin-top:16px"><table class="queue-table">
       <thead><tr>
         <th>#</th>
+        <th>${t('nameLabel')}</th>
         ${thMySort('date',t('colSession'))}
         ${thMySort('size',t('frameSizeLabel'))}
         ${thMySort('type',t('bikeTypeLabel'))}
@@ -3668,9 +3656,8 @@ function renderAccount(){
   const ccOpts=COUNTRY_CODES.map(([code,iso])=>
     `<option value="${code}"${accCC===code?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
   const accH=cust.height||'';
-  const accSz=accH?heightToSize(accH):null;
-  const sizeDisplay=accSz
-    ?`<div class="size-chip">${accSz}<span class="size-chip-label">${sizeLabel(accSz)}</span></div>`:'';
+  const accSz=null;
+  const sizeDisplay='';
   // Compute ride stats from local queue data
   const myEntries=getQueue().filter(e=>e.customerId===cust.id);
   const myDone=myEntries.filter(e=>e.status==='done');
@@ -3739,17 +3726,7 @@ function renderAccount(){
     </div>`;
 }
 
-function refreshAccSizeBadge(){
-  const h=parseInt(document.getElementById('acc-height')?.value||'');
-  const wrap=document.getElementById('acc-size-wrap');
-  if(!wrap)return;
-  if(!isNaN(h)&&h>=100&&h<=250){
-    const sz=heightToSize(h);
-    wrap.innerHTML=`<div class="size-chip">${sz}<span class="size-chip-label">${sizeLabel(sz)}</span></div>`;
-  }else{
-    wrap.innerHTML='';
-  }
-}
+function refreshAccSizeBadge(){}
 
 async function saveAccount(){
   const cust=S.loggedIn||getSession();
@@ -3831,6 +3808,9 @@ function startEditSession(id){
   S.showAddSession=false;
   // Load existing assigned bikes from bike_slots
   const slots=parseSlots(sess.bike_slots);
+  const existingTime=(slots&&slots._time)||'21:00 - 23:00';
+  S.editSessStartTime=existingTime.split(/\s*-\s*/)[0]||'21:00';
+  S.editSessEndTime=existingTime.split(/\s*-\s*/)[1]||'23:00';
   const fmt=slotsFormat(slots);
   if(fmt==='ids'&&slots._bikes){
     S.editSessAssignedIds=[...slots._bikes];
@@ -3909,9 +3889,9 @@ function renderSessions(){
         <div class="form-group">
           <label>${t('timeLabel')}</label>
           <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-            <input type="time" id="ns-start" value="14:00" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
+            <input type="time" id="ns-start" value="${S.newSessStartTime||'21:00'}" oninput="S.newSessStartTime=this.value" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
             <span style="color:var(--muted);font-weight:700">-</span>
-            <input type="time" id="ns-end" value="16:00" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
+            <input type="time" id="ns-end" value="${S.newSessEndTime||'23:00'}" oninput="S.newSessEndTime=this.value" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
           </div>
         </div>
       </div>
@@ -4014,9 +3994,9 @@ function renderSessions(){
         <div class="form-group">
           <label>${t('timeLabel')}</label>
           <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-            <input type="time" id="es-start" value="${(()=>{const sl=parseSlots(editSess.bike_slots);const t=(sl&&sl._time)||'09:00 - 11:00';return t.split(/\s*-\s*/)[0]||'09:00';})()}" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
+            <input type="time" id="es-start" value="${S.editSessStartTime||'21:00'}" oninput="S.editSessStartTime=this.value" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
             <span style="color:var(--muted);font-weight:700">-</span>
-            <input type="time" id="es-end" value="${(()=>{const sl=parseSlots(editSess.bike_slots);const t=(sl&&sl._time)||'09:00 - 11:00';return t.split(/\s*-\s*/)[1]||'11:00';})()}" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
+            <input type="time" id="es-end" value="${S.editSessEndTime||'23:00'}" oninput="S.editSessEndTime=this.value" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
           </div>
         </div>
       </div>
@@ -4173,8 +4153,8 @@ async function saveSessionEdit(){
   const allBk=getBikes();
   const typeCounts={};
   assignedIds.forEach(id=>{const b=allBk.find(x=>x.id===id);if(b)typeCounts[b.type]=(typeCounts[b.type]||0)+1;});
-  const esStart=document.getElementById('es-start')?.value||'09:00';
-  const esEnd=document.getElementById('es-end')?.value||'11:00';
+  const esStart=S.editSessStartTime||document.getElementById('es-start')?.value||'21:00';
+  const esEnd=S.editSessEndTime||document.getElementById('es-end')?.value||'23:00';
   const slots={_bikes:assignedIds,...typeCounts,_time:`${esStart} - ${esEnd}`};
   const total=assignedIds.length;
   const newStatus=S.editSessStatus||sess.status;
@@ -4275,7 +4255,7 @@ async function addSession(){
       throw error;
     }
     await loadData();
-    S.showAddSession=false;S.newSessDate='';S.newSessAssignedIds=[];S.newSessTime='09:00 - 11:00';
+    S.showAddSession=false;S.newSessDate='';S.newSessAssignedIds=[];S.newSessStartTime='21:00';S.newSessEndTime='23:00';
     S.newSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
     toast(`${shortDate(date)} - ${t('toastSessionReady')}`);
     renderSessions();
@@ -4464,7 +4444,7 @@ function renderStaffQueue(){
       <td style="font-weight:800;white-space:nowrap">SAR ${e.price||DEFAULT_PRICE}</td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-          <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}')">
+          <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
             ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
           </button>
           <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">✏️</button>
@@ -4545,7 +4525,7 @@ function renderStaffQueue(){
           <td rowspan="${n}" style="vertical-align:middle">${priceSpan}</td>
           <td style="vertical-align:middle" onclick="event.stopPropagation()">
             <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-              <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}')">
+              <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
                 ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
               </button>
               <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">✏️</button>
@@ -4565,7 +4545,7 @@ function renderStaffQueue(){
           <td style="vertical-align:middle"><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
           <td style="vertical-align:middle" onclick="event.stopPropagation()">
             <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-              <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}')">
+              <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
                 ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
               </button>
               <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">✏️</button>
@@ -4777,6 +4757,29 @@ async function staffShowResetCode(){
   </div>`;
 }
 
+function showPayMenu(id,evt){
+  document.querySelectorAll('.pay-menu-popup').forEach(m=>m.remove());
+  const entry=getQueue().find(e=>e.id===id);
+  if(!entry)return;
+  const isHouse=entry.paid&&(entry.price||DEFAULT_PRICE)===0;
+  const opts=[
+    {label:`⏳ ${t('pendingLabel')}`,mode:'pending',active:!entry.paid},
+    {label:`✓ ${t('paidLabel')}`,mode:'paid',active:entry.paid&&!isHouse},
+    {label:`🏠 ${t('onTheHouseLabel')} · SAR 0`,mode:'house',active:isHouse},
+  ];
+  const menu=document.createElement('div');
+  menu.className='pay-menu-popup';
+  menu.style.cssText='position:fixed;z-index:9001;background:#1c1c1c;border:1.5px solid rgba(255,255,255,.15);border-radius:10px;padding:5px;min-width:200px;box-shadow:0 6px 24px rgba(0,0,0,.6)';
+  menu.innerHTML=opts.map(o=>`<button class="pay-menu-opt${o.active?' active':''}" onclick="togglePayment('${id}','${o.mode}');document.querySelectorAll('.pay-menu-popup').forEach(m=>m.remove())">${o.label}</button>`).join('');
+  document.body.appendChild(menu);
+  const r=evt.currentTarget.getBoundingClientRect();
+  const mh=menu.offsetHeight||100;
+  const top=(r.bottom+4+mh>window.innerHeight)?r.top-mh-4:r.bottom+4;
+  menu.style.left=Math.min(r.left,window.innerWidth-210)+'px';
+  menu.style.top=top+'px';
+  evt.stopPropagation();
+  setTimeout(()=>{document.addEventListener('click',function close(e){if(!menu.contains(e.target)){menu.remove();document.removeEventListener('click',close);}});},0);
+}
 async function togglePayment(id,mode){
   const entry=getQueue().find(e=>e.id===id);
   if(!entry)return;
@@ -5842,7 +5845,7 @@ function renderHistory(){
         <div onclick="event.stopPropagation()" style="display:flex;flex-direction:column;align-items:flex-start;gap:6px">
           <span style="font-weight:900;font-size:15px;color:${payColor}">SAR ${e.price||DEFAULT_PRICE}</span>
           <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-            <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}')">
+            <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
               ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
             </button>
             <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">✏️</button>
