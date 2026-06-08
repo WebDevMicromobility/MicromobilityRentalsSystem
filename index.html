@@ -3389,12 +3389,13 @@ async function submitReg(){
   try{
     const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
     const baseQNum=nextQNum(S.selSession);
+    // All bikes in one booking share the same queue number
     const entries=Array.from({length:qty},(_,i)=>({
       id:uid(),name:riderNames[i],email,phone,
       size:S.regBikeSizes[i]||heightToSize(heights[i]),height:heights[i]||null,
       typePreference:S.regBikeTypes[i],paid:false,
       assignedBikeId:null,sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
-      queueNum:baseQNum+i,status:'waiting',registeredAt:new Date().toISOString(),walkIn:false,
+      queueNum:baseQNum,status:'waiting',registeredAt:new Date().toISOString(),walkIn:false,
       customerId:cust.id,price:priceForType(S.regBikeTypes[i])
     }));
     await Promise.all(entries.map(e=>sb.from('queue_entries').insert(entryToDB(e))));
@@ -3410,7 +3411,7 @@ async function submitReg(){
     await loadData();
     S.lastTickets=entries;S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
     S.regQty=1;S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regRiderNames=[];S._alreadyBookedSession=null;
-    toast(qty>1?`${t('toastRegisteredRange')} #${baseQNum}-#${baseQNum+qty-1}`:`${t('toastRegistered')} #${baseQNum}`);
+    toast(`${t('toastRegistered')} #${baseQNum}${qty>1?` (${qty} ${t('bike')||'bikes'})`:''}`);
     renderRegister();
     showBoothPopup();
   }finally{
@@ -3464,7 +3465,8 @@ async function submitModifyBooking(){
     const extra=newQty-existing.length;
     // Check spots available for new additions
     // No capacity cap — only admin can block by marking session full
-    let baseQNum=nextQNum(S.selSession);
+    // New entries share the existing booking's queue number
+    const sharedQNum=existing[0].queueNum;
     for(let i=existing.length;i<newQty;i++){
       const modRiderName=i===0?cust.name:(S.regRiderNames[i]||cust.name).trim();
       const modHeight=parseInt(S.regBikeHeights[i])||null;
@@ -3473,7 +3475,7 @@ async function submitModifyBooking(){
         size:S.regBikeSizes[i],height:modHeight,typePreference:S.regBikeTypes[i],
         paid:false,assignedBikeId:null,
         sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
-        queueNum:baseQNum+addedEntries.length,status:'waiting',
+        queueNum:sharedQNum,status:'waiting',
         registeredAt:new Date().toISOString(),walkIn:false,
         customerId:cust.id,price:priceForType(S.regBikeTypes[i])
       };
@@ -4288,7 +4290,7 @@ function renderStaffQueue(){
   }
   const waitingBase=base.filter(e=>e.status==='waiting').sort((a,b)=>a.queueNum-b.queueNum);
   const nextRider=waitingBase[0];
-  const totalWaiting=waitingBase.length;
+  const totalWaiting=new Set(waitingBase.map(e=>`${e.sessionId}:${e.queueNum}`)).size;
   const nextUp=nextRider?`<div class="next-up-banner">
     <div>
       <div class="next-up-label">${t('nextUpLabel')} &nbsp;<span style="font-size:12px;color:var(--muted);font-weight:600">${totalWaiting} ${t('inLine')}</span></div>
@@ -4311,10 +4313,24 @@ function renderStaffQueue(){
   const livePosMap={};
   const allWaiting=getQueue().filter(e=>e.status==='waiting').sort((a,b)=>a.sessionId.localeCompare(b.sessionId)||a.queueNum-b.queueNum);
   const sessPosCounter={};
-  allWaiting.forEach(e=>{sessPosCounter[e.sessionId]=(sessPosCounter[e.sessionId]||0)+1;livePosMap[e.id]=sessPosCounter[e.sessionId];});
-  // Total waiting per session (for "X of Y" label)
+  const seenBookings=new Set();
+  allWaiting.forEach(e=>{
+    const key=`${e.sessionId}:${e.queueNum}`;
+    if(!seenBookings.has(key)){
+      seenBookings.add(key);
+      sessPosCounter[e.sessionId]=(sessPosCounter[e.sessionId]||0)+1;
+    }
+    livePosMap[e.id]=sessPosCounter[e.sessionId]||0;
+  });
+  // Total waiting per session (unique booking numbers only)
   const sessWaitCount={};
-  allWaiting.forEach(e=>{sessWaitCount[e.sessionId]=(sessWaitCount[e.sessionId]||0)+1;});
+  allWaiting.forEach(e=>{
+    const key=`${e.sessionId}:${e.queueNum}`;
+    if(!sessWaitCount[`_seen_${key}`]){
+      sessWaitCount[`_seen_${key}`]=true;
+      sessWaitCount[e.sessionId]=(sessWaitCount[e.sessionId]||0)+1;
+    }
+  });
 
   // Group entries belonging to the same multi-bike booking (same customerId + sessionId)
   function buildQueueGroups(entries){
