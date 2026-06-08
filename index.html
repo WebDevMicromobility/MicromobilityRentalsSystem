@@ -2590,11 +2590,11 @@ function renderAuthModal(){
         </label>
         <input id="a-pwd" type="password" placeholder="${t('authPassword')}">
       </div>
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:16px;margin-top:4px;user-select:none" onclick="S.rememberMe=!S.rememberMe;renderAuthModal()">
-        <div style="width:20px;height:20px;border-radius:5px;border:2px solid ${S.rememberMe?'var(--green)':'rgba(255,255,255,.2)'};background:${S.rememberMe?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .18s">
+      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:16px;margin-top:4px;user-select:none" onclick="toggleRememberMe()">
+        <div id="rm-box" style="width:20px;height:20px;border-radius:5px;border:2px solid ${S.rememberMe?'var(--green)':'rgba(255,255,255,.2)'};background:${S.rememberMe?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .18s">
           ${S.rememberMe?`<svg width="12" height="9" viewBox="0 0 12 9" fill="none"><path d="M1 4l3.5 3.5L11 1" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`:''}
         </div>
-        <span style="font-size:13px;font-weight:600;color:${S.rememberMe?'var(--text)':'var(--muted-l)'}">${t('rememberMe')||'Remember me'}</span>
+        <span id="rm-lbl" style="font-size:13px;font-weight:600;color:${S.rememberMe?'var(--text)':'var(--muted-l)'}">${t('rememberMe')||'Remember me'}</span>
       </label>
       <button class="btn-primary auth-submit" onclick="doLogin()">${t('authLoginBtn')}</button>`;
   } else {
@@ -2646,6 +2646,16 @@ function renderAuthModal(){
 }
 
 function switchAuthMode(mode){S.authMode=mode;if(mode!=='forgot'){S.forgotStep=1;S.forgotEmail='';}renderAuthModal();}
+function toggleRememberMe(){
+  S.rememberMe=!S.rememberMe;
+  const box=document.getElementById('rm-box');
+  const lbl=document.getElementById('rm-lbl');
+  if(!box)return;
+  box.style.borderColor=S.rememberMe?'var(--green)':'rgba(255,255,255,.2)';
+  box.style.background=S.rememberMe?'var(--green)':'transparent';
+  box.innerHTML=S.rememberMe?`<svg width="12" height="9" viewBox="0 0 12 9" fill="none"><path d="M1 4l3.5 3.5L11 1" stroke="#000" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`:'';
+  if(lbl)lbl.style.color=S.rememberMe?'var(--text)':'var(--muted-l)';
+}
 
 async function doForgotStep1(){
   const email=(document.getElementById('a-forgot-email')?.value||'').trim().toLowerCase();
