@@ -4282,28 +4282,56 @@ function renderStaffQueue(){
   const sessWaitCount={};
   allWaiting.forEach(e=>{sessWaitCount[e.sessionId]=(sessWaitCount[e.sessionId]||0)+1;});
 
+  // Group entries belonging to the same multi-bike booking (same customerId + sessionId)
+  function buildQueueGroups(entries){
+    const groups=[],handled=new Set();
+    for(const e of entries){
+      if(handled.has(e.id))continue;
+      if(!e.customerId){groups.push([e]);handled.add(e.id);continue;}
+      const siblings=entries
+        .filter(x=>!handled.has(x.id)&&x.customerId===e.customerId&&x.sessionId===e.sessionId)
+        .sort((a,b)=>a.queueNum-b.queueNum);
+      siblings.forEach(x=>handled.add(x.id));
+      groups.push(siblings);
+    }
+    return groups;
+  }
+
+  function _contactCell(phone){
+    if(!phone)return'<span style="color:var(--muted)">—</span>';
+    return`<div style="display:flex;gap:5px;align-items:center">
+      <a href="tel:${esc(phone)}" title="${t('callLabel')||'Call'}" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);text-decoration:none;transition:all .18s" onmouseover="this.style.background='rgba(3,255,137,.22)'" onmouseout="this.style.background='rgba(3,255,137,.1)'">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13.1a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      </a>
+      <a href="https://wa.me/${phone.replace(/\D/g,'')}" target="_blank" rel="noopener" title="WhatsApp" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);text-decoration:none;transition:all .18s" onmouseover="this.style.background='rgba(3,255,137,.22)'" onmouseout="this.style.background='rgba(3,255,137,.1)'">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+      </a>
+    </div>`;
+  }
+
+  function _entryActions(e){
+    if(e.status==='waiting')return`<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="doNoShow('${e.id}')">${t('noShowBtn')}</button>`;
+    if(e.status==='active')return`<button class="btn-sm btn-green" onclick="openModal('${e.id}')" title="Add/change bikes">+&#x1F6B4;</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button>`;
+    if(e.status==='done')return`<button class="btn-sm btn-blue" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
+    return`<button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
+  }
+
   function renderQRow(e){
-    const assignedBikes=getAssignedBikes(e); // array in order
-    const bike=assignedBikes[0]||null;       // primary bike (backward compat)
+    const assignedBikes=getAssignedBikes(e);
     const rowCls=e.status==='active'?'row-active':(e.status==='done'||e.status==='noshow'||e.status==='cancelled')?'row-done':'';
     const wiTag=e.walkIn?`<span class="walk-in-badge">${t('addWalkin').replace(/^\+ /,'')}</span>`:'';
-    let actions='';
-    if(e.status==='waiting')actions=`<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="doNoShow('${e.id}')">${t('noShowBtn')}</button>`;
-    else if(e.status==='active')actions=`<button class="btn-sm btn-green" onclick="openModal('${e.id}')" title="Add/change bikes">+&#x1F6B4;</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button>`;
-    else if(e.status==='done')actions=`<button class="btn-sm btn-blue" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
-    else actions=`<button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
     const allColors=assignedBikes.flatMap(b=>b.colors&&b.colors.length?b.colors:[]);
     const colorSwatches=allColors.length?allColors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join(''):'<span style="color:var(--muted)">—</span>';
     const lp=livePosMap[e.id];
     const totalW=sessWaitCount[e.sessionId]||0;
-    // Three separate columns: row index | booking # | queue position
     const posCell=e.status==='waiting'&&lp
       ?`<div class="pos-badge" style="font-size:12px;padding:3px 8px">${lp} / ${totalW}</div>`
       :`<span style="color:var(--muted);font-size:12px">—</span>`;
+    const heightTag=e.height?`<span style="font-size:11px;color:var(--muted);font-weight:600">&nbsp;&middot;&nbsp;${e.height} cm</span>`:'';
     return`<tr class="${rowCls}">
       <td style="min-width:52px"><span class="queue-num-cell" style="font-size:${e.status!=='waiting'?'18':'22'}px">#${e.queueNum}</span></td>
       <td style="text-align:center">${posCell}</td>
-      <td><div class="rider-name">${esc(e.name)}${wiTag}</div><div class="rider-sub">${esc(fmtPhone(e.phone))||'—'}</div></td>
+      <td><div class="rider-name">${esc(e.name)}${wiTag}${heightTag}</div><div class="rider-sub">${esc(fmtPhone(e.phone))||'—'}</div></td>
       <td style="font-weight:800">${e.size}</td>
       <td>${typeBadge(e.typePreference)}</td>
       ${S.sfSession==='all'?`<td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
@@ -4321,15 +4349,82 @@ function renderStaffQueue(){
         </button>
       </td>
       <td>${statusBadge(e.status)}</td>
-      <td>${e.phone?`<div style="display:flex;gap:5px;align-items:center">
-        <a href="tel:${esc(e.phone)}" title="${t('callLabel')||'Call'}" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);text-decoration:none;transition:all .18s" onmouseover="this.style.background='rgba(3,255,137,.22)'" onmouseout="this.style.background='rgba(3,255,137,.1)'">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13.1a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-        </a>
-        <a href="https://wa.me/${e.phone.replace(/\D/g,'')}" target="_blank" rel="noopener" title="WhatsApp" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);text-decoration:none;transition:all .18s" onmouseover="this.style.background='rgba(3,255,137,.22)'" onmouseout="this.style.background='rgba(3,255,137,.1)'">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
-        </a>
-      </div>`:'<span style="color:var(--muted)">—</span>'}</td>
-      <td><div class="actions-cell">${actions}</div></td>
+      <td>${_contactCell(e.phone)}</td>
+      <td><div class="actions-cell">${_entryActions(e)}</div></td>
+    </tr>`;
+  }
+
+  function renderGroupRow(group){
+    if(group.length===1)return renderQRow(group[0]);
+    const primary=group[0];
+    const isConsec=group.every((e,i)=>i===0||e.queueNum===group[i-1].queueNum+1);
+    const qNumDisplay=isConsec
+      ?`#${primary.queueNum}&thinsp;-&thinsp;#${group[group.length-1].queueNum}`
+      :group.map(e=>`#${e.queueNum}`).join(', ');
+    const rowCls=group.some(e=>e.status==='active')?'row-active'
+      :group.every(e=>['done','noshow','cancelled'].includes(e.status))?'row-done':'';
+    const lp=livePosMap[primary.id];
+    const totalW=sessWaitCount[primary.sessionId]||0;
+    const posCell=primary.status==='waiting'&&lp
+      ?`<div class="pos-badge" style="font-size:12px;padding:3px 8px">${lp} / ${totalW}</div>`
+      :`<span style="color:var(--muted);font-size:12px">—</span>`;
+    const sep='display:flex;align-items:baseline;gap:5px;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.06)';
+    const riderLines=group.map((e,i)=>`<div style="${i>0?sep:'display:flex;align-items:baseline;gap:5px'}">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--green);color:#000;font-size:10px;font-weight:900;flex-shrink:0">${i+1}</span>
+      <span style="font-weight:700;font-size:13px">${esc(e.name)}</span>
+      ${e.height?`<span style="font-size:11px;color:var(--muted);font-weight:600;flex-shrink:0">${e.height} cm</span>`:''}
+    </div>`).join('');
+    const sizeLines=group.map((e,i)=>`<div style="font-weight:800;${i>0?'margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.06)':''}">${e.size}</div>`).join('');
+    const typeLines=group.map((e,i)=>`<div style="${i>0?'margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.06)':''}">${typeBadge(e.typePreference)}</div>`).join('');
+    const allBikes=group.flatMap(e=>getAssignedBikes(e));
+    const bikeCell=allBikes.length
+      ?allBikes.map((b,i)=>`<div style="display:flex;align-items:center;gap:5px;${i>0?'margin-top:3px':''}">
+          <span style="font-size:9px;font-weight:900;color:var(--muted);min-width:12px">${i+1}.</span>
+          <span style="font-weight:700;font-size:13px">${esc(b.name)}</span>
+        </div>`).join('')
+      :'<span style="color:var(--muted)">—</span>';
+    const allColors=allBikes.flatMap(b=>b.colors&&b.colors.length?b.colors:[]);
+    const colorSwatches=allColors.length
+      ?allColors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('')
+      :'<span style="color:var(--muted)">—</span>';
+    const totalPrice=group.reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
+    const paidCount=group.filter(e=>e.paid).length;
+    const payToggles=group.map((e,i)=>`<div style="display:flex;align-items:center;gap:5px;${i>0?'margin-top:4px':''}">
+      <span style="font-size:10px;color:var(--muted);font-weight:700;flex-shrink:0">#${e.queueNum}</span>
+      <button class="pay-toggle ${e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}',${!e.paid})">
+        ${e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+      </button>
+    </div>`).join('');
+    const statusBadges=group.map((e,i)=>`<div style="${i>0?'margin-top:4px':''}">
+      <span style="font-size:10px;color:var(--muted);font-weight:700">#${e.queueNum}</span>&nbsp;${statusBadge(e.status)}
+    </div>`).join('');
+    const actionsPerRider=group.map((e,i)=>`<div style="${i>0?'margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.06)':''}">
+      <div style="font-size:10px;color:var(--green);font-weight:800;margin-bottom:3px">#${e.queueNum} ${esc(e.name)}</div>
+      <div class="actions-cell">${_entryActions(e)}</div>
+    </div>`).join('');
+    return`<tr class="${rowCls}">
+      <td style="min-width:52px;vertical-align:top;padding-top:10px">
+        <span class="queue-num-cell" style="font-size:15px;line-height:1.25">${qNumDisplay}</span>
+        <div style="font-size:10px;color:var(--green);font-weight:800;margin-top:3px">${group.length} ${t('bike')||'Bikes'}</div>
+      </td>
+      <td style="text-align:center;vertical-align:top;padding-top:10px">${posCell}</td>
+      <td style="vertical-align:top">
+        ${riderLines}
+        <div class="rider-sub" style="margin-top:5px">${esc(fmtPhone(primary.phone))||'—'}</div>
+      </td>
+      <td style="vertical-align:top">${sizeLines}</td>
+      <td style="vertical-align:top">${typeLines}</td>
+      ${S.sfSession==='all'?`<td class="hide-mobile" style="vertical-align:top">${dayLabel(primary.sessionDay)||''} ${shortDate(primary.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
+      <td style="vertical-align:top">${bikeCell}</td>
+      <td style="vertical-align:top"><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
+      <td style="vertical-align:top;white-space:nowrap">
+        <span style="font-weight:800">SAR ${totalPrice}</span>
+        <div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${paidCount}/${group.length} ${t('paidLabel')}</div>
+      </td>
+      <td style="vertical-align:top" onclick="event.stopPropagation()">${payToggles}</td>
+      <td style="vertical-align:top">${statusBadges}</td>
+      <td style="vertical-align:top">${_contactCell(primary.phone)}</td>
+      <td style="vertical-align:top"><div>${actionsPerRider}</div></td>
     </tr>`;
   }
 
@@ -4427,11 +4522,11 @@ function renderStaffQueue(){
         ${nD?` &middot; <span style="color:var(--muted)">${nD} ${t('doneStat').toLowerCase()}</span>`:''}
         &nbsp;<span class="badge-${sess.status}" style="margin-left:8px">${{open:t('statusOpen'),closed:t('statusClosed'),full:t('statusFull')}[sess.status]||sess.status}</span>
       </td></tr>`;
-      return hdr+sessFiltered.map(e=>renderQRow(e)).join('');
+      return hdr+buildQueueGroups(sessFiltered).map(g=>renderGroupRow(g)).join('');
     }).join('');
     if(!filtered.length)emptyRow=`<tr><td colspan="13"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`;
   }else{
-    rows=filtered.map(e=>renderQRow(e)).join('');
+    rows=buildQueueGroups(filtered).map(g=>renderGroupRow(g)).join('');
     emptyRow=filtered.length===0?`<tr><td colspan="13"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`:'';
   }
   document.getElementById('tab-queue').innerHTML=_queueHeader+_sessSummaryBar+`
