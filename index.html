@@ -5103,14 +5103,12 @@ function renderBikes(){
           &#x1F464; #${user.queueNum} ${esc(user.name)}
         </div>`
       :'';
-    const brandModel=[b.brand,b.model].filter(Boolean).join(' ');
-    const specsLine=[b.groupset,b.speeds?`${b.speeds}-speed`:null].filter(Boolean).join(' · ');
     return`<tr>
-      <td>
-        <div class="rider-name">${esc(b.name)}</div>
-        ${brandModel?`<div style="font-size:11px;color:var(--muted-l);font-weight:600;margin-top:2px">${esc(brandModel)}</div>`:''}
-        ${specsLine?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">${esc(specsLine)}</div>`:''}
-      </td>
+      <td><div class="rider-name">${esc(b.name)}</div></td>
+      <td style="font-weight:700;font-size:13px">${b.brand?esc(b.brand):`<span style="color:var(--muted)">—</span>`}</td>
+      <td style="font-weight:700;font-size:13px">${b.model?esc(b.model):`<span style="color:var(--muted)">—</span>`}</td>
+      <td style="font-weight:700;font-size:13px">${b.groupset?esc(b.groupset):`<span style="color:var(--muted)">—</span>`}</td>
+      <td style="font-weight:700;font-size:13px;text-align:center">${b.speeds?`${b.speeds}`:`<span style="color:var(--muted)">—</span>`}</td>
       <td>${typeBadge(b.type)}</td>
       <td style="font-weight:800">${b.size}</td>
       <td><div style="display:flex;gap:4px;align-items:center">${colorSwatches}</div></td>
@@ -5146,7 +5144,7 @@ function renderBikes(){
     const tyMaint=all.filter(b=>b.status==='maintenance').length;
     const rows=typeBikes.length
       ?typeBikes.map(renderBikeRow).join('')
-      :`<tr><td colspan="6" style="padding:16px 0">${emptyIllustration(ILLUS_BIKE_OK,t('noBikes'))}</td></tr>`;
+      :`<tr><td colspan="10" style="padding:16px 0">${emptyIllustration(ILLUS_BIKE_OK,t('noBikes'))}</td></tr>`;
     return`<div style="margin-bottom:28px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:10px">
@@ -5169,6 +5167,10 @@ function renderBikes(){
       <div class="table-wrapper"><table class="queue-table">
         <thead><tr>
           <th>${t('bikeNameLabel')}</th>
+          <th>${t('bikeBrand')}</th>
+          <th>${t('bikeModel')}</th>
+          <th>${t('bikeGroupset')}</th>
+          <th>${t('bikeSpeeds')}</th>
           <th>${t('bikeTypeLabel')}</th>
           <th>${t('frameSizeLabel')}</th>
           <th>${t('colColor')}</th>
