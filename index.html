@@ -5255,8 +5255,8 @@ function renderModal(){
     const aFleet=inFleet(a)?0:1,bFleet=inFleet(b)?0:1;
     return aFree-bFree||aSz-bSz||aFleet-bFleet||a.name.localeCompare(b.name);
   });
-  const prefBikes=sortBikes(allBikes.filter(b=>b.type===prefType));
-  const otherBikes=sortBikes(allBikes.filter(b=>b.type!==prefType));
+  const prefBikes=sortBikes(prefType==='Any'?allBikes:allBikes.filter(b=>b.type===prefType));
+  const otherBikes=prefType==='Any'?[]:sortBikes(allBikes.filter(b=>b.type!==prefType));
   const otherAvail=otherBikes.filter(b=>b.status==='available').length;
 
   const thS='padding:7px 14px;text-align:left;font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,.08)';
