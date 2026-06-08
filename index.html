@@ -2357,7 +2357,7 @@ function entryFromDB(e){
 }
 function entryToDB(e){
   return{id:e.id,name:e.name,email:e.email||'',phone:e.phone||'',
-    size:e.size,height:e.height||null,type_preference:e.typePreference,paid:e.paid,price:e.price||30,
+    size:e.size,height:e.height||null,type_preference:e.typePreference,paid:e.paid,price:e.price??30,
     assigned_bike_id:e.assignedBikeId||null,session_id:e.sessionId,
     session_day:e.sessionDay,session_date:e.sessionDate,
     queue_num:e.queueNum,status:e.status,registered_at:e.registeredAt,
@@ -4398,7 +4398,7 @@ function renderStaffQueue(){
   if(S.sfSize!=='all')  filtered=filtered.filter(e=>e.size===S.sfSize);
   if(S.sfPay==='paid')  filtered=filtered.filter(e=>e.paid);
   if(S.sfPay==='pending')filtered=filtered.filter(e=>!e.paid);
-  if(S.sfSearch.trim()){const q=S.sfSearch.trim().toLowerCase();filtered=filtered.filter(e=>e.name.toLowerCase().includes(q)||e.phone.includes(q));}
+  if(S.sfSearch.trim()){const q=S.sfSearch.trim().toLowerCase();filtered=filtered.filter(e=>e.name.toLowerCase().includes(q)||(e.phone||'').includes(q));}
   const sizeOrder={XS:0,S:1,M:2,L:3};
   const _sfd=S.sfSortDir;
   filtered.sort((a,b)=>{
@@ -5224,7 +5224,7 @@ async function doReopen(id){
   await loadData();toast(t('toastReopened'));
   pushUndo(`Re-open #${entry.queueNum} ${entry.name}`,async()=>{
     const calls2=[sb.from('queue_entries').update({status:'done'}).eq('id',id)];
-    if(bikeId)calls2.push(sb.from('bikes').update({status:'available'}).eq('id',bikeId));
+    bikeIds.forEach(bid=>calls2.push(sb.from('bikes').update({status:'available'}).eq('id',bid)));
     await Promise.all(calls2);
     await loadData();renderStaffQueue();
   });
@@ -5901,7 +5901,7 @@ function renderHistory(){
   if(S.histPay==='pending')filtered=filtered.filter(e=>!e.paid&&e.status==='done');
   if(S.histType!=='all')   filtered=filtered.filter(e=>e.typePreference===S.histType);
   if(S.histSize!=='all')   filtered=filtered.filter(e=>e.size===S.histSize);
-  if(S.histSearch.trim()){const q=S.histSearch.trim().toLowerCase();filtered=filtered.filter(e=>e.name.toLowerCase().includes(q)||e.phone.includes(q)||(e.email||'').toLowerCase().includes(q));}
+  if(S.histSearch.trim()){const q=S.histSearch.trim().toLowerCase();filtered=filtered.filter(e=>e.name.toLowerCase().includes(q)||(e.phone||'').includes(q)||(e.email||'').toLowerCase().includes(q));}
   const sizeOrdH={XS:0,S:1,M:2,L:3};
   const _hd=S.histSortDir;
   filtered.sort((a,b)=>{
