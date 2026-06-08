@@ -774,6 +774,8 @@
     .pay-toggle.paid:hover{background:rgba(3,255,137,.18);border-color:rgba(3,255,137,.7);}
     .pay-toggle.pending{color:var(--muted-l);border-color:rgba(255,255,255,.18);background:rgba(255,255,255,.04);}
     .pay-toggle.pending:hover{background:rgba(224,136,40,.18);border-color:rgba(224,136,40,.7);}
+    .pay-toggle.house{color:#a78bfa;border-color:rgba(167,139,250,.4);background:rgba(167,139,250,.09);}
+    .pay-toggle.house:hover{background:rgba(167,139,250,.18);border-color:rgba(167,139,250,.7);}
     .pay-label{font-size:12px;font-weight:800;white-space:nowrap;}
 
     /* ── BADGES ──────────────────────────────────────────── */
@@ -1713,6 +1715,7 @@ en:{
   toastAddedToFleet:'added to fleet.',
   toastBikeRemoved:'removed.',
   toastAssignedChecked:'assigned. Rider checked in!',toastBikeChanged:'Bike changed successfully.',changeBikeBtn:'Change Bike',
+  onTheHouseLabel:'On the house',vatInclusive:'V.A.T. Inclusive',vatExclusive:'V.A.T. Exclusive',colorNameLabel:'Color Name',
   toastWalkInAdded:'Walk-in added',
   toastRegistered:'Registered! Queue number',
   toastRegisteredRange:'Registered! Queue numbers',
@@ -1961,6 +1964,7 @@ ar:{
   toastAddedToFleet:'أُضيفت للأسطول.',
   toastBikeRemoved:'تم إزالتها.',
   toastAssignedChecked:'تم تخصيصها. دخول الراكب مسجَّل!',toastBikeChanged:'تم تغيير الدراجة بنجاح.',changeBikeBtn:'تغيير الدراجة',
+  onTheHouseLabel:'على حساب المحل',vatInclusive:'شامل الضريبة',vatExclusive:'غير شامل الضريبة',colorNameLabel:'اسم اللون',
   toastWalkInAdded:'تمت إضافة زيارة مباشرة',
   toastRegistered:'مُسجَّل! رقم الطابور',
   toastRegisteredRange:'مُسجَّل! أرقام الطابور',
@@ -2257,12 +2261,12 @@ const S={
   regBikeHeights:[], // one height string per bike slot, e.g. ['175','160']
   regBikeTypes:[],   // one type preference per bike slot, e.g. ['Road','Hybrid']
   // staff queue
-  showResetTool:false,sfStatus:'all',sfSession:'all',
+  showResetTool:false,sfStatus:'all',sfSession:'all',analyticsVAT:'inclusive',
   sfSort:'queue',sfSortDir:1,sfSearch:'',sfPay:'all',sfSize:'all',queueDensity:'comfortable',
   undoStack:[],
   // bikes
   showAddBike:false,editBikeId:null,bkTypeFilter:'all',bkSort:'name',
-  addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],_bkName:'',
+  addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],addBikeColorNames:[''],_bkName:'',
   _bkBrand:'',_bkModel:'',_bkGroupset:'',_bkSpeeds:'',
   bkStatus:'all',bkSize:'all',
   // history
@@ -2286,7 +2290,7 @@ const S={
   // data cache (loaded from API)
   queue:[],bikes:[],customers:[],sessions:[],
   // session management form
-  showAddSession:false,newSessDate:'',newSessTime:'09:00 - 11:00',
+  showAddSession:false,newSessDate:'',newSessTime:'14:00 - 16:00',
   newSessMode:'counts',  // 'counts' | 'fleet'
   newSessTypeSizes:{Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}},
   editSessionId:null,
@@ -2885,7 +2889,6 @@ function renderTopbarRight(){
     el.innerHTML=`
       <span class="view-badge staff">${t('staffBadge')}</span>
       ${last?`<button class="topbar-btn undo-btn" onclick="doUndo()" title="${esc(last.label)}" style="animation:undoPulse 2s ease-in-out infinite">&#x21B6; Undo</button>`:''}
-      <button class="topbar-btn danger" onclick="showFactoryReset()" title="Factory Reset" style="font-size:14px;padding:6px 9px">&#x267B;</button>
       <button class="topbar-btn danger" onclick="localStorage.removeItem('cq_staff');goLanding()">${t('lockBtn')}</button>`;
   } else {
     el.innerHTML='';
@@ -3851,9 +3854,9 @@ function renderSessions(){
         <div class="form-group">
           <label>${t('timeLabel')}</label>
           <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-            <input type="time" id="ns-start" value="09:00" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
+            <input type="time" id="ns-start" value="14:00" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
             <span style="color:var(--muted);font-weight:700">-</span>
-            <input type="time" id="ns-end" value="11:00" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
+            <input type="time" id="ns-end" value="16:00" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
           </div>
         </div>
       </div>
@@ -4404,8 +4407,8 @@ function renderStaffQueue(){
       <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
       <td style="font-weight:800;white-space:nowrap">SAR ${e.price||DEFAULT_PRICE}</td>
       <td onclick="event.stopPropagation()">
-        <button class="pay-toggle ${e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}',${!e.paid})">
-          ${e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+        <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}')">
+          ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
         </button>
       </td>
       <td>${statusBadge(e.status)}</td>
@@ -4418,10 +4421,13 @@ function renderStaffQueue(){
     if(group.length===1)return renderQRow(group[0]);
     const primary=group[0];
     const n=group.length;
-    const isConsec=group.every((e,i)=>i===0||e.queueNum===group[i-1].queueNum+1);
-    const qNumDisplay=isConsec
-      ?`#${primary.queueNum}&thinsp;-&thinsp;#${group[n-1].queueNum}`
-      :group.map(e=>`#${e.queueNum}`).join(', ');
+    const allSameQ=group.every(e=>e.queueNum===primary.queueNum);
+    const isConsec=!allSameQ&&group.every((e,i)=>i===0||e.queueNum===group[i-1].queueNum+1);
+    const qNumDisplay=allSameQ
+      ?`#${primary.queueNum}`
+      :isConsec
+        ?`#${primary.queueNum}&thinsp;-&thinsp;#${group[n-1].queueNum}`
+        :group.map(e=>`#${e.queueNum}`).join(', ');
     const groupCls=group.some(e=>e.status==='active')?'row-active'
       :group.every(e=>['done','noshow','cancelled'].includes(e.status))?'row-done':'';
     const lp=livePosMap[primary.id];
@@ -4429,12 +4435,14 @@ function renderStaffQueue(){
     const posCell=primary.status==='waiting'&&lp
       ?`<div class="pos-badge" style="font-size:12px;padding:3px 8px">${lp} / ${totalW}</div>`
       :`<span style="color:var(--muted);font-size:12px">—</span>`;
-    const totalPrice=group.reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
-    const paidAmt=group.filter(e=>e.paid).reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
+    const activeGroup=group.filter(e=>!['cancelled','noshow'].includes(e.status));
+    const totalPrice=activeGroup.reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
+    const paidAmt=activeGroup.filter(e=>e.paid&&(e.price||DEFAULT_PRICE)>0).reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
+    const houseAmt=activeGroup.filter(e=>e.paid&&(e.price||DEFAULT_PRICE)===0).length;
     const remaining=totalPrice-paidAmt;
-    const paidCount=group.filter(e=>e.paid).length;
+    const paidCount=activeGroup.filter(e=>e.paid&&(e.price||DEFAULT_PRICE)>0).length;
     const priceSpan=`<span style="font-weight:800;white-space:nowrap">SAR ${totalPrice}</span>
-      <div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${paidCount}/${n} ${t('paidLabel')}</div>
+      <div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${paidCount}/${activeGroup.length} ${t('paidLabel')}${houseAmt>0?` · ${houseAmt} 🏠`:''}</div>
       ${remaining>0?`<div style="font-size:11px;font-weight:800;color:#e08828;margin-top:3px">SAR ${remaining} due</div>`:'<div style="font-size:11px;font-weight:800;color:var(--green);margin-top:3px">✓ Settled</div>'}`;
 
     return group.map((e,i)=>{
@@ -4474,8 +4482,8 @@ function renderStaffQueue(){
           <td style="vertical-align:middle"><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
           <td rowspan="${n}" style="vertical-align:middle">${priceSpan}</td>
           <td style="vertical-align:middle" onclick="event.stopPropagation()">
-            <button class="pay-toggle ${e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}',${!e.paid})">
-              ${e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+            <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}')">
+              ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
             </button>
           </td>
           <td style="vertical-align:middle">${statusBadge(e.status)}</td>
@@ -4491,8 +4499,8 @@ function renderStaffQueue(){
           <td style="vertical-align:middle">${bikeNames}</td>
           <td style="vertical-align:middle"><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
           <td style="vertical-align:middle" onclick="event.stopPropagation()">
-            <button class="pay-toggle ${e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}',${!e.paid})">
-              ${e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+            <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}')">
+              ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
             </button>
           </td>
           <td style="vertical-align:middle">${statusBadge(e.status)}</td>
@@ -4701,20 +4709,30 @@ async function staffShowResetCode(){
   </div>`;
 }
 
-async function togglePayment(id,paid){
-  // Optimistic update: flip state locally and re-render immediately so button responds instantly
+async function togglePayment(id,mode){
   const entry=getQueue().find(e=>e.id===id);
   if(!entry)return;
-  entry.paid=paid;
+  const isHouse=entry.paid&&(entry.price||DEFAULT_PRICE)===0;
+  // Determine next state: explicit mode or cycle pending→paid→house→pending
+  let newPaid,newPrice;
+  if(mode==='house'){newPaid=true;newPrice=0;}
+  else if(mode===true||mode==='paid'){newPaid=true;newPrice=(entry.price||DEFAULT_PRICE)===0?priceForType(entry.typePreference):entry.price;}
+  else if(mode===false||mode==='pending'){newPaid=false;newPrice=(entry.price||DEFAULT_PRICE)===0?priceForType(entry.typePreference):entry.price;}
+  else{
+    // cycle
+    if(!entry.paid){newPaid=true;newPrice=entry.price;}
+    else if(!isHouse){newPaid=true;newPrice=0;}
+    else{newPaid=false;newPrice=priceForType(entry.typePreference);}
+  }
+  const prevPaid=entry.paid,prevPrice=entry.price;
+  entry.paid=newPaid;entry.price=newPrice;
   renderStaffQueue();renderHistory();
-  toast(paid?'✓ '+t('paidLabel'):t('pendingLabel'), paid?'':'warning');
-  // Persist to database in background, then sync
-  await sb.from('queue_entries').update({paid}).eq('id',id);
-  await loadData();
-  renderStaffQueue();renderHistory();
-  const lbl=`Payment #${entry.queueNum} ${entry.name}`;
-  pushUndo(`${paid?'Mark paid':'Mark unpaid'} - ${lbl}`,async()=>{
-    await sb.from('queue_entries').update({paid:!paid}).eq('id',id);
+  const stateLabel=newPaid&&newPrice===0?'🏠 '+t('onTheHouseLabel'):newPaid?'✓ '+t('paidLabel'):t('pendingLabel');
+  toast(stateLabel,newPaid?'':'warning');
+  await sb.from('queue_entries').update({paid:newPaid,price:newPrice}).eq('id',id);
+  await loadData();renderStaffQueue();renderHistory();
+  pushUndo(`Payment #${entry.queueNum} ${entry.name}`,async()=>{
+    await sb.from('queue_entries').update({paid:prevPaid,price:prevPrice}).eq('id',id);
     await loadData();renderStaffQueue();renderHistory();
   });
 }
@@ -5092,7 +5110,11 @@ function renderModal(){
     const sel=selIdx>=0;
     const dot=free?'dot-green':b.status==='in-use'?'dot-orange':'dot-red';
     const slbl=free?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
-    const grad=bikeGradient(b.colors||['#03ff89']);
+    const bikeColors=b.colors&&b.colors.length?b.colors:['#03ff89'];
+    const colorSwatchesModal=bikeColors.map((c,ci)=>{
+      const cn=b.colorNames&&b.colorNames[ci]?b.colorNames[ci]:'';
+      return`<span title="${esc(cn)}" style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`;
+    }).join('');
     const sizeMatch=b.size===rider.size;
     const badges=[];
     if(sizeMatch)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--green);background:rgba(3,255,137,.15);padding:2px 6px;border-radius:6px">${t('sizeMatchLabel')}</span>`);
@@ -5107,7 +5129,7 @@ function renderModal(){
         <span class="avail-dot ${dot}"></span>
         <div style="display:flex;gap:4px;flex-wrap:wrap">${badges.join('')}</div>
       </div>
-      <div style="height:5px;border-radius:3px;background:${grad};margin-bottom:8px"></div>
+      <div style="display:flex;gap:5px;align-items:center;margin-bottom:8px">${colorSwatchesModal}</div>
       <div style="font-weight:900;font-size:14px;margin-bottom:3px">${esc(b.name)}</div>
       <div style="font-size:12px;color:var(--muted)">${typeLabel(b.type)} &middot; ${t('frameSizeLabel')} ${b.size}</div>
       <div style="margin-top:6px">${typeBadge(b.type)}</div>
@@ -5256,8 +5278,8 @@ async function confirmAssign(){
    BIKES
 ══════════════════════════════════════════════ */
 function updateColorPreview(){const p=document.getElementById('color-prev');if(p)p.innerHTML=S.addBikeColors.map(c=>`<span style="display:inline-block;width:28px;height:28px;border-radius:50%;background:${c};border:2px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');}
-function addColorSlot(){if(S.addBikeColors.length>=4)return;S.addBikeColors.push('#ffffff');renderBikes();}
-function removeColor(i){if(S.addBikeColors.length<=1)return;S.addBikeColors.splice(i,1);renderBikes();}
+function addColorSlot(){if(S.addBikeColors.length>=4)return;S.addBikeColors.push('#ffffff');S.addBikeColorNames.push('');renderBikes();}
+function removeColor(i){if(S.addBikeColors.length<=1)return;S.addBikeColors.splice(i,1);S.addBikeColorNames.splice(i,1);renderBikes();}
 
 function renderBikes(){
   const bikes=getBikes();
@@ -5279,7 +5301,11 @@ function renderBikes(){
   const bkTypeBtns=['Road','Hybrid','Mountain'].map(ty=>
     `<button class="toggle-btn${S.addBikeType===ty?' active':''}" onclick="S.addBikeType='${ty}';renderBikes()">${typeLabel(ty)}</button>`).join('');
   const colorSlots=S.addBikeColors.map((c,i)=>`
-    <div class="color-slot"><input type="color" value="${c}" oninput="S.addBikeColors[${i}]=this.value;updateColorPreview()">
+    <div class="color-slot" style="display:flex;flex-direction:column;gap:4px;align-items:center">
+      <input type="color" value="${c}" oninput="S.addBikeColors[${i}]=this.value;updateColorPreview()">
+      <input type="text" placeholder="${t('colorNameLabel')}" value="${esc(S.addBikeColorNames[i]||'')}"
+        oninput="S.addBikeColorNames[${i}]=this.value"
+        style="width:72px;padding:3px 6px;background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:6px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:600;text-align:center">
       ${S.addBikeColors.length>1?`<button class="color-del" onclick="removeColor(${i})" type="button">&#x2715;</button>`:''}</div>`).join('');
   const addColorBtn=S.addBikeColors.length<4?`<button class="add-color-slot" onclick="addColorSlot()" type="button">+<br>Color</button>`:'';
   const addForm=(S.showAddBike||isEdit)?`<div class="inline-form">
@@ -5324,7 +5350,13 @@ function renderBikes(){
     const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
     const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--blue)':'var(--red)';
     const colors=b.colors&&b.colors.length?b.colors:['#03ff89'];
-    const colorSwatches=colors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');
+    const colorSwatches=colors.map((c,ci)=>{
+      const cn=b.color_names&&b.color_names[ci]?b.color_names[ci]:'';
+      return`<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
+        <span title="${esc(cn)}" style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>
+        ${cn?`<span style="font-size:9px;font-weight:700;color:var(--muted-l);white-space:nowrap;max-width:40px;overflow:hidden;text-overflow:ellipsis">${esc(cn)}</span>`:''}
+      </div>`;
+    }).join('');
     // Who is currently using this bike?
     const user=bikeUserMap[b.id];
     const userCell=user
@@ -5389,7 +5421,7 @@ function renderBikes(){
           </div>
         </div>
         <button class="btn-secondary" style="font-size:12px;padding:6px 12px"
-          onclick="S.showAddBike=true;S.addBikeType='${ty}';S.editBikeId=null;S.addBikeSize='M';S.addBikeColors=['#03ff89'];S._bkName='';renderBikes()">
+          onclick="S.showAddBike=true;S.addBikeType='${ty}';S.editBikeId=null;S.addBikeSize='M';S.addBikeColors=['#03ff89'];S.addBikeColorNames=[''];S._bkName='';renderBikes()">
           + ${typeLabel(ty)}
         </button>
       </div>
@@ -5440,7 +5472,7 @@ function renderBikes(){
   if(nameEl)nameEl.addEventListener('input',e=>S._bkName=e.target.value);
 }
 
-function _resetBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S._bkName='';S._bkBrand='';S._bkModel='';S._bkGroupset='';S._bkSpeeds='';}
+function _resetBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S.addBikeColorNames=[''];S._bkName='';S._bkBrand='';S._bkModel='';S._bkGroupset='';S._bkSpeeds='';}
 function toggleAddBike(){S._resetBikeForm?.();_resetBikeForm();S.showAddBike=true;renderBikes();}
 function cancelBikeForm(){_resetBikeForm();renderBikes();}
 function setBkFilter(v){S.bkTypeFilter=v;renderBikes();}
@@ -5455,7 +5487,8 @@ async function addBike(){
   const speeds=speedsRaw?parseInt(speedsRaw)||null:null;
   if(!name){toast(t('errBikeName'),'error');return;}
   if(!S.addBikeType){toast(t('errBikeTypeReq'),'error');return;}
-  const bike={id:uid(),name,size,type:S.addBikeType,colors:[...S.addBikeColors],status:'available',brand,model,groupset,speeds};
+  const colorNames=S.addBikeColorNames.slice(0,S.addBikeColors.length).map(n=>n||'');
+  const bike={id:uid(),name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:colorNames,status:'available',brand,model,groupset,speeds};
   await sb.from('bikes').insert(bike);
   await loadData();
   _resetBikeForm();
@@ -5470,6 +5503,7 @@ function startEdit(id){
   const bike=getBikes().find(b=>b.id===id);if(!bike)return;
   S.editBikeId=id;S.showAddBike=false;S.addBikeType=bike.type;S.addBikeSize=bike.size;
   S.addBikeColors=bike.colors&&bike.colors.length?[...bike.colors]:['#6ee89a'];
+  S.addBikeColorNames=bike.color_names&&bike.color_names.length?[...bike.color_names]:bike.colors.map(()=>'');
   S._bkName=bike.name;S._bkBrand=bike.brand||'';S._bkModel=bike.model||'';
   S._bkGroupset=bike.groupset||'';S._bkSpeeds=bike.speeds!=null?String(bike.speeds):'';
   renderBikes();
@@ -5485,9 +5519,10 @@ async function saveBikeEdit(){
   if(!name){toast(t('errBikeName'),'error');return;}
   if(!S.addBikeType){toast(t('errBikeTypeReq'),'error');return;}
   const b=getBikes();const existing=b.find(x=>x.id===S.editBikeId);if(!existing)return;
-  const prev={name:existing.name,size:existing.size,type:existing.type,colors:[...existing.colors],status:existing.status,brand:existing.brand||null,model:existing.model||null,groupset:existing.groupset||null,speeds:existing.speeds||null};
+  const editColorNames=S.addBikeColorNames.slice(0,S.addBikeColors.length).map(n=>n||'');
+  const prev={name:existing.name,size:existing.size,type:existing.type,colors:[...existing.colors],color_names:[...(existing.color_names||[])],status:existing.status,brand:existing.brand||null,model:existing.model||null,groupset:existing.groupset||null,speeds:existing.speeds||null};
   const bid=S.editBikeId;
-  await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],status:existing.status,brand,model,groupset,speeds}).eq('id',bid);
+  await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:editColorNames,status:existing.status,brand,model,groupset,speeds}).eq('id',bid);
   await loadData();
   _resetBikeForm();
   toast(t('toastBikeUpdated'));
@@ -5601,8 +5636,8 @@ function renderHistory(){
       <td>
         <div onclick="event.stopPropagation()" style="display:flex;flex-direction:column;align-items:flex-start;gap:6px">
           <span style="font-weight:900;font-size:15px;color:${payColor}">SAR ${e.price||DEFAULT_PRICE}</span>
-          <button class="pay-toggle ${e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}',${!e.paid})">
-            ${e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+          <button class="pay-toggle ${e.paid&&(e.price||DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="togglePayment('${e.id}')">
+            ${e.paid&&(e.price||DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
           </button>
         </div>
       </td>
@@ -5714,7 +5749,7 @@ function setBkSize(v){S.bkSize=v;renderBikes();}
 
 function exportHistoryCSV(){
   // Respect the currently selected session filter
-  let hist=getQueue().filter(e=>e.status==='done'||e.status==='noshow'||e.status==='cancelled'||e.status==='removed');
+  let hist=getQueue().filter(e=>(e.status==='done'||e.status==='noshow'||e.status==='cancelled'||e.status==='removed')&&e.paid);
   if(S.histSess!=='all') hist=hist.filter(e=>e.sessionId===S.histSess);
   const sess=S.histSess!=='all'?allSessions().find(s=>s.id===S.histSess):null;
   const filename=sess
@@ -5917,8 +5952,9 @@ function renderAnalytics(){
   // No early return — always render the full dashboard (values show 0 when no data)
 
   // ── Revenue ──────────────────────────────────────────
-  const revCollected=done.filter(e=>e.paid).reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
-  const revPending  =done.filter(e=>!e.paid).reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0);
+  const vatFactor=S.analyticsVAT==='exclusive'?(1/1.15):1;
+  const revCollected=done.filter(e=>e.paid).reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0)*vatFactor;
+  const revPending  =done.filter(e=>!e.paid).reduce((s,e)=>s+(e.price||DEFAULT_PRICE),0)*vatFactor;
   const revTotal    =revCollected+revPending;
   const sessionsWithDone=sessions.filter(s=>done.some(e=>e.sessionId===s.id));
   const sessionsHeld=sessionsWithDone.length;
@@ -6154,6 +6190,10 @@ function renderAnalytics(){
 
     <!-- REVENUE -->
     <div class="analytics-section-title">${t('anRevenue')}</div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="filter-pill${S.analyticsVAT==='inclusive'?' active':''}" onclick="S.analyticsVAT='inclusive';renderAnalytics()">${t('vatInclusive')}</button>
+      <button class="filter-pill${S.analyticsVAT==='exclusive'?' active':''}" onclick="S.analyticsVAT='exclusive';renderAnalytics()">${t('vatExclusive')}</button>
+    </div>
     <div class="analytics-kpi-grid">
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:var(--green)">SAR ${revCollected.toFixed(0)}</div>

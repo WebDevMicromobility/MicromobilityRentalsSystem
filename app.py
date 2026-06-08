@@ -18,12 +18,13 @@ CREATE TABLE IF NOT EXISTS customers (
 );
 
 CREATE TABLE IF NOT EXISTS bikes (
-    id     TEXT PRIMARY KEY,
-    name   TEXT NOT NULL,
-    size   TEXT NOT NULL,
-    type   TEXT NOT NULL,
-    colors TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'available'
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    size        TEXT NOT NULL,
+    type        TEXT NOT NULL,
+    colors      TEXT NOT NULL,
+    color_names TEXT,
+    status      TEXT NOT NULL DEFAULT 'available'
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
