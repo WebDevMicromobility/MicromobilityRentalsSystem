@@ -1661,6 +1661,9 @@ en:{
   errSelectSizeGeneric:'Please select a frame size.',
   errSelectTypeGeneric:'Please select a bike type.',
   errPhoneInSession:'This phone number is already registered for that session.',
+  errAlreadyBooked:'You already have a booking for this session.',
+  errAlreadyBookedSub:'Would you like to modify your existing booking instead?',
+  modifyExistingBtn:'Modify My Booking',
   modifyBanner:'You already have a booking in this session. Update your size or bike type preference below.',
   modifyBookingBtn:'Update Booking',
   toastBookingUpdated:'Your booking has been updated.',
@@ -1907,6 +1910,9 @@ ar:{
   errSelectSizeGeneric:'الرجاء اختيار مقاس الإطار.',
   errSelectTypeGeneric:'الرجاء اختيار نوع الدراجة.',
   errPhoneInSession:'رقم الهاتف مسجّل في هذه الجلسة مسبقاً.',
+  errAlreadyBooked:'لديك حجز مسبق في هذه الجلسة.',
+  errAlreadyBookedSub:'هل تريد تعديل حجزك الحالي؟',
+  modifyExistingBtn:'تعديل حجزي',
   modifyBanner:'لديك حجز قائم في هذه الجلسة. يمكنك تعديل المقاس أو نوع الدراجة أدناه.',
   modifyBookingBtn:'تعديل الحجز',
   toastBookingUpdated:'تم تحديث حجزك بنجاح.',
@@ -2244,7 +2250,7 @@ const S={
   pinDigits:'',
   pinError:false,
   // register
-  _rDate:'',selSession:null,regType:null,regQty:1,lastTickets:[],modifyEntryId:null,
+  _rDate:'',selSession:null,regType:null,regQty:1,lastTickets:[],modifyEntryId:null,regSubmitting:false,_alreadyBookedSession:null,
   regRiderNames:[],  // names for bikes 2+ (index 0 = customer's own name, auto-filled)
   _rName:'',_rEmail:'',_rPhone:'',_rCC:'+966',_rHeight:'',
   regBikeSizes:[],   // one size per bike slot, e.g. ['M','S']
@@ -2705,7 +2711,7 @@ async function doLogin(){
 function doLogout(){
   S.loggedIn=null;clearSession();
   S._rName='';S._rEmail='';S._rPhone='';S._rHeight='';
-  S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regRiderNames=[];S.regQty=1;S.regType=null;S.selSession=null;S.lastTickets=[];
+  S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regRiderNames=[];S.regQty=1;S.regType=null;S.selSession=null;S.lastTickets=[];S._alreadyBookedSession=null;S.regSubmitting=false;
   renderTopbarRight();
   goLanding();
   toast(t('toastLoggedOut'));
@@ -3222,10 +3228,26 @@ function renderRegister(){
       ${qtyStepper}
       ${bikeSections}
       <div id="price-preview-wrap" style="margin-top:16px">${pricePreview}</div>
-      ${isModifyMode
-        ?`<button class="btn-primary" style="width:100%;margin-top:16px" onclick="submitModifyBooking()">${t('modifyBookingBtn')}</button>`
-        :`<button class="btn-primary" style="width:100%;margin-top:16px" onclick="submitReg()">${t('joinQueue')}</button>`
-      }
+      ${S._alreadyBookedSession===S.selSession&&S.selSession?`
+        <div id="already-booked-banner" style="margin-top:16px;background:rgba(224,136,40,.08);border:1.5px solid rgba(224,136,40,.35);border-radius:14px;padding:16px 18px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span style="font-size:20px">⚠️</span>
+            <div>
+              <div style="font-size:14px;font-weight:800;color:#e08828">${t('errAlreadyBooked')}</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px">${t('errAlreadyBookedSub')}</div>
+            </div>
+          </div>
+          <button class="btn-primary" style="width:100%" onclick="S._alreadyBookedSession=null;S.modifyEntryId=null;renderRegister()">
+            ✏️ ${t('modifyExistingBtn')}
+          </button>
+        </div>`
+      :''}
+      ${!S._alreadyBookedSession||S._alreadyBookedSession!==S.selSession?isModifyMode
+        ?`<button class="btn-primary" style="width:100%;margin-top:16px" onclick="submitModifyBooking()" ${S.regSubmitting?'disabled':''}>
+            ${S.regSubmitting?'⏳ ...':t('modifyBookingBtn')}</button>`
+        :`<button class="btn-primary" style="width:100%;margin-top:16px" onclick="submitReg()" ${S.regSubmitting?'disabled':''}>
+            ${S.regSubmitting?'⏳ ...':t('joinQueue')}</button>`
+      :''}
     </div>
     ${ticket}`;
 }
@@ -3305,6 +3327,7 @@ function changeRegQty(delta){
 function set(k,v){S[k]=v;if(S.view==='customer'){renderRegister();renderMyRides();}else if(S.view==='staff'){renderStaffQueue();renderBikes();renderHistory();}}
 
 async function submitReg(){
+  if(S.regSubmitting)return;
   const cust=S.loggedIn||getSession();
   if(!cust){toast(t('errLoginFirst'),'error');return;}
   if(!S.selSession){toast(t('errSelectSession'),'error');return;}
@@ -3347,42 +3370,53 @@ async function submitReg(){
     return (entered!==undefined&&entered.trim())?entered.trim():(i===0?cust.name:cust.name);
   });
   const queue=getQueue();
-  // If logged-in customer already has a WAITING booking, redirect to modify mode
-  if(cust.id&&queue.some(e=>e.customerId===cust.id&&e.sessionId===S.selSession&&e.status==='waiting'))
-    {S.modifyEntryId=null;renderRegister();return;}
-  // Block duplicate only for active/waiting bookings — completed (done) bookings allow re-booking
+  // If logged-in customer already has an active/waiting booking for this session, show clear message
   const activeStatuses=['waiting','active'];
-  if(phone&&queue.find(e=>e.phone===phone&&e.sessionId===S.selSession&&activeStatuses.includes(e.status)))
-    {toast(t('errPhoneInSession'),'error');return;}
-  if(cust.id&&queue.some(e=>e.customerId===cust.id&&e.sessionId===S.selSession&&activeStatuses.includes(e.status)))
-    {toast(t('errPhoneInSession'),'error');return;}
-
-  const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
-  const baseQNum=nextQNum(S.selSession);
-  const entries=Array.from({length:qty},(_,i)=>({
-    id:uid(),name:riderNames[i],email,phone,
-    size:S.regBikeSizes[i]||heightToSize(heights[i]),height:heights[i]||null,
-    typePreference:S.regBikeTypes[i],paid:false,
-    assignedBikeId:null,sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
-    queueNum:baseQNum+i,status:'waiting',registeredAt:new Date().toISOString(),walkIn:false,
-    customerId:cust.id,price:priceForType(S.regBikeTypes[i])
-  }));
-  await Promise.all(entries.map(e=>sb.from('queue_entries').insert(entryToDB(e))));
-
-  // Save bike 0 height to account if not already stored
-  if(!cust.height&&heights[0]){
-    try{
-      await sb.from('customers').update({height:heights[0]}).eq('id',cust.id);
-      S.loggedIn.height=heights[0];setSession(S.loggedIn);
-    }catch(e){/* non-fatal */}
+  const existingActive=cust.id
+    ?queue.find(e=>e.customerId===cust.id&&e.sessionId===S.selSession&&activeStatuses.includes(e.status))
+    :(phone?queue.find(e=>e.phone===phone&&e.sessionId===S.selSession&&activeStatuses.includes(e.status)):null);
+  if(existingActive){
+    // Show an inline banner instead of a silent redirect or plain error
+    S._alreadyBookedSession=S.selSession;
+    renderRegister();
+    // Scroll the banner into view
+    setTimeout(()=>{const b=document.getElementById('already-booked-banner');if(b)b.scrollIntoView({behavior:'smooth',block:'center'});},80);
+    return;
   }
 
-  await loadData();
-  S.lastTickets=entries;S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
-  S.regQty=1;S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regRiderNames=[];
-  toast(qty>1?`${t('toastRegisteredRange')} #${baseQNum}-#${baseQNum+qty-1}`:`${t('toastRegistered')} #${baseQNum}`);
+  S.regSubmitting=true;
   renderRegister();
-  showBoothPopup();
+  try{
+    const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
+    const baseQNum=nextQNum(S.selSession);
+    const entries=Array.from({length:qty},(_,i)=>({
+      id:uid(),name:riderNames[i],email,phone,
+      size:S.regBikeSizes[i]||heightToSize(heights[i]),height:heights[i]||null,
+      typePreference:S.regBikeTypes[i],paid:false,
+      assignedBikeId:null,sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
+      queueNum:baseQNum+i,status:'waiting',registeredAt:new Date().toISOString(),walkIn:false,
+      customerId:cust.id,price:priceForType(S.regBikeTypes[i])
+    }));
+    await Promise.all(entries.map(e=>sb.from('queue_entries').insert(entryToDB(e))));
+
+    // Save bike 0 height to account if not already stored
+    if(!cust.height&&heights[0]){
+      try{
+        await sb.from('customers').update({height:heights[0]}).eq('id',cust.id);
+        S.loggedIn.height=heights[0];setSession(S.loggedIn);
+      }catch(e){/* non-fatal */}
+    }
+
+    await loadData();
+    S.lastTickets=entries;S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
+    S.regQty=1;S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regRiderNames=[];S._alreadyBookedSession=null;
+    toast(qty>1?`${t('toastRegisteredRange')} #${baseQNum}-#${baseQNum+qty-1}`:`${t('toastRegistered')} #${baseQNum}`);
+    renderRegister();
+    showBoothPopup();
+  }finally{
+    S.regSubmitting=false;
+    renderRegister();
+  }
 }
 
 async function submitModifyBooking(){
