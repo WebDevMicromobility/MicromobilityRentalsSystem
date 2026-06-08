@@ -1617,7 +1617,7 @@ en:{
   resultRiders:'riders',resultBikes:'bikes',resultRecords:'records',
   spotsLeft:'left',
   sendReceipt:'Receipt',noHistory:'No riders match the current filters.',
-  assignBikeTitle:'Assign Bike',confirmCheckin:'Confirm & Check In',
+  assignBikeTitle:'Assign Bike',confirmCheckin:'Confirm & Check In',changeBikeTitle:'Change Assigned Bike',confirmBikeChange:'Confirm Change',
   pinTitle:'Staff Access',pinSub:'Enter the 4-digit PIN to access the staff panel.',
   tabAccount:'Account',
   accountTitle:'Account Settings',accountSub:'Update your profile information and preferences.',
@@ -1712,7 +1712,7 @@ en:{
   toastBikeUpdated:'Bike updated.',
   toastAddedToFleet:'added to fleet.',
   toastBikeRemoved:'removed.',
-  toastAssignedChecked:'assigned. Rider checked in!',
+  toastAssignedChecked:'assigned. Rider checked in!',toastBikeChanged:'Bike changed successfully.',changeBikeBtn:'Change Bike',
   toastWalkInAdded:'Walk-in added',
   toastRegistered:'Registered! Queue number',
   toastRegisteredRange:'Registered! Queue numbers',
@@ -1874,7 +1874,7 @@ ar:{
   resultRiders:'راكباً',resultBikes:'دراجة',resultRecords:'سجل',
   spotsLeft:'متبقٍ',
   sendReceipt:'إيصال',noHistory:'لا يوجد راكبون يطابقون الفلتر الحالي.',
-  assignBikeTitle:'تخصيص دراجة',confirmCheckin:'تأكيد وتسجيل الدخول',
+  assignBikeTitle:'تخصيص دراجة',confirmCheckin:'تأكيد وتسجيل الدخول',changeBikeTitle:'تغيير الدراجة المخصصة',confirmBikeChange:'تأكيد التغيير',
   pinTitle:'دخول الموظفين',pinSub:'أدخل الرقم السري المكون من 4 أرقام للدخول إلى لوحة الموظفين.',
   tabAccount:'الحساب',
   accountTitle:'إعدادات الحساب',accountSub:'تحديث معلومات ملفك الشخصي.',
@@ -1960,7 +1960,7 @@ ar:{
   toastBikeUpdated:'تم تحديث الدراجة.',
   toastAddedToFleet:'أُضيفت للأسطول.',
   toastBikeRemoved:'تم إزالتها.',
-  toastAssignedChecked:'تم تخصيصها. دخول الراكب مسجَّل!',
+  toastAssignedChecked:'تم تخصيصها. دخول الراكب مسجَّل!',toastBikeChanged:'تم تغيير الدراجة بنجاح.',changeBikeBtn:'تغيير الدراجة',
   toastWalkInAdded:'تمت إضافة زيارة مباشرة',
   toastRegistered:'مُسجَّل! رقم الطابور',
   toastRegisteredRange:'مُسجَّل! أرقام الطابور',
@@ -4371,7 +4371,7 @@ function renderStaffQueue(){
 
   function _entryActions(e){
     if(e.status==='waiting')return`<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="doNoShow('${e.id}')">${t('noShowBtn')}</button>`;
-    if(e.status==='active')return`<button class="btn-sm btn-green" onclick="openModal('${e.id}')" title="Add/change bikes">+&#x1F6B4;</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button>`;
+    if(e.status==='active')return`<button class="btn-sm btn-blue" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button>`;
     if(e.status==='done')return`<button class="btn-sm btn-blue" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
     return`<button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
   }
@@ -5161,7 +5161,7 @@ function renderModal(){
   modal.style.display='flex';
   modal.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeModal()">
     <div class="modal-box">
-      <div class="modal-title">${t('assignBikeTitle')}</div>
+      <div class="modal-title">${rider.status==='active'?t('changeBikeTitle'):t('assignBikeTitle')}</div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
         <span style="font-size:17px;font-weight:800;color:var(--text)">${esc(rider.name)}</span>
         <span style="font-size:12px;color:var(--muted);font-weight:600">#${rider.queueNum}</span>
@@ -5171,7 +5171,7 @@ function renderModal(){
       ${payWarning}
       ${fleetLine}
       ${cards}
-      <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">${t('cancelBtn')}</button><button class="btn-primary" onclick="confirmAssign()">${t('confirmCheckin')}${S.modalBikes.length>0?` (${S.modalBikes.length})`:''}</button></div>
+      <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">${t('cancelBtn')}</button><button class="btn-primary" onclick="confirmAssign()">${rider.status==='active'?t('confirmBikeChange'):t('confirmCheckin')}${S.modalBikes.length>0?` (${S.modalBikes.length})`:''}</button></div>
     </div>
   </div>`;
 }
@@ -5200,8 +5200,14 @@ async function confirmAssign(){
   if(rider&&rider.typePreference==='Any'&&selected.length>0){
     priceUpdate.price=selected[0].type==='Road'?75:57.5;
   }
-  // First update all selected bikes to in-use
-  await Promise.all(needsUpdate.map(b=>sb.from('bikes').update({status:'in-use'}).eq('id',b.id)));
+  const isReassign=rider&&rider.status==='active';
+  // Free old bikes that are being replaced (reassign case)
+  const toFree=alreadyAssigned.filter(id=>!S.modalBikes.includes(id));
+  // First free replaced bikes, then mark new ones in-use
+  await Promise.all([
+    ...toFree.map(id=>sb.from('bikes').update({status:'available'}).eq('id',id)),
+    ...needsUpdate.map(b=>sb.from('bikes').update({status:'in-use'}).eq('id',b.id)),
+  ]);
   // Try to store full ordered list; fall back to first bike ID if FK constraint rejects JSON
   let assignedVal;
   if(S.modalBikes.length===1){
@@ -5223,14 +5229,26 @@ async function confirmAssign(){
     }
   }
   await loadData();closeModal();
-  toast(`${bikeNames} ${t('toastAssignedChecked')}`);
-  pushUndo(`Check-in #${qn} ${rName}`,async()=>{
-    await Promise.all([
-      ...needsUpdate.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b.id)),
-      sb.from('queue_entries').update({status:'waiting',assigned_bike_id:null}).eq('id',riderId),
-    ]);
-    await loadData();renderStaffQueue();
-  });
+  if(isReassign){
+    toast(t('toastBikeChanged'));
+    pushUndo(`Change bike #${qn} ${rName}`,async()=>{
+      await Promise.all([
+        ...needsUpdate.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b.id)),
+        ...toFree.map(id=>sb.from('bikes').update({status:'in-use'}).eq('id',id)),
+        sb.from('queue_entries').update({assigned_bike_id:alreadyAssigned.length===1?alreadyAssigned[0]:JSON.stringify(alreadyAssigned)}).eq('id',riderId),
+      ]);
+      await loadData();renderStaffQueue();
+    });
+  }else{
+    toast(`${bikeNames} ${t('toastAssignedChecked')}`);
+    pushUndo(`Check-in #${qn} ${rName}`,async()=>{
+      await Promise.all([
+        ...needsUpdate.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b.id)),
+        sb.from('queue_entries').update({status:'waiting',assigned_bike_id:null}).eq('id',riderId),
+      ]);
+      await loadData();renderStaffQueue();
+    });
+  }
   renderStaffQueue();
 }
 
