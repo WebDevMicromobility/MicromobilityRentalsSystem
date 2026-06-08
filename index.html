@@ -1601,6 +1601,7 @@ en:{
   bikeColorsLabel:'Bike Color(s)',colorsHint:'1 required - up to 4',
   saveBikeBtn:'Save Changes',addBikeBtn:'Add Bike',
   bikeBrand:'Brand',bikeModel:'Model',bikeGroupset:'Groupset',bikeSpeeds:'Speeds',
+  riderLabel:'Rider',riderName:'Rider\'s Full Name',riderNamePlaceholder:'Enter rider\'s full name',
   availLabel:'Available',inUseLabel:'In Use',maintLabel:'Maintenance',
   editBtn:'Edit',maintBtn:'Maintenance',restoreBtn:'Restore',
   noBikes:'No bikes found. Add your first bike above.',
@@ -1854,6 +1855,7 @@ ar:{
   bikeColorsLabel:'لون الدراجة',colorsHint:'مطلوب 1 - حتى 4',
   saveBikeBtn:'حفظ التغييرات',addBikeBtn:'إضافة دراجة',
   bikeBrand:'الماركة',bikeModel:'الموديل',bikeGroupset:'منظومة التروس',bikeSpeeds:'عدد السرعات',
+  riderLabel:'الراكب',riderName:'الاسم الكامل للراكب',riderNamePlaceholder:'أدخل الاسم الكامل',
   availLabel:'متاح',inUseLabel:'قيد الاستخدام',maintLabel:'صيانة',
   editBtn:'تعديل',maintBtn:'صيانة',restoreBtn:'استعادة',
   noBikes:'لا توجد دراجات. أضف أول دراجة أعلاه.',
@@ -2243,6 +2245,7 @@ const S={
   pinError:false,
   // register
   _rDate:'',selSession:null,regType:null,regQty:1,lastTickets:[],modifyEntryId:null,
+  regRiderNames:[],  // names for bikes 2+ (index 0 = customer's own name, auto-filled)
   _rName:'',_rEmail:'',_rPhone:'',_rCC:'+966',_rHeight:'',
   regBikeSizes:[],   // one size per bike slot, e.g. ['M','S']
   regBikeHeights:[], // one height string per bike slot, e.g. ['175','160']
@@ -2308,6 +2311,7 @@ const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36);
 // ── DB row <-> camelCase conversion ─────────────────────────────────────────
 function entryFromDB(e){
   return{id:e.id,name:e.name,email:e.email,phone:e.phone,size:e.size,
+    height:e.height||null,
     typePreference:e.type_preference,paid:Boolean(e.paid),price:e.price,
     assignedBikeId:e.assigned_bike_id,sessionId:e.session_id,
     sessionDay:e.session_day,sessionDate:e.session_date,
@@ -2316,7 +2320,7 @@ function entryFromDB(e){
 }
 function entryToDB(e){
   return{id:e.id,name:e.name,email:e.email||'',phone:e.phone||'',
-    size:e.size,type_preference:e.typePreference,paid:e.paid,price:e.price||30,
+    size:e.size,height:e.height||null,type_preference:e.typePreference,paid:e.paid,price:e.price||30,
     assigned_bike_id:e.assignedBikeId||null,session_id:e.sessionId,
     session_day:e.sessionDay,session_date:e.sessionDate,
     queue_num:e.queueNum,status:e.status,registered_at:e.registeredAt,
@@ -2701,7 +2705,7 @@ async function doLogin(){
 function doLogout(){
   S.loggedIn=null;clearSession();
   S._rName='';S._rEmail='';S._rPhone='';S._rHeight='';
-  S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regQty=1;S.regType=null;S.selSession=null;S.lastTickets=[];
+  S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regRiderNames=[];S.regQty=1;S.regType=null;S.selSession=null;S.lastTickets=[];
   renderTopbarRight();
   goLanding();
   toast(t('toastLoggedOut'));
@@ -2804,6 +2808,7 @@ function _autoSelectSession(){
 
 function setCustTab(tab){
   S.custTab=tab;
+  try{sessionStorage.setItem('cq_nav_ctab',tab);}catch(e){}
   renderCustomerTabs();
   if(tab==='myrides')renderMyRides();
   else if(tab==='register')renderRegister();
@@ -2811,6 +2816,7 @@ function setCustTab(tab){
 }
 function setStaffTab(t){
   S.staffTab=t;
+  try{sessionStorage.setItem('cq_nav_stab',t);}catch(e){}
   renderStaffTabs();
   if(t==='sessions')renderSessions();
   else if(t==='queue')renderStaffQueue();
@@ -3104,7 +3110,20 @@ function renderRegister(){
 
     const divider=(S.regQty>1&&i<S.regQty-1)?`<div style="border-top:1px solid var(--border);margin:20px 0"></div>`:'';
 
-    return`${S.regQty>1?`<div style="font-size:11px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:14px">${t('bike')} ${i+1}</div>`:''}
+    // When booking multiple bikes, show a name input for every bike slot
+    const riderDefaultName=isFirst&&cust?cust.name:'';
+    const riderNameSection=S.regQty>1?`<div class="form-group" style="margin-bottom:14px">
+      <label>${t('riderName')||'Rider\'s Full Name'}</label>
+      <input type="text" id="reg-rider-name-${i}" placeholder="${t('riderNamePlaceholder')||'Enter rider\'s full name'}"
+        value="${esc(S.regRiderNames[i]!==undefined?S.regRiderNames[i]:riderDefaultName)}"
+        oninput="S.regRiderNames[${i}]=this.value">
+    </div>`:'';
+
+    return`${S.regQty>1?`<div style="font-size:11px;font-weight:900;color:var(--green);text-transform:uppercase;letter-spacing:.7px;margin-bottom:14px;display:flex;align-items:center;gap:8px">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--green);color:#000;font-size:12px;font-weight:900">${i+1}</span>
+      ${i===0?(cust?esc(cust.name):t('riderLabel')):t('bike')+' '+(i+1)+' — '+(t('riderLabel')||'Rider')}
+    </div>`:''}
+    ${riderNameSection}
     ${hSection}
     <div class="form-group" style="margin-bottom:14px">
       <label>${t('frameSizeLabel')}</label>
@@ -3262,6 +3281,8 @@ function ensureBikeSizes(){
   while(S.regBikeHeights.length>S.regQty) S.regBikeHeights.pop();
   while(S.regBikeTypes.length<S.regQty)  S.regBikeTypes.push('');
   while(S.regBikeTypes.length>S.regQty)  S.regBikeTypes.pop();
+  while(S.regRiderNames.length<S.regQty) S.regRiderNames.push(undefined);
+  while(S.regRiderNames.length>S.regQty) S.regRiderNames.pop();
 }
 
 function setBikeSize(idx,size){
@@ -3306,17 +3327,25 @@ async function submitReg(){
     }
   }
 
-  // Validate sizes and types per bike
+  // Validate sizes, types, and rider names per bike
   for(let i=0;i<qty;i++){
     if(!S.regBikeSizes[i]){toast(qty>1?`${t('errSelectSizeGeneric')} (${t('bike')} ${i+1})`:t('errSelectSizeGeneric'),'error');return;}
     if(!S.regBikeTypes[i]){toast(qty>1?`${t('errSelectTypeGeneric')} (${t('bike')} ${i+1})`:t('errSelectTypeGeneric'),'error');return;}
+    if(qty>1&&!(S.regRiderNames[i]!==undefined?S.regRiderNames[i]:i===0?cust.name:'').trim()){
+      toast(`${t('riderName')||"Rider's Full Name"} (${t('bike')} ${i+1})`,'error');return;
+    }
   }
 
   // Bookings only blocked when admin manually marks session as 'full' — not by capacity
   const sess0=allSessions().find(s=>s.id===S.selSession);
   if(sess0&&sess0.status==='full'){toast(t('errSessionClosed'),'error');return;}
 
-  const name=cust.name,email=cust.email||'',phone=cust.phone||'';
+  const email=cust.email||'',phone=cust.phone||'';
+  // Resolve per-rider names: use entered name for each slot, fallback to account name for slot 0
+  const riderNames=Array.from({length:qty},(_,i)=>{
+    const entered=S.regRiderNames[i];
+    return (entered!==undefined&&entered.trim())?entered.trim():(i===0?cust.name:cust.name);
+  });
   const queue=getQueue();
   // If logged-in customer already has a WAITING booking, redirect to modify mode
   if(cust.id&&queue.some(e=>e.customerId===cust.id&&e.sessionId===S.selSession&&e.status==='waiting'))
@@ -3331,8 +3360,8 @@ async function submitReg(){
   const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
   const baseQNum=nextQNum(S.selSession);
   const entries=Array.from({length:qty},(_,i)=>({
-    id:uid(),name,email,phone,
-    size:S.regBikeSizes[i]||heightToSize(heights[i]),
+    id:uid(),name:riderNames[i],email,phone,
+    size:S.regBikeSizes[i]||heightToSize(heights[i]),height:heights[i]||null,
     typePreference:S.regBikeTypes[i],paid:false,
     assignedBikeId:null,sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
     queueNum:baseQNum+i,status:'waiting',registeredAt:new Date().toISOString(),walkIn:false,
@@ -3350,7 +3379,7 @@ async function submitReg(){
 
   await loadData();
   S.lastTickets=entries;S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
-  S.regQty=1;S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];
+  S.regQty=1;S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regRiderNames=[];
   toast(qty>1?`${t('toastRegisteredRange')} #${baseQNum}-#${baseQNum+qty-1}`:`${t('toastRegistered')} #${baseQNum}`);
   renderRegister();
   showBoothPopup();
@@ -3403,9 +3432,11 @@ async function submitModifyBooking(){
     // No capacity cap — only admin can block by marking session full
     let baseQNum=nextQNum(S.selSession);
     for(let i=existing.length;i<newQty;i++){
+      const modRiderName=i===0?cust.name:(S.regRiderNames[i]||cust.name).trim();
+      const modHeight=parseInt(S.regBikeHeights[i])||null;
       const entry={
-        id:uid(),name:cust.name,email:cust.email||'',phone:cust.phone||'',
-        size:S.regBikeSizes[i],typePreference:S.regBikeTypes[i],
+        id:uid(),name:modRiderName,email:cust.email||'',phone:cust.phone||'',
+        size:S.regBikeSizes[i],height:modHeight,typePreference:S.regBikeTypes[i],
         paid:false,assignedBikeId:null,
         sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
         queueNum:baseQNum+addedEntries.length,status:'waiting',
@@ -3431,7 +3462,7 @@ async function submitModifyBooking(){
   }
 
   S.modifyEntryId=null;S.selSession=null;
-  S.regBikeSizes=[];S.regBikeTypes=[];S.regQty=1;
+  S.regBikeSizes=[];S.regBikeTypes=[];S.regRiderNames=[];S.regQty=1;
   renderRegister();renderMyRides();
 }
 
@@ -4956,12 +4987,18 @@ function renderModal(){
       <button class="pay-toggle pending" style="margin-left:10px;font-size:11px" onclick="togglePayment('${rider.id}',true);renderModal()">⏳ ${t('paidLabel')}?</button>
     </div>
   </div>`:'';
+  const heightBadge=rider.height?`<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(110,232,154,.12);border:1px solid rgba(110,232,154,.3);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;color:var(--green)">${rider.height} cm</span>`:'';
   const modal=document.getElementById('bike-modal');
   modal.style.display='flex';
   modal.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeModal()">
     <div class="modal-box">
       <div class="modal-title">${t('assignBikeTitle')}</div>
-      <div class="modal-sub">#${rider.queueNum} ${esc(rider.name)} &middot; ${t('frameSizeLabel')} ${rider.size} &middot; ${typeBadge(rider.typePreference)}</div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <span style="font-size:17px;font-weight:800;color:var(--text)">${esc(rider.name)}</span>
+        <span style="font-size:12px;color:var(--muted);font-weight:600">#${rider.queueNum}</span>
+        ${heightBadge}
+      </div>
+      <div class="modal-sub" style="margin-bottom:12px">${t('frameSizeLabel')} ${rider.size} &middot; ${typeBadge(rider.typePreference)}</div>
       ${payWarning}
       ${fleetLine}
       ${cards}
@@ -6187,11 +6224,14 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   S.loggedIn=getSession();
   // Restore cancellation log from localStorage
   try{const cl=localStorage.getItem('cq_cancellations');if(cl)S.cancellationLog=JSON.parse(cl);}catch(e){}
-  // Restore previous view after refresh
+  // Restore previous view and tab after refresh
   if(localStorage.getItem('cq_staff')==='1'){
     goStaff();
+    const savedStab=sessionStorage.getItem('cq_nav_stab');
+    if(savedStab&&['queue','sessions','bikes','history','analytics'].includes(savedStab))setStaffTab(savedStab);
   } else if(S.loggedIn){
-    goCustomer('register');
+    const savedCtab=sessionStorage.getItem('cq_nav_ctab');
+    goCustomer(savedCtab&&['register','myrides','account'].includes(savedCtab)?savedCtab:'register');
   } else {
     showView('landing');
     renderLandingAvail();
