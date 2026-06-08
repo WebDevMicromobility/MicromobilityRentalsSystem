@@ -3612,6 +3612,8 @@ function renderMyRides(){
       <td>
         ${assignedBike
           ?`<div style="font-weight:800;font-size:13px">${esc(assignedBike.name)}</div>
+             ${assignedBike.brand?`<div style="font-size:11px;color:var(--muted-l);font-weight:600;margin-top:1px">${esc(assignedBike.brand)}${assignedBike.model?' · '+esc(assignedBike.model):''}</div>`:''}
+             ${(assignedBike.groupset||assignedBike.speeds)?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">${[assignedBike.groupset,assignedBike.speeds?assignedBike.speeds+'sp':''].filter(Boolean).join(' · ')}</div>`:''}
              <div style="display:flex;gap:3px;margin-top:4px">${(assignedBike.colors||['#03ff89']).map(c=>`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};border:1px solid rgba(0,0,0,.3)"></span>`).join('')}</div>`
           :`<span style="color:var(--muted)">—</span>`}
       </td>
@@ -5257,66 +5259,92 @@ function renderModal(){
   const otherBikes=sortBikes(allBikes.filter(b=>b.type!==prefType));
   const otherAvail=otherBikes.filter(b=>b.status==='available').length;
 
-  function bikeCard(b,altType=false){
+  const thS='padding:7px 14px;text-align:left;font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,.08)';
+  function bikeRow(b,altType=false){
     const free=b.status==='available';
-    const selIdx=S.modalBikes.indexOf(b.id); // -1 if not selected
+    const selIdx=S.modalBikes.indexOf(b.id);
     const sel=selIdx>=0;
-    const dot=free?'dot-green':b.status==='in-use'?'dot-orange':'dot-red';
+    const unavail=!free&&!sel;
+    const dotCls=free?'dot-green':b.status==='in-use'?'dot-orange':'dot-red';
+    const statusColor=free?'var(--green)':b.status==='in-use'?'var(--orange)':'var(--red)';
     const slbl=free?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
     const bikeColors=b.colors&&b.colors.length?b.colors:['#03ff89'];
-    const colorSwatchesModal=bikeColors.map((c,ci)=>{
-      const cn=b.colorNames&&b.colorNames[ci]?b.colorNames[ci]:'';
-      return`<span title="${esc(cn)}" style="display:inline-block;width:14px;height:14px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`;
+    const colorDots=bikeColors.map((c,ci)=>{
+      const cn=b.color_names&&b.color_names[ci]?b.color_names[ci]:'';
+      return`<span title="${esc(cn)}" style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`;
     }).join('');
     const sizeMatch=b.size===rider.size;
     const badges=[];
-    if(sizeMatch)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--green);background:rgba(3,255,137,.15);padding:2px 6px;border-radius:6px">${t('sizeMatchLabel')}</span>`);
-    if(inFleet(b)&&slots)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--green);background:rgba(3,255,137,.1);padding:2px 6px;border-radius:6px">${t('fleetBadge')}</span>`);
-    if(altType)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--muted-l);background:rgba(255,255,255,.07);padding:2px 6px;border-radius:6px">${t('altBadge')}</span>`);
-    // Order badge for selected bikes
-    const orderBadge=sel?`<div style="position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:var(--green);color:#000;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center">${selIdx+1}</div>`:'';
-    return`<div class="modal-bike-card${!free&&!sel?' unavailable':''}${sel?' selected':''}" style="position:relative"
-      ${free||sel?`onclick="pickBike('${b.id}')"`:''}>
-      ${orderBadge}
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:4px;flex-wrap:wrap">
-        <span class="avail-dot ${dot}"></span>
-        <div style="display:flex;gap:4px;flex-wrap:wrap">${badges.join('')}</div>
-      </div>
-      <div style="display:flex;gap:5px;align-items:center;margin-bottom:8px">${colorSwatchesModal}</div>
-      <div style="font-weight:900;font-size:14px;margin-bottom:3px">${esc(b.name)}</div>
-      <div style="font-size:12px;color:var(--muted)">${typeLabel(b.type)} &middot; ${t('frameSizeLabel')} ${b.size}</div>
-      <div style="margin-top:6px">${typeBadge(b.type)}</div>
-      <div style="font-size:11px;color:var(--muted);margin-top:5px">${sel?`<span style="color:var(--green);font-weight:800">&#x2713; #${selIdx+1}</span>`:slbl}</div>
+    if(sizeMatch)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--green);background:rgba(3,255,137,.15);padding:2px 6px;border-radius:6px;white-space:nowrap">${t('sizeMatchLabel')}</span>`);
+    if(inFleet(b)&&slots)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--green);background:rgba(3,255,137,.1);padding:2px 6px;border-radius:6px;white-space:nowrap">${t('fleetBadge')}</span>`);
+    if(altType)badges.push(`<span style="font-size:10px;font-weight:800;color:var(--muted-l);background:rgba(255,255,255,.07);padding:2px 6px;border-radius:6px;white-space:nowrap">${t('altBadge')}</span>`);
+    const selCell=sel
+      ?`<div style="width:22px;height:22px;border-radius:50%;background:var(--green);color:#000;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">${selIdx+1}</div>`
+      :`<div style="width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,.15);flex-shrink:0"></div>`;
+    const specs=[b.groupset,b.speeds?`${b.speeds}sp`:''].filter(Boolean).join(' · ')||'—';
+    return`<tr style="border-bottom:1px solid rgba(255,255,255,.05);background:${sel?'rgba(3,255,137,.05)':'transparent'};${unavail?'opacity:.32':'cursor:pointer'};transition:background .12s"
+      ${!unavail?`onclick="pickBike('${b.id}')" onmouseover="if(!this.style.background.includes('255,137'))this.style.background='rgba(255,255,255,.025)'" onmouseout="if(!this.style.background.includes('255,137'))this.style.background='transparent'"`:''}>
+      <td style="padding:10px 14px;text-align:center;width:44px">${selCell}</td>
+      <td style="padding:10px 14px">
+        <div style="font-weight:800;font-size:13px">${esc(b.name)}</div>
+        ${badges.length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${badges.join('')}</div>`:''}
+      </td>
+      <td style="padding:10px 14px;font-size:12px;font-weight:600;color:var(--muted-l)">
+        ${b.brand?`<div style="font-weight:700;color:var(--text);font-size:12px">${esc(b.brand)}</div>${b.model?`<div style="margin-top:1px">${esc(b.model)}</div>`:''}` :`<span style="color:var(--muted)">—</span>`}
+      </td>
+      <td style="padding:10px 14px">${typeBadge(b.type)}</td>
+      <td style="padding:10px 14px;font-weight:800;font-size:13px;text-align:center">${b.size}</td>
+      <td style="padding:10px 14px"><div style="display:flex;gap:3px;align-items:center">${colorDots}</div></td>
+      <td style="padding:10px 14px;font-size:12px;color:var(--muted-l);font-weight:600;white-space:nowrap">${specs}</td>
+      <td style="padding:10px 14px">
+        <div style="display:flex;align-items:center;gap:6px;white-space:nowrap">
+          <span class="avail-dot ${dotCls}" style="flex-shrink:0"></span>
+          <span style="font-size:12px;font-weight:700;color:${statusColor}">${slbl}</span>
+        </div>
+      </td>
+    </tr>`;
+  }
+  function bikeTable(bikes,altType){
+    if(!bikes.length)return'';
+    return`<div style="overflow-x:auto;border-radius:10px;border:1px solid rgba(255,255,255,.07);margin-bottom:8px">
+      <table style="width:100%;border-collapse:collapse;min-width:620px">
+        <thead><tr style="background:rgba(255,255,255,.025)">
+          <th style="${thS}"></th>
+          <th style="${thS}">${t('bikeNameLabel')}</th>
+          <th style="${thS}">${t('bikeBrand')} / ${t('bikeModel')}</th>
+          <th style="${thS}">${t('bikeTypeLabel')}</th>
+          <th style="${thS};text-align:center">${t('frameSizeLabel')}</th>
+          <th style="${thS}">${t('colColor')||'Color'}</th>
+          <th style="${thS}">${t('bikeGroupset')} / Spd</th>
+          <th style="${thS}">${t('colStatus')}</th>
+        </tr></thead>
+        <tbody>${bikes.map(b=>bikeRow(b,altType)).join('')}</tbody>
+      </table>
     </div>`;
   }
 
   const prefEmpty=prefBikes.length===0;
   const prefSection=prefBikes.length
-    ?`<div class="modal-bikes-grid">${prefBikes.map(b=>bikeCard(b,false)).join('')}</div>`
-    :`<div style="color:var(--muted);font-size:13px;font-weight:700;padding:16px 0;text-align:center">
-        ${t('noBikesForType').replace('{0}',typeLabel(prefType))}
-      </div>`;
+    ?bikeTable(prefBikes,false)
+    :`<div style="color:var(--muted);font-size:13px;font-weight:700;padding:16px 0;text-align:center">${t('noBikesForType').replace('{0}',typeLabel(prefType))}</div>`;
 
-  // "Show other types" toggle
   const otherToggle=otherAvail>0||S.modalShowAll?`
-    <div style="margin-top:14px">
+    <div style="margin-top:12px">
       <button onclick="S.modalShowAll=!S.modalShowAll;renderModal()"
         style="width:100%;padding:10px;border-radius:10px;border:1.5px dashed rgba(255,255,255,.15);
           background:rgba(255,255,255,.03);cursor:pointer;font-family:'Space Grotesk',sans-serif;
           font-size:12px;font-weight:800;color:var(--muted);transition:all .2s"
         onmouseover="this.style.borderColor='rgba(3,255,137,.35)';this.style.color='var(--green)'"
         onmouseout="this.style.borderColor='rgba(255,255,255,.15)';this.style.color='var(--muted-l)'">
-        ${S.modalShowAll
-          ?t('hideOtherTypes')
-          :`${t('showOtherTypes')} (${otherAvail} ${t('available2')})`}
+        ${S.modalShowAll?t('hideOtherTypes'):`${t('showOtherTypes')} (${otherAvail} ${t('available2')})`}
       </button>
       ${S.modalShowAll?`
-        <div style="display:flex;align-items:center;gap:8px;margin:14px 0 10px">
+        <div style="display:flex;align-items:center;gap:8px;margin:12px 0 8px">
           <div style="flex:1;height:1px;background:var(--border)"></div>
           <span style="font-size:10px;font-weight:900;color:var(--muted-l);text-transform:uppercase;letter-spacing:.6px">${t('showOtherTypes').replace(/^[↓↑]\s*/,'')}</span>
           <div style="flex:1;height:1px;background:var(--border)"></div>
         </div>
-        <div class="modal-bikes-grid">${otherBikes.map(b=>bikeCard(b,true)).join('')}</div>`:''}
+        ${bikeTable(otherBikes,true)}`:''}
     </div>`:
     (prefEmpty?`<div style="margin-top:10px;font-size:12px;color:var(--muted);font-weight:600;text-align:center">${t('noOtherTypes')}</div>`:'');
 
@@ -5375,7 +5403,7 @@ function renderModal(){
   const modal=document.getElementById('bike-modal');
   modal.style.display='flex';
   modal.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeModal()">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width:min(96vw,940px)">
       <div class="modal-title">${rider.status==='active'?t('changeBikeTitle'):t('assignBikeTitle')}</div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
         <span style="font-size:17px;font-weight:800;color:var(--text)">${esc(rider.name)}</span>
