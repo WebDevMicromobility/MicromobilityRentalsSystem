@@ -4561,6 +4561,12 @@ function renderStaffQueue(){
     return groups;
   }
 
+  function entryPhone(e){
+    if(e.phone)return e.phone;
+    if(e.customerId){const c=getCustomers().find(x=>x.id===e.customerId);if(c&&c.phone)return c.phone;}
+    return'';
+  }
+
   function _contactCell(phone){
     if(!phone)return'<span style="color:var(--muted)">—</span>';
     return`<div style="display:flex;gap:5px;align-items:center">
@@ -4617,7 +4623,7 @@ function renderStaffQueue(){
         </div>
       </td>
       <td>${statusCellHtml(e)}</td>
-      <td>${_contactCell(e.phone)}</td>
+      <td>${_contactCell(entryPhone(e))}</td>
       <td><div class="actions-cell">${_entryActions(e)}</div></td>
     </tr>`;
   }
@@ -4698,7 +4704,7 @@ function renderStaffQueue(){
             </div>
           </td>
           <td style="vertical-align:middle">${statusCellHtml(e)}</td>
-          <td rowspan="${n}" style="vertical-align:middle">${_contactCell(primary.phone)}</td>
+          <td rowspan="${n}" style="vertical-align:middle">${group.map(x=>{const ph=entryPhone(x);return ph?`<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px"><span style="font-size:11px;color:var(--muted)">${esc(fmtPhone(ph))}</span>${_contactCell(ph)}</div>`:''}).join('')||'<span style="color:var(--muted)">—</span>'}</td>
           <td style="vertical-align:middle"><div class="actions-cell">${_entryActions(e)}</div></td>
         </tr>`;
       }else{
@@ -4739,6 +4745,8 @@ function renderStaffQueue(){
       const bikeInfo=assignedBikes.length?assignedBikes.map(b=>b.name).join(', '):'';
       const isHouse=e.paid&&(e.price??DEFAULT_PRICE)===0;
       const payTag=isHouse?`<span style="font-size:12px">🏠</span>`:e.paid?`<span style="font-size:12px;font-weight:800;color:var(--green)">✓</span>`:`<span style="font-size:12px;font-weight:800;color:var(--muted)">⏳</span>`;
+      const ph=entryPhone(e);
+      const indent=n>1?'padding-left:22px':'';
       return`<div style="padding:6px 0;${i>0?'border-top:1px solid rgba(255,255,255,.05)':''}">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
           <div style="display:flex;align-items:center;gap:6px;min-width:0">
@@ -4748,9 +4756,13 @@ function renderStaffQueue(){
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${statusBadge(e.status)}${payTag}</div>
         </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:2px;${n>1?'padding-left:22px':''}">
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;${indent}">
           ${typeLabel(e.typePreference)}${bikeInfo?` &middot; <span style="color:var(--muted-l)">${esc(bikeInfo)}</span>`:''}
         </div>
+        ${ph?`<div style="display:flex;align-items:center;gap:6px;margin-top:4px;${indent}">
+          <span style="font-size:11px;font-weight:700;color:var(--muted)">${esc(fmtPhone(ph))}</span>
+          ${_contactCell(ph)}
+        </div>`:''}
       </div>`;
     }).join('');
     const actionsHtml=group.map((e,i)=>`<div style="${n>1&&i>0?'border-top:1px solid rgba(255,255,255,.05);padding-top:6px;margin-top:2px':''}">
@@ -4765,10 +4777,6 @@ function renderStaffQueue(){
       </div>
       ${sessLabel}
       <div>${riderRows}</div>
-      ${primary.phone?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:8px">
-        <span style="font-size:11px;font-weight:700;color:var(--muted);flex-shrink:0">${esc(fmtPhone(primary.phone))}</span>
-        ${_contactCell(primary.phone)}
-      </div>`:''}
       <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">${actionsHtml}</div>
     </div>`;
   }
