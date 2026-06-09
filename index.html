@@ -1806,6 +1806,7 @@ en:{
   heightPlaceholder:'Enter your height (cm)',
   printReportBtn:'Print Report',printReportTitle:'Session Report',printTotalRiders:'Total Riders',printCollected:'Collected',printPending:'Pending',
   gridViewBtn:'Grid',tableViewBtn:'Table',
+  searchLabel:'Search bikes...',noResultsLabel:'No bikes match your search.',
   confirmNoShowTitle:'Mark as No-Show?',confirmRemoveTitle:'Remove Rider?',
 },
 ar:{
@@ -2062,6 +2063,7 @@ ar:{
   heightPlaceholder:'أدخل طولك (سم)',
   printReportBtn:'طباعة التقرير',printReportTitle:'تقرير الجلسة',printTotalRiders:'إجمالي الركاب',printCollected:'المبلغ المحصل',printPending:'المبلغ المعلق',
   gridViewBtn:'شبكة',tableViewBtn:'جدول',
+  searchLabel:'ابحث عن دراجة...',noResultsLabel:'لا توجد دراجات تطابق بحثك.',
   confirmNoShowTitle:'تسجيل كغائب؟',confirmRemoveTitle:'حذف الراكب؟',
 }};
 function t(k){return(LANG[S&&S.lang?S.lang:'en']||LANG.en)[k]||LANG.en[k]||k;}
@@ -2348,7 +2350,7 @@ const S={
   analyticsRange:'all', analyticsTrendSort:'date', analyticsTrendDir:-1, analyticsCustomN:20,
   analyticsDateFrom:'', analyticsDateTo:'',
   // modals
-  modalRider:null,modalBikes:[],modalShowAll:false,modalShowAddBike:false,modalAddBikeName:'',modalAddBikeType:null,modalAddBikeSize:'M',
+  modalRider:null,modalBikes:[],modalShowAll:false,modalShowAddBike:false,modalAddBikeName:'',modalAddBikeType:null,modalAddBikeSize:'M',modalSearch:'',
   // auth
   authMode:'login',   // 'login' | 'signup' | 'forgot'
   forgotEmail:'',forgotStep:1,
@@ -5588,7 +5590,7 @@ async function undoHistLog(logId){
    BIKE ASSIGN MODAL
 ══════════════════════════════════════════════ */
 function openModal(riderId){
-  S.modalRider=riderId;S.modalBikes=[];S.modalShowAll=false;S.modalShowAddBike=false;S.modalAddBikeName='';S.modalAddBikeType=null;S.modalAddBikeSize='M';
+  S.modalRider=riderId;S.modalBikes=[];S.modalShowAll=false;S.modalShowAddBike=false;S.modalAddBikeName='';S.modalAddBikeType=null;S.modalAddBikeSize='M';S.modalSearch='';
   // Pre-populate with already-assigned bikes if reopening mid-session
   const entry=getQueue().find(e=>e.id===riderId);
   if(entry&&entry.status==='active')S.modalBikes=getAssignedBikeIds(entry);
@@ -5620,8 +5622,10 @@ function renderModal(){
     const aFleet=inFleet(a)?0:1,bFleet=inFleet(b)?0:1;
     return aFree-bFree||aSz-bSz||aFleet-bFleet||a.name.localeCompare(b.name);
   });
-  const prefBikes=sortBikes(prefType==='Any'?allBikes:allBikes.filter(b=>b.type===prefType));
-  const otherBikes=prefType==='Any'?[]:sortBikes(allBikes.filter(b=>b.type!==prefType));
+  const mq=(S.modalSearch||'').trim().toLowerCase();
+  const matchSearch=b=>!mq||[b.name,b.brand,b.model,b.type,b.size,b.groupset].some(v=>v&&String(v).toLowerCase().includes(mq));
+  const prefBikes=sortBikes((prefType==='Any'?allBikes:allBikes.filter(b=>b.type===prefType)).filter(matchSearch));
+  const otherBikes=prefType==='Any'?[]:sortBikes(allBikes.filter(b=>b.type!==prefType&&matchSearch(b)));
   const otherAvail=otherBikes.filter(b=>b.status==='available').length;
 
   const thS='padding:7px 14px;text-align:left;font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,.08)';
@@ -5713,9 +5717,19 @@ function renderModal(){
     </div>`:
     (prefEmpty?`<div style="margin-top:10px;font-size:12px;color:var(--muted);font-weight:600;text-align:center">${t('noOtherTypes')}</div>`:'');
 
-  const cards=`${prefSection}${otherToggle}`;
+  const noResults=mq&&!prefBikes.length&&!otherBikes.length?`<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:13px;font-weight:700">${t('noResultsLabel')||'No bikes match your search.'}</div>`:'';
+  const cards=`${searchBar}${prefSection}${noResults}${otherToggle}`;
 
   const fleetLine=slots?`<div style="font-size:12px;color:var(--muted);margin-bottom:16px">${t('sessionFleetLabel')}: ${slotsLabel(slots)}</div>`:'';
+  const searchBar=`<div style="position:relative;margin-bottom:14px">
+    <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--muted);pointer-events:none">&#x1F50D;</span>
+    <input id="modal-search-input" type="text" value="${esc(S.modalSearch)}"
+      placeholder="${t('searchLabel')||'Search bikes...'}"
+      oninput="S.modalSearch=this.value;renderModal();document.getElementById('modal-search-input')?.focus()"
+      style="width:100%;padding:9px 12px 9px 34px;background:var(--s3);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;outline:none;transition:border-color .15s"
+      onfocus="this.style.borderColor='rgba(3,255,137,.4)'" onblur="this.style.borderColor='rgba(255,255,255,.1)'">
+    ${S.modalSearch?`<button onclick="S.modalSearch='';renderModal()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:2px" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&times;</button>`:''}
+  </div>`;
 
   const payWarning=!rider.paid?`<div style="display:flex;align-items:center;gap:8px;background:rgba(224,136,40,.1);border:1px solid rgba(224,136,40,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px">
     <span style="font-size:16px">⚠️</span>
@@ -5793,7 +5807,7 @@ function pickBike(id){
   else S.modalBikes.push(id);
   renderModal();
 }
-function closeModal(){document.getElementById('bike-modal').style.display='none';S.modalRider=null;S.modalBikes=[];S.modalShowAll=false;S.modalShowAddBike=false;}
+function closeModal(){document.getElementById('bike-modal').style.display='none';S.modalRider=null;S.modalBikes=[];S.modalShowAll=false;S.modalShowAddBike=false;S.modalSearch='';}
 async function modalQuickAddBike(){
   const name=(document.getElementById('modal-bike-name')?.value||S.modalAddBikeName||'').trim();
   if(!name){toast(t('errBikeName'),'error');return;}
