@@ -1631,7 +1631,7 @@ en:{
   walkinTitle:'Walk-in Registration',walkinName:'Full Name',walkinPhone:'Phone Number',
   walkinSession:'Session',walkinSize:'Frame Size',walkinType:'Bike Type Preference',
   addWalkinBtn:'Add Walk-in',cancelBtn:'Cancel',
-  checkInBtn:'Check In',returnBikeBtn:'Return Bike',removeBtn:'Remove',noShowBtn:'No-Show',customerShowedBtn:'Customer Showed',
+  checkInBtn:'Check In',returnBikeBtn:'Return Bike',removeBtn:'Remove',noShowBtn:'No-Show',customerShowedBtn:'Customer Showed',undoCheckinBtn:'Undo Check-in',toastUndoCheckin:'Check-in reversed - rider moved back to waiting.',
   paidLabel:'Paid',pendingLabel:'Pending',
   sessionsTitle:'Sessions',sessionsSub:'Create sessions and open them to accept reservations. Closed by default.',
   newSession:'+ New Session',newSessionTitle:'New Session',dateLabel:'Date',capacityLabel:'Capacity (spots)',
@@ -1894,7 +1894,7 @@ ar:{
   walkinTitle:'تسجيل زيارة مباشرة',walkinName:'الاسم الكامل',walkinPhone:'رقم الهاتف',
   walkinSession:'الجلسة',walkinSize:'مقاس الإطار',walkinType:'تفضيل نوع الدراجة',
   addWalkinBtn:'إضافة زيارة',cancelBtn:'إلغاء',
-  checkInBtn:'تسجيل الدخول',returnBikeBtn:'إرجاع الدراجة',removeBtn:'حذف',noShowBtn:'لم يحضر',customerShowedBtn:'العميل حضر',
+  checkInBtn:'تسجيل الدخول',returnBikeBtn:'إرجاع الدراجة',removeBtn:'حذف',noShowBtn:'لم يحضر',customerShowedBtn:'العميل حضر',undoCheckinBtn:'تراجع عن تسجيل الدخول',toastUndoCheckin:'تم التراجع عن تسجيل الدخول - الراكب عاد إلى قائمة الانتظار.',
   paidLabel:'مدفوع',pendingLabel:'معلق',
   sessionsTitle:'الجلسات',sessionsSub:'أنشئ الجلسات وافتحها لقبول الحجوزات. مغلقة بشكل افتراضي.',
   newSession:'+ جلسة جديدة',newSessionTitle:'جلسة جديدة',dateLabel:'التاريخ',capacityLabel:'الطاقة الاستيعابية',
@@ -4512,7 +4512,7 @@ function renderStaffQueue(){
 
   function _entryActions(e){
     if(e.status==='waiting')return`<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="doNoShow('${e.id}')">${t('noShowBtn')}</button>`;
-    if(e.status==='active')return`<button class="btn-sm btn-blue" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button>`;
+    if(e.status==='active')return`<button class="btn-sm btn-blue" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button>`;
     if(e.status==='done')return`<button class="btn-sm btn-blue" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
     if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button><button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
     return`<button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
@@ -5341,6 +5341,22 @@ async function _execReturn(id,markPaid){
       sb.from('queue_entries').update(u).eq('id',id),
       ...bikeIds.map(bid=>sb.from('bikes').update({status:'in-use'}).eq('id',bid)),
     ]);
+    await loadData();renderStaffQueue();
+  });
+  renderStaffQueue();
+}
+async function doUndoCheckin(id){
+  const entry=getQueue().find(e=>e.id===id);if(!entry||entry.status!=='active')return;
+  const bikeIds=getAssignedBikeIds(entry);
+  const calls=[sb.from('queue_entries').update({status:'waiting',assigned_bike_id:null}).eq('id',id)];
+  bikeIds.forEach(bid=>calls.push(sb.from('bikes').update({status:'available'}).eq('id',bid)));
+  await Promise.all(calls);
+  await loadData();toast(t('toastUndoCheckin'));
+  pushUndo(`Undo check-in #${entry.queueNum} ${entry.name}`,async()=>{
+    const assignedVal=bikeIds.length===1?bikeIds[0]:JSON.stringify(bikeIds);
+    const calls2=[sb.from('queue_entries').update({status:'active',assigned_bike_id:assignedVal}).eq('id',id)];
+    bikeIds.forEach(bid=>calls2.push(sb.from('bikes').update({status:'in-use'}).eq('id',bid)));
+    await Promise.all(calls2);
     await loadData();renderStaffQueue();
   });
   renderStaffQueue();
