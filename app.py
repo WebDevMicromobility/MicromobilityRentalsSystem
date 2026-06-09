@@ -8,13 +8,14 @@ DB = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'micromobility.db'
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS customers (
-    id            TEXT PRIMARY KEY,
-    name          TEXT NOT NULL,
-    email         TEXT,
-    phone         TEXT,
-    password_hash TEXT NOT NULL,
-    created_at    INTEGER NOT NULL,
-    height        INTEGER
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    email           TEXT,
+    phone           TEXT,
+    password_hash   TEXT NOT NULL,
+    created_at      INTEGER NOT NULL,
+    height          INTEGER,
+    type_preference TEXT
 );
 
 CREATE TABLE IF NOT EXISTS bikes (
@@ -71,6 +72,7 @@ MIGRATIONS = [
     "ALTER TABLE bikes ADD COLUMN speeds TEXT",
     "ALTER TABLE bikes ADD COLUMN color_names TEXT",
     "ALTER TABLE bikes ADD COLUMN rental_price REAL",
+    "ALTER TABLE customers ADD COLUMN type_preference TEXT",
 ]
 
 
@@ -339,7 +341,7 @@ def delete_bike(bike_id):
 def get_customers():
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT id, name, email, phone, created_at FROM customers ORDER BY created_at"
+            "SELECT id, name, email, phone, height, type_preference, created_at FROM customers ORDER BY created_at"
         ).fetchall()
     return jsonify([dict(r) for r in rows])
 
@@ -361,9 +363,9 @@ def add_customer():
             if exists:
                 return jsonify({'ok': False, 'error': 'phone_exists'}), 409
         conn.execute(
-            "INSERT INTO customers (id, name, email, phone, password_hash, created_at, height) VALUES (?,?,?,?,?,?,?)",
+            "INSERT INTO customers (id, name, email, phone, password_hash, created_at, height, type_preference) VALUES (?,?,?,?,?,?,?,?)",
             (c['id'], c['name'], c.get('email', ''), c.get('phone', ''),
-             c['passwordHash'], c['createdAt'], c.get('height'))
+             c['passwordHash'], c['createdAt'], c.get('height'), c.get('type_preference'))
         )
     return jsonify({'ok': True})
 
@@ -371,7 +373,7 @@ def add_customer():
 @app.route('/api/customers/<customer_id>', methods=['PATCH'])
 def patch_customer(customer_id):
     data = request.get_json()
-    col_map = {'name': 'name', 'email': 'email', 'phone': 'phone', 'height': 'height'}
+    col_map = {'name': 'name', 'email': 'email', 'phone': 'phone', 'height': 'height', 'type_preference': 'type_preference'}
     sets, vals = [], []
     for key, col in col_map.items():
         if key in data:
@@ -394,7 +396,7 @@ def login():
     pwd_hash = data.get('passwordHash', '')
     with get_db() as conn:
         row = conn.execute(
-            """SELECT id, name, email, phone, height, created_at FROM customers
+            """SELECT id, name, email, phone, height, type_preference, created_at FROM customers
                WHERE (LOWER(email) = ? OR phone = ?) AND password_hash = ?""",
             (identifier, identifier, pwd_hash)
         ).fetchone()

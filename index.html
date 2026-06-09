@@ -1418,7 +1418,10 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 <!-- LANDING VIEW -->
 <div id="view-landing">
   <div id="landing-body">
-    <h1 class="landing-main-title" id="land-main-title">Reserve Your <span>Bicycle Now!</span></h1>
+    <h1 class="landing-main-title" id="land-main-title">Reserve Your <span id="land-title">Bicycle Now!</span></h1>
+    <p id="land-sub" style="color:var(--muted);font-size:14px;font-weight:600;margin-bottom:16px;text-align:center"></p>
+
+    <div id="land-avail-strip" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:16px"></div>
 
     <button class="landing-hero-card" onclick="goCustomer('register')">
       <img src="hero.png" alt="Corniche Circuit">
@@ -1636,7 +1639,7 @@ en:{
   myRidesTitle:'My Rides',myRidesSub:'Your complete rental history with',
   totalBookings:'Total Bookings',completedLabel:'Completed',totalPaid:'Total Paid',pendingPayment:'Pending Payment',
   rideHistory:'Ride History',noRides:'No bookings yet.',
-  colSession:'Session',colBike:'Bike',colSizeType:'Size / Type',colColor:'Color',colPayment:'Payment',colStatus:'Status',
+  colQueueNum:'#',colSession:'Session',colBike:'Bike',colSizeType:'Size / Type',colColor:'Color',colPayment:'Payment',colStatus:'Status',
   cancelBooking:'Cancel',
   statusWaiting:'Waiting',statusActive:'On Bike',statusDone:'Complete',statusNoshow:'No-Show',statusCancelled:'Cancelled by Customer',
   colBookingNum:'Booking #',colPosition:'Position',
@@ -1708,6 +1711,7 @@ en:{
   // Error messages
   errEnterName:'Please enter your full name (first and last name).',
   errEmailOrPhone:'Please enter at least an email or phone number.',
+  errPasswordRequired:'Please enter your password.',
   errValidEmail:'Please enter a valid email address.',
   errPasswordLen:'Password must be at least 8 characters and include an uppercase letter and a number.',
   errPasswordMatch:'Passwords do not match.',
@@ -1907,7 +1911,7 @@ ar:{
   myRidesTitle:'رحلاتي',myRidesSub:'سجل الإيجار الكامل لـ',
   totalBookings:'إجمالي الحجوزات',completedLabel:'مكتملة',totalPaid:'إجمالي المدفوع',pendingPayment:'مستحق الدفع',
   rideHistory:'سجل الرحلات',noRides:'لا توجد حجوزات بعد.',
-  colSession:'الجلسة',colBike:'الدراجة',colSizeType:'المقاس / النوع',colColor:'اللون',colPayment:'الدفع',colStatus:'الحالة',
+  colQueueNum:'#',colSession:'الجلسة',colBike:'الدراجة',colSizeType:'المقاس / النوع',colColor:'اللون',colPayment:'الدفع',colStatus:'الحالة',
   cancelBooking:'إلغاء',
   statusWaiting:'بانتظار',statusActive:'على الدراجة',statusDone:'مكتمل',statusNoshow:'لم يحضر',statusCancelled:'ملغي من قِبَل العميل',
   colBookingNum:'رقم الحجز',colPosition:'الموضع',
@@ -1971,6 +1975,7 @@ ar:{
   noEmailLabel:'لا بريد إلكتروني',hasBookingsTitle:'لديه حجوزات',
   errEnterName:'الرجاء إدخال اسمك الكامل (الاسم الأول والأخير).',
   errEmailOrPhone:'الرجاء إدخال بريد إلكتروني أو رقم هاتف على الأقل.',
+  errPasswordRequired:'الرجاء إدخال كلمة المرور.',
   errValidEmail:'الرجاء إدخال بريد إلكتروني صحيح.',
   errPasswordLen:'يجب أن تكون كلمة المرور 8 أحرف على الأقل وتحتوي على حرف كبير ورقم.',
   errPasswordMatch:'كلمتا المرور غير متطابقتين.',
@@ -2375,6 +2380,7 @@ const S={
   forgotEmail:'',forgotStep:1,
   rememberMe:false,  // default: sign out when browser closes
   cancellationLog:[],  // {entryId, name, queueNum, reason, time, session}
+  _flashId:null,_flashColor:'green',
   signupTypePref:'Any',
   loggedIn:null,      // customer object or null
   // data cache (loaded from API)
@@ -2429,9 +2435,11 @@ function entryToDB(e){
     walk_in:e.walkIn||false,customer_id:e.customerId||null};
 }
 
+let _bootDone=false; // set to true once the UI is handed to the user; guards against late loadData() clobbering active state
 async function loadData(showLoader=false){
   if(!sb)return;
   if(showLoader){const ls=document.getElementById('loading-screen');if(ls)ls.style.display='flex';}
+  const startToken=Date.now();
   const [q,b,c,ses]=await Promise.all([
     sb.from('queue_entries').select('*').order('session_id').order('queue_num'),
     sb.from('bikes').select('*'),
@@ -2443,12 +2451,15 @@ async function loadData(showLoader=false){
   if(c.error)console.error('loadData customers error:',c.error.message);
   if(ses.error)console.error('loadData sessions error:',ses.error.message);
   const anyError=q.error||b.error||c.error||ses.error;
-  if(anyError&&!q.data&&!b.data&&!c.data&&!ses.data){toast('Connection error - data may be stale','error');}
+  if(anyError&&!q.data&&!b.data&&!c.data&&!ses.data){toast('Connection error - data may be stale','error');return;}
+  // If the boot timeout already fired and handed control to the user, discard this stale response
+  if(_bootDone&&startToken<_bootReadyAt)return;
   S.queue=(q.data||[]).map(entryFromDB);
   S.bikes=b.data||[];
   S.customers=c.data||[];
   S.sessions=ses.data||[];
 }
+let _bootReadyAt=0;
 
 function hashPwd(s){
   let h=5381;
@@ -2503,7 +2514,7 @@ function _entryFallbackPrice(entry){
   const bikeIds=getAssignedBikeIds(entry);
   if(bikeIds.length){
     const bikes=bikeIds.map(id=>getBikes().find(b=>b.id===id)).filter(Boolean);
-    if(bikes.length)return Math.max(...bikes.map(b=>priceForBike(b)));
+    if(bikes.length)return bikes.reduce((s,b)=>s+priceForBike(b),0);
   }
   return priceForType(entry.typePreference);
 }
@@ -2787,8 +2798,8 @@ async function doSignup(){
   const pwd=(document.getElementById('a-pwd')?.value||'');
   const pwd2=(document.getElementById('a-pwd2')?.value||'');
   if(!name||name.trim().split(/\s+/).length<2){authErr(t('errEnterName'));return;}
-  if(!email){authErr(t('errValidEmail'));return;}
-  if(!/^\S+@\S+\.\S+$/.test(email)){authErr(t('errValidEmail'));return;}
+  if(!email&&!phone){authErr(t('errEmailOrPhone'));return;}
+  if(email&&!/^\S+@\S+\.\S+$/.test(email)){authErr(t('errValidEmail'));return;}
   if(pwd.length<8||!/[A-Z]/.test(pwd)||!/[0-9]/.test(pwd)){authErr(t('errPasswordLen'));return;}
   if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
   const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
@@ -2799,7 +2810,7 @@ async function doSignup(){
     if(fullPhone){const{data:ex}=await sb.from('customers').select('id').eq('phone',fullPhone).maybeSingle();if(ex){authErr(t('errPhoneExists'));return;}}
     const height=heightRaw;
     const type_preference=S.signupTypePref||'Any';
-    const customer={id:uid(),name,email,phone:fullPhone,password_hash:hashPwd(pwd),created_at:new Date().toISOString(),height};
+    const customer={id:uid(),name,email,phone:fullPhone,password_hash:hashPwd(pwd),created_at:new Date().toISOString(),height,type_preference};
     const{error}=await sb.from('customers').insert(customer);
     if(error)throw error;
     await loadData();
@@ -2815,7 +2826,7 @@ async function doLogin(){
   const identifier=rawInput.toLowerCase();
   const pwd=(document.getElementById('a-pwd')?.value||'');
   if(!identifier){authErr(t('errEmailOrPhone'));return;}
-  if(!pwd){authErr(t('authPassword'));return;}
+  if(!pwd){authErr(t('errPasswordRequired'));return;}
   try{
     // Build filter candidates — handles: email, +966xxx, 05xxx, 5xxx
     const isEmail=identifier.includes('@');
@@ -3494,7 +3505,7 @@ async function submitReg(){
     // All bikes in one booking share the same queue number
     const entries=Array.from({length:qty},(_,i)=>({
       id:uid(),name:riderNames[i],email,phone,
-      size:'',height:heights[i]||null,
+      size:heights[i]?heightToSize(heights[i]):'',height:heights[i]||null,
       typePreference:S.regBikeTypes[i],paid:false,
       assignedBikeId:null,sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
       queueNum:baseQNum,status:'waiting',registeredAt:new Date().toISOString(),walkIn:false,
@@ -3576,7 +3587,7 @@ async function submitModifyBooking(){
       const modHeight=parseInt(S.regBikeHeights[i])||null;
       const entry={
         id:uid(),name:modRiderName,email:cust.email||'',phone:cust.phone||'',
-        size:'',height:modHeight,typePreference:S.regBikeTypes[i],
+        size:modHeight?heightToSize(modHeight):'',height:modHeight,typePreference:S.regBikeTypes[i],
         paid:false,assignedBikeId:null,
         sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
         queueNum:sharedQNum,status:'waiting',
@@ -3840,7 +3851,14 @@ function renderAccount(){
     </div>`;
 }
 
-function refreshAccSizeBadge(){}
+function refreshAccSizeBadge(){
+  const h=parseInt(document.getElementById('acc-height')?.value||'');
+  const wrap=document.getElementById('acc-size-wrap');
+  if(!wrap)return;
+  if(isNaN(h)||h<100||h>250){wrap.innerHTML='';return;}
+  const sz=heightToSize(h);
+  wrap.innerHTML=`<span style="font-size:13px;font-weight:800;color:var(--green);padding:4px 10px;border-radius:8px;background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25)">${sizeLabel(sz)}</span>`;
+}
 
 async function saveAccount(){
   const cust=S.loggedIn||getSession();
@@ -4493,6 +4511,7 @@ function renderStaffQueue(){
   }
   if(S.sfPay==='paid')  filtered=filtered.filter(e=>e.paid);
   if(S.sfPay==='pending')filtered=filtered.filter(e=>!e.paid);
+  if(S.sfSize!=='all')  filtered=filtered.filter(e=>e.size===S.sfSize);
   if(S.sfSearch.trim()){const q=S.sfSearch.trim().toLowerCase();filtered=filtered.filter(e=>e.name.toLowerCase().includes(q)||(e.phone||'').includes(q));}
   const _sfd=S.sfSortDir;
   filtered.sort((a,b)=>{
@@ -5131,11 +5150,13 @@ async function confirmCancelWithReason(id){
 async function cancelBooking(id,reason){
   const entry=getQueue().find(e=>e.id===id);
   if(!entry||entry.status!=='waiting'){toast(t('errCancelWaiting'),'error');return;}
-  const behind=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>entry.queueNum);
+  const siblings=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.queueNum===entry.queueNum&&e.id!==id&&e.status!=='cancelled'&&e.status!=='removed');
+  const isLastInSlot=siblings.length===0;
+  const behind=isLastInSlot?getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>entry.queueNum):[];
   const savedBehind=behind.map(e=>({id:e.id,queueNum:e.queueNum}));
   const savedQNum=entry.queueNum;
   await sb.from('queue_entries').update({status:'cancelled'}).eq('id',id);
-  await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
+  if(savedBehind.length)await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
   // Log cancellation with reason for staff to see
   if(reason){
     S.cancellationLog.unshift({
@@ -5171,16 +5192,18 @@ async function staffCancelEntry(id){
       const savedStatus=entry.status;
       const savedAssigned=entry.assignedBikeId;
       if(entry.status==='waiting'){
-        const behind=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>entry.queueNum);
+        const siblings=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.queueNum===entry.queueNum&&e.id!==id&&e.status!=='cancelled'&&e.status!=='removed');
+        const isLastInSlot=siblings.length===0;
+        const behind=isLastInSlot?getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>entry.queueNum):[];
         const savedBehind=behind.map(e=>({id:e.id,queueNum:e.queueNum}));
         const savedQNum=entry.queueNum;
         await sb.from('queue_entries').update({status:'cancelled'}).eq('id',id);
-        await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
+        if(savedBehind.length)await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
         await loadData();
         toast(`Booking #${savedQNum} cancelled.`);
         pushUndo(`Staff cancel #${savedQNum} ${entry.name}`,async()=>{
           await sb.from('queue_entries').update({status:'waiting',queue_num:savedQNum}).eq('id',id);
-          await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum}).eq('id',e.id)));
+          if(savedBehind.length)await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum}).eq('id',e.id)));
           await loadData();renderMyRides();renderStaffQueue();
         });
       }else{
@@ -5258,12 +5281,13 @@ function confirmLogUndo(logId){
 
 async function doNoShow(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
-  // Shift subsequent waiting riders down (same as cancel — keeps numbers gapless)
-  const behind=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>entry.queueNum);
+  const siblings=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.queueNum===entry.queueNum&&e.id!==id&&e.status!=='cancelled'&&e.status!=='removed'&&e.status!=='noshow');
+  const isLastInSlot=siblings.length===0;
+  const behind=isLastInSlot?getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>entry.queueNum):[];
   const savedBehind=behind.map(e=>({id:e.id,queueNum:e.queueNum}));
   const savedQNum=entry.queueNum;
   await sb.from('queue_entries').update({status:'noshow'}).eq('id',id);
-  await Promise.all(behind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
+  if(savedBehind.length)await Promise.all(behind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
   await loadData();toast(t('toastNoShow'));
   S._flashId=id;S._flashColor='orange';setTimeout(()=>{S._flashId=null;},800);
   pushUndo(`No-show #${savedQNum} ${entry.name}`,async()=>{
@@ -5275,15 +5299,17 @@ async function doNoShow(id){
 }
 async function doUndoNoShow(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry||entry.status!=='noshow')return;
-  // Re-insert at original queueNum: bump up waiting entries >= entry.queueNum
-  const ahead=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>=entry.queueNum);
+  // Only bump up entries that were originally shifted: those with queueNum >= entry.queueNum
+  // and only if there are no siblings already occupying entry.queueNum
+  const currentSlotOccupied=getQueue().some(e=>e.sessionId===entry.sessionId&&e.queueNum===entry.queueNum&&e.id!==id&&e.status!=='cancelled'&&e.status!=='removed'&&e.status!=='noshow');
+  const ahead=currentSlotOccupied?[]:getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>=entry.queueNum);
   const savedAhead=ahead.map(e=>({id:e.id,queueNum:e.queueNum}));
-  await Promise.all(ahead.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum+1}).eq('id',e.id)));
+  if(ahead.length)await Promise.all(ahead.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum+1}).eq('id',e.id)));
   await sb.from('queue_entries').update({status:'waiting'}).eq('id',id);
   await loadData();toast(t('toastUndoNoShow'));
   pushUndo(`Undo no-show #${entry.queueNum} ${entry.name}`,async()=>{
     await sb.from('queue_entries').update({status:'noshow'}).eq('id',id);
-    await Promise.all(savedAhead.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum}).eq('id',e.id)));
+    if(savedAhead.length)await Promise.all(savedAhead.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum}).eq('id',e.id)));
     await loadData();renderStaffQueue();
   });
   renderStaffQueue();
@@ -5505,7 +5531,7 @@ async function doUndoCheckin(id){
   try{localStorage.removeItem('cq_ct_'+id);}catch(e){}
   toast(t('toastUndoCheckin'));
   pushUndo(`Undo check-in #${entry.queueNum} ${entry.name}`,async()=>{
-    const assignedVal=bikeIds.length===1?bikeIds[0]:JSON.stringify(bikeIds);
+    const assignedVal=bikeIds.length===0?null:bikeIds.length===1?bikeIds[0]:JSON.stringify(bikeIds);
     const calls2=[sb.from('queue_entries').update({status:'active',assigned_bike_id:assignedVal}).eq('id',id)];
     bikeIds.forEach(bid=>calls2.push(sb.from('bikes').update({status:'in-use'}).eq('id',bid)));
     await Promise.all(calls2);
@@ -6025,9 +6051,7 @@ async function confirmAssign(){
   // Set price from assigned bike's rental_price (falls back to type price if not configured)
   const priceUpdate={};
   if(rider&&selected.length>0){
-    priceUpdate.price=selected.length===1
-      ?priceForBike(selected[0])
-      :Math.max(...selected.map(b=>priceForBike(b)));
+    priceUpdate.price=selected.reduce((s,b)=>s+priceForBike(b),0);
   }
   const isReassign=rider&&rider.status==='active';
   // Free old bikes that are being replaced (reassign case)
@@ -6402,7 +6426,7 @@ function setBkRentalPrice(v){
 function _showCustomPriceModal(){
   const m=document.getElementById('confirm-modal');
   m.style.display='block';
-  m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this){m.style.display='none';m.innerHTML='';renderBikes();}">
+  m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this){var _m=document.getElementById('confirm-modal');_m.style.display='none';_m.innerHTML='';renderBikes();}">
     <div class="confirm-box">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
         <div style="font-size:18px;font-weight:900">Custom Rental Price</div>
@@ -6623,6 +6647,7 @@ function renderHistory(){
   if(S.histPay==='paid')   filtered=filtered.filter(e=>e.paid);
   if(S.histPay==='pending')filtered=filtered.filter(e=>!e.paid&&e.status==='done');
   if(S.histType!=='all')   filtered=filtered.filter(e=>e.typePreference===S.histType);
+  if(S.histSize!=='all')   filtered=filtered.filter(e=>e.size===S.histSize);
   if(S.histSearch.trim()){const q=S.histSearch.trim().toLowerCase();filtered=filtered.filter(e=>e.name.toLowerCase().includes(q)||(e.phone||'').includes(q)||(e.email||'').toLowerCase().includes(q));}
   const _hd=S.histSortDir;
   filtered.sort((a,b)=>{
@@ -6807,7 +6832,7 @@ function exportHistoryCSV(){
       e.name,
       e.phone||'',
       e.email||'',
-      dayLabel(e.sessionDay)+' '+shortDate(e.sessionDate),
+      dayLabel(e.sessionDay),
       shortDate(e.sessionDate),
       sessionTime(entSess),
       bikeNamesCsv,
@@ -7588,6 +7613,7 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   }catch(e){
     console.warn('Could not reach backend:',e.message);
   }
+  _bootDone=true;_bootReadyAt=Date.now();
   const ls=document.getElementById('loading-screen');
   if(ls){ls.style.opacity='0';setTimeout(()=>{ls.style.display='none';},400);}
   S.loggedIn=getSession();
