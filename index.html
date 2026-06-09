@@ -7230,7 +7230,7 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
 ══════════════════════════════════════════════ */
 (async()=>{
   try{
-    await loadData();
+    await Promise.race([loadData(),new Promise(r=>setTimeout(r,8000))]);
   }catch(e){
     console.warn('Could not reach backend:',e.message);
   }
