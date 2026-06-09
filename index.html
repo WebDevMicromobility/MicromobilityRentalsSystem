@@ -2364,6 +2364,7 @@ const S={
   newSessTypeSizes:{Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}},
   editSessionId:null,
   editSessAssignedIds:[],
+  editSessMode:'fleet',editSessTypeSizes:{Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}},
   editSessDate:'',editSessStatus:'closed',editSessStartTime:'21:00',editSessEndTime:'23:00',
   newSessAssignedIds:[],
 };
@@ -3933,10 +3934,26 @@ function startEditSession(id){
   S.editSessEndTime=existingTime.split(/\s*-\s*/)[1]||'23:00';
   const fmt=slotsFormat(slots);
   if(fmt==='ids'&&slots._bikes){
+    S.editSessMode='fleet';
     S.editSessAssignedIds=[...slots._bikes];
-  } else {
-    // Old format or counts-only — no specific bikes stored, start fresh
+    S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
+  } else if(fmt==='counts'){
+    S.editSessMode='counts';
     S.editSessAssignedIds=[];
+    const ts={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
+    ['Road','Hybrid','Mountain'].forEach(ty=>{
+      if(slots[ty]&&typeof slots[ty]==='object'){
+        ['XS','S','M','L'].forEach(sz=>{ts[ty][sz]=slots[ty][sz]||0;});
+      } else if(typeof slots[ty]==='number'){
+        // Old flat count - can't split by size, put in M
+        ts[ty].M=slots[ty]||0;
+      }
+    });
+    S.editSessTypeSizes=ts;
+  } else {
+    S.editSessMode='fleet';
+    S.editSessAssignedIds=[];
+    S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
   }
   renderSessions();
   setTimeout(()=>document.getElementById('sess-edit-form')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
@@ -4120,13 +4137,44 @@ function renderSessions(){
           </div>
         </div>
       </div>
+      <!-- Mode toggle -->
+      <div style="display:flex;gap:6px;margin-bottom:16px">
+        <button class="toggle-btn${S.editSessMode==='counts'?' active':''}" onclick="S.editSessMode='counts';renderSessions()">&#x1F522; Bike Counts</button>
+        <button class="toggle-btn${S.editSessMode==='fleet'?' active':''}" onclick="S.editSessMode='fleet';renderSessions()">&#x1F6B4; From Fleet</button>
+      </div>
       <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;display:block">
-        ${t('bikeFleetComp')} &nbsp;·&nbsp; <span style="color:var(--green)">${esTotal} ${t('bike').toLowerCase()}${esTotal!==1?'s':''} ${t('assignBikeTitle').toLowerCase()}</span>
+        ${t('bikeFleetComp')}${S.editSessMode==='fleet'?` &nbsp;·&nbsp; <span style="color:var(--green)">${esTotal} ${t('bike').toLowerCase()}${esTotal!==1?'s':''} ${t('assignBikeTitle').toLowerCase()}</span>`:''}
       </label>
-      ${bikePicker()}
+      ${S.editSessMode==='counts'?`
+        <div style="overflow-x:auto;margin-bottom:4px">
+          <table style="width:100%;border-collapse:collapse">
+            <thead><tr>
+              <th style="text-align:left;padding:6px 10px;font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase">${t('bikeTypeLabel')}</th>
+              ${['XS','S','M','L'].map(sz=>`<th style="padding:6px 8px;font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;text-align:center">${sz}</th>`).join('')}
+              <th style="padding:6px 8px;font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;text-align:center">${t('totalStat')}</th>
+            </tr></thead>
+            <tbody>${['Road','Hybrid','Mountain'].map(ty=>{
+              if(!S.editSessTypeSizes)S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
+              const rowTot=['XS','S','M','L'].reduce((s,sz)=>s+(S.editSessTypeSizes[ty]?.[sz]||0),0);
+              return`<tr style="border-top:1px solid var(--border)">
+                <td style="padding:8px 10px;font-weight:800;font-size:13px">${typeLabel(ty)}</td>
+                ${['XS','S','M','L'].map(sz=>`<td style="padding:5px 6px;text-align:center">
+                  <input type="number" min="0" max="99" value="${S.editSessTypeSizes[ty]?.[sz]||0}"
+                    style="width:46px;padding:5px 4px;background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:6px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;text-align:center"
+                    oninput="S.editSessTypeSizes['${ty}']['${sz}']=Math.max(0,parseInt(this.value)||0);renderSessions()">
+                </td>`).join('')}
+                <td style="padding:8px 10px;text-align:center;font-weight:900;font-size:15px;color:${rowTot>0?'var(--green)':'var(--muted)'}">${rowTot}</td>
+              </tr>`;
+            }).join('')}</tbody>
+            <tfoot><tr style="border-top:2px solid var(--border)">
+              <td colspan="5" style="padding:8px 10px;font-size:12px;color:var(--muted);font-weight:700">${t('totalBikesSession')}</td>
+              <td style="padding:8px 10px;text-align:center;font-size:20px;font-weight:900;color:var(--green)">${['Road','Hybrid','Mountain'].reduce((sum,ty)=>sum+['XS','S','M','L'].reduce((s,sz)=>s+(S.editSessTypeSizes?.[ty]?.[sz]||0),0),0)}</td>
+            </tr></tfoot>
+          </table>
+        </div>`:bikePicker()}
       <div style="display:flex;gap:8px;margin-top:16px">
         <button class="btn-primary" onclick="saveSessionEdit()">${t('saveSessionBtn')}</button>
-        <button class="btn-secondary" onclick="S.editSessionId=null;renderSessions()">${t('cancelBtn')}</button>
+        <button class="btn-secondary" onclick="S.editSessionId=null;S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};renderSessions()">${t('cancelBtn')}</button>
       </div>
     </div>`:'';
 
@@ -4267,16 +4315,29 @@ async function saveSessionEdit(){
   const oldId=S.editSessionId;
   const sess=allSessions().find(s=>s.id===oldId);if(!sess)return;
   const newDate=S.editSessDate||oldId;
-  const assignedIds=S.editSessAssignedIds;
-  if(assignedIds.length===0){toast(t('errAddBikeToSession'),'error');return;}
-  // Build slots object with IDs and a type summary
-  const allBk=getBikes();
-  const typeCounts={};
-  assignedIds.forEach(id=>{const b=allBk.find(x=>x.id===id);if(b)typeCounts[b.type]=(typeCounts[b.type]||0)+1;});
   const esStart=S.editSessStartTime||document.getElementById('es-start')?.value||'21:00';
   const esEnd=S.editSessEndTime||document.getElementById('es-end')?.value||'23:00';
-  const slots={_bikes:assignedIds,...typeCounts,_time:`${esStart} - ${esEnd}`};
-  const total=assignedIds.length;
+  const timeVal=`${esStart} - ${esEnd}`;
+  let slots,total;
+  if(S.editSessMode==='counts'){
+    const ts=S.editSessTypeSizes||{};
+    const sizes=['XS','S','M','L'];
+    total=['Road','Hybrid','Mountain'].reduce((sum,ty)=>sum+sizes.reduce((s,sz)=>s+(ts[ty]?.[sz]||0),0),0);
+    if(total===0){toast(t('errAddBikeToSession'),'error');return;}
+    slots={_time:timeVal};
+    ['Road','Hybrid','Mountain'].forEach(ty=>{
+      const rowTot=sizes.reduce((s,sz)=>s+(ts[ty]?.[sz]||0),0);
+      if(rowTot>0)slots[ty]=ts[ty];
+    });
+  }else{
+    const assignedIds=S.editSessAssignedIds;
+    if(assignedIds.length===0){toast(t('errAddBikeToSession'),'error');return;}
+    const allBk=getBikes();
+    const typeCounts={};
+    assignedIds.forEach(id=>{const b=allBk.find(x=>x.id===id);if(b)typeCounts[b.type]=(typeCounts[b.type]||0)+1;});
+    slots={_bikes:assignedIds,...typeCounts,_time:timeVal};
+    total=assignedIds.length;
+  }
   const newStatus=S.editSessStatus||sess.status;
   const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const newDay=dayNames[new Date(newDate+'T00:00:00').getDay()];
@@ -4330,7 +4391,7 @@ async function saveSessionEdit(){
       }
       await loadData();renderSessions();renderStaffQueue();
     });
-    S.editSessionId=null;
+    S.editSessionId=null;S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
     renderSessions();renderStaffQueue();
   }catch(e){toast(t('errServerError'),'error');console.error(e);}
 }
@@ -4803,52 +4864,6 @@ function renderStaffQueue(){
   })();
 
   // ── Session dashboard (single-session view only) ──
-  const _sessionDashboard=(()=>{
-    if(S.sfSession==='all')return'';
-    const sess=allSessions().find(s=>s.id===S.sfSession);
-    if(!sess)return'';
-    const q=getQueue().filter(e=>e.sessionId===S.sfSession&&e.status!=='removed'&&e.status!=='cancelled');
-    const sWait=q.filter(e=>e.status==='waiting').length;
-    const sActive=q.filter(e=>e.status==='active').length;
-    const sDone=q.filter(e=>e.status==='done').length;
-    const sPaid=q.filter(e=>e.status==='done'&&e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
-    const sPend=q.filter(e=>!e.paid&&['done','active','waiting'].includes(e.status)).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
-    const cap=sess.capacity||12;
-    const fillPct=Math.round(Math.min((sWait+sActive+sDone)/cap*100,100));
-    const fillClr=fillPct>=90?'var(--red)':fillPct>=70?'#e08828':'var(--green)';
-    return`<div class="sess-dashboard">
-      <div class="sess-dash-header">
-        <div style="font-weight:900;font-size:15px">${dayLabel(sess.day)} &nbsp;&middot;&nbsp; ${shortDate(sess.session_date||sess.id)}</div>
-        <div style="font-size:12px;color:var(--muted);font-weight:600">${sessionTime(sess)}</div>
-      </div>
-      <div class="sess-dash-stats">
-        <div class="sess-dash-chip" style="border-color:rgba(3,255,137,.2)">
-          <div class="sess-dash-num" style="color:var(--green)">${sWait}</div>
-          <div class="sess-dash-lbl">${t('waitingStat')}</div>
-        </div>
-        <div class="sess-dash-chip">
-          <div class="sess-dash-num">${sActive}</div>
-          <div class="sess-dash-lbl">${t('onBikeStat')}</div>
-        </div>
-        <div class="sess-dash-chip">
-          <div class="sess-dash-num" style="color:var(--muted)">${sDone}</div>
-          <div class="sess-dash-lbl">${t('doneStat')}</div>
-        </div>
-        <div class="sess-dash-chip" style="border-color:rgba(3,255,137,.15)">
-          <div class="sess-dash-num" style="color:var(--green);font-size:${sPaid>=1000?'14':sPaid>=100?'16':'20'}px">SAR&nbsp;${sPaid}</div>
-          <div class="sess-dash-lbl">${t('paidLabel')}</div>
-        </div>
-        <div class="sess-dash-chip" style="border-color:rgba(224,136,40,.2)">
-          <div class="sess-dash-num" style="color:#e08828;font-size:${sPend>=1000?'14':sPend>=100?'16':'20'}px">SAR&nbsp;${sPend}</div>
-          <div class="sess-dash-lbl">${t('pendingLabel')}</div>
-        </div>
-      </div>
-      <div style="height:4px;background:rgba(255,255,255,.07);border-radius:4px;overflow:hidden;margin-top:12px">
-        <div style="height:100%;width:${fillPct}%;background:${fillClr};border-radius:4px;transition:width .3s ease"></div>
-      </div>
-      <div style="font-size:10px;color:var(--muted);font-weight:700;margin-top:4px">${fillPct}% &nbsp;&middot;&nbsp; ${sWait+sActive+sDone} / ${cap} ${t('resultRiders')||'riders'}</div>
-    </div>`;
-  })();
 
   // ── Build rows: group by session for All Sessions, flat for single session ──
   let rows,emptyRow='';
@@ -4886,7 +4901,7 @@ function renderStaffQueue(){
     mobileCards=buildQueueGroups(filtered).map(g=>renderGroupCard(g)).join('');
     if(!filtered.length)mobileCards=`<div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div>`;
   }
-  document.getElementById('tab-queue').innerHTML=_queueHeader+_sessSummaryBar+_sessionDashboard+`
+  document.getElementById('tab-queue').innerHTML=_queueHeader+_sessSummaryBar+`
     <div class="stats-row">
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('totalStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWait}</div><div class="stat-label">${t('waitingStat')}</div></div>
