@@ -1813,6 +1813,8 @@ en:{
   confirmNoShowTitle:'Mark as No-Show?',confirmRemoveTitle:'Remove Rider?',
   addNewOption:'Add new...',typeNewLabel:'Type new value...',saveBtn:'Save',
   releaseBikeBtn:'Release',releaseBikeToast:'released back to available',noRiderAssigned:'No rider assigned',
+  errValidPrice:'Please enter a valid price (0 or above).',
+  colRevenue:'Revenue',
 },
 ar:{
   appSub:'طابور حلبة الكورنيش',landingTitle:'مايكرو موبيليتي - حلبة الكورنيش',
@@ -2072,6 +2074,8 @@ ar:{
   confirmNoShowTitle:'تسجيل كغائب؟',confirmRemoveTitle:'حذف الراكب؟',
   addNewOption:'إضافة جديد...',typeNewLabel:'اكتب قيمة جديدة...',saveBtn:'حفظ',
   releaseBikeBtn:'تحرير',releaseBikeToast:'تم تحريره وأصبح متاحاً',noRiderAssigned:'لا يوجد راكب',
+  errValidPrice:'الرجاء إدخال سعر صحيح (صفر أو أكثر).',
+  colRevenue:'الإيرادات',
 }};
 function t(k){return(LANG[S&&S.lang?S.lang:'en']||LANG.en)[k]||LANG.en[k]||k;}
 
@@ -2380,6 +2384,7 @@ const S={
   editSessMode:'fleet',editSessTypeSizes:{Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}},
   editSessDate:'',editSessStatus:'closed',editSessStartTime:'21:00',editSessEndTime:'23:00',
   newSessAssignedIds:[],
+  _extraBikes:{},
 };
 
 /* ══════════════════════════════════════════════
@@ -2429,6 +2434,12 @@ async function loadData(showLoader=false){
     sb.from('customers').select('id,name,email,phone,height,type_preference,created_at'),
     sb.from('sessions').select('*').order('session_date'),
   ]);
+  if(q.error)console.error('loadData queue error:',q.error.message);
+  if(b.error)console.error('loadData bikes error:',b.error.message);
+  if(c.error)console.error('loadData customers error:',c.error.message);
+  if(ses.error)console.error('loadData sessions error:',ses.error.message);
+  const anyError=q.error||b.error||c.error||ses.error;
+  if(anyError&&!q.data&&!b.data&&!c.data&&!ses.data){toast('Connection error - data may be stale','error');}
   S.queue=(q.data||[]).map(entryFromDB);
   S.bikes=b.data||[];
   S.customers=c.data||[];
@@ -2515,7 +2526,7 @@ function spotsLeft(sid){
   // Exclude noshow, cancelled, and removed (soft-deleted) — they don't occupy spots
   return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed').length);
 }
-function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid&&e.status!=='removed'&&e.status!=='cancelled').map(e=>e.queueNum);return nums.length?Math.max(...nums)+1:1;}
+function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid&&e.status!=='removed'&&e.status!=='cancelled').map(e=>e.queueNum);return nums.length?nums.reduce((a,b)=>Math.max(a,b),0)+1:1;}
 const bikeById=id=>getBikes().find(b=>b.id===id);
 function getAssignedBikeIds(entry){
   if(!entry)return[];
@@ -2758,7 +2769,6 @@ async function doSignup(){
   if(!name||name.trim().split(/\s+/).length<2){authErr(t('errEnterName'));return;}
   if(!email){authErr(t('errValidEmail'));return;}
   if(!/^\S+@\S+\.\S+$/.test(email)){authErr(t('errValidEmail'));return;}
-  if(!phone){authErr(t('errEmailOrPhone').replace('email or ',''));return;}
   if(pwd.length<8||!/[A-Z]/.test(pwd)||!/[0-9]/.test(pwd)){authErr(t('errPasswordLen'));return;}
   if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
   const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
@@ -2768,8 +2778,7 @@ async function doSignup(){
     if(email){const{data:ex}=await sb.from('customers').select('id').eq('email',email).maybeSingle();if(ex){authErr(t('errEmailExists'));return;}}
     if(fullPhone){const{data:ex}=await sb.from('customers').select('id').eq('phone',fullPhone).maybeSingle();if(ex){authErr(t('errPhoneExists'));return;}}
     const height=heightRaw;
-    const type_preference=S.signupTypePref||'Any';
-    const customer={id:uid(),name,email,phone:fullPhone,password_hash:hashPwd(pwd),created_at:new Date().toISOString(),height,type_preference};
+    const customer={id:uid(),name,email,phone:fullPhone,password_hash:hashPwd(pwd),created_at:new Date().toISOString(),height};
     const{error}=await sb.from('customers').insert(customer);
     if(error)throw error;
     await loadData();
@@ -2797,7 +2806,7 @@ async function doLogin(){
       const bare=digits.replace(/^0+/,'');     // strip leading zeros (e.g. 0501 → 501)
       // Try all reasonable formats the number could be stored as
       const candidates=new Set([rawInput,digits,bare,`+966${bare}`,`00966${bare}`]);
-      candidates.forEach(c=>{if(c&&c.length>=5)filters.push(`phone.eq.${c}`);});
+      candidates.forEach(c=>{if(c&&c.length>=5&&/^[+\d]+$/.test(c))filters.push(`phone.eq.${c}`);});
     }
     const{data:customer}=await sb.from('customers')
       .select('id,name,email,phone,height,type_preference,created_at')
@@ -2925,15 +2934,15 @@ function setCustTab(tab){
   else if(tab==='register')renderRegister();
   else if(tab==='account')renderAccount();
 }
-function setStaffTab(t){
-  S.staffTab=t;
-  try{sessionStorage.setItem('cq_nav_stab',t);}catch(e){}
+function setStaffTab(tab){
+  S.staffTab=tab;
+  try{sessionStorage.setItem('cq_nav_stab',tab);}catch(e){}
   renderStaffTabs();
-  if(t==='sessions')renderSessions();
-  else if(t==='queue')renderStaffQueue();
-  else if(t==='bikes')renderBikes();
-  else if(t==='history')renderHistory();
-  else if(t==='analytics')renderAnalytics();
+  if(tab==='sessions')renderSessions();
+  else if(tab==='queue')renderStaffQueue();
+  else if(tab==='bikes')renderBikes();
+  else if(tab==='history')renderHistory();
+  else if(tab==='analytics')renderAnalytics();
 }
 
 function renderCustomerTabs(){
@@ -4002,8 +4011,8 @@ function renderSessions(){
   function newBikePicker(){
     const queue=getQueue();
     const busyIds=new Set(
-      queue.filter(e=>(e.status==='active'||e.status==='waiting')&&e.assignedBikeId)
-        .map(e=>e.assignedBikeId)
+      queue.filter(e=>e.status==='active'||e.status==='waiting')
+        .flatMap(e=>getAssignedBikeIds(e))
     );
     return types.map(ty=>{
       const typeBikes=allBikes.filter(b=>b.type===ty);
@@ -4097,8 +4106,8 @@ function renderSessions(){
     const queue=getQueue();
     // A bike is "busy" if it has an active/waiting booking in a DIFFERENT session
     const busyIds=new Set(
-      queue.filter(e=>e.sessionId!==currentSessId&&(e.status==='active'||e.status==='waiting')&&e.assignedBikeId)
-        .map(e=>e.assignedBikeId)
+      queue.filter(e=>e.sessionId!==currentSessId&&(e.status==='active'||e.status==='waiting'))
+        .flatMap(e=>getAssignedBikeIds(e))
     );
     return types.map(ty=>{
       const typeBikes=allBikes.filter(b=>b.type===ty);
@@ -4489,7 +4498,7 @@ async function restoreSession(id){
   try{
     await sb.from('sessions').update({status:'closed'}).eq('id',id);
     await loadData();
-    toast(t('sessOpened'));
+    toast(t('sessClosed'));
     renderSessions();
   }catch(e){toast(t('errConnection'),'error');}
 }
@@ -4926,11 +4935,9 @@ function renderStaffQueue(){
     ${(()=>{
       // Show recent customer cancellations (last 5 minutes) as an alert strip
       const cutoff=Date.now()-5*60*1000;
-      const recent=S.cancellationLog.filter(c=>{
-        const [h,m]=c.time.split(':').map(Number);
-        const d=new Date();d.setHours(h,m,0,0);
-        return d.getTime()>=cutoff;
-      }).slice(0,3);
+      const recent=S.cancellationLog.filter(c=>
+        (c.timestamp!=null?c.timestamp:Date.now())>=cutoff
+      ).slice(0,3);
       if(!recent.length)return'';
       return`<div style="margin-bottom:14px">
         ${recent.map(c=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;margin-bottom:6px;background:rgba(224,64,64,.07);border:1px solid rgba(224,64,64,.2);border-radius:10px;font-size:12px">
@@ -5155,7 +5162,8 @@ async function cancelBooking(id,reason){
     S.cancellationLog.unshift({
       entryId:id,name:entry.name,queueNum:savedQNum,reason,
       session:dayLabel(entry.sessionDay)+' '+shortDate(entry.sessionDate),
-      time:new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})
+      time:new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'}),
+      timestamp:Date.now()
     });
     if(S.cancellationLog.length>100)S.cancellationLog.pop();
     try{localStorage.setItem('cq_cancellations',JSON.stringify(S.cancellationLog));}catch(e){}
@@ -5264,7 +5272,7 @@ function showEditPriceModal(id){
 }
 function closeEditPriceModal(){const m=document.getElementById('edit-price-modal');if(m)m.style.display='none';}
 async function saveEditedPrice(id,newPrice){
-  if(isNaN(newPrice)||newPrice<0){toast(t('errBikeName'),'error');return;}
+  if(isNaN(newPrice)||newPrice<0){toast(t('errValidPrice'),'error');return;}
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
   const prevPrice=entry.price;
   entry.price=newPrice;
@@ -5442,10 +5450,10 @@ function confirmDialog({title,body,confirmLabel,confirmClass,onConfirm}){
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeConfirm()">
     <div class="confirm-box">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${body?'10':'18'}px">
-        <div style="font-size:18px;font-weight:900">${title}</div>
+        <div style="font-size:18px;font-weight:900">${esc(title)}</div>
         <button onclick="closeConfirm()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 4px;transition:color .15s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&times;</button>
       </div>
-      ${body?`<div style="font-size:14px;color:var(--muted-l);font-weight:700;margin-bottom:20px;padding:10px 14px;background:var(--s3);border-radius:10px">${body}</div>`:''}
+      ${body?`<div style="font-size:14px;color:var(--muted-l);font-weight:700;margin-bottom:20px;padding:10px 14px;background:var(--s3);border-radius:10px">${esc(body)}</div>`:''}
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button class="btn-secondary" onclick="closeConfirm()">${t('cancelBtn')}</button>
         <button class="${confirmClass||'btn-red'}" onclick="_doConfirm()" style="min-width:100px">${confirmLabel}</button>
@@ -5578,11 +5586,12 @@ async function doRemove(id){
 
 async function doRestoreEntry(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
+  const restoreStatus=entry.assignedBikeId?'done':'waiting';
   addHistLog('Restored',entry,async()=>{
     await sb.from('queue_entries').update({status:'removed'}).eq('id',id);
     await loadData();renderHistory();
   });
-  await sb.from('queue_entries').update({status:'done'}).eq('id',id);
+  await sb.from('queue_entries').update({status:restoreStatus}).eq('id',id);
   await loadData();toast(t('restoreEntryBtn')||'Restored');
   renderHistory();
 }
@@ -5844,6 +5853,7 @@ async function confirmAssign(){
   const riderId=S.modalRider;
   const qn=rider?rider.queueNum:'?';const rName=rider?rider.name:'';
   const bikeNames=selected.map(b=>b.name).join(', ');
+  const prevPrice=rider?rider.price:null;
   // Resolve final price: lock in max bike-type price when 'Any' or multiple bikes assigned
   const priceUpdate={};
   if(rider&&selected.length>0&&(rider.typePreference==='Any'||selected.length>=2)){
@@ -5893,9 +5903,11 @@ async function confirmAssign(){
     try{localStorage.setItem('cq_ct_'+riderId,Date.now());}catch(e){}
     pushUndo(`Check-in #${qn} ${rName}`,async()=>{
       try{localStorage.removeItem('cq_ct_'+riderId);}catch(e){}
+      const undoEntry={status:'waiting',assigned_bike_id:null};
+      if(priceUpdate.price!=null&&prevPrice!=null)undoEntry.price=prevPrice;
       await Promise.all([
         ...needsUpdate.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b.id)),
-        sb.from('queue_entries').update({status:'waiting',assigned_bike_id:null}).eq('id',riderId),
+        sb.from('queue_entries').update(undoEntry).eq('id',riderId),
       ]);
       await loadData();renderStaffQueue();
     });
@@ -6277,7 +6289,7 @@ function delBike(id){
     confirmLabel:t('deleteBtn'),
     confirmClass:'btn-red',
     onConfirm:async()=>{
-      const saved={id:bike.id,name:bike.name,size:bike.size,type:bike.type,colors:[...(bike.colors||[])],status:'available'};
+      const saved={id:bike.id,name:bike.name,size:bike.size,type:bike.type,colors:[...(bike.colors||[])],color_names:[...(bike.color_names||[])],brand:bike.brand||null,model:bike.model||null,groupset:bike.groupset||null,speeds:bike.speeds||null,status:'available'};
       await sb.from('bikes').delete().eq('id',id);
       await loadData();toast(`${bike.name} ${t('toastBikeRemoved')}`);
       pushUndo(`Delete bike ${bike.name}`,async()=>{
@@ -6551,7 +6563,8 @@ function exportHistoryCSV(){
     :'rides_all_sessions.csv';
   const headers=['#','Name','Phone','Email','Session','Date','Time','Bike','Size','Type','Price (SAR)','Paid','Status'];
   const rows=hist.map(e=>{
-    const bike=e.assignedBikeId?getBikes().find(b=>b.id===e.assignedBikeId):null;
+    const assignedBikes=getAssignedBikes(e);
+    const bikeNamesCsv=assignedBikes.map(b=>b.name).join('; ');
     const entSess=allSessions().find(s=>s.id===e.sessionId);
     return[
       e.queueNum,
@@ -6561,7 +6574,7 @@ function exportHistoryCSV(){
       dayLabel(e.sessionDay)+' '+shortDate(e.sessionDate),
       shortDate(e.sessionDate),
       sessionTime(entSess),
-      bike?bike.name:'',
+      bikeNamesCsv,
       e.size,
       e.typePreference,
       e.price??DEFAULT_PRICE,
@@ -6952,7 +6965,7 @@ function renderAnalytics(){
   });
   function thSort(col,label){
     const active=ss===col;
-    return`<th class="an-sort-th${active?' an-sort-active':''}${active&&sd===1?' desc':''}" onclick="setAnSort('${col}')">${label}</th>`;
+    return`<th class="an-sort-th${active?' an-sort-active':''}${active&&sd===-1?' desc':''}" onclick="setAnSort('${col}')">${label}</th>`;
   }
   const trendRows=sortedTrend.map(({s,sDone,sNo,cap,rev,pend,occ,topT,riders,noShows})=>{
     const occColor=occ>=50?'var(--green)':'var(--muted-l)';
@@ -7374,9 +7387,15 @@ async function _autoRefresh(){
     await loadData();
     _lastRefresh=Date.now();
     renderStaffQueue();renderSessions();
+    if(S.staffTab==='bikes')renderBikes();
+    if(S.staffTab==='history')renderHistory();
     if(S.staffTab==='analytics')renderAnalytics();
     renderLandingAvail();
-  }catch(e){/* silent */}
+  }catch(e){
+    console.warn('Auto-refresh error:',e);
+    const el=document.getElementById('staff-refresh-label');
+    if(el)el.textContent=t('errConnection')||'Connection error';
+  }
 }
 setInterval(()=>{_tickRefreshLabel();},5000);
 setInterval(()=>{_autoRefresh();},30000);

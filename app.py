@@ -24,7 +24,11 @@ CREATE TABLE IF NOT EXISTS bikes (
     type        TEXT NOT NULL,
     colors      TEXT NOT NULL,
     color_names TEXT,
-    status      TEXT NOT NULL DEFAULT 'available'
+    status      TEXT NOT NULL DEFAULT 'available',
+    brand       TEXT,
+    model       TEXT,
+    groupset    TEXT,
+    speeds      TEXT
 );
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -60,6 +64,14 @@ CREATE TABLE IF NOT EXISTS queue_entries (
 );
 """
 
+MIGRATIONS = [
+    "ALTER TABLE bikes ADD COLUMN brand TEXT",
+    "ALTER TABLE bikes ADD COLUMN model TEXT",
+    "ALTER TABLE bikes ADD COLUMN groupset TEXT",
+    "ALTER TABLE bikes ADD COLUMN speeds TEXT",
+    "ALTER TABLE bikes ADD COLUMN color_names TEXT",
+]
+
 
 def get_db():
     conn = sqlite3.connect(DB)
@@ -71,6 +83,11 @@ def get_db():
 def init_db():
     with get_db() as conn:
         conn.executescript(SCHEMA)
+        for stmt in MIGRATIONS:
+            try:
+                conn.execute(stmt)
+            except sqlite3.OperationalError:
+                pass  # column already exists
 
 
 def entry_to_dict(row):
@@ -90,7 +107,14 @@ def entry_to_dict(row):
 
 def bike_to_dict(row):
     b = dict(row)
-    b['colors'] = json.loads(b['colors'])
+    b['colors'] = json.loads(b['colors']) if b.get('colors') else []
+    if b.get('color_names'):
+        try:
+            b['color_names'] = json.loads(b['color_names'])
+        except (json.JSONDecodeError, TypeError):
+            b['color_names'] = []
+    else:
+        b['color_names'] = []
     return b
 
 
@@ -205,6 +229,8 @@ def patch_queue_entry(entry_id):
         'paid': 'paid',
         'assignedBikeId': 'assigned_bike_id',
         'price': 'price',
+        'size': 'size',
+        'typePreference': 'type_preference',
     }
     sets, vals = [], []
     for key, col in col_map.items():
@@ -225,7 +251,9 @@ def patch_queue_entry(entry_id):
 @app.route('/api/queue/<entry_id>', methods=['DELETE'])
 def delete_queue_entry(entry_id):
     with get_db() as conn:
-        conn.execute("DELETE FROM queue_entries WHERE id = ?", (entry_id,))
+        result = conn.execute("DELETE FROM queue_entries WHERE id = ?", (entry_id,))
+        if result.rowcount == 0:
+            return jsonify({'ok': False, 'error': 'not_found'}), 404
     return jsonify({'ok': True})
 
 
@@ -243,9 +271,12 @@ def add_bike():
     b = request.get_json()
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO bikes (id, name, size, type, colors, status) VALUES (?,?,?,?,?,?)",
+            "INSERT INTO bikes (id, name, size, type, colors, color_names, status, brand, model, groupset, speeds) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
             (b['id'], b['name'], b['size'], b['type'],
-             json.dumps(b['colors']), b.get('status', 'available'))
+             json.dumps(b['colors']),
+             json.dumps(b['colorNames']) if b.get('colorNames') else None,
+             b.get('status', 'available'),
+             b.get('brand'), b.get('model'), b.get('groupset'), b.get('speeds'))
         )
     return jsonify({'ok': True})
 
@@ -255,8 +286,13 @@ def replace_bike(bike_id):
     b = request.get_json()
     with get_db() as conn:
         conn.execute(
-            "UPDATE bikes SET name=?, size=?, type=?, colors=?, status=? WHERE id=?",
-            (b['name'], b['size'], b['type'], json.dumps(b['colors']), b['status'], bike_id)
+            "UPDATE bikes SET name=?, size=?, type=?, colors=?, color_names=?, status=?, brand=?, model=?, groupset=?, speeds=? WHERE id=?",
+            (b['name'], b['size'], b['type'],
+             json.dumps(b['colors']),
+             json.dumps(b['colorNames']) if b.get('colorNames') else None,
+             b['status'],
+             b.get('brand'), b.get('model'), b.get('groupset'), b.get('speeds'),
+             bike_id)
         )
     return jsonify({'ok': True})
 
@@ -265,13 +301,16 @@ def replace_bike(bike_id):
 def patch_bike(bike_id):
     data = request.get_json()
     sets, vals = [], []
-    for key in ('status', 'name', 'size', 'type'):
+    for key in ('status', 'name', 'size', 'type', 'brand', 'model', 'groupset', 'speeds'):
         if key in data:
             sets.append(f"{key} = ?")
             vals.append(data[key])
     if 'colors' in data:
         sets.append("colors = ?")
         vals.append(json.dumps(data['colors']))
+    if 'colorNames' in data:
+        sets.append("color_names = ?")
+        vals.append(json.dumps(data['colorNames']) if data['colorNames'] else None)
     if not sets:
         return jsonify({'ok': False}), 400
     vals.append(bike_id)
@@ -283,6 +322,11 @@ def patch_bike(bike_id):
 @app.route('/api/bikes/<bike_id>', methods=['DELETE'])
 def delete_bike(bike_id):
     with get_db() as conn:
+        row = conn.execute("SELECT status FROM bikes WHERE id = ?", (bike_id,)).fetchone()
+        if not row:
+            return jsonify({'ok': False, 'error': 'not_found'}), 404
+        if row['status'] == 'in-use':
+            return jsonify({'ok': False, 'error': 'bike_in_use'}), 409
         conn.execute("DELETE FROM bikes WHERE id = ?", (bike_id,))
     return jsonify({'ok': True})
 
@@ -370,7 +414,7 @@ def customer_stats(customer_id):
     total = sum(1 for e in entries if e['status'] != 'noshow')
     completed = sum(1 for e in entries if e['status'] == 'done')
     total_paid = sum(e['price'] for e in entries if e['paid'])
-    pending = sum(e['price'] for e in entries if not e['paid'] and e['status'] in ('done', 'waiting', 'active'))
+    pending = sum(e['price'] for e in entries if not e['paid'] and e['status'] == 'done')
     return jsonify({
         'totalBookings': total,
         'completed': completed,
