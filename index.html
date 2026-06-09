@@ -4598,12 +4598,12 @@ function renderStaffQueue(){
     const posCell=e.status==='waiting'&&lp
       ?`<div class="pos-badge" style="font-size:12px;padding:3px 8px">${lp} / ${totalW}</div>`
       :`<span style="color:var(--muted);font-size:12px">—</span>`;
-    const heightTag=e.height?`<span style="font-size:11px;color:var(--muted);font-weight:600">&nbsp;&middot;&nbsp;${e.height} cm</span>`:'';
     const _flashStyle=S._flashId===e.id?`animation:rowFlash_${S._flashColor||'green'} .75s ease forwards;`:''
     return`<tr class="${rowCls}"${_flashStyle?` style="${_flashStyle}"`:''}>
       <td style="min-width:52px"><span class="queue-num-cell" style="font-size:${e.status!=='waiting'?'18':'22'}px">#${e.queueNum}</span></td>
       <td style="text-align:center">${posCell}</td>
-      <td><div class="rider-name">${esc(e.name)}${wiTag}${heightTag}</div><div class="rider-sub">${esc(fmtPhone(e.phone))||'—'}</div></td>
+      <td><div class="rider-name">${esc(e.name)}${wiTag}</div><div class="rider-sub">${esc(fmtPhone(e.phone))||'—'}</div></td>
+      <td style="font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">${e.height?e.height+' cm':'<span style="color:var(--muted)">—</span>'}</td>
       <td>${typeBadge(e.typePreference)}</td>
       ${S.sfSession==='all'?`<td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
       <td>${assignedBikes.length>0
@@ -4674,8 +4674,8 @@ function renderStaffQueue(){
       const riderCell=`<div style="display:flex;align-items:baseline;gap:5px">
         <span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--green);color:#000;font-size:10px;font-weight:900;flex-shrink:0">${i+1}</span>
         <span class="rider-name" style="margin:0">${esc(e.name)}</span>
-        ${e.height?`<span style="font-size:11px;color:var(--muted);font-weight:600;flex-shrink:0">${e.height} cm</span>`:''}
       </div>${isLast?`<div class="rider-sub" style="margin-top:4px;padding-left:22px">${esc(fmtPhone(primary.phone))||'—'}</div>`:''}`;
+      const heightCell=`<td style="vertical-align:middle;font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">${e.height?e.height+' cm':'<span style="color:var(--muted)">—</span>'}</td>`;
       const groupLine=isFirst?'border-top:2px solid rgba(3,255,137,.15)':'';
       const bottomLine=isLast?'border-bottom:2px solid rgba(3,255,137,.15)':'';
       const leftLine='border-left:2px solid rgba(3,255,137,.2)';
@@ -4690,6 +4690,7 @@ function renderStaffQueue(){
           </td>
           <td rowspan="${n}" style="text-align:center;vertical-align:middle">${posCell}</td>
           <td style="vertical-align:middle">${riderCell}</td>
+          ${heightCell}
           <td style="vertical-align:middle">${typeBadge(e.typePreference)}</td>
           ${S.sfSession==='all'?`<td class="hide-mobile" rowspan="${n}" style="vertical-align:middle">${dayLabel(primary.sessionDay)||''} ${shortDate(primary.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
           <td style="vertical-align:middle">${bikeNames}</td>
@@ -4710,6 +4711,7 @@ function renderStaffQueue(){
       }else{
         return`<tr class="${rowCls}" style="${trStyle}">
           <td style="vertical-align:middle">${riderCell}</td>
+          ${heightCell}
           <td style="vertical-align:middle">${typeBadge(e.typePreference)}</td>
           ${S.sfSession!=='all'?'<td class="hide-mobile" style="display:none"></td>':''}
           <td style="vertical-align:middle">${bikeNames}</td>
@@ -4944,6 +4946,7 @@ function renderStaffQueue(){
         ${thQSort('queue',t('colBookingNum'))}
         <th style="color:var(--muted);font-size:10px;text-align:center">${t('colPosition')}</th>
         ${thQSort('name',t('colRider'))}
+        <th style="font-size:10px;color:var(--muted)">Height</th>
         ${thQSort('type',t('bikeTypeLabel'))}
         <th class="hide-mobile" style="display:none"></th>
         <th>${t('colBike')}</th>
