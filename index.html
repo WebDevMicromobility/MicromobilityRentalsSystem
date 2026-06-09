@@ -3124,7 +3124,7 @@ function renderRegister(){
         // First time selecting this session — pre-fill qty, sizes, types from existing
         S.modifyEntryId=firstId;
         S.regQty=existingEntries.length;
-        S.regBikeSizes=existingEntries.map(e=>e.size);
+        S.regBikeSizes=existingEntries.map(()=>'');
         S.regBikeTypes=existingEntries.map(e=>e.typePreference);
       }
     }else{
@@ -3171,7 +3171,6 @@ function renderRegister(){
           <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;flex-shrink:0">
             ${existingEntries.length>1?`<span style="color:var(--muted);font-size:10px;display:block;margin-bottom:2px">${t('bike')} ${i+1}</span>`:''}
             <span style="color:var(--muted)">#${e.queueNum}</span>
-            &nbsp;·&nbsp;<span>${e.size}</span>
             &nbsp;·&nbsp;${typeBadge(e.typePreference)}
           </div>`).join('')}
       </div>
@@ -3194,15 +3193,11 @@ function renderRegister(){
     const isFirst=i===0;
     const hasAccH=isFirst&&cust&&cust.height;
     const bikeH=S.regBikeHeights[i]||'';
-    const parsedH=parseInt(bikeH);
-    const autoSz=(!isNaN(parsedH)&&parsedH>=100&&parsedH<=250)?heightToSize(parsedH):null;
-    const selSz=S.regBikeSizes[i]||autoSz||null;
     const selTy=S.regBikeTypes[i]||null;
 
     // Height row
     let hSection;
     if(hasAccH){
-      const accSz=heightToSize(cust.height);
       hSection=`<div class="form-group" style="margin-bottom:14px">
         <label>${t('heightLabel')}</label>
         <div style="padding:4px 0;font-size:13px;font-weight:700;color:var(--muted)">
@@ -3385,10 +3380,6 @@ function setBikeType(idx,type){
 }
 
 function ensureBikeSizes(){
-  const h=parseInt(S._rHeight);
-  const defaultSz=(!isNaN(h)&&h>=100&&h<=250)?heightToSize(h):'M';
-  while(S.regBikeSizes.length<S.regQty)  S.regBikeSizes.push(S.regBikeSizes.length===0?defaultSz:'M');
-  while(S.regBikeSizes.length>S.regQty)  S.regBikeSizes.pop();
   while(S.regBikeHeights.length<S.regQty) S.regBikeHeights.push('');
   while(S.regBikeHeights.length>S.regQty) S.regBikeHeights.pop();
   while(S.regBikeTypes.length<S.regQty)  S.regBikeTypes.push('');
@@ -3397,16 +3388,7 @@ function ensureBikeSizes(){
   while(S.regRiderNames.length>S.regQty) S.regRiderNames.pop();
 }
 
-function setBikeSize(idx,size){
-  S.regBikeSizes[idx]=size;
-  // targeted update - no full re-render needed
-  document.querySelectorAll(`[data-slot="${idx}"]`).forEach(btn=>{
-    btn.classList.toggle('active',btn.dataset.size===size);
-  });
-  // update size description label next to the toggles
-  const row=document.querySelector(`[data-slot="${idx}"]`)?.closest('.form-group');
-  if(row){const desc=row.querySelector('.size-desc');if(desc)desc.textContent=sizeLabel(size);}
-}
+function setBikeSize(idx,size){}
 
 function changeRegQty(delta){
   S.regQty=Math.max(1,S.regQty+delta);
@@ -3446,11 +3428,6 @@ async function submitReg(){
       }
       heights.push(h);
     }
-  }
-
-  // Auto-derive sizes from heights (customers no longer manually choose frame size)
-  for(let i=0;i<qty;i++){
-    if(!S.regBikeSizes[i]) S.regBikeSizes[i]=heightToSize(heights[i]);
   }
 
   // Validate types and rider names per bike
@@ -3509,7 +3486,7 @@ async function submitReg(){
     // All bikes in one booking share the same queue number
     const entries=Array.from({length:qty},(_,i)=>({
       id:uid(),name:riderNames[i],email,phone,
-      size:S.regBikeSizes[i]||heightToSize(heights[i]),height:heights[i]||null,
+      size:'',height:heights[i]||null,
       typePreference:S.regBikeTypes[i],paid:false,
       assignedBikeId:null,sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
       queueNum:baseQNum,status:'waiting',registeredAt:new Date().toISOString(),walkIn:false,
@@ -3549,17 +3526,12 @@ async function submitModifyBooking(){
   const newQty=S.regQty||1;
   ensureBikeSizes();
 
-  // Validate all new bike slots (size is auto-derived from height, no manual check needed)
+  // Validate all new bike slots
   for(let i=0;i<newQty;i++){
     if(!S.regBikeTypes[i]){
       const wrap=document.getElementById(`reg-type-wrap-${i}`);
       if(wrap){wrap.style.outline='2px solid var(--red)';wrap.style.borderRadius='10px';setTimeout(()=>{wrap.style.outline='';wrap.style.borderRadius='';},2500);wrap.scrollIntoView({behavior:'smooth',block:'center'});}
       toast(newQty>1?`${t('errSelectTypeGeneric')} (${t('bike')} ${i+1})`:t('errSelectTypeGeneric'),'error');return;
-    }
-    if(!S.regBikeSizes[i]){
-      const cust2=S.loggedIn||getSession();
-      const h=i===0&&cust2?.height?cust2.height:parseInt(S.regBikeHeights[i]);
-      S.regBikeSizes[i]=(!isNaN(h)&&h>=100&&h<=250)?heightToSize(h):'M';
     }
   }
 
@@ -3569,11 +3541,10 @@ async function submitModifyBooking(){
   // ── Update existing entries in-place (same queue number, same position) ──
   for(let i=0;i<Math.min(newQty,existing.length);i++){
     const entry=existing[i];
-    const newSize=S.regBikeSizes[i];
     const newType=S.regBikeTypes[i];
-    if(entry.size!==newSize||entry.typePreference!==newType){
+    if(entry.typePreference!==newType){
       calls.push(sb.from('queue_entries').update({
-        size:newSize,type_preference:newType,price:priceForType(newType)
+        type_preference:newType,price:priceForType(newType)
       }).eq('id',entry.id));
     }
   }
@@ -3597,7 +3568,7 @@ async function submitModifyBooking(){
       const modHeight=parseInt(S.regBikeHeights[i])||null;
       const entry={
         id:uid(),name:modRiderName,email:cust.email||'',phone:cust.phone||'',
-        size:S.regBikeSizes[i],height:modHeight,typePreference:S.regBikeTypes[i],
+        size:'',height:modHeight,typePreference:S.regBikeTypes[i],
         paid:false,assignedBikeId:null,
         sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
         queueNum:sharedQNum,status:'waiting',
@@ -3657,7 +3628,7 @@ function renderMyRides(){
     const arrow=active?(S.mySortDir===1?'↑':'↓'):'';
     return`<th class="an-sort-th${active?' an-sort-active':''}${cls?' '+cls:''}" onclick="setMySort('${col}')">${label}${active?' '+arrow:''}</th>`;
   }
-  const mySortOpts=[['date',t('colSession')],['size',t('frameSizeLabel')],['type',t('bikeTypeLabel')],['payment',t('colPayment')],['status',t('colStatus')]].map(([v,l])=>
+  const mySortOpts=[['date',t('colSession')],['type',t('bikeTypeLabel')],['payment',t('colPayment')],['status',t('colStatus')]].map(([v,l])=>
     `<option value="${v}"${S.mySort===v?' selected':''}>${l}</option>`).join('');
   const rows=(()=>{
     if(!displayOrder.length){
@@ -3729,7 +3700,6 @@ function renderMyRides(){
               ${sessionCellContent}
             </td>
             <td style="vertical-align:middle">${bikeCell}</td>
-            <td style="font-weight:800;font-size:14px;vertical-align:middle">${e.size}</td>
             <td style="vertical-align:middle">${typeBadge(e.typePreference)}</td>
             <td style="vertical-align:middle">
               <div style="font-weight:900;font-size:16px;color:${payColor}">SAR ${e.price??DEFAULT_PRICE}</div>
@@ -3745,7 +3715,6 @@ function renderMyRides(){
         return`<tr class="${rowCls}"${trStyle?' style="'+trStyle+'"':''}>
           <td style="vertical-align:middle">${nameCell}</td>
           <td style="vertical-align:middle">${bikeCell}</td>
-          <td style="font-weight:800;font-size:14px;vertical-align:middle">${e.size}</td>
           <td style="vertical-align:middle">${typeBadge(e.typePreference)}</td>
           <td style="vertical-align:middle">
             <div style="font-weight:900;font-size:16px;color:${payColor}">SAR ${e.price??DEFAULT_PRICE}</div>
@@ -3769,7 +3738,6 @@ function renderMyRides(){
         <th>${t('nameLabel')}</th>
         ${thMySort('date',t('colSession'))}
         <th>${t('assignedBikeLabel')||'Assigned Bike'}</th>
-        ${thMySort('size',t('frameSizeLabel'))}
         ${thMySort('type',t('bikeTypeLabel'))}
         ${thMySort('payment',t('colPayment'))}
         ${thMySort('status',t('colStatus'))}
@@ -4515,15 +4483,12 @@ function renderStaffQueue(){
   }else if(S.sfStatus!=='all'){
     filtered=filtered.filter(e=>e.status===S.sfStatus);
   }
-  if(S.sfSize!=='all')  filtered=filtered.filter(e=>e.size===S.sfSize);
   if(S.sfPay==='paid')  filtered=filtered.filter(e=>e.paid);
   if(S.sfPay==='pending')filtered=filtered.filter(e=>!e.paid);
   if(S.sfSearch.trim()){const q=S.sfSearch.trim().toLowerCase();filtered=filtered.filter(e=>e.name.toLowerCase().includes(q)||(e.phone||'').includes(q));}
-  const sizeOrder={XS:0,S:1,M:2,L:3};
   const _sfd=S.sfSortDir;
   filtered.sort((a,b)=>{
     if(S.sfSort==='name')   return _sfd*a.name.localeCompare(b.name);
-    if(S.sfSort==='size')   return _sfd*((sizeOrder[a.size]??9)-(sizeOrder[b.size]??9));
     if(S.sfSort==='type')   return _sfd*a.typePreference.localeCompare(b.typePreference);
     if(S.sfSort==='paid')   return _sfd*(Number(a.paid)-Number(b.paid));
     if(S.sfSort==='status') return _sfd*(a.status||'').localeCompare(b.status||'');
@@ -4541,7 +4506,7 @@ function renderStaffQueue(){
     <div>
       <div class="next-up-label">${t('nextUpLabel')} &nbsp;<span style="font-size:12px;color:var(--muted);font-weight:600">${totalWaiting} ${t('inLine')}</span></div>
       <div class="next-up-name">#${nextRider.queueNum} - ${esc(nextRider.name)}</div>
-      <div class="next-up-details">${nextRider.size} &middot; ${typeLabel(nextRider.typePreference)} &middot; ${nextRider.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}</div>
+      <div class="next-up-details">${typeLabel(nextRider.typePreference)} &middot; ${nextRider.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}</div>
     </div>
     <button class="btn-primary" onclick="openModal('${nextRider.id}')">${t('assignBikeCheckin')}</button>
   </div>`:'';
@@ -4550,8 +4515,6 @@ function renderStaffQueue(){
   const qStatusOpts=['all','waiting','active','done','noshow','cancelled'].map(s=>{
     const l={all:t('filterAll'),waiting:t('filterWaiting'),active:t('filterOnBike'),done:t('filterDone'),noshow:t('filterNoshow'),cancelled:t('statusCancelled')}[s];
     return`<option value="${s}"${S.sfStatus===s?' selected':''}>${l}</option>`;}).join('');
-  const qSizeOpts=['all','XS','S','M','L'].map(sz=>
-    `<option value="${sz}"${S.sfSize===sz?' selected':''}>${sz==='all'?t('filterAll'):sz}</option>`).join('');
   const qPayOpts=['all','paid','pending'].map(p=>{
     const l={all:t('filterAll'),paid:t('paidLabel'),pending:t('pendingLabel')}[p];
     return`<option value="${p}"${S.sfPay===p?' selected':''}>${l}</option>`;}).join('');
@@ -4630,7 +4593,6 @@ function renderStaffQueue(){
       <td style="min-width:52px"><span class="queue-num-cell" style="font-size:${e.status!=='waiting'?'18':'22'}px">#${e.queueNum}</span></td>
       <td style="text-align:center">${posCell}</td>
       <td><div class="rider-name">${esc(e.name)}${wiTag}${heightTag}</div><div class="rider-sub">${esc(fmtPhone(e.phone))||'—'}</div></td>
-      <td style="font-weight:800">${e.size}</td>
       <td>${typeBadge(e.typePreference)}</td>
       ${S.sfSession==='all'?`<td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
       <td>${assignedBikes.length>0
@@ -4717,7 +4679,6 @@ function renderStaffQueue(){
           </td>
           <td rowspan="${n}" style="text-align:center;vertical-align:middle">${posCell}</td>
           <td style="vertical-align:middle">${riderCell}</td>
-          <td style="font-weight:800;vertical-align:middle">${e.size}</td>
           <td style="vertical-align:middle">${typeBadge(e.typePreference)}</td>
           ${S.sfSession==='all'?`<td class="hide-mobile" rowspan="${n}" style="vertical-align:middle">${dayLabel(primary.sessionDay)||''} ${shortDate(primary.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
           <td style="vertical-align:middle">${bikeNames}</td>
@@ -4738,7 +4699,6 @@ function renderStaffQueue(){
       }else{
         return`<tr class="${rowCls}" style="${trStyle}">
           <td style="vertical-align:middle">${riderCell}</td>
-          <td style="font-weight:800;vertical-align:middle">${e.size}</td>
           <td style="vertical-align:middle">${typeBadge(e.typePreference)}</td>
           ${S.sfSession!=='all'?'<td class="hide-mobile" style="display:none"></td>':''}
           <td style="vertical-align:middle">${bikeNames}</td>
@@ -4784,7 +4744,7 @@ function renderStaffQueue(){
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${statusBadge(e.status)}${payTag}</div>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px;${n>1?'padding-left:22px':''}">
-          ${e.size} &middot; ${typeLabel(e.typePreference)}${bikeInfo?` &middot; <span style="color:var(--muted-l)">${esc(bikeInfo)}</span>`:''}
+          ${typeLabel(e.typePreference)}${bikeInfo?` &middot; <span style="color:var(--muted-l)">${esc(bikeInfo)}</span>`:''}
         </div>
       </div>`;
     }).join('');
@@ -4955,8 +4915,6 @@ function renderStaffQueue(){
         <select class="filter-select" style="min-width:160px" onchange="setSfSession(this.value)">${qSessOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('filterStatus')}:</span>
         <select class="filter-select" onchange="setSfStatus(this.value)">${qStatusOpts}</select>
-        <span class="filter-label" style="margin-left:8px">${t('filterSize')}:</span>
-        <select class="filter-select" onchange="setSfSize(this.value)">${qSizeOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('filterPay')}:</span>
         <select class="filter-select" onchange="setSfPay(this.value)">${qPayOpts}</select>
         <div class="search-wrap" style="margin-left:8px">
@@ -4973,7 +4931,6 @@ function renderStaffQueue(){
         ${thQSort('queue',t('colBookingNum'))}
         <th style="color:var(--muted);font-size:10px;text-align:center">${t('colPosition')}</th>
         ${thQSort('name',t('colRider'))}
-        ${thQSort('size',t('frameSizeLabel'))}
         ${thQSort('type',t('bikeTypeLabel'))}
         <th class="hide-mobile" style="display:none"></th>
         <th>${t('colBike')}</th>
@@ -5506,7 +5463,7 @@ function printSessionReport(){
     return`<tr>
       <td>#${e.queueNum}</td>
       <td>${esc(e.name)}</td>
-      <td>${e.size} / ${e.typePreference}</td>
+      <td>${e.typePreference}</td>
       <td>${bikes}</td>
       <td>SAR ${e.price??DEFAULT_PRICE}</td>
       <td style="color:${e.paid?'#16a34a':'#b45309'}">${e.paid?'Paid':'Pending'}</td>
@@ -5811,7 +5768,7 @@ function renderModal(){
         <span style="font-size:12px;color:var(--muted);font-weight:600">#${rider.queueNum}</span>
         ${heightBadge}
       </div>
-      <div class="modal-sub" style="margin-bottom:12px">${t('frameSizeLabel')} ${rider.size} &middot; ${typeBadge(rider.typePreference)}</div>
+      <div class="modal-sub" style="margin-bottom:12px">${typeBadge(rider.typePreference)}</div>
       ${payWarning}
       ${fleetLine}
       ${cards}
@@ -6376,14 +6333,11 @@ function renderHistory(){
   if(S.histPay==='paid')   filtered=filtered.filter(e=>e.paid);
   if(S.histPay==='pending')filtered=filtered.filter(e=>!e.paid&&e.status==='done');
   if(S.histType!=='all')   filtered=filtered.filter(e=>e.typePreference===S.histType);
-  if(S.histSize!=='all')   filtered=filtered.filter(e=>e.size===S.histSize);
   if(S.histSearch.trim()){const q=S.histSearch.trim().toLowerCase();filtered=filtered.filter(e=>e.name.toLowerCase().includes(q)||(e.phone||'').includes(q)||(e.email||'').toLowerCase().includes(q));}
-  const sizeOrdH={XS:0,S:1,M:2,L:3};
   const _hd=S.histSortDir;
   filtered.sort((a,b)=>{
     if(S.histSort==='name')   return _hd*a.name.localeCompare(b.name);
     if(S.histSort==='amount') return _hd*((a.price||0)-(b.price||0));
-    if(S.histSort==='size')   return _hd*((sizeOrdH[a.size]??9)-(sizeOrdH[b.size]??9));
     if(S.histSort==='type')   return _hd*(a.typePreference||'').localeCompare(b.typePreference||'');
     if(S.histSort==='status') return _hd*(a.status||'').localeCompare(b.status||'');
     return _hd*(new Date(a.registeredAt)-new Date(b.registeredAt));
@@ -6401,9 +6355,7 @@ function renderHistory(){
     return`<option value="${s}"${S.histPay===s?' selected':''}>${l}</option>`;}).join('');
   const hTypeOpts=['all','Road','Hybrid','Mountain','Any'].map(ty=>
     `<option value="${ty}"${S.histType===ty?' selected':''}>${ty==='all'?t('filterAll'):typeLabel(ty)}</option>`).join('');
-  const hSizeOpts=['all','XS','S','M','L'].map(sz=>
-    `<option value="${sz}"${S.histSize===sz?' selected':''}>${sz==='all'?t('filterAll'):sz}</option>`).join('');
-  const hSortOpts=[['date',t('sortNewest')],['name',t('sortName')],['size',t('sortSize')],['type',t('sortType')],['amount',t('colPayment')],['status',t('colStatus')]].map(([v,l])=>
+  const hSortOpts=[['date',t('sortNewest')],['name',t('sortName')],['type',t('sortType')],['amount',t('colPayment')],['status',t('colStatus')]].map(([v,l])=>
     `<option value="${v}"${S.histSort===v?' selected':''}>${l}</option>`).join('');
   const sessOpts=`<option value="all"${S.histSess==='all'?' selected':''}>${t('allSessions')}</option>`+
     sessions.map(s=>`<option value="${s.id}"${S.histSess===s.id?' selected':''}>${s.day} ${s.display}</option>`).join('');
@@ -6433,7 +6385,6 @@ function renderHistory(){
       <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
         ${bike&&bike.colors&&bike.colors.length?bike.colors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join(''):'<span style="color:var(--muted)">—</span>'}
       </div></td>
-      <td style="font-weight:800;font-size:14px">${e.size}</td>
       <td>${typeBadge(e.typePreference)}</td>
       <td>
         <div onclick="event.stopPropagation()" style="display:flex;flex-direction:column;align-items:flex-start;gap:6px">
@@ -6502,8 +6453,6 @@ function renderHistory(){
         <select class="filter-select" onchange="setHistPay(this.value)">${hPayOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('filterType')}:</span>
         <select class="filter-select" onchange="setHistType(this.value)">${hTypeOpts}</select>
-        <span class="filter-label" style="margin-left:8px">${t('filterSize')}:</span>
-        <select class="filter-select" onchange="setHistSize(this.value)">${hSizeOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('colSession')}:</span>
         <select class="filter-select" onchange="setHistSess(this.value)">${sessOpts}</select>
       </div>
@@ -6516,7 +6465,6 @@ function renderHistory(){
         ${thHistSort('date',t('colSession'),'hide-mobile')}
         <th>${t('colBike')}</th>
         <th>${t('colColor')}</th>
-        ${thHistSort('size',t('frameSizeLabel'))}
         ${thHistSort('type',t('bikeTypeLabel'))}
         ${thHistSort('amount',t('colPayment'))}
         ${thHistSort('status',t('colStatus'))}
@@ -6560,7 +6508,7 @@ function exportHistoryCSV(){
   const filename=sess
     ?`rides_${dayLabel(sess.day)}_${sess.session_date||sess.id}.csv`
     :'rides_all_sessions.csv';
-  const headers=['#','Name','Phone','Email','Session','Date','Time','Bike','Size','Type','Price (SAR)','Paid','Status'];
+  const headers=['#','Name','Phone','Email','Session','Date','Time','Bike','Type','Price (SAR)','Paid','Status'];
   const rows=hist.map(e=>{
     const assignedBikes=getAssignedBikes(e);
     const bikeNamesCsv=assignedBikes.map(b=>b.name).join('; ');
@@ -6574,7 +6522,6 @@ function exportHistoryCSV(){
       shortDate(e.sessionDate),
       sessionTime(entSess),
       bikeNamesCsv,
-      e.size,
       e.typePreference,
       e.price??DEFAULT_PRICE,
       e.paid?'Yes':'No',
@@ -6604,7 +6551,6 @@ function showReceipt(id){
     `${t('colSession').padEnd(14)}:  ${dayLabel(e.sessionDay)}, ${shortDate(e.sessionDate)}`,
     `${t('timeLabel').padEnd(14)}:  ${sessionTime(allSessions().find(s=>s.id===e.sessionId))}`,
     `${t('colBike').padEnd(14)}:  ${bike?bike.name:'N/A'}`,
-    `${t('frameSizeLabel').padEnd(14)}:  ${e.size}`,
     `${t('bikeTypeLabel').padEnd(14)}:  ${e.typePreference}`,
     `${t('colPayment').padEnd(14)}:  ${e.paid?t('paidLabel')+' ✓':t('pendingLabel')+' ⏳'}`,
     '──────────────────────────────────────','',
@@ -6813,8 +6759,6 @@ function renderAnalytics(){
   // ── Breakdowns ───────────────────────────────────────
   const typeBreak={};
   done.forEach(e=>{typeBreak[e.typePreference]=(typeBreak[e.typePreference]||0)+1;});
-  const sizeBreak={XS:0,S:0,M:0,L:0};
-  done.forEach(e=>{if(sizeBreak.hasOwnProperty(e.size))sizeBreak[e.size]++;});
   const dayBreak={};
   done.forEach(e=>{if(e.sessionDay)dayBreak[e.sessionDay]=(dayBreak[e.sessionDay]||0)+1;});
   const revByType={};
@@ -6835,12 +6779,10 @@ function renderAnalytics(){
   });
   const typeColor={Road:'var(--text)',Hybrid:'var(--green)',Mountain:'var(--text)',Any:'var(--muted-l)'};
   const typeColorHex={Road:'#4aa8f8',Hybrid:'#03ff89',Mountain:'#e08828',Any:'#777'};
-  const sizeColorHex={XS:'#a06af0',S:'#4aa8f8',M:'#03ff89',L:'#e08828'};
   const dayColorHex='#03ff89';
   const dayOrder=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const dayBreakOrdered=Object.fromEntries(dayOrder.filter(d=>dayBreak[d]).map(d=>[d,dayBreak[d]]));
   const topType=Object.keys(typeBreak).sort((a,b)=>typeBreak[b]-typeBreak[a])[0]||'—';
-  const topSize=Object.keys(sizeBreak).filter(k=>sizeBreak[k]).sort((a,b)=>sizeBreak[b]-sizeBreak[a])[0]||'—';
   const topDay=Object.keys(dayBreak).sort((a,b)=>dayBreak[b]-dayBreak[a])[0]||'—';
   const revPerRide=totalDone>0?(revTotal/totalDone):0;
   const revPerCustomer=uniqueCustIds.length>0?(revTotal/uniqueCustIds.length):0;
@@ -7033,13 +6975,6 @@ function renderAnalytics(){
     return`<div class="donut-legend-item"><span class="donut-dot" style="background:${d.c}"></span>${typeLabel(d.label)} - ${d.v} (${pct}%)</div>`;
   }).join('')}</div>`;
 
-  const sizeSegs=Object.entries(sizeBreak).filter(([,v])=>v>0).map(([k,v])=>({v,c:sizeColorHex[k]||'#777',label:k}));
-  const sizeDonut=_donut(sizeSegs);
-  const sizeLegend=`<div class="donut-legend">${sizeSegs.sort((a,b)=>b.v-a.v).map(d=>{
-    const pct=Math.round(d.v/totalDone*100);
-    return`<div class="donut-legend-item"><span class="donut-dot" style="background:${d.c}"></span>${d.label} - ${d.v} (${pct}%)</div>`;
-  }).join('')}</div>`;
-
   // Rev by day (horizontal bars) — dayOrder already declared above
   const revByDayOrdered=Object.fromEntries(dayOrder.filter(d=>revByDay[d]).map(d=>[d,revByDay[d]]));
   // Type rev per ride (horizontal bars)
@@ -7187,10 +7122,6 @@ function renderAnalytics(){
       </div>
       <div class="chart-card" style="display:flex;flex-direction:column;gap:16px">
         ${occGauge(avgOccupancy)}
-        <div style="border-top:1px solid var(--border);padding-top:14px">
-          <div class="chart-card-title" style="margin-bottom:6px">${t('anBySize')}</div>
-          <div class="donut-wrap">${sizeDonut}${sizeLegend}</div>
-        </div>
       </div>
       <div class="chart-card">
         <div class="chart-card-title">${t('anByDay')}</div>
@@ -7274,12 +7205,6 @@ function renderAnalytics(){
           <div class="hl-label">${t('anMostPopType')}</div>
           <div class="hl-value">${topType!=='—'?`<span class="type-badge ${TYPE_CLS[topType]||'type-any'}">${typeLabel(topType)}</span>`:topType}
             ${topType!=='—'?`<span style="font-size:13px;color:var(--muted);font-weight:600;margin-left:8px">${typeBreak[topType]} ${t('anRidesLabel')}</span>`:''}
-          </div>
-        </div>
-        <div class="hl-item">
-          <div class="hl-label">${t('anMostPopFrame')}</div>
-          <div class="hl-value">${topSize}
-            ${topSize!=='—'?`<span style="font-size:13px;color:var(--muted);font-weight:600;margin-left:8px">${sizeBreak[topSize]} ${t('anRidesLabel')}</span>`:''}
           </div>
         </div>
         <div class="hl-item">
