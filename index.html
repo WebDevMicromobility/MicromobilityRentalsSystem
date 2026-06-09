@@ -2778,6 +2778,7 @@ async function doSignup(){
     if(email){const{data:ex}=await sb.from('customers').select('id').eq('email',email).maybeSingle();if(ex){authErr(t('errEmailExists'));return;}}
     if(fullPhone){const{data:ex}=await sb.from('customers').select('id').eq('phone',fullPhone).maybeSingle();if(ex){authErr(t('errPhoneExists'));return;}}
     const height=heightRaw;
+    const type_preference=S.signupTypePref||'Any';
     const customer={id:uid(),name,email,phone:fullPhone,password_hash:hashPwd(pwd),created_at:new Date().toISOString(),height};
     const{error}=await sb.from('customers').insert(customer);
     if(error)throw error;
