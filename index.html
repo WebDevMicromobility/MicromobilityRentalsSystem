@@ -3214,24 +3214,14 @@ function renderRegister(){
     const bikeH=S.regBikeHeights[i]||'';
     const selTy=S.regBikeTypes[i]||null;
 
-    // Height row
-    let hSection;
-    if(hasAccH){
-      hSection=`<div class="form-group" style="margin-bottom:14px">
-        <label>${t('heightLabel')}</label>
-        <div style="padding:4px 0;font-size:13px;font-weight:700;color:var(--muted)">
-          ${cust.height} cm &middot; <button onclick="setCustTab('account')" style="background:none;border:none;color:var(--green);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer;padding:0">${t('changeInAccount')}</button>
-        </div>
-      </div>`;
-    }else{
-      hSection=`<div class="form-group" style="margin-bottom:14px">
-        <label>${t('heightLabel')} &nbsp;<span class="label-hint">${t('heightHint')}</span></label>
-        <div class="height-row">
-          <input type="number" id="reg-height-${i}" placeholder="${t('heightPlaceholder')}" min="100" max="250"
-            value="${esc(String(bikeH))}" oninput="onBikeHeightInput(${i},this.value)">
-        </div>
-      </div>`;
-    }
+    // Height row — always editable, pre-filled from profile for rider 0
+    const hSection=`<div class="form-group" style="margin-bottom:14px">
+      <label>${t('heightLabel')} &nbsp;<span class="label-hint">${t('heightHint')}</span></label>
+      <div class="height-row">
+        <input type="number" id="reg-height-${i}" placeholder="${t('heightPlaceholder')}" min="100" max="250"
+          value="${esc(String(bikeH))}" oninput="onBikeHeightInput(${i},this.value)" required>
+      </div>
+    </div>`;
 
     // Type toggles
     const typeBtns=['Any','Road','Hybrid','Mountain'].map(ty=>
@@ -3433,20 +3423,16 @@ async function submitReg(){
   const qty=S.regQty||1;
   ensureBikeSizes();
 
-  // Resolve per-bike heights
+  // Resolve per-bike heights — required for every rider
   const heights=[];
   for(let i=0;i<qty;i++){
-    if(i===0&&cust.height){
-      heights.push(cust.height);
-    }else{
-      const h=parseInt(S.regBikeHeights[i]);
-      if(isNaN(h)||h<100||h>250){
-        const hInp=document.getElementById(`reg-height-${i}`);
-        if(hInp){hInp.style.outline='2px solid var(--red)';hInp.style.borderColor='var(--red)';setTimeout(()=>{hInp.style.outline='';hInp.style.borderColor='';},2500);hInp.scrollIntoView({behavior:'smooth',block:'center'});}
-        toast(qty>1?`${t('errValidHeightCm')} (${t('bike')} ${i+1})`:t('errValidHeightCm'),'error');return;
-      }
-      heights.push(h);
+    const h=parseInt(S.regBikeHeights[i]);
+    if(isNaN(h)||h<100||h>250){
+      const hInp=document.getElementById(`reg-height-${i}`);
+      if(hInp){hInp.style.outline='2px solid var(--red)';hInp.style.borderColor='var(--red)';setTimeout(()=>{hInp.style.outline='';hInp.style.borderColor='';},2500);hInp.scrollIntoView({behavior:'smooth',block:'center'});}
+      toast(qty>1?`${t('errValidHeightCm')} (${t('bike')} ${i+1})`:t('errValidHeightCm'),'error');return;
     }
+    heights.push(h);
   }
 
   // Validate types and rider names per bike
@@ -6333,11 +6319,43 @@ function _resetBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=nu
 
 function setBkRentalPrice(v){
   if(v==='custom'){
-    const inp=prompt('Enter custom rental price (SAR):');
-    if(inp!==null){const p=parseFloat(inp);if(!isNaN(p)&&p>0)S._bkRentalPrice=String(p);}
+    _showCustomPriceModal();
   }else{
     S._bkRentalPrice=v;
+    renderBikes();
   }
+}
+function _showCustomPriceModal(){
+  const m=document.getElementById('confirm-modal');
+  m.style.display='block';
+  m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this){m.style.display='none';m.innerHTML='';renderBikes();}">
+    <div class="confirm-box">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-size:18px;font-weight:900">Custom Rental Price</div>
+        <button onclick="document.getElementById('confirm-modal').style.display='none';document.getElementById('confirm-modal').innerHTML='';renderBikes()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 4px" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&times;</button>
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:8px">Price (SAR)</label>
+        <input id="custom-price-inp" type="number" min="1" step="0.5" placeholder="e.g. 120"
+          style="width:100%;background:var(--s2);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 14px;font-size:16px;font-weight:700;color:var(--text);font-family:'Space Grotesk',sans-serif;outline:none"
+          onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='rgba(255,255,255,.12)'"
+          onkeydown="if(event.key==='Enter')_submitCustomPrice()">
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn-secondary" onclick="document.getElementById('confirm-modal').style.display='none';document.getElementById('confirm-modal').innerHTML='';renderBikes()">${t('cancelBtn')}</button>
+        <button class="btn-primary" onclick="_submitCustomPrice()" style="min-width:100px">Set Price</button>
+      </div>
+    </div>
+  </div>`;
+  setTimeout(()=>{const inp=document.getElementById('custom-price-inp');if(inp)inp.focus();},60);
+}
+function _submitCustomPrice(){
+  const inp=document.getElementById('custom-price-inp');
+  if(!inp)return;
+  const p=parseFloat(inp.value);
+  if(isNaN(p)||p<=0){inp.style.borderColor='var(--red)';setTimeout(()=>{inp.style.borderColor='rgba(255,255,255,.12)';},1500);return;}
+  S._bkRentalPrice=String(p);
+  const m=document.getElementById('confirm-modal');m.style.display='none';m.innerHTML='';
   renderBikes();
 }
 function toggleAddBike(){S._resetBikeForm?.();_resetBikeForm();S.showAddBike=true;renderBikes();}
