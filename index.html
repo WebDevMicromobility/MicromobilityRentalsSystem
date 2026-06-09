@@ -4671,10 +4671,11 @@ function renderStaffQueue(){
       const bikeNames=assignedBikes.length
         ?assignedBikes.map(b=>`<span style="font-weight:700;font-size:13px">${esc(b.name)}</span>`).join('<br>')
         :'<span style="color:var(--muted)">—</span>';
+      const ownerPhone=isFirst?entryPhone(primary):'';
       const riderCell=`<div style="display:flex;align-items:baseline;gap:5px">
         <span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--green);color:#000;font-size:10px;font-weight:900;flex-shrink:0">${i+1}</span>
-        <span class="rider-name" style="margin:0">${esc(e.name)}</span>
-      </div>${isLast?`<div class="rider-sub" style="margin-top:4px;padding-left:22px">${esc(fmtPhone(primary.phone))||'—'}</div>`:''}`;
+        <span class="rider-name" style="margin:0;font-weight:${isFirst?'900':'600'}">${esc(e.name)}</span>
+      </div>${isFirst&&ownerPhone?`<div class="rider-sub" style="margin-top:3px;padding-left:22px">${esc(fmtPhone(ownerPhone))}</div>`:''}`;
       const heightCell=`<td style="vertical-align:middle;font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">${e.height?e.height+' cm':'<span style="color:var(--muted)">—</span>'}</td>`;
       const groupLine=isFirst?'border-top:2px solid rgba(3,255,137,.15)':'';
       const bottomLine=isLast?'border-bottom:2px solid rgba(3,255,137,.15)':'';
