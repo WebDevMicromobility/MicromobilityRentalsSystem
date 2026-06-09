@@ -1400,6 +1400,9 @@
   <img src="brand.png" alt="logo">
   <div class="ld-txt">Loading...</div>
 </div>
+<script>
+setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls.style.display!=='none'){ls.style.opacity='0';ls.style.pointerEvents='none';setTimeout(function(){ls.style.display='none';},400);}},5000);
+</script>
 
 <!-- TOPBAR -->
 <header id="topbar">
@@ -2341,9 +2344,9 @@ const S={
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],addBikeColorNames:[''],_bkName:'',
   _bkBrand:'',_bkModel:'',_bkGroupset:'',_bkSpeeds:'',
   _bkBrandAdd:false,_bkModelAdd:false,_bkGroupsetAdd:false,
-  bkBrands:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_brands'))||[];}catch{return[];}}()),
-  bkModels:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_models'))||[];}catch{return[];}}()),
-  bkGroupsets:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_groupsets'))||[];}catch{return[];}}()),
+  bkBrands:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_brands'))||[];}catch(e){return[];}})(),
+  bkModels:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_models'))||[];}catch(e){return[];}})(),
+  bkGroupsets:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_groupsets'))||[];}catch(e){return[];}})(),
   bkStatus:'all',bkSize:'all',bkSearch:'',bkSortCol:'name',bkSortDir:1,bkView:'table',
   // history
   histStatus:'all',histPay:'all',histSess:'all',histSort:'date',histSortDir:-1,histType:'all',histSize:'all',histSearch:'',
@@ -2388,7 +2391,7 @@ const EMAILJS_PUBLIC_KEY  = 'YOUR_PUBLIC_KEY';   // e.g. 'user_abc...'
 // ── SUPABASE ─ replace these two values from your project settings ──────────
 const SUPABASE_URL  = 'https://ariyvnxeywozmwxmylhb.supabase.co';
 const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFyaXl2bnhleXdvem13eG15bGhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MDUzMTcsImV4cCI6MjA5NjE4MTMxN30.zi-0_k0M1xgSlrZKJ2QdKMLB3BnTi4nSecQutQnnNo4';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+let sb;try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);}catch(e){console.error('Supabase init failed:',e.message);}
 
 // ── In-memory cache ──────────────────────────────────────────────────────────
 const getQueue=()=>S.queue||[];
@@ -2416,6 +2419,7 @@ function entryToDB(e){
 }
 
 async function loadData(showLoader=false){
+  if(!sb)return;
   if(showLoader){const ls=document.getElementById('loading-screen');if(ls)ls.style.display='flex';}
   const [q,b,c,ses]=await Promise.all([
     sb.from('queue_entries').select('*').order('session_id').order('queue_num'),
