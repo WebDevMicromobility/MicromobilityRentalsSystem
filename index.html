@@ -4706,7 +4706,7 @@ function renderStaffQueue(){
             </div>
           </td>
           <td style="vertical-align:middle">${statusCellHtml(e)}</td>
-          <td rowspan="${n}" style="vertical-align:middle">${group.map(x=>{const ph=entryPhone(x);return`<div style="display:flex;align-items:center;gap:4px;margin-bottom:4px"><span style="font-size:11px;color:var(--muted);min-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name.split(' ')[0])}</span>${ph?_contactCell(ph):'<span style="color:var(--muted);font-size:11px">—</span>'}</div>`;}).join('')}</td>
+          <td rowspan="${n}" style="vertical-align:middle">${group.map(x=>{const ph=entryPhone(x);return ph?`<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px"><span style="font-size:11px;color:var(--muted)">${esc(fmtPhone(ph))}</span>${_contactCell(ph)}</div>`:''}).join('')||'<span style="color:var(--muted)">—</span>'}</td>
           <td style="vertical-align:middle"><div class="actions-cell">${_entryActions(e)}</div></td>
         </tr>`;
       }else{
@@ -4762,7 +4762,10 @@ function renderStaffQueue(){
         <div style="font-size:11px;color:var(--muted);margin-top:2px;${indent}">
           ${typeLabel(e.typePreference)}${bikeInfo?` &middot; <span style="color:var(--muted-l)">${esc(bikeInfo)}</span>`:''}
         </div>
-        ${ph?`<div style="display:flex;align-items:center;gap:6px;margin-top:4px;${indent}">${_contactCell(ph)}</div>`:''}
+        ${ph?`<div style="display:flex;align-items:center;gap:6px;margin-top:4px;${indent}">
+          <span style="font-size:11px;font-weight:700;color:var(--muted)">${esc(fmtPhone(ph))}</span>
+          ${_contactCell(ph)}
+        </div>`:''}
       </div>`;
     }).join('');
     const actionsHtml=group.map((e,i)=>`<div style="${n>1&&i>0?'border-top:1px solid rgba(255,255,255,.05);padding-top:6px;margin-top:2px':''}">
