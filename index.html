@@ -2481,14 +2481,28 @@ function clearSession(){
   localStorage.removeItem('cq_session');
   sessionStorage.removeItem('cq_session');
 }
-const DEFAULT_PRICE=30;
-const RIDE_PRICES={Road:75,Mountain:57.5,Hybrid:57.5,Any:57.5};
-const RIDE_PRICES_MAX={Road:75,Mountain:57.5,Hybrid:57.5,Any:75};
-function priceForType(ty){return RIDE_PRICES[ty]||DEFAULT_PRICE;}
-function priceForTypeMax(ty){return RIDE_PRICES_MAX[ty]||DEFAULT_PRICE;}
+const DEFAULT_PRICE=57.5;
+// Mountain & Hybrid: fixed 57.5. Road & Any: variable 57.5-250 (set per bike's rental_price at check-in)
+const RIDE_PRICES={Road:57.5,Mountain:57.5,Hybrid:57.5,Any:57.5};
+const RIDE_PRICES_MAX={Road:250,Mountain:57.5,Hybrid:57.5,Any:250};
+function priceForType(ty){return RIDE_PRICES[ty]??DEFAULT_PRICE;}
+function priceForTypeMax(ty){return RIDE_PRICES_MAX[ty]??DEFAULT_PRICE;}
 function priceDisplay(ty){
   const lo=priceForType(ty),hi=priceForTypeMax(ty);
-  return lo===hi?`SAR ${lo}`:`SAR ${lo}/${hi}`;
+  return lo===hi?`SAR ${lo}`:`SAR ${lo} - ${hi}`;
+}
+function priceForBike(bike){
+  if(!bike)return DEFAULT_PRICE;
+  return bike.rental_price??priceForType(bike.type);
+}
+function _entryFallbackPrice(entry){
+  // Use assigned bike's rental_price if available, otherwise type price
+  const bikeIds=getAssignedBikeIds(entry);
+  if(bikeIds.length){
+    const bikes=bikeIds.map(id=>getBikes().find(b=>b.id===id)).filter(Boolean);
+    if(bikes.length)return Math.max(...bikes.map(b=>priceForBike(b)));
+  }
+  return priceForType(entry.typePreference);
 }
 
 /* ══════════════════════════════════════════════
@@ -3252,8 +3266,8 @@ function renderRegister(){
   const allTypesSet=S.regBikeTypes.slice(0,S.regQty).every(ty=>ty);
   const totalMin=S.regBikeTypes.slice(0,S.regQty).reduce((s,ty)=>s+priceForType(ty||'Any'),0);
   const totalMax=S.regBikeTypes.slice(0,S.regQty).reduce((s,ty)=>s+priceForTypeMax(ty||'Any'),0);
-  const hasAny=S.regBikeTypes.slice(0,S.regQty).some(ty=>ty==='Any');
-  const totalDisplay=hasAny?`SAR ${totalMin}/${totalMax}`:`SAR ${totalMin.toFixed(2).replace(/\.00$/,'')}`;
+  const hasRange=S.regBikeTypes.slice(0,S.regQty).some(ty=>ty==='Any'||ty==='Road');
+  const totalDisplay=hasRange?(totalMin===totalMax?`SAR ${totalMin}`:`SAR ${totalMin} - ${totalMax}`):`SAR ${totalMin.toFixed(2).replace(/\.00$/,'')}`;
   const breakdown=S.regQty>1
     ?S.regBikeTypes.slice(0,S.regQty).map((ty,i)=>`${t('bike')} ${i+1}: ${priceDisplay(ty)}`).join(' &nbsp;&middot;&nbsp; ')
     :t('pricePerBike');
@@ -3371,8 +3385,8 @@ function setBikeType(idx,type){
     if(allSet){
       const tMin=S.regBikeTypes.slice(0,S.regQty).reduce((s,ty)=>s+priceForType(ty||'Any'),0);
       const tMax=S.regBikeTypes.slice(0,S.regQty).reduce((s,ty)=>s+priceForTypeMax(ty||'Any'),0);
-      const hAny=S.regBikeTypes.slice(0,S.regQty).some(ty=>ty==='Any');
-      const tDisplay=hAny?`SAR ${tMin}/${tMax}`:`SAR ${tMin.toFixed(2).replace(/\.00$/,'')}`;
+      const hRange=S.regBikeTypes.slice(0,S.regQty).some(ty=>ty==='Any'||ty==='Road');
+      const tDisplay=hRange?(tMin===tMax?`SAR ${tMin}`:`SAR ${tMin} - ${tMax}`):`SAR ${tMin.toFixed(2).replace(/\.00$/,'')}`;
       const breakdown=S.regQty>1
         ?S.regBikeTypes.slice(0,S.regQty).map((ty,i)=>`${t('bike')} ${i+1}: ${priceDisplay(ty)}`).join(' &nbsp;&middot;&nbsp; ')
         :t('pricePerBike');
@@ -5020,13 +5034,13 @@ async function togglePayment(id,mode){
   // Determine next state: explicit mode or cycle pending→paid→house→pending
   let newPaid,newPrice;
   if(mode==='house'){newPaid=true;newPrice=0;}
-  else if(mode===true||mode==='paid'){newPaid=true;newPrice=entry.price===0?priceForType(entry.typePreference):(entry.price??DEFAULT_PRICE);}
-  else if(mode===false||mode==='pending'){newPaid=false;newPrice=entry.price===0?priceForType(entry.typePreference):(entry.price??DEFAULT_PRICE);}
+  else if(mode===true||mode==='paid'){newPaid=true;newPrice=entry.price===0?_entryFallbackPrice(entry):(entry.price??DEFAULT_PRICE);}
+  else if(mode===false||mode==='pending'){newPaid=false;newPrice=entry.price===0?_entryFallbackPrice(entry):(entry.price??DEFAULT_PRICE);}
   else{
     // cycle
     if(!entry.paid){newPaid=true;newPrice=entry.price;}
     else if(!isHouse){newPaid=true;newPrice=0;}
-    else{newPaid=false;newPrice=priceForType(entry.typePreference);}
+    else{newPaid=false;newPrice=_entryFallbackPrice(entry);}
   }
   const prevPaid=entry.paid,prevPrice=entry.price;
   entry.paid=newPaid;entry.price=newPrice;
@@ -5958,10 +5972,12 @@ async function confirmAssign(){
   const qn=rider?rider.queueNum:'?';const rName=rider?rider.name:'';
   const bikeNames=selected.map(b=>b.name).join(', ');
   const prevPrice=rider?rider.price:null;
-  // Resolve final price: lock in max bike-type price when 'Any' or multiple bikes assigned
+  // Set price from assigned bike's rental_price (falls back to type price if not configured)
   const priceUpdate={};
-  if(rider&&selected.length>0&&(rider.typePreference==='Any'||selected.length>=2)){
-    priceUpdate.price=Math.max(...selected.map(b=>priceForType(b.type)));
+  if(rider&&selected.length>0){
+    priceUpdate.price=selected.length===1
+      ?priceForBike(selected[0])
+      :Math.max(...selected.map(b=>priceForBike(b)));
   }
   const isReassign=rider&&rider.status==='active';
   // Free old bikes that are being replaced (reassign case)
