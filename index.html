@@ -5988,11 +5988,11 @@ function renderBikes(){
     }).join('');
     // Who is currently using this bike?
     const user=bikeUserMap[b.id];
-    const userCell=user
-      ?`<div style="font-size:11px;font-weight:700;color:var(--green);margin-top:3px">
-          &#x1F464; #${user.queueNum} ${esc(user.name)}
-        </div>`
-      :'';
+    const el=b.status==='in-use'&&user?rideElapsed(user.id):null;
+    const riderCell=user
+      ?`<div style="font-size:12px;font-weight:800;color:var(--text)">${esc(user.name)}</div>
+        <div style="font-size:11px;color:var(--blue);font-weight:700">#${user.queueNum}${el?` &nbsp;·&nbsp; <span style="color:var(--muted-l)">&#x23F1; ${el}</span>`:''}</div>`
+      :`<span style="color:var(--muted)">—</span>`;
     const rowBorderClr=b.status==='available'?'rgba(3,255,137,.45)':b.status==='in-use'?'rgba(74,168,248,.45)':'rgba(224,64,64,.45)';
     const rowBg=b.status==='in-use'?'background:rgba(74,168,248,.025);':b.status==='maintenance'?'background:rgba(224,64,64,.025);opacity:.8;':'';
     return`<tr style="border-left:3px solid ${rowBorderClr};${rowBg}">
@@ -6007,12 +6007,10 @@ function renderBikes(){
       <td>
         <div style="display:flex;align-items:center;gap:6px">
           <span class="avail-dot ${dot}" style="display:inline-block;flex-shrink:0"></span>
-          <div>
-            <span style="color:${sclr};font-weight:700;font-size:12px">${slbl}</span>
-            ${userCell}
-          </div>
+          <span style="color:${sclr};font-weight:700;font-size:12px">${slbl}</span>
         </div>
       </td>
+      <td>${riderCell}</td>
       <td><div class="actions-cell">
         <button class="btn-sm btn-blue" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
         <button class="btn-sm btn-orange" onclick="toggleMaint('${b.id}')">${b.status==='maintenance'?t('restoreBtn'):t('maintBtn')}</button>
@@ -6103,9 +6101,10 @@ function renderBikes(){
           ${sortHdr('size',t('frameSizeLabel'))}
           <th>${t('colColor')}</th>
           ${sortHdr('status',t('colStatus'))}
+          <th>${t('colRider')}</th>
           <th></th>
         </tr></thead>
-        <tbody>${typeBikes.length?typeBikes.map(renderBikeRow).join(''):`<tr><td colspan="10" style="padding:16px 0">${emptyIllustration(ILLUS_BIKE_OK,t('noBikes'))}</td></tr>`}</tbody>
+        <tbody>${typeBikes.length?typeBikes.map(renderBikeRow).join(''):`<tr><td colspan="11" style="padding:16px 0">${emptyIllustration(ILLUS_BIKE_OK,t('noBikes'))}</td></tr>`}</tbody>
       </table></div>`;
     return`<div style="margin-bottom:28px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
