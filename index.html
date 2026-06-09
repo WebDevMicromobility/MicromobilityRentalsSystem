@@ -934,6 +934,16 @@
     .toast.error{border-left-color:var(--red);box-shadow:0 4px 24px rgba(0,0,0,.5),0 0 16px rgba(224,64,64,.1);}
     .toast.warning{border-left-color:var(--muted-l);}
     @keyframes toastIn{from{transform:translateY(20px);opacity:0;scale:.96;}to{transform:none;opacity:1;scale:1;}}
+    @keyframes rowFlash_green{0%{background:rgba(3,255,137,.16);}100%{background:transparent;}}
+    @keyframes rowFlash_blue{0%{background:rgba(74,168,248,.16);}100%{background:transparent;}}
+    @keyframes rowFlash_orange{0%{background:rgba(224,136,40,.16);}100%{background:transparent;}}
+    .confirm-box{background:var(--s2);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:24px;width:min(92vw,420px);animation:modalSlideUp .18s ease;}
+    .bike-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:24px;}
+    .bike-card{background:var(--s2);border:1.5px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;transition:border-color .18s;}
+    .bike-card:hover{border-color:rgba(255,255,255,.18);}
+    .view-toggle{display:flex;background:var(--s2);border:1px solid rgba(255,255,255,.08);border-radius:8px;overflow:hidden;}
+    .view-toggle-btn{background:none;border:none;color:var(--muted);cursor:pointer;padding:6px 11px;font-size:14px;transition:all .15s;}
+    .view-toggle-btn.active{background:rgba(3,255,137,.12);color:var(--green);}
 
     .empty-state{text-align:center;padding:52px 24px;color:var(--muted);font-size:14px;font-weight:600;letter-spacing:.1px;}
 
@@ -1510,6 +1520,7 @@
 <div id="receipt-modal"    style="display:none"></div>
 <div id="auth-modal"       style="display:none"></div>
 <div id="return-pay-modal" style="display:none"></div>
+<div id="confirm-modal"    style="display:none"></div>
 <div id="cancel-reason-modal" style="display:none"></div>
 <div id="factory-reset-modal" style="display:none"></div>
 
@@ -1793,6 +1804,9 @@ en:{
   addBikeToFleetBtn:'Add New Bike to Fleet',quickAddBikeTitle:'Quick Add Bike',quickAddBikeSubmit:'Add & Select',
   removedLabel:'Removed',restoreEntryBtn:'Restore',
   heightPlaceholder:'Enter your height (cm)',
+  printReportBtn:'Print Report',printReportTitle:'Session Report',printTotalRiders:'Total Riders',printCollected:'Collected',printPending:'Pending',
+  gridViewBtn:'Grid',tableViewBtn:'Table',
+  confirmNoShowTitle:'Mark as No-Show?',confirmRemoveTitle:'Remove Rider?',
 },
 ar:{
   appSub:'طابور حلبة الكورنيش',landingTitle:'مايكرو موبيليتي - حلبة الكورنيش',
@@ -2046,6 +2060,9 @@ ar:{
   addBikeToFleetBtn:'إضافة دراجة جديدة للأسطول',quickAddBikeTitle:'إضافة دراجة سريعة',quickAddBikeSubmit:'إضافة وتحديد',
   removedLabel:'محذوف',restoreEntryBtn:'استعادة',
   heightPlaceholder:'أدخل طولك (سم)',
+  printReportBtn:'طباعة التقرير',printReportTitle:'تقرير الجلسة',printTotalRiders:'إجمالي الركاب',printCollected:'المبلغ المحصل',printPending:'المبلغ المعلق',
+  gridViewBtn:'شبكة',tableViewBtn:'جدول',
+  confirmNoShowTitle:'تسجيل كغائب؟',confirmRemoveTitle:'حذف الراكب؟',
 }};
 function t(k){return(LANG[S&&S.lang?S.lang:'en']||LANG.en)[k]||LANG.en[k]||k;}
 
@@ -2319,7 +2336,7 @@ const S={
   showAddBike:false,editBikeId:null,bkTypeFilter:'all',bkSort:'name',
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],addBikeColorNames:[''],_bkName:'',
   _bkBrand:'',_bkModel:'',_bkGroupset:'',_bkSpeeds:'',
-  bkStatus:'all',bkSize:'all',bkSearch:'',bkSortCol:'name',bkSortDir:1,
+  bkStatus:'all',bkSize:'all',bkSearch:'',bkSortCol:'name',bkSortDir:1,bkView:'grid',
   // history
   histStatus:'all',histPay:'all',histSess:'all',histSort:'date',histSortDir:-1,histType:'all',histSize:'all',histSearch:'',
   histLog:[],showHistLog:false,
@@ -4511,11 +4528,11 @@ function renderStaffQueue(){
   }
 
   function _entryActions(e){
-    if(e.status==='waiting')return`<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="doNoShow('${e.id}')">${t('noShowBtn')}</button>`;
+    if(e.status==='waiting')return`<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button>`;
     if(e.status==='active')return`<button class="btn-sm btn-blue" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button>`;
-    if(e.status==='done')return`<button class="btn-sm btn-blue" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
-    if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button><button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
-    return`<button class="btn-sm btn-muted" onclick="doRemove('${e.id}')">${t('removeBtn')}</button>`;
+    if(e.status==='done')return`<button class="btn-sm btn-blue" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
+    if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
+    return`<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
   }
 
   function renderQRow(e){
@@ -4530,7 +4547,8 @@ function renderStaffQueue(){
       ?`<div class="pos-badge" style="font-size:12px;padding:3px 8px">${lp} / ${totalW}</div>`
       :`<span style="color:var(--muted);font-size:12px">—</span>`;
     const heightTag=e.height?`<span style="font-size:11px;color:var(--muted);font-weight:600">&nbsp;&middot;&nbsp;${e.height} cm</span>`:'';
-    return`<tr class="${rowCls}">
+    const _flashStyle=S._flashId===e.id?`animation:rowFlash_${S._flashColor||'green'} .75s ease forwards;`:''
+    return`<tr class="${rowCls}"${_flashStyle?` style="${_flashStyle}"`:''}>
       <td style="min-width:52px"><span class="queue-num-cell" style="font-size:${e.status!=='waiting'?'18':'22'}px">#${e.queueNum}</span></td>
       <td style="text-align:center">${posCell}</td>
       <td><div class="rider-name">${esc(e.name)}${wiTag}${heightTag}</div><div class="rider-sub">${esc(fmtPhone(e.phone))||'—'}</div></td>
@@ -4553,7 +4571,7 @@ function renderStaffQueue(){
           <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">✏️</button>
         </div>
       </td>
-      <td>${statusBadge(e.status)}</td>
+      <td>${statusCellHtml(e)}</td>
       <td>${_contactCell(e.phone)}</td>
       <td><div class="actions-cell">${_entryActions(e)}</div></td>
     </tr>`;
@@ -4610,7 +4628,8 @@ function renderStaffQueue(){
       const groupLine=isFirst?'border-top:2px solid rgba(3,255,137,.15)':'';
       const bottomLine=isLast?'border-bottom:2px solid rgba(3,255,137,.15)':'';
       const leftLine='border-left:2px solid rgba(3,255,137,.2)';
-      const trStyle=[groupLine,bottomLine,leftLine].filter(Boolean).join(';');
+      const flashAnim=S._flashId===e.id?`animation:rowFlash_${S._flashColor||'green'} .75s ease forwards;`:'';
+      const trStyle=[groupLine,bottomLine,leftLine,flashAnim].filter(Boolean).join(';');
 
       if(isFirst){
         return`<tr class="${rowCls}" style="${trStyle}">
@@ -4634,7 +4653,7 @@ function renderStaffQueue(){
               <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">✏️</button>
             </div>
           </td>
-          <td style="vertical-align:middle">${statusBadge(e.status)}</td>
+          <td style="vertical-align:middle">${statusCellHtml(e)}</td>
           <td rowspan="${n}" style="vertical-align:middle">${_contactCell(primary.phone)}</td>
           <td style="vertical-align:middle"><div class="actions-cell">${_entryActions(e)}</div></td>
         </tr>`;
@@ -4654,7 +4673,7 @@ function renderStaffQueue(){
               <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">✏️</button>
             </div>
           </td>
-          <td style="vertical-align:middle">${statusBadge(e.status)}</td>
+          <td style="vertical-align:middle">${statusCellHtml(e)}</td>
           <td style="vertical-align:middle"><div class="actions-cell">${_entryActions(e)}</div></td>
         </tr>`;
       }
@@ -4718,6 +4737,7 @@ function renderStaffQueue(){
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
+        ${S.sfSession!=='all'?`<button onclick="printSessionReport()" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);font-family:'Space Grotesk',sans-serif;transition:all .18s;line-height:1" onmouseover="this.style.borderColor='rgba(3,255,137,.35)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='rgba(255,255,255,.1)';this.style.color='var(--muted)'">${t('printReportBtn')}</button>`:''}
         <div class="density-toggle">
           <button class="density-btn${S.queueDensity==='comfortable'?' active':''}" onclick="S.queueDensity='comfortable';renderStaffQueue()" title="Comfortable">⊡</button>
           <button class="density-btn${S.queueDensity==='compact'?' active':''}" onclick="S.queueDensity='compact';renderStaffQueue()" title="Compact">⊟</button>
@@ -5130,6 +5150,7 @@ async function doNoShow(id){
   await sb.from('queue_entries').update({status:'noshow'}).eq('id',id);
   await Promise.all(behind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
   await loadData();toast(t('toastNoShow'));
+  S._flashId=id;S._flashColor='orange';setTimeout(()=>{S._flashId=null;},800);
   pushUndo(`No-show #${savedQNum} ${entry.name}`,async()=>{
     await sb.from('queue_entries').update({status:'waiting',queue_num:savedQNum}).eq('id',id);
     await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum}).eq('id',e.id)));
@@ -5334,8 +5355,10 @@ async function _execReturn(id,markPaid){
     ...bikeIds.map(bid=>sb.from('bikes').update({status:'available'}).eq('id',bid)),
   ]);
   await loadData();
+  try{localStorage.removeItem('cq_ct_'+id);}catch(e){}
   toast(markPaid?t('toastBikeReturnedPaid'):t('toastBikeReturned'));
   pushUndo(`Return - #${qn} ${name}`,async()=>{
+    try{localStorage.setItem('cq_ct_'+id,Date.now());}catch(e){}
     const u={status:'active'};if(markPaid)u.paid=false;
     await Promise.all([
       sb.from('queue_entries').update(u).eq('id',id),
@@ -5343,6 +5366,7 @@ async function _execReturn(id,markPaid){
     ]);
     await loadData();renderStaffQueue();
   });
+  S._flashId=id;S._flashColor='blue';setTimeout(()=>{S._flashId=null;},800);
   renderStaffQueue();
 }
 async function doUndoCheckin(id){
@@ -5351,14 +5375,18 @@ async function doUndoCheckin(id){
   const calls=[sb.from('queue_entries').update({status:'waiting',assigned_bike_id:null}).eq('id',id)];
   bikeIds.forEach(bid=>calls.push(sb.from('bikes').update({status:'available'}).eq('id',bid)));
   await Promise.all(calls);
-  await loadData();toast(t('toastUndoCheckin'));
+  await loadData();
+  try{localStorage.removeItem('cq_ct_'+id);}catch(e){}
+  toast(t('toastUndoCheckin'));
   pushUndo(`Undo check-in #${entry.queueNum} ${entry.name}`,async()=>{
     const assignedVal=bikeIds.length===1?bikeIds[0]:JSON.stringify(bikeIds);
     const calls2=[sb.from('queue_entries').update({status:'active',assigned_bike_id:assignedVal}).eq('id',id)];
     bikeIds.forEach(bid=>calls2.push(sb.from('bikes').update({status:'in-use'}).eq('id',bid)));
     await Promise.all(calls2);
+    try{localStorage.setItem('cq_ct_'+id,Date.now());}catch(e){}
     await loadData();renderStaffQueue();
   });
+  S._flashId=id;S._flashColor='green';setTimeout(()=>{S._flashId=null;},800);
   renderStaffQueue();
 }
 async function doReopen(id){
@@ -5376,6 +5404,117 @@ async function doReopen(id){
   });
   renderStaffQueue();
 }
+/* ── CONFIRM DIALOG ─────────────────────────────── */
+let _confirmCb=null;
+function confirmDialog({title,body,confirmLabel,confirmClass,onConfirm}){
+  _confirmCb=onConfirm;
+  const m=document.getElementById('confirm-modal');
+  m.style.display='block';
+  m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeConfirm()">
+    <div class="confirm-box">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${body?'10':'18'}px">
+        <div style="font-size:18px;font-weight:900">${title}</div>
+        <button onclick="closeConfirm()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 4px;transition:color .15s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&times;</button>
+      </div>
+      ${body?`<div style="font-size:14px;color:var(--muted-l);font-weight:700;margin-bottom:20px;padding:10px 14px;background:var(--s3);border-radius:10px">${body}</div>`:''}
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn-secondary" onclick="closeConfirm()">${t('cancelBtn')}</button>
+        <button class="${confirmClass||'btn-red'}" onclick="_doConfirm()" style="min-width:100px">${confirmLabel}</button>
+      </div>
+    </div>
+  </div>`;
+}
+function _doConfirm(){closeConfirm();if(_confirmCb){const cb=_confirmCb;_confirmCb=null;cb();}}
+function closeConfirm(){const m=document.getElementById('confirm-modal');if(m){m.style.display='none';m.innerHTML='';}}
+
+function confirmNoShow(id){
+  const e=getQueue().find(x=>x.id===id);if(!e)return;
+  confirmDialog({title:t('confirmNoShowTitle'),body:`#${e.queueNum} - ${esc(e.name)}`,confirmLabel:t('noShowBtn'),confirmClass:'btn-orange',onConfirm:()=>doNoShow(id)});
+}
+function confirmRemove(id){
+  const e=getQueue().find(x=>x.id===id);if(!e)return;
+  confirmDialog({title:t('confirmRemoveTitle'),body:`#${e.queueNum} - ${esc(e.name)}`,confirmLabel:t('removeBtn'),confirmClass:'btn-red',onConfirm:()=>doRemove(id)});
+}
+
+/* ── RIDE TIMER ─────────────────────────────────── */
+function rideElapsed(id){
+  try{
+    const ts=localStorage.getItem('cq_ct_'+id);
+    if(!ts)return null;
+    const min=Math.floor((Date.now()-Number(ts))/60000);
+    if(min<1)return'<1 min';
+    if(min<60)return`${min} min`;
+    return`${Math.floor(min/60)}h ${min%60}m`;
+  }catch(e){return null;}
+}
+function statusCellHtml(e){
+  const badge=statusBadge(e.status);
+  const el=e.status==='active'?rideElapsed(e.id):null;
+  return badge+(el?`<div style="font-size:10px;color:var(--blue);font-weight:700;margin-top:3px;white-space:nowrap">⏱ ${el}</div>`:'');
+}
+
+/* ── PRINT REPORT ───────────────────────────────── */
+function printSessionReport(){
+  const sessId=S.sfSession;if(sessId==='all')return;
+  const sess=allSessions().find(s=>s.id===sessId);if(!sess)return;
+  const entries=getQueue()
+    .filter(e=>e.sessionId===sessId&&e.status!=='removed')
+    .sort((a,b)=>a.queueNum-b.queueNum);
+  const active=entries.filter(e=>!['noshow','cancelled','removed'].includes(e.status));
+  const totalSAR=active.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
+  const paidSAR=active.filter(e=>e.paid&&(e.price??DEFAULT_PRICE)>0).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
+  const pendingSAR=totalSAR-paidSAR;
+  const statusLabels={waiting:'Waiting',active:'On Bike',done:'Done',noshow:'No-Show',cancelled:'Cancelled'};
+  const rows=entries.map(e=>{
+    const bikes=getAssignedBikes(e).map(b=>b.name).join(', ')||'—';
+    return`<tr>
+      <td>#${e.queueNum}</td>
+      <td>${esc(e.name)}</td>
+      <td>${e.size} / ${e.typePreference}</td>
+      <td>${bikes}</td>
+      <td>SAR ${e.price??DEFAULT_PRICE}</td>
+      <td style="color:${e.paid?'#16a34a':'#b45309'}">${e.paid?'Paid':'Pending'}</td>
+      <td>${statusLabels[e.status]||e.status}</td>
+    </tr>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+    <title>${t('printReportTitle')}</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{font-family:system-ui,sans-serif;padding:28px 32px;color:#111;font-size:13px;}
+      h1{font-size:22px;font-weight:900;margin-bottom:4px;}
+      .meta{color:#666;font-size:12px;margin-bottom:20px;}
+      .totals{display:flex;gap:24px;padding:14px 0 20px;}
+      .total-item{display:flex;flex-direction:column;}
+      .total-num{font-size:20px;font-weight:900;}
+      .total-lbl{font-size:11px;color:#666;margin-top:2px;text-transform:uppercase;letter-spacing:.4px;}
+      table{width:100%;border-collapse:collapse;}
+      th{border-bottom:2px solid #222;padding:7px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;}
+      td{border-bottom:1px solid #e5e7eb;padding:8px 10px;}
+      tr:last-child td{border-bottom:none;}
+      @media print{body{padding:16px;}button{display:none;}}
+    </style>
+  </head><body>
+    <h1>${dayLabel(sess.day)} - ${shortDate(sess.session_date||sess.sessionDate||sess.id)}</h1>
+    <div class="meta">${t('printReportTitle')} &nbsp;·&nbsp; ${new Date().toLocaleString('en-SA',{timeZone:KSA_TZ})}</div>
+    <div class="totals">
+      <div class="total-item"><span class="total-num">${entries.length}</span><span class="total-lbl">${t('printTotalRiders')}</span></div>
+      <div class="total-item"><span class="total-num">SAR ${totalSAR}</span><span class="total-lbl">${t('colRevenue')||'Revenue'}</span></div>
+      <div class="total-item"><span class="total-num" style="color:#16a34a">SAR ${paidSAR}</span><span class="total-lbl">${t('printCollected')}</span></div>
+      <div class="total-item"><span class="total-num" style="color:#b45309">SAR ${pendingSAR}</span><span class="total-lbl">${t('printPending')}</span></div>
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>Name</th><th>Size / Type</th><th>Bike</th><th>Price</th><th>Payment</th><th>Status</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <br><button onclick="window.print()" style="margin-top:16px;padding:8px 20px;background:#111;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">Print</button>
+  </body></html>`;
+  const w=window.open('','_blank','width=960,height=720');
+  if(!w)return;
+  w.document.write(html);w.document.close();w.focus();
+  setTimeout(()=>w.print(),400);
+}
+
 function addHistLog(action,entry,undoFn){
   S.histLog.unshift({
     id:'log-'+Date.now()+'-'+Math.random().toString(36).slice(2),
@@ -5393,9 +5532,7 @@ function addHistLog(action,entry,undoFn){
 
 function confirmHistRemove(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
-  const msg=`${t('removeBtn')} #${entry.queueNum} ${entry.name}?`;
-  if(!confirm(msg))return;
-  doRemove(id);
+  confirmDialog({title:t('confirmRemoveTitle'),body:`#${entry.queueNum} - ${esc(entry.name)}`,confirmLabel:t('removeBtn'),confirmClass:'btn-red',onConfirm:()=>doRemove(id)});
 }
 
 async function doRemove(id){
@@ -5713,7 +5850,9 @@ async function confirmAssign(){
     });
   }else{
     toast(`${bikeNames} ${t('toastAssignedChecked')}`);
+    try{localStorage.setItem('cq_ct_'+riderId,Date.now());}catch(e){}
     pushUndo(`Check-in #${qn} ${rName}`,async()=>{
+      try{localStorage.removeItem('cq_ct_'+riderId);}catch(e){}
       await Promise.all([
         ...needsUpdate.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b.id)),
         sb.from('queue_entries').update({status:'waiting',assigned_bike_id:null}).eq('id',riderId),
@@ -5721,6 +5860,7 @@ async function confirmAssign(){
       await loadData();renderStaffQueue();
     });
   }
+  S._flashId=riderId;S._flashColor='green';setTimeout(()=>{S._flashId=null;},800);
   renderStaffQueue();
 }
 
@@ -5850,6 +5990,41 @@ function renderBikes(){
     return`<th style="cursor:pointer;user-select:none;white-space:nowrap${d?';color:var(--green)':''}" onclick="S.bkSortDir=(S.bkSortCol==='${col}'&&S.bkSortDir===1)?-1:1;S.bkSortCol='${col}';renderBikes()">${label}${arrow}</th>`;
   }
 
+  function renderBikeGrid(typeBikes){
+    if(!typeBikes.length)return`<div class="empty-state">${t('noBikes')}</div>`;
+    return`<div class="bike-grid">${typeBikes.map(b=>{
+      const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-blue':'dot-red';
+      const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--blue)':'var(--red)';
+      const borderClr=b.status==='available'?'rgba(3,255,137,.4)':b.status==='in-use'?'rgba(74,168,248,.4)':'rgba(224,64,64,.4)';
+      const bgStyle=b.status==='in-use'?'background:rgba(74,168,248,.025);':b.status==='maintenance'?'background:rgba(224,64,64,.025);opacity:.8;':'';
+      const user=bikeUserMap[b.id];
+      const colors=b.colors&&b.colors.length?b.colors:['#03ff89'];
+      const dots=colors.map(c=>`<span style="width:11px;height:11px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);display:inline-block;flex-shrink:0"></span>`).join('');
+      const el=b.status==='in-use'?rideElapsed(b.id):null;
+      return`<div class="bike-card" style="border-color:${borderClr};${bgStyle}">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:6px">
+          <div style="font-weight:900;font-size:13px;line-height:1.3">${esc(b.name)}</div>
+          <div style="display:flex;gap:3px;flex-shrink:0">${dots}</div>
+        </div>
+        <div style="display:flex;gap:5px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+          ${typeBadge(b.type)}
+          <span style="background:var(--s3);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:2px 8px;font-size:10px;font-weight:800;color:var(--muted-l)">${b.size}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px${user?';margin-bottom:5px':''}">
+          <span class="avail-dot ${dot}" style="display:inline-block;flex-shrink:0"></span>
+          <span style="color:${sclr};font-weight:700;font-size:12px">${b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel')}</span>
+          ${el?`<span style="font-size:10px;color:var(--blue);font-weight:700;margin-left:2px">⏱ ${el}</span>`:''}
+        </div>
+        ${user?`<div style="font-size:11px;font-weight:700;color:var(--green)">&#x1F464; #${user.queueNum} ${esc(user.name)}</div>`:''}
+        <div style="display:flex;gap:4px;margin-top:10px">
+          <button class="btn-sm btn-blue" style="flex:1" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
+          <button class="btn-sm btn-orange" style="flex:1" onclick="toggleMaint('${b.id}')">${b.status==='maintenance'?t('restoreBtn'):t('maintBtn')}</button>
+          <button class="btn-sm btn-red" style="flex:1" ${b.status!=='in-use'?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
+        </div>
+      </div>`;
+    }).join('')}</div>`;
+  }
+
   function renderTypeSection(ty,color){
     if(S.bkTypeFilter!=='all'&&S.bkTypeFilter!==ty) return '';
     let typeBikes=bikes.filter(b=>b.type===ty);
@@ -5875,9 +6050,23 @@ function renderBikes(){
     const tyAvail=all.filter(b=>b.status==='available').length;
     const tyUse  =all.filter(b=>b.status==='in-use').length;
     const tyMaint=all.filter(b=>b.status==='maintenance').length;
-    const rows=typeBikes.length
-      ?typeBikes.map(renderBikeRow).join('')
-      :`<tr><td colspan="10" style="padding:16px 0">${emptyIllustration(ILLUS_BIKE_OK,t('noBikes'))}</td></tr>`;
+    const typeContent=S.bkView==='grid'
+      ?renderBikeGrid(typeBikes)
+      :`<div class="table-wrapper"><table class="queue-table">
+        <thead><tr>
+          ${sortHdr('name',t('bikeNameLabel'))}
+          ${sortHdr('brand',t('bikeBrand'))}
+          ${sortHdr('model',t('bikeModel'))}
+          ${sortHdr('groupset',t('bikeGroupset'))}
+          ${sortHdr('speeds',t('bikeSpeeds'))}
+          <th>${t('bikeTypeLabel')}</th>
+          ${sortHdr('size',t('frameSizeLabel'))}
+          <th>${t('colColor')}</th>
+          ${sortHdr('status',t('colStatus'))}
+          <th></th>
+        </tr></thead>
+        <tbody>${typeBikes.length?typeBikes.map(renderBikeRow).join(''):`<tr><td colspan="10" style="padding:16px 0">${emptyIllustration(ILLUS_BIKE_OK,t('noBikes'))}</td></tr>`}</tbody>
+      </table></div>`;
     return`<div style="margin-bottom:28px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:10px">
@@ -5897,21 +6086,7 @@ function renderBikes(){
           + ${typeLabel(ty)}
         </button>
       </div>
-      <div class="table-wrapper"><table class="queue-table">
-        <thead><tr>
-          ${sortHdr('name',t('bikeNameLabel'))}
-          ${sortHdr('brand',t('bikeBrand'))}
-          ${sortHdr('model',t('bikeModel'))}
-          ${sortHdr('groupset',t('bikeGroupset'))}
-          ${sortHdr('speeds',t('bikeSpeeds'))}
-          <th>${t('bikeTypeLabel')}</th>
-          ${sortHdr('size',t('frameSizeLabel'))}
-          <th>${t('colColor')}</th>
-          ${sortHdr('status',t('colStatus'))}
-          <th></th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table></div>
+      ${typeContent}
     </div>`;
   }
 
@@ -5923,7 +6098,13 @@ function renderBikes(){
       <div>
         <div class="page-title">${t('bikesTitle')}</div>
       </div>
-      <button class="btn-primary" onclick="toggleAddBike()">${t('addBike')}</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="view-toggle">
+          <button class="view-toggle-btn${S.bkView==='grid'?' active':''}" onclick="S.bkView='grid';renderBikes()" title="${t('gridViewBtn')}">⊞</button>
+          <button class="view-toggle-btn${S.bkView==='table'?' active':''}" onclick="S.bkView='table';renderBikes()" title="${t('tableViewBtn')}">☰</button>
+        </div>
+        <button class="btn-primary" onclick="toggleAddBike()">${t('addBike')}</button>
+      </div>
     </div>
     ${addForm}
     <div class="stats-row" style="margin-bottom:20px">
