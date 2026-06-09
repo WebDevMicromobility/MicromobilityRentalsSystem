@@ -5324,23 +5324,34 @@ function showEditPriceModal(id){
   const m=document.getElementById('edit-price-modal');
   m.style.display='flex';
   const cur=entry.price!=null?entry.price:DEFAULT_PRICE;
+  const PRICE_LABELS={57.5:'Standard',75:'Road / Standard',95:'',105:'',175:'VIP & Guests',250:'Premium'};
+  const fleetPrices=getBikes()
+    .map(b=>priceForBike(b))
+    .filter(p=>p!=null&&!isNaN(p));
+  const uniquePrices=[...new Set([...fleetPrices,DEFAULT_PRICE])].sort((a,b)=>a-b);
+  const presetBtns=uniquePrices.map(p=>{
+    const isCur=cur===p;
+    const lbl=PRICE_LABELS[p]||'';
+    return`<button style="padding:11px 16px;border-radius:12px;border:1.5px solid ${isCur?'var(--green)':'rgba(255,255,255,.12)'};background:${isCur?'rgba(3,255,137,.08)':'rgba(255,255,255,.03)'};color:${isCur?'var(--green)':'var(--text)'};font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:space-between;width:100%"
+      onclick="saveEditedPrice('${id}',${p})">
+      <span>SAR ${p%1===0?p:p.toFixed(2)}${lbl?`<span style="font-size:11px;font-weight:600;color:var(--muted);margin-left:8px">${lbl}</span>`:''}</span>
+      ${isCur?'<span style="font-size:11px">✓</span>':''}
+    </button>`;
+  }).join('');
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeEditPriceModal()">
     <div class="modal-box" style="max-width:360px">
       <div class="modal-title">${t('editPriceTitle')}</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:20px">#${entry.queueNum} - ${esc(entry.name)}</div>
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
-        ${[57.5,75].map(p=>`
-          <button style="padding:12px 16px;border-radius:12px;border:1.5px solid ${cur===p?'var(--green)':'rgba(255,255,255,.12)'};background:${cur===p?'rgba(3,255,137,.08)':'rgba(255,255,255,.03)'};color:${cur===p?'var(--green)':'var(--text)'};font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:800;cursor:pointer;text-align:left"
-            onclick="saveEditedPrice('${id}',${p})">
-            SAR ${p.toFixed(2)} ${cur===p?'<span style="float:right;font-size:11px">✓ Current</span>':''}
-          </button>`).join('')}
-        <div style="border-top:1px solid var(--border);padding-top:12px">
-          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">${t('editPriceCustom')}</label>
-          <div style="display:flex;gap:8px">
-            <input id="ep-custom" type="number" min="0" step="0.01" value="${cur}"
-              style="flex:1;background:#1a1a1a;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 12px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;outline:none">
-            <button class="btn-primary" style="padding:10px 16px" onclick="saveEditedPrice('${id}',parseFloat(document.getElementById('ep-custom').value))">✓</button>
-          </div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:16px">#${entry.queueNum} - ${esc(entry.name)}</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;max-height:280px;overflow-y:auto;padding-right:2px">
+        ${presetBtns}
+      </div>
+      <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:16px">
+        <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">${t('editPriceCustom')}</label>
+        <div style="display:flex;gap:8px">
+          <input id="ep-custom" type="number" min="0" step="0.01" value="${cur}"
+            style="flex:1;background:#1a1a1a;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 12px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;outline:none"
+            onkeydown="if(event.key==='Enter')saveEditedPrice('${id}',parseFloat(this.value))">
+          <button class="btn-primary" style="padding:10px 16px" onclick="saveEditedPrice('${id}',parseFloat(document.getElementById('ep-custom').value))">✓</button>
         </div>
       </div>
       <button style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:'Space Grotesk',sans-serif;width:100%" onclick="closeEditPriceModal()">${t('cancelBtn')}</button>
@@ -5572,12 +5583,11 @@ function printSessionReport(){
   const sessId=S.sfSession;if(sessId==='all')return;
   const sess=allSessions().find(s=>s.id===sessId);if(!sess)return;
   const entries=getQueue()
-    .filter(e=>e.sessionId===sessId&&e.status!=='removed')
+    .filter(e=>e.sessionId===sessId&&e.status!=='removed'&&e.paid)
     .sort((a,b)=>a.queueNum-b.queueNum);
-  const active=entries.filter(e=>!['noshow','cancelled','removed'].includes(e.status));
-  const totalSAR=active.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
-  const paidSAR=active.filter(e=>e.paid&&(e.price??DEFAULT_PRICE)>0).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
-  const pendingSAR=totalSAR-paidSAR;
+  const totalSAR=entries.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
+  const paidSAR=totalSAR;
+  const pendingSAR=0;
   const statusLabels={waiting:'Waiting',active:'On Bike',done:'Done',noshow:'No-Show',cancelled:'Cancelled'};
   // Group entries: multi-entry bookings by same customerId are merged into one row
   const groups=[];
@@ -5598,10 +5608,6 @@ function printSessionReport(){
     const qNums=group.map(x=>`#${x.queueNum}`).join(', ');
     const allBikes=[...new Set(group.flatMap(x=>getAssignedBikes(x).map(b=>b.name)))].join(', ')||'—';
     const totalPrice=group.reduce((s,x)=>s+(x.price??DEFAULT_PRICE),0);
-    const allPaid=group.every(x=>x.paid);
-    const somePaid=group.some(x=>x.paid);
-    const payLabel=allPaid?'Paid':somePaid?'Partial':'Pending';
-    const payColor=allPaid?'#16a34a':somePaid?'#2563eb':'#b45309';
     const statusPriority={active:0,waiting:1,done:2,noshow:3,cancelled:4};
     const topStatus=group.sort((a,b)=>(statusPriority[a.status]??5)-(statusPriority[b.status]??5))[0].status;
     const phone=lead.phone||'';
@@ -5615,7 +5621,6 @@ function printSessionReport(){
       <td>${phone?`<a href="tel:${phone}">${phone}</a>`:''}</td>
       <td>${email?`<a href="mailto:${email}">${email}</a>`:''}</td>
       <td>SAR ${totalPrice}</td>
-      <td style="color:${payColor}">${payLabel}</td>
       <td>${statusLabels[topStatus]||topStatus}</td>
     </tr>`;
   }).join('');
@@ -5647,7 +5652,7 @@ function printSessionReport(){
       <div class="total-item"><span class="total-num" style="color:#b45309">SAR ${pendingSAR}</span><span class="total-lbl">${t('printPending')}</span></div>
     </div>
     <table>
-      <thead><tr><th>#</th><th>Name</th><th>Type</th><th>Bike</th><th>Phone</th><th>Email</th><th>Price</th><th>Payment</th><th>Status</th></tr></thead>
+      <thead><tr><th>#</th><th>Name</th><th>Type</th><th>Bike</th><th>Phone</th><th>Email</th><th>Price</th><th>Status</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <br><button onclick="window.print()" style="margin-top:16px;padding:8px 20px;background:#111;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">Print</button>
@@ -6071,7 +6076,7 @@ function renderBikes(){
     </div>
     <div class="form-row">
       <div class="form-group"><label>${t('bikeGroupset')}</label>${_bkFieldHtml('bk-groupset',S._bkGroupset,S._bkGroupsetAdd,S.bkGroupsets)}</div>
-      <div class="form-group"><label>${t('bikeSpeeds')}</label><input type="number" id="bk-speeds" min="1" max="33" placeholder="e.g. 21" value="${esc(S._bkSpeeds)}" style="max-width:140px"></div>
+      <div class="form-group"><label>${t('bikeSpeeds')}</label><select id="bk-speeds" style="max-width:140px"><option value="">—</option>${Array.from({length:50},(_,i)=>i+1).map(n=>`<option value="${n}"${S._bkSpeeds===String(n)?' selected':''}>${n}</option>`).join('')}</select></div>
     </div>
     <div class="form-row">
       <div class="form-group">
