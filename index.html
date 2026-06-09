@@ -1528,6 +1528,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 <div id="confirm-modal"    style="display:none"></div>
 <div id="cancel-reason-modal" style="display:none"></div>
 <div id="factory-reset-modal" style="display:none"></div>
+<div id="print-opts-modal"   style="display:none"></div>
 
 <!-- BOOTH PAYMENT POPUP -->
 <div id="booth-popup">
@@ -4794,7 +4795,7 @@ function renderStaffQueue(){
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        ${S.sfSession!=='all'?`<button onclick="printSessionReport()" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);font-family:'Space Grotesk',sans-serif;transition:all .18s;line-height:1" onmouseover="this.style.borderColor='rgba(3,255,137,.35)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='rgba(255,255,255,.1)';this.style.color='var(--muted)'">${t('printReportBtn')}</button>`:''}
+        ${S.sfSession!=='all'?`<button onclick="showPrintReportOptions()" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);font-family:'Space Grotesk',sans-serif;transition:all .18s;line-height:1" onmouseover="this.style.borderColor='rgba(3,255,137,.35)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='rgba(255,255,255,.1)';this.style.color='var(--muted)'">${t('printReportBtn')}</button>`:''}
         <div class="density-toggle">
           <button class="density-btn${S.queueDensity==='comfortable'?' active':''}" onclick="S.queueDensity='comfortable';renderStaffQueue()" title="Comfortable">⊡</button>
           <button class="density-btn${S.queueDensity==='compact'?' active':''}" onclick="S.queueDensity='compact';renderStaffQueue()" title="Compact">⊟</button>
@@ -5579,6 +5580,62 @@ function statusCellHtml(e){
 }
 
 /* ── PRINT REPORT ───────────────────────────────── */
+function showPrintReportOptions(){
+  const m=document.getElementById('print-opts-modal');
+  m.style.display='flex';
+  m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)_closePrintOpts()">
+    <div class="modal-box" style="max-width:300px;text-align:center">
+      <div class="modal-title" style="margin-bottom:6px">Export Report</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:20px">Choose a format</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn-primary" style="width:100%;padding:13px 16px;font-size:14px" onclick="_closePrintOpts();printSessionReport()">🖨&nbsp; PDF / Print</button>
+        <button style="width:100%;padding:13px 16px;border-radius:12px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:800;cursor:pointer" onclick="_closePrintOpts();exportSessionExcel()">📊&nbsp; Excel (CSV)</button>
+        <button style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:'Space Grotesk',sans-serif" onclick="_closePrintOpts()">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+}
+function _closePrintOpts(){const m=document.getElementById('print-opts-modal');m.style.display='none';m.innerHTML='';}
+
+function exportSessionExcel(){
+  const sessId=S.sfSession;if(sessId==='all')return;
+  const sess=allSessions().find(s=>s.id===sessId);if(!sess)return;
+  const entries=getQueue()
+    .filter(e=>e.sessionId===sessId&&e.paid)
+    .sort((a,b)=>a.queueNum-b.queueNum);
+  if(!entries.length){toast('No paid bookings to export','warning');return;}
+  const groups=[];
+  const usedIds=new Set();
+  for(const e of entries){
+    if(usedIds.has(e.id))continue;
+    if(e.customerId){
+      const group=entries.filter(x=>x.customerId===e.customerId&&!usedIds.has(x.id));
+      group.forEach(x=>usedIds.add(x.id));
+      groups.push(group);
+    }else{usedIds.add(e.id);groups.push([e]);}
+  }
+  const statusLabels={waiting:'Waiting',active:'On Bike',done:'Done',noshow:'No-Show',cancelled:'Cancelled'};
+  const statusPriority={active:0,waiting:1,done:2,noshow:3,cancelled:4};
+  const headers=[t('colQueueNum')||'#','Name','Phone','Email','Type','Bike(s)','Price (SAR)','Payment','Status'];
+  const rows=groups.map(group=>{
+    const lead=group[0];
+    const qNums=group.map(x=>`#${x.queueNum}`).join(', ');
+    const bikes=[...new Set(group.flatMap(x=>getAssignedBikes(x).map(b=>b.name)))].join('; ')||'—';
+    const totalPrice=group.reduce((s,x)=>s+(x.price??DEFAULT_PRICE),0);
+    const allPaid=group.every(x=>x.paid);const somePaid=group.some(x=>x.paid);
+    const payLabel=allPaid?'Paid':somePaid?'Partial':'Pending';
+    const topStatus=group.slice().sort((a,b)=>(statusPriority[a.status]??5)-(statusPriority[b.status]??5))[0].status;
+    const types=[...new Set(group.map(x=>x.typePreference).filter(Boolean))].join(', ')||'—';
+    return[qNums,lead.name,lead.phone||'',lead.email||'',types,bikes,totalPrice,payLabel,statusLabels[topStatus]||topStatus];
+  });
+  const csv=[headers,...rows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const filename=`report_${dayLabel(sess.day)}_${sess.session_date||sess.id}.csv`;
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=filename;a.click();
+  URL.revokeObjectURL(url);
+}
+
 function printSessionReport(){
   const sessId=S.sfSession;if(sessId==='all')return;
   const sess=allSessions().find(s=>s.id===sessId);if(!sess)return;
