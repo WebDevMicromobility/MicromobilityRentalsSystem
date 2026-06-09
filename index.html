@@ -2338,7 +2338,7 @@ const S={
   showAddBike:false,editBikeId:null,bkTypeFilter:'all',bkSort:'name',
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],addBikeColorNames:[''],_bkName:'',
   _bkBrand:'',_bkModel:'',_bkGroupset:'',_bkSpeeds:'',
-  bkStatus:'all',bkSize:'all',bkSearch:'',bkSortCol:'name',bkSortDir:1,bkView:'grid',
+  bkStatus:'all',bkSize:'all',bkSearch:'',bkSortCol:'name',bkSortDir:1,bkView:'table',
   // history
   histStatus:'all',histPay:'all',histSess:'all',histSort:'date',histSortDir:-1,histType:'all',histSize:'all',histSearch:'',
   histLog:[],showHistLog:false,
@@ -6045,10 +6045,12 @@ function renderBikes(){
           ${el?`<span style="font-size:10px;color:var(--blue);font-weight:700;margin-left:2px">⏱ ${el}</span>`:''}
         </div>
         ${user?`<div style="font-size:11px;font-weight:700;color:var(--green)">&#x1F464; #${user.queueNum} ${esc(user.name)}</div>`:''}
-        <div style="display:flex;gap:4px;margin-top:10px">
-          <button class="btn-sm btn-blue" style="flex:1" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
-          <button class="btn-sm btn-orange" style="flex:1" onclick="toggleMaint('${b.id}')">${b.status==='maintenance'?t('restoreBtn'):t('maintBtn')}</button>
-          <button class="btn-sm btn-red" style="flex:1" ${b.status!=='in-use'?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-top:10px">
+          <div style="display:flex;gap:4px">
+            <button class="btn-sm btn-blue" style="flex:1" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
+            <button class="btn-sm btn-red" style="flex:1" ${b.status!=='in-use'?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
+          </div>
+          <button class="btn-sm btn-orange" style="width:100%;justify-content:center;text-align:center" onclick="toggleMaint('${b.id}')">${b.status==='maintenance'?t('restoreBtn'):t('maintBtn')}</button>
         </div>
       </div>`;
     }).join('')}</div>`;
