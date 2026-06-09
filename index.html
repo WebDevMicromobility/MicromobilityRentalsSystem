@@ -1472,6 +1472,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <button class="tab-btn"        data-stab="bikes"     onclick="setStaffTab('bikes')">Bikes</button>
     <button class="tab-btn"        data-stab="history"   onclick="setStaffTab('history')">History</button>
     <button class="tab-btn"        data-stab="analytics" onclick="setStaffTab('analytics')">Analytics</button>
+    <button class="tab-btn"        data-stab="logs"      onclick="setStaffTab('logs')">Logs</button>
   </nav>
   <div class="view-main">
     <div id="tab-queue"     class="tab-panel active"></div>
@@ -1479,6 +1480,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <div id="tab-bikes"     class="tab-panel"></div>
     <div id="tab-history"   class="tab-panel"></div>
     <div id="tab-analytics" class="tab-panel"></div>
+    <div id="tab-logs"      class="tab-panel"></div>
   </div>
 </div>
 
@@ -2345,6 +2347,7 @@ const S={
   showResetTool:false,sfStatus:'all',sfSession:'all',analyticsVAT:'inclusive',
   sfSort:'queue',sfSortDir:1,sfSearch:'',sfPay:'all',sfSize:'all',queueDensity:'compact',
   undoStack:[],
+  actionLog:[],
   // bikes
   showAddBike:false,editBikeId:null,bkTypeFilter:'all',bkSort:'name',
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],addBikeColorNames:[''],_bkName:'',
@@ -2942,6 +2945,7 @@ function setStaffTab(tab){
   else if(tab==='bikes')renderBikes();
   else if(tab==='history')renderHistory();
   else if(tab==='analytics')renderAnalytics();
+  else if(tab==='logs')renderLogs();
 }
 
 function renderCustomerTabs(){
@@ -2971,6 +2975,7 @@ function renderStaffTabs(){
   document.getElementById('tab-bikes')    .classList.toggle('active',S.staffTab==='bikes');
   document.getElementById('tab-history')  .classList.toggle('active',S.staffTab==='history');
   document.getElementById('tab-analytics').classList.toggle('active',S.staffTab==='analytics');
+  document.getElementById('tab-logs')     .classList.toggle('active',S.staffTab==='logs');
 }
 
 function renderTopbarRight(){
@@ -4569,8 +4574,8 @@ function renderStaffQueue(){
   }
 
   function _entryActions(e){
-    if(e.status==='waiting')return`<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button>`;
-    if(e.status==='active')return`<button class="btn-sm btn-blue" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button>`;
+    if(e.status==='waiting')return`<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')" title="Cancel booking">${t('staffCancelBtn')||'Cancel'}</button>`;
+    if(e.status==='active')return`<button class="btn-sm btn-blue" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')" title="Cancel booking">${t('staffCancelBtn')||'Cancel'}</button>`;
     if(e.status==='done')return`<button class="btn-sm btn-blue" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
     if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
     return`<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
@@ -5032,13 +5037,20 @@ async function togglePayment(id,mode){
    UNDO SYSTEM
 ══════════════════════════════════════════════ */
 function pushUndo(label,fn){
+  const logId='alog-'+Date.now()+'-'+Math.random().toString(36).slice(2);
+  const logEntry={id:logId,label,fn,timestamp:Date.now(),undone:false};
+  S.actionLog.unshift(logEntry);
+  if(S.actionLog.length>100)S.actionLog.pop();
   S.undoStack.push({label,fn});
   if(S.undoStack.length>20)S.undoStack.shift();
   showUndoBar(label,async()=>{
     S.undoStack=S.undoStack.filter(i=>i.label!==label||i.fn!==fn);
+    logEntry.undone=true;
     await fn();
+    if(S.staffTab==='logs')renderLogs();
   });
   renderTopbarRight();
+  if(S.staffTab==='logs')renderLogs();
 }
 async function doUndo(){
   const item=S.undoStack.pop();
@@ -5132,6 +5144,105 @@ async function cancelBooking(id,reason){
     await loadData();renderMyRides();renderStaffQueue();
   });
   renderMyRides();
+}
+
+async function staffCancelEntry(id){
+  const entry=getQueue().find(e=>e.id===id);if(!entry)return;
+  if(entry.status!=='waiting'&&entry.status!=='active'){toast('Cannot cancel this entry.','error');return;}
+  const statusLabel=entry.status==='active'?'on bike':'waiting';
+  confirmDialog({
+    title:`Cancel booking #${entry.queueNum}`,
+    body:`<strong>${esc(entry.name)}</strong> (${statusLabel})<br>This will release any assigned bike and mark the entry as cancelled.`,
+    confirmLabel:'Cancel booking',
+    confirmClass:'btn-red',
+    onConfirm:async()=>{
+      const bikeIds=getAssignedBikeIds(entry);
+      const savedStatus=entry.status;
+      const savedAssigned=entry.assignedBikeId;
+      if(entry.status==='waiting'){
+        const behind=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>entry.queueNum);
+        const savedBehind=behind.map(e=>({id:e.id,queueNum:e.queueNum}));
+        const savedQNum=entry.queueNum;
+        await sb.from('queue_entries').update({status:'cancelled'}).eq('id',id);
+        await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
+        await loadData();
+        toast(`Booking #${savedQNum} cancelled.`);
+        pushUndo(`Staff cancel #${savedQNum} ${entry.name}`,async()=>{
+          await sb.from('queue_entries').update({status:'waiting',queue_num:savedQNum}).eq('id',id);
+          await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum}).eq('id',e.id)));
+          await loadData();renderMyRides();renderStaffQueue();
+        });
+      }else{
+        const calls=[sb.from('queue_entries').update({status:'cancelled',assigned_bike_id:null}).eq('id',id)];
+        bikeIds.forEach(bid=>calls.push(sb.from('bikes').update({status:'available'}).eq('id',bid)));
+        await Promise.all(calls);
+        await loadData();
+        try{localStorage.removeItem('cq_ct_'+id);}catch(e){}
+        toast(`Booking #${entry.queueNum} cancelled.`);
+        pushUndo(`Staff cancel #${entry.queueNum} ${entry.name}`,async()=>{
+          const assignedVal=bikeIds.length===1?bikeIds[0]:(bikeIds.length?JSON.stringify(bikeIds):null);
+          const calls2=[sb.from('queue_entries').update({status:savedStatus,assigned_bike_id:assignedVal}).eq('id',id)];
+          bikeIds.forEach(bid=>calls2.push(sb.from('bikes').update({status:'in-use'}).eq('id',bid)));
+          await Promise.all(calls2);
+          await loadData();renderStaffQueue();
+        });
+      }
+      renderMyRides();renderStaffQueue();
+    }
+  });
+}
+
+function renderLogs(){
+  const el=document.getElementById('tab-logs');if(!el)return;
+  const fmt=ts=>new Date(ts).toLocaleString('en-SA',{timeZone:KSA_TZ,hour12:false,month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+  if(!S.actionLog.length){
+    el.innerHTML=`<div style="padding:40px;text-align:center;color:var(--muted);font-size:14px;">No actions logged yet.</div>`;
+    return;
+  }
+  const rows=S.actionLog.map(item=>`
+    <tr style="opacity:${item.undone?'0.45':'1'}">
+      <td style="padding:10px 14px;color:var(--muted);font-size:12px;white-space:nowrap">${fmt(item.timestamp)}</td>
+      <td style="padding:10px 14px;font-size:13px">${esc(item.label)}</td>
+      <td style="padding:10px 14px;font-size:12px;color:${item.undone?'var(--muted)':'#b45309'}">${item.undone?'Undone':''}</td>
+      <td style="padding:10px 14px;text-align:right">
+        ${item.undone?'':`<button class="btn-sm btn-muted" onclick="confirmLogUndo('${item.id}')">Undo</button>`}
+      </td>
+    </tr>`).join('');
+  el.innerHTML=`<div style="padding:16px 20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-size:16px;font-weight:700;color:var(--text)">Action Log</h3>
+      <button class="btn-sm btn-muted" onclick="S.actionLog=[];renderLogs()" style="font-size:11px">Clear</button>
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="border-bottom:1px solid rgba(255,255,255,.08)">
+        <th style="padding:8px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)">Time</th>
+        <th style="padding:8px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)">Action</th>
+        <th style="padding:8px 14px"></th>
+        <th style="padding:8px 14px"></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  </div>`;
+}
+
+function confirmLogUndo(logId){
+  const item=S.actionLog.find(i=>i.id===logId);if(!item||item.undone)return;
+  confirmDialog({
+    title:'Undo action?',
+    body:`<strong>${esc(item.label)}</strong><br><span style="color:var(--muted);font-size:12px">This will reverse the action. Some operations may not be fully reversible if data has changed since.</span>`,
+    confirmLabel:'Yes, undo it',
+    confirmClass:'btn-orange',
+    onConfirm:async()=>{
+      try{
+        await item.fn();
+        item.undone=true;
+        toast('Action undone: '+item.label);
+      }catch(e){
+        toast('Undo failed. Data may have changed.','error');
+      }
+      renderLogs();renderStaffQueue();
+    }
+  });
 }
 
 async function doNoShow(id){
@@ -5458,16 +5569,44 @@ function printSessionReport(){
   const paidSAR=active.filter(e=>e.paid&&(e.price??DEFAULT_PRICE)>0).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
   const pendingSAR=totalSAR-paidSAR;
   const statusLabels={waiting:'Waiting',active:'On Bike',done:'Done',noshow:'No-Show',cancelled:'Cancelled'};
-  const rows=entries.map(e=>{
-    const bikes=getAssignedBikes(e).map(b=>b.name).join(', ')||'—';
+  // Group entries: multi-entry bookings by same customerId are merged into one row
+  const groups=[];
+  const usedIds=new Set();
+  for(const e of entries){
+    if(usedIds.has(e.id))continue;
+    if(e.customerId){
+      const group=entries.filter(x=>x.customerId===e.customerId&&!usedIds.has(x.id));
+      group.forEach(x=>usedIds.add(x.id));
+      groups.push(group);
+    }else{
+      usedIds.add(e.id);
+      groups.push([e]);
+    }
+  }
+  const rows=groups.map(group=>{
+    const lead=group[0];
+    const qNums=group.map(x=>`#${x.queueNum}`).join(', ');
+    const allBikes=[...new Set(group.flatMap(x=>getAssignedBikes(x).map(b=>b.name)))].join(', ')||'—';
+    const totalPrice=group.reduce((s,x)=>s+(x.price??DEFAULT_PRICE),0);
+    const allPaid=group.every(x=>x.paid);
+    const somePaid=group.some(x=>x.paid);
+    const payLabel=allPaid?'Paid':somePaid?'Partial':'Pending';
+    const payColor=allPaid?'#16a34a':somePaid?'#2563eb':'#b45309';
+    const statusPriority={active:0,waiting:1,done:2,noshow:3,cancelled:4};
+    const topStatus=group.sort((a,b)=>(statusPriority[a.status]??5)-(statusPriority[b.status]??5))[0].status;
+    const phone=lead.phone||'';
+    const email=lead.email||'';
+    const types=[...new Set(group.map(x=>x.typePreference).filter(Boolean))].join(', ')||'—';
     return`<tr>
-      <td>#${e.queueNum}</td>
-      <td>${esc(e.name)}</td>
-      <td>${e.typePreference}</td>
-      <td>${bikes}</td>
-      <td>SAR ${e.price??DEFAULT_PRICE}</td>
-      <td style="color:${e.paid?'#16a34a':'#b45309'}">${e.paid?'Paid':'Pending'}</td>
-      <td>${statusLabels[e.status]||e.status}</td>
+      <td>${qNums}</td>
+      <td>${esc(lead.name)}</td>
+      <td>${types}</td>
+      <td>${allBikes}</td>
+      <td>${phone?`<a href="tel:${phone}">${phone}</a>`:''}</td>
+      <td>${email?`<a href="mailto:${email}">${email}</a>`:''}</td>
+      <td>SAR ${totalPrice}</td>
+      <td style="color:${payColor}">${payLabel}</td>
+      <td>${statusLabels[topStatus]||topStatus}</td>
     </tr>`;
   }).join('');
   const html=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
@@ -5485,6 +5624,7 @@ function printSessionReport(){
       th{border-bottom:2px solid #222;padding:7px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;}
       td{border-bottom:1px solid #e5e7eb;padding:8px 10px;}
       tr:last-child td{border-bottom:none;}
+      a{color:inherit;text-decoration:none;}
       @media print{body{padding:16px;}button{display:none;}}
     </style>
   </head><body>
@@ -5497,12 +5637,12 @@ function printSessionReport(){
       <div class="total-item"><span class="total-num" style="color:#b45309">SAR ${pendingSAR}</span><span class="total-lbl">${t('printPending')}</span></div>
     </div>
     <table>
-      <thead><tr><th>#</th><th>Name</th><th>Size / Type</th><th>Bike</th><th>Price</th><th>Payment</th><th>Status</th></tr></thead>
+      <thead><tr><th>#</th><th>Name</th><th>Type</th><th>Bike</th><th>Phone</th><th>Email</th><th>Price</th><th>Payment</th><th>Status</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <br><button onclick="window.print()" style="margin-top:16px;padding:8px 20px;background:#111;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">Print</button>
   </body></html>`;
-  const w=window.open('','_blank','width=960,height=720');
+  const w=window.open('','_blank','width=1100,height=720');
   if(!w)return;
   w.document.write(html);w.document.close();w.focus();
   setTimeout(()=>w.print(),400);
@@ -7308,7 +7448,7 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   if(localStorage.getItem('cq_staff')==='1'){
     goStaff();
     const savedStab=sessionStorage.getItem('cq_nav_stab');
-    if(savedStab&&['queue','sessions','bikes','history','analytics'].includes(savedStab))setStaffTab(savedStab);
+    if(savedStab&&['queue','sessions','bikes','history','analytics','logs'].includes(savedStab))setStaffTab(savedStab);
   } else if(S.loggedIn){
     const savedCtab=sessionStorage.getItem('cq_nav_ctab');
     goCustomer(savedCtab&&['register','myrides','account'].includes(savedCtab)?savedCtab:'register');
@@ -7336,6 +7476,7 @@ async function _autoRefresh(){
     if(S.staffTab==='bikes')renderBikes();
     if(S.staffTab==='history')renderHistory();
     if(S.staffTab==='analytics')renderAnalytics();
+    if(S.staffTab==='logs')renderLogs();
     renderLandingAvail();
   }catch(e){
     console.warn('Auto-refresh error:',e);
