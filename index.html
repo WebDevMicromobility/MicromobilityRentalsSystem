@@ -5651,10 +5651,10 @@ async function confirmAssign(){
   const riderId=S.modalRider;
   const qn=rider?rider.queueNum:'?';const rName=rider?rider.name:'';
   const bikeNames=selected.map(b=>b.name).join(', ');
-  // Resolve final price: if rider chose 'Any', lock in price based on assigned bike type
+  // Resolve final price: lock in max bike-type price when 'Any' or multiple bikes assigned
   const priceUpdate={};
-  if(rider&&rider.typePreference==='Any'&&selected.length>0){
-    priceUpdate.price=selected[0].type==='Road'?75:57.5;
+  if(rider&&selected.length>0&&(rider.typePreference==='Any'||selected.length>=2)){
+    priceUpdate.price=Math.max(...selected.map(b=>priceForType(b.type)));
   }
   const isReassign=rider&&rider.status==='active';
   // Free old bikes that are being replaced (reassign case)
