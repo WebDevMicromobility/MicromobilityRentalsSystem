@@ -2493,6 +2493,8 @@ function priceDisplay(ty){
 }
 function priceForBike(bike){
   if(!bike)return DEFAULT_PRICE;
+  // Road, Mountain, Hybrid have fixed type prices — rental_price is not used for pricing these
+  if(bike.type==='Road'||bike.type==='Mountain'||bike.type==='Hybrid')return priceForType(bike.type);
   return bike.rental_price??priceForType(bike.type);
 }
 function _entryFallbackPrice(entry){
@@ -3256,7 +3258,7 @@ function renderRegister(){
   const allTypesSet=S.regBikeTypes.slice(0,S.regQty).every(ty=>ty);
   const totalMin=S.regBikeTypes.slice(0,S.regQty).reduce((s,ty)=>s+priceForType(ty||'Any'),0);
   const totalMax=S.regBikeTypes.slice(0,S.regQty).reduce((s,ty)=>s+priceForTypeMax(ty||'Any'),0);
-  const hasRange=S.regBikeTypes.slice(0,S.regQty).some(ty=>ty==='Any'||ty==='Road');
+  const hasRange=S.regBikeTypes.slice(0,S.regQty).some(ty=>ty==='Any');
   const totalDisplay=hasRange?(totalMin===totalMax?`SAR ${totalMin}`:`SAR ${totalMin} - ${totalMax}`):`SAR ${totalMin.toFixed(2).replace(/\.00$/,'')}`;
   const breakdown=S.regQty>1
     ?S.regBikeTypes.slice(0,S.regQty).map((ty,i)=>`${t('bike')} ${i+1}: ${priceDisplay(ty)}`).join(' &nbsp;&middot;&nbsp; ')
@@ -3375,7 +3377,7 @@ function setBikeType(idx,type){
     if(allSet){
       const tMin=S.regBikeTypes.slice(0,S.regQty).reduce((s,ty)=>s+priceForType(ty||'Any'),0);
       const tMax=S.regBikeTypes.slice(0,S.regQty).reduce((s,ty)=>s+priceForTypeMax(ty||'Any'),0);
-      const hRange=S.regBikeTypes.slice(0,S.regQty).some(ty=>ty==='Any'||ty==='Road');
+      const hRange=S.regBikeTypes.slice(0,S.regQty).some(ty=>ty==='Any');
       const tDisplay=hRange?(tMin===tMax?`SAR ${tMin}`:`SAR ${tMin} - ${tMax}`):`SAR ${tMin.toFixed(2).replace(/\.00$/,'')}`;
       const breakdown=S.regQty>1
         ?S.regBikeTypes.slice(0,S.regQty).map((ty,i)=>`${t('bike')} ${i+1}: ${priceDisplay(ty)}`).join(' &nbsp;&middot;&nbsp; ')
