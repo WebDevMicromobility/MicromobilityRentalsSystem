@@ -3500,6 +3500,8 @@ async function submitReg(){
   S.regSubmitting=true;
   renderRegister();
   try{
+    // Fetch latest queue state immediately before assigning a number to minimize race window
+    await loadData();
     const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
     const baseQNum=nextQNum(S.selSession);
     // All bikes in one booking share the same queue number
