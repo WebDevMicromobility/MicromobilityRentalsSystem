@@ -6563,8 +6563,6 @@ function renderHistory(){
   let filtered=[...hist];
   if(S.histSess!=='all')   filtered=filtered.filter(e=>e.sessionId===S.histSess);
   if(S.histStatus!=='all') filtered=filtered.filter(e=>e.status===S.histStatus);
-  // By default, exclude removed unless explicitly filtered
-  if(S.histStatus==='all') filtered=filtered.filter(e=>e.status!=='removed');
   if(S.histPay==='paid')   filtered=filtered.filter(e=>e.paid);
   if(S.histPay==='pending')filtered=filtered.filter(e=>!e.paid&&e.status==='done');
   if(S.histType!=='all')   filtered=filtered.filter(e=>e.typePreference===S.histType);
@@ -6736,8 +6734,7 @@ function setBkStatus(v){S.bkStatus=v;renderBikes();}
 function setBkSize(v){S.bkSize=v;renderBikes();}
 
 function exportHistoryCSV(){
-  // Respect the currently selected session filter
-  let hist=getQueue().filter(e=>e.status==='done'&&e.paid);
+  let hist=getQueue().filter(e=>['done','noshow','cancelled','removed'].includes(e.status));
   if(S.histSess!=='all') hist=hist.filter(e=>e.sessionId===S.histSess);
   const sess=S.histSess!=='all'?allSessions().find(s=>s.id===S.histSess):null;
   const filename=sess
