@@ -1812,6 +1812,7 @@ en:{
   searchLabel:'Search bikes...',noResultsLabel:'No bikes match your search.',
   confirmNoShowTitle:'Mark as No-Show?',confirmRemoveTitle:'Remove Rider?',
   addNewOption:'Add new...',typeNewLabel:'Type new value...',saveBtn:'Save',
+  releaseBikeBtn:'Release',releaseBikeToast:'released back to available',noRiderAssigned:'No rider assigned',
 },
 ar:{
   appSub:'طابور حلبة الكورنيش',landingTitle:'مايكرو موبيليتي - حلبة الكورنيش',
@@ -2070,6 +2071,7 @@ ar:{
   searchLabel:'ابحث عن دراجة...',noResultsLabel:'لا توجد دراجات تطابق بحثك.',
   confirmNoShowTitle:'تسجيل كغائب؟',confirmRemoveTitle:'حذف الراكب؟',
   addNewOption:'إضافة جديد...',typeNewLabel:'اكتب قيمة جديدة...',saveBtn:'حفظ',
+  releaseBikeBtn:'تحرير',releaseBikeToast:'تم تحريره وأصبح متاحاً',noRiderAssigned:'لا يوجد راكب',
 }};
 function t(k){return(LANG[S&&S.lang?S.lang:'en']||LANG.en)[k]||LANG.en[k]||k;}
 
@@ -5988,13 +5990,16 @@ function renderBikes(){
     }).join('');
     // Who is currently using this bike?
     const user=bikeUserMap[b.id];
+    const orphaned=b.status==='in-use'&&!user;
     const el=b.status==='in-use'&&user?rideElapsed(user.id):null;
     const riderCell=user
       ?`<div style="font-size:12px;font-weight:800;color:var(--text)">${esc(user.name)}</div>
         <div style="font-size:11px;color:var(--blue);font-weight:700">#${user.queueNum}${el?` &nbsp;·&nbsp; <span style="color:var(--muted-l)">&#x23F1; ${el}</span>`:''}</div>`
-      :`<span style="color:var(--muted)">—</span>`;
-    const rowBorderClr=b.status==='available'?'rgba(3,255,137,.45)':b.status==='in-use'?'rgba(74,168,248,.45)':'rgba(224,64,64,.45)';
-    const rowBg=b.status==='in-use'?'background:rgba(74,168,248,.025);':b.status==='maintenance'?'background:rgba(224,64,64,.025);opacity:.8;':'';
+      :orphaned
+        ?`<div style="font-size:11px;font-weight:700;color:#e08828">&#x26A0; ${t('noRiderAssigned')}</div>`
+        :`<span style="color:var(--muted)">—</span>`;
+    const rowBorderClr=orphaned?'rgba(224,136,40,.7)':b.status==='available'?'rgba(3,255,137,.45)':b.status==='in-use'?'rgba(74,168,248,.45)':'rgba(224,64,64,.45)';
+    const rowBg=orphaned?'background:rgba(224,136,40,.06);':b.status==='in-use'?'background:rgba(74,168,248,.025);':b.status==='maintenance'?'background:rgba(224,64,64,.025);opacity:.8;':'';
     return`<tr style="border-left:3px solid ${rowBorderClr};${rowBg}">
       <td><div class="rider-name">${esc(b.name)}</div></td>
       <td style="font-weight:700;font-size:13px">${b.brand?esc(b.brand):`<span style="color:var(--muted)">—</span>`}</td>
@@ -6013,7 +6018,7 @@ function renderBikes(){
       <td>${riderCell}</td>
       <td><div class="actions-cell">
         <button class="btn-sm btn-blue" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
-        <button class="btn-sm btn-orange" onclick="toggleMaint('${b.id}')">${b.status==='maintenance'?t('restoreBtn'):t('maintBtn')}</button>
+        ${orphaned?`<button class="btn-sm btn-orange" onclick="releaseBike('${b.id}')">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-orange" onclick="toggleMaint('${b.id}')">${b.status==='maintenance'?t('restoreBtn'):t('maintBtn')}</button>`}
         <button class="btn-sm btn-red" ${b.status!=='in-use'?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
       </div></td>
     </tr>`;
@@ -6030,10 +6035,11 @@ function renderBikes(){
     if(!typeBikes.length)return`<div class="empty-state">${t('noBikes')}</div>`;
     return`<div class="bike-grid">${typeBikes.map(b=>{
       const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-blue':'dot-red';
-      const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--blue)':'var(--red)';
-      const borderClr=b.status==='available'?'rgba(3,255,137,.4)':b.status==='in-use'?'rgba(74,168,248,.4)':'rgba(224,64,64,.4)';
-      const bgStyle=b.status==='in-use'?'background:rgba(74,168,248,.025);':b.status==='maintenance'?'background:rgba(224,64,64,.025);opacity:.8;':'';
       const user=bikeUserMap[b.id];
+      const orphaned=b.status==='in-use'&&!user;
+      const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--blue)':'var(--red)';
+      const borderClr=orphaned?'rgba(224,136,40,.7)':b.status==='available'?'rgba(3,255,137,.4)':b.status==='in-use'?'rgba(74,168,248,.4)':'rgba(224,64,64,.4)';
+      const bgStyle=orphaned?'background:rgba(224,136,40,.06);':b.status==='in-use'?'background:rgba(74,168,248,.025);':b.status==='maintenance'?'background:rgba(224,64,64,.025);opacity:.8;':'';
       const colors=b.colors&&b.colors.length?b.colors:['#03ff89'];
       const dots=colors.map(c=>`<span style="width:11px;height:11px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);display:inline-block;flex-shrink:0"></span>`).join('');
       const el=b.status==='in-use'&&user?rideElapsed(user.id):null;
@@ -6046,18 +6052,18 @@ function renderBikes(){
           ${typeBadge(b.type)}
           <span style="background:var(--s3);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:2px 8px;font-size:10px;font-weight:800;color:var(--muted-l)">${b.size}</span>
         </div>
-        <div style="display:flex;align-items:center;gap:5px${user?';margin-bottom:5px':''}">
+        <div style="display:flex;align-items:center;gap:5px${(user||orphaned)?';margin-bottom:5px':''}">
           <span class="avail-dot ${dot}" style="display:inline-block;flex-shrink:0"></span>
           <span style="color:${sclr};font-weight:700;font-size:12px">${b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel')}</span>
           ${el?`<span style="font-size:10px;color:var(--blue);font-weight:700;margin-left:2px">⏱ ${el}</span>`:''}
         </div>
-        ${user?`<div style="font-size:11px;font-weight:700;color:var(--green)">&#x1F464; #${user.queueNum} ${esc(user.name)}</div>`:''}
+        ${user?`<div style="font-size:11px;font-weight:700;color:var(--green)">&#x1F464; #${user.queueNum} ${esc(user.name)}</div>`:orphaned?`<div style="font-size:11px;font-weight:700;color:#e08828">&#x26A0; ${t('noRiderAssigned')}</div>`:''}
         <div style="display:flex;flex-direction:column;gap:4px;margin-top:10px">
           <div style="display:flex;gap:4px">
             <button class="btn-sm btn-blue" style="flex:1" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
             <button class="btn-sm btn-red" style="flex:1" ${b.status!=='in-use'?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
           </div>
-          <button class="btn-sm btn-orange" style="width:100%;justify-content:center;text-align:center" onclick="toggleMaint('${b.id}')">${b.status==='maintenance'?t('restoreBtn'):t('maintBtn')}</button>
+          ${orphaned?`<button class="btn-sm btn-orange" style="width:100%;justify-content:center;text-align:center" onclick="releaseBike('${b.id}')">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-orange" style="width:100%;justify-content:center;text-align:center" onclick="toggleMaint('${b.id}')">${b.status==='maintenance'?t('restoreBtn'):t('maintBtn')}</button>`}
         </div>
       </div>`;
     }).join('')}</div>`;
@@ -6247,6 +6253,17 @@ async function toggleMaint(id){
   await loadData();toast(`${t('toastStatusChanged')} ${newStatus}`);
   pushUndo(`${newStatus==='maintenance'?'Maintenance':'Restore'} ${bike.name}`,async()=>{
     await sb.from('bikes').update({status:prevStatus}).eq('id',id);
+    await loadData();renderBikes();
+  });
+  renderBikes();
+}
+async function releaseBike(id){
+  const bike=getBikes().find(x=>x.id===id);if(!bike)return;
+  await sb.from('bikes').update({status:'available'}).eq('id',id);
+  await loadData();
+  toast(`${bike.name} ${t('releaseBikeToast')}`);
+  pushUndo(`Release ${bike.name}`,async()=>{
+    await sb.from('bikes').update({status:'in-use'}).eq('id',id);
     await loadData();renderBikes();
   });
   renderBikes();
