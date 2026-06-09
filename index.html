@@ -2351,7 +2351,7 @@ const S={
   // bikes
   showAddBike:false,editBikeId:null,bkTypeFilter:'all',bkSort:'name',
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],addBikeColorNames:[''],_bkName:'',
-  _bkBrand:'',_bkModel:'',_bkGroupset:'',_bkSpeeds:'',
+  _bkBrand:'',_bkModel:'',_bkGroupset:'',_bkSpeeds:'',_bkRentalPrice:'',
   _bkBrandAdd:false,_bkModelAdd:false,_bkGroupsetAdd:false,
   bkBrands:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_brands'))||[];}catch(e){return[];}})(),
   bkModels:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_models'))||[];}catch(e){return[];}})(),
@@ -4706,7 +4706,7 @@ function renderStaffQueue(){
             </div>
           </td>
           <td style="vertical-align:middle">${statusCellHtml(e)}</td>
-          <td rowspan="${n}" style="vertical-align:middle">${group.map(x=>{const ph=entryPhone(x);return ph?`<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px"><span style="font-size:11px;color:var(--muted)">${esc(fmtPhone(ph))}</span>${_contactCell(ph)}</div>`:''}).join('')||'<span style="color:var(--muted)">—</span>'}</td>
+          <td rowspan="${n}" style="vertical-align:middle">${_contactCell(entryPhone(primary))}</td>
           <td style="vertical-align:middle"><div class="actions-cell">${_entryActions(e)}</div></td>
         </tr>`;
       }else{
@@ -4748,7 +4748,6 @@ function renderStaffQueue(){
       const bikeInfo=assignedBikes.length?assignedBikes.map(b=>b.name).join(', '):'';
       const isHouse=e.paid&&(e.price??DEFAULT_PRICE)===0;
       const payTag=isHouse?`<span style="font-size:12px">🏠</span>`:e.paid?`<span style="font-size:12px;font-weight:800;color:var(--green)">✓</span>`:`<span style="font-size:12px;font-weight:800;color:var(--muted)">⏳</span>`;
-      const ph=entryPhone(e);
       const indent=n>1?'padding-left:22px':'';
       return`<div style="padding:6px 0;${i>0?'border-top:1px solid rgba(255,255,255,.05)':''}">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -4762,10 +4761,6 @@ function renderStaffQueue(){
         <div style="font-size:11px;color:var(--muted);margin-top:2px;${indent}">
           ${typeLabel(e.typePreference)}${bikeInfo?` &middot; <span style="color:var(--muted-l)">${esc(bikeInfo)}</span>`:''}
         </div>
-        ${ph?`<div style="display:flex;align-items:center;gap:6px;margin-top:4px;${indent}">
-          <span style="font-size:11px;font-weight:700;color:var(--muted)">${esc(fmtPhone(ph))}</span>
-          ${_contactCell(ph)}
-        </div>`:''}
       </div>`;
     }).join('');
     const actionsHtml=group.map((e,i)=>`<div style="${n>1&&i>0?'border-top:1px solid rgba(255,255,255,.05);padding-top:6px;margin-top:2px':''}">
@@ -4780,6 +4775,7 @@ function renderStaffQueue(){
       </div>
       ${sessLabel}
       <div>${riderRows}</div>
+      ${(()=>{const ph=entryPhone(primary);return ph?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)">${_contactCell(ph)}</div>`:''})()}
       <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">${actionsHtml}</div>
     </div>`;
   }
@@ -6073,6 +6069,28 @@ function renderBikes(){
       <div class="form-group"><label>${t('bikeGroupset')}</label>${_bkFieldHtml('bk-groupset',S._bkGroupset,S._bkGroupsetAdd,S.bkGroupsets)}</div>
       <div class="form-group"><label>${t('bikeSpeeds')}</label><input type="number" id="bk-speeds" min="1" max="33" placeholder="e.g. 21" value="${esc(S._bkSpeeds)}" style="max-width:140px"></div>
     </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Rental Price (SAR)</label>
+        ${(()=>{
+          const presets=['57.5','75','95','105','175','250'];
+          const isCustom=S._bkRentalPrice&&!presets.includes(S._bkRentalPrice);
+          const sel=isCustom?'custom':S._bkRentalPrice;
+          const opts=[
+            `<option value="">Not set</option>`,
+            `<option value="57.5"${sel==='57.5'?' selected':''}>SAR 57.5</option>`,
+            `<option value="75"${sel==='75'?' selected':''}>SAR 75</option>`,
+            `<option value="95"${sel==='95'?' selected':''}>SAR 95</option>`,
+            `<option value="105"${sel==='105'?' selected':''}>SAR 105</option>`,
+            `<option value="175"${sel==='175'?' selected':''}>SAR 175 - VIP &amp; Guests Discount</option>`,
+            `<option value="250"${sel==='250'?' selected':''}>SAR 250</option>`,
+            `<option value="custom"${sel==='custom'?' selected':''}>Custom...</option>`,
+          ].join('');
+          return`<select id="bk-rental-price" onchange="setBkRentalPrice(this.value)">${opts}</select>`
+            +(isCustom?`<div style="font-size:12px;color:var(--green);font-weight:700;margin-top:5px">Custom: SAR ${S._bkRentalPrice}</div>`:'');
+        })()}
+      </div>
+    </div>
     <div class="form-group" style="margin-bottom:16px"><label>${t('bikeTypeLabel')}</label><div class="toggle-group">${bkTypeBtns}</div></div>
     <div class="form-group" style="margin-bottom:16px">
       <label>${t('bikeColorsLabel')} &nbsp;<span class="label-hint">${t('colorsHint')}</span></label>
@@ -6128,6 +6146,7 @@ function renderBikes(){
       <td style="font-weight:700;font-size:13px;text-align:center">${b.speeds?`${b.speeds}`:`<span style="color:var(--muted)">—</span>`}</td>
       <td>${typeBadge(b.type)}</td>
       <td style="font-weight:800">${b.size}</td>
+      <td style="font-weight:700;white-space:nowrap">${b.rental_price!=null?`SAR ${b.rental_price}`:`<span style="color:var(--muted)">—</span>`}</td>
       <td><div style="display:flex;gap:4px;align-items:center">${colorSwatches}</div></td>
       <td>
         <div style="display:flex;align-items:center;gap:6px">
@@ -6225,6 +6244,7 @@ function renderBikes(){
           ${sortHdr('speeds',t('bikeSpeeds'))}
           <th>${t('bikeTypeLabel')}</th>
           ${sortHdr('size',t('frameSizeLabel'))}
+          <th>Rental Price</th>
           <th>${t('colColor')}</th>
           ${sortHdr('status',t('colStatus'))}
           <th>${t('colRider')}</th>
@@ -6293,7 +6313,17 @@ function renderBikes(){
   if(nameEl)nameEl.addEventListener('input',e=>S._bkName=e.target.value);
 }
 
-function _resetBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S.addBikeColorNames=[''];S._bkName='';S._bkBrand='';S._bkModel='';S._bkGroupset='';S._bkSpeeds='';S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;}
+function _resetBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S.addBikeColorNames=[''];S._bkName='';S._bkBrand='';S._bkModel='';S._bkGroupset='';S._bkSpeeds='';S._bkRentalPrice='';S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;}
+
+function setBkRentalPrice(v){
+  if(v==='custom'){
+    const inp=prompt('Enter custom rental price (SAR):');
+    if(inp!==null){const p=parseFloat(inp);if(!isNaN(p)&&p>0)S._bkRentalPrice=String(p);}
+  }else{
+    S._bkRentalPrice=v;
+  }
+  renderBikes();
+}
 function toggleAddBike(){S._resetBikeForm?.();_resetBikeForm();S.showAddBike=true;renderBikes();}
 function cancelBikeForm(){_resetBikeForm();renderBikes();}
 function setBkFilter(v){S.bkTypeFilter=v;renderBikes();}
@@ -6314,7 +6344,8 @@ async function addBike(){
   if(!S.addBikeType){toast(t('errBikeTypeReq'),'error');return;}
   _autoSaveBkOpts(brand,model,groupset);
   const colorNames=S.addBikeColorNames.slice(0,S.addBikeColors.length).map(n=>n||'');
-  const bike={id:uid(),name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:colorNames,status:'available',brand,model,groupset,speeds};
+  const rentalPrice=S._bkRentalPrice?parseFloat(S._bkRentalPrice)||null:null;
+  const bike={id:uid(),name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:colorNames,status:'available',brand,model,groupset,speeds,rental_price:rentalPrice};
   await sb.from('bikes').insert(bike);
   await loadData();
   _resetBikeForm();
@@ -6331,7 +6362,7 @@ function startEdit(id){
   S.addBikeColors=bike.colors&&bike.colors.length?[...bike.colors]:['#6ee89a'];
   S.addBikeColorNames=bike.color_names&&bike.color_names.length?[...bike.color_names]:bike.colors.map(()=>'');
   S._bkName=bike.name;S._bkBrand=bike.brand||'';S._bkModel=bike.model||'';
-  S._bkGroupset=bike.groupset||'';S._bkSpeeds=bike.speeds!=null?String(bike.speeds):'';
+  S._bkGroupset=bike.groupset||'';S._bkSpeeds=bike.speeds!=null?String(bike.speeds):'';S._bkRentalPrice=bike.rental_price!=null?String(bike.rental_price):'';
   S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;
   _autoSaveBkOpts(bike.brand,bike.model,bike.groupset);
   renderBikes();
@@ -6352,9 +6383,10 @@ async function saveBikeEdit(){
   _autoSaveBkOpts(brand,model,groupset);
   const b=getBikes();const existing=b.find(x=>x.id===S.editBikeId);if(!existing)return;
   const editColorNames=S.addBikeColorNames.slice(0,S.addBikeColors.length).map(n=>n||'');
-  const prev={name:existing.name,size:existing.size,type:existing.type,colors:[...existing.colors],color_names:[...(existing.color_names||[])],status:existing.status,brand:existing.brand||null,model:existing.model||null,groupset:existing.groupset||null,speeds:existing.speeds||null};
+  const rentalPrice=S._bkRentalPrice?parseFloat(S._bkRentalPrice)||null:null;
+  const prev={name:existing.name,size:existing.size,type:existing.type,colors:[...existing.colors],color_names:[...(existing.color_names||[])],status:existing.status,brand:existing.brand||null,model:existing.model||null,groupset:existing.groupset||null,speeds:existing.speeds||null,rental_price:existing.rental_price??null};
   const bid=S.editBikeId;
-  await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:editColorNames,status:existing.status,brand,model,groupset,speeds}).eq('id',bid);
+  await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:editColorNames,status:existing.status,brand,model,groupset,speeds,rental_price:rentalPrice}).eq('id',bid);
   await loadData();
   _resetBikeForm();
   toast(t('toastBikeUpdated'));

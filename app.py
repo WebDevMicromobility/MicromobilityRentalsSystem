@@ -70,6 +70,7 @@ MIGRATIONS = [
     "ALTER TABLE bikes ADD COLUMN groupset TEXT",
     "ALTER TABLE bikes ADD COLUMN speeds TEXT",
     "ALTER TABLE bikes ADD COLUMN color_names TEXT",
+    "ALTER TABLE bikes ADD COLUMN rental_price REAL",
 ]
 
 
@@ -286,12 +287,13 @@ def replace_bike(bike_id):
     b = request.get_json()
     with get_db() as conn:
         conn.execute(
-            "UPDATE bikes SET name=?, size=?, type=?, colors=?, color_names=?, status=?, brand=?, model=?, groupset=?, speeds=? WHERE id=?",
+            "UPDATE bikes SET name=?, size=?, type=?, colors=?, color_names=?, status=?, brand=?, model=?, groupset=?, speeds=?, rental_price=? WHERE id=?",
             (b['name'], b['size'], b['type'],
              json.dumps(b['colors']),
              json.dumps(b['colorNames']) if b.get('colorNames') else None,
              b['status'],
              b.get('brand'), b.get('model'), b.get('groupset'), b.get('speeds'),
+             b.get('rental_price'),
              bike_id)
         )
     return jsonify({'ok': True})
@@ -301,7 +303,7 @@ def replace_bike(bike_id):
 def patch_bike(bike_id):
     data = request.get_json()
     sets, vals = [], []
-    for key in ('status', 'name', 'size', 'type', 'brand', 'model', 'groupset', 'speeds'):
+    for key in ('status', 'name', 'size', 'type', 'brand', 'model', 'groupset', 'speeds', 'rental_price'):
         if key in data:
             sets.append(f"{key} = ?")
             vals.append(data[key])
