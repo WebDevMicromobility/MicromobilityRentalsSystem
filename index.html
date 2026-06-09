@@ -1578,7 +1578,7 @@ en:{
   anRevCollected:'Revenue Collected',anRevPending:'Revenue Pending',anRevTotal:'Total Revenue',anAvgPerSession:'Avg / Session',
   anTotalRides:'Completed Rides',anUniqueCustomers:'Unique Customers',anRepeatRiders:'Repeat Riders',
   anSessionsHeld:'Sessions Held',anAvgOccupancy:'Avg Occupancy',anNoShowRate:'No-Show Rate',anCollectionRate:'Collection Rate',
-  anByType:'Rides by Bike Type',anBySize:'Rides by Frame Size',anByDay:'Rides by Day of Week',anByRevType:'Revenue by Bike Type',
+  anByType:'Rides by Bike Type',anBySize:'Rides by Frame Size',anByDay:'Rides by Day of Week',anByRevType:'Revenue by Bike Type',anFleetSection:'Fleet Analytics',anByBrand:'Rentals by Brand',anByBrandSub:'Total completed rides per brand',anByModel:'Rentals by Model',anByModelSub:'Total completed rides per model',anAvgPerPiece:'Avg Rides per Piece',anAvgPerPieceSub:'Total model rides divided by number of bikes of that model',confirmDeleteBikeTitle:'Delete Bike?',
   anSessionTrend:'Session-by-Session Performance',
   anColDate:'Date',anColRiders:'Riders',anColRevenue:'Revenue',anColPending:'Pending',anColNoShows:'No-Shows',anColOccupancy:'Occupancy',anColTopType:'Top Type',
   anNoData:'No completed rides yet. Data will appear here once sessions are done.',
@@ -1847,7 +1847,7 @@ ar:{
   anRevCollected:'الإيرادات المحصلة',anRevPending:'الإيرادات المعلقة',anRevTotal:'إجمالي الإيرادات',anAvgPerSession:'متوسط الجلسة',
   anTotalRides:'الرحلات المكتملة',anUniqueCustomers:'العملاء الفريدون',anRepeatRiders:'الراكبون المتكررون',
   anSessionsHeld:'الجلسات المنعقدة',anAvgOccupancy:'متوسط الإشغال',anNoShowRate:'معدل الغياب',anCollectionRate:'معدل التحصيل',
-  anByType:'الرحلات حسب نوع الدراجة',anBySize:'الرحلات حسب مقاس الإطار',anByDay:'الرحلات حسب يوم الأسبوع',anByRevType:'الإيرادات حسب نوع الدراجة',
+  anByType:'الرحلات حسب نوع الدراجة',anBySize:'الرحلات حسب مقاس الإطار',anByDay:'الرحلات حسب يوم الأسبوع',anByRevType:'الإيرادات حسب نوع الدراجة',anFleetSection:'تحليلات الأسطول',anByBrand:'الإيجارات حسب الماركة',anByBrandSub:'إجمالي الرحلات المكتملة لكل ماركة',anByModel:'الإيجارات حسب الموديل',anByModelSub:'إجمالي الرحلات المكتملة لكل موديل',anAvgPerPiece:'متوسط الرحلات لكل قطعة',anAvgPerPieceSub:'إجمالي رحلات الموديل ÷ عدد دراجات هذا الموديل',confirmDeleteBikeTitle:'حذف الدراجة؟',
   anSessionTrend:'أداء الجلسات',
   anColDate:'التاريخ',anColRiders:'الراكبون',anColRevenue:'الإيرادات',anColPending:'المعلق',anColNoShows:'الغياب',anColOccupancy:'الإشغال',anColTopType:'النوع الأكثر',
   anNoData:'لا توجد رحلات مكتملة بعد. ستظهر البيانات هنا عند اكتمال الجلسات.',
@@ -6268,17 +6268,25 @@ async function releaseBike(id){
   });
   renderBikes();
 }
-async function delBike(id){
+function delBike(id){
   const bike=getBikes().find(x=>x.id===id);
   if(!bike||bike.status==='in-use'){toast(t('errBikeInUse'),'error');return;}
-  const saved={id:bike.id,name:bike.name,size:bike.size,type:bike.type,colors:[...(bike.colors||[])],status:'available'};
-  await sb.from('bikes').delete().eq('id',id);
-  await loadData();toast(`${bike.name} ${t('toastBikeRemoved')}`);
-  pushUndo(`Delete bike ${bike.name}`,async()=>{
-    await sb.from('bikes').insert(saved);
-    await loadData();renderBikes();
+  confirmDialog({
+    title:t('confirmDeleteBikeTitle'),
+    body:bike.name,
+    confirmLabel:t('deleteBtn'),
+    confirmClass:'btn-red',
+    onConfirm:async()=>{
+      const saved={id:bike.id,name:bike.name,size:bike.size,type:bike.type,colors:[...(bike.colors||[])],status:'available'};
+      await sb.from('bikes').delete().eq('id',id);
+      await loadData();toast(`${bike.name} ${t('toastBikeRemoved')}`);
+      pushUndo(`Delete bike ${bike.name}`,async()=>{
+        await sb.from('bikes').insert(saved);
+        await loadData();renderBikes();
+      });
+      renderBikes();
+    }
   });
-  renderBikes();
 }
 
 /* ── Bike option dropdowns (brand / model / groupset) ── */
@@ -6830,6 +6838,43 @@ function renderAnalytics(){
       },{s:null,r:-1})
     :{s:null,r:0};
 
+  // ── Fleet analytics: brand / model rental counts ─────
+  const allBikes=getBikes();
+  const brandRentals={};
+  const modelRentals={};
+  done.forEach(e=>{
+    getAssignedBikeIds(e).forEach(bId=>{
+      const bk=allBikes.find(x=>x.id===bId);
+      if(!bk)return;
+      const brand=bk.brand||'';
+      const model=bk.model||'';
+      if(brand) brandRentals[brand]=(brandRentals[brand]||0)+1;
+      if(brand&&model){
+        const mk=`${brand} - ${model}`;
+        modelRentals[mk]=(modelRentals[mk]||0)+1;
+      }
+    });
+  });
+  // Count pieces per model key
+  const modelPieces={};
+  allBikes.forEach(bk=>{
+    if(!bk.brand||!bk.model)return;
+    const mk=`${bk.brand} - ${bk.model}`;
+    modelPieces[mk]=(modelPieces[mk]||0)+1;
+  });
+  // Avg rentals per piece for each model
+  const modelAvgPerPiece={};
+  Object.keys(modelRentals).forEach(mk=>{
+    const pieces=modelPieces[mk]||1;
+    modelAvgPerPiece[mk]=modelRentals[mk]/pieces;
+  });
+  // Color palette for arbitrary brand/model keys
+  const _fleetPalette=['#4aa8f8','#03ff89','#a06af0','#e08828','#e04040','#00c9e0','#f0a06a','#89d4cf','#f06ab8','#c9e089'];
+  const _brandKeys=Object.keys(brandRentals).sort((a,b)=>brandRentals[b]-brandRentals[a]);
+  const _modelKeys=Object.keys(modelRentals).sort((a,b)=>modelRentals[b]-modelRentals[a]);
+  const brandColorMap={};_brandKeys.forEach((k,i)=>{brandColorMap[k]=_fleetPalette[i%_fleetPalette.length];});
+  const modelColorMap={};_modelKeys.forEach((k,i)=>{modelColorMap[k]=_fleetPalette[i%_fleetPalette.length];});
+
   // ── Per-session data for charts ───────────────────────
   const trendData=[...sessions]
     .filter(s=>done.some(e=>e.sessionId===s.id)||noshow.some(e=>e.sessionId===s.id))
@@ -7143,6 +7188,47 @@ function renderAnalytics(){
         <div class="chart-card-title">${t('anTypeRevPerRide')}</div>
         <div class="chart-card-sub">${t('anTypeRevPerRideSub')}</div>
         ${Object.keys(typeRevPerRideOrdered).length?bars(typeRevPerRideOrdered,k=>typeColorHex[k]||'#777',v=>sarBoth(v,2)):noDataStr}
+      </div>
+    </div>
+
+    <!-- FLEET ANALYTICS -->
+    <div class="analytics-section-title">${t('anFleetSection')}</div>
+    <div class="chart-grid-3">
+      <div class="chart-card">
+        <div class="chart-card-title">${t('anByBrand')}</div>
+        <div class="chart-card-sub">${t('anByBrandSub')}</div>
+        ${_brandKeys.length
+          ? _brandKeys.filter(k=>brandRentals[k]>0).map(k=>`<div class="analytics-bar-row">
+              <div class="analytics-bar-label">${esc(k)}</div>
+              <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(brandRentals[k]/Math.max(...Object.values(brandRentals),1)*100)}%;background:${brandColorMap[k]}"></div></div>
+              <div class="analytics-bar-value">${brandRentals[k]}</div>
+            </div>`).join('')
+          : noDataStr}
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">${t('anByModel')}</div>
+        <div class="chart-card-sub">${t('anByModelSub')}</div>
+        ${_modelKeys.length
+          ? _modelKeys.filter(k=>modelRentals[k]>0).map(k=>`<div class="analytics-bar-row">
+              <div class="analytics-bar-label">${esc(k)}</div>
+              <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(modelRentals[k]/Math.max(...Object.values(modelRentals),1)*100)}%;background:${modelColorMap[k]}"></div></div>
+              <div class="analytics-bar-value">${modelRentals[k]}</div>
+            </div>`).join('')
+          : noDataStr}
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">${t('anAvgPerPiece')}</div>
+        <div class="chart-card-sub">${t('anAvgPerPieceSub')}</div>
+        ${Object.keys(modelAvgPerPiece).length
+          ? Object.entries(modelAvgPerPiece).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<div class="analytics-bar-row">
+              <div class="analytics-bar-label" style="display:flex;align-items:center;gap:5px">
+                ${esc(k)}
+                ${(modelPieces[k]||1)>1?`<span style="font-size:10px;background:var(--s3);border:1px solid rgba(255,255,255,.1);border-radius:5px;padding:1px 5px;color:var(--muted-l);font-weight:700">${modelPieces[k]} pcs</span>`:''}
+              </div>
+              <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(v/Math.max(...Object.values(modelAvgPerPiece),1)*100)}%;background:${modelColorMap[k]||'#4aa8f8'}"></div></div>
+              <div class="analytics-bar-value">${v%1===0?v:v.toFixed(1)}x</div>
+            </div>`).join('')
+          : noDataStr}
       </div>
     </div>
 
