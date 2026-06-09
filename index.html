@@ -6302,14 +6302,24 @@ function renderBikes(){
       <div class="stat-card"><div class="stat-num" style="color:var(--text)">${nUse}</div><div class="stat-label">${t('inUseLabel')}</div></div>
     </div>
     <div class="filter-bar" style="margin-bottom:20px">
-      <div class="filter-row" style="flex-wrap:wrap;gap:8px">
-        <input id="bk-search-input" type="text" class="filter-select" placeholder="🔍 Search by name, brand, model…" value="${esc(bkSearch)}"
-          oninput="setBkSearch(this.value)"
-          style="min-width:180px;flex:1;max-width:280px">
-        <select class="filter-select" onchange="S.bkTypeFilter=this.value;renderBikes()">${bkTypeOpts}</select>
-        <select class="filter-select" onchange="setBkStatus(this.value)">${bkStatusOpts}</select>
-        <select class="filter-select" onchange="setBkSize(this.value)">${bkSizeOpts}</select>
-        ${bkSearch||S.bkTypeFilter!=='all'||S.bkStatus!=='all'||S.bkSize!=='all'?`<button class="btn-secondary" style="font-size:12px;padding:5px 10px" onclick="S.bkSearch='';S.bkTypeFilter='all';S.bkStatus='all';S.bkSize='all';renderBikes()">✕ Clear</button>`:''}
+      <div class="filter-row" style="flex-wrap:wrap;gap:10px;align-items:flex-end">
+        <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px;max-width:280px">
+          <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Search</span>
+          <input id="bk-search-input" type="text" class="filter-select" placeholder="Name, brand, model…" value="${esc(bkSearch)}" oninput="setBkSearch(this.value)">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Type</span>
+          <select class="filter-select" onchange="S.bkTypeFilter=this.value;renderBikes()">${bkTypeOpts}</select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Status</span>
+          <select class="filter-select" onchange="setBkStatus(this.value)">${bkStatusOpts}</select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Size</span>
+          <select class="filter-select" onchange="setBkSize(this.value)">${bkSizeOpts}</select>
+        </div>
+        ${bkSearch||S.bkTypeFilter!=='all'||S.bkStatus!=='all'||S.bkSize!=='all'?`<button class="btn-secondary" style="font-size:12px;padding:5px 10px;align-self:flex-end" onclick="S.bkSearch='';S.bkTypeFilter='all';S.bkStatus='all';S.bkSize='all';renderBikes()">✕ Clear</button>`:''}
       </div>
     </div>
     ${typeSections}`;
