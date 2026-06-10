@@ -2375,7 +2375,7 @@ const S={
   analyticsRange:'all', analyticsTrendSort:'date', analyticsTrendDir:-1, analyticsCustomN:20,
   analyticsDateFrom:'', analyticsDateTo:'',
   // modals
-  modalRider:null,modalBikes:[],modalShowAll:false,modalShowAddBike:false,modalAddBikeName:'',modalAddBikeType:null,modalAddBikeSize:'M',modalSearch:'',modalSort:'default',modalSortDir:1,modalFilterSize:'all',modalFilterBrand:'all',modalFilterModel:'all',
+  modalRider:null,modalBikes:[],modalShowAll:false,modalShowAddBike:false,modalAddBikeName:'',modalAddBikeType:null,modalAddBikeSize:'M',modalSearch:'',modalSort:'default',modalSortDir:1,modalFilterSize:'all',modalFilterBrand:'all',modalFilterModel:'all',modalPriceEdit:false,
   // auth
   authMode:'login',   // 'login' | 'signup' | 'forgot'
   forgotEmail:'',forgotStep:1,
@@ -5867,7 +5867,7 @@ async function undoHistLog(logId){
    BIKE ASSIGN MODAL
 ══════════════════════════════════════════════ */
 function openModal(riderId){
-  S.modalRider=riderId;S.modalBikes=[];S.modalShowAll=false;S.modalShowAddBike=false;S.modalAddBikeName='';S.modalAddBikeType=null;S.modalAddBikeSize='M';S.modalSearch='';S.modalSort='default';S.modalSortDir=1;S.modalFilterSize='all';S.modalFilterBrand='all';S.modalFilterModel='all';
+  S.modalRider=riderId;S.modalBikes=[];S.modalShowAll=false;S.modalShowAddBike=false;S.modalAddBikeName='';S.modalAddBikeType=null;S.modalAddBikeSize='M';S.modalSearch='';S.modalSort='default';S.modalSortDir=1;S.modalFilterSize='all';S.modalFilterBrand='all';S.modalFilterModel='all';S.modalPriceEdit=false;
   // Pre-populate with already-assigned bikes if reopening mid-session
   const entry=getQueue().find(e=>e.id===riderId);
   if(entry&&entry.status==='active')S.modalBikes=getAssignedBikeIds(entry);
@@ -6033,13 +6033,32 @@ function renderModal(){
   const noResults=(!prefBikes.length&&!otherBikes.length)&&(mq||S.modalFilterSize!=='all'||S.modalFilterBrand!=='all'||S.modalFilterModel!=='all')?`<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:13px;font-weight:700">${t('noResultsLabel')||'No bikes match your search.'}</div>`:'';
   const cards=`${searchBar}${filterBar}${prefSection}${noResults}${otherToggle}`;
 
-  const payWarning=!rider.paid?`<div style="display:flex;align-items:center;gap:8px;background:rgba(224,136,40,.1);border:1px solid rgba(224,136,40,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px">
-    <span style="font-size:16px">⚠️</span>
-    <div>
-      <span style="font-size:12px;font-weight:800;color:var(--muted-l)">${t('payPendingWarning')} - SAR ${rider.price??DEFAULT_PRICE}</span>
-      <button class="pay-toggle pending" style="margin-left:10px;font-size:11px" onclick="togglePayment('${rider.id}',true);renderModal()">⏳ ${t('paidLabel')}?</button>
-    </div>
-  </div>`:'';
+  const isHouseRider=rider.paid&&(rider.price??DEFAULT_PRICE)===0;
+  const _pbs='padding:4px 10px;border-radius:20px;border:1.5px solid;display:inline-flex;align-items:center;gap:4px;font-family:\'Space Grotesk\',sans-serif;font-size:11px;font-weight:800;cursor:pointer;background:transparent';
+  const priceWidget=S.modalPriceEdit
+    ?`<span style="display:inline-flex;align-items:center;gap:4px">SAR&nbsp;<input id="modal-price-inp" type="number" min="0" step="0.5" value="${rider.price??DEFAULT_PRICE}" style="width:68px;padding:3px 8px;background:#1a1a1a;border:1px solid rgba(255,255,255,.2);border-radius:6px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;outline:none" onkeydown="if(event.key==='Enter')saveModalPrice('${rider.id}')"><button onclick="saveModalPrice('${rider.id}')" style="${_pbs};color:var(--green);border-color:rgba(3,255,137,.4)">Set</button><button onclick="S.modalPriceEdit=false;renderModal()" style="${_pbs};color:var(--muted);border-color:rgba(255,255,255,.15)">✕</button></span>`
+    :`<span onclick="S.modalPriceEdit=true;renderModal()" title="Edit price" style="cursor:pointer;font-size:12px;font-weight:800;color:var(--muted-l);border-bottom:1px dashed rgba(255,255,255,.25);padding-bottom:1px">SAR ${rider.price??DEFAULT_PRICE} ✏</span>`;
+  const paySection=!rider.paid
+    ?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(224,136,40,.1);border:1px solid rgba(224,136,40,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px">
+        <span style="font-size:16px">⚠️</span>
+        <span style="font-size:12px;font-weight:800;color:var(--muted-l)">${t('payPendingWarning')} –</span>
+        ${priceWidget}
+        <button class="pay-toggle pending" style="font-size:11px" onclick="togglePayment('${rider.id}',true);S.modalPriceEdit=false;renderModal()">⏳ ${t('paidLabel')}?</button>
+        <button class="pay-toggle house" style="font-size:11px" onclick="togglePayment('${rider.id}','house');S.modalPriceEdit=false;renderModal()">🏠 ${t('onTheHouseLabel')}</button>
+      </div>`
+    :isHouseRider
+      ?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px">
+          <span style="font-size:16px">🏠</span>
+          <span style="font-size:12px;font-weight:800;color:#a78bfa">${t('onTheHouseLabel')}</span>
+          <button class="pay-toggle pending" style="font-size:11px" onclick="togglePayment('${rider.id}','pending');S.modalPriceEdit=false;renderModal()">↩ ${t('pendingLabel')}</button>
+          <button class="pay-toggle paid" style="font-size:11px" onclick="togglePayment('${rider.id}','paid');S.modalPriceEdit=false;renderModal()">✓ ${t('paidLabel')}</button>
+        </div>`
+      :`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(3,255,137,.06);border:1px solid rgba(3,255,137,.2);border-radius:10px;padding:10px 14px;margin-bottom:14px">
+          <span style="font-size:13px;font-weight:800;color:var(--green)">✓ ${t('paidLabel')} –</span>
+          ${priceWidget}
+          <button class="pay-toggle pending" style="font-size:11px" onclick="togglePayment('${rider.id}','pending');S.modalPriceEdit=false;renderModal()">↩ ${t('pendingLabel')}</button>
+          <button class="pay-toggle house" style="font-size:11px" onclick="togglePayment('${rider.id}','house');S.modalPriceEdit=false;renderModal()">🏠 ${t('onTheHouseLabel')}</button>
+        </div>`;
   const heightBadge=rider.height?`<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(110,232,154,.12);border:1px solid rgba(110,232,154,.3);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;color:var(--green)">${rider.height} cm</span>`:'';
 
   // Quick-add bike form
@@ -6095,7 +6114,7 @@ function renderModal(){
         ${heightBadge}
       </div>
       <div class="modal-sub" style="margin-bottom:12px">${typeBadge(rider.typePreference)}</div>
-      ${payWarning}
+      ${paySection}
       ${fleetLine}
       ${cards}
       ${addBikeToggle}
@@ -6109,7 +6128,19 @@ function pickBike(id){
   else S.modalBikes.push(id);
   renderModal();
 }
-function closeModal(){document.getElementById('bike-modal').style.display='none';S.modalRider=null;S.modalBikes=[];S.modalShowAll=false;S.modalShowAddBike=false;S.modalSearch='';}
+function closeModal(){document.getElementById('bike-modal').style.display='none';S.modalRider=null;S.modalBikes=[];S.modalShowAll=false;S.modalShowAddBike=false;S.modalSearch='';S.modalPriceEdit=false;}
+async function saveModalPrice(id){
+  const inp=document.getElementById('modal-price-inp');if(!inp)return;
+  const val=parseFloat(inp.value);
+  if(isNaN(val)||val<0){inp.style.borderColor='var(--red)';return;}
+  const entry=getQueue().find(e=>e.id===id);if(!entry)return;
+  const prev=entry.price;
+  entry.price=val;
+  const{error}=await sb.from('queue_entries').update({price:val}).eq('id',id);
+  if(error){entry.price=prev;toast(error.message,'error');return;}
+  await loadData();S.modalPriceEdit=false;renderModal();
+  toast(`Price set to SAR ${val}`);
+}
 async function modalQuickAddBike(){
   const name=(document.getElementById('modal-bike-name')?.value||S.modalAddBikeName||'').trim();
   if(!name){toast(t('errBikeName'),'error');return;}
