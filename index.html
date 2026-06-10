@@ -6208,10 +6208,6 @@ async function confirmAssign(){
   if(rider&&selected.length>0){
     priceUpdate.price=selected.reduce((s,b)=>s+priceForBike(b),0);
   }
-  // Auto-update type preference from 'Any' to the actual assigned bike type
-  if(rider&&rider.typePreference==='Any'&&selected.length>0){
-    priceUpdate.type_preference=selected[0].type;
-  }
   const isReassign=rider&&rider.status==='active';
   // Free old bikes that are being replaced (reassign case)
   const toFree=alreadyAssigned.filter(id=>!S.modalBikes.includes(id));
@@ -6240,6 +6236,9 @@ async function confirmAssign(){
       assignedVal=jsonVal;
     }
   }
+  if(rider&&rider.typePreference==='Any'&&selected.length>0){
+    await sb.from('queue_entries').update({type_preference:selected[0].type}).eq('id',riderId);
+  }
   await loadData();closeModal();
   if(isReassign){
     toast(t('toastBikeChanged'));
@@ -6258,7 +6257,6 @@ async function confirmAssign(){
       try{localStorage.removeItem('cq_ct_'+riderId);}catch(e){}
       const undoEntry={status:'waiting',assigned_bike_id:null};
       if(priceUpdate.price!=null&&prevPrice!=null)undoEntry.price=prevPrice;
-      if(priceUpdate.type_preference)undoEntry.type_preference='Any';
       await Promise.all([
         ...needsUpdate.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b.id)),
         sb.from('queue_entries').update(undoEntry).eq('id',riderId),
