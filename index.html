@@ -1666,8 +1666,8 @@ en:{
   saveBikeBtn:'Save Changes',addBikeBtn:'Add Bike',
   bikeBrand:'Brand',bikeModel:'Model',bikeGroupset:'Groupset',bikeSpeeds:'Speeds',
   riderLabel:'Rider',riderName:'Rider\'s Full Name',riderNamePlaceholder:'Enter rider\'s full name',
-  availLabel:'Available',inUseLabel:'In Use',maintLabel:'Maintenance',
-  editBtn:'Edit',maintBtn:'Maintenance',restoreBtn:'Restore',
+  availLabel:'Available',inUseLabel:'In Use',maintLabel:'Maintenance',retiredLabel:'Retired',
+  editBtn:'Edit',maintBtn:'Maintenance',retireBtn:'Retire',restoreBtn:'Restore',
   noBikes:'No bikes found. Add your first bike above.',
   historyTitle:'Ride History',historySub:'Log of all completed and no-show rides. Send receipts directly to customers.',
   filterPaid:'Paid',filterUnpaid:'Unpaid',filterCancelled:'Cancelled',
@@ -1938,8 +1938,8 @@ ar:{
   saveBikeBtn:'حفظ التغييرات',addBikeBtn:'إضافة دراجة',
   bikeBrand:'الماركة',bikeModel:'الموديل',bikeGroupset:'منظومة التروس',bikeSpeeds:'عدد السرعات',
   riderLabel:'الراكب',riderName:'الاسم الكامل للراكب',riderNamePlaceholder:'أدخل الاسم الكامل',
-  availLabel:'متاح',inUseLabel:'قيد الاستخدام',maintLabel:'صيانة',
-  editBtn:'تعديل',maintBtn:'صيانة',restoreBtn:'استعادة',
+  availLabel:'متاح',inUseLabel:'قيد الاستخدام',maintLabel:'صيانة',retiredLabel:'متقاعد',
+  editBtn:'تعديل',maintBtn:'صيانة',retireBtn:'تقاعد',restoreBtn:'استعادة',
   noBikes:'لا توجد دراجات. أضف أول دراجة أعلاه.',
   historyTitle:'سجل الرحلات',historySub:'سجل جميع الرحلات المكتملة والغيابات.',
   filterPaid:'مدفوع',filterUnpaid:'غير مدفوع',filterCancelled:'ملغي',
@@ -2363,7 +2363,7 @@ const S={
   bkBrands:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_brands'))||[];}catch(e){return[];}})(),
   bkModels:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_models'))||[];}catch(e){return[];}})(),
   bkGroupsets:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_groupsets'))||[];}catch(e){return[];}})(),
-  bkStatus:'all',bkSize:'all',bkSearch:'',bkSortCol:'name',bkSortDir:1,bkView:'table',
+  bkStatus:'all',bkSize:'all',bkSearch:'',bkSortCol:'name',bkSortDir:1,bkView:'table',bkShowRetired:false,
   // history
   histStatus:'all',histPay:'all',histSess:'all',histSort:'date',histSortDir:-1,histType:'all',histSize:'all',histSearch:'',
   histLog:[],showHistLog:false,
@@ -4005,7 +4005,7 @@ function renderSessions(){
         .flatMap(e=>getAssignedBikeIds(e))
     );
     return types.map(ty=>{
-      const typeBikes=allBikes.filter(b=>b.type===ty);
+      const typeBikes=allBikes.filter(b=>b.type===ty&&b.status!=='retired'&&b.status!=='maintenance');
       if(!typeBikes.length)return`<div style="color:var(--muted);font-size:13px;margin-bottom:12px">${typeLabel(ty)}: ${t('noBikes')}</div>`;
       return`<div style="margin-bottom:18px">
         <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.6px;color:${typeColorHex[ty]};margin-bottom:8px">${typeLabel(ty)} (${typeBikes.filter(b=>nsAssigned.includes(b.id)).length} ${t('anOf')} ${typeBikes.length})</div>
@@ -4100,7 +4100,7 @@ function renderSessions(){
         .flatMap(e=>getAssignedBikeIds(e))
     );
     return types.map(ty=>{
-      const typeBikes=allBikes.filter(b=>b.type===ty);
+      const typeBikes=allBikes.filter(b=>b.type===ty&&b.status!=='retired'&&b.status!=='maintenance');
       if(!typeBikes.length)return`<div style="color:var(--muted);font-size:13px;margin-bottom:12px">${typeLabel(ty)}: ${t('noBikes')}</div>`;
       return`<div style="margin-bottom:18px">
         <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.6px;color:${typeColorHex[ty]};margin-bottom:8px">${typeLabel(ty)} (${typeBikes.filter(b=>esAssigned.includes(b.id)).length} ${t('anOf')} ${typeBikes.length})</div>
@@ -5683,7 +5683,7 @@ function exportSessionExcel(){
   const sessId=S.sfSession;if(sessId==='all')return;
   const sess=allSessions().find(s=>s.id===sessId);if(!sess)return;
   const entries=getQueue()
-    .filter(e=>e.sessionId===sessId&&e.paid)
+    .filter(e=>e.sessionId===sessId&&e.paid&&(e.price??DEFAULT_PRICE)>0)
     .sort((a,b)=>a.queueNum-b.queueNum);
   if(!entries.length){toast('No paid bookings to export','warning');return;}
   const groups=[];
@@ -5722,7 +5722,7 @@ function printSessionReport(){
   const sessId=S.sfSession;if(sessId==='all')return;
   const sess=allSessions().find(s=>s.id===sessId);if(!sess)return;
   const entries=getQueue()
-    .filter(e=>e.sessionId===sessId&&e.status!=='removed'&&e.paid)
+    .filter(e=>e.sessionId===sessId&&e.status!=='removed'&&e.paid&&(e.price??DEFAULT_PRICE)>0)
     .sort((a,b)=>a.queueNum-b.queueNum);
   const totalSAR=entries.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
   const paidSAR=totalSAR;
@@ -5869,7 +5869,7 @@ function openModal(riderId){
 }
 function renderModal(){
   const rider=getQueue().find(e=>e.id===S.modalRider);if(!rider)return;
-  const allBikes=getBikes();
+  const allBikes=getBikes().filter(b=>b.status!=='retired'&&b.status!=='maintenance');
 
   // Determine session fleet plan (advisory — for sorting/badging only)
   const sess=S.sessions.find(s=>s.id===rider.sessionId);
@@ -6208,8 +6208,8 @@ function renderBikes(){
         nMtn=bikes.filter(b=>b.type==='Mountain').length;
   const bkTypeOpts=['all','Road','Hybrid','Mountain'].map(ty=>
     `<option value="${ty}"${S.bkTypeFilter===ty?' selected':''}>${ty==='all'?t('filterAll'):typeLabel(ty)}</option>`).join('');
-  const bkStatusOpts=['all','available','in-use','maintenance'].map(s=>{
-    const l={all:t('filterAll'),available:t('availLabel'),'in-use':t('inUseLabel'),maintenance:t('maintLabel')}[s];
+  const bkStatusOpts=['all','available','in-use'].map(s=>{
+    const l={all:t('filterAll'),available:t('availLabel'),'in-use':t('inUseLabel')}[s];
     return`<option value="${s}"${S.bkStatus===s?' selected':''}>${l}</option>`;}).join('');
   const bkSizeOpts=['all','XS','S','M','L'].map(sz=>
     `<option value="${sz}"${S.bkSize===sz?' selected':''}>${sz==='all'?t('filterAll'):sz}</option>`).join('');
@@ -6277,7 +6277,7 @@ function renderBikes(){
     </div>
   </div>`:'';
   // Active filters (status + size only — type is now handled by sections)
-  const sortOrder={available:0,'in-use':1,maintenance:2};
+  const sortOrder={available:0,'in-use':1,maintenance:2,retired:3};
   const sizeOrder={XS:0,S:1,M:2,L:3};
 
   // Build a lookup: bike ID → active queue entry (who's using it)
@@ -6287,8 +6287,9 @@ function renderBikes(){
   });
 
   function renderBikeRow(b){
+    const isRetired=b.status==='retired'||b.status==='maintenance';
     const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-blue':'dot-red';
-    const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel');
+    const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):isRetired?t('retiredLabel'):t('maintLabel');
     const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--blue)':'var(--red)';
     const colors=b.colors&&b.colors.length?b.colors:['#03ff89'];
     const colorSwatches=colors.map((c,ci)=>{
@@ -6309,7 +6310,7 @@ function renderBikes(){
         ?`<div style="font-size:11px;font-weight:700;color:#e08828">&#x26A0; ${t('noRiderAssigned')}</div>`
         :`<span style="color:var(--muted)">—</span>`;
     const rowBorderClr=orphaned?'rgba(224,136,40,.7)':b.status==='available'?'rgba(3,255,137,.45)':b.status==='in-use'?'rgba(74,168,248,.45)':'rgba(224,64,64,.45)';
-    const rowBg=orphaned?'background:rgba(224,136,40,.06);':b.status==='in-use'?'background:rgba(74,168,248,.025);':b.status==='maintenance'?'background:rgba(224,64,64,.025);opacity:.8;':'';
+    const rowBg=orphaned?'background:rgba(224,136,40,.06);':b.status==='in-use'?'background:rgba(74,168,248,.025);':isRetired?'background:rgba(224,64,64,.025);opacity:.75;':'';
     return`<tr style="border-left:3px solid ${rowBorderClr};${rowBg}">
       <td><div class="rider-name">${esc(b.name)}</div></td>
       <td style="font-weight:700;font-size:13px">${b.brand?esc(b.brand):`<span style="color:var(--muted)">—</span>`}</td>
@@ -6329,8 +6330,8 @@ function renderBikes(){
       <td>${riderCell}</td>
       <td><div class="actions-cell">
         <button class="btn-sm btn-blue" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
-        ${orphaned?`<button class="btn-sm btn-orange" onclick="releaseBike('${b.id}')">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-orange" onclick="toggleMaint('${b.id}')">${b.status==='maintenance'?t('restoreBtn'):t('maintBtn')}</button>`}
-        <button class="btn-sm btn-red" ${b.status!=='in-use'?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
+        ${orphaned?`<button class="btn-sm btn-orange" onclick="releaseBike('${b.id}')">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-${isRetired?'green':'muted'}" onclick="toggleRetire('${b.id}')">${isRetired?t('restoreBtn'):t('retireBtn')}</button>`}
+        <button class="btn-sm btn-red" ${b.status!=='in-use'&&!isRetired?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
       </div></td>
     </tr>`;
   }
@@ -6350,7 +6351,8 @@ function renderBikes(){
       const orphaned=b.status==='in-use'&&!user;
       const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--blue)':'var(--red)';
       const borderClr=orphaned?'rgba(224,136,40,.7)':b.status==='available'?'rgba(3,255,137,.4)':b.status==='in-use'?'rgba(74,168,248,.4)':'rgba(224,64,64,.4)';
-      const bgStyle=orphaned?'background:rgba(224,136,40,.06);':b.status==='in-use'?'background:rgba(74,168,248,.025);':b.status==='maintenance'?'background:rgba(224,64,64,.025);opacity:.8;':'';
+      const isRetiredG=b.status==='retired'||b.status==='maintenance';
+      const bgStyle=orphaned?'background:rgba(224,136,40,.06);':b.status==='in-use'?'background:rgba(74,168,248,.025);':isRetiredG?'background:rgba(224,64,64,.025);opacity:.75;':'';
       const colors=b.colors&&b.colors.length?b.colors:['#03ff89'];
       const dots=colors.map(c=>`<span style="width:11px;height:11px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);display:inline-block;flex-shrink:0"></span>`).join('');
       const el=b.status==='in-use'&&user?rideElapsed(user.id):null;
@@ -6365,7 +6367,7 @@ function renderBikes(){
         </div>
         <div style="display:flex;align-items:center;gap:5px${(user||orphaned)?';margin-bottom:5px':''}">
           <span class="avail-dot ${dot}" style="display:inline-block;flex-shrink:0"></span>
-          <span style="color:${sclr};font-weight:700;font-size:12px">${b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel')}</span>
+          <span style="color:${sclr};font-weight:700;font-size:12px">${b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):isRetiredG?t('retiredLabel'):t('maintLabel')}</span>
           ${el?`<span style="font-size:10px;color:var(--blue);font-weight:700;margin-left:2px">⏱ ${el}</span>`:''}
         </div>
         ${user?`<div style="font-size:11px;font-weight:700;color:var(--green)">&#x1F464; #${user.queueNum} ${esc(user.name)}</div>`:orphaned?`<div style="font-size:11px;font-weight:700;color:#e08828">&#x26A0; ${t('noRiderAssigned')}</div>`:''}
@@ -6374,7 +6376,7 @@ function renderBikes(){
             <button class="btn-sm btn-blue" style="flex:1" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
             <button class="btn-sm btn-red" style="flex:1" ${b.status!=='in-use'?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
           </div>
-          ${orphaned?`<button class="btn-sm btn-orange" style="width:100%;justify-content:center;text-align:center" onclick="releaseBike('${b.id}')">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-orange" style="width:100%;justify-content:center;text-align:center" onclick="toggleMaint('${b.id}')">${b.status==='maintenance'?t('restoreBtn'):t('maintBtn')}</button>`}
+          ${orphaned?`<button class="btn-sm btn-orange" style="width:100%;justify-content:center;text-align:center" onclick="releaseBike('${b.id}')">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-${isRetiredG?'green':'muted'}" style="width:100%;justify-content:center;text-align:center" onclick="toggleRetire('${b.id}')">${isRetiredG?t('restoreBtn'):t('retireBtn')}</button>`}
         </div>
       </div>`;
     }).join('')}</div>`;
@@ -6382,7 +6384,7 @@ function renderBikes(){
 
   function renderTypeSection(ty,color){
     if(S.bkTypeFilter!=='all'&&S.bkTypeFilter!==ty) return '';
-    let typeBikes=bikes.filter(b=>b.type===ty);
+    let typeBikes=bikes.filter(b=>b.type===ty&&b.status!=='retired'&&b.status!=='maintenance');
     if(S.bkStatus!=='all') typeBikes=typeBikes.filter(b=>b.status===S.bkStatus);
     if(S.bkSize!=='all')   typeBikes=typeBikes.filter(b=>b.size===S.bkSize);
     if(bkSearch){
@@ -6401,10 +6403,9 @@ function renderBikes(){
       else if(col==='status')  v=(sortOrder[a.status]??9)-(sortOrder[b.status]??9);
       return v!==0?v*dir:a.name.localeCompare(b.name);
     });
-    const all=bikes.filter(b=>b.type===ty);
+    const all=bikes.filter(b=>b.type===ty&&b.status!=='retired'&&b.status!=='maintenance');
     const tyAvail=all.filter(b=>b.status==='available').length;
     const tyUse  =all.filter(b=>b.status==='in-use').length;
-    const tyMaint=all.filter(b=>b.status==='maintenance').length;
     const typeContent=S.bkView==='grid'
       ?renderBikeGrid(typeBikes)
       :`<div class="table-wrapper"><table class="queue-table">
@@ -6434,7 +6435,6 @@ function renderBikes(){
               ${all.length} ${t('bike').toLowerCase()}${all.length!==1?'s':''} &nbsp;·&nbsp;
               <span style="color:var(--green)">${tyAvail} ${t('availLabel').toLowerCase()}</span>
               ${tyUse>0?` &nbsp;·&nbsp; <span style="color:var(--muted-l)">${tyUse} ${t('inUseLabel').toLowerCase()}</span>`:''}
-              ${tyMaint>0?` &nbsp;·&nbsp; <span style="color:var(--red)">${tyMaint} ${t('maintLabel').toLowerCase()}</span>`:''}
             </div>
           </div>
         </div>
@@ -6449,6 +6449,57 @@ function renderBikes(){
 
   const typeColorMap={Road:'#4aa8f8',Hybrid:'#03ff89',Mountain:'#e08828'};
   const typeSections=['Road','Hybrid','Mountain'].map(ty=>renderTypeSection(ty,typeColorMap[ty])).join('');
+  const retiredBikes=bikes.filter(b=>b.status==='retired'||b.status==='maintenance');
+  const retiredSection=retiredBikes.length?`<div style="margin-bottom:28px">
+    <button onclick="S.bkShowRetired=!S.bkShowRetired;renderBikes()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(255,255,255,.02);border:1.5px solid rgba(255,255,255,.07);border-radius:12px;cursor:pointer;font-family:'Space Grotesk',sans-serif;transition:border-color .2s" onmouseover="this.style.borderColor='rgba(255,255,255,.15)'" onmouseout="this.style.borderColor='rgba(255,255,255,.07)'">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:4px;height:24px;border-radius:3px;background:rgba(160,160,160,.4);flex-shrink:0"></div>
+        <div style="font-size:15px;font-weight:900;color:var(--muted-l)">${t('retiredLabel')} Bikes</div>
+        <div style="background:rgba(255,255,255,.07);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:800;color:var(--muted)">${retiredBikes.length}</div>
+      </div>
+      <span style="font-size:16px;color:var(--muted)">${S.bkShowRetired?'▲':'▼'}</span>
+    </button>
+    ${S.bkShowRetired?`<div style="margin-top:10px">
+      ${S.bkView==='grid'
+        ?`<div class="bike-grid" style="opacity:.75">${retiredBikes.map(b=>{
+          const colors=b.colors&&b.colors.length?b.colors:['#03ff89'];
+          const dots=colors.map(c=>`<span style="width:11px;height:11px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);display:inline-block;flex-shrink:0"></span>`).join('');
+          return`<div class="bike-grid-card" style="border-color:rgba(160,160,160,.2)">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:6px">
+              <div style="font-weight:900;font-size:13px;line-height:1.3;color:var(--muted-l)">${esc(b.name)}</div>
+              <div style="display:flex;gap:3px;flex-shrink:0">${dots}</div>
+            </div>
+            <div style="display:flex;gap:5px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+              ${typeBadge(b.type)}
+              <span style="background:var(--s3);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:2px 8px;font-size:10px;font-weight:800;color:var(--muted-l)">${b.size}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:5px;margin-bottom:10px">
+              <span class="avail-dot dot-red" style="display:inline-block;flex-shrink:0"></span>
+              <span style="color:var(--muted);font-weight:700;font-size:12px">${t('retiredLabel')}</span>
+            </div>
+            <div style="display:flex;gap:4px">
+              <button class="btn-sm btn-blue" style="flex:1" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
+              <button class="btn-sm btn-green" style="flex:1" onclick="toggleRetire('${b.id}')">${t('restoreBtn')}</button>
+            </div>
+          </div>`;
+        }).join('')}</div>`
+        :`<div class="table-wrapper"><table class="queue-table"><thead><tr>
+          <th>${t('bikeNameLabel')}</th><th>${t('bikeBrand')}</th><th>${t('bikeModel')}</th>
+          <th>${t('bikeTypeLabel')}</th><th>${t('frameSizeLabel')}</th><th>${t('colStatus')}</th><th></th>
+        </tr></thead><tbody>${retiredBikes.map(b=>`<tr style="opacity:.7">
+          <td><div class="rider-name">${esc(b.name)}</div></td>
+          <td style="font-weight:700;font-size:13px">${b.brand?esc(b.brand):`<span style="color:var(--muted)">—</span>`}</td>
+          <td style="font-weight:700;font-size:13px">${b.model?esc(b.model):`<span style="color:var(--muted)">—</span>`}</td>
+          <td>${typeBadge(b.type)}</td>
+          <td style="font-weight:800">${b.size}</td>
+          <td><span style="color:var(--muted);font-weight:700;font-size:12px">${t('retiredLabel')}</span></td>
+          <td><div class="actions-cell">
+            <button class="btn-sm btn-blue" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
+            <button class="btn-sm btn-green" onclick="toggleRetire('${b.id}')">${t('restoreBtn')}</button>
+          </div></td>
+        </tr>`).join('')}</tbody></table></div>`}
+    </div>`:''}
+  </div>`:''
 
   document.getElementById('tab-bikes').innerHTML=`
     <div class="section-header">
@@ -6490,7 +6541,8 @@ function renderBikes(){
         ${bkSearch||S.bkTypeFilter!=='all'||S.bkStatus!=='all'||S.bkSize!=='all'?`<button class="btn-secondary" style="font-size:12px;padding:5px 10px;align-self:flex-end" onclick="S.bkSearch='';S.bkTypeFilter='all';S.bkStatus='all';S.bkSize='all';renderBikes()">✕ Clear</button>`:''}
       </div>
     </div>
-    ${typeSections}`;
+    ${typeSections}
+    ${retiredSection}`;
   const nameEl=document.getElementById('bk-name');
   if(nameEl)nameEl.addEventListener('input',e=>S._bkName=e.target.value);
 }
@@ -6611,14 +6663,17 @@ async function saveBikeEdit(){
   });
   renderBikes();
 }
-async function toggleMaint(id){
-  const b=getBikes();const bike=b.find(x=>x.id===id);if(!bike)return;
+async function toggleRetire(id){
+  const bike=getBikes().find(x=>x.id===id);if(!bike)return;
   if(bike.status==='in-use'){toast(t('errBikeInUse'),'error');return;}
   const prevStatus=bike.status;
-  const newStatus=prevStatus==='maintenance'?'available':'maintenance';
-  await sb.from('bikes').update({status:newStatus}).eq('id',id);
-  await loadData();toast(`${t('toastStatusChanged')} ${newStatus}`);
-  pushUndo(`${newStatus==='maintenance'?'Maintenance':'Restore'} ${bike.name}`,async()=>{
+  const isRetired=prevStatus==='retired'||prevStatus==='maintenance';
+  const newStatus=isRetired?'available':'retired';
+  const{error}=await sb.from('bikes').update({status:newStatus}).eq('id',id);
+  if(error){toast(error.message,'error');return;}
+  await loadData();
+  toast(`${bike.name} ${isRetired?t('restoreBtn').toLowerCase():t('retiredLabel').toLowerCase()}`);
+  pushUndo(`${isRetired?'Restore':'Retire'} ${bike.name}`,async()=>{
     await sb.from('bikes').update({status:prevStatus}).eq('id',id);
     await loadData();renderBikes();
   });
