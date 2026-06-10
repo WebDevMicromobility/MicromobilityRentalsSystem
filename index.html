@@ -6205,7 +6205,7 @@ function renderBikes(){
   const addForm=(S.showAddBike||isEdit)?`<div class="inline-form">
     <div class="form-title">${isEdit?t('editBikeTitle'):t('addBikeTitle')}</div>
     <div class="form-row">
-      <div class="form-group"><label>${t('bikeNameLabel')}</label><input type="text" id="bk-name" placeholder="e.g. Spectra One" value="${esc(S._bkName)}"></div>
+      <div class="form-group"><label>${t('bikeNameLabel')}</label><input type="text" id="bk-name" placeholder="e.g. Spectra One" value="${esc(S._bkName)}" oninput="S._bkName=this.value"></div>
       <div class="form-group"><label>${t('walkinSize')}</label><select id="bk-size" onchange="S.addBikeSize=this.value">${sizeOpts}</select></div>
     </div>
     <div class="form-row">
@@ -6214,7 +6214,7 @@ function renderBikes(){
     </div>
     <div class="form-row">
       <div class="form-group"><label>${t('bikeGroupset')}</label>${_bkFieldHtml('bk-groupset',S._bkGroupset,S._bkGroupsetAdd,S.bkGroupsets)}</div>
-      <div class="form-group"><label>${t('bikeSpeeds')}</label><select id="bk-speeds" style="max-width:140px"><option value="">—</option>${Array.from({length:50},(_,i)=>i+1).map(n=>`<option value="${n}"${S._bkSpeeds===String(n)?' selected':''}>${n}</option>`).join('')}</select></div>
+      <div class="form-group"><label>${t('bikeSpeeds')}</label><select id="bk-speeds" style="max-width:140px" onchange="S._bkSpeeds=this.value"><option value="">—</option>${Array.from({length:50},(_,i)=>i+1).map(n=>`<option value="${n}"${S._bkSpeeds===String(n)?' selected':''}>${n}</option>`).join('')}</select></div>
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -6575,7 +6575,8 @@ async function saveBikeEdit(){
   const rentalPrice=S._bkRentalPrice?parseFloat(S._bkRentalPrice)||null:null;
   const prev={name:existing.name,size:existing.size,type:existing.type,colors:[...existing.colors],color_names:[...(existing.color_names||[])],status:existing.status,brand:existing.brand||null,model:existing.model||null,groupset:existing.groupset||null,speeds:existing.speeds||null,rental_price:existing.rental_price??null};
   const bid=S.editBikeId;
-  await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:editColorNames,status:existing.status,brand,model,groupset,speeds,rental_price:rentalPrice}).eq('id',bid);
+  const{error}=await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:editColorNames,status:existing.status,brand,model,groupset,speeds,rental_price:rentalPrice}).eq('id',bid);
+  if(error){toast(error.message||'Save failed','error');return;}
   await loadData();
   _resetBikeForm();
   toast(t('toastBikeUpdated'));
