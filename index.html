@@ -5998,7 +5998,7 @@ function renderModal(){
     (prefEmpty?`<div style="margin-top:10px;font-size:12px;color:var(--muted);font-weight:600;text-align:center">${t('noOtherTypes')}</div>`:'');
 
   const fleetLine=slots?`<div style="font-size:12px;color:var(--muted);margin-bottom:16px">${t('sessionFleetLabel')}: ${slotsLabel(slots)}</div>`:'';
-  const searchBar=`<div style="position:relative;margin-bottom:14px">
+  const searchBar=`<div style="position:relative;margin-bottom:10px">
     <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--muted);pointer-events:none">&#x1F50D;</span>
     <input id="modal-search-input" type="text" value="${esc(S.modalSearch)}"
       placeholder="${t('searchLabel')||'Search bikes...'}"
@@ -6007,8 +6007,25 @@ function renderModal(){
       onfocus="this.style.borderColor='rgba(3,255,137,.4)'" onblur="this.style.borderColor='rgba(255,255,255,.1)'">
     ${S.modalSearch?`<button onclick="S.modalSearch='';renderModal()" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:2px" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&times;</button>`:''}
   </div>`;
-  const noResults=mq&&!prefBikes.length&&!otherBikes.length?`<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:13px;font-weight:700">${t('noResultsLabel')||'No bikes match your search.'}</div>`:'';
-  const cards=`${searchBar}${prefSection}${noResults}${otherToggle}`;
+  const selStyle=`background:var(--s3);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;padding:4px 8px;cursor:pointer;outline:none;height:30px`;
+  const anyFilterActive=S.modalFilterSize!=='all'||S.modalFilterBrand!=='all'||S.modalFilterModel!=='all'||S.modalSort!=='default';
+  const filterBar=`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px;padding:8px 10px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:10px">
+    <span style="font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0">Size:</span>
+    ${['all','XS','S','M','L'].map(sz=>`<button onclick="S.modalFilterSize='${sz}';renderModal()" style="padding:3px 9px;border-radius:7px;border:1.5px solid ${S.modalFilterSize===sz?'rgba(3,255,137,.6)':'rgba(255,255,255,.1)'};background:${S.modalFilterSize===sz?'rgba(3,255,137,.12)':'transparent'};color:${S.modalFilterSize===sz?'var(--green)':'var(--muted-l)'};font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:800;cursor:pointer">${sz==='all'?'All':sz}</button>`).join('')}
+    <span style="font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;margin-left:4px">Brand:</span>
+    <select style="${selStyle}" onchange="S.modalFilterBrand=this.value;S.modalFilterModel='all';renderModal()">
+      <option value="all"${S.modalFilterBrand==='all'?' selected':''}>All</option>
+      ${allBrands.map(br=>`<option value="${esc(br)}"${S.modalFilterBrand===br?' selected':''}>${esc(br)}</option>`).join('')}
+    </select>
+    ${brandModels.length?`<span style="font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0">Model:</span>
+    <select style="${selStyle}" onchange="S.modalFilterModel=this.value;renderModal()">
+      <option value="all"${S.modalFilterModel==='all'?' selected':''}>All</option>
+      ${brandModels.map(m=>`<option value="${esc(m)}"${S.modalFilterModel===m?' selected':''}>${esc(m)}</option>`).join('')}
+    </select>`:''}
+    ${anyFilterActive?`<button onclick="S.modalSort='default';S.modalSortDir=1;S.modalFilterSize='all';S.modalFilterBrand='all';S.modalFilterModel='all';renderModal()" style="margin-left:auto;padding:3px 10px;border-radius:7px;border:1px solid rgba(255,100,100,.3);background:rgba(255,100,100,.06);color:var(--red);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:800;cursor:pointer">Reset</button>`:''}
+  </div>`;
+  const noResults=(!prefBikes.length&&!otherBikes.length)&&(mq||S.modalFilterSize!=='all'||S.modalFilterBrand!=='all'||S.modalFilterModel!=='all')?`<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:13px;font-weight:700">${t('noResultsLabel')||'No bikes match your search.'}</div>`:'';
+  const cards=`${searchBar}${filterBar}${prefSection}${noResults}${otherToggle}`;
 
   const payWarning=!rider.paid?`<div style="display:flex;align-items:center;gap:8px;background:rgba(224,136,40,.1);border:1px solid rgba(224,136,40,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px">
     <span style="font-size:16px">⚠️</span>
