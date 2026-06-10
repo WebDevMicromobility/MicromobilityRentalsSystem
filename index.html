@@ -1481,8 +1481,8 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <div id="tab-queue"     class="tab-panel active"></div>
     <div id="tab-sessions"  class="tab-panel"></div>
     <div id="tab-bikes"     class="tab-panel"></div>
-    <div id="tab-history"   class="tab-panel"></div>
     <div id="tab-analytics" class="tab-panel"></div>
+    <div id="tab-history"   class="tab-panel"></div>
     <div id="tab-logs"      class="tab-panel"></div>
   </div>
 </div>
@@ -1693,9 +1693,9 @@ en:{
   enterHeightAbove:'Enter height above',
   bike:'Bike',
   // Session status toasts
-  sessOpened:'Session opened.',sessClosed:'Session closed.',sessDeleted:'Session deleted.',
+  sessOpened:'Session opened.',sessClosed:'Session closed.',sessDeleted:'Session deleted.',sessRestored:'Session restored.',
   // Stats
-  totalStat:'Total',waitingStat:'Waiting',onBikeStat:'On Bike',doneStat:'Done',
+  totalStat:'Total',waitingStat:'Waiting',onBikeStat:'On Bike',doneStat:'Done',waitingRidersStat:'Waiting Riders',ridersStat:'Riders',
   // Ticket / confirmation
   queueNumLabel:'Queue Number',keepNumberMsg:'Keep this number - you will need it to check your status.',
   payAtBooth:'💳 Payment is collected at the booth at the Corniche Circuit. Please have your queue number ready.',
@@ -1964,8 +1964,8 @@ ar:{
   heightOptional:'(اختياري - يحدد مقاس الدراجة تلقائياً)',
   enterHeightAbove:'أدخل الطول أعلاه',
   bike:'دراجة',
-  sessOpened:'تم فتح الجلسة.',sessClosed:'تم إغلاق الجلسة.',sessDeleted:'تم حذف الجلسة.',
-  totalStat:'الكل',waitingStat:'بانتظار',onBikeStat:'على الدراجة',doneStat:'منتهٍ',
+  sessOpened:'تم فتح الجلسة.',sessClosed:'تم إغلاق الجلسة.',sessDeleted:'تم حذف الجلسة.',sessRestored:'تم استعادة الجلسة.',
+  totalStat:'الكل',waitingStat:'بانتظار',onBikeStat:'على الدراجة',doneStat:'منتهٍ',waitingRidersStat:'في الانتظار',ridersStat:'الراكبون',
   queueNumLabel:'رقم الطابور',keepNumberMsg:'احتفظ بهذا الرقم - ستحتاجه للتحقق من حالتك.',
   payAtBooth:'💳 الدفع يتم عند الكشك في دوار الكورنيش. يرجى إحضار رقم طابورك.',
   registeredLabel:'مُسجَّل',nameLabel:'الاسم',timeLabel:'الوقت',preferenceLabel:'التفضيل',
@@ -4489,7 +4489,7 @@ async function restoreSession(id){
   try{
     await sb.from('sessions').update({status:'closed'}).eq('id',id);
     await loadData();
-    toast(t('sessClosed'));
+    toast(t('sessRestored'));
     renderSessions();
   }catch(e){toast(t('errConnection'),'error');}
 }
@@ -4931,10 +4931,10 @@ function renderStaffQueue(){
     <div class="stats-row">
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('totalStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWait}</div><div class="stat-label">${t('waitingStat')}</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWaitingRiders}</div><div class="stat-label">Waiting Riders</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWaitingRiders}</div><div class="stat-label">${t('waitingRidersStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:#a0f0c0">${nBike}</div><div class="stat-label">${t('onBikeStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--muted)">${nDone}</div><div class="stat-label">${t('doneStat')}</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--muted-l)">${nRiders}</div><div class="stat-label">Riders</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--muted-l)">${nRiders}</div><div class="stat-label">${t('ridersStat')}</div></div>
     </div>
     ${nextUp}
     ${(()=>{
@@ -5689,7 +5689,7 @@ function exportSessionExcel(){
   const sessId=S.sfSession;if(sessId==='all')return;
   const sess=allSessions().find(s=>s.id===sessId);if(!sess)return;
   const entries=getQueue()
-    .filter(e=>e.sessionId===sessId&&e.paid&&(e.price??DEFAULT_PRICE)>0)
+    .filter(e=>e.sessionId===sessId&&e.status!=='removed'&&e.paid&&(e.price??DEFAULT_PRICE)>0)
     .sort((a,b)=>a.queueNum-b.queueNum);
   if(!entries.length){toast('No paid bookings to export','warning');return;}
   const groups=[];
@@ -6411,7 +6411,7 @@ function renderBikes(){
         <div style="display:flex;flex-direction:column;gap:4px;margin-top:10px">
           <div style="display:flex;gap:4px">
             <button class="btn-sm btn-blue" style="flex:1" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
-            <button class="btn-sm btn-red" style="flex:1" ${b.status!=='in-use'?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
+            <button class="btn-sm btn-red" style="flex:1" ${b.status!=='in-use'&&!isRetiredG?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
           </div>
           ${orphaned?`<button class="btn-sm btn-orange" style="width:100%;justify-content:center;text-align:center" onclick="releaseBike('${b.id}')">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-${isRetiredG?'green':'muted'}" style="width:100%;justify-content:center;text-align:center" onclick="toggleRetire('${b.id}')">${isRetiredG?t('restoreBtn'):t('retireBtn')}</button>`}
         </div>
@@ -7634,7 +7634,7 @@ function renderAnalytics(){
     <div class="analytics-section-title">${t('anByRevType')}</div>
     <div class="chart-grid-wide">
       <div class="chart-card">
-        <div class="chart-card-title">${t('anRevByDay')}</div>
+        <div class="chart-card-title">${t('anByRevType')}</div>
         <div class="chart-card-sub">${t('anCollectedOnly')}</div>
         ${Object.keys(revByType).length?bars(revByType,k=>typeColorHex[k]||'#777',v=>sarBoth(v)):noDataStr}
       </div>
