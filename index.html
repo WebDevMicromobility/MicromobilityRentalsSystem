@@ -2582,6 +2582,11 @@ function getAssignedBikeIds(entry){
   try{const p=JSON.parse(entry.assignedBikeId);return Array.isArray(p)?p:[p];}catch{return[entry.assignedBikeId];}
 }
 function getAssignedBikes(entry){return getAssignedBikeIds(entry).map(id=>bikeById(id)).filter(Boolean);}
+function resolvedType(entry){
+  if(!entry||entry.typePreference!=='Any')return entry?entry.typePreference:'Any';
+  const bikes=getAssignedBikes(entry);
+  return(bikes.length>0&&bikes[0].type&&bikes[0].type!=='Any')?bikes[0].type:'Any';
+}
 function heightToSize(h){if(h<=166)return'XS';if(h<=172)return'S';if(h<=178)return'M';return'L';}
 function sizeLabel(sz){return{XS:'XS (166 cm & under)',S:'S (167-172 cm)',M:'M (173-178 cm)',L:'L (179 cm & up)'}[sz]||sz;}
 function sizeRange(sz){
@@ -3241,7 +3246,7 @@ function renderRegister(){
           <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;flex-shrink:0">
             ${existingEntries.length>1?`<span style="color:var(--muted);font-size:10px;display:block;margin-bottom:2px">${t('bike')} ${i+1}</span>`:''}
             <span style="color:var(--muted)">#${e.queueNum}</span>
-            &nbsp;·&nbsp;${typeBadge(e.typePreference)}
+            &nbsp;·&nbsp;${typeBadge(resolvedType(e))}
           </div>`).join('')}
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">${t('modifyBanner')}</div>
@@ -3676,7 +3681,7 @@ function renderMyRides(){
   const _mySizeOrd={XS:0,S:1,M:2,L:3};
   displayOrder.sort((a,b)=>{
     if(S.mySort==='size')    return _myd*((_mySizeOrd[a.size]??9)-(_mySizeOrd[b.size]??9));
-    if(S.mySort==='type')    return _myd*(a.typePreference||'').localeCompare(b.typePreference||'');
+    if(S.mySort==='type')    return _myd*(resolvedType(a)||'').localeCompare(resolvedType(b)||'');
     if(S.mySort==='payment') return _myd*(Number(a.paid)-Number(b.paid));
     if(S.mySort==='status')  return _myd*(a.status||'').localeCompare(b.status||'');
     return _myd*(new Date(a.registeredAt)-new Date(b.registeredAt));
@@ -3758,7 +3763,7 @@ function renderMyRides(){
               ${sessionCellContent}
             </td>
             <td style="vertical-align:middle">${bikeCell}</td>
-            <td style="vertical-align:middle">${typeBadge(e.typePreference)}</td>
+            <td style="vertical-align:middle">${typeBadge(resolvedType(e))}</td>
             <td style="vertical-align:middle">
               <div style="font-weight:900;font-size:16px;color:${payColor}">SAR ${e.price??DEFAULT_PRICE}</div>
               <div style="margin-top:4px">${payBadge}</div>
@@ -3773,7 +3778,7 @@ function renderMyRides(){
         return`<tr class="${rowCls}"${trStyle?' style="'+trStyle+'"':''}>
           <td style="vertical-align:middle">${nameCell}</td>
           <td style="vertical-align:middle">${bikeCell}</td>
-          <td style="vertical-align:middle">${typeBadge(e.typePreference)}</td>
+          <td style="vertical-align:middle">${typeBadge(resolvedType(e))}</td>
           <td style="vertical-align:middle">
             <div style="font-weight:900;font-size:16px;color:${payColor}">SAR ${e.price??DEFAULT_PRICE}</div>
             <div style="margin-top:4px">${payBadge}</div>
@@ -3826,7 +3831,7 @@ function renderAccount(){
   const myEntries=getQueue().filter(e=>e.customerId===cust.id);
   const myDone=myEntries.filter(e=>e.status==='done');
   const mySpent=myDone.filter(e=>e.paid).reduce((s,e)=>s+(e.price||0),0);
-  const typeCount={};myDone.forEach(e=>{typeCount[e.typePreference]=(typeCount[e.typePreference]||0)+1;});
+  const typeCount={};myDone.forEach(e=>{typeCount[resolvedType(e)]=(typeCount[resolvedType(e)]||0)+1;});
   const favType=Object.keys(typeCount).sort((a,b)=>typeCount[b]-typeCount[a])[0]||'—';
   const memberSince=cust.created_at
     ?new Date(cust.created_at).toLocaleDateString('en-GB',{month:'short',year:'numeric'})
@@ -4557,7 +4562,7 @@ function renderStaffQueue(){
   const _sfd=S.sfSortDir;
   filtered.sort((a,b)=>{
     if(S.sfSort==='name')   return _sfd*a.name.localeCompare(b.name);
-    if(S.sfSort==='type')   return _sfd*a.typePreference.localeCompare(b.typePreference);
+    if(S.sfSort==='type')   return _sfd*resolvedType(a).localeCompare(resolvedType(b));
     if(S.sfSort==='paid')   return _sfd*(Number(a.paid)-Number(b.paid));
     if(S.sfSort==='status') return _sfd*(a.status||'').localeCompare(b.status||'');
     return _sfd*(a.sessionId.localeCompare(b.sessionId)||a.queueNum-b.queueNum);
@@ -4670,7 +4675,7 @@ function renderStaffQueue(){
       <td style="text-align:center">${posCell}</td>
       <td><div class="rider-name">${esc(e.name)}${wiTag}</div><div class="rider-sub">${esc(fmtPhone(e.phone))||'—'}</div></td>
       <td style="font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">${e.height?e.height+' cm':'<span style="color:var(--muted)">—</span>'}</td>
-      <td>${typeBadge(e.typePreference)}</td>
+      <td>${typeBadge(resolvedType(e))}</td>
       ${S.sfSession==='all'?`<td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
       <td>${assignedBikes.length>0
         ?assignedBikes.map((b,i)=>`<div style="display:flex;align-items:center;gap:5px;${i>0?'margin-top:3px':''}">
@@ -4759,7 +4764,7 @@ function renderStaffQueue(){
           <td rowspan="${n}" style="text-align:center;vertical-align:middle">${posCell}</td>
           <td style="vertical-align:middle">${riderCell}</td>
           ${heightCell}
-          <td style="vertical-align:middle">${typeBadge(e.typePreference)}</td>
+          <td style="vertical-align:middle">${typeBadge(resolvedType(e))}</td>
           ${S.sfSession==='all'?`<td class="hide-mobile" rowspan="${n}" style="vertical-align:middle">${dayLabel(primary.sessionDay)||''} ${shortDate(primary.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
           <td style="vertical-align:middle">${bikeNames}</td>
           <td style="vertical-align:middle"><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
@@ -4780,7 +4785,7 @@ function renderStaffQueue(){
         return`<tr class="${rowCls}" style="${trStyle}">
           <td style="vertical-align:middle">${riderCell}</td>
           ${heightCell}
-          <td style="vertical-align:middle">${typeBadge(e.typePreference)}</td>
+          <td style="vertical-align:middle">${typeBadge(resolvedType(e))}</td>
           ${S.sfSession!=='all'?'<td class="hide-mobile" style="display:none"></td>':''}
           <td style="vertical-align:middle">${bikeNames}</td>
           <td style="vertical-align:middle"><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
@@ -5749,7 +5754,7 @@ function exportSessionExcel(){
     const allPaid=group.every(x=>x.paid);const somePaid=group.some(x=>x.paid);
     const payLabel=allPaid?'Paid':somePaid?'Partial':'Pending';
     const topStatus=group.slice().sort((a,b)=>(statusPriority[a.status]??5)-(statusPriority[b.status]??5))[0].status;
-    const types=[...new Set(group.map(x=>x.typePreference).filter(Boolean))].join(', ')||'—';
+    const types=[...new Set(group.map(x=>resolvedType(x)).filter(Boolean))].join(', ')||'—';
     return[qNums,lead.name,lead.phone||'',lead.email||'',types,bikes,totalPrice,payLabel,statusLabels[topStatus]||topStatus];
   });
   const csv=[headers,...rows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
@@ -5793,7 +5798,7 @@ function printSessionReport(){
     const topStatus=group.sort((a,b)=>(statusPriority[a.status]??5)-(statusPriority[b.status]??5))[0].status;
     const phone=lead.phone||'';
     const email=lead.email||'';
-    const types=[...new Set(group.map(x=>x.typePreference).filter(Boolean))].join(', ')||'—';
+    const types=[...new Set(group.map(x=>resolvedType(x)).filter(Boolean))].join(', ')||'—';
     return`<tr>
       <td>${qNums}</td>
       <td>${esc(lead.name)}</td>
@@ -6860,14 +6865,14 @@ function renderHistory(){
   if(S.histStatus!=='all') filtered=filtered.filter(e=>e.status===S.histStatus);
   if(S.histPay==='paid')   filtered=filtered.filter(e=>e.paid);
   if(S.histPay==='pending')filtered=filtered.filter(e=>!e.paid&&e.status==='done');
-  if(S.histType!=='all')   filtered=filtered.filter(e=>e.typePreference===S.histType);
+  if(S.histType!=='all')   filtered=filtered.filter(e=>resolvedType(e)===S.histType);
   if(S.histSize!=='all')   filtered=filtered.filter(e=>e.size===S.histSize);
   if(S.histSearch.trim()){const q=S.histSearch.trim().toLowerCase();filtered=filtered.filter(e=>e.name.toLowerCase().includes(q)||(e.phone||'').includes(q)||(e.email||'').toLowerCase().includes(q));}
   const _hd=S.histSortDir;
   filtered.sort((a,b)=>{
     if(S.histSort==='name')   return _hd*a.name.localeCompare(b.name);
     if(S.histSort==='amount') return _hd*((a.price||0)-(b.price||0));
-    if(S.histSort==='type')   return _hd*(a.typePreference||'').localeCompare(b.typePreference||'');
+    if(S.histSort==='type')   return _hd*(resolvedType(a)||'').localeCompare(resolvedType(b)||'');
     if(S.histSort==='status') return _hd*(a.status||'').localeCompare(b.status||'');
     return _hd*(new Date(a.registeredAt)-new Date(b.registeredAt));
   });
@@ -6914,7 +6919,7 @@ function renderHistory(){
       <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
         ${bike&&bike.colors&&bike.colors.length?bike.colors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join(''):'<span style="color:var(--muted)">—</span>'}
       </div></td>
-      <td>${typeBadge(e.typePreference)}</td>
+      <td>${typeBadge(resolvedType(e))}</td>
       <td>
         <div onclick="event.stopPropagation()" style="display:flex;flex-direction:column;align-items:flex-start;gap:6px">
           <span style="font-weight:900;font-size:15px;color:${payColor}">SAR ${e.price??DEFAULT_PRICE}</span>
@@ -7050,7 +7055,7 @@ function exportHistoryCSV(){
       shortDate(e.sessionDate),
       sessionTime(entSess),
       bikeNamesCsv,
-      e.typePreference,
+      resolvedType(e),
       e.price??DEFAULT_PRICE,
       e.paid?'Yes':'No',
       e.status
@@ -7079,7 +7084,7 @@ function showReceipt(id){
     `${t('colSession').padEnd(14)}:  ${dayLabel(e.sessionDay)}, ${shortDate(e.sessionDate)}`,
     `${t('timeLabel').padEnd(14)}:  ${sessionTime(allSessions().find(s=>s.id===e.sessionId))}`,
     `${t('colBike').padEnd(14)}:  ${bike?bike.name:'N/A'}`,
-    `${t('bikeTypeLabel').padEnd(14)}:  ${e.typePreference}`,
+    `${t('bikeTypeLabel').padEnd(14)}:  ${resolvedType(e)}`,
     `${t('colPayment').padEnd(14)}:  ${e.paid?t('paidLabel')+' ✓':t('pendingLabel')+' ⏳'}`,
     '──────────────────────────────────────','',
     t('receiptSeeYou'),'',
@@ -7286,11 +7291,11 @@ function renderAnalytics(){
 
   // ── Breakdowns ───────────────────────────────────────
   const typeBreak={};
-  done.forEach(e=>{typeBreak[e.typePreference]=(typeBreak[e.typePreference]||0)+1;});
+  done.forEach(e=>{const rt=resolvedType(e);typeBreak[rt]=(typeBreak[rt]||0)+1;});
   const dayBreak={};
   done.forEach(e=>{if(e.sessionDay)dayBreak[e.sessionDay]=(dayBreak[e.sessionDay]||0)+1;});
   const revByType={};
-  done.filter(e=>e.paid).forEach(e=>{revByType[e.typePreference]=(revByType[e.typePreference]||0)+(e.price??DEFAULT_PRICE);});
+  done.filter(e=>e.paid).forEach(e=>{const rt=resolvedType(e);revByType[rt]=(revByType[rt]||0)+(e.price??DEFAULT_PRICE);});
   // Revenue per day of week (collected)
   const revByDay={};
   const countByDay={};
@@ -7302,7 +7307,7 @@ function renderAnalytics(){
   // Avg revenue per ride by type (collected only)
   const typeRevPerRide={};
   Object.keys(revByType).forEach(ty=>{
-    const cnt=done.filter(e=>e.paid&&e.typePreference===ty).length;
+    const cnt=done.filter(e=>e.paid&&resolvedType(e)===ty).length;
     typeRevPerRide[ty]=cnt>0?(revByType[ty]/cnt):0;
   });
   const typeColor={Road:'var(--text)',Hybrid:'var(--green)',Mountain:'var(--text)',Any:'var(--muted-l)'};
@@ -7326,7 +7331,7 @@ function renderAnalytics(){
   const ridesWithDur=done.filter(e=>e.rideDuration&&e.rideDuration>0);
   const avgDurOverall=ridesWithDur.length?Math.round(ridesWithDur.reduce((s,e)=>s+e.rideDuration,0)/ridesWithDur.length):0;
   const durSumByType={},durCntByType={};
-  ridesWithDur.forEach(e=>{const ty=e.typePreference;durSumByType[ty]=(durSumByType[ty]||0)+e.rideDuration;durCntByType[ty]=(durCntByType[ty]||0)+1;});
+  ridesWithDur.forEach(e=>{const ty=resolvedType(e);durSumByType[ty]=(durSumByType[ty]||0)+e.rideDuration;durCntByType[ty]=(durCntByType[ty]||0)+1;});
   const avgDurByType={};Object.keys(durSumByType).forEach(k=>{avgDurByType[k]=Math.round(durSumByType[k]/durCntByType[k]);});
   const durSumByModel={},durCntByModel={};
 
@@ -7390,7 +7395,7 @@ function renderAnalytics(){
       const rev  =sDone.filter(e=>e.paid).reduce((sum,e)=>sum+(e.price??DEFAULT_PRICE),0);
       const pend =sDone.filter(e=>!e.paid).reduce((sum,e)=>sum+(e.price??DEFAULT_PRICE),0);
       const occ  =Math.round(sDone.length/cap*100);
-      const types={};sDone.forEach(e=>{types[e.typePreference]=(types[e.typePreference]||0)+1;});
+      const types={};sDone.forEach(e=>{const rt=resolvedType(e);types[rt]=(types[rt]||0)+1;});
       const topT =Object.keys(types).sort((a,b)=>types[b]-types[a])[0]||'—';
       const lbl  =shortDate(s.session_date||s.id).replace(/,.*$/,'');
       return{s,sDone,sNo,cap,rev,pend,occ,topT,lbl,riders:sDone.length,revTotal:rev+pend,noShows:sNo.length};
