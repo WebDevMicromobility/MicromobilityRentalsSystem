@@ -73,6 +73,7 @@ MIGRATIONS = [
     "ALTER TABLE bikes ADD COLUMN color_names TEXT",
     "ALTER TABLE bikes ADD COLUMN rental_price REAL",
     "ALTER TABLE customers ADD COLUMN type_preference TEXT",
+    "ALTER TABLE queue_entries ADD COLUMN ride_duration INTEGER",
 ]
 
 
@@ -234,6 +235,7 @@ def patch_queue_entry(entry_id):
         'price': 'price',
         'size': 'size',
         'typePreference': 'type_preference',
+        'ride_duration': 'ride_duration',
     }
     sets, vals = [], []
     for key, col in col_map.items():

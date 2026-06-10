@@ -1473,8 +1473,8 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <button class="tab-btn active" data-stab="queue"     onclick="setStaffTab('queue')">Bookings</button>
     <button class="tab-btn"        data-stab="sessions"  onclick="setStaffTab('sessions')">Sessions</button>
     <button class="tab-btn"        data-stab="bikes"     onclick="setStaffTab('bikes')">Bikes</button>
-    <button class="tab-btn"        data-stab="history"   onclick="setStaffTab('history')">History</button>
     <button class="tab-btn"        data-stab="analytics" onclick="setStaffTab('analytics')">Analytics</button>
+    <button class="tab-btn"        data-stab="history"   onclick="setStaffTab('history')">History</button>
     <button class="tab-btn"        data-stab="logs"      onclick="setStaffTab('logs')">Logs</button>
   </nav>
   <div class="view-main">
@@ -2425,7 +2425,8 @@ function entryFromDB(e){
     assignedBikeId:e.assigned_bike_id,sessionId:e.session_id,
     sessionDay:e.session_day,sessionDate:e.session_date,
     queueNum:e.queue_num,status:e.status,registeredAt:e.registered_at,
-    walkIn:Boolean(e.walk_in),customerId:e.customer_id};
+    walkIn:Boolean(e.walk_in),customerId:e.customer_id,
+    rideDuration:e.ride_duration||null};
 }
 function entryToDB(e){
   return{id:e.id,name:e.name,email:e.email||'',phone:e.phone||'',
@@ -4503,6 +4504,8 @@ function renderStaffQueue(){
     :queue.filter(e=>e.status!=='removed'&&e.status!=='cancelled');
   const total=base.length,nWait=base.filter(e=>e.status==='waiting').length,
         nBike=base.filter(e=>e.status==='active').length,nDone=base.filter(e=>e.status==='done').length;
+  const nRiders=new Set(base.map(e=>e.customerId||e.id)).size;
+  const nWaitingRiders=new Set(base.filter(e=>e.status==='waiting').map(e=>e.customerId||e.id)).size;
   let filtered=[...base];
   if(S.sfStatus==='cancelled'){
     filtered=S.sfSession!=='all'
@@ -4928,8 +4931,10 @@ function renderStaffQueue(){
     <div class="stats-row">
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('totalStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWait}</div><div class="stat-label">${t('waitingStat')}</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWaitingRiders}</div><div class="stat-label">Waiting Riders</div></div>
       <div class="stat-card"><div class="stat-num" style="color:#a0f0c0">${nBike}</div><div class="stat-label">${t('onBikeStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--muted)">${nDone}</div><div class="stat-label">${t('doneStat')}</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--muted-l)">${nRiders}</div><div class="stat-label">Riders</div></div>
     </div>
     ${nextUp}
     ${(()=>{
@@ -5558,6 +5563,7 @@ async function _execReturn(id,markPaid){
   const q=getQueue();const entry=q.find(e=>e.id===id);if(!entry)return;
   const bikeIds=getAssignedBikeIds(entry);const name=entry.name;const qn=entry.queueNum;
   const updates={status:'done'};if(markPaid)updates.paid=true;
+  try{const ts=localStorage.getItem('cq_ct_'+id);if(ts){const mins=Math.round((Date.now()-Number(ts))/60000);if(mins>0)updates.ride_duration=mins;}}catch(_){}
   await Promise.all([
     sb.from('queue_entries').update(updates).eq('id',id),
     ...bikeIds.map(bid=>sb.from('bikes').update({status:'available'}).eq('id',bid)),
@@ -7245,8 +7251,19 @@ function renderAnalytics(){
       },{s:null,r:-1})
     :{s:null,r:0};
 
+  // ── Ride duration analytics ───────────────────────────
+  function fmtDur(min){if(!min||min<1)return'—';if(min<60)return`${min} min`;return`${Math.floor(min/60)}h ${min%60}m`;}
+  const ridesWithDur=done.filter(e=>e.rideDuration&&e.rideDuration>0);
+  const avgDurOverall=ridesWithDur.length?Math.round(ridesWithDur.reduce((s,e)=>s+e.rideDuration,0)/ridesWithDur.length):0;
+  const durSumByType={},durCntByType={};
+  ridesWithDur.forEach(e=>{const ty=e.typePreference;durSumByType[ty]=(durSumByType[ty]||0)+e.rideDuration;durCntByType[ty]=(durCntByType[ty]||0)+1;});
+  const avgDurByType={};Object.keys(durSumByType).forEach(k=>{avgDurByType[k]=Math.round(durSumByType[k]/durCntByType[k]);});
+  const durSumByModel={},durCntByModel={};
+
   // ── Fleet analytics: brand / model rental counts ─────
   const allBikes=getBikes();
+  ridesWithDur.forEach(e=>{getAssignedBikeIds(e).forEach(bId=>{const bk=allBikes.find(x=>x.id===bId);if(!bk)return;const mk=bk.brand&&bk.model?`${bk.brand} - ${bk.model}`:bk.name;durSumByModel[mk]=(durSumByModel[mk]||0)+e.rideDuration;durCntByModel[mk]=(durCntByModel[mk]||0)+1;});});
+  const avgDurByModel={};Object.keys(durSumByModel).forEach(k=>{avgDurByModel[k]=Math.round(durSumByModel[k]/durCntByModel[k]);});
   const brandRentals={};
   const modelRentals={};
   done.forEach(e=>{
@@ -7648,6 +7665,37 @@ function renderAnalytics(){
           : noDataStr}
       </div>
     </div>
+
+    <!-- RIDE DURATION -->
+    ${ridesWithDur.length?`
+    <div class="analytics-section-title">Ride Duration</div>
+    <div class="analytics-kpi-grid">
+      <div class="analytics-kpi-card">
+        <div class="analytics-kpi-value" style="color:var(--blue)">${fmtDur(avgDurOverall)}</div>
+        <div class="analytics-kpi-label">Avg Ride Duration</div>
+        <div class="analytics-kpi-sub">${ridesWithDur.length} rides tracked</div>
+      </div>
+    </div>
+    <div class="chart-grid-wide">
+      <div class="chart-card">
+        <div class="chart-card-title">Avg Duration by Type</div>
+        <div class="chart-card-sub">Average minutes per ride by bike type</div>
+        ${Object.keys(avgDurByType).length?Object.entries(avgDurByType).sort((a,b)=>b[1]-a[1]).map(([ty,avg])=>`<div class="analytics-bar-row">
+            <div class="analytics-bar-label">${typeLabel(ty)}</div>
+            <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(avg/Math.max(...Object.values(avgDurByType),1)*100)}%;background:${typeColorHex[ty]||'#777'}"></div></div>
+            <div class="analytics-bar-value">${fmtDur(avg)}</div>
+          </div>`).join(''):noDataStr}
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">Avg Duration by Model</div>
+        <div class="chart-card-sub">Which bikes see the longest rides</div>
+        ${Object.keys(avgDurByModel).length?Object.entries(avgDurByModel).sort((a,b)=>b[1]-a[1]).map(([mk,avg])=>`<div class="analytics-bar-row">
+            <div class="analytics-bar-label">${esc(mk)}</div>
+            <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(avg/Math.max(...Object.values(avgDurByModel),1)*100)}%;background:${modelColorMap[mk]||'#4aa8f8'}"></div></div>
+            <div class="analytics-bar-value">${fmtDur(avg)}</div>
+          </div>`).join(''):noDataStr}
+      </div>
+    </div>`:''}
 
     <!-- HIGHLIGHTS -->
     <div class="analytics-section-title">${t('anHighlights')}</div>
