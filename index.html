@@ -4535,6 +4535,18 @@ async function restoreSession(id){
   }catch(e){toast(t('errConnection'),'error');}
 }
 
+function _contactCell(phone){
+  if(!phone)return'<span style="color:var(--muted)">—</span>';
+  return`<div style="display:flex;gap:5px;align-items:center">
+    <a href="tel:${esc(phone)}" title="${t('callLabel')||'Call'}" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);text-decoration:none;transition:all .18s" onmouseover="this.style.background='rgba(3,255,137,.22)'" onmouseout="this.style.background='rgba(3,255,137,.1)'">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13.1a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+    </a>
+    <a href="https://wa.me/${phone.replace(/\D/g,'')}" target="_blank" rel="noopener" title="WhatsApp" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);text-decoration:none;transition:all .18s" onmouseover="this.style.background='rgba(3,255,137,.22)'" onmouseout="this.style.background='rgba(3,255,137,.1)'">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
+    </a>
+  </div>`;
+}
+
 /* ══════════════════════════════════════════════
    STAFF QUEUE
 ══════════════════════════════════════════════ */
@@ -4633,18 +4645,6 @@ function renderStaffQueue(){
     if(e.phone)return e.phone;
     if(e.customerId){const c=getCustomers().find(x=>x.id===e.customerId);if(c&&c.phone)return c.phone;}
     return'';
-  }
-
-  function _contactCell(phone){
-    if(!phone)return'<span style="color:var(--muted)">—</span>';
-    return`<div style="display:flex;gap:5px;align-items:center">
-      <a href="tel:${esc(phone)}" title="${t('callLabel')||'Call'}" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);text-decoration:none;transition:all .18s" onmouseover="this.style.background='rgba(3,255,137,.22)'" onmouseout="this.style.background='rgba(3,255,137,.1)'">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13.1a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.62 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-      </a>
-      <a href="https://wa.me/${phone.replace(/\D/g,'')}" target="_blank" rel="noopener" title="WhatsApp" style="display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);text-decoration:none;transition:all .18s" onmouseover="this.style.background='rgba(3,255,137,.22)'" onmouseout="this.style.background='rgba(3,255,137,.1)'">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/></svg>
-      </a>
-    </div>`;
   }
 
   function _entryActions(e){
@@ -6910,6 +6910,8 @@ function renderHistory(){
         <div class="rider-sub" style="margin-top:3px">${esc(fmtPhone(e.phone))||'—'}</div>
         <div class="rider-sub">${hasEmail?esc(e.email):`<span style="font-style:italic;color:var(--muted)">${t('noEmailLabel')}</span>`}</div>
       </td>
+      <td style="font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">${e.height?e.height+' cm':'<span style="color:var(--muted)">—</span>'}</td>
+      <td>${typeBadge(resolvedType(e))}</td>
       <td class="hide-mobile">
         <div style="font-weight:800;font-size:13px">${dayLabel(e.sessionDay)||''}</div>
         <div style="color:var(--muted);font-size:12px;margin-top:1px">${shortDate(e.sessionDate)}</div>
@@ -6919,19 +6921,17 @@ function renderHistory(){
       <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
         ${bike&&bike.colors&&bike.colors.length?bike.colors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join(''):'<span style="color:var(--muted)">—</span>'}
       </div></td>
-      <td>${typeBadge(resolvedType(e))}</td>
-      <td>
-        <div onclick="event.stopPropagation()" style="display:flex;flex-direction:column;align-items:flex-start;gap:6px">
-          <span style="font-weight:900;font-size:15px;color:${payColor}">SAR ${e.price??DEFAULT_PRICE}</span>
-          <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-            <button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
-              ${e.paid&&(e.price??DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
-            </button>
-            <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">✏️</button>
-          </div>
+      <td style="font-weight:900;font-size:15px;white-space:nowrap;color:${payColor}">SAR ${e.price??DEFAULT_PRICE}</td>
+      <td onclick="event.stopPropagation()">
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+          <button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
+            ${e.paid&&(e.price??DEFAULT_PRICE)===0?'🏠 '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):'⏳ '+t('pendingLabel')}
+          </button>
+          <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">✏️</button>
         </div>
       </td>
       <td>${statusBadge(e.status)}</td>
+      <td>${_contactCell(e.phone)}</td>
       <td><div class="actions-cell">
         ${e.status==='removed'
           ?`<button class="btn-sm btn-green" onclick="doRestoreEntry('${e.id}')">${t('restoreEntryBtn')||'Restore'}</button>`
@@ -6942,7 +6942,7 @@ function renderHistory(){
       </div></td>
     </tr>`;
   }).join('');
-  const emptyRow=filtered.length===0?`<tr><td colspan="9"><div style="padding:8px">${emptyIllustration(ILLUS_HISTORY,t('noHistory'))}</div></td></tr>`:'';
+  const emptyRow=filtered.length===0?`<tr><td colspan="12"><div style="padding:8px">${emptyIllustration(ILLUS_HISTORY,t('noHistory'))}</div></td></tr>`:'';
   document.getElementById('tab-history').innerHTML=`
     <div class="section-header" style="margin-bottom:8px">
       <div>
@@ -6996,12 +6996,15 @@ function renderHistory(){
       <thead><tr>
         <th>#</th>
         ${thHistSort('name',t('colRider'))}
-        ${thHistSort('date',t('colSession'),'hide-mobile')}
+        <th style="font-size:10px;color:var(--muted)">Height</th>
+        ${thHistSort('type',t('bikeTypeLabel'))}
+        <th class="hide-mobile">${t('colSession')}</th>
         <th>${t('colBike')}</th>
         <th>${t('colColor')}</th>
-        ${thHistSort('type',t('bikeTypeLabel'))}
+        <th>${t('colPrice')||'Price'}</th>
         ${thHistSort('amount',t('colPayment'))}
         ${thHistSort('status',t('colStatus'))}
+        <th style="font-size:10px;color:var(--muted)">${t('colContact')}</th>
         <th>${t('colActions')}</th>
       </tr></thead>
       <tbody>${rows}${emptyRow}</tbody>
