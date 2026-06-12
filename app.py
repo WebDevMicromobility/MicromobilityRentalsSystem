@@ -132,6 +132,12 @@ def serve_index():
     return send_from_directory('.', 'index.html')
 
 
+@app.route('/staff', methods=['GET'])
+@app.route('/staff/', methods=['GET'])
+def serve_staff():
+    return send_from_directory('.', 'index.html')
+
+
 @app.route('/micromobilitylogo.jpeg')
 def serve_logo():
     return send_from_directory('.', 'micromobilitylogo.jpeg')
