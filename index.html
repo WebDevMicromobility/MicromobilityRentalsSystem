@@ -7928,8 +7928,10 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   S.loggedIn=getSession();
   // Restore cancellation log from localStorage
   try{const cl=localStorage.getItem('cq_cancellations');if(cl)S.cancellationLog=JSON.parse(cl);}catch(e){}
-  // Detect staff entry via /staff path
-  const _isStaffUrl=window.location.pathname.startsWith('/staff');
+  // Detect staff entry via /staff path or redirect flag from staff/index.html
+  const _staffEntry=sessionStorage.getItem('cq_staff_entry')==='1';
+  if(_staffEntry)sessionStorage.removeItem('cq_staff_entry');
+  const _isStaffUrl=window.location.pathname.startsWith('/staff')||_staffEntry;
   // Restore previous view and tab after refresh
   if(localStorage.getItem('cq_staff')==='1'){
     goStaff();
