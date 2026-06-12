@@ -3071,7 +3071,7 @@ function renderTopbarRight(){
     const last=S.undoStack.length?S.undoStack[S.undoStack.length-1]:null;
     el.innerHTML=`
       ${last?`<button class="topbar-btn undo-btn" onclick="doUndo()" title="${esc(last.label)}" style="animation:undoPulse 2s ease-in-out infinite">&#x21B6; Undo</button>`:''}
-      <button class="topbar-btn danger" onclick="localStorage.removeItem('cq_staff');window.location.href='/staff'">${t('lockBtn')}</button>`;
+      <button class="topbar-btn danger" onclick="localStorage.removeItem('cq_staff');window.location.href='/?staff'">${t('lockBtn')}</button>`;
   } else {
     el.innerHTML='';
   }
@@ -7928,18 +7928,17 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   S.loggedIn=getSession();
   // Restore cancellation log from localStorage
   try{const cl=localStorage.getItem('cq_cancellations');if(cl)S.cancellationLog=JSON.parse(cl);}catch(e){}
-  // Detect if loaded via /staff URL
-  const _isStaffUrl=window.location.pathname.startsWith('/staff');
+  // Detect staff entry via /staff path OR ?staff query param
+  const _isStaffUrl=window.location.pathname.startsWith('/staff')||new URLSearchParams(window.location.search).has('staff');
   // Restore previous view and tab after refresh
   if(localStorage.getItem('cq_staff')==='1'){
     goStaff();
     const savedStab=sessionStorage.getItem('cq_nav_stab');
     if(savedStab&&['queue','sessions','bikes','history','analytics','logs'].includes(savedStab))setStaffTab(savedStab);
   } else if(_isStaffUrl){
-    // Staff URL: show landing briefly then open PIN modal
     showView('landing');
     renderLandingAvail();
-    setTimeout(()=>openPinModal(),200);
+    openPinModal();
   } else if(S.loggedIn){
     const savedCtab=sessionStorage.getItem('cq_nav_ctab');
     goCustomer(savedCtab&&['register','myrides','account'].includes(savedCtab)?savedCtab:'register');
