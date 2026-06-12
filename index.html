@@ -1580,7 +1580,7 @@ en:{
   staffResetExpiry:'Valid for 10 minutes · changes automatically',
   authPhone:'Phone Number',authPhoneOpt:'(optional if using email)',
   authPassword:'Password',authPasswordHint:'Min 8 chars, 1 uppercase, 1 number',authConfirmPassword:'Confirm Password',
-  tabReserve:'Reserve',tabMyRides:'My Rides',tabQueue:'Queue',tabSessions:'Sessions',tabBikes:'Bikes',tabHistory:'History',tabAnalytics:'Analytics',
+  tabReserve:'Reserve',tabMyRides:'My Rides',tabQueue:'Queue',tabSessions:'Sessions',tabBikes:'Bikes',tabHistory:'History',tabAnalytics:'Analytics',tabLogs:'Logs',
   anRevCollected:'Revenue Collected',anRevPending:'Revenue Pending',anRevTotal:'Total Revenue',anAvgPerSession:'Avg / Session',
   anTotalRides:'Completed Rides',anUniqueCustomers:'Unique Customers',anRepeatRiders:'Repeat Riders',
   anSessionsHeld:'Sessions Held',anAvgOccupancy:'Avg Occupancy',anNoShowRate:'No-Show Rate',anCollectionRate:'Collection Rate',
@@ -1803,6 +1803,12 @@ en:{
   doneSessChip:'done',activeSessChip:'on bike',
   colContact:'Contact',callLabel:'Call',
   colPrice:'Price',
+  colHeight:'Height',colDuration:'Duration',
+  anDurationSection:'Ride Duration',anAvgDuration:'Avg Duration',anLongestRide:'Longest Ride',anShortestRide:'Shortest Ride',anDurRidesTracked:'rides tracked',
+  anDurByType:'Avg Duration by Type',anDurByTypeSub:'Average minutes per ride by bike type',
+  anDurByModel:'Avg Duration by Model',anDurByModelSub:'Which bikes see the longest rides',
+  anDurDistrib:'Ride Length Distribution',anDurDistribSub:'How long riders typically stay on the bike',
+  anDurBySession:'Avg Duration by Session',anDurBySessionSub:'How ride times vary across sessions',
   exportBtn:'Export CSV',
   anCustom:'Custom',anDateRange:'Date Range',anFromDate:'From',anToDate:'To',
   payAtBoothTitle:'Payment Info',
@@ -1822,6 +1828,9 @@ en:{
   releaseBikeBtn:'Release',releaseBikeToast:'released back to available',noRiderAssigned:'No rider assigned',
   errValidPrice:'Please enter a valid price (0 or above).',
   colRevenue:'Revenue',
+  toastPriceSet:'Price set to SAR {0}',
+  toastSessionUpdated:'Session {0} updated.',
+  bikeRentalPrice:'Rental Price',bikeCustomPrice:'Custom Rental Price',
 },
 ar:{
   appSub:'طابور حلبة الكورنيش',landingTitle:'مايكرو موبيليتي - حلبة الكورنيش',
@@ -1853,7 +1862,7 @@ ar:{
   staffResetExpiry:'صالح لمدة 10 دقائق · يتغير تلقائياً',
   authPhone:'رقم الهاتف',authPhoneOpt:'(اختياري إذا استخدمت البريد)',
   authPassword:'كلمة المرور',authPasswordHint:'8 أحرف كحد أدنى، حرف كبير ورقم',authConfirmPassword:'تأكيد كلمة المرور',
-  tabReserve:'حجز',tabMyRides:'رحلاتي',tabQueue:'الطابور',tabSessions:'الجلسات',tabBikes:'الدراجات',tabHistory:'السجل',tabAnalytics:'التحليلات',
+  tabReserve:'حجز',tabMyRides:'رحلاتي',tabQueue:'الطابور',tabSessions:'الجلسات',tabBikes:'الدراجات',tabHistory:'السجل',tabAnalytics:'التحليلات',tabLogs:'السجلات',
   anRevCollected:'الإيرادات المحصلة',anRevPending:'الإيرادات المعلقة',anRevTotal:'إجمالي الإيرادات',anAvgPerSession:'متوسط الجلسة',
   anTotalRides:'الرحلات المكتملة',anUniqueCustomers:'العملاء الفريدون',anRepeatRiders:'الراكبون المتكررون',
   anSessionsHeld:'الجلسات المنعقدة',anAvgOccupancy:'متوسط الإشغال',anNoShowRate:'معدل الغياب',anCollectionRate:'معدل التحصيل',
@@ -2066,6 +2075,12 @@ ar:{
   doneSessChip:'منتهٍ',activeSessChip:'على الدراجة',
   colContact:'تواصل',callLabel:'اتصال',
   colPrice:'السعر',
+  colHeight:'الطول',colDuration:'المدة',
+  anDurationSection:'مدة الركوب',anAvgDuration:'متوسط المدة',anLongestRide:'أطول رحلة',anShortestRide:'أقصر رحلة',anDurRidesTracked:'رحلات مرصودة',
+  anDurByType:'متوسط المدة حسب النوع',anDurByTypeSub:'متوسط الدقائق لكل رحلة حسب نوع الدراجة',
+  anDurByModel:'متوسط المدة حسب الموديل',anDurByModelSub:'الدراجات ذات الرحلات الأطول',
+  anDurDistrib:'توزيع مدة الركوب',anDurDistribSub:'كم من الوقت يمضي الراكبون على الدراجة',
+  anDurBySession:'متوسط المدة حسب الجلسة',anDurBySessionSub:'تفاوت الرحلات عبر الجلسات',
   exportBtn:'تصدير CSV',
   anCustom:'مخصص',anDateRange:'نطاق تاريخ',anFromDate:'من',anToDate:'إلى',
   payAtBoothTitle:'معلومات الدفع',
@@ -2085,6 +2100,9 @@ ar:{
   releaseBikeBtn:'تحرير',releaseBikeToast:'تم تحريره وأصبح متاحاً',noRiderAssigned:'لا يوجد راكب',
   errValidPrice:'الرجاء إدخال سعر صحيح (صفر أو أكثر).',
   colRevenue:'الإيرادات',
+  toastPriceSet:'تم تعيين السعر على {0} ريال',
+  toastSessionUpdated:'تم تحديث جلسة {0}.',
+  bikeRentalPrice:'سعر الإيجار',bikeCustomPrice:'سعر إيجار مخصص',
 }};
 function t(k){return(LANG[S&&S.lang?S.lang:'en']||LANG.en)[k]||LANG.en[k]||k;}
 
@@ -2110,10 +2128,11 @@ function setLang(lang){
     if(b.dataset.stab==='bikes')b.textContent=t('tabBikes');
     if(b.dataset.stab==='history')b.textContent=t('tabHistory');
     if(b.dataset.stab==='analytics')b.textContent=t('tabAnalytics');
+    if(b.dataset.stab==='logs')b.textContent=t('tabLogs');
   });
   renderTopbarRight();
   if(S.view==='customer'){renderRegister();renderMyRides();if(S.custTab==='account')renderAccount();}
-  else if(S.view==='staff'){renderStaffQueue();renderSessions();renderBikes();renderHistory();if(S.staffTab==='analytics')renderAnalytics();}
+  else if(S.view==='staff'){renderStaffQueue();renderSessions();renderBikes();renderHistory();if(S.staffTab==='analytics')renderAnalytics();if(S.staffTab==='logs')renderLogs();}
   else if(S.view==='landing')renderLandingAvail();
   if(document.getElementById('auth-modal')?.style.display!=='none')renderAuthModal();
 }
@@ -2844,12 +2863,12 @@ async function doSignup(){
   if(pwd.length<8||!/[A-Z]/.test(pwd)||!/[0-9]/.test(pwd)){authErr(t('errPasswordLen'));return;}
   if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
   const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
-  if(isNaN(heightRaw)||heightRaw<100||heightRaw>250){authErr(t('errValidHeightCm'));return;}
+  if(!isNaN(heightRaw)&&(heightRaw<100||heightRaw>250)){authErr(t('errValidHeightCm'));return;}
   const fullPhone=phone?(cc+phone):'';
   try{
     if(email){const{data:ex}=await sb.from('customers').select('id').eq('email',email).maybeSingle();if(ex){authErr(t('errEmailExists'));return;}}
     if(fullPhone){const{data:ex}=await sb.from('customers').select('id').eq('phone',fullPhone).maybeSingle();if(ex){authErr(t('errPhoneExists'));return;}}
-    const height=heightRaw;
+    const height=isNaN(heightRaw)?null:heightRaw;
     const type_preference=S.signupTypePref||'Any';
     const customer={id:uid(),name,email,phone:fullPhone,password_hash:hashPwd(pwd),created_at:new Date().toISOString(),height,type_preference};
     const{error}=await sb.from('customers').insert(customer);
@@ -3071,7 +3090,7 @@ function renderTopbarRight(){
     const last=S.undoStack.length?S.undoStack[S.undoStack.length-1]:null;
     el.innerHTML=`
       ${last?`<button class="topbar-btn undo-btn" onclick="doUndo()" title="${esc(last.label)}" style="animation:undoPulse 2s ease-in-out infinite">&#x21B6; Undo</button>`:''}
-      <button class="topbar-btn danger" onclick="localStorage.removeItem('cq_staff');window.location.href='/?staff'">${t('lockBtn')}</button>`;
+      <button class="topbar-btn danger" onclick="localStorage.removeItem('cq_staff');window.location.href='/'">${t('lockBtn')}</button>`;
   } else {
     el.innerHTML='';
   }
@@ -3451,8 +3470,6 @@ function ensureBikeSizes(){
   while(S.regRiderNames.length>S.regQty) S.regRiderNames.pop();
 }
 
-function setBikeSize(idx,size){}
-
 function changeRegQty(delta){
   S.regQty=Math.max(1,S.regQty+delta);
   ensureBikeSizes();
@@ -3520,7 +3537,7 @@ async function submitReg(){
   // Resolve per-rider names: use entered name for each slot, fallback to account name for slot 0
   const riderNames=Array.from({length:qty},(_,i)=>{
     const entered=S.regRiderNames[i];
-    return (entered!==undefined&&entered.trim())?entered.trim():(i===0?cust.name:cust.name);
+    return (entered!==undefined&&entered.trim())?entered.trim():(i===0?cust.name:'');
   });
   const queue=getQueue();
   // If logged-in customer already has an active/waiting booking for this session, show clear message
@@ -3625,7 +3642,7 @@ async function submitModifyBooking(){
     // New entries share the existing booking's queue number
     const sharedQNum=existing[0].queueNum;
     for(let i=existing.length;i<newQty;i++){
-      const modRiderName=i===0?cust.name:(S.regRiderNames[i]||cust.name).trim();
+      const modRiderName=i===0?cust.name:(S.regRiderNames[i]||'').trim();
       const modHeight=parseInt(S.regBikeHeights[i])||null;
       const entry={
         id:uid(),name:modRiderName,email:cust.email||'',phone:cust.phone||'',
@@ -3793,6 +3810,12 @@ function renderMyRides(){
   document.getElementById('tab-myrides').innerHTML=`
     <div class="page-title">${t('myRidesTitle')}</div>
     <div class="page-sub">${t('myRidesSub')} ${esc(cust.name)}.</div>
+    <div class="rides-stat-row">
+      <div class="rides-stat-card"><div class="rides-stat-num">${visible.length}</div><div class="rides-stat-label">${t('totalBookings')}</div></div>
+      <div class="rides-stat-card"><div class="rides-stat-num" style="color:var(--green)">${completed.length}</div><div class="rides-stat-label">${t('completedLabel')}</div></div>
+      <div class="rides-stat-card"><div class="rides-stat-num" style="color:var(--green)">SAR ${totalPaid}</div><div class="rides-stat-label">${t('totalPaid')}</div></div>
+      <div class="rides-stat-card"><div class="rides-stat-num" style="color:var(--muted-l)">${pending>0?'SAR '+pending:'—'}</div><div class="rides-stat-label">${t('pendingPayment')}</div></div>
+    </div>
     <div class="table-wrapper" style="border-radius:14px;border:1px solid rgba(255,255,255,.07);margin-top:16px"><table class="queue-table">
       <thead><tr>
         <th>#</th>
@@ -4422,7 +4445,7 @@ async function saveSessionEdit(){
     }
     await loadData();
     const displayDate=shortDate(newDate);
-    toast(`Session ${displayDate} updated.`);
+    toast(t('toastSessionUpdated').replace('{0}',displayDate));
     pushUndo(`Edit session ${displayDate}`,async()=>{
       const currentId=newDate!==oldId?newDate:oldId;
       if(newDate!==oldId){
@@ -4480,7 +4503,7 @@ async function addSession(){
   }
   const d=new Date(date+'T00:00:00');
   const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const session={id:date,day:dayNames[d.getDay()],session_date:date,capacity:total,
+  const session={id:date,day:dayNames[d.getDay()],session_date:date,capacity:total,status:'closed',
     bike_slots:JSON.stringify(slots),created_at:new Date().toISOString()};
   try{
     const{error}=await sb.from('sessions').insert(session);
@@ -4646,8 +4669,8 @@ function renderStaffQueue(){
   }
 
   function _entryActions(e){
-    if(e.status==='waiting')return`<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">Cancel</button>`;
-    if(e.status==='active')return`<button class="btn-sm btn-blue" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">Cancel</button>`;
+    if(e.status==='waiting')return`<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
+    if(e.status==='active')return`<button class="btn-sm btn-blue" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
     if(e.status==='done')return`<button class="btn-sm btn-blue" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
     if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
     return`<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
@@ -5016,7 +5039,7 @@ function renderStaffQueue(){
         ${thQSort('queue',t('colBookingNum'))}
         <th style="color:var(--muted);font-size:10px;text-align:center">${t('colPosition')}</th>
         ${thQSort('name',t('colRider'))}
-        <th style="font-size:10px;color:var(--muted)">Height</th>
+        <th style="font-size:10px;color:var(--muted)">${t('colHeight')}</th>
         ${thQSort('type',t('bikeTypeLabel'))}
         <th class="hide-mobile" style="display:none"></th>
         <th>${t('colBike')}</th>
@@ -5141,7 +5164,7 @@ async function doUndo(){
     toast(t('undoneMsg'));
   }catch(e){
     S.undoStack.push(item);
-    toast('Undo failed.','error');
+    toast(t('undoFailed'),'error');
   }
   renderTopbarRight();
 }
@@ -5546,7 +5569,6 @@ function showFactoryReset(){
       </div>
     </div>
   </div>`;
-  document.getElementById('rst-go-btn').addEventListener('input',()=>{});
   // Enable button when RESET is typed
   const inp=document.getElementById('rst-confirm-input');
   const btn=document.getElementById('rst-go-btn');
@@ -5728,9 +5750,9 @@ function exportSessionExcel(){
   const sessId=S.sfSession;if(sessId==='all')return;
   const sess=allSessions().find(s=>s.id===sessId);if(!sess)return;
   const entries=getQueue()
-    .filter(e=>e.sessionId===sessId&&e.status!=='removed'&&e.paid&&(e.price??DEFAULT_PRICE)>0)
+    .filter(e=>e.sessionId===sessId&&e.status!=='removed'&&e.status!=='cancelled')
     .sort((a,b)=>a.queueNum-b.queueNum);
-  if(!entries.length){toast('No paid bookings to export','warning');return;}
+  if(!entries.length){toast('No bookings to export','warning');return;}
   const groups=[];
   const usedIds=new Set();
   for(const e of entries){
@@ -5767,11 +5789,11 @@ function printSessionReport(){
   const sessId=S.sfSession;if(sessId==='all')return;
   const sess=allSessions().find(s=>s.id===sessId);if(!sess)return;
   const entries=getQueue()
-    .filter(e=>e.sessionId===sessId&&e.status!=='removed'&&e.paid&&(e.price??DEFAULT_PRICE)>0)
+    .filter(e=>e.sessionId===sessId&&e.status!=='removed'&&e.status!=='cancelled')
     .sort((a,b)=>a.queueNum-b.queueNum);
   const totalSAR=entries.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
-  const paidSAR=totalSAR;
-  const pendingSAR=0;
+  const paidSAR=entries.filter(e=>e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
+  const pendingSAR=entries.filter(e=>!e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
   const statusLabels={waiting:'Waiting',active:'On Bike',done:'Done',noshow:'No-Show',cancelled:'Cancelled'};
   // Group entries: multi-entry bookings by same customerId are merged into one row
   const groups=[];
@@ -5793,7 +5815,7 @@ function printSessionReport(){
     const allBikes=[...new Set(group.flatMap(x=>getAssignedBikes(x).map(b=>b.name)))].join(', ')||'—';
     const totalPrice=group.reduce((s,x)=>s+(x.price??DEFAULT_PRICE),0);
     const statusPriority={active:0,waiting:1,done:2,noshow:3,cancelled:4};
-    const topStatus=group.sort((a,b)=>(statusPriority[a.status]??5)-(statusPriority[b.status]??5))[0].status;
+    const topStatus=group.slice().sort((a,b)=>(statusPriority[a.status]??5)-(statusPriority[b.status]??5))[0].status;
     const phone=lead.phone||'';
     const email=lead.email||'';
     const types=[...new Set(group.map(x=>resolvedType(x)).filter(Boolean))].join(', ')||'—';
@@ -5881,9 +5903,10 @@ async function doRemove(id){
 
 async function doRestoreEntry(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
+  const originalStatus=entry.status;
   const restoreStatus=entry.assignedBikeId?'done':'waiting';
   addHistLog('Restored',entry,async()=>{
-    await sb.from('queue_entries').update({status:'removed'}).eq('id',id);
+    await sb.from('queue_entries').update({status:originalStatus}).eq('id',id);
     await loadData();renderHistory();
   });
   await sb.from('queue_entries').update({status:restoreStatus}).eq('id',id);
@@ -6178,14 +6201,15 @@ async function saveModalPrice(id){
   const{error}=await sb.from('queue_entries').update({price:val}).eq('id',id);
   if(error){entry.price=prev;toast(error.message,'error');return;}
   await loadData();S.modalPriceEdit=false;renderModal();
-  toast(`Price set to SAR ${val}`);
+  toast(t('toastPriceSet').replace('{0}',val));
 }
 async function modalQuickAddBike(){
   const name=(document.getElementById('modal-bike-name')?.value||S.modalAddBikeName||'').trim();
   if(!name){toast(t('errBikeName'),'error');return;}
   if(!S.modalAddBikeType){toast(t('errBikeTypeReq'),'error');return;}
   const bike={id:uid(),name,size:S.modalAddBikeSize||'M',type:S.modalAddBikeType,colors:['#6ee89a'],color_names:[''],status:'available',brand:null,model:null,groupset:null,speeds:null};
-  await sb.from('bikes').insert(bike);
+  const{error:bikeErr}=await sb.from('bikes').insert(bike);
+  if(bikeErr){toast(bikeErr.message,'error');return;}
   await loadData();
   S.modalBikes.push(bike.id);
   S.modalShowAddBike=false;S.modalAddBikeName='';S.modalAddBikeType=null;S.modalAddBikeSize='M';
@@ -6246,10 +6270,13 @@ async function confirmAssign(){
   if(isReassign){
     toast(t('toastBikeChanged'));
     pushUndo(`Change bike #${qn} ${rName}`,async()=>{
+      const undoAssign={assigned_bike_id:alreadyAssigned.length===1?alreadyAssigned[0]:JSON.stringify(alreadyAssigned)};
+      if(priceUpdate.price!=null&&prevPrice!=null)undoAssign.price=prevPrice;
+      delete S._extraBikes[riderId];
       await Promise.all([
         ...needsUpdate.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b.id)),
         ...toFree.map(id=>sb.from('bikes').update({status:'in-use'}).eq('id',id)),
-        sb.from('queue_entries').update({assigned_bike_id:alreadyAssigned.length===1?alreadyAssigned[0]:JSON.stringify(alreadyAssigned)}).eq('id',riderId),
+        sb.from('queue_entries').update(undoAssign).eq('id',riderId),
       ]);
       await loadData();renderStaffQueue();
     });
@@ -6322,7 +6349,7 @@ function renderBikes(){
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label>Rental Price (SAR)</label>
+        <label>${t('bikeRentalPrice')} (SAR)</label>
         ${(()=>{
           const presets=['57.5','75','95','105','175','250'];
           const isCustom=S._bkRentalPrice&&!presets.includes(S._bkRentalPrice);
@@ -6496,7 +6523,7 @@ function renderBikes(){
           ${sortHdr('speeds',t('bikeSpeeds'))}
           <th>${t('bikeTypeLabel')}</th>
           ${sortHdr('size',t('frameSizeLabel'))}
-          <th>Rental Price</th>
+          <th>${t('bikeRentalPrice')}</th>
           <th>${t('colColor')}</th>
           ${sortHdr('status',t('colStatus'))}
           <th>${t('colRider')}</th>
@@ -6642,7 +6669,7 @@ function _showCustomPriceModal(){
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this){var _m=document.getElementById('confirm-modal');_m.style.display='none';_m.innerHTML='';renderBikes();}">
     <div class="confirm-box">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <div style="font-size:18px;font-weight:900">Custom Rental Price</div>
+        <div style="font-size:18px;font-weight:900">${t('bikeCustomPrice')}</div>
         <button onclick="document.getElementById('confirm-modal').style.display='none';document.getElementById('confirm-modal').innerHTML='';renderBikes()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 4px" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&times;</button>
       </div>
       <div style="margin-bottom:20px">
@@ -6890,7 +6917,7 @@ function renderHistory(){
     return`<option value="${s}"${S.histPay===s?' selected':''}>${l}</option>`;}).join('');
   const hTypeOpts=['all','Road','Hybrid','Mountain','Any'].map(ty=>
     `<option value="${ty}"${S.histType===ty?' selected':''}>${ty==='all'?t('filterAll'):typeLabel(ty)}</option>`).join('');
-  const hSortOpts=[['date',t('sortNewest')],['name',t('sortName')],['type',t('sortType')],['amount',t('colPayment')],['status',t('colStatus')],['dur','Duration']].map(([v,l])=>
+  const hSortOpts=[['date',t('sortNewest')],['name',t('sortName')],['type',t('sortType')],['amount',t('colPayment')],['status',t('colStatus')],['dur',t('colDuration')]].map(([v,l])=>
     `<option value="${v}"${S.histSort===v?' selected':''}>${l}</option>`).join('');
   const sessOpts=`<option value="all"${S.histSess==='all'?' selected':''}>${t('allSessions')}</option>`+
     sessions.map(s=>`<option value="${s.id}"${S.histSess===s.id?' selected':''}>${s.day} ${s.display}</option>`).join('');
@@ -6998,7 +7025,7 @@ function renderHistory(){
       <thead><tr>
         <th>#</th>
         ${thHistSort('name',t('colRider'))}
-        <th style="font-size:10px;color:var(--muted)">Height</th>
+        <th style="font-size:10px;color:var(--muted)">${t('colHeight')}</th>
         ${thHistSort('type',t('bikeTypeLabel'))}
         <th class="hide-mobile">${t('colSession')}</th>
         <th>${t('colBike')}</th>
@@ -7006,7 +7033,7 @@ function renderHistory(){
         <th>${t('colPrice')||'Price'}</th>
         ${thHistSort('amount',t('colPayment'))}
         ${thHistSort('status',t('colStatus'))}
-        ${thHistSort('dur','Duration')}
+        ${thHistSort('dur',t('colDuration'))}
         <th style="font-size:10px;color:var(--muted)">${t('colContact')}</th>
         <th>${t('colActions')}</th>
       </tr></thead>
@@ -7761,28 +7788,28 @@ function renderAnalytics(){
 
     <!-- RIDE DURATION -->
     ${ridesWithDur.length?`
-    <div class="analytics-section-title">Ride Duration</div>
+    <div class="analytics-section-title">${t('anDurationSection')}</div>
     <div class="analytics-kpi-grid">
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:var(--blue)">${fmtDur(avgDurOverall)}</div>
-        <div class="analytics-kpi-label">Avg Duration</div>
-        <div class="analytics-kpi-sub">${ridesWithDur.length} rides tracked</div>
+        <div class="analytics-kpi-label">${t('anAvgDuration')}</div>
+        <div class="analytics-kpi-sub">${ridesWithDur.length} ${t('anDurRidesTracked')}</div>
       </div>
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:var(--green)">${fmtDur(maxDurEntry?.rideDuration)}</div>
-        <div class="analytics-kpi-label">Longest Ride</div>
+        <div class="analytics-kpi-label">${t('anLongestRide')}</div>
         <div class="analytics-kpi-sub">${maxDurEntry?esc(maxDurEntry.name):''}</div>
       </div>
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:var(--muted-l)">${fmtDur(minDurEntry?.rideDuration)}</div>
-        <div class="analytics-kpi-label">Shortest Ride</div>
+        <div class="analytics-kpi-label">${t('anShortestRide')}</div>
         <div class="analytics-kpi-sub">${minDurEntry?esc(minDurEntry.name):''}</div>
       </div>
     </div>
     <div class="chart-grid-wide">
       <div class="chart-card">
-        <div class="chart-card-title">Avg Duration by Type</div>
-        <div class="chart-card-sub">Average minutes per ride by bike type</div>
+        <div class="chart-card-title">${t('anDurByType')}</div>
+        <div class="chart-card-sub">${t('anDurByTypeSub')}</div>
         ${Object.keys(avgDurByType).length?Object.entries(avgDurByType).sort((a,b)=>b[1]-a[1]).map(([ty,avg])=>`<div class="analytics-bar-row">
             <div class="analytics-bar-label">${typeLabel(ty)}</div>
             <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(avg/Math.max(...Object.values(avgDurByType),1)*100)}%;background:${typeColorHex[ty]||'#777'}"></div></div>
@@ -7790,8 +7817,8 @@ function renderAnalytics(){
           </div>`).join(''):noDataStr}
       </div>
       <div class="chart-card">
-        <div class="chart-card-title">Avg Duration by Model</div>
-        <div class="chart-card-sub">Which bikes see the longest rides</div>
+        <div class="chart-card-title">${t('anDurByModel')}</div>
+        <div class="chart-card-sub">${t('anDurByModelSub')}</div>
         ${Object.keys(avgDurByModel).length?Object.entries(avgDurByModel).sort((a,b)=>b[1]-a[1]).map(([mk,avg])=>`<div class="analytics-bar-row">
             <div class="analytics-bar-label">${esc(mk)}</div>
             <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(avg/Math.max(...Object.values(avgDurByModel),1)*100)}%;background:${modelColorMap[mk]||'#4aa8f8'}"></div></div>
@@ -7801,8 +7828,8 @@ function renderAnalytics(){
     </div>
     <div class="chart-grid-wide">
       <div class="chart-card">
-        <div class="chart-card-title">Ride Length Distribution</div>
-        <div class="chart-card-sub">How long riders typically stay on the bike</div>
+        <div class="chart-card-title">${t('anDurDistrib')}</div>
+        <div class="chart-card-sub">${t('anDurDistribSub')}</div>
         ${Object.entries(durBuckets).map(([label,cnt])=>`<div class="analytics-bar-row">
             <div class="analytics-bar-label">${label}</div>
             <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${ridesWithDur.length?Math.round(cnt/ridesWithDur.length*100):0}%;background:var(--blue)"></div></div>
@@ -7810,8 +7837,8 @@ function renderAnalytics(){
           </div>`).join('')}
       </div>
       <div class="chart-card">
-        <div class="chart-card-title">Avg Duration by Session</div>
-        <div class="chart-card-sub">How ride times vary across sessions</div>
+        <div class="chart-card-title">${t('anDurBySession')}</div>
+        <div class="chart-card-sub">${t('anDurBySessionSub')}</div>
         ${Object.keys(avgDurBySession).length?Object.entries(avgDurBySession).map(([label,avg])=>`<div class="analytics-bar-row">
             <div class="analytics-bar-label" style="font-size:11px">${label}</div>
             <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(avg/Math.max(...Object.values(avgDurBySession),1)*100)}%;background:var(--purple)"></div></div>
@@ -7907,7 +7934,6 @@ function emptyIllustration(svgIcon,title,sub='',action=''){
   </div>`;
 }
 const ILLUS_CALENDAR=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="var(--muted)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><rect x="10" y="16" width="52" height="46" rx="6"/><line x1="10" y1="30" x2="62" y2="30"/><line x1="24" y1="10" x2="24" y2="22"/><line x1="48" y1="10" x2="48" y2="22"/><circle cx="36" cy="48" r="10"/><path d="M31 43L41 53M41 43L31 53" stroke-width="2.5"/></svg>`;
-const ILLUS_BIKE=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="var(--muted)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><circle cx="18" cy="50" r="14"/><circle cx="54" cy="50" r="14"/><path d="M18 50L30 24 40 36 50 24"/><path d="M54 50L50 24"/><path d="M30 24L26 16h10"/><line x1="10" y1="10" x2="62" y2="62" stroke-width="3"/></svg>`;
 const ILLUS_BIKE_OK=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="var(--muted)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><circle cx="18" cy="50" r="14"/><circle cx="54" cy="50" r="14"/><path d="M18 50L30 24 40 36 50 24"/><path d="M54 50L50 24"/><path d="M30 24L26 16h10"/></svg>`;
 const ILLUS_PEOPLE=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="var(--muted)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><circle cx="36" cy="20" r="10"/><path d="M14 62Q14 42 36 42Q58 42 58 62"/><path d="M52 18a10 10 0 0 1 0 12"/><path d="M58 40Q66 44 66 54"/><path d="M20 18a10 10 0 0 0 0 12"/><path d="M14 40Q6 44 6 54"/></svg>`;
 const ILLUS_HISTORY=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="var(--muted)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><circle cx="36" cy="36" r="26"/><polyline points="36,18 36,36 46,42"/><path d="M10 36C10 22 22 10 36 10"/><path d="M10 26L10 36L20 36"/></svg>`;
