@@ -808,6 +808,7 @@
     .type-road{background:rgba(255,255,255,.07);color:var(--text);border:1px solid rgba(255,255,255,.14);}
     .type-hybrid{background:rgba(3,255,137,.1);color:var(--green);border:1px solid rgba(3,255,137,.22);}
     .type-mountain{background:rgba(255,255,255,.07);color:var(--text);border:1px solid rgba(255,255,255,.14);}
+    .type-gravel{background:rgba(3,255,137,.08);color:var(--green);border:1px solid rgba(3,255,137,.2);}
     .type-any{background:rgba(255,255,255,.05);color:var(--muted-l);border:1px solid rgba(255,255,255,.09);}
     .type-badge{display:inline-flex;align-items:center;gap:5px;}
 
@@ -1674,6 +1675,7 @@ en:{
   editSessionTitle:'Edit Session',saveSessionBtn:'Save Changes',editBtn2:'Edit',dateWarning:'Changing the date will update all existing bookings for this session.',
   bikesTitle:'Fleet',addBike:'+ Add Bike',editBikeTitle:'Edit Bike',addBikeTitle:'Add New Bike',
   bikeNameLabel:'Bike Name',frameSizeLabel:'Frame Size',bikeTypeLabel:'Bike Type',
+  bikeLocationLabel:'Location',bikeFrameTypeLabel:'Frame Type',bikeNumberLabel:'Bike Number',bikeAutoName:'Auto Name',frameSteel:'Steel',frameAluminum:'Aluminum',frameCarbon:'Carbon',frameTitanium:'Titanium',errBikeFrameReq:'Please select a frame type.',errBikeLocationReq:'Please select a location.',errBikeNumberReq:'Please enter a bike number.',errBikeNumberDup:'That bike number is already used at this location.',addLocationLabel:'Add new location...',
   bikeColorsLabel:'Bike Color(s)',colorsHint:'1 required - up to 4',
   saveBikeBtn:'Save Changes',addBikeBtn:'Add Bike',
   bikeBrand:'Brand',bikeModel:'Model',bikeGroupset:'Groupset',bikeSpeeds:'Speeds',
@@ -1805,7 +1807,7 @@ en:{
   receiptTitle:'Ride Receipt',receiptDear:'Dear',
   receiptThankYou:'Thank you for riding with us at the Jeddah Corniche Circuit!',
   receiptSeeYou:'We hope to see you at the Corniche Circuit again soon!',
-  typeRoad:'Road',typeHybrid:'Hybrid',typeMountain:'Mountain',typeAny:'Any',
+  typeRoad:'Road',typeHybrid:'Hybrid',typeMountain:'Mountain',typeGravel:'Gravel',typeAny:'Any',
   // Hardcoded strings now using t()
   liveLabel:'Live',justNow:'just now',secondsAgo:'s ago',minutesAgo:'m ago',
   selectSessionPrompt:'Select a session above',selectSessionSub:'Click a session chip to view and manage its queue independently.',
@@ -1957,6 +1959,7 @@ ar:{
   editSessionTitle:'تعديل الجلسة',saveSessionBtn:'حفظ التغييرات',editBtn2:'تعديل',dateWarning:'تغيير التاريخ سيحدّث جميع الحجوزات الموجودة لهذه الجلسة.',
   bikesTitle:'الأسطول',addBike:'+ إضافة دراجة',editBikeTitle:'تعديل الدراجة',addBikeTitle:'إضافة دراجة جديدة',
   bikeNameLabel:'اسم الدراجة',frameSizeLabel:'مقاس الإطار',bikeTypeLabel:'نوع الدراجة',
+  bikeLocationLabel:'الموقع',bikeFrameTypeLabel:'نوع الإطار',bikeNumberLabel:'رقم الدراجة',bikeAutoName:'الاسم التلقائي',frameSteel:'فولاذ',frameAluminum:'ألمنيوم',frameCarbon:'كربون',frameTitanium:'تيتانيوم',errBikeFrameReq:'الرجاء اختيار نوع الإطار.',errBikeLocationReq:'الرجاء اختيار الموقع.',errBikeNumberReq:'الرجاء إدخال رقم الدراجة.',errBikeNumberDup:'رقم الدراجة مستخدم بالفعل في هذا الموقع.',addLocationLabel:'إضافة موقع جديد...',
   bikeColorsLabel:'لون الدراجة',colorsHint:'مطلوب 1 - حتى 4',
   saveBikeBtn:'حفظ التغييرات',addBikeBtn:'إضافة دراجة',
   bikeBrand:'الماركة',bikeModel:'الموديل',bikeGroupset:'منظومة التروس',bikeSpeeds:'عدد السرعات',
@@ -2079,7 +2082,7 @@ ar:{
   receiptTitle:'إيصال الرحلة',receiptDear:'عزيزي',
   receiptThankYou:'شكراً لركوبك معنا في حلبة كورنيش جدة!',
   receiptSeeYou:'نأمل رؤيتك في حلبة الكورنيش مجدداً!',
-  typeRoad:'طريق',typeHybrid:'هجين',typeMountain:'جبلي',typeAny:'أي نوع',
+  typeRoad:'طريق',typeHybrid:'هجين',typeMountain:'جبلي',typeGravel:'حصى',typeAny:'أي نوع',
   liveLabel:'مباشر',justNow:'الآن',secondsAgo:'ث مضت',minutesAgo:'د مضت',
   selectSessionPrompt:'اختر جلسة من الأعلى',selectSessionSub:'انقر على إحدى الجلسات لعرض طابورها وإدارته بشكل مستقل.',
   undoBtn:'↩ تراجع',undoneMsg:'↩ تم التراجع.',undoFailed:'فشل التراجع.',
@@ -2399,6 +2402,8 @@ const S={
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],addBikeColorNames:[''],_bkName:'',
   _bkBrand:'',_bkModel:'',_bkGroupset:'',_bkSpeeds:'',_bkRentalPrice:'',
   _bkBrandAdd:false,_bkModelAdd:false,_bkGroupsetAdd:false,
+  _bkLocation:'JCC',_bkLocationAdd:false,_bkFrame:'',_bkNumber:'',
+  bkLocations:(()=>{try{const l=JSON.parse(localStorage.getItem('cq_bk_locations'));return(Array.isArray(l)&&l.length)?l:['JCC'];}catch(e){return['JCC'];}})(),
   bkBrands:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_brands'))||[];}catch(e){return[];}})(),
   bkModels:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_models'))||[];}catch(e){return[];}})(),
   bkGroupsets:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_groupsets'))||[];}catch(e){return[];}})(),
@@ -2646,8 +2651,24 @@ function spotsLeftLabel(n){
   if(S.lang==='ar')return`${n} ${n===1?'مقعد متبقي':'مقاعد متبقية'}`;
   return`${n} spot${n===1?'':'s'} left`;
 }
-const TYPE_CLS={Road:'type-road',Hybrid:'type-hybrid',Mountain:'type-mountain',Any:'type-any'};
-function typeLabel(ty){const m={Road:t('typeRoad'),Hybrid:t('typeHybrid'),Mountain:t('typeMountain'),Any:t('typeAny')};return m[ty]||ty;}
+const TYPE_CLS={Road:'type-road',Hybrid:'type-hybrid',Mountain:'type-mountain',Gravel:'type-gravel',Any:'type-any'};
+function typeLabel(ty){const m={Road:t('typeRoad'),Hybrid:t('typeHybrid'),Mountain:t('typeMountain'),Gravel:t('typeGravel'),Any:t('typeAny')};return m[ty]||ty;}
+/* ── Auto bike-naming system: {TYPE}{FRAME}{LOCNUM}-{NUMBER}{SIZE} e.g. RC1-0001XS ── */
+const FRAME_TYPES=['Steel','Aluminum','Carbon','Titanium'];
+const _BIKE_TYPE_CODE={Road:'R',Hybrid:'H',Mountain:'M',Gravel:'G'};
+const _FRAME_CODE={Steel:'ST',Aluminum:'AL',Carbon:'C',Titanium:'T'};
+function _bkLocNum(loc){const i=(S.bkLocations||[]).indexOf(loc);return i>=0?i+1:0;}
+function _nextBikeNumber(loc){
+  const used=getBikes().filter(b=>b.location===loc&&b.bike_number!=null).map(b=>Number(b.bike_number));
+  let n=1;while(used.includes(n))n++;return n;
+}
+function genBikeName(type,frame,loc,num,size){
+  const tc=_BIKE_TYPE_CODE[type]||'X';
+  const fc=_FRAME_CODE[frame]||'';
+  const ln=_bkLocNum(loc);
+  const pn=String(Number(num)||0).padStart(4,'0');
+  return `${tc}${fc}${ln}-${pn}${size||''}`;
+}
 const typeBadge=ty=>`<span class="type-badge ${TYPE_CLS[ty]||'type-any'}">${bikeTypeIcon(ty,12)} ${typeLabel(ty)}</span>`;
 const STATUS_CLS={waiting:'badge-waiting',active:'badge-active',done:'badge-done',noshow:'badge-noshow',cancelled:'badge-noshow',removed:'badge-noshow'};
 const STATUS_KEY={waiting:'statusWaiting',active:'statusActive',done:'statusDone',noshow:'statusNoshow',cancelled:'statusCancelled',removed:'removedLabel'};
@@ -6384,7 +6405,7 @@ function renderBikes(){
         nRoad=bikes.filter(b=>b.type==='Road').length,
         nHybrid=bikes.filter(b=>b.type==='Hybrid').length,
         nMtn=bikes.filter(b=>b.type==='Mountain').length;
-  const bkTypeOpts=['all','Road','Hybrid','Mountain'].map(ty=>
+  const bkTypeOpts=['all','Road','Hybrid','Mountain','Gravel'].map(ty=>
     `<option value="${ty}"${S.bkTypeFilter===ty?' selected':''}>${ty==='all'?t('filterAll'):typeLabel(ty)}</option>`).join('');
   const bkStatusOpts=['all','available','in-use'].map(s=>{
     const l={all:t('filterAll'),available:t('availLabel'),'in-use':t('inUseLabel')}[s];
@@ -6395,7 +6416,7 @@ function renderBikes(){
   const isEdit=!!S.editBikeId;const editBike=isEdit?bikes.find(b=>b.id===S.editBikeId):null;
   const curSize=(isEdit&&editBike)?(S.addBikeSize||editBike.size):S.addBikeSize;
   const sizeOpts=['XS','S','M','L'].map(v=>`<option value="${v}"${curSize===v?' selected':''}>${v}</option>`).join('');
-  const bkTypeBtns=['Road','Hybrid','Mountain'].map(ty=>
+  const bkTypeBtns=['Road','Hybrid','Mountain','Gravel'].map(ty=>
     `<button class="toggle-btn${S.addBikeType===ty?' active':''}" onclick="S.addBikeType='${ty}';renderBikes()">${typeLabel(ty)}</button>`).join('');
   const colorSlots=S.addBikeColors.map((c,i)=>`
     <div class="color-slot" style="display:flex;flex-direction:column;gap:4px;align-items:center">
@@ -6405,12 +6426,35 @@ function renderBikes(){
         style="width:72px;padding:3px 6px;background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:6px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:600;text-align:center">
       ${S.addBikeColors.length>1?`<button class="color-del" onclick="removeColor(${i})" type="button">&#x2715;</button>`:''}</div>`).join('');
   const addColorBtn=S.addBikeColors.length<4?`<button class="add-color-slot" onclick="addColorSlot()" type="button">+<br>Color</button>`:'';
+  const locationField=S._bkLocationAdd
+    ?`<div style="display:flex;gap:6px">
+        <input id="bk-location" type="text" value="${esc(S._bkLocation==='__pending__'?'':S._bkLocation)}" placeholder="${t('addLocationLabel')}" style="flex:1"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();_bkLocationSave();}">
+        <button class="btn-primary" style="padding:8px 14px;flex-shrink:0;white-space:nowrap" onclick="_bkLocationSave()">✓ ${t('saveBtn')||'Save'}</button>
+        <button class="btn-secondary" style="padding:8px 10px;flex-shrink:0" onclick="_bkLocationCancel()">✕</button>
+      </div>`
+    :`<select id="bk-location" onchange="_bkLocationChange(this.value)">
+        ${S.bkLocations.map(l=>`<option value="${esc(l)}"${l===S._bkLocation?' selected':''}>${esc(l)} (${_bkLocNum(l)})</option>`).join('')}
+        <option value="__add__">➕ ${t('addLocationLabel')}</option>
+      </select>`;
+  const frameField=`<select id="bk-frame" onchange="S._bkFrame=this.value;_updateBkNamePreview()">
+      <option value=""${!S._bkFrame?' selected':''}>—</option>
+      ${FRAME_TYPES.map(f=>`<option value="${f}"${S._bkFrame===f?' selected':''}>${t('frame'+f)}</option>`).join('')}
+    </select>`;
+  const numField=`<input id="bk-number" type="number" min="1" step="1" value="${esc(S._bkNumber)}" placeholder="1" oninput="S._bkNumber=this.value;_updateBkNamePreview()">`;
+  const autoNamePreview=`<div class="form-group full" style="margin-bottom:16px"><label>${t('bikeAutoName')}</label>
+    <div id="bk-name-preview" style="font-size:22px;font-weight:900;letter-spacing:-.5px;color:var(--green);padding:10px 14px;background:rgba(3,255,137,.06);border:1px solid rgba(3,255,137,.2);border-radius:10px">${genBikeName(S.addBikeType,S._bkFrame,S._bkLocation,S._bkNumber||0,curSize)}</div></div>`;
   const addForm=(S.showAddBike||isEdit)?`<div class="inline-form">
     <div class="form-title">${isEdit?t('editBikeTitle'):t('addBikeTitle')}</div>
     <div class="form-row">
-      <div class="form-group"><label>${t('bikeNameLabel')}</label><input type="text" id="bk-name" placeholder="e.g. Spectra One" value="${esc(S._bkName)}" oninput="S._bkName=this.value"></div>
-      <div class="form-group"><label>${t('walkinSize')}</label><select id="bk-size" onchange="S.addBikeSize=this.value">${sizeOpts}</select></div>
+      <div class="form-group"><label>${t('bikeLocationLabel')}</label>${locationField}</div>
+      <div class="form-group"><label>${t('walkinSize')}</label><select id="bk-size" onchange="S.addBikeSize=this.value;_updateBkNamePreview()">${sizeOpts}</select></div>
     </div>
+    <div class="form-row">
+      <div class="form-group"><label>${t('bikeFrameTypeLabel')}</label>${frameField}</div>
+      <div class="form-group"><label>${t('bikeNumberLabel')}</label>${numField}</div>
+    </div>
+    ${autoNamePreview}
     <div class="form-row">
       <div class="form-group"><label>${t('bikeBrand')}</label>${_bkFieldHtml('bk-brand',S._bkBrand,S._bkBrandAdd,S.bkBrands)}</div>
       <div class="form-group"><label>${t('bikeModel')}</label>${_bkFieldHtml('bk-model',S._bkModel,S._bkModelAdd,S.bkModels)}</div>
@@ -6617,7 +6661,7 @@ function renderBikes(){
           </div>
         </div>
         <button class="btn-secondary" style="font-size:12px;padding:6px 12px"
-          onclick="S.showAddBike=true;S.addBikeType='${ty}';S.editBikeId=null;S.addBikeSize='M';S.addBikeColors=['#03ff89'];S.addBikeColorNames=[''];S._bkName='';renderBikes()">
+          onclick="S.showAddBike=true;S.addBikeType='${ty}';S.editBikeId=null;S.addBikeSize='M';S.addBikeColors=['#03ff89'];S.addBikeColorNames=[''];S._bkName='';S._bkFrame='';S._bkLocationAdd=false;S._bkLocation=S.bkLocations[0]||'JCC';S._bkNumber=String(_nextBikeNumber(S.bkLocations[0]||'JCC'));renderBikes()">
           + ${typeLabel(ty)}
         </button>
       </div>
@@ -6625,8 +6669,8 @@ function renderBikes(){
     </div>`;
   }
 
-  const typeColorMap={Road:'#4aa8f8',Hybrid:'#03ff89',Mountain:'#e08828'};
-  const typeSections=['Road','Hybrid','Mountain'].map(ty=>renderTypeSection(ty,typeColorMap[ty])).join('');
+  const typeColorMap={Road:'#4aa8f8',Hybrid:'#03ff89',Mountain:'#e08828',Gravel:'#a06af0'};
+  const typeSections=['Road','Hybrid','Mountain','Gravel'].map(ty=>renderTypeSection(ty,typeColorMap[ty])).join('');
   const retiredBikes=bikes.filter(b=>b.status==='retired'||b.status==='maintenance');
   const retiredSection=retiredBikes.length?`<div style="margin-bottom:28px">
     <button onclick="S.bkShowRetired=!S.bkShowRetired;renderBikes()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(255,255,255,.02);border:1.5px solid rgba(255,255,255,.07);border-radius:12px;cursor:pointer;font-family:'Space Grotesk',sans-serif;transition:border-color .2s" onmouseover="this.style.borderColor='rgba(255,255,255,.15)'" onmouseout="this.style.borderColor='rgba(255,255,255,.07)'">
@@ -6721,11 +6765,27 @@ function renderBikes(){
     </div>
     ${typeSections}
     ${retiredSection}`;
-  const nameEl=document.getElementById('bk-name');
-  if(nameEl)nameEl.addEventListener('input',e=>S._bkName=e.target.value);
 }
 
-function _resetBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S.addBikeColorNames=[''];S._bkName='';S._bkBrand='';S._bkModel='';S._bkGroupset='';S._bkSpeeds='';S._bkRentalPrice='';S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;}
+function _resetBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S.addBikeColorNames=[''];S._bkName='';S._bkBrand='';S._bkModel='';S._bkGroupset='';S._bkSpeeds='';S._bkRentalPrice='';S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;S._bkLocation=S.bkLocations[0]||'JCC';S._bkLocationAdd=false;S._bkFrame='';S._bkNumber='';}
+/* ── Bike location dropdown (order-preserving; index = location number) ── */
+function _bkLocationChange(val){
+  if(val==='__add__'){S._bkLocationAdd=true;S._bkLocation='__pending__';renderBikes();setTimeout(()=>document.getElementById('bk-location')?.focus(),50);return;}
+  S._bkLocation=val;S._bkNumber=String(_nextBikeNumber(val));renderBikes();
+}
+function _bkLocationSave(){
+  const v=(document.getElementById('bk-location')?.value||'').trim();
+  if(!v){_bkLocationCancel();return;}
+  if(!S.bkLocations.includes(v)){S.bkLocations=[...S.bkLocations,v];try{localStorage.setItem('cq_bk_locations',JSON.stringify(S.bkLocations));}catch(e){}}
+  S._bkLocation=v;S._bkLocationAdd=false;S._bkNumber=String(_nextBikeNumber(v));renderBikes();
+}
+function _bkLocationCancel(){S._bkLocationAdd=false;S._bkLocation=S.bkLocations[0]||'JCC';renderBikes();}
+function _updateBkNamePreview(){
+  const el=document.getElementById('bk-name-preview');if(!el)return;
+  const num=document.getElementById('bk-number')?.value||S._bkNumber;
+  const size=document.getElementById('bk-size')?.value||S.addBikeSize;
+  el.textContent=genBikeName(S.addBikeType,S._bkFrame,S._bkLocation,num,size);
+}
 
 function setBkRentalPrice(v){
   if(v==='custom'){
@@ -6768,13 +6828,12 @@ function _submitCustomPrice(){
   const m=document.getElementById('confirm-modal');m.style.display='none';m.innerHTML='';
   renderBikes();
 }
-function toggleAddBike(){S._resetBikeForm?.();_resetBikeForm();S.showAddBike=true;renderBikes();}
+function toggleAddBike(){_resetBikeForm();S._bkNumber=String(_nextBikeNumber(S._bkLocation));S.showAddBike=true;renderBikes();}
 function cancelBikeForm(){_resetBikeForm();renderBikes();}
 function setBkFilter(v){S.bkTypeFilter=v;renderBikes();}
 function setBkSort(v){S.bkSort=v;renderBikes();}
 function setBkSearch(v){S.bkSearch=v;renderBikes();const inp=document.getElementById('bk-search-input');if(inp){inp.focus();const l=v.length;inp.setSelectionRange(l,l);}}
 async function addBike(){
-  const name=document.getElementById('bk-name').value.trim();
   const size=document.getElementById('bk-size').value||'M';
   const brandRaw=document.getElementById('bk-brand')?.value.trim();
   const brand=(brandRaw&&brandRaw!=='__add__')?brandRaw:null;
@@ -6784,12 +6843,18 @@ async function addBike(){
   const groupset=(groupsetRaw&&groupsetRaw!=='__add__')?groupsetRaw:null;
   const speedsRaw=document.getElementById('bk-speeds')?.value.trim();
   const speeds=speedsRaw?parseInt(speedsRaw)||null:null;
-  if(!name){toast(t('errBikeName'),'error');return;}
   if(!S.addBikeType){toast(t('errBikeTypeReq'),'error');return;}
+  if(!S._bkFrame){toast(t('errBikeFrameReq'),'error');return;}
+  const location=(document.getElementById('bk-location')?.value||S._bkLocation||'').trim();
+  if(!location||location==='__add__'){toast(t('errBikeLocationReq'),'error');return;}
+  const bikeNum=parseInt(document.getElementById('bk-number')?.value||S._bkNumber||'');
+  if(!bikeNum||bikeNum<1){toast(t('errBikeNumberReq'),'error');return;}
+  if(getBikes().some(b=>b.location===location&&Number(b.bike_number)===bikeNum)){toast(t('errBikeNumberDup'),'error');return;}
+  const name=genBikeName(S.addBikeType,S._bkFrame,location,bikeNum,size);
   _autoSaveBkOpts(brand,model,groupset);
   const colorNames=S.addBikeColorNames.slice(0,S.addBikeColors.length).map(n=>n||'');
   const rentalPrice=S._bkRentalPrice?parseFloat(S._bkRentalPrice)||null:null;
-  const bike={id:uid(),name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:colorNames,status:'available',brand,model,groupset,speeds,rental_price:rentalPrice};
+  const bike={id:uid(),name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:colorNames,status:'available',brand,model,groupset,speeds,rental_price:rentalPrice,location,frame_type:S._bkFrame,bike_number:bikeNum};
   await sb.from('bikes').insert(bike);
   await loadData();
   _resetBikeForm();
@@ -6808,6 +6873,8 @@ function startEdit(id){
   S._bkName=bike.name;S._bkBrand=bike.brand||'';S._bkModel=bike.model||'';
   S._bkGroupset=bike.groupset||'';S._bkSpeeds=bike.speeds!=null?String(bike.speeds):'';S._bkRentalPrice=bike.rental_price!=null?String(bike.rental_price):'';
   S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;
+  S._bkLocation=bike.location&&S.bkLocations.includes(bike.location)?bike.location:(S.bkLocations[0]||'JCC');
+  S._bkLocationAdd=false;S._bkFrame=bike.frame_type||'';S._bkNumber=bike.bike_number!=null?String(bike.bike_number):'';
   _autoSaveBkOpts(bike.brand,bike.model,bike.groupset);
   renderBikes();
 }
@@ -6822,15 +6889,21 @@ async function saveBikeEdit(){
   const groupset=(groupsetRaw&&groupsetRaw!=='__add__')?groupsetRaw:null;
   const speedsRaw=document.getElementById('bk-speeds')?.value.trim();
   const speeds=speedsRaw?parseInt(speedsRaw)||null:null;
-  if(!name){toast(t('errBikeName'),'error');return;}
   if(!S.addBikeType){toast(t('errBikeTypeReq'),'error');return;}
+  if(!S._bkFrame){toast(t('errBikeFrameReq'),'error');return;}
+  const location=(document.getElementById('bk-location')?.value||S._bkLocation||'').trim();
+  if(!location||location==='__add__'){toast(t('errBikeLocationReq'),'error');return;}
+  const bikeNum=parseInt(document.getElementById('bk-number')?.value||S._bkNumber||'');
+  if(!bikeNum||bikeNum<1){toast(t('errBikeNumberReq'),'error');return;}
+  if(getBikes().some(b=>b.id!==S.editBikeId&&b.location===location&&Number(b.bike_number)===bikeNum)){toast(t('errBikeNumberDup'),'error');return;}
+  const name=genBikeName(S.addBikeType,S._bkFrame,location,bikeNum,size);
   _autoSaveBkOpts(brand,model,groupset);
   const b=getBikes();const existing=b.find(x=>x.id===S.editBikeId);if(!existing)return;
   const editColorNames=S.addBikeColorNames.slice(0,S.addBikeColors.length).map(n=>n||'');
   const rentalPrice=S._bkRentalPrice?parseFloat(S._bkRentalPrice)||null:null;
-  const prev={name:existing.name,size:existing.size,type:existing.type,colors:[...existing.colors],color_names:[...(existing.color_names||[])],status:existing.status,brand:existing.brand||null,model:existing.model||null,groupset:existing.groupset||null,speeds:existing.speeds||null,rental_price:existing.rental_price??null};
+  const prev={name:existing.name,size:existing.size,type:existing.type,colors:[...existing.colors],color_names:[...(existing.color_names||[])],status:existing.status,brand:existing.brand||null,model:existing.model||null,groupset:existing.groupset||null,speeds:existing.speeds||null,rental_price:existing.rental_price??null,location:existing.location||null,frame_type:existing.frame_type||null,bike_number:existing.bike_number??null};
   const bid=S.editBikeId;
-  const{error}=await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:editColorNames,status:existing.status,brand,model,groupset,speeds,rental_price:rentalPrice}).eq('id',bid);
+  const{error}=await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:editColorNames,status:existing.status,brand,model,groupset,speeds,rental_price:rentalPrice,location,frame_type:S._bkFrame,bike_number:bikeNum}).eq('id',bid);
   if(error){toast(error.message||'Save failed','error');return;}
   await loadData();
   _resetBikeForm();
@@ -6877,7 +6950,7 @@ function delBike(id){
     confirmLabel:t('deleteBtn'),
     confirmClass:'btn-red',
     onConfirm:async()=>{
-      const saved={id:bike.id,name:bike.name,size:bike.size,type:bike.type,colors:[...(bike.colors||[])],color_names:[...(bike.color_names||[])],brand:bike.brand||null,model:bike.model||null,groupset:bike.groupset||null,speeds:bike.speeds||null,status:'available'};
+      const saved={id:bike.id,name:bike.name,size:bike.size,type:bike.type,colors:[...(bike.colors||[])],color_names:[...(bike.color_names||[])],brand:bike.brand||null,model:bike.model||null,groupset:bike.groupset||null,speeds:bike.speeds||null,status:'available',location:bike.location||null,frame_type:bike.frame_type||null,bike_number:bike.bike_number??null};
       await sb.from('bikes').delete().eq('id',id);
       await loadData();toast(`${bike.name} ${t('toastBikeRemoved')}`);
       pushUndo(`Delete bike ${bike.name}`,async()=>{

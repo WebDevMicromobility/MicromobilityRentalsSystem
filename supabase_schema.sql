@@ -10,20 +10,30 @@ create table if not exists customers (
   phone         text,
   password_hash text not null,
   created_at    text not null,
-  height        integer          -- rider height in cm (100–250), used for automatic bike size selection
+  height        integer,         -- rider height in cm (100-250), used for automatic bike size selection
+  gender        text             -- 'male' | 'female', collected at signup
 );
 
 -- Migration for existing databases (skip if creating fresh):
 -- alter table customers add column if not exists height integer;
+-- alter table customers add column if not exists gender text;
 
 create table if not exists bikes (
-  id     text primary key,
-  name   text not null,
-  size   text not null,
-  type   text not null,
-  colors jsonb not null default '[]',
-  status text not null default 'available'
+  id          text primary key,
+  name        text not null,
+  size        text not null,
+  type        text not null,
+  colors      jsonb not null default '[]',
+  status      text not null default 'available',
+  location    text,            -- e.g. 'JCC'; order in the list sets the location number
+  frame_type  text,            -- 'Steel' | 'Aluminum' | 'Carbon' | 'Titanium'
+  bike_number integer          -- unique per location; padded to 4 digits in the auto name
 );
+
+-- Migration for existing databases (skip if creating fresh):
+-- alter table bikes add column if not exists location text;
+-- alter table bikes add column if not exists frame_type text;
+-- alter table bikes add column if not exists bike_number integer;
 
 create table if not exists sessions (
   id           text primary key,
