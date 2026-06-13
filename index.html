@@ -1729,6 +1729,7 @@ en:{
   registeredLabel:'Registered',nameLabel:'Name',timeLabel:'Time',preferenceLabel:'Preference',
   // Account page
   profileInfo:'Profile Information',needToUpdate:'Need to update?',
+  birthDateLabel:'Birth date',countryLabel:'Country',cityLabel:'City',optionalLabel:'optional',selectCountryOpt:'Select country',selectCityOpt:'Select city',selectCountryFirst:'Select a country first',
   // Session composition
   bikeFleetComp:'Bike Fleet Composition',totalBikesSession:'Total bikes in session',rowLabel:'Row',
   // Check-in modal
@@ -2017,6 +2018,7 @@ ar:{
   payAtBooth:'💳 الدفع يتم عند الكشك في دوار الكورنيش. يرجى إحضار رقم طابورك.',
   registeredLabel:'مُسجَّل',nameLabel:'الاسم',timeLabel:'الوقت',preferenceLabel:'التفضيل',
   profileInfo:'معلومات الملف الشخصي',needToUpdate:'تريد التحديث؟',
+  birthDateLabel:'تاريخ الميلاد',countryLabel:'الدولة',cityLabel:'المدينة',optionalLabel:'اختياري',selectCountryOpt:'اختر الدولة',selectCityOpt:'اختر المدينة',selectCountryFirst:'اختر الدولة أولاً',
   bikeFleetComp:'تركيبة أسطول الدراجات',totalBikesSession:'إجمالي الدراجات في الجلسة',rowLabel:'الإجمالي',
   sizeMatchLabel:'مقاس مناسب',sessionFleetLabel:'أسطول الجلسة',
   noBikesMatchFleet:'لا توجد دراجات مطابقة لأسطول هذه الجلسة.',
@@ -2395,6 +2397,40 @@ const COUNTRY_CODES=[
   ['+998','UZ','Uzbekistan'],
 ];
 
+// ── Country → cities (curated; used for optional account fields) ──
+const COUNTRY_CITIES={
+  "Saudi Arabia":["Riyadh","Jeddah","Mecca","Medina","Dammam","Khobar","Dhahran","Taif","Tabuk","Buraydah","Khamis Mushait","Abha","Hail","Najran","Jazan","Al Hofuf","Yanbu","Jubail","Qatif","Hafar Al-Batin","Arar","Sakaka","Al Bahah","Unaizah","Al Kharj"],
+  "United Arab Emirates":["Dubai","Abu Dhabi","Sharjah","Al Ain","Ajman","Ras Al Khaimah","Fujairah","Umm Al Quwain"],
+  "Kuwait":["Kuwait City","Hawalli","Salmiya","Al Ahmadi","Al Jahra","Farwaniya","Fahaheel"],
+  "Qatar":["Doha","Al Rayyan","Al Wakrah","Al Khor","Lusail","Umm Salal"],
+  "Bahrain":["Manama","Riffa","Muharraq","Hamad Town","Isa Town","Sitra"],
+  "Oman":["Muscat","Salalah","Sohar","Nizwa","Sur","Ibri","Seeb"],
+  "Egypt":["Cairo","Alexandria","Giza","Port Said","Suez","Luxor","Aswan","Mansoura","Tanta","Sharm El Sheikh"],
+  "Jordan":["Amman","Zarqa","Irbid","Aqaba","Salt","Madaba","Karak"],
+  "Lebanon":["Beirut","Tripoli","Sidon","Tyre","Zahle","Jounieh","Byblos"],
+  "Syria":["Damascus","Aleppo","Homs","Latakia","Hama","Tartus"],
+  "Iraq":["Baghdad","Basra","Mosul","Erbil","Najaf","Karbala","Kirkuk","Sulaymaniyah"],
+  "Yemen":["Sanaa","Aden","Taiz","Hodeidah","Mukalla","Ibb"],
+  "Palestine":["Gaza","Ramallah","Hebron","Nablus","Bethlehem","Jenin"],
+  "Sudan":["Khartoum","Omdurman","Port Sudan","Kassala","Nyala","El Obeid"],
+  "Morocco":["Casablanca","Rabat","Marrakesh","Fez","Tangier","Agadir","Meknes"],
+  "Algeria":["Algiers","Oran","Constantine","Annaba","Blida","Setif"],
+  "Tunisia":["Tunis","Sfax","Sousse","Kairouan","Bizerte","Gabes"],
+  "Libya":["Tripoli","Benghazi","Misrata","Zawiya","Sabha"],
+  "Turkey":["Istanbul","Ankara","Izmir","Bursa","Antalya","Adana","Gaziantep","Konya"],
+  "Pakistan":["Karachi","Lahore","Islamabad","Rawalpindi","Faisalabad","Multan","Peshawar","Quetta"],
+  "India":["Mumbai","Delhi","Bengaluru","Hyderabad","Chennai","Kolkata","Pune","Ahmedabad","Kochi"],
+  "Bangladesh":["Dhaka","Chittagong","Khulna","Rajshahi","Sylhet"],
+  "Philippines":["Manila","Quezon City","Davao","Cebu City","Makati","Caloocan"],
+  "Indonesia":["Jakarta","Surabaya","Bandung","Medan","Semarang","Makassar"],
+  "United Kingdom":["London","Manchester","Birmingham","Leeds","Glasgow","Liverpool","Edinburgh","Bristol"],
+  "United States":["New York","Los Angeles","Chicago","Houston","Phoenix","San Francisco","Seattle","Boston","Miami","Dallas"],
+  "Canada":["Toronto","Vancouver","Montreal","Calgary","Ottawa","Edmonton"],
+  "France":["Paris","Marseille","Lyon","Toulouse","Nice","Nantes","Bordeaux"],
+  "Germany":["Berlin","Munich","Hamburg","Cologne","Frankfurt","Stuttgart","Dusseldorf"]
+};
+const COUNTRY_LIST=Object.keys(COUNTRY_CITIES);
+
 /* ══════════════════════════════════════════════
    STATE
 ══════════════════════════════════════════════ */
@@ -2511,7 +2547,7 @@ async function loadData(showLoader=false){
   const [q,b,c,ses]=await Promise.all([
     sb.from('queue_entries').select('*').order('session_id').order('queue_num'),
     sb.from('bikes').select('*'),
-    sb.from('customers').select('id,name,email,phone,height,type_preference,created_at'),
+    sb.from('customers').select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city'),
     sb.from('sessions').select('*').order('session_date'),
   ]);
   if(q.error)console.error('loadData queue error:',q.error.message);
@@ -2925,7 +2961,7 @@ async function doResetPassword(){
   if(code!==expected){authErr(t('errOTPInvalid'));return;}
   try{
     const{data:customer}=await sb.from('customers')
-      .select('id,name,email,phone,height,type_preference,created_at')
+      .select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city')
       .eq('email',S.forgotEmail).maybeSingle();
     if(!customer){authErr(t('errAccountNotFound'));return;}
     const{error}=await sb.from('customers').update({password_hash:hashPwd(pwd)}).eq('id',customer.id);
@@ -2995,9 +3031,9 @@ async function handleGoogleReturn(){
   const gname=meta.full_name||meta.name||'';
   if(!email)return false;
   let cust=null;
-  try{const{data}=await sb.from('customers').select('id,name,email,phone,height,type_preference,created_at').eq('email',email).maybeSingle();cust=data;}catch(e){}
+  try{const{data}=await sb.from('customers').select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city').eq('email',email).maybeSingle();cust=data;}catch(e){}
   if(cust){
-    const safe={id:cust.id,name:cust.name,email:cust.email,phone:cust.phone,height:cust.height,type_preference:cust.type_preference,created_at:cust.created_at};
+    const safe={id:cust.id,name:cust.name,email:cust.email,phone:cust.phone,height:cust.height,type_preference:cust.type_preference,created_at:cust.created_at,birth_date:cust.birth_date,country:cust.country,city:cust.city};
     S.rememberMe=true;S.loggedIn=safe;setSession(safe);
     return 'loggedin';
   }
@@ -3053,7 +3089,7 @@ async function doLogin(){
       candidates.forEach(c=>{if(c&&c.length>=5&&/^[+\d]+$/.test(c))filters.push(`phone.eq.${c}`);});
     }
     const{data:customer}=await sb.from('customers')
-      .select('id,name,email,phone,height,type_preference,created_at')
+      .select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city')
       .or(filters.join(','))
       .eq('password_hash',hashPwd(pwd))
       .maybeSingle();
@@ -4101,6 +4137,12 @@ function renderAccount(){
   const accH=cust.height||'';
   const accSz=null;
   const sizeDisplay='';
+  const accBirth=cust.birth_date||'';
+  const accCountry=cust.country||'';
+  const accCity=cust.city||'';
+  const countryOpts=`<option value="">${t('selectCountryOpt')}</option>`+COUNTRY_LIST.map(c=>`<option value="${esc(c)}"${accCountry===c?' selected':''}>${esc(c)}</option>`).join('');
+  const _cityList=accCountry&&COUNTRY_CITIES[accCountry]?COUNTRY_CITIES[accCountry]:[];
+  const cityOpts=`<option value="">${accCountry?t('selectCityOpt'):t('selectCountryFirst')}</option>`+_cityList.map(c=>`<option value="${esc(c)}"${accCity===c?' selected':''}>${esc(c)}</option>`).join('');
   // Compute ride stats from local queue data
   const myEntries=getQueue().filter(e=>e.customerId===cust.id);
   const myDone=myEntries.filter(e=>e.status==='done');
@@ -4135,6 +4177,17 @@ function renderAccount(){
             <div id="acc-size-wrap">${sizeDisplay}</div>
           </div></div>
       </div>
+      <div class="form-row">
+        <div class="form-group"><label>${t('birthDateLabel')} &nbsp;<span class="label-hint">(${t('optionalLabel')})</span></label>
+          <input type="date" id="acc-birth" value="${esc(accBirth)}" max="2025-12-31"></div>
+        <div class="form-group"><label>${t('countryLabel')} &nbsp;<span class="label-hint">(${t('optionalLabel')})</span></label>
+          <select id="acc-country" onchange="onAccCountryChange(this.value)">${countryOpts}</select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>${t('cityLabel')} &nbsp;<span class="label-hint">(${t('optionalLabel')})</span></label>
+          <select id="acc-city" ${accCountry?'':'disabled'}>${cityOpts}</select></div>
+        <div class="form-group"></div>
+      </div>
       <div class="form-group" style="margin-top:4px">
         <label>${t('bikeTypePref')}</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
@@ -4151,6 +4204,13 @@ function renderAccount(){
     </div>`;
 }
 
+function onAccCountryChange(country){
+  const citySel=document.getElementById('acc-city');
+  if(!citySel)return;
+  const list=country&&COUNTRY_CITIES[country]?COUNTRY_CITIES[country]:[];
+  citySel.disabled=!country;
+  citySel.innerHTML=`<option value="">${country?t('selectCityOpt'):t('selectCountryFirst')}</option>`+list.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+}
 function refreshAccSizeBadge(){
   const h=parseInt(document.getElementById('acc-height')?.value||'');
   const wrap=document.getElementById('acc-size-wrap');
@@ -4175,14 +4235,17 @@ async function saveAccount(){
   setErr('');
   const fullPhone=phone?(cc+phone):'';
   const height=(!isNaN(heightRaw)&&heightRaw>=100&&heightRaw<=250)?heightRaw:null;
+  const birth_date=(document.getElementById('acc-birth')?.value||'')||null;
+  const country=(document.getElementById('acc-country')?.value||'')||null;
+  const city=(document.getElementById('acc-city')?.value||'')||null;
   try{
     const type_preference=S.loggedIn.type_preference||'Any';
-    const updates={name,height,type_preference};
+    const updates={name,height,type_preference,birth_date,country,city};
     if(email!==undefined)updates.email=email;
     if(fullPhone!==undefined)updates.phone=fullPhone;
     const{error}=await sb.from('customers').update(updates).eq('id',cust.id);
     if(error)throw error;
-    S.loggedIn={...cust,name,email,phone:fullPhone,height,type_preference};
+    S.loggedIn={...cust,name,email,phone:fullPhone,height,type_preference,birth_date,country,city};
     setSession(S.loggedIn);
     // Sync registration form defaults
     if(height){S._rHeight=String(height);}
