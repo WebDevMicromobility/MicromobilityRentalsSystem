@@ -1,5 +1,5 @@
 /* MicroMobility Corniche Queue — service worker (offline app shell). Free, no dependencies. */
-const CACHE = 'mmcq-v1';
+const CACHE = 'mmcq-v2';
 const SHELL = [
   './',
   './index.html',
@@ -50,5 +50,16 @@ self.addEventListener('fetch', (e) => {
     );
     return;
   }
-  // Cross-origin (Supabase, fonts CDN): just go to network; let the app's own logic handle failures.
+  // jsDelivr libraries (e.g. the QR generator): cache-first so QR codes still render offline.
+  if (url.hostname === 'cdn.jsdelivr.net') {
+    e.respondWith(
+      caches.match(req).then((hit) => hit || fetch(req).then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(req, copy));
+        return res;
+      }).catch(() => hit))
+    );
+    return;
+  }
+  // Other cross-origin (Supabase, fonts CDN): just go to network; let the app's own logic handle failures.
 });

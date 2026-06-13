@@ -14,6 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
   <style>
     :root {
       --bg:#0a0b0a; --s1:#101210; --s2:#141613; --s3:#1a1d19;
@@ -2589,7 +2590,8 @@ async function verifyPwd(pwd,stored){
   if(stored==='oauth:google')return false;
   return hashPwd(pwd)===stored; // legacy account
 }
-/* ── Minimal QR Code generator (byte mode, EC level M, versions 1-10) — self-contained, offline, free ── */
+/* ── QR code: themed SVG renderer. Encoding is delegated to the qrcode-generator library (see encode()
+   below); the GF(256)/Reed-Solomon helpers here are unused legacy code kept only for reference. ── */
 const QR=(function(){
   var EXP=new Array(512),LOG=new Array(256);
   (function(){var x=1;for(var i=0;i<255;i++){EXP[i]=x;LOG[x]=i;x<<=1;if(x&0x100)x^=0x11d;}for(var i=255;i<512;i++)EXP[i]=EXP[i-255];})();
@@ -2599,7 +2601,8 @@ const QR=(function(){
   var VER={1:[10,[[1,16]]],2:[16,[[1,28]]],3:[26,[[1,44]]],4:[18,[[2,32]]],5:[24,[[2,43]]],6:[16,[[4,27]]],7:[18,[[4,31]]],8:[22,[[2,38],[2,39]]],9:[22,[[3,36],[2,37]]],10:[26,[[4,43],[1,44]]]};
   var ALIGN={1:[],2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34],7:[6,22,38],8:[6,24,42],9:[6,26,46],10:[6,28,50]};
   var VERINFO={7:0x07C94,8:0x085BC,9:0x09A99,10:0x0A4D3};
-  var FMT_M=[0x5412,0x5125,0x5E7C,0x5B4B,0x45F9,0x40CE,0x4F97,0x4AA0];
+  // Format-info strings for EC level M, masks 0-7, in LSB-first order to match the getBit placement below.
+  var FMT_M=[0x2415,0x5245,0x1F3D,0x696D,0x4FD1,0x3981,0x74F9,0x02A9];
   function totalData(v){var s=0,g=VER[v][1];for(var i=0;i<g.length;i++)s+=g[i][0]*g[i][1];return s;}
   function pickVersion(len){for(var v=1;v<=10;v++){var cap=totalData(v)-2-((v<=9)?1:2);if(len<=cap)return v;}return null;}
   function maskFn(mask,r,c){switch(mask){case 0:return (r+c)%2===0;case 1:return r%2===0;case 2:return c%3===0;case 3:return (r+c)%3===0;case 4:return (Math.floor(r/2)+Math.floor(c/3))%2===0;case 5:return ((r*c)%2)+((r*c)%3)===0;case 6:return (((r*c)%2)+((r*c)%3))%2===0;case 7:return (((r+c)%2)+((r*c)%3))%2===0;}return false;}
@@ -2661,27 +2664,17 @@ const QR=(function(){
     var ratio=dark*100/(size*size);var k5=Math.floor(Math.abs(ratio-50)/5);p+=k5*10;
     return p;
   }
+  // Encode via the qrcode-generator library (loaded from CDN, cached offline by the service worker).
+  // Error-correction level M keeps short payloads at version 1 (largest, easiest-to-scan modules);
+  // the small centre logo covers well under M's ~15% recovery. Returns {size, modules:0/1}.
   function encode(text){
-    var utf=unescape(encodeURIComponent(String(text))),bytes=[];for(var i=0;i<utf.length;i++)bytes.push(utf.charCodeAt(i)&0xff);
-    var v=pickVersion(bytes.length);if(!v)throw new Error('QR: data too long');
-    var ccBits=(v<=9)?8:16,bits=[];
-    function put(val,n){for(var i=n-1;i>=0;i--)bits.push((val>>i)&1);}
-    put(0x4,4);put(bytes.length,ccBits);for(var i=0;i<bytes.length;i++)put(bytes[i],8);
-    var cap=totalData(v)*8,term=Math.min(4,cap-bits.length);put(0,term);
-    while(bits.length%8!==0)bits.push(0);
-    var dataCW=[];for(var i=0;i<bits.length;i+=8){var bb=0;for(var j=0;j<8;j++)bb=(bb<<1)|bits[i+j];dataCW.push(bb);}
-    var pads=[0xEC,0x11],pi=0;while(dataCW.length<totalData(v))dataCW.push(pads[pi++%2]);
-    var ecLen=VER[v][0],groups=VER[v][1],blocks=[],idx=0;
-    for(var gi=0;gi<groups.length;gi++){var n=groups[gi][0],d=groups[gi][1];for(var bi=0;bi<n;bi++){var dd=dataCW.slice(idx,idx+d);idx+=d;blocks.push({data:dd,ec:rsEC(dd,ecLen)});}}
-    var maxData=0;for(var i=0;i<blocks.length;i++)maxData=Math.max(maxData,blocks[i].data.length);
-    var finalCW=[];
-    for(var i=0;i<maxData;i++)for(var b=0;b<blocks.length;b++){if(i<blocks[b].data.length)finalCW.push(blocks[b].data[i]);}
-    for(var i=0;i<ecLen;i++)for(var b=0;b<blocks.length;b++)finalCW.push(blocks[b].ec[i]);
-    var dataBits=[];for(var i=0;i<finalCW.length;i++)for(var j=7;j>=0;j--)dataBits.push((finalCW[i]>>j)&1);
-    var base=buildBase(v);placeData(base,dataBits);
-    var best=null,bestPen=Infinity,bestMask=0;
-    for(var mask=0;mask<8;mask++){var grid=applyMask(base,mask);writeFormat(grid,base.size,mask);writeVersion(grid,base.size,v);var pen=penalty(grid,base.size);if(pen<bestPen){bestPen=pen;best=grid;bestMask=mask;}}
-    return {size:base.size,modules:best,version:v,mask:bestMask};
+    if(typeof qrcode==='undefined')throw new Error('QR library not loaded');
+    var qr=qrcode(0,'M');           // 0 = auto-select the smallest fitting version
+    qr.addData(String(text));
+    qr.make();
+    var nn=qr.getModuleCount(),m=[];
+    for(var r=0;r<nn;r++){var row=[];for(var c=0;c<nn;c++)row.push(qr.isDark(r,c)?1:0);m.push(row);}
+    return {size:nn,modules:m};
   }
   // Micromobility-themed renderer: crisp high-contrast modules (reliable scanning), rounded
   // brand finder "eyes", and the MicroMobility logo in the centre with a white knockout.
