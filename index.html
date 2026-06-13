@@ -2419,7 +2419,7 @@ const S={
   analyticsRange:'all', analyticsTrendSort:'date', analyticsTrendDir:-1, analyticsCustomN:20,
   analyticsDateFrom:'', analyticsDateTo:'',
   // modals
-  modalRider:null,modalBikes:[],modalShowAll:false,modalShowAddBike:false,modalAddBikeName:'',modalAddBikeType:null,modalAddBikeSize:'M',modalSearch:'',modalSort:'default',modalSortDir:1,modalFilterSize:'all',modalFilterBrand:'all',modalFilterModel:'all',modalPriceEdit:false,
+  modalRider:null,modalBikes:[],modalShowAll:false,modalShowAddBike:false,modalAddBikeName:'',modalAddBikeType:null,modalAddBikeSize:'M',modalAddBikeFrame:'',modalAddBikeLocation:'',modalAddBikeNumber:'',modalSearch:'',modalSort:'default',modalSortDir:1,modalFilterSize:'all',modalFilterBrand:'all',modalFilterModel:'all',modalPriceEdit:false,
   // auth
   authMode:'login',   // 'login' | 'signup' | 'forgot'
   forgotEmail:'',forgotStep:1,
@@ -6019,7 +6019,7 @@ async function undoHistLog(logId){
    BIKE ASSIGN MODAL
 ══════════════════════════════════════════════ */
 function openModal(riderId){
-  S.modalRider=riderId;S.modalBikes=[];S.modalShowAll=false;S.modalShowAddBike=false;S.modalAddBikeName='';S.modalAddBikeType=null;S.modalAddBikeSize='M';S.modalSearch='';S.modalSort='default';S.modalSortDir=1;S.modalFilterSize='all';S.modalFilterBrand='all';S.modalFilterModel='all';S.modalPriceEdit=false;
+  S.modalRider=riderId;S.modalBikes=[];S.modalShowAll=false;S.modalShowAddBike=false;S.modalAddBikeName='';S.modalAddBikeType=null;S.modalAddBikeSize='M';S.modalAddBikeFrame='';S.modalAddBikeLocation=S.bkLocations[0]||'JCC';S.modalAddBikeNumber='';S.modalSearch='';S.modalSort='default';S.modalSortDir=1;S.modalFilterSize='all';S.modalFilterBrand='all';S.modalFilterModel='all';S.modalPriceEdit=false;
   // Pre-populate with already-assigned bikes if reopening mid-session
   const entry=getQueue().find(e=>e.id===riderId);
   if(entry&&entry.status==='active')S.modalBikes=getAssignedBikeIds(entry);
@@ -6213,28 +6213,48 @@ function renderModal(){
         </div>`;
   const heightBadge=rider.height?`<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(110,232,154,.12);border:1px solid rgba(110,232,154,.3);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;color:var(--green)">${rider.height} cm</span>`:'';
 
-  // Quick-add bike form
-  const addBikeTypeBtns=['Road','Hybrid','Mountain'].map(ty=>
+  // Quick-add bike form (auto-named, same system as the Bikes tab)
+  if(S.modalShowAddBike&&!S.modalAddBikeLocation)S.modalAddBikeLocation=S.bkLocations[0]||'JCC';
+  if(S.modalShowAddBike&&!S.modalAddBikeNumber)S.modalAddBikeNumber=String(_nextBikeNumber(S.modalAddBikeLocation));
+  const addBikeTypeBtns=['Road','Hybrid','Mountain','Gravel'].map(ty=>
     `<button type="button" class="toggle-btn${S.modalAddBikeType===ty?' active':''}" style="font-size:11px;padding:5px 10px"
       onclick="S.modalAddBikeType='${ty}';renderModal()">${typeLabel(ty)}</button>`).join('');
   const addBikeSizeBtns=['XS','S','M','L'].map(sz=>
     `<button type="button" class="toggle-btn${S.modalAddBikeSize===sz?' active':''}" style="font-size:11px;padding:5px 10px"
       onclick="S.modalAddBikeSize='${sz}';renderModal()">${sz}</button>`).join('');
+  const modalLocOpts=(S.bkLocations||[]).map(l=>`<option value="${esc(l)}"${l===S.modalAddBikeLocation?' selected':''}>${esc(l)} (${_bkLocNum(l)})</option>`).join('');
+  const modalFrameOpts=FRAME_TYPES.map(f=>`<option value="${f}"${S.modalAddBikeFrame===f?' selected':''}>${t('frame'+f)}</option>`).join('');
+  const modalAutoName=genBikeName(S.modalAddBikeType,S.modalAddBikeFrame,S.modalAddBikeLocation,S.modalAddBikeNumber||0,S.modalAddBikeSize);
   const quickAddForm=S.modalShowAddBike?`
     <div style="margin-top:16px;padding:16px;background:rgba(255,255,255,.03);border:1.5px solid rgba(255,255,255,.1);border-radius:14px">
       <div style="font-size:13px;font-weight:800;margin-bottom:12px">${t('quickAddBikeTitle')}</div>
       <div class="form-group" style="margin-bottom:10px">
-        <label style="font-size:11px">${t('bikeNameLabel')}</label>
-        <input type="text" id="modal-bike-name" placeholder="e.g. Trek FX 3" value="${esc(S.modalAddBikeName)}"
-          oninput="S.modalAddBikeName=this.value" style="background:#1a1a1a;border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:8px 12px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;width:100%;outline:none">
-      </div>
-      <div class="form-group" style="margin-bottom:10px">
         <label style="font-size:11px">${t('bikeTypeLabel')}</label>
         <div class="toggle-group" style="margin-top:4px">${addBikeTypeBtns}</div>
       </div>
-      <div class="form-group" style="margin-bottom:12px">
-        <label style="font-size:11px">${t('frameSizeLabel')}</label>
-        <div class="toggle-group" style="margin-top:4px">${addBikeSizeBtns}</div>
+      <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <div class="form-group" style="flex:1;min-width:130px">
+          <label style="font-size:11px">${t('bikeLocationLabel')}</label>
+          <select onchange="S.modalAddBikeLocation=this.value;S.modalAddBikeNumber=String(_nextBikeNumber(this.value));renderModal()">${modalLocOpts}</select>
+        </div>
+        <div class="form-group" style="flex:1;min-width:130px">
+          <label style="font-size:11px">${t('bikeFrameTypeLabel')}</label>
+          <select onchange="S.modalAddBikeFrame=this.value;renderModal()"><option value=""${!S.modalAddBikeFrame?' selected':''}>—</option>${modalFrameOpts}</select>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap;align-items:flex-end">
+        <div class="form-group" style="flex:1;min-width:110px">
+          <label style="font-size:11px">${t('bikeNumberLabel')}</label>
+          <input type="number" min="1" step="1" value="${esc(S.modalAddBikeNumber)}" oninput="S.modalAddBikeNumber=this.value;const p=document.getElementById('modal-auto-name');if(p)p.textContent=genBikeName(S.modalAddBikeType,S.modalAddBikeFrame,S.modalAddBikeLocation,this.value,S.modalAddBikeSize)">
+        </div>
+        <div class="form-group" style="flex:1;min-width:110px">
+          <label style="font-size:11px">${t('frameSizeLabel')}</label>
+          <div class="toggle-group" style="margin-top:4px">${addBikeSizeBtns}</div>
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:11px">${t('bikeAutoName')}</label>
+        <div id="modal-auto-name" style="font-size:18px;font-weight:900;color:var(--green);padding:8px 12px;background:rgba(3,255,137,.06);border:1px solid rgba(3,255,137,.2);border-radius:8px;margin-top:4px">${modalAutoName}</div>
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn-primary" style="font-size:12px;padding:8px 14px" onclick="modalQuickAddBike()">${t('quickAddBikeSubmit')}</button>
@@ -6297,15 +6317,21 @@ async function saveModalPrice(id){
   toast(t('toastPriceSet').replace('{0}',val));
 }
 async function modalQuickAddBike(){
-  const name=(document.getElementById('modal-bike-name')?.value||S.modalAddBikeName||'').trim();
-  if(!name){toast(t('errBikeName'),'error');return;}
   if(!S.modalAddBikeType){toast(t('errBikeTypeReq'),'error');return;}
-  const bike={id:uid(),name,size:S.modalAddBikeSize||'M',type:S.modalAddBikeType,colors:['#6ee89a'],color_names:[''],status:'available',brand:null,model:null,groupset:null,speeds:null};
+  if(!S.modalAddBikeFrame){toast(t('errBikeFrameReq'),'error');return;}
+  const location=(S.modalAddBikeLocation||'').trim();
+  if(!location){toast(t('errBikeLocationReq'),'error');return;}
+  const bikeNum=parseInt(S.modalAddBikeNumber||'');
+  if(!bikeNum||bikeNum<1){toast(t('errBikeNumberReq'),'error');return;}
+  if(getBikes().some(b=>b.location===location&&Number(b.bike_number)===bikeNum)){toast(t('errBikeNumberDup'),'error');return;}
+  const size=S.modalAddBikeSize||'M';
+  const name=genBikeName(S.modalAddBikeType,S.modalAddBikeFrame,location,bikeNum,size);
+  const bike={id:uid(),name,size,type:S.modalAddBikeType,colors:['#6ee89a'],color_names:[''],status:'available',brand:null,model:null,groupset:null,speeds:null,location,frame_type:S.modalAddBikeFrame,bike_number:bikeNum};
   const{error:bikeErr}=await sb.from('bikes').insert(bike);
   if(bikeErr){toast(bikeErr.message,'error');return;}
   await loadData();
   S.modalBikes.push(bike.id);
-  S.modalShowAddBike=false;S.modalAddBikeName='';S.modalAddBikeType=null;S.modalAddBikeSize='M';
+  S.modalShowAddBike=false;S.modalAddBikeName='';S.modalAddBikeType=null;S.modalAddBikeSize='M';S.modalAddBikeFrame='';S.modalAddBikeNumber='';
   toast(`${name} ${t('toastAddedToFleet')}`);
   renderModal();
 }
