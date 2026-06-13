@@ -4,10 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#03ff89">
   <title>MicroMobility: Corniche Circuit Queue</title>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="logo.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <style>
@@ -1421,9 +1425,9 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 
 <!-- TOPBAR -->
 <header id="topbar">
-  <a class="topbar-logo" onclick="goLanding()" style="cursor:pointer" aria-label="MicroMobility">
+  <button type="button" class="topbar-logo" onclick="goLanding()" style="cursor:pointer;background:none;border:none;padding:0" aria-label="MicroMobility home">
     <img src="brand.png" alt="MicroMobility">
-  </a>
+  </button>
   <div style="display:flex;align-items:center;gap:10px">
     <button class="lang-toggle" id="lang-btn" onclick="setLang(S.lang==='en'?'ar':'en')" title="Switch language" aria-label="Switch language"><span>&#x1F1F8;&#x1F1E6;</span> العربية</button>
     <div class="topbar-right" id="topbar-right"></div>
@@ -1451,7 +1455,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 
 <!-- CUSTOMER VIEW -->
 <div id="view-customer">
-  <nav class="tab-nav" id="customer-tab-nav">
+  <nav class="tab-nav" id="customer-tab-nav" aria-label="Customer sections">
     <button class="tab-btn active" data-ctab="register" onclick="setCustTab('register')">Reserve</button>
     <button class="tab-btn"        data-ctab="myrides"  onclick="setCustTab('myrides')">My Rides</button>
     <button class="tab-btn"        data-ctab="account"  onclick="setCustTab('account')">My Account</button>
@@ -1482,7 +1486,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 
 <!-- STAFF VIEW -->
 <div id="view-staff">
-  <nav class="tab-nav" id="staff-tab-nav">
+  <nav class="tab-nav" id="staff-tab-nav" aria-label="Staff sections">
     <button class="tab-btn active" data-stab="queue"     onclick="setStaffTab('queue')">Bookings</button>
     <button class="tab-btn"        data-stab="sessions"  onclick="setStaffTab('sessions')">Sessions</button>
     <button class="tab-btn"        data-stab="bikes"     onclick="setStaffTab('bikes')">Bikes</button>
@@ -2181,7 +2185,9 @@ function setLang(lang){
 /* ══════════════════════════════════════════════
    CONFIG
 ══════════════════════════════════════════════ */
-const STAFF_PIN = '1425'; // change this to your preferred PIN
+// Staff PIN is stored only as a SHA-256 hash so the plaintext is not visible in the page source.
+// To change it: run  printf '%s' 'mmpin:YOURPIN' | shasum -a 256  and paste the hex below. (Current PIN: 1425)
+const STAFF_PIN_HASH = 'd5f7cfd0e1604b2bc6edc49050b8388b48d2f82f6fb5293c72dd9707eae71d04';
 const PIN_LOCKOUT_MINS=[1,2,5,10,15,30,45,60,120];
 function _getPinLock(){try{return{until:parseInt(localStorage.getItem('cq_pin_until')||'0'),lockouts:parseInt(localStorage.getItem('cq_pin_lockouts')||'0'),attempts:parseInt(localStorage.getItem('cq_pin_attempts')||'0')};}catch(e){return{until:0,lockouts:0,attempts:0};}}
 function _clearPinLock(){try{localStorage.removeItem('cq_pin_until');localStorage.removeItem('cq_pin_lockouts');localStorage.removeItem('cq_pin_attempts');}catch(e){}}
@@ -2565,10 +2571,140 @@ async function loadData(showLoader=false){
 }
 let _bootReadyAt=0;
 
+// Legacy non-cryptographic hash — kept only to verify (and upgrade) accounts created before salted hashing.
 function hashPwd(s){
   let h=5381;
   for(let i=0;i<s.length;i++)h=((h<<5)+h)^s.charCodeAt(i);
   return(h>>>0).toString(16);
+}
+/* ── Salted SHA-256 password hashing (Web Crypto, free, built-in). Format: "sha256:<salt>:<hash>" ── */
+function _hex(buf){return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+function _cryptoOK(){return typeof crypto!=='undefined'&&crypto.subtle;}
+function genSalt(){const a=new Uint8Array(8);if(typeof crypto!=='undefined'&&crypto.getRandomValues)crypto.getRandomValues(a);else for(let i=0;i<8;i++)a[i]=Math.floor(Math.random()*256);return _hex(a.buffer);}
+async function sha256Hex(str){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));return _hex(buf);}
+async function makePwdHash(pwd){if(!_cryptoOK())return hashPwd(pwd);const salt=genSalt();return 'sha256:'+salt+':'+(await sha256Hex(salt+':'+pwd));}
+async function verifyPwd(pwd,stored){
+  if(!stored)return false;
+  if(stored.indexOf('sha256:')===0){if(!_cryptoOK())return false;const p=stored.split(':');return (await sha256Hex(p[1]+':'+pwd))===p[2];}
+  if(stored==='oauth:google')return false;
+  return hashPwd(pwd)===stored; // legacy account
+}
+/* ── Minimal QR Code generator (byte mode, EC level M, versions 1-10) — self-contained, offline, free ── */
+const QR=(function(){
+  var EXP=new Array(512),LOG=new Array(256);
+  (function(){var x=1;for(var i=0;i<255;i++){EXP[i]=x;LOG[x]=i;x<<=1;if(x&0x100)x^=0x11d;}for(var i=255;i<512;i++)EXP[i]=EXP[i-255];})();
+  function gmul(a,b){return (a===0||b===0)?0:EXP[LOG[a]+LOG[b]];}
+  function rsGen(deg){var g=[1];for(var i=0;i<deg;i++){var ng=new Array(g.length+1);for(var k=0;k<ng.length;k++)ng[k]=0;for(var j=0;j<g.length;j++){ng[j]^=gmul(g[j],EXP[i]);ng[j+1]^=g[j];}g=ng;}return g;}
+  function rsEC(data,deg){var g=rsGen(deg);var res=data.slice();for(var i=0;i<deg;i++)res.push(0);for(var i=0;i<data.length;i++){var c=res[i];if(c!==0)for(var j=0;j<g.length;j++)res[i+j]^=gmul(g[j],c);}return res.slice(data.length);}
+  var VER={1:[10,[[1,16]]],2:[16,[[1,28]]],3:[26,[[1,44]]],4:[18,[[2,32]]],5:[24,[[2,43]]],6:[16,[[4,27]]],7:[18,[[4,31]]],8:[22,[[2,38],[2,39]]],9:[22,[[3,36],[2,37]]],10:[26,[[4,43],[1,44]]]};
+  var ALIGN={1:[],2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34],7:[6,22,38],8:[6,24,42],9:[6,26,46],10:[6,28,50]};
+  var VERINFO={7:0x07C94,8:0x085BC,9:0x09A99,10:0x0A4D3};
+  var FMT_M=[0x5412,0x5125,0x5E7C,0x5B4B,0x45F9,0x40CE,0x4F97,0x4AA0];
+  function totalData(v){var s=0,g=VER[v][1];for(var i=0;i<g.length;i++)s+=g[i][0]*g[i][1];return s;}
+  function pickVersion(len){for(var v=1;v<=10;v++){var cap=totalData(v)-2-((v<=9)?1:2);if(len<=cap)return v;}return null;}
+  function maskFn(mask,r,c){switch(mask){case 0:return (r+c)%2===0;case 1:return r%2===0;case 2:return c%3===0;case 3:return (r+c)%3===0;case 4:return (Math.floor(r/2)+Math.floor(c/3))%2===0;case 5:return ((r*c)%2)+((r*c)%3)===0;case 6:return (((r*c)%2)+((r*c)%3))%2===0;case 7:return (((r+c)%2)+((r*c)%3))%2===0;}return false;}
+  function buildBase(v){
+    var size=17+4*v;
+    var m=[],fn=[];for(var i=0;i<size;i++){m.push(new Array(size).fill(null));fn.push(new Array(size).fill(false));}
+    function inR(r,c){return r>=0&&r<size&&c>=0&&c<size;}
+    function finder(r,c){for(var i=-1;i<=7;i++)for(var j=-1;j<=7;j++){if(!inR(r+i,c+j))continue;var on=(i>=0&&i<=6&&(j===0||j===6))||(j>=0&&j<=6&&(i===0||i===6))||(i>=2&&i<=4&&j>=2&&j<=4);m[r+i][c+j]=on?1:0;fn[r+i][c+j]=true;}}
+    finder(0,0);finder(0,size-7);finder(size-7,0);
+    for(var i=8;i<size-8;i++){var t=(i%2===0)?1:0;m[6][i]=t;fn[6][i]=true;m[i][6]=t;fn[i][6]=true;}
+    var ap=ALIGN[v];
+    for(var a=0;a<ap.length;a++)for(var b=0;b<ap.length;b++){var r=ap[a],c=ap[b];if(fn[r][c])continue;for(var i=-2;i<=2;i++)for(var j=-2;j<=2;j++){var on=Math.max(Math.abs(i),Math.abs(j))!==1;m[r+i][c+j]=on?1:0;fn[r+i][c+j]=true;}}
+    m[size-8][8]=1;fn[size-8][8]=true;
+    for(var i=0;i<=8;i++){fn[8][i]=true;fn[i][8]=true;}
+    for(var i=0;i<8;i++){fn[size-1-i][8]=true;}
+    for(var i=0;i<7;i++){fn[8][size-1-i]=true;}
+    if(v>=7){for(var i=0;i<6;i++)for(var j=0;j<3;j++){fn[i][size-11+j]=true;fn[size-11+j][i]=true;}}
+    return {size:size,m:m,fn:fn};
+  }
+  function placeData(base,bitsArr){
+    var size=base.size,m=base.m,fn=base.fn,bitIdx=0,up=true;
+    for(var col=size-1;col>0;col-=2){if(col===6)col--;
+      for(var k=0;k<size;k++){var row=up?size-1-k:k;
+        for(var c2=0;c2<2;c2++){var cc=col-c2;
+          if(!fn[row][cc]){m[row][cc]=(bitIdx<bitsArr.length?bitsArr[bitIdx++]:0);}
+        }
+      }
+      up=!up;
+    }
+  }
+  function applyMask(base,mask){
+    var size=base.size,fn=base.fn,m=base.m,out=[];
+    for(var r=0;r<size;r++){out.push(m[r].slice());for(var c=0;c<size;c++){if(!fn[r][c]&&maskFn(mask,r,c))out[r][c]^=1;}}
+    return out;
+  }
+  function writeFormat(grid,size,mask){
+    var bits=FMT_M[mask];
+    for(var i=0;i<=5;i++)grid[8][i]=(bits>>i)&1;
+    grid[8][7]=(bits>>6)&1;grid[8][8]=(bits>>7)&1;grid[7][8]=(bits>>8)&1;
+    for(var i=9;i<=14;i++)grid[14-i][8]=(bits>>i)&1;
+    for(var i=0;i<=7;i++)grid[size-1-i][8]=(bits>>i)&1;
+    for(var i=8;i<=14;i++)grid[8][size-15+i]=(bits>>i)&1;
+    grid[size-8][8]=1;
+  }
+  function writeVersion(grid,size,v){
+    if(v<7)return;var info=VERINFO[v];
+    for(var i=0;i<18;i++){var b=(info>>i)&1;var r=Math.floor(i/3),c=i%3;grid[r][size-11+c]=b;grid[size-11+c][r]=b;}
+  }
+  function penalty(grid,size){
+    var p=0,r,c;
+    for(r=0;r<size;r++){var run=1;for(c=1;c<size;c++){if(grid[r][c]===grid[r][c-1]){run++;}else{if(run>=5)p+=run-2;run=1;}}if(run>=5)p+=run-2;}
+    for(c=0;c<size;c++){var run=1;for(r=1;r<size;r++){if(grid[r][c]===grid[r-1][c]){run++;}else{if(run>=5)p+=run-2;run=1;}}if(run>=5)p+=run-2;}
+    for(r=0;r<size-1;r++)for(c=0;c<size-1;c++){var v0=grid[r][c];if(v0===grid[r][c+1]&&v0===grid[r+1][c]&&v0===grid[r+1][c+1])p+=3;}
+    var pat1=[1,0,1,1,1,0,1,0,0,0,0],pat2=[0,0,0,0,1,0,1,1,1,0,1];
+    function match(arr,i,horiz,fixed){for(var k=0;k<11;k++){var rr=horiz?fixed:i+k,cc=horiz?i+k:fixed;if(grid[rr][cc]!==arr[k])return false;}return true;}
+    for(r=0;r<size;r++)for(c=0;c<size-10;c++){if(match(pat1,c,true,r))p+=40;if(match(pat2,c,true,r))p+=40;}
+    for(c=0;c<size;c++)for(r=0;r<size-10;r++){if(match(pat1,r,false,c))p+=40;if(match(pat2,r,false,c))p+=40;}
+    var dark=0;for(r=0;r<size;r++)for(c=0;c<size;c++)dark+=grid[r][c];
+    var ratio=dark*100/(size*size);var k5=Math.floor(Math.abs(ratio-50)/5);p+=k5*10;
+    return p;
+  }
+  function encode(text){
+    var utf=unescape(encodeURIComponent(String(text))),bytes=[];for(var i=0;i<utf.length;i++)bytes.push(utf.charCodeAt(i)&0xff);
+    var v=pickVersion(bytes.length);if(!v)throw new Error('QR: data too long');
+    var ccBits=(v<=9)?8:16,bits=[];
+    function put(val,n){for(var i=n-1;i>=0;i--)bits.push((val>>i)&1);}
+    put(0x4,4);put(bytes.length,ccBits);for(var i=0;i<bytes.length;i++)put(bytes[i],8);
+    var cap=totalData(v)*8,term=Math.min(4,cap-bits.length);put(0,term);
+    while(bits.length%8!==0)bits.push(0);
+    var dataCW=[];for(var i=0;i<bits.length;i+=8){var bb=0;for(var j=0;j<8;j++)bb=(bb<<1)|bits[i+j];dataCW.push(bb);}
+    var pads=[0xEC,0x11],pi=0;while(dataCW.length<totalData(v))dataCW.push(pads[pi++%2]);
+    var ecLen=VER[v][0],groups=VER[v][1],blocks=[],idx=0;
+    for(var gi=0;gi<groups.length;gi++){var n=groups[gi][0],d=groups[gi][1];for(var bi=0;bi<n;bi++){var dd=dataCW.slice(idx,idx+d);idx+=d;blocks.push({data:dd,ec:rsEC(dd,ecLen)});}}
+    var maxData=0;for(var i=0;i<blocks.length;i++)maxData=Math.max(maxData,blocks[i].data.length);
+    var finalCW=[];
+    for(var i=0;i<maxData;i++)for(var b=0;b<blocks.length;b++){if(i<blocks[b].data.length)finalCW.push(blocks[b].data[i]);}
+    for(var i=0;i<ecLen;i++)for(var b=0;b<blocks.length;b++)finalCW.push(blocks[b].ec[i]);
+    var dataBits=[];for(var i=0;i<finalCW.length;i++)for(var j=7;j>=0;j--)dataBits.push((finalCW[i]>>j)&1);
+    var base=buildBase(v);placeData(base,dataBits);
+    var best=null,bestPen=Infinity,bestMask=0;
+    for(var mask=0;mask<8;mask++){var grid=applyMask(base,mask);writeFormat(grid,base.size,mask);writeVersion(grid,base.size,v);var pen=penalty(grid,base.size);if(pen<bestPen){bestPen=pen;best=grid;bestMask=mask;}}
+    return {size:base.size,modules:best,version:v,mask:bestMask};
+  }
+  function svg(text,opts){
+    opts=opts||{};var q=opts.margin==null?4:opts.margin,dark=opts.dark||'#0a0a0a',light=opts.light||'#ffffff',px=opts.size||96;
+    var qr=encode(text),n=qr.size,total=n+2*q,cell=px/total,rects='';
+    for(var r=0;r<n;r++)for(var c=0;c<n;c++){if(qr.modules[r][c]){rects+='<rect x="'+((c+q)*cell).toFixed(2)+'" y="'+((r+q)*cell).toFixed(2)+'" width="'+cell.toFixed(2)+'" height="'+cell.toFixed(2)+'"/>';}}
+    return '<svg xmlns="http://www.w3.org/2000/svg" width="'+px+'" height="'+px+'" viewBox="0 0 '+px+' '+px+'" shape-rendering="crispEdges" role="img" aria-label="Booking QR code"><rect width="'+px+'" height="'+px+'" fill="'+light+'"/><g fill="'+dark+'">'+rects+'</g></svg>';
+  }
+  return {encode:encode,svg:svg};
+})();
+/* Renders a scannable booking QR inside a white panel (high contrast = reliable scanning). */
+function ticketQR(payload,px){
+  px=px||92;
+  try{
+    return `<div style="background:#fff;padding:6px;border-radius:8px;display:inline-block;line-height:0">${QR.svg(payload,{size:px-12,margin:2,dark:'#0a0a0a',light:'#ffffff'})}</div>`;
+  }catch(e){return '';}
+}
+/* Compact, scannable check-in reference for a booking/queue entry. */
+function bookingRef(e){
+  if(!e)return 'MMC';
+  const num=e.queueNum!=null?('#'+e.queueNum):'';
+  const date=e.sessionDate||'';
+  const ref=e.id?String(e.id).slice(0,8):'';
+  return ['MMC',num,date,ref].filter(Boolean).join('|');
 }
 function generateResetOTP(email,windowMs=10*60*1000){
   const win=Math.floor(Date.now()/windowMs);
@@ -2964,7 +3100,7 @@ async function doResetPassword(){
       .select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city')
       .eq('email',S.forgotEmail).maybeSingle();
     if(!customer){authErr(t('errAccountNotFound'));return;}
-    const{error}=await sb.from('customers').update({password_hash:hashPwd(pwd)}).eq('id',customer.id);
+    const{error}=await sb.from('customers').update({password_hash:await makePwdHash(pwd)}).eq('id',customer.id);
     if(error)throw error;
     S.loggedIn=customer;setSession(customer);S.forgotStep=1;S.forgotEmail='';S.authMode='login';
     await loadData();
@@ -2997,7 +3133,7 @@ async function doSignup(){
     const height=isNaN(heightRaw)?null:heightRaw;
     const type_preference=S.signupTypePref||'Any';
     const gender=S.signupGender;
-    const customer={id:uid(),name,email,phone:fullPhone,password_hash:hashPwd(pwd),created_at:new Date().toISOString(),height,type_preference,gender};
+    const customer={id:uid(),name,email,phone:fullPhone,password_hash:await makePwdHash(pwd),created_at:new Date().toISOString(),height,type_preference,gender};
     const{error}=await sb.from('customers').insert(customer);
     if(error)throw error;
     await loadData();
@@ -3088,12 +3224,18 @@ async function doLogin(){
       const candidates=new Set([rawInput,digits,bare,`+966${bare}`,`00966${bare}`]);
       candidates.forEach(c=>{if(c&&c.length>=5&&/^[+\d]+$/.test(c))filters.push(`phone.eq.${c}`);});
     }
-    const{data:customer}=await sb.from('customers')
-      .select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city')
+    const{data:rows}=await sb.from('customers')
+      .select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city,password_hash')
       .or(filters.join(','))
-      .eq('password_hash',hashPwd(pwd))
-      .maybeSingle();
+      .limit(5);
+    let customer=null;
+    for(const row of (rows||[])){if(await verifyPwd(pwd,row.password_hash)){customer=row;break;}}
     if(!customer){authErr(t('errInvalidCredentials'));return;}
+    // Transparently upgrade legacy (unsalted) hashes to salted SHA-256 on successful login.
+    if(String(customer.password_hash||'').indexOf('sha256:')!==0&&customer.password_hash!=='oauth:google'){
+      try{const up=await makePwdHash(pwd);await sb.from('customers').update({password_hash:up}).eq('id',customer.id);}catch(e){}
+    }
+    delete customer.password_hash;
     S.loggedIn=customer;setSession(customer);
     await loadData();
     closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
@@ -3339,14 +3481,15 @@ function renderPinModal(){
   </div>`;
 }
 
-function pinPress(d){
+async function pinPress(d){
   const {until,lockouts,attempts}=_getPinLock();
   if(until>Date.now())return;
   if(S.pinDigits.length>=4)return;
   S.pinDigits+=d;
   S.pinError=false;
   if(S.pinDigits.length===4){
-    if(S.pinDigits===STAFF_PIN){
+    const pinOK=_cryptoOK()&&(await sha256Hex('mmpin:'+S.pinDigits))===STAFF_PIN_HASH;
+    if(pinOK){
       _clearPinLock();
       if(S.pinCountdownInterval){clearInterval(S.pinCountdownInterval);S.pinCountdownInterval=null;}
       closePinModal();
@@ -3569,8 +3712,7 @@ function renderRegister(){
 
   // All tickets (one per bike booked)
   function renderOneTicket(tkt,idx,total){
-    const qrPat=[1,0,1,1,0, 0,1,1,0,1, 1,1,0,1,0, 0,0,1,1,0, 1,0,0,0,1];
-    const qrHtml=`<div class="ticket-qr">${qrPat.map(v=>`<div class="ticket-qr-cell${v?' solid':''}"></div>`).join('')}</div>`;
+    const qrHtml=ticketQR(bookingRef(tkt),92);
     const sessTime=sessionTime(allSessions().find(s=>s.id===tkt.sessionId));
     const label=total>1?`${t('bike')} ${idx+1} / ${total}`:'';
     return`<div class="ticket-card" style="${idx>0?'margin-top:16px':''}">
@@ -3997,11 +4139,6 @@ function renderBookingTicket(entries,opts){
   const stForBadge=anyActive?'active':allDone?'done':allNoShow?'noshow':primary.status;
   const total=g.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
   const canEdit=opts.actions&&g.some(e=>e.status==='waiting');
-  const dialTotal=sess?(sess.capacity||20):20;
-  const dialPos=primary.queueNum||1;
-  const dialPct=Math.min(dialPos/dialTotal,1);
-  const circ=2*Math.PI*80;
-  const offset=circ*(1-dialPct);
   const riderRows=g.map((e,i)=>{
     const bike=getAssignedBikes(e)[0]||null;
     const payBadge=e.paid
@@ -4028,22 +4165,17 @@ function renderBookingTicket(entries,opts){
       <button class="btn-sm btn-blue" style="flex:1" onclick="S.lastTickets=[];S.selSession='${primary.sessionId}';S.regStep=2;setCustTab('register')">${t('editBtn')}</button>
       <button class="btn-sm btn-red" style="flex:1" onclick="showCancelReasonModal('${primary.id}')">${t('cancelBooking')}</button>
     </div>`:'';
-  const dialInner=numDisplay.length<=4?numDisplay:'#'+dialPos;
+  const numFont=numDisplay.length<=4?'72px':numDisplay.length<=9?'40px':'24px';
   return`<div class="ticket-card" style="margin-top:0">
-    <div class="ticket-header" style="padding:18px;gap:16px">
-      <div class="ticket-dial-wrap">
-        <div class="ticket-dial-container" style="width:120px;height:120px">
-          <svg class="ticket-dial-svg" width="120" height="120" viewBox="0 0 180 180" style="transform:rotate(-90deg)">
-            <circle cx="90" cy="90" r="80" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="12"/>
-            <circle cx="90" cy="90" r="80" fill="none" stroke="#03ff89" stroke-width="12" stroke-linecap="round" stroke-dasharray="${circ.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}"/>
-          </svg>
-          <div class="ticket-dial-num" style="font-size:30px">${dialInner}</div>
-        </div>
-        <div class="ticket-dial-caption">${n>1?n+' '+(t('bike')||'bikes'):t('queueNumLabel')}</div>
+    <div class="ticket-header">
+      <div class="ticket-num-block">
+        <div class="ticket-num-label">${n>1?n+' '+(t('bike')||'bikes'):t('queueNumLabel')}</div>
+        <div class="ticket-num" style="font-size:${numFont};letter-spacing:${numDisplay.length<=4?'-3px':'-1px'}">${numDisplay}</div>
       </div>
-      <div class="ticket-right" style="align-items:flex-end">
+      <div class="ticket-right">
         ${statusBadge(stForBadge)}
-        <div style="font-size:11px;color:var(--muted);font-weight:700;text-align:right;line-height:1.5;margin-top:6px">${dayLabel(primary.sessionDay)}<br>${shortDate(primary.sessionDate)}<br>${sessTime}</div>
+        ${ticketQR(bookingRef(primary),92)}
+        <div style="font-size:10px;color:var(--muted);font-weight:700;text-align:right;line-height:1.4">${dayLabel(primary.sessionDay)}<br>${shortDate(primary.sessionDate)}<br>${sessTime}</div>
       </div>
     </div>
     <div style="padding:2px 18px 0">
@@ -8371,6 +8503,11 @@ async function _autoRefresh(){
 }
 setInterval(()=>{_tickRefreshLabel();},5000);
 setInterval(()=>{_autoRefresh();},30000);
+
+/* ── PWA: register service worker for install + offline app shell ── */
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{navigator.serviceWorker.register('service-worker.js').catch(e=>console.warn('SW registration failed:',e));});
+}
 </script>
 </body>
 </html>

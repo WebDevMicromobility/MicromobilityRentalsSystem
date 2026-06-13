@@ -27,13 +27,18 @@ create table if not exists bikes (
   status      text not null default 'available',
   location    text,            -- e.g. 'JCC'; order in the list sets the location number
   frame_type  text,            -- 'Steel' | 'Aluminum' | 'Carbon' | 'Titanium'
-  bike_number integer          -- unique per location; padded to 4 digits in the auto name
+  bike_number integer          -- globally unique across the whole fleet; padded to 4 digits in the auto name
 );
 
 -- Migration for existing databases (skip if creating fresh):
 -- alter table bikes add column if not exists location text;
 -- alter table bikes add column if not exists frame_type text;
 -- alter table bikes add column if not exists bike_number integer;
+
+-- Enforce globally-unique bike numbers at the database level (prevents two staff colliding).
+-- Partial index so multiple NULLs are still allowed.
+create unique index if not exists bikes_bike_number_uniq
+  on bikes (bike_number) where bike_number is not null;
 
 create table if not exists sessions (
   id           text primary key,
@@ -69,8 +74,36 @@ create table if not exists queue_entries (
 );
 
 -- ── ROW LEVEL SECURITY ────────────────────────────────────────────────────────
--- The app handles its own auth (custom password hash).
--- These policies let the anon key read and write all tables.
+-- SECURITY WARNING -------------------------------------------------------------
+-- The policies below grant the public anon key full read/write on every table.
+-- Because the anon key ships in the browser, ANYONE can currently read all
+-- customer rows (names, emails, phones) and all queue entries. Passwords are now
+-- stored as salted SHA-256 (see makePwdHash in index.html), but the PII is still
+-- world-readable under these policies. This is acceptable only for a demo.
+--
+-- RECOMMENDED FREE HARDENING (Supabase free tier, no extra cost) -- do this when
+-- you are ready to migrate auth; it changes how the client talks to the DB:
+--   1. Move customer auth to Supabase Auth (auth.users) instead of the custom
+--      customers.password_hash flow, OR keep custom auth but route login/signup
+--      through a SECURITY DEFINER RPC (example below) so the table itself can be
+--      locked down.
+--   2. Replace the customers "public access" policy with:
+--        - INSERT: allow (signup), but
+--        - SELECT/UPDATE/DELETE: restrict to the row's own auth.uid()
+--      so a visitor can never dump every customer.
+--   3. Denormalized PII in queue_entries (name/email/phone) should be readable
+--      only by staff; gate it behind a staff role / service-side function.
+--
+-- Example SECURITY DEFINER login RPC (lets you lock down SELECT on customers):
+--   create or replace function customer_login(p_filter text, p_hash text)
+--   returns table(id text, name text, email text, phone text)
+--   language sql security definer set search_path = public as $$
+--     select id, name, email, phone from customers
+--     where (email = p_filter or phone = p_filter) and password_hash = p_hash
+--     limit 1;
+--   $$;
+-- -----------------------------------------------------------------------------
+-- Current (demo) policies: the anon key can read and write all tables.
 
 alter table customers    enable row level security;
 alter table bikes        enable row level security;
