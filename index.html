@@ -2665,11 +2665,11 @@ const QR=(function(){
     return p;
   }
   // Encode via the qrcode-generator library (loaded from CDN, cached offline by the service worker).
-  // Error-correction level H (~30% recovery) so the centre logo doesn't break scanning -
-  // a busy logo corrupts the modules it covers, and H reconstructs them. Returns {size, modules:0/1}.
+  // Error-correction level M keeps short payloads at version 1 (largest, easiest-to-scan modules).
+  // Returns {size, modules:0/1}.
   function encode(text){
     if(typeof qrcode==='undefined')throw new Error('QR library not loaded');
-    var qr=qrcode(0,'H');           // 0 = auto-select the smallest fitting version
+    var qr=qrcode(0,'M');           // 0 = auto-select the smallest fitting version
     qr.addData(String(text));
     qr.make();
     var nn=qr.getModuleCount(),m=[];
@@ -2721,7 +2721,7 @@ const QR=(function(){
 function ticketQR(payload,px){
   px=px||112;
   try{
-    return `<div style="background:#fff;padding:8px;border-radius:12px;display:inline-block;line-height:0;border:2px solid rgba(3,255,137,.55);box-shadow:0 0 14px rgba(3,255,137,.22)">${QR.svg(payload,{size:px-16,margin:4})}</div>`;
+    return `<div style="background:#fff;padding:8px;border-radius:12px;display:inline-block;line-height:0;border:2px solid rgba(3,255,137,.55);box-shadow:0 0 14px rgba(3,255,137,.22)">${QR.svg(payload,{size:px-16,margin:4,logo:false})}</div>`;
   }catch(e){return '';}
 }
 /* Short check-in reference: kept compact so the QR stays a low version (bigger, easier-to-scan modules). */
