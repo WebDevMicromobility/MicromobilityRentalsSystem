@@ -1480,6 +1480,8 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <button class="tab-btn active" data-stab="queue"     onclick="setStaffTab('queue')">Bookings</button>
     <button class="tab-btn"        data-stab="sessions"  onclick="setStaffTab('sessions')">Sessions</button>
     <button class="tab-btn"        data-stab="bikes"     onclick="setStaffTab('bikes')">Bikes</button>
+    <button class="tab-btn"        data-stab="inventory" onclick="setStaffTab('inventory')">Inventory</button>
+    <button class="tab-btn"        data-stab="community" onclick="setStaffTab('community')">Community</button>
     <button class="tab-btn"        data-stab="analytics" onclick="setStaffTab('analytics')">Analytics</button>
     <button class="tab-btn"        data-stab="history"   onclick="setStaffTab('history')">History</button>
     <button class="tab-btn"        data-stab="logs"      onclick="setStaffTab('logs')">Logs</button>
@@ -1487,8 +1489,10 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
   <div class="view-main">
     <div id="tab-queue"     class="tab-panel active"></div>
     <div id="tab-sessions"  class="tab-panel"></div>
-    <div id="tab-bikes"     class="tab-panel"></div>
-    <div id="tab-analytics" class="tab-panel"></div>
+    <div id="tab-bikes"      class="tab-panel"></div>
+    <div id="tab-inventory"  class="tab-panel"></div>
+    <div id="tab-community"  class="tab-panel"></div>
+    <div id="tab-analytics"  class="tab-panel"></div>
     <div id="tab-history"   class="tab-panel"></div>
     <div id="tab-logs"      class="tab-panel"></div>
   </div>
@@ -1566,7 +1570,7 @@ en:{
   staffAccess:'Staff Access',customerBadge:'Customer',staffBadge:'Staff Panel',
   lockBtn:'Lock',homeBtn:'Home',logOut:'Log Out',
   authWelcome:'Welcome to MicroMobility',authSub:'Sign in or create an account to track your rides.',
-  authLogin:'Log In',authSignup:'Sign Up',authLoginBtn:'Log In',authSignupBtn:'Create Account',
+  authLogin:'Log In',authSignup:'Sign Up',authLoginBtn:'Log In',authSignupBtn:'Create Account',genderLabel:'Gender',genderMale:'Male',genderFemale:'Female',errSelectGender:'Please select your gender.',
   authCancel:'Cancel - Go Home',authIdentifier:'Email or Phone',
   enterEmailOrPhone:'Enter your email or phone number',enterEmail:'Enter your email address',enterPhone:'Enter your phone number',
   authFullName:'Full Name',authEmail:'Email Address',authEmailOpt:'(optional if using phone)',
@@ -1648,7 +1652,7 @@ en:{
   myRidesTitle:'My Rides',myRidesSub:'Your complete rental history.',
   totalBookings:'Total Bookings',completedLabel:'Completed',totalPaid:'Total Paid',pendingPayment:'Pending Payment',
   rideHistory:'Ride History',noRides:'No bookings yet.',
-  colQueueNum:'#',colSession:'Session',colBike:'Bike',colSizeType:'Size / Type',colColor:'Color',colPayment:'Payment',colStatus:'Status',
+  colQueueNum:'#',colSession:'Session',colBike:'Bike',colSizeType:'Size / Type',colColor:'Bike Color',colPayment:'Payment',colStatus:'Status',
   cancelBooking:'Cancel',
   statusWaiting:'Waiting',statusActive:'On Bike',statusDone:'Complete',statusNoshow:'No-Show',statusCancelled:'Cancelled by Customer',
   colBookingNum:'Booking #',colPosition:'Position',
@@ -1849,7 +1853,7 @@ ar:{
   staffAccess:'دخول الموظفين',customerBadge:'عميل',staffBadge:'لوحة الموظفين',
   lockBtn:'قفل',homeBtn:'الرئيسية',logOut:'تسجيل الخروج',
   authWelcome:'مرحباً بك في مايكرو موبيليتي',authSub:'سجل دخولك أو أنشئ حساباً لتتبع رحلاتك.',
-  authLogin:'تسجيل الدخول',authSignup:'إنشاء حساب',authLoginBtn:'تسجيل الدخول',authSignupBtn:'إنشاء الحساب',
+  authLogin:'تسجيل الدخول',authSignup:'إنشاء حساب',authLoginBtn:'تسجيل الدخول',authSignupBtn:'إنشاء الحساب',genderLabel:'الجنس',genderMale:'ذكر',genderFemale:'أنثى',errSelectGender:'الرجاء اختيار جنسك.',
   authCancel:'إلغاء - الرئيسية',authIdentifier:'البريد الإلكتروني أو الهاتف',
   enterEmailOrPhone:'أدخل بريدك الإلكتروني أو رقم هاتفك',enterEmail:'أدخل بريدك الإلكتروني',enterPhone:'أدخل رقم هاتفك',
   authFullName:'الاسم الكامل',authEmail:'البريد الإلكتروني',authEmailOpt:'(اختياري إذا استخدمت الهاتف)',
@@ -1931,7 +1935,7 @@ ar:{
   myRidesTitle:'رحلاتي',myRidesSub:'سجلك الكامل للإيجار.',
   totalBookings:'إجمالي الحجوزات',completedLabel:'مكتملة',totalPaid:'إجمالي المدفوع',pendingPayment:'مستحق الدفع',
   rideHistory:'سجل الرحلات',noRides:'لا توجد حجوزات بعد.',
-  colQueueNum:'#',colSession:'الجلسة',colBike:'الدراجة',colSizeType:'المقاس / النوع',colColor:'اللون',colPayment:'الدفع',colStatus:'الحالة',
+  colQueueNum:'#',colSession:'الجلسة',colBike:'الدراجة',colSizeType:'المقاس / النوع',colColor:'لون الدراجة',colPayment:'الدفع',colStatus:'الحالة',
   cancelBooking:'إلغاء',
   statusWaiting:'بانتظار',statusActive:'على الدراجة',statusDone:'مكتمل',statusNoshow:'لم يحضر',statusCancelled:'ملغي من قِبَل العميل',
   colBookingNum:'رقم الحجز',colPosition:'الموضع',
@@ -2417,7 +2421,7 @@ const S={
   rememberMe:false,  // default: sign out when browser closes
   cancellationLog:[],  // {entryId, name, queueNum, reason, time, session}
   _flashId:null,_flashColor:'green',
-  signupTypePref:'Any',
+  signupTypePref:'Any',signupGender:null,
   loggedIn:null,      // customer object or null
   // data cache (loaded from API)
   queue:[],bikes:[],customers:[],sessions:[],
@@ -2774,6 +2778,14 @@ function renderAuthModal(){
     </div>`;
     body=`
       <div class="auth-field"><label>${t('authFullName')}</label><input id="a-name" type="text" placeholder="${t('authFullName')}"></div>
+      <div class="auth-field"><label>${t('genderLabel')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button id="sgn-male" type="button" class="toggle-btn${S.signupGender==='male'?' active':''}" style="flex:1"
+            onclick="S.signupGender='male';document.getElementById('sgn-male').classList.add('active');document.getElementById('sgn-female').classList.remove('active')">${t('genderMale')}</button>
+          <button id="sgn-female" type="button" class="toggle-btn${S.signupGender==='female'?' active':''}" style="flex:1"
+            onclick="S.signupGender='female';document.getElementById('sgn-female').classList.add('active');document.getElementById('sgn-male').classList.remove('active')">${t('genderFemale')}</button>
+        </div>
+      </div>
       <div class="auth-field"><label>${t('authEmail')}</label>
         <input id="a-email" type="email" placeholder="${t('enterEmail')}"></div>
       <div class="auth-field"><label>${t('authPhone')}</label>
@@ -2815,7 +2827,7 @@ function renderAuthModal(){
   </div>`;
 }
 
-function switchAuthMode(mode){S.authMode=mode;if(mode!=='forgot'){S.forgotStep=1;S.forgotEmail='';}renderAuthModal();}
+function switchAuthMode(mode){S.authMode=mode;if(mode!=='forgot'){S.forgotStep=1;S.forgotEmail='';}if(mode==='signup')S.signupGender=null;renderAuthModal();}
 function toggleRememberMe(){
   S.rememberMe=!S.rememberMe;
   const box=document.getElementById('rm-box');
@@ -2878,6 +2890,7 @@ async function doSignup(){
   if(email&&!/^\S+@\S+\.\S+$/.test(email)){authErr(t('errValidEmail'));return;}
   if(pwd.length<8||!/[A-Z]/.test(pwd)||!/[0-9]/.test(pwd)){authErr(t('errPasswordLen'));return;}
   if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
+  if(!S.signupGender){authErr(t('errSelectGender'));return;}
   const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
   if(!isNaN(heightRaw)&&(heightRaw<100||heightRaw>250)){authErr(t('errValidHeightCm'));return;}
   const fullPhone=phone?(cc+phone):'';
@@ -2886,7 +2899,8 @@ async function doSignup(){
     if(fullPhone){const{data:ex}=await sb.from('customers').select('id').eq('phone',fullPhone).maybeSingle();if(ex){authErr(t('errPhoneExists'));return;}}
     const height=isNaN(heightRaw)?null:heightRaw;
     const type_preference=S.signupTypePref||'Any';
-    const customer={id:uid(),name,email,phone:fullPhone,password_hash:hashPwd(pwd),created_at:new Date().toISOString(),height,type_preference};
+    const gender=S.signupGender;
+    const customer={id:uid(),name,email,phone:fullPhone,password_hash:hashPwd(pwd),created_at:new Date().toISOString(),height,type_preference,gender};
     const{error}=await sb.from('customers').insert(customer);
     if(error)throw error;
     await loadData();
@@ -3050,6 +3064,8 @@ function setStaffTab(tab){
   else if(tab==='history')renderHistory();
   else if(tab==='analytics')renderAnalytics();
   else if(tab==='logs')renderLogs();
+  else if(tab==='inventory')document.getElementById('tab-inventory').innerHTML=`<div class="empty-illustration" style="padding-top:80px"><div class="empty-illus-icon" style="font-size:64px">🌞</div><div class="empty-illus-title">Coming Soon</div><div class="empty-illus-sub">Inventory management is on its way.</div></div>`;
+  else if(tab==='community')document.getElementById('tab-community').innerHTML=`<div class="empty-illustration" style="padding-top:80px"><div class="empty-illus-icon" style="font-size:64px">🌞</div><div class="empty-illus-title">Coming Soon</div><div class="empty-illus-sub">Community features are on their way.</div></div>`;
 }
 
 function renderCustomerTabs(){
@@ -3074,12 +3090,14 @@ function renderStaffTabs(){
   document.querySelectorAll('#staff-tab-nav .tab-btn').forEach(b=>{
     b.classList.toggle('active',b.dataset.stab===S.staffTab);
   });
-  document.getElementById('tab-queue')    .classList.toggle('active',S.staffTab==='queue');
-  document.getElementById('tab-sessions') .classList.toggle('active',S.staffTab==='sessions');
-  document.getElementById('tab-bikes')    .classList.toggle('active',S.staffTab==='bikes');
-  document.getElementById('tab-history')  .classList.toggle('active',S.staffTab==='history');
-  document.getElementById('tab-analytics').classList.toggle('active',S.staffTab==='analytics');
-  document.getElementById('tab-logs')     .classList.toggle('active',S.staffTab==='logs');
+  document.getElementById('tab-queue')     .classList.toggle('active',S.staffTab==='queue');
+  document.getElementById('tab-sessions')  .classList.toggle('active',S.staffTab==='sessions');
+  document.getElementById('tab-bikes')     .classList.toggle('active',S.staffTab==='bikes');
+  document.getElementById('tab-inventory') .classList.toggle('active',S.staffTab==='inventory');
+  document.getElementById('tab-community') .classList.toggle('active',S.staffTab==='community');
+  document.getElementById('tab-history')   .classList.toggle('active',S.staffTab==='history');
+  document.getElementById('tab-analytics') .classList.toggle('active',S.staffTab==='analytics');
+  document.getElementById('tab-logs')      .classList.toggle('active',S.staffTab==='logs');
 }
 
 function renderTopbarRight(){
@@ -3277,8 +3295,8 @@ function renderRegister(){
   }
   const isModifyMode=existingEntries.length>0;
 
-  // Read-only account info block
-  const accountInfoBlock=cust?`
+  // Read-only account info block — hidden when booking multiple riders (rider 1 form takes over)
+  const accountInfoBlock=(cust&&S.regQty===1)?`
     <div style="background:var(--s3);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:20px">
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 20px">
         <div>
@@ -3333,8 +3351,7 @@ function renderRegister(){
   // Per-bike sections
   const bikeSections=Array.from({length:S.regQty},(_,i)=>{
     const isFirst=i===0;
-    const hasAccH=isFirst&&cust&&cust.height;
-    const bikeH=S.regBikeHeights[i]||'';
+    const bikeH=S.regBikeHeights[i]||(isFirst&&cust&&S.regQty>1?cust.height:'')||'';
     const selTy=S.regBikeTypes[i]||null;
 
     // Height row — always editable, pre-filled from profile for rider 0
@@ -3364,7 +3381,7 @@ function renderRegister(){
 
     return`${S.regQty>1?`<div style="font-size:11px;font-weight:900;color:var(--green);text-transform:uppercase;letter-spacing:.7px;margin-bottom:14px;display:flex;align-items:center;gap:8px">
       <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--green);color:#000;font-size:12px;font-weight:900">${i+1}</span>
-      ${i===0?(cust?esc(cust.name):t('riderLabel')):t('bike')+' '+(i+1)+' — '+(t('riderLabel')||'Rider')}
+      ${t('bike')+' '+(i+1)+' — '+(t('riderLabel')||'Rider')}
     </div>`:''}
     ${riderNameSection}
     ${hSection}
@@ -3538,7 +3555,7 @@ function ensureBikeSizes(){
 }
 
 function changeRegQty(delta){
-  S.regQty=Math.max(1,S.regQty+delta);
+  S.regQty=Math.max(1,Math.min(10,S.regQty+delta));
   ensureBikeSizes();
   renderRegister();
 }
