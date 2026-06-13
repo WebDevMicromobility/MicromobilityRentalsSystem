@@ -272,6 +272,9 @@
     .auth-field label{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;}
     .auth-field input{background:var(--s3);border:1px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:500;outline:none;transition:all .2s;width:100%;}
     .auth-field input:focus{border-color:var(--green);box-shadow:0 0 0 2px rgba(3,255,137,.12);}
+    .btn-google{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px;border-radius:9px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:800;cursor:pointer;transition:all .2s;}
+    .btn-google:hover{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.25);}
+    .btn-google svg{flex-shrink:0;}
     .auth-or{text-align:center;color:var(--muted);font-size:12px;font-weight:700;margin:10px 0;position:relative;}
     .auth-or::before,.auth-or::after{content:'';position:absolute;top:50%;width:42%;height:1px;background:var(--border);}
     .auth-or::before{left:0;}.auth-or::after{right:0;}
@@ -1572,6 +1575,7 @@ en:{
   lockBtn:'Lock',homeBtn:'Home',logOut:'Log Out',
   authWelcome:'Welcome to MicroMobility',authSub:'Sign in or create an account to track your rides.',
   authLogin:'Log In',authSignup:'Sign Up',authLoginBtn:'Log In',authSignupBtn:'Create Account',genderLabel:'Gender',genderMale:'Male',genderFemale:'Female',errSelectGender:'Please select your gender.',
+  continueGoogle:'Continue with Google',authOr:'or',gCompleteTitle:'Complete your profile',gCompleteSub:'Just a couple more details to finish signing up.',finishBtn:'Finish',errHeightReq:'Please enter your height in cm.',
   authCancel:'Cancel - Go Home',authIdentifier:'Email or Phone',
   enterEmailOrPhone:'Enter your email or phone number',enterEmail:'Enter your email address',enterPhone:'Enter your phone number',
   authFullName:'Full Name',authEmail:'Email Address',authEmailOpt:'(optional if using phone)',
@@ -1727,6 +1731,7 @@ en:{
   // Error messages
   errEnterName:'Please enter your full name (first and last name).',
   errEmailOrPhone:'Please enter at least an email or phone number.',
+  errEmailRequired:'Please enter your email address.',errPhoneRequired:'Please enter your phone number.',
   errPasswordRequired:'Please enter your password.',
   errValidEmail:'Please enter a valid email address.',
   errPasswordLen:'Password must be at least 8 characters and include an uppercase letter and a number.',
@@ -1856,6 +1861,7 @@ ar:{
   lockBtn:'قفل',homeBtn:'الرئيسية',logOut:'تسجيل الخروج',
   authWelcome:'مرحباً بك في مايكرو موبيليتي',authSub:'سجل دخولك أو أنشئ حساباً لتتبع رحلاتك.',
   authLogin:'تسجيل الدخول',authSignup:'إنشاء حساب',authLoginBtn:'تسجيل الدخول',authSignupBtn:'إنشاء الحساب',genderLabel:'الجنس',genderMale:'ذكر',genderFemale:'أنثى',errSelectGender:'الرجاء اختيار جنسك.',
+  continueGoogle:'المتابعة عبر جوجل',authOr:'أو',gCompleteTitle:'أكمل ملفك الشخصي',gCompleteSub:'تفاصيل قليلة لإتمام إنشاء الحساب.',finishBtn:'إنهاء',errHeightReq:'الرجاء إدخال طولك بالسنتيمتر.',
   authCancel:'إلغاء - الرئيسية',authIdentifier:'البريد الإلكتروني أو الهاتف',
   enterEmailOrPhone:'أدخل بريدك الإلكتروني أو رقم هاتفك',enterEmail:'أدخل بريدك الإلكتروني',enterPhone:'أدخل رقم هاتفك',
   authFullName:'الاسم الكامل',authEmail:'البريد الإلكتروني',authEmailOpt:'(اختياري إذا استخدمت الهاتف)',
@@ -2003,6 +2009,7 @@ ar:{
   noEmailLabel:'لا بريد إلكتروني',hasBookingsTitle:'لديه حجوزات',
   errEnterName:'الرجاء إدخال اسمك الكامل (الاسم الأول والأخير).',
   errEmailOrPhone:'الرجاء إدخال بريد إلكتروني أو رقم هاتف على الأقل.',
+  errEmailRequired:'الرجاء إدخال بريدك الإلكتروني.',errPhoneRequired:'الرجاء إدخال رقم هاتفك.',
   errPasswordRequired:'الرجاء إدخال كلمة المرور.',
   errValidEmail:'الرجاء إدخال بريد إلكتروني صحيح.',
   errPasswordLen:'يجب أن تكون كلمة المرور 8 أحرف على الأقل وتحتوي على حرف كبير ورقم.',
@@ -2426,7 +2433,7 @@ const S={
   rememberMe:false,  // default: sign out when browser closes
   cancellationLog:[],  // {entryId, name, queueNum, reason, time, session}
   _flashId:null,_flashColor:'green',
-  signupTypePref:'Any',signupGender:null,
+  signupTypePref:'Any',signupGender:null,_pendingGoogle:null,
   loggedIn:null,      // customer object or null
   // data cache (loaded from API)
   queue:[],bikes:[],customers:[],sessions:[],
@@ -2738,6 +2745,12 @@ function renderAuthModal(){
   const ccOpts=COUNTRY_CODES.map(([code,iso])=>`<option value="${code}"${code==='+966'?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
   const logoSrc='brand.png';
   let title=t('authWelcome'),subtitle=t('authSub'),tabs='',body='';
+  const googleBlock=`
+    <button type="button" class="btn-google" onclick="signInGoogle()">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72A5.4 5.4 0 0 1 3.68 9c0-.6.1-1.18.29-1.72V4.95H.96A9 9 0 0 0 0 9c0 1.45.35 2.82.96 4.05l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A9 9 0 0 0 9 0 9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
+      ${t('continueGoogle')}
+    </button>
+    <div class="auth-or">${t('authOr')}</div>`;
 
   if(isForgot){
     title=S.forgotStep===1?t('forgotStep1Title'):t('forgotStep2Title');
@@ -2776,6 +2789,7 @@ function renderAuthModal(){
       <button class="auth-tab" onclick="switchAuthMode('signup')">${t('authSignup')}</button>
     </div>`;
     body=`
+      ${googleBlock}
       <div class="auth-field"><label>${t('authIdentifier')}</label>
         <input id="a-identifier" type="text" placeholder="${t('enterEmailOrPhone')}" autocomplete="username"></div>
       <div class="auth-field">
@@ -2792,12 +2806,44 @@ function renderAuthModal(){
         <span id="rm-lbl" style="font-size:13px;font-weight:600;color:${S.rememberMe?'var(--text)':'var(--muted-l)'}">${t('rememberMe')||'Remember me'}</span>
       </label>
       <button class="btn-primary auth-submit" onclick="doLogin()">${t('authLoginBtn')}</button>`;
+  } else if(mode==='gcomplete'){
+    title=t('gCompleteTitle');subtitle=t('gCompleteSub');
+    const g=S._pendingGoogle||{};
+    body=`
+      <div class="auth-field"><label>${t('authFullName')}</label><input id="a-name" type="text" value="${esc(g.name||'')}" placeholder="${t('authFullName')}"></div>
+      <div class="auth-field"><label>${t('genderLabel')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
+        <div style="display:flex;gap:8px;margin-top:4px">
+          <button id="sgn-male" type="button" class="toggle-btn${S.signupGender==='male'?' active':''}" style="flex:1"
+            onclick="S.signupGender='male';document.getElementById('sgn-male').classList.add('active');document.getElementById('sgn-female').classList.remove('active')">${t('genderMale')}</button>
+          <button id="sgn-female" type="button" class="toggle-btn${S.signupGender==='female'?' active':''}" style="flex:1"
+            onclick="S.signupGender='female';document.getElementById('sgn-female').classList.add('active');document.getElementById('sgn-male').classList.remove('active')">${t('genderFemale')}</button>
+        </div>
+      </div>
+      <div class="auth-field"><label>${t('heightLabel')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
+        <input id="a-height" type="number" placeholder="${t('heightPlaceholder')}" min="100" max="250"></div>
+      <div class="auth-field"><label>${t('authPhone')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
+        <div class="auth-cc-row">
+          <select id="a-cc">${ccOpts}</select>
+          <input id="a-phone" type="tel" placeholder="${t('enterPhone')}">
+        </div></div>
+      <div class="auth-field">
+        <label>${t('bikeTypePref')}</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+          ${['Any','Road','Hybrid','Mountain'].map(ty=>`
+            <button id="stp-${ty}" type="button"
+              class="toggle-btn${S.signupTypePref===ty?' active':''}"
+              onclick="S.signupTypePref='${ty}';['Any','Road','Hybrid','Mountain'].forEach(x=>document.getElementById('stp-'+x)?.classList.toggle('active',x==='${ty}'))"
+              >${typeLabel(ty)}</button>`).join('')}
+        </div>
+      </div>
+      <button class="btn-primary auth-submit" onclick="doCompleteGoogle()">${t('finishBtn')}</button>`;
   } else {
     tabs=`<div class="auth-tabs">
       <button class="auth-tab" onclick="switchAuthMode('login')">${t('authLogin')}</button>
       <button class="auth-tab active" onclick="switchAuthMode('signup')">${t('authSignup')}</button>
     </div>`;
     body=`
+      ${googleBlock}
       <div class="auth-field"><label>${t('authFullName')}</label><input id="a-name" type="text" placeholder="${t('authFullName')}"></div>
       <div class="auth-field"><label>${t('genderLabel')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
         <div style="display:flex;gap:8px;margin-top:4px">
@@ -2807,9 +2853,9 @@ function renderAuthModal(){
             onclick="S.signupGender='female';document.getElementById('sgn-female').classList.add('active');document.getElementById('sgn-male').classList.remove('active')">${t('genderFemale')}</button>
         </div>
       </div>
-      <div class="auth-field"><label>${t('authEmail')}</label>
+      <div class="auth-field"><label>${t('authEmail')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
         <input id="a-email" type="email" placeholder="${t('enterEmail')}"></div>
-      <div class="auth-field"><label>${t('authPhone')}</label>
+      <div class="auth-field"><label>${t('authPhone')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
         <div class="auth-cc-row">
           <select id="a-cc">${ccOpts}</select>
           <input id="a-phone" type="tel" placeholder="${t('enterPhone')}">
@@ -2907,11 +2953,12 @@ async function doSignup(){
   const pwd=(document.getElementById('a-pwd')?.value||'');
   const pwd2=(document.getElementById('a-pwd2')?.value||'');
   if(!name||name.trim().split(/\s+/).length<2){authErr(t('errEnterName'));return;}
-  if(!email&&!phone){authErr(t('errEmailOrPhone'));return;}
-  if(email&&!/^\S+@\S+\.\S+$/.test(email)){authErr(t('errValidEmail'));return;}
+  if(!S.signupGender){authErr(t('errSelectGender'));return;}
+  if(!email){authErr(t('errEmailRequired'));return;}
+  if(!/^\S+@\S+\.\S+$/.test(email)){authErr(t('errValidEmail'));return;}
+  if(!phone){authErr(t('errPhoneRequired'));return;}
   if(pwd.length<8||!/[A-Z]/.test(pwd)||!/[0-9]/.test(pwd)){authErr(t('errPasswordLen'));return;}
   if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
-  if(!S.signupGender){authErr(t('errSelectGender'));return;}
   const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
   if(!isNaN(heightRaw)&&(heightRaw<100||heightRaw>250)){authErr(t('errValidHeightCm'));return;}
   const fullPhone=phone?(cc+phone):'';
@@ -2928,6 +2975,67 @@ async function doSignup(){
     const safeCustomer={id:customer.id,name,email,phone:fullPhone,height,type_preference,created_at:customer.created_at};
     S.loggedIn=safeCustomer;setSession(safeCustomer);
     closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
+    toast(`${name}! ${t('toastAccountCreated')}`);
+  }catch(e){authErr(t('errConnection'));}
+}
+
+/* ── GOOGLE SIGN-IN (Supabase OAuth) ── */
+async function signInGoogle(){
+  if(!sb||!sb.auth){authErr(t('errConnection'));return;}
+  try{
+    const{error}=await sb.auth.signInWithOAuth({
+      provider:'google',
+      options:{redirectTo:window.location.origin+window.location.pathname}
+    });
+    if(error)authErr(error.message);
+  }catch(e){authErr(t('errConnection'));}
+}
+// Called on boot: resolves a returning Google session into a customer row.
+// Returns 'loggedin' (existing customer), 'complete' (new user needs profile), or false.
+async function handleGoogleReturn(){
+  if(!sb||!sb.auth)return false;
+  let session=null;
+  try{const{data}=await sb.auth.getSession();session=data&&data.session;}catch(e){return false;}
+  if(!session||!session.user)return false;
+  const email=(session.user.email||'').trim().toLowerCase();
+  const meta=session.user.user_metadata||{};
+  const gname=meta.full_name||meta.name||'';
+  if(!email)return false;
+  let cust=null;
+  try{const{data}=await sb.from('customers').select('id,name,email,phone,height,type_preference,created_at').eq('email',email).maybeSingle();cust=data;}catch(e){}
+  if(cust){
+    const safe={id:cust.id,name:cust.name,email:cust.email,phone:cust.phone,height:cust.height,type_preference:cust.type_preference,created_at:cust.created_at};
+    S.rememberMe=true;S.loggedIn=safe;setSession(safe);
+    return 'loggedin';
+  }
+  S._pendingGoogle={email,name:gname};
+  return 'complete';
+}
+function openGoogleComplete(){
+  S.authMode='gcomplete';S.signupGender=null;S.signupTypePref='Any';
+  renderAuthModal();
+  document.getElementById('auth-modal').style.display='flex';
+}
+async function doCompleteGoogle(){
+  const g=S._pendingGoogle||{};
+  const name=(document.getElementById('a-name')?.value||g.name||'').trim();
+  const cc=document.getElementById('a-cc')?.value||'+966';
+  const phone=(document.getElementById('a-phone')?.value||'').trim();
+  if(!name||name.trim().split(/\s+/).length<2){authErr(t('errEnterName'));return;}
+  if(!S.signupGender){authErr(t('errSelectGender'));return;}
+  if(!phone){authErr(t('errPhoneRequired'));return;}
+  const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
+  if(isNaN(heightRaw)||heightRaw<100||heightRaw>250){authErr(t('errValidHeightCm'));return;}
+  const fullPhone=cc+phone;
+  try{
+    {const{data:ex}=await sb.from('customers').select('id').eq('phone',fullPhone).maybeSingle();if(ex){authErr(t('errPhoneExists'));return;}}
+    const customer={id:uid(),name,email:g.email||'',phone:fullPhone,password_hash:'oauth:google',created_at:new Date().toISOString(),height:heightRaw,type_preference:S.signupTypePref||'Any',gender:S.signupGender};
+    const{error}=await sb.from('customers').insert(customer);
+    if(error)throw error;
+    await loadData();
+    const safe={id:customer.id,name,email:customer.email,phone:fullPhone,height:heightRaw,type_preference:customer.type_preference,created_at:customer.created_at};
+    S.rememberMe=true;S.loggedIn=safe;setSession(safe);S._pendingGoogle=null;
+    closeAuthModal();goCustomer('register');
     toast(`${name}! ${t('toastAccountCreated')}`);
   }catch(e){authErr(t('errConnection'));}
 }
@@ -2966,7 +3074,8 @@ async function doLogin(){
 
 
 function doLogout(){
-  S.loggedIn=null;clearSession();
+  S.loggedIn=null;clearSession();S._pendingGoogle=null;
+  if(sb&&sb.auth)try{sb.auth.signOut();}catch(e){}
   S._rName='';S._rEmail='';S._rPhone='';S._rHeight='';
   S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regRiderNames=[];S.regQty=1;S.regType=null;S.selSession=null;S.lastTickets=[];S._alreadyBookedSession=null;S.regSubmitting=false;
   renderTopbarRight();
@@ -8126,6 +8235,11 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   try{const cl=localStorage.getItem('cq_cancellations');if(cl)S.cancellationLog=JSON.parse(cl);}catch(e){}
   // Detect staff entry via ?staff query param
   const _isStaffUrl=new URLSearchParams(window.location.search).has('staff');
+  // Resolve a returning Google sign-in (only if not staff and not already logged in via password)
+  if(!S.loggedIn&&localStorage.getItem('cq_staff')!=='1'&&!_isStaffUrl){
+    const g=await handleGoogleReturn();
+    if(g==='complete'){showView('customer');renderCustomerTabs();renderTopbarRight();openGoogleComplete();return;}
+  }
   // Restore previous view and tab after refresh
   if(localStorage.getItem('cq_staff')==='1'){
     goStaff();
