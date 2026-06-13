@@ -297,6 +297,8 @@
     .rides-stat-num{font-size:26px;font-weight:900;margin-bottom:3px;letter-spacing:-.5px;}
     .rides-stat-label{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;}
     .rides-empty{background:var(--s1);border:1px dashed var(--border);border-radius:14px;padding:48px;text-align:center;color:var(--muted);font-size:14px;font-weight:600;}
+    .myrides-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px;margin-top:14px;align-items:start;}
+    @media(max-width:560px){.myrides-grid{grid-template-columns:1fr;}}
 
     /* ── LANGUAGE TOGGLE ─────────────────────────────────── */
     .lang-toggle{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;line-height:1;padding:7px 12px;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px;white-space:nowrap;}
@@ -1651,6 +1653,12 @@ en:{
   riderDetails:'Rider Details',fullName:'Full Name',emailAddr:'Email Address',
   phoneNum:'Phone Number',heightLabel:'Height',heightHint:'- frame size auto-selected',
   bikeTypePref:'Bike Type Preference',numBikes:'Number of Bikes',joinQueue:'Join Queue',stepConfirm:'Confirmation',
+  regStep1Title:'Choose your session',regStep1Msg:'Pick the day you would like to ride.',
+  regStep2Title:'Rider details',regStep2Msg:'Tell us who is riding and their bike preference.',
+  regStep3Title:'Review & confirm',regStep3Msg:'Check everything below, then confirm your booking.',
+  regBackBtn:'Back',regContinueBtn:'Continue',regReviewBtn:'Review booking',regConfirmBtn:'Confirm booking',regBookAnotherBtn:'Book another ride',
+  reviewSessionLabel:'Session',reviewRidersLabel:'Riders',reviewTotalLabel:'Total',bookedByLabel:'Booked by',
+  myCurrentRides:'Current & upcoming',myPastRides:'Past rides',noPastRides:'No completed rides yet.',noCurrentRides:'No upcoming bookings. Reserve a ride to get started.',
   typePrefHint:'We\'ll pre-select this each time you book.',
   typePrefSaved:'Type preference saved.',
   pricePerBike:'Price per bike',bikesWord:'bikes',totalWord:'Total',
@@ -1937,6 +1945,12 @@ ar:{
   riderDetails:'بيانات الراكب',fullName:'الاسم الكامل',emailAddr:'البريد الإلكتروني',
   phoneNum:'رقم الهاتف',heightLabel:'الطول',heightHint:'- يتم اختيار المقاس تلقائياً',
   bikeTypePref:'تفضيل نوع الدراجة',numBikes:'عدد الدراجات',joinQueue:'انضم للطابور',stepConfirm:'تأكيد',
+  regStep1Title:'اختر جلستك',regStep1Msg:'اختر اليوم الذي ترغب بالركوب فيه.',
+  regStep2Title:'بيانات الراكب',regStep2Msg:'أخبرنا من سيركب وتفضيل الدراجة.',
+  regStep3Title:'المراجعة والتأكيد',regStep3Msg:'تحقق من التفاصيل أدناه ثم أكّد حجزك.',
+  regBackBtn:'رجوع',regContinueBtn:'متابعة',regReviewBtn:'مراجعة الحجز',regConfirmBtn:'تأكيد الحجز',regBookAnotherBtn:'حجز رحلة أخرى',
+  reviewSessionLabel:'الجلسة',reviewRidersLabel:'الركّاب',reviewTotalLabel:'الإجمالي',bookedByLabel:'حجز بواسطة',
+  myCurrentRides:'الحالية والقادمة',myPastRides:'الرحلات السابقة',noPastRides:'لا توجد رحلات مكتملة بعد.',noCurrentRides:'لا حجوزات قادمة. احجز رحلة للبدء.',
   typePrefHint:'سيتم اختياره تلقائياً عند كل حجز.',
   typePrefSaved:'تم حفظ تفضيل النوع.',
   pricePerBike:'السعر للدراجة',bikesWord:'دراجات',totalWord:'الإجمالي',
@@ -2393,7 +2407,7 @@ const S={
   pinError:false,
   pinCountdownInterval:null,
   // register
-  _rDate:'',selSession:null,regType:null,regQty:1,lastTickets:[],modifyEntryId:null,regSubmitting:false,_alreadyBookedSession:null,
+  _rDate:'',selSession:null,regType:null,regQty:1,lastTickets:[],modifyEntryId:null,regSubmitting:false,_alreadyBookedSession:null,regStep:1,
   regRiderNames:[],  // names for bikes 2+ (index 0 = customer's own name, auto-filled)
   _rName:'',_rEmail:'',_rPhone:'',_rCC:'+966',_rHeight:'',
   regBikeSizes:[],   // one size per bike slot, e.g. ['M','S']
@@ -3056,7 +3070,7 @@ function doLogout(){
   S.loggedIn=null;clearSession();S._pendingGoogle=null;
   if(sb&&sb.auth)try{sb.auth.signOut();}catch(e){}
   S._rName='';S._rEmail='';S._rPhone='';S._rHeight='';
-  S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regRiderNames=[];S.regQty=1;S.regType=null;S.selSession=null;S.lastTickets=[];S._alreadyBookedSession=null;S.regSubmitting=false;
+  S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regRiderNames=[];S.regQty=1;S.regType=null;S.selSession=null;S.lastTickets=[];S._alreadyBookedSession=null;S.regSubmitting=false;S.regStep=1;
   renderTopbarRight();
   goLanding();
   toast(t('toastLoggedOut'));
@@ -3390,11 +3404,13 @@ function renderRegister(){
     if(existingEntries.length>0){
       const firstId=existingEntries[0].id;
       if(S.modifyEntryId!==firstId){
-        // First time selecting this session — pre-fill qty, sizes, types from existing
+        // First time selecting this session — pre-fill qty, sizes, types, heights, names from existing
         S.modifyEntryId=firstId;
         S.regQty=existingEntries.length;
         S.regBikeSizes=existingEntries.map(()=>'');
         S.regBikeTypes=existingEntries.map(e=>e.typePreference);
+        S.regBikeHeights=existingEntries.map(e=>e.height?String(e.height):'');
+        S.regRiderNames=existingEntries.map(e=>e.name);
       }
     }else{
       S.modifyEntryId=null;
@@ -3567,62 +3583,167 @@ function renderRegister(){
     </div>`;
   }
   const tickets=S.lastTickets||[];
-  const ticket=tickets.length>0
-    ?tickets.map((tkt,i)=>renderOneTicket(tkt,i,tickets.length)).join('')
-    :'';
+  const hasTickets=tickets.length>0;
 
-  // Step progress (allTypesSet already declared above)
-  const step=!S.selSession?1:!allTypesSet?2:3;
+  // ── Multi-step wizard ──
+  if(!S.selSession&&!hasTickets&&S.regStep>1)S.regStep=1;
+  const curStep=hasTickets?4:(S.regStep||1);
   function regStep(n,label){
-    const cls=step>n?'done':step===n?'active':'';
+    const cls=curStep>n?'done':curStep===n?'active':'';
     return`<div class="reg-step ${cls}">
-      <div class="reg-step-circle">${step>n?'✓':n}</div>
+      <div class="reg-step-circle">${curStep>n?'✓':n}</div>
       <div class="reg-step-label">${label}</div>
     </div>`;
   }
   const stepBar=`<div class="reg-steps">
     ${regStep(1,t('colSession'))}
-    <div class="reg-step-connector ${step>1?'done':''}"></div>
+    <div class="reg-step-connector ${curStep>1?'done':''}"></div>
     ${regStep(2,t('riderDetails'))}
-    <div class="reg-step-connector ${step>2?'done':''}"></div>
+    <div class="reg-step-connector ${curStep>2?'done':''}"></div>
     ${regStep(3,t('stepConfirm'))}
   </div>`;
+  const stepHeader=(title,msg)=>`<div style="margin-bottom:18px">
+    <div class="page-title" style="margin-bottom:4px">${title}</div>
+    <div class="page-sub" style="margin-bottom:0">${msg}</div>
+  </div>`;
 
-  document.getElementById('tab-register').innerHTML=`
-    ${stepBar}
+  // Panel 1 — choose session
+  const panel1=`
+    ${stepHeader(t('regStep1Title'),t('regStep1Msg'))}
     <div class="session-picker-wrap" id="session-picker-wrap">
-      <div class="session-picker-label">${t('availSessions')}</div>
       <div class="session-cards-grid">${sessCards}</div>
     </div>
-    <div class="form-section" id="reg-form-section" style="${!S.selSession&&available.length?'opacity:0.35;pointer-events:none;user-select:none;':''}transition:opacity .25s">
-      <div class="form-title">${t('riderDetails')}</div>
+    ${available.length?`<button class="btn-primary" style="width:100%;margin-top:22px;${S.selSession?'':'opacity:.4;cursor:not-allowed'}" ${S.selSession?'':'disabled'} onclick="regNextFromSession()">${t('regContinueBtn')}</button>`:''}`;
+
+  // Panel 2 — rider details
+  const panel2=`
+    ${stepHeader(t('regStep2Title'),t('regStep2Msg'))}
+    <div class="form-section">
       ${accountInfoBlock}
       ${modifyBannerHtml}
       ${qtyStepper}
       ${bikeSections}
       <div id="price-preview-wrap" style="margin-top:16px">${pricePreview}</div>
-      ${S._alreadyBookedSession===S.selSession&&S.selSession?`
-        <div id="already-booked-banner" style="margin-top:16px;background:rgba(224,136,40,.08);border:1.5px solid rgba(224,136,40,.35);border-radius:14px;padding:16px 18px">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-            <span style="font-size:20px">⚠️</span>
-            <div>
-              <div style="font-size:14px;font-weight:800;color:#e08828">${t('errAlreadyBooked')}</div>
-              <div style="font-size:12px;color:var(--muted);margin-top:2px">${t('errAlreadyBookedSub')}</div>
-            </div>
-          </div>
-          <button class="btn-primary" style="width:100%" onclick="S._alreadyBookedSession=null;S.modifyEntryId=null;renderRegister()">
-            ✏️ ${t('modifyExistingBtn')}
-          </button>
-        </div>`
-      :''}
-      ${!S._alreadyBookedSession||S._alreadyBookedSession!==S.selSession?isModifyMode
-        ?`<button class="btn-primary" style="width:100%;margin-top:16px" onclick="submitModifyBooking()" ${S.regSubmitting?'disabled':''}>
-            ${S.regSubmitting?'⏳ ...':t('modifyBookingBtn')}</button>`
-        :`<button class="btn-primary" style="width:100%;margin-top:16px" onclick="submitReg()" ${S.regSubmitting?'disabled':''}>
-            ${S.regSubmitting?'⏳ ...':t('joinQueue')}</button>`
-      :''}
     </div>
-    ${ticket}`;
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn-secondary" onclick="regGoStep(1)">${t('regBackBtn')}</button>
+      <button class="btn-primary" style="flex:1" onclick="regNextToReview()">${t('regReviewBtn')}</button>
+    </div>`;
+
+  // Panel 3 — review & confirm
+  const selSess=allSessions().find(s=>s.id===S.selSession);
+  const reviewRiders=Array.from({length:S.regQty},(_,i)=>{
+    const nm=(S.regRiderNames[i]!==undefined&&String(S.regRiderNames[i]).trim())?String(S.regRiderNames[i]).trim():(i===0&&cust?cust.name:'');
+    const ty=S.regBikeTypes[i]||'Any';
+    const h=S.regBikeHeights[i]||'';
+    return`<div style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--border)">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--green);color:#000;font-size:12px;font-weight:900;flex-shrink:0">${i+1}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:800;font-size:14px">${esc(nm||(t('riderLabel')+' '+(i+1)))}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">${typeBadge(ty)}${h?`<span>${h} cm</span>`:''}</div>
+      </div>
+      <div style="font-weight:800;font-size:13px;color:var(--green);white-space:nowrap">${priceDisplay(ty)}</div>
+    </div>`;
+  }).join('');
+  const alreadyHere=S._alreadyBookedSession===S.selSession&&S.selSession;
+  const alreadyBanner=alreadyHere?`
+    <div id="already-booked-banner" style="margin-top:16px;background:rgba(224,136,40,.08);border:1.5px solid rgba(224,136,40,.35);border-radius:14px;padding:16px 18px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <span style="font-size:20px">⚠️</span>
+        <div>
+          <div style="font-size:14px;font-weight:800;color:#e08828">${t('errAlreadyBooked')}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${t('errAlreadyBookedSub')}</div>
+        </div>
+      </div>
+      <button class="btn-primary" style="width:100%" onclick="S._alreadyBookedSession=null;S.modifyEntryId=null;S.regStep=2;renderRegister()">✏️ ${t('modifyExistingBtn')}</button>
+    </div>`:'';
+  const confirmBtns=alreadyHere?'':`
+    <div style="display:flex;gap:10px;margin-top:16px">
+      <button class="btn-secondary" onclick="regGoStep(2)" ${S.regSubmitting?'disabled':''}>${t('regBackBtn')}</button>
+      <button class="btn-primary" style="flex:1" onclick="${isModifyMode?'submitModifyBooking()':'submitReg()'}" ${S.regSubmitting?'disabled':''}>${S.regSubmitting?'⏳ ...':(isModifyMode?t('modifyBookingBtn'):t('regConfirmBtn'))}</button>
+    </div>`;
+  const panel3=`
+    ${stepHeader(t('regStep3Title'),t('regStep3Msg'))}
+    <div class="form-section">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-bottom:14px;border-bottom:1px solid var(--border)">
+        <div>
+          <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">${t('reviewSessionLabel')}</div>
+          <div style="font-weight:800;font-size:15px">${selSess?dayLabel(selSess.day):''} · ${selSess?shortDate(selSess.session_date||selSess.id):''}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px">${sessionTime(selSess)}</div>
+        </div>
+        ${cust?`<div style="text-align:right">
+          <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">${t('bookedByLabel')}</div>
+          <div style="font-weight:700;font-size:13px">${esc(cust.name)}</div>
+        </div>`:''}
+      </div>
+      <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 0">${t('reviewRidersLabel')} (${S.regQty})</div>
+      ${reviewRiders}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px">
+        <div style="font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${t('reviewTotalLabel')}</div>
+        <div style="font-size:22px;font-weight:900;color:var(--green)">${totalDisplay}</div>
+      </div>
+    </div>
+    ${alreadyBanner}
+    ${confirmBtns}`;
+
+  // Panel done — generated ticket(s)
+  const panelDone=hasTickets?`
+    <div style="text-align:center;margin-bottom:18px">
+      <div style="font-size:40px;margin-bottom:8px">🎟️</div>
+      <div class="page-title" style="margin-bottom:4px">${t('toastRegistered')}</div>
+    </div>
+    ${renderBookingTicket(tickets,{})}
+    <button class="btn-primary" style="width:100%;margin-top:18px" onclick="regBookAnother()">${t('regBookAnotherBtn')}</button>`:'';
+
+  const body=hasTickets?panelDone:curStep===1?panel1:curStep===2?panel2:panel3;
+  document.getElementById('tab-register').innerHTML=`${stepBar}${body}`;
+}
+
+function regGoStep(n){S.regStep=n;renderRegister();try{window.scrollTo({top:0,behavior:'smooth'});}catch(e){}}
+function regNextFromSession(){
+  if(!S.selSession){toast(t('errSelectSession'),'error');return;}
+  S.regStep=2;renderRegister();try{window.scrollTo({top:0,behavior:'smooth'});}catch(e){}
+}
+function regNextToReview(){
+  if(validateRegInputs()){S.regStep=3;renderRegister();try{window.scrollTo({top:0,behavior:'smooth'});}catch(e){}}
+}
+function regBookAnother(){
+  S.lastTickets=[];S.selSession=null;S.regStep=1;S.regQty=1;
+  S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regRiderNames=[];S.modifyEntryId=null;S._alreadyBookedSession=null;
+  renderRegister();try{window.scrollTo({top:0,behavior:'smooth'});}catch(e){}
+}
+// Validate rider details (heights, types, names) from state; marks DOM fields when present.
+function validateRegInputs(){
+  const cust=S.loggedIn||getSession();
+  if(!cust){toast(t('errLoginFirst'),'error');return false;}
+  if(!S.selSession){toast(t('errSelectSession'),'error');return false;}
+  const qty=S.regQty||1;
+  ensureBikeSizes();
+  for(let i=0;i<qty;i++){
+    const h=parseInt(S.regBikeHeights[i]);
+    if(isNaN(h)||h<100||h>250){
+      const hInp=document.getElementById(`reg-height-${i}`);
+      if(hInp){hInp.style.outline='2px solid var(--red)';hInp.style.borderColor='var(--red)';setTimeout(()=>{hInp.style.outline='';hInp.style.borderColor='';},2500);hInp.scrollIntoView({behavior:'smooth',block:'center'});}
+      toast(qty>1?`${t('errValidHeightCm')} (${t('bike')} ${i+1})`:t('errValidHeightCm'),'error');return false;
+    }
+  }
+  let firstErrEl=null;
+  const markErr=el=>{if(el&&!firstErrEl){firstErrEl=el;el.style.outline='2px solid var(--red)';el.style.borderRadius='10px';setTimeout(()=>{el.style.outline='';el.style.borderRadius='';},2500);}};
+  for(let i=0;i<qty;i++){
+    if(!S.regBikeTypes[i]){
+      markErr(document.getElementById(`reg-type-wrap-${i}`));
+      toast(qty>1?`${t('errSelectTypeGeneric')} (${t('bike')} ${i+1})`:t('errSelectTypeGeneric'),'error');
+      if(firstErrEl)firstErrEl.scrollIntoView({behavior:'smooth',block:'center'});
+      return false;
+    }
+    if(qty>1&&!(S.regRiderNames[i]!==undefined?S.regRiderNames[i]:i===0?cust.name:'').trim()){
+      markErr(document.getElementById(`reg-rider-name-${i}`));
+      toast(`${t('riderName')||"Rider's Full Name"} (${t('bike')} ${i+1})`,'error');
+      if(firstErrEl)firstErrEl.scrollIntoView({behavior:'smooth',block:'center'});
+      return false;
+    }
+  }
+  return true;
 }
 
 function onBikeHeightInput(idx,value){
@@ -3686,41 +3807,9 @@ async function submitReg(){
 
   const qty=S.regQty||1;
   ensureBikeSizes();
-
-  // Resolve per-bike heights — required for every rider
+  if(!validateRegInputs())return;
   const heights=[];
-  for(let i=0;i<qty;i++){
-    const h=parseInt(S.regBikeHeights[i]);
-    if(isNaN(h)||h<100||h>250){
-      const hInp=document.getElementById(`reg-height-${i}`);
-      if(hInp){hInp.style.outline='2px solid var(--red)';hInp.style.borderColor='var(--red)';setTimeout(()=>{hInp.style.outline='';hInp.style.borderColor='';},2500);hInp.scrollIntoView({behavior:'smooth',block:'center'});}
-      toast(qty>1?`${t('errValidHeightCm')} (${t('bike')} ${i+1})`:t('errValidHeightCm'),'error');return;
-    }
-    heights.push(h);
-  }
-
-  // Validate types and rider names per bike
-  let firstErrEl=null;
-  function markErr(el){if(el&&!firstErrEl){firstErrEl=el;el.style.outline='2px solid var(--red)';el.style.borderRadius='10px';}}
-  function clearFieldErr(el){if(el){el.style.outline='';el.style.borderRadius='';}}
-  document.querySelectorAll('[data-type-slot]').forEach(b=>b.closest('.form-group')?.style&&clearFieldErr(b.closest('.form-group')));
-
-  for(let i=0;i<qty;i++){
-    if(!S.regBikeTypes[i]){
-      const wrap=document.getElementById(`reg-type-wrap-${i}`);
-      markErr(wrap);
-      toast(qty>1?`${t('errSelectTypeGeneric')} (${t('bike')} ${i+1})`:t('errSelectTypeGeneric'),'error');
-      if(firstErrEl)firstErrEl.scrollIntoView({behavior:'smooth',block:'center'});
-      return;
-    }
-    if(qty>1&&!(S.regRiderNames[i]!==undefined?S.regRiderNames[i]:i===0?cust.name:'').trim()){
-      const inp=document.getElementById(`reg-rider-name-${i}`);
-      markErr(inp);
-      toast(`${t('riderName')||"Rider's Full Name"} (${t('bike')} ${i+1})`,'error');
-      if(firstErrEl)firstErrEl.scrollIntoView({behavior:'smooth',block:'center'});
-      return;
-    }
-  }
+  for(let i=0;i<qty;i++)heights.push(parseInt(S.regBikeHeights[i]));
 
   // Bookings only blocked when admin manually marks session as 'full' — not by capacity
   const sess0=allSessions().find(s=>s.id===S.selSession);
@@ -3754,13 +3843,13 @@ async function submitReg(){
     await loadData();
     const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
     const baseQNum=nextQNum(S.selSession);
-    // All bikes in one booking share the same queue number
+    // Each rider gets a separate, consecutive booking number; grouped by customer+session
     const entries=Array.from({length:qty},(_,i)=>({
       id:uid(),name:riderNames[i],email,phone,
       size:heights[i]?heightToSize(heights[i]):'',height:heights[i]||null,
       typePreference:S.regBikeTypes[i],paid:false,
       assignedBikeId:null,sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
-      queueNum:baseQNum,status:'waiting',registeredAt:new Date().toISOString(),walkIn:false,
+      queueNum:baseQNum+i,status:'waiting',registeredAt:new Date().toISOString(),walkIn:false,
       customerId:cust.id,price:priceForType(S.regBikeTypes[i])
     }));
     await Promise.all(entries.map(e=>sb.from('queue_entries').insert(entryToDB(e))));
@@ -3774,10 +3863,12 @@ async function submitReg(){
     }
 
     await loadData();
-    S.lastTickets=entries;S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
-    S.regQty=1;S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regRiderNames=[];S._alreadyBookedSession=null;
-    toast(`${t('toastRegistered')} #${baseQNum}${qty>1?` (${qty} ${t('bike')||'bikes'})`:''}`);
-    renderRegister();
+    S.lastTickets=entries.map(e=>getQueue().find(q=>q.id===e.id)||e);
+    S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
+    S.regQty=1;S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regRiderNames=[];S._alreadyBookedSession=null;S.regStep=1;
+    const numStr=qty>1?`#${baseQNum} – #${baseQNum+qty-1}`:`#${baseQNum}`;
+    toast(`${t('toastRegistered')} ${numStr}`);
+    renderRegister();renderMyRides();
     showBoothPopup();
   }finally{
     S.regSubmitting=false;
@@ -3829,11 +3920,8 @@ async function submitModifyBooking(){
   // ── Add new entries if qty increased ──
   const addedEntries=[];
   if(newQty>existing.length){
-    const extra=newQty-existing.length;
-    // Check spots available for new additions
-    // No capacity cap — only admin can block by marking session full
-    // New entries share the existing booking's queue number
-    const sharedQNum=existing[0].queueNum;
+    // New riders get their own consecutive booking numbers
+    let nextNum=nextQNum(S.selSession);
     for(let i=existing.length;i<newQty;i++){
       const modRiderName=i===0?cust.name:(S.regRiderNames[i]||'').trim();
       const modHeight=parseInt(S.regBikeHeights[i])||null;
@@ -3842,7 +3930,7 @@ async function submitModifyBooking(){
         size:modHeight?heightToSize(modHeight):'',height:modHeight,typePreference:S.regBikeTypes[i],
         paid:false,assignedBikeId:null,
         sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
-        queueNum:sharedQNum,status:'waiting',
+        queueNum:nextNum++,status:'waiting',
         registeredAt:new Date().toISOString(),walkIn:false,
         customerId:cust.id,price:priceForType(S.regBikeTypes[i])
       };
@@ -3864,142 +3952,120 @@ async function submitModifyBooking(){
     toast(t('toastBookingUpdated'));
   }
 
-  S.modifyEntryId=null;S.selSession=null;
-  S.regBikeSizes=[];S.regBikeTypes=[];S.regRiderNames=[];S.regQty=1;
+  S.modifyEntryId=null;S.selSession=null;S.regStep=1;
+  S.regBikeSizes=[];S.regBikeTypes=[];S.regRiderNames=[];S.regQty=1;S.regBikeHeights=[];
   renderRegister();renderMyRides();
 }
 
 /* ══════════════════════════════════════════════
    MY RIDES (customer account history)
 ══════════════════════════════════════════════ */
+/* ── Unified booking ticket card (used in Reserve confirmation + My Rides grid) ── */
+function renderBookingTicket(entries,opts){
+  opts=opts||{};
+  if(!entries||!entries.length)return'';
+  const g=entries.slice().sort((a,b)=>(a.queueNum||0)-(b.queueNum||0));
+  const primary=g[0];
+  const n=g.length;
+  const sess=allSessions().find(s=>s.id===primary.sessionId);
+  const sessTime=sessionTime(sess);
+  const nums=g.map(e=>e.queueNum);
+  const isConsec=nums.every((q,i)=>i===0||q===nums[i-1]+1);
+  const numDisplay=n===1?`#${nums[0]}`:isConsec?`#${nums[0]} – #${nums[n-1]}`:nums.map(q=>`#${q}`).join(', ');
+  const anyActive=g.some(e=>e.status==='active');
+  const allDone=g.length&&g.every(e=>e.status==='done');
+  const allNoShow=g.length&&g.every(e=>e.status==='noshow');
+  const stForBadge=anyActive?'active':allDone?'done':allNoShow?'noshow':primary.status;
+  const total=g.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
+  const canEdit=opts.actions&&g.some(e=>e.status==='waiting');
+  const dialTotal=sess?(sess.capacity||20):20;
+  const dialPos=primary.queueNum||1;
+  const dialPct=Math.min(dialPos/dialTotal,1);
+  const circ=2*Math.PI*80;
+  const offset=circ*(1-dialPct);
+  const riderRows=g.map((e,i)=>{
+    const bike=getAssignedBikes(e)[0]||null;
+    const payBadge=e.paid
+      ?`<span style="font-size:9px;font-weight:900;color:var(--green);background:rgba(3,255,137,.12);border:1px solid rgba(3,255,137,.25);padding:2px 7px;border-radius:20px;white-space:nowrap">${(e.price??DEFAULT_PRICE)===0?'\U0001F3E0 '+t('onTheHouseLabel'):t('paidLabel')+' ✓'}</span>`
+      :`<span style="font-size:9px;font-weight:900;color:var(--muted-l);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.13);padding:2px 7px;border-radius:20px;white-space:nowrap">${t('pendingLabel')}</span>`;
+    const bikeLine=bike
+      ?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:3px">${esc(bike.name)}${bike.brand?' · '+esc(bike.brand):''}${bike.model?' '+esc(bike.model):''}${bike.groupset?' · '+esc(bike.groupset):''}${bike.speeds?' · '+bike.speeds+'sp':''}</div>`
+      :'';
+    return`<div style="padding:11px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:20px;padding:0 7px;border-radius:20px;background:rgba(3,255,137,.12);border:1px solid rgba(3,255,137,.25);color:var(--green);font-size:11px;font-weight:900">#${e.queueNum}</span>
+        <span style="font-weight:800;font-size:13px;flex:1;min-width:0">${esc(e.name)}</span>
+        ${typeBadge(resolvedType(e))}
+      </div>
+      ${bikeLine}
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:6px">
+        <span style="font-weight:800;font-size:13px;color:${e.paid?'var(--green)':'var(--muted-l)'}">SAR ${e.price??DEFAULT_PRICE}</span>
+        ${payBadge}
+      </div>
+    </div>`;
+  }).join('');
+  const noShowMsg=g.some(e=>e.status==='noshow')?`<div style="font-size:11px;color:var(--red);font-weight:600;line-height:1.5;padding:8px 0 0">${t('noShowCustomerMsg')}</div>`:'';
+  const actionsHtml=canEdit?`<div style="display:flex;gap:8px;padding:14px 18px 16px">
+      <button class="btn-sm btn-blue" style="flex:1" onclick="S.lastTickets=[];S.selSession='${primary.sessionId}';S.regStep=2;setCustTab('register')">${t('editBtn')}</button>
+      <button class="btn-sm btn-red" style="flex:1" onclick="showCancelReasonModal('${primary.id}')">${t('cancelBooking')}</button>
+    </div>`:'';
+  const dialInner=numDisplay.length<=4?numDisplay:'#'+dialPos;
+  return`<div class="ticket-card" style="margin-top:0">
+    <div class="ticket-header" style="padding:18px;gap:16px">
+      <div class="ticket-dial-wrap">
+        <div class="ticket-dial-container" style="width:120px;height:120px">
+          <svg class="ticket-dial-svg" width="120" height="120" viewBox="0 0 180 180" style="transform:rotate(-90deg)">
+            <circle cx="90" cy="90" r="80" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="12"/>
+            <circle cx="90" cy="90" r="80" fill="none" stroke="#03ff89" stroke-width="12" stroke-linecap="round" stroke-dasharray="${circ.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}"/>
+          </svg>
+          <div class="ticket-dial-num" style="font-size:30px">${dialInner}</div>
+        </div>
+        <div class="ticket-dial-caption">${n>1?n+' '+(t('bike')||'bikes'):t('queueNumLabel')}</div>
+      </div>
+      <div class="ticket-right" style="align-items:flex-end">
+        ${statusBadge(stForBadge)}
+        <div style="font-size:11px;color:var(--muted);font-weight:700;text-align:right;line-height:1.5;margin-top:6px">${dayLabel(primary.sessionDay)}<br>${shortDate(primary.sessionDate)}<br>${sessTime}</div>
+      </div>
+    </div>
+    <div style="padding:2px 18px 0">
+      <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding:10px 0 0">${t('reviewRidersLabel')} · ${numDisplay}</div>
+      ${riderRows}
+      ${noShowMsg}
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0">
+        <span style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${t('reviewTotalLabel')}</span>
+        <span style="font-weight:900;font-size:18px;color:var(--green)">SAR ${total}</span>
+      </div>
+    </div>
+    ${actionsHtml}
+  </div>`;
+}
+
 function renderMyRides(){
   const cust=S.loggedIn;
   if(!cust){document.getElementById('tab-myrides').innerHTML='';return;}
   const allEntries=getQueue().filter(e=>e.customerId===cust.id);
-  const visible=allEntries.filter(e=>e.status==='waiting'||e.status==='active'||e.status==='done');
-  const completed=visible.filter(e=>e.status==='done');
-  const totalPaid=visible.filter(e=>e.paid).reduce((sum,e)=>sum+(e.price??DEFAULT_PRICE),0);
-  const pending=visible.filter(e=>!e.paid&&e.status!=='cancelled').reduce((sum,e)=>sum+(e.price??DEFAULT_PRICE),0);
-  // Assign personal order numbers chronologically
-  const chronological=[...visible].sort((a,b)=>new Date(a.registeredAt)-new Date(b.registeredAt));
-  const withIndex=chronological.map((e,i)=>({...e,orderNum:i+1}));
-  // Apply filters + sort
-  let displayOrder=[...withIndex];
-  const _myd=S.mySortDir;
-  const _mySizeOrd={XS:0,S:1,M:2,L:3};
-  displayOrder.sort((a,b)=>{
-    if(S.mySort==='size')    return _myd*((_mySizeOrd[a.size]??9)-(_mySizeOrd[b.size]??9));
-    if(S.mySort==='type')    return _myd*(resolvedType(a)||'').localeCompare(resolvedType(b)||'');
-    if(S.mySort==='payment') return _myd*(Number(a.paid)-Number(b.paid));
-    if(S.mySort==='status')  return _myd*(a.status||'').localeCompare(b.status||'');
-    return _myd*(new Date(a.registeredAt)-new Date(b.registeredAt));
+  // Group by session (one booking per session per customer)
+  const map={};
+  allEntries.forEach(e=>{(map[e.sessionId]=map[e.sessionId]||[]).push(e);});
+  const currentGroups=[],pastGroups=[];
+  Object.values(map).forEach(g=>{
+    const upcoming=g.filter(e=>e.status==='waiting'||e.status==='active');
+    if(upcoming.length){currentGroups.push(upcoming);}
+    else{
+      // Saved only if the booking was completed AND paid (on-the-house counts as paid)
+      const saved=g.filter(e=>e.status==='done'&&e.paid);
+      if(saved.length)pastGroups.push(saved);
+    }
   });
-  function thMySort(col,label,cls=''){
-    const active=S.mySort===col;
-    const arrow=active?(S.mySortDir===1?'↑':'↓'):'';
-    return`<th class="an-sort-th${active?' an-sort-active':''}${cls?' '+cls:''}" onclick="setMySort('${col}')">${label}${active?' '+arrow:''}</th>`;
-  }
-  const mySortOpts=[['date',t('colSession')],['type',t('bikeTypeLabel')],['payment',t('colPayment')],['status',t('colStatus')]].map(([v,l])=>
-    `<option value="${v}"${S.mySort===v?' selected':''}>${l}</option>`).join('');
-  const rows=(()=>{
-    if(!displayOrder.length){
-      return`<tr><td colspan="9"><div style="padding:8px">${emptyIllustration(ILLUS_RIDES,t('noRides'))}</div></td></tr>`;
-    }
-    // Group entries by sessionId, preserving displayOrder sequence
-    const handled=new Set();
-    const groups=[];
-    for(const e of displayOrder){
-      if(handled.has(e.id))continue;
-      const siblings=displayOrder.filter(x=>!handled.has(x.id)&&x.sessionId===e.sessionId)
-        .sort((a,b)=>a.queueNum-b.queueNum);
-      siblings.forEach(x=>handled.add(x.id));
-      groups.push(siblings);
-    }
-    return groups.map(group=>{
-      const n=group.length;
-      const primary=group[0];
-      const allSameQ=group.every(e=>e.queueNum===primary.queueNum);
-      const isConsec=!allSameQ&&group.every((e,i)=>i===0||e.queueNum===group[i-1].queueNum+1);
-      const qNumDisplay=allSameQ
-        ?`#${primary.queueNum}`
-        :isConsec
-          ?`#${primary.queueNum}&thinsp;-&thinsp;#${group[n-1].queueNum}`
-          :group.map(e=>`#${e.queueNum}`).join(', ');
-      const regDate=primary.registeredAt?new Date(primary.registeredAt).toLocaleDateString('en-CA',{timeZone:KSA_TZ}):'';
-      const sess=allSessions().find(s=>s.id===primary.sessionId);
-      const sessionCellContent=`<div style="font-weight:800;font-size:13px">${dayLabel(primary.sessionDay)||''}</div>
-          <div style="color:var(--muted);font-size:12px;margin-top:1px">${shortDate(primary.sessionDate)}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">${sessionTime(sess)}</div>`;
-      return group.map((e,i)=>{
-        const isFirst=i===0;
-        const rowCls=e.status==='active'?'row-active':(e.status==='noshow'||e.status==='cancelled')?'row-noshow-cancel':(e.status==='done'&&e.paid)?'row-done-paid':(e.status==='done')?'row-done':'';
-        const groupLine=n>1&&isFirst?'border-top:2px solid rgba(3,255,137,.15)':'';
-        const bottomLine=n>1&&i===n-1?'border-bottom:2px solid rgba(3,255,137,.15)':'';
-        const leftLine=n>1?'border-left:2px solid rgba(3,255,137,.2)':'';
-        const trStyle=[groupLine,bottomLine,leftLine].filter(Boolean).join(';');
-        const payColor=e.paid?'var(--green)':'var(--muted-l)';
-        const canEdit=e.status==='waiting';
-        const assignedBike=getAssignedBikes(e)[0]||null;
-        const payBadge=e.paid
-          ?`<span style="font-size:10px;font-weight:900;color:var(--green);background:rgba(3,255,137,.12);border:1px solid rgba(3,255,137,.25);padding:2px 8px;border-radius:20px;white-space:nowrap">${t('paidLabel')} ✓</span>`
-          :`<span style="font-size:10px;font-weight:900;color:var(--muted-l);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.13);padding:2px 8px;border-radius:20px;white-space:nowrap">${t('pendingLabel')}</span>`;
-        const nameCell=n>1
-          ?`<div style="display:flex;align-items:baseline;gap:5px">
-              <span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--green);color:#000;font-size:10px;font-weight:900;flex-shrink:0">${i+1}</span>
-              <span style="font-weight:800;font-size:13px">${esc(e.name)}</span>
-            </div>`
-          :`<span style="font-weight:800;font-size:13px">${esc(e.name)}</span>`;
-        const bikeCell=assignedBike
-          ?`<div style="font-weight:800;font-size:13px">${esc(assignedBike.name)}</div>
-             ${assignedBike.brand?`<div style="font-size:11px;color:var(--muted-l);font-weight:600;margin-top:1px">${esc(assignedBike.brand)}${assignedBike.model?' · '+esc(assignedBike.model):''}</div>`:''}
-             ${(assignedBike.groupset||assignedBike.speeds)?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">${[assignedBike.groupset,assignedBike.speeds?assignedBike.speeds+'sp':''].filter(Boolean).join(' · ')}</div>`:''}
-             <div style="display:flex;gap:3px;margin-top:4px">${(assignedBike.colors||['#03ff89']).map(c=>`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};border:1px solid rgba(0,0,0,.3)"></span>`).join('')}</div>`
-          :`<span style="color:var(--muted)">—</span>`;
-        const actionsCell=canEdit?`<div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="btn-sm btn-blue" onclick="S.selSession='${e.sessionId}';setCustTab('register')">${t('editBtn')}</button>
-            <button class="btn-sm btn-red" onclick="showCancelReasonModal('${e.id}')">${t('cancelBooking')}</button>
-          </div>`:`<span style="color:var(--muted);font-size:13px">—</span>`;
-        if(isFirst){
-          return`<tr class="${rowCls}"${trStyle?' style="'+trStyle+'"':''}>
-            <td rowspan="${n}" style="vertical-align:middle;min-width:52px">
-              <span class="queue-num-cell" style="font-size:${n>1?'15':'18'}px;line-height:1.25">${qNumDisplay}</span>
-              ${regDate?`<div style="font-size:10px;color:var(--muted);margin-top:3px;font-weight:600">${regDate}</div>`:''}
-              ${n>1?`<div style="font-size:10px;color:var(--green);font-weight:800;margin-top:3px">${n} ${t('bike')||'Bikes'}</div>`:''}
-            </td>
-            <td style="vertical-align:middle">${nameCell}</td>
-            <td rowspan="${n}" style="vertical-align:middle">
-              ${sessionCellContent}
-            </td>
-            <td style="vertical-align:middle">${bikeCell}</td>
-            <td style="vertical-align:middle">${typeBadge(resolvedType(e))}</td>
-            <td style="vertical-align:middle">
-              <div style="font-weight:900;font-size:16px;color:${payColor}">SAR ${e.price??DEFAULT_PRICE}</div>
-              <div style="margin-top:4px">${payBadge}</div>
-            </td>
-            <td style="vertical-align:middle">
-              ${statusBadge(e.status)}
-              ${e.status==='noshow'?`<div style="font-size:11px;color:var(--red);margin-top:5px;font-weight:600;line-height:1.4;max-width:130px">${t('noShowCustomerMsg')}</div>`:''}
-            </td>
-            <td style="vertical-align:middle">${actionsCell}</td>
-          </tr>`;
-        }
-        return`<tr class="${rowCls}"${trStyle?' style="'+trStyle+'"':''}>
-          <td style="vertical-align:middle">${nameCell}</td>
-          <td style="vertical-align:middle">${bikeCell}</td>
-          <td style="vertical-align:middle">${typeBadge(resolvedType(e))}</td>
-          <td style="vertical-align:middle">
-            <div style="font-weight:900;font-size:16px;color:${payColor}">SAR ${e.price??DEFAULT_PRICE}</div>
-            <div style="margin-top:4px">${payBadge}</div>
-          </td>
-          <td style="vertical-align:middle">
-            ${statusBadge(e.status)}
-            ${e.status==='noshow'?`<div style="font-size:11px;color:var(--red);margin-top:5px;font-weight:600;line-height:1.4;max-width:130px">${t('noShowCustomerMsg')}</div>`:''}
-          </td>
-          <td style="vertical-align:middle">${actionsCell}</td>
-        </tr>`;
-      }).join('');
-    }).join('');
-  })();
+  const byDateDesc=(a,b)=>new Date(b[0].sessionDate||b[0].sessionId)-new Date(a[0].sessionDate||a[0].sessionId);
+  currentGroups.sort(byDateDesc);pastGroups.sort(byDateDesc);
+  const completed=allEntries.filter(e=>e.status==='done'&&e.paid);
+  const currentCards=currentGroups.length
+    ?currentGroups.map(g=>renderBookingTicket(g,{actions:true})).join('')
+    :`<div class="empty-state" style="grid-column:1/-1">${t('noCurrentRides')}</div>`;
+  const pastCards=pastGroups.length
+    ?pastGroups.map(g=>renderBookingTicket(g,{actions:false})).join('')
+    :`<div class="empty-state" style="grid-column:1/-1">${t('noPastRides')}</div>`;
   document.getElementById('tab-myrides').innerHTML=`
     <div class="page-title">${t('myRidesTitle')}</div>
     <div class="page-sub">${t('myRidesSub')}</div>
@@ -4012,19 +4078,10 @@ function renderMyRides(){
       <div class="rides-stat-card"><div class="rides-stat-num" style="color:var(--muted-l);font-size:18px">${_memberSince}</div><div class="rides-stat-label">${t('statMemberSince')}</div></div>
       <div class="rides-stat-card"><div class="rides-stat-num" style="font-size:16px;padding-top:4px">${_favType!=='—'?typeBadge(_favType):t('anNoData2')}</div><div class="rides-stat-label">${t('statFavType')}</div></div>`;
     })()}</div>
-    <div class="table-wrapper" style="border-radius:14px;border:1px solid rgba(255,255,255,.07);margin-top:16px"><table class="queue-table">
-      <thead><tr>
-        <th>#</th>
-        <th>${t('nameLabel')}</th>
-        ${thMySort('date',t('colSession'))}
-        <th>${t('assignedBikeLabel')||'Assigned Bike'}</th>
-        ${thMySort('type',t('bikeTypeLabel'))}
-        ${thMySort('payment',t('colPayment'))}
-        ${thMySort('status',t('colStatus'))}
-        <th></th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table></div>`;
+    <div class="analytics-section-title" style="margin-top:24px">${t('myCurrentRides')}</div>
+    <div class="myrides-grid">${currentCards}</div>
+    <div class="analytics-section-title" style="margin-top:30px">${t('myPastRides')}</div>
+    <div class="myrides-grid">${pastCards}</div>`;
 }
 
 /* ══════════════════════════════════════════════
