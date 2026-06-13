@@ -6235,9 +6235,12 @@ function renderModal(){
     <div class="modal-box" style="max-width:min(96vw,940px)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0">
         <div class="modal-title" style="margin-bottom:0">${rider.status==='active'?t('changeBikeTitle'):t('assignBikeTitle')}</div>
-        <button onclick="closeModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 2px;transition:color .15s;flex-shrink:0" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&times;</button>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+          <button class="btn-primary" onclick="confirmAssign()" style="padding:8px 18px;font-size:13px">${rider.status==='active'?t('confirmBikeChange'):t('confirmCheckin')}${S.modalBikes.length>0?` (${S.modalBikes.length})`:''}</button>
+          <button onclick="closeModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 2px;transition:color .15s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&times;</button>
+        </div>
       </div>
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;margin-top:10px">
         <span style="font-size:17px;font-weight:800;color:var(--text)">${esc(rider.name)}</span>
         <span style="font-size:12px;color:var(--muted);font-weight:600">#${rider.queueNum}</span>
         ${heightBadge}
@@ -6247,7 +6250,7 @@ function renderModal(){
       ${fleetLine}
       ${cards}
       ${addBikeToggle}
-      <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">${t('cancelBtn')}</button><button class="btn-primary" onclick="confirmAssign()">${rider.status==='active'?t('confirmBikeChange'):t('confirmCheckin')}${S.modalBikes.length>0?` (${S.modalBikes.length})`:''}</button></div>
+      <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">${t('cancelBtn')}</button></div>
     </div>
   </div>`;
 }
