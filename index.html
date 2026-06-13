@@ -705,7 +705,7 @@
     .ticket-header::before{left:-12px;}
     .ticket-header::after{right:-12px;}
     .ticket-num-block{display:flex;flex-direction:column;gap:4px;}
-    .ticket-num{font-size:72px;font-weight:900;color:var(--green);line-height:.9;letter-spacing:-3px;}
+    .ticket-num{font-size:72px;font-weight:900;color:var(--green);line-height:.9;letter-spacing:-3px;text-shadow:0 0 40px rgba(3,255,137,.4);}
     .ticket-num-label{font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:2px;}
     .ticket-right{display:flex;flex-direction:column;align-items:flex-end;gap:10px;}
     .ticket-body{padding:22px 24px 20px;}
@@ -3571,31 +3571,14 @@ function renderRegister(){
   function renderOneTicket(tkt,idx,total){
     const qrPat=[1,0,1,1,0, 0,1,1,0,1, 1,1,0,1,0, 0,0,1,1,0, 1,0,0,0,1];
     const qrHtml=`<div class="ticket-qr">${qrPat.map(v=>`<div class="ticket-qr-cell${v?' solid':''}"></div>`).join('')}</div>`;
-    const _sess=allSessions().find(s=>s.id===tkt.sessionId);
-    const sessTime=sessionTime(_sess);
+    const sessTime=sessionTime(allSessions().find(s=>s.id===tkt.sessionId));
     const label=total>1?`${t('bike')} ${idx+1} / ${total}`:'';
-    // dial SVG
-    const _dialTotal=_sess?(_sess.capacity||20):20;
-    const _dialPos=tkt.queueNum||1;
-    const _dialPct=Math.min(_dialPos/_dialTotal,1);
-    const _r=80;
-    const _circ=2*Math.PI*_r;
-    const _offset=_circ*(1-_dialPct);
     return`<div class="ticket-card" style="${idx>0?'margin-top:16px':''}">
       ${label?`<div style="font-size:11px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding:12px 24px 0;border-bottom:1px solid var(--border)">${label}</div>`:''}
       <div class="ticket-header">
-        <div class="ticket-dial-wrap">
-          <div class="ticket-dial-container">
-            <svg class="ticket-dial-svg" width="180" height="180" viewBox="0 0 180 180" style="transform:rotate(-90deg)">
-              <circle cx="90" cy="90" r="80" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="12"/>
-              <circle cx="90" cy="90" r="80" fill="none" stroke="#03ff89" stroke-width="12"
-                stroke-linecap="round"
-                stroke-dasharray="${_circ.toFixed(2)}"
-                stroke-dashoffset="${_offset.toFixed(2)}"/>
-            </svg>
-            <div class="ticket-dial-num">#${_dialPos}</div>
-          </div>
-          <div class="ticket-dial-caption">${t('queueNumLabel')||'Queue #'}</div>
+        <div class="ticket-num-block">
+          <div class="ticket-num-label">${t('queueNumLabel')}</div>
+          <div class="ticket-num">#${tkt.queueNum}</div>
           <div style="margin-top:8px">${typeBadge(tkt.typePreference)}</div>
         </div>
         <div class="ticket-right">
