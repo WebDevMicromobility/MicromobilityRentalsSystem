@@ -1779,7 +1779,7 @@ en:{
   errSessionFull:'Session is full.',
   errPhoneRegistered:'Phone already registered.',
   errCancelWaiting:'Only waiting bookings can be cancelled.',
-  errSelectBike:'Please select a bike.',
+  errSelectBike:'Please select a bike.',errMaxOneBike:'A rider can only have one bike.',
   errBikeUnavailable:'Bike no longer available.',
   errBikeName:'Please enter a bike name.',
   errBikeTypeReq:'Please select a bike type.',
@@ -2064,7 +2064,7 @@ ar:{
   errSessionFull:'الجلسة ممتلئة.',
   errPhoneRegistered:'رقم الهاتف مسجّل مسبقاً.',
   errCancelWaiting:'يمكن إلغاء حجوزات الانتظار فقط.',
-  errSelectBike:'الرجاء اختيار دراجة.',
+  errSelectBike:'الرجاء اختيار دراجة.',errMaxOneBike:'لا يمكن تخصيص أكثر من دراجة واحدة للراكب.',
   errBikeUnavailable:'الدراجة غير متاحة حالياً.',
   errBikeName:'الرجاء إدخال اسم الدراجة.',
   errBikeTypeReq:'الرجاء اختيار نوع الدراجة.',
@@ -6673,9 +6673,8 @@ function renderModal(){
   </div>`;
 }
 function pickBike(id){
-  const idx=S.modalBikes.indexOf(id);
-  if(idx>=0)S.modalBikes.splice(idx,1);
-  else S.modalBikes.push(id);
+  // One bike per rider: selecting a bike replaces any current pick (so "Change bike" swaps it).
+  S.modalBikes=(S.modalBikes.length===1&&S.modalBikes[0]===id)?[]:[id];
   renderModal();
 }
 function closeModal(){document.getElementById('bike-modal').style.display='none';S.modalRider=null;S.modalBikes=[];S.modalShowAll=false;S.modalShowAddBike=false;S.modalSearch='';S.modalPriceEdit=false;}
@@ -6705,17 +6704,20 @@ async function modalQuickAddBike(){
   const{error:bikeErr}=await sb.from('bikes').insert(bike);
   if(bikeErr){toast(bikeErr.message,'error');return;}
   await loadData();
-  S.modalBikes.push(bike.id);
+  // One bike per rider: the newly added bike becomes the rider's single selection.
+  S.modalBikes=[bike.id];
   S.modalShowAddBike=false;S.modalAddBikeName='';S.modalAddBikeType=null;S.modalAddBikeSize='M';S.modalAddBikeFrame='';S.modalAddBikeNumber='';
   toast(`${name} ${t('toastAddedToFleet')}`);
   renderModal();
 }
 async function confirmAssign(){
   if(S.modalBikes.length===0){toast(t('errSelectBike'),'error');return;}
+  const rider=getQueue().find(e=>e.id===S.modalRider);
+  // One bike per rider (Change bike swaps the single assigned bike).
+  if(S.modalBikes.length>1){toast(t('errMaxOneBike'),'error');S.modalBikes=S.modalBikes.slice(0,1);return;}
   const allBikes=getBikes();
   const selected=S.modalBikes.map(id=>allBikes.find(b=>b.id===id)).filter(Boolean);
   // Check all selected bikes are still available (unless already assigned to this rider)
-  const rider=getQueue().find(e=>e.id===S.modalRider);
   const alreadyAssigned=rider?getAssignedBikeIds(rider):[];
   const needsUpdate=selected.filter(b=>!alreadyAssigned.includes(b.id));
   const unavail=needsUpdate.filter(b=>b.status!=='available');
