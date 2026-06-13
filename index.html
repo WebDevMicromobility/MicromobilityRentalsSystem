@@ -2683,61 +2683,60 @@ const QR=(function(){
     for(var mask=0;mask<8;mask++){var grid=applyMask(base,mask);writeFormat(grid,base.size,mask);writeVersion(grid,base.size,v);var pen=penalty(grid,base.size);if(pen<bestPen){bestPen=pen;best=grid;bestMask=mask;}}
     return {size:base.size,modules:best,version:v,mask:bestMask};
   }
-  // Micromobility-themed renderer: deep brand-green rounded modules, rounded finder "eyes",
-  // and a small brand-green centre badge with the app's bike glyph. Stays dark-on-white for scanning.
+  // Micromobility-themed renderer: crisp high-contrast modules (reliable scanning), rounded
+  // brand finder "eyes", and the MicroMobility logo in the centre with a white knockout.
   function svg(text,opts){
     opts=opts||{};
     var q=opts.margin==null?4:opts.margin;
-    var dark=opts.dark||'#072a1c';          // deep green-black: high contrast on white
+    var dark=opts.dark||'#0b2018';          // near-black green: ~15:1 contrast on white
     var light=opts.light||'#ffffff';
-    var accent=opts.accent||'#03ff89';      // brand green
     var px=opts.size||96;
-    var withEmblem=opts.emblem!==false;
+    var logoSrc=opts.logo===false?null:(opts.logo||'logo.png');
     var qr=encode(text),n=qr.size,total=n+2*q,cell=px/total,mods=qr.modules;
     function fx(c){return (c+q)*cell;}
     function fy(r){return (r+q)*cell;}
     function inFinder(r,c){return (r<7&&c<7)||(r<7&&c>=n-7)||(r>=n-7&&c<7);}
-    var eMods=0,eS=0,eE=-1;
-    if(withEmblem){eMods=Math.round(n*0.2);if((n-eMods)%2!==0)eMods++;eS=(n-eMods)/2;eE=eS+eMods-1;}
-    function inEmblem(r,c){return withEmblem&&r>=eS&&r<=eE&&c>=eS&&c<=eE;}
-    var dr=(cell*0.33).toFixed(2),dots='';
+    // Centre logo knockout (kept small so the QR's error correction still recovers the data).
+    var lMods=logoSrc?Math.round(n*0.22):0;if(logoSrc&&(n-lMods)%2!==0)lMods++;
+    var lS=logoSrc?(n-lMods)/2:0,lE=lS+lMods-1;
+    function inLogo(r,c){return logoSrc&&r>=lS&&r<=lE&&c>=lS&&c<=lE;}
+    var rects='';
     for(var r=0;r<n;r++)for(var c=0;c<n;c++){
-      if(!mods[r][c]||inFinder(r,c)||inEmblem(r,c))continue;
-      dots+='<rect x="'+fx(c).toFixed(2)+'" y="'+fy(r).toFixed(2)+'" width="'+cell.toFixed(2)+'" height="'+cell.toFixed(2)+'" rx="'+dr+'"/>';
+      if(!mods[r][c]||inFinder(r,c)||inLogo(r,c))continue;
+      rects+='<rect x="'+fx(c).toFixed(2)+'" y="'+fy(r).toFixed(2)+'" width="'+cell.toFixed(2)+'" height="'+cell.toFixed(2)+'"/>';
     }
     function eye(r,c){
       var x=fx(c),y=fy(r);
-      return '<rect x="'+x.toFixed(2)+'" y="'+y.toFixed(2)+'" width="'+(7*cell).toFixed(2)+'" height="'+(7*cell).toFixed(2)+'" rx="'+(cell*1.9).toFixed(2)+'" fill="'+dark+'"/>'
-        +'<rect x="'+(x+cell).toFixed(2)+'" y="'+(y+cell).toFixed(2)+'" width="'+(5*cell).toFixed(2)+'" height="'+(5*cell).toFixed(2)+'" rx="'+(cell*1.35).toFixed(2)+'" fill="'+light+'"/>'
-        +'<rect x="'+(x+2*cell).toFixed(2)+'" y="'+(y+2*cell).toFixed(2)+'" width="'+(3*cell).toFixed(2)+'" height="'+(3*cell).toFixed(2)+'" rx="'+(cell*0.95).toFixed(2)+'" fill="'+dark+'"/>';
+      return '<rect x="'+x.toFixed(2)+'" y="'+y.toFixed(2)+'" width="'+(7*cell).toFixed(2)+'" height="'+(7*cell).toFixed(2)+'" rx="'+(cell*1.8).toFixed(2)+'" fill="'+dark+'"/>'
+        +'<rect x="'+(x+cell).toFixed(2)+'" y="'+(y+cell).toFixed(2)+'" width="'+(5*cell).toFixed(2)+'" height="'+(5*cell).toFixed(2)+'" rx="'+(cell*1.2).toFixed(2)+'" fill="'+light+'"/>'
+        +'<rect x="'+(x+2*cell).toFixed(2)+'" y="'+(y+2*cell).toFixed(2)+'" width="'+(3*cell).toFixed(2)+'" height="'+(3*cell).toFixed(2)+'" rx="'+(cell*0.8).toFixed(2)+'" fill="'+dark+'"/>';
     }
     var eyes=eye(0,0)+eye(0,n-7)+eye(n-7,0);
-    var emblem='';
-    if(withEmblem){
-      var ex=fx(eS),ey=fy(eS),es=eMods*cell,pad=cell*0.5;
-      var gs=(es*0.62/24),gx=ex+es*0.19,gy=ey+es*0.19;
-      emblem='<rect x="'+(ex-pad).toFixed(2)+'" y="'+(ey-pad).toFixed(2)+'" width="'+(es+2*pad).toFixed(2)+'" height="'+(es+2*pad).toFixed(2)+'" rx="'+(cell*1.5).toFixed(2)+'" fill="'+light+'"/>'
-        +'<rect x="'+ex.toFixed(2)+'" y="'+ey.toFixed(2)+'" width="'+es.toFixed(2)+'" height="'+es.toFixed(2)+'" rx="'+(cell*1.15).toFixed(2)+'" fill="'+accent+'"/>'
-        +'<g transform="translate('+gx.toFixed(2)+','+gy.toFixed(2)+') scale('+gs.toFixed(3)+')" fill="none" stroke="'+dark+'" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16L10 8l3.5 4L17 8"/><path d="M18 16L17 8"/><path d="M10 8L8.5 5.5Q10 5 11.5 5.5"/></g>';
+    var logoSvg='';
+    if(logoSrc){
+      var lx=fx(lS),ly=fy(lS),ls=lMods*cell,pad=cell*0.6;
+      logoSvg='<rect x="'+(lx-pad).toFixed(2)+'" y="'+(ly-pad).toFixed(2)+'" width="'+(ls+2*pad).toFixed(2)+'" height="'+(ls+2*pad).toFixed(2)+'" rx="'+(cell*1.3).toFixed(2)+'" fill="'+light+'"/>'
+        +'<image href="'+logoSrc+'" xlink:href="'+logoSrc+'" x="'+lx.toFixed(2)+'" y="'+ly.toFixed(2)+'" width="'+ls.toFixed(2)+'" height="'+ls.toFixed(2)+'" preserveAspectRatio="xMidYMid meet"/>';
     }
-    return '<svg xmlns="http://www.w3.org/2000/svg" width="'+px+'" height="'+px+'" viewBox="0 0 '+px+' '+px+'" role="img" aria-label="Booking QR code"><rect width="'+px+'" height="'+px+'" fill="'+light+'"/><g fill="'+dark+'">'+dots+'</g>'+eyes+emblem+'</svg>';
+    return '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+px+'" height="'+px+'" viewBox="0 0 '+px+' '+px+'" role="img" aria-label="Booking QR code">'
+      +'<rect width="'+px+'" height="'+px+'" fill="'+light+'"/>'
+      +'<g fill="'+dark+'" shape-rendering="crispEdges">'+rects+'</g>'+eyes+logoSvg+'</svg>';
   }
   return {encode:encode,svg:svg};
 })();
 /* Renders a scannable booking QR inside a white panel (high contrast = reliable scanning). */
 function ticketQR(payload,px){
-  px=px||92;
+  px=px||112;
   try{
-    return `<div style="background:#fff;padding:8px;border-radius:12px;display:inline-block;line-height:0;border:2px solid rgba(3,255,137,.55);box-shadow:0 0 14px rgba(3,255,137,.22)">${QR.svg(payload,{size:px-16,margin:2})}</div>`;
+    return `<div style="background:#fff;padding:8px;border-radius:12px;display:inline-block;line-height:0;border:2px solid rgba(3,255,137,.55);box-shadow:0 0 14px rgba(3,255,137,.22)">${QR.svg(payload,{size:px-16,margin:4})}</div>`;
   }catch(e){return '';}
 }
-/* Compact, scannable check-in reference for a booking/queue entry. */
+/* Short check-in reference: kept compact so the QR stays a low version (bigger, easier-to-scan modules). */
 function bookingRef(e){
   if(!e)return 'MMC';
-  const num=e.queueNum!=null?('#'+e.queueNum):'';
-  const date=e.sessionDate||'';
-  const ref=e.id?String(e.id).slice(0,8):'';
-  return ['MMC',num,date,ref].filter(Boolean).join('|');
+  const num=e.queueNum!=null?String(e.queueNum):'';
+  const ref=e.id?String(e.id).slice(0,6):'';
+  return ['MMC',num,ref].filter(Boolean).join('-');
 }
 function generateResetOTP(email,windowMs=10*60*1000){
   const win=Math.floor(Date.now()/windowMs);
@@ -2850,6 +2849,22 @@ function getAssignedBikeIds(entry){
   try{const p=JSON.parse(entry.assignedBikeId);return Array.isArray(p)?p:[p];}catch{return[entry.assignedBikeId];}
 }
 function getAssignedBikes(entry){return getAssignedBikeIds(entry).map(id=>bikeById(id)).filter(Boolean);}
+// Self-heal: free any bike still marked in-use that no active rider is using
+// (e.g. a booking was cancelled/no-showed/removed without releasing its bike).
+async function reconcileOrphanBikes(){
+  if(!sb||S.view!=='staff'||S._reconcilingBikes)return;
+  const used=new Set();
+  getQueue().filter(e=>e.status==='active').forEach(e=>getAssignedBikeIds(e).forEach(id=>used.add(id)));
+  const orphans=getBikes().filter(b=>b.status==='in-use'&&!used.has(b.id));
+  if(!orphans.length)return;
+  S._reconcilingBikes=true;
+  try{
+    await Promise.all(orphans.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b.id)));
+    orphans.forEach(b=>{b.status='available';});
+  }catch(e){console.warn('reconcileOrphanBikes failed:',e);}
+  S._reconcilingBikes=false;
+  renderStaffQueue();renderBikes();
+}
 function resolvedType(entry){
   if(!entry||entry.typePreference!=='Any')return entry?entry.typePreference:'Any';
   const bikes=getAssignedBikes(entry);
@@ -3745,7 +3760,7 @@ function renderRegister(){
 
   // All tickets (one per bike booked)
   function renderOneTicket(tkt,idx,total){
-    const qrHtml=ticketQR(bookingRef(tkt),92);
+    const qrHtml=ticketQR(bookingRef(tkt),116);
     const sessTime=sessionTime(allSessions().find(s=>s.id===tkt.sessionId));
     const label=total>1?`${t('bike')} ${idx+1} / ${total}`:'';
     return`<div class="ticket-card" style="${idx>0?'margin-top:16px':''}">
@@ -4207,7 +4222,7 @@ function renderBookingTicket(entries,opts){
       </div>
       <div class="ticket-right">
         ${statusBadge(stForBadge)}
-        ${ticketQR(bookingRef(primary),92)}
+        ${ticketQR(bookingRef(primary),108)}
         <div style="font-size:10px;color:var(--muted);font-weight:700;text-align:right;line-height:1.4">${dayLabel(primary.sessionDay)}<br>${shortDate(primary.sessionDate)}<br>${sessTime}</div>
       </div>
     </div>
@@ -5018,6 +5033,7 @@ function _contactCell(phone){
    STAFF QUEUE
 ══════════════════════════════════════════════ */
 function renderStaffQueue(){
+  reconcileOrphanBikes();
   const queue=getQueue();const sessions=allSessions();
   const base=S.sfSession!=='all'
     ?queue.filter(e=>e.sessionId===S.sfSession&&e.status!=='removed'&&e.status!=='cancelled')
@@ -5675,7 +5691,10 @@ async function cancelBooking(id,reason){
   const behind=isLastInSlot?getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>entry.queueNum):[];
   const savedBehind=behind.map(e=>({id:e.id,queueNum:e.queueNum}));
   const savedQNum=entry.queueNum;
-  await sb.from('queue_entries').update({status:'cancelled'}).eq('id',id);
+  // Release any bike assigned to this booking so it doesn't stay occupied after cancelling.
+  const bikeIds=getAssignedBikeIds(entry);
+  await sb.from('queue_entries').update({status:'cancelled',assigned_bike_id:null}).eq('id',id);
+  if(bikeIds.length)await Promise.all(bikeIds.map(bid=>sb.from('bikes').update({status:'available'}).eq('id',bid)));
   if(savedBehind.length)await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
   // Log cancellation with reason for staff to see
   if(reason){
