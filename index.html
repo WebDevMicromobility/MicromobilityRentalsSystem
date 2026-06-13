@@ -1682,6 +1682,7 @@ en:{
   sendReceipt:'Receipt',noHistory:'No riders match the current filters.',
   assignBikeTitle:'Assign Bike',assignedBikeLabel:'Assigned Bike',confirmCheckin:'Confirm & Check In',changeBikeTitle:'Change Assigned Bike',confirmBikeChange:'Confirm Change',
   pinTitle:'Staff Access',pinSub:'Enter the 4-digit PIN to access the staff panel.',
+  pinLocked:'Too many wrong attempts. Try again in {0}.',pinAttemptsWarn:'{0} attempts remaining before lockout',
   tabAccount:'Account',
   accountTitle:'Account Settings',accountSub:'Update your profile information and preferences.',
   saveAccountBtn:'Save Changes',accountSaved:'Profile updated successfully.',
@@ -1964,6 +1965,7 @@ ar:{
   sendReceipt:'إيصال',noHistory:'لا يوجد راكبون يطابقون الفلتر الحالي.',
   assignBikeTitle:'تخصيص دراجة',assignedBikeLabel:'الدراجة المخصصة',confirmCheckin:'تأكيد وتسجيل الدخول',changeBikeTitle:'تغيير الدراجة المخصصة',confirmBikeChange:'تأكيد التغيير',
   pinTitle:'دخول الموظفين',pinSub:'أدخل الرقم السري المكون من 4 أرقام للدخول إلى لوحة الموظفين.',
+  pinLocked:'محاولات خاطئة كثيرة. حاول مجدداً بعد {0}.',pinAttemptsWarn:'تبقّت {0} محاولات قبل القفل',
   tabAccount:'الحساب',
   accountTitle:'إعدادات الحساب',accountSub:'تحديث معلومات ملفك الشخصي.',
   saveAccountBtn:'حفظ التغييرات',accountSaved:'تم تحديث الملف الشخصي.',
@@ -2141,6 +2143,10 @@ function setLang(lang){
    CONFIG
 ══════════════════════════════════════════════ */
 const STAFF_PIN = '1425'; // change this to your preferred PIN
+const PIN_LOCKOUT_MINS=[1,2,5,10,15,30,45,60,120];
+function _getPinLock(){try{return{until:parseInt(localStorage.getItem('cq_pin_until')||'0'),lockouts:parseInt(localStorage.getItem('cq_pin_lockouts')||'0'),attempts:parseInt(localStorage.getItem('cq_pin_attempts')||'0')};}catch(e){return{until:0,lockouts:0,attempts:0};}}
+function _clearPinLock(){try{localStorage.removeItem('cq_pin_until');localStorage.removeItem('cq_pin_lockouts');localStorage.removeItem('cq_pin_attempts');}catch(e){}}
+function _fmtLock(ms){const s=Math.ceil(ms/1000);if(s<60)return`${s}s`;const m=Math.floor(s/60),r=s%60;if(m<60)return r?`${m}m ${r}s`:`${m}m`;const h=Math.floor(m/60),rm=m%60;return rm?`${h}h ${rm}m`:`${h}h`;}
 
 const COUNTRY_CODES=[
   // ── Gulf countries first ───────────────────────────────
@@ -2362,6 +2368,7 @@ const S={
   staffTab:'queue',
   pinDigits:'',
   pinError:false,
+  pinCountdownInterval:null,
   // register
   _rDate:'',selSession:null,regType:null,regQty:1,lastTickets:[],modifyEntryId:null,regSubmitting:false,_alreadyBookedSession:null,
   regRiderNames:[],  // names for bikes 2+ (index 0 = customer's own name, auto-filled)
@@ -3105,45 +3112,78 @@ function openPinModal(){
 }
 
 function renderPinModal(){
+  const {until,lockouts,attempts}=_getPinLock();
+  const now=Date.now();
+  const isLocked=until>now;
+  const remaining=isLocked?until-now:0;
+  if(S.pinCountdownInterval){clearInterval(S.pinCountdownInterval);S.pinCountdownInterval=null;}
+  if(isLocked){
+    S.pinCountdownInterval=setInterval(()=>{
+      if(Date.now()>=until){clearInterval(S.pinCountdownInterval);S.pinCountdownInterval=null;}
+      renderPinModal();
+    },1000);
+  }
   const dots=Array(4).fill(0).map((_,i)=>{
     const cls=S.pinError?'pin-dot error':i<S.pinDigits.length?'pin-dot filled':'pin-dot';
     return`<div class="${cls}"></div>`;
   }).join('');
-
+  const attemptsLeft=5-attempts;
+  const warnMsg=(!isLocked&&attempts>0)?`<div style="font-size:11px;color:var(--muted-l);margin-top:6px">${t('pinAttemptsWarn').replace('{0}',attemptsLeft)}</div>`:'';
   const modal=document.getElementById('pin-modal');
   modal.style.display='flex';
   modal.innerHTML=`<div class="pin-backdrop" onclick="if(event.target===this)closePinModal()">
     <div class="pin-box" id="pin-box">
       <img class="pin-logo" src="logo.png" alt="">
       <div class="pin-title">${t('pinTitle')}</div>
-      <div class="pin-sub">${t('pinSub')}</div>
-      <div class="pin-dots">${dots}</div>
-      <div class="pin-error" id="pin-err">${S.pinError?t('errPinWrong'):''}</div>
-      <div class="pin-numpad">
+      ${isLocked
+        ?`<div class="pin-sub" style="color:var(--red);font-weight:700;text-align:center">${t('pinLocked').replace('{0}',_fmtLock(remaining))}</div>`
+        :`<div class="pin-sub">${t('pinSub')}</div>`
+      }
+      ${isLocked?'':`<div class="pin-dots">${dots}</div>`}
+      <div class="pin-error">${!isLocked&&S.pinError?t('errPinWrong'):''}</div>
+      ${warnMsg}
+      ${isLocked?'':`<div class="pin-numpad">
         ${[1,2,3,4,5,6,7,8,9].map(n=>`<button class="pin-key" onclick="pinPress('${n}')">${n}</button>`).join('')}
         <button class="pin-key empty"></button>
         <button class="pin-key" onclick="pinPress('0')">0</button>
         <button class="pin-key del" onclick="pinDel()">&#x232B;</button>
-      </div>
+      </div>`}
       <button class="pin-cancel" onclick="closePinModal()">${t('cancelBtn')}</button>
     </div>
   </div>`;
 }
 
 function pinPress(d){
+  const {until,lockouts,attempts}=_getPinLock();
+  if(until>Date.now())return;
   if(S.pinDigits.length>=4)return;
   S.pinDigits+=d;
   S.pinError=false;
   if(S.pinDigits.length===4){
     if(S.pinDigits===STAFF_PIN){
+      _clearPinLock();
+      if(S.pinCountdownInterval){clearInterval(S.pinCountdownInterval);S.pinCountdownInterval=null;}
       closePinModal();
       goStaff();
       toast(t('toastStaffPanel'));
     } else {
       S.pinError=true;
-      renderPinModal();
-      const box=document.getElementById('pin-box');
-      if(box){box.classList.add('shake');setTimeout(()=>{box.classList.remove('shake');S.pinDigits='';renderPinModal();},400);}
+      const newAttempts=attempts+1;
+      if(newAttempts>=5){
+        const durMin=PIN_LOCKOUT_MINS[Math.min(lockouts,PIN_LOCKOUT_MINS.length-1)];
+        try{
+          localStorage.setItem('cq_pin_until',Date.now()+durMin*60000);
+          localStorage.setItem('cq_pin_lockouts',lockouts+1);
+          localStorage.setItem('cq_pin_attempts','0');
+        }catch(e){}
+        S.pinDigits='';
+        renderPinModal();
+      } else {
+        try{localStorage.setItem('cq_pin_attempts',newAttempts);}catch(e){}
+        renderPinModal();
+        const box=document.getElementById('pin-box');
+        if(box){box.classList.add('shake');setTimeout(()=>{box.classList.remove('shake');S.pinDigits='';renderPinModal();},400);}
+      }
     }
   } else {
     renderPinModal();
@@ -3158,6 +3198,7 @@ function pinDel(){
 }
 
 function closePinModal(){
+  if(S.pinCountdownInterval){clearInterval(S.pinCountdownInterval);S.pinCountdownInterval=null;}
   document.getElementById('pin-modal').style.display='none';
   S.pinDigits='';S.pinError=false;
 }
