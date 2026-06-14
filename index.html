@@ -7395,10 +7395,18 @@ async function addBike(){
   const rentalPrice=S._bkRentalPrice?parseFloat(S._bkRentalPrice)||null:null;
   const startDate=(document.getElementById('bk-start')?.value||S._bkStartDate||_todayISO());
   const bike={id:uid(),name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:colorNames,status:'available',brand,model,groupset,speeds,rental_price:rentalPrice,location,frame_type:S._bkFrame,bike_number:bikeNum,in_service_date:startDate,retired_date:null};
-  await sb.from('bikes').insert(bike);
+  let{error:insErr}=await sb.from('bikes').insert(bike);
+  // Race/unique-violation guard: another bike grabbed this number — retry once with a fresh number
+  if(insErr){
+    await loadData();
+    const retryNum=_nextBikeNumber();
+    bike.bike_number=retryNum;bike.name=genBikeName(S.addBikeType,S._bkFrame,retryNum,size);
+    ({error:insErr}=await sb.from('bikes').insert(bike));
+    if(insErr){toast(insErr.message||t('errBikeNumberDup'),'error');return;}
+  }
   await loadData();
   _resetBikeForm();
-  toast(`${name} ${t('toastAddedToFleet')}`);
+  toast(`${bike.name} ${t('toastAddedToFleet')}`);
   pushUndo(`Add bike ${name}`,async()=>{
     await sb.from('bikes').delete().eq('id',bike.id);
     await loadData();renderBikes();
