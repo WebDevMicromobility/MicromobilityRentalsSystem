@@ -11,12 +11,20 @@ create table if not exists customers (
   password_hash text not null,
   created_at    text not null,
   height        integer,         -- rider height in cm (100-250), used for automatic bike size selection
-  gender        text             -- 'male' | 'female', collected at signup
+  gender        text,            -- 'male' | 'female', collected at signup
+  birth_date    text,            -- optional 'YYYY-MM-DD'
+  country       text,            -- optional
+  city          text,            -- optional (depends on country)
+  photo         text             -- optional profile photo as a data URL (or Google avatar URL)
 );
 
 -- Migration for existing databases (skip if creating fresh):
 -- alter table customers add column if not exists height integer;
 -- alter table customers add column if not exists gender text;
+-- alter table customers add column if not exists birth_date text;
+-- alter table customers add column if not exists country text;
+-- alter table customers add column if not exists city text;
+-- alter table customers add column if not exists photo text;
 
 create table if not exists bikes (
   id          text primary key,

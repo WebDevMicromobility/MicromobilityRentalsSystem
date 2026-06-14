@@ -1717,6 +1717,8 @@ en:{
   totalStat:'Total',waitingStat:'Waiting',onBikeStat:'On Bike',doneStat:'Done',waitingRidersStat:'Waiting Riders',ridersStat:'Riders',
   addToCalendarBtn:'Add to Calendar',autoLabel:'auto',
   aheadOfYou:'{0} ahead of you',youreNext:'You\'re next!',onBikeNow:'On the bike now',
+  profilePhotoLabel:'Profile Photo',uploadPhotoBtn:'Upload photo',removePhotoBtn:'Remove',photoSavedToast:'Photo updated',photoErrToast:'Could not read that image.',
+  rideTierLabel:'Rider tier',ridesToNext:'{0} more rides to {1}',tierNewcomer:'Newcomer',tierRegular:'Regular',tierPro:'Pro',tierElite:'Elite',tierLegend:'Legend',profileCompleteLabel:'Profile {0}% complete',
   statusWaitlist:'Waitlist',waitlistLabel:'Waitlist',toastWaitlisted:'Added to the waitlist',joinWaitlistBtn:'Join waitlist',sessionFullWaitlistMsg:'This session is full. You can join the waitlist and we will promote you if a spot opens.',promoteBtn:'Promote',toastPromoted:'Promoted from waitlist',
   bulkPaidBtn:'Mark paid',bulkCheckinBtn:'Check in',bulkClearSel:'Clear',bulkSelectedLabel:'selected',moveUpLabel:'Move up',moveDownLabel:'Move down',
   anBikeUtilTitle:'Bike Utilization',anBikeUtilSub:'Completed rides per bike, and bikes sitting idle',anRidesUnit:'rides',anIdleBikesTitle:'Idle bikes',anNeverUsed:'Never used',anNoBikesData:'No bike data yet.',
@@ -2013,6 +2015,8 @@ ar:{
   totalStat:'الكل',waitingStat:'بانتظار',onBikeStat:'على الدراجة',doneStat:'منتهٍ',waitingRidersStat:'في الانتظار',ridersStat:'الراكبون',
   addToCalendarBtn:'أضف إلى التقويم',autoLabel:'تلقائي',
   aheadOfYou:'{0} أمامك',youreNext:'أنت التالي!',onBikeNow:'على الدراجة الآن',
+  profilePhotoLabel:'صورة الملف',uploadPhotoBtn:'رفع صورة',removePhotoBtn:'إزالة',photoSavedToast:'تم تحديث الصورة',photoErrToast:'تعذّرت قراءة الصورة.',
+  rideTierLabel:'مستوى الراكب',ridesToNext:'{0} رحلات للوصول إلى {1}',tierNewcomer:'مبتدئ',tierRegular:'منتظم',tierPro:'محترف',tierElite:'نخبة',tierLegend:'أسطورة',profileCompleteLabel:'اكتمال الملف {0}%',
   statusWaitlist:'قائمة الانتظار',waitlistLabel:'قائمة الانتظار',toastWaitlisted:'تمت إضافتك إلى قائمة الانتظار',joinWaitlistBtn:'انضم لقائمة الانتظار',sessionFullWaitlistMsg:'هذه الجلسة ممتلئة. يمكنك الانضمام لقائمة الانتظار وسنرقّيك عند توفر مكان.',promoteBtn:'ترقية',toastPromoted:'تمت الترقية من قائمة الانتظار',
   bulkPaidBtn:'تحديد كمدفوع',bulkCheckinBtn:'تسجيل الدخول',bulkClearSel:'مسح',bulkSelectedLabel:'محدد',moveUpLabel:'تحريك لأعلى',moveDownLabel:'تحريك لأسفل',
   anBikeUtilTitle:'استخدام الدراجات',anBikeUtilSub:'عدد الرحلات المكتملة لكل دراجة والدراجات غير المستخدمة',anRidesUnit:'رحلات',anIdleBikesTitle:'دراجات غير مستخدمة',anNeverUsed:'لم تُستخدم',anNoBikesData:'لا توجد بيانات للدراجات بعد.',
@@ -2543,7 +2547,7 @@ async function loadData(showLoader=false){
   const [q,b,c,ses]=await Promise.all([
     sb.from('queue_entries').select('*').order('session_id').order('queue_num'),
     sb.from('bikes').select('*'),
-    sb.from('customers').select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city'),
+    sb.from('customers').select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city,photo'),
     sb.from('sessions').select('*').order('session_date'),
   ]);
   if(q.error)console.error('loadData queue error:',q.error.message);
@@ -3111,7 +3115,7 @@ async function doResetPassword(){
   if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
   try{
     const{data:customer}=await sb.from('customers')
-      .select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city')
+      .select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city,photo')
       .eq('id',S.forgotVerified).maybeSingle();
     if(!customer){authErr(t('errAccountNotFound'));return;}
     const{error}=await sb.from('customers').update({password_hash:await makePwdHash(pwd)}).eq('id',customer.id);
@@ -3190,15 +3194,19 @@ async function handleGoogleReturn(){
   const email=(session.user.email||'').trim().toLowerCase();
   const meta=session.user.user_metadata||{};
   const gname=meta.full_name||meta.name||'';
+  const gphoto=meta.avatar_url||meta.picture||'';
   if(!email)return false;
   let cust=null;
-  try{const{data}=await sb.from('customers').select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city').eq('email',email).maybeSingle();cust=data;}catch(e){}
+  try{const{data}=await sb.from('customers').select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city,photo').eq('email',email).maybeSingle();cust=data;}catch(e){}
   if(cust){
-    const safe={id:cust.id,name:cust.name,email:cust.email,phone:cust.phone,height:cust.height,type_preference:cust.type_preference,created_at:cust.created_at,birth_date:cust.birth_date,country:cust.country,city:cust.city};
+    // Backfill the avatar from Google if they have none yet
+    let photo=cust.photo;
+    if(!photo&&gphoto){photo=gphoto;try{await sb.from('customers').update({photo:gphoto}).eq('id',cust.id);}catch(e){}}
+    const safe={id:cust.id,name:cust.name,email:cust.email,phone:cust.phone,height:cust.height,type_preference:cust.type_preference,created_at:cust.created_at,birth_date:cust.birth_date,country:cust.country,city:cust.city,photo};
     S.rememberMe=true;S.loggedIn=safe;setSession(safe);
     return 'loggedin';
   }
-  S._pendingGoogle={email,name:gname};
+  S._pendingGoogle={email,name:gname,photo:gphoto};
   return 'complete';
 }
 function openGoogleComplete(){
@@ -3219,11 +3227,11 @@ async function doCompleteGoogle(){
   const fullPhone=cc+phone;
   try{
     {const{data:ex}=await sb.from('customers').select('id').eq('phone',fullPhone).maybeSingle();if(ex){authErr(t('errPhoneExists'));return;}}
-    const customer={id:uid(),name,email:g.email||'',phone:fullPhone,password_hash:'oauth:google',created_at:new Date().toISOString(),height:heightRaw,type_preference:S.signupTypePref||'Any',gender:S.signupGender};
+    const customer={id:uid(),name,email:g.email||'',phone:fullPhone,password_hash:'oauth:google',created_at:new Date().toISOString(),height:heightRaw,type_preference:S.signupTypePref||'Any',gender:S.signupGender,photo:g.photo||null};
     const{error}=await sb.from('customers').insert(customer);
     if(error)throw error;
     await loadData();
-    const safe={id:customer.id,name,email:customer.email,phone:fullPhone,height:heightRaw,type_preference:customer.type_preference,created_at:customer.created_at};
+    const safe={id:customer.id,name,email:customer.email,phone:fullPhone,height:heightRaw,type_preference:customer.type_preference,created_at:customer.created_at,photo:customer.photo};
     S.rememberMe=true;S.loggedIn=safe;setSession(safe);S._pendingGoogle=null;
     closeAuthModal();goCustomer('register');
     logAction('Account created (Google): '+name);
@@ -3251,7 +3259,7 @@ async function doLogin(){
       candidates.forEach(c=>{if(c&&c.length>=5&&/^[+\d]+$/.test(c))filters.push(`phone.eq.${c}`);});
     }
     const{data:rows}=await sb.from('customers')
-      .select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city,password_hash')
+      .select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city,photo,password_hash')
       .or(filters.join(','))
       .limit(5);
     let customer=null;
@@ -3453,9 +3461,12 @@ function renderTopbarRight(){
     const cust=S.loggedIn||getSession();
     if(cust){
       const initials=cust.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+      const avatar=cust.photo
+        ?`<img src="${esc(cust.photo)}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:1px solid rgba(3,255,137,.4)">`
+        :`<div style="width:32px;height:32px;border-radius:50%;background:rgba(3,255,137,.2);border:1px solid rgba(3,255,137,.4);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--green)">${esc(initials)}</div>`;
       el.innerHTML=`
         <div style="display:flex;align-items:center;gap:10px">
-          <div style="width:32px;height:32px;border-radius:50%;background:rgba(3,255,137,.2);border:1px solid rgba(3,255,137,.4);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--green)">${esc(initials)}</div>
+          ${avatar}
           <div style="min-width:0">
             <div class="cust-topbar-name">${esc(cust.name.split(' ')[0])}</div>
             <div class="cust-topbar-email">${esc(cust.email||cust.phone||'')}</div>
@@ -4378,8 +4389,47 @@ function renderAccount(){
   document.getElementById('tab-account').innerHTML=`
     <div class="page-title">${t('accountTitle')}</div>
     <div class="page-sub">${t('accountSub')}</div>
+    ${(()=>{
+      const rides=myDone.filter(e=>e.paid).length;
+      const tiers=[[0,'tierNewcomer'],[3,'tierRegular'],[10,'tierPro'],[25,'tierElite'],[50,'tierLegend']];
+      let ti=0;for(let i=0;i<tiers.length;i++){if(rides>=tiers[i][0])ti=i;}
+      const next=tiers[ti+1];
+      const nextTxt=next?t('ridesToNext').replace('{0}',next[0]-rides).replace('{1}',t(next[1])):'';
+      const fields=[cust.name,cust.email,cust.phone,cust.height,cust.birth_date,cust.country,cust.city,cust.photo,(cust.type_preference&&cust.type_preference!=='Any')];
+      const pct=Math.round(fields.filter(Boolean).length/fields.length*100);
+      return`<div class="form-section" style="max-width:560px;margin-bottom:16px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+          <div>
+            <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${t('rideTierLabel')}</div>
+            <div style="font-size:20px;font-weight:900;color:var(--green);letter-spacing:-.5px">${t(tiers[ti][1])}</div>
+            ${nextTxt?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${nextTxt}</div>`:''}
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:28px;font-weight:900;letter-spacing:-1px">${rides}</div>
+            <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${t('statTotalRides')}</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px">${t('profileCompleteLabel').replace('{0}',pct)}</div>
+          <div style="height:8px;border-radius:6px;background:rgba(255,255,255,.07);overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--green);border-radius:6px;transition:width .4s"></div></div>
+        </div>
+      </div>`;
+    })()}
     <div class="form-section" style="max-width:560px">
       <div class="form-title">${t('profileInfo')}</div>
+      <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
+        ${cust.photo
+          ?`<img id="acc-photo-img" src="${esc(cust.photo)}" alt="" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid rgba(3,255,137,.4);flex-shrink:0">`
+          :`<div id="acc-photo-img" style="width:72px;height:72px;border-radius:50%;background:rgba(3,255,137,.16);border:2px solid rgba(3,255,137,.4);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:var(--green);flex-shrink:0">${esc(cust.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase())}</div>`}
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${t('profilePhotoLabel')}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <label class="btn-secondary" style="font-size:12px;padding:7px 14px;cursor:pointer;margin:0">${t('uploadPhotoBtn')}
+              <input type="file" accept="image/*" style="display:none" onchange="accUploadPhoto(this)"></label>
+            ${cust.photo?`<button class="btn-secondary" style="font-size:12px;padding:7px 14px" onclick="accRemovePhoto()">${t('removePhotoBtn')}</button>`:''}
+          </div>
+        </div>
+      </div>
       <div class="form-row">
         <div class="form-group"><label>${t('fullName')}</label>
           <input type="text" id="acc-name" value="${esc(cust.name)}" placeholder="Your full name"></div>
@@ -4476,6 +4526,40 @@ async function saveAccount(){
     renderAccount();
     renderTopbarRight();
   }catch(e){setErr(t('errSaveAccount'));}
+}
+
+// ── Profile photo: resize client-side to a small square and store as a data URL ──
+function accUploadPhoto(input){
+  const file=input.files&&input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      const max=256;let w=img.width,h=img.height;
+      if(w>h){if(w>max){h=Math.round(h*max/w);w=max;}}else{if(h>max){w=Math.round(w*max/h);h=max;}}
+      const c=document.createElement('canvas');c.width=w;c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      _saveAccPhoto(c.toDataURL('image/jpeg',0.82));
+    };
+    img.onerror=()=>toast(t('photoErrToast'),'error');
+    img.src=ev.target.result;
+  };
+  reader.onerror=()=>toast(t('photoErrToast'),'error');
+  reader.readAsDataURL(file);
+}
+async function _saveAccPhoto(dataUrl){
+  const cust=S.loggedIn;if(!cust)return;
+  const{error}=await sb.from('customers').update({photo:dataUrl}).eq('id',cust.id);
+  if(error){toast(error.message||t('photoErrToast'),'error');return;}
+  S.loggedIn={...cust,photo:dataUrl};setSession(S.loggedIn);
+  toast(t('photoSavedToast'));renderAccount();renderTopbarRight();
+}
+async function accRemovePhoto(){
+  const cust=S.loggedIn;if(!cust)return;
+  const{error}=await sb.from('customers').update({photo:null}).eq('id',cust.id);
+  if(error){toast(error.message,'error');return;}
+  S.loggedIn={...cust,photo:null};setSession(S.loggedIn);
+  renderAccount();renderTopbarRight();
 }
 
 
