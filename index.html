@@ -4049,7 +4049,14 @@ async function submitReg(){
       queueNum:baseQNum+i,status:bookingStatus,registeredAt:new Date().toISOString(),walkIn:false,
       customerId:cust.id,price:priceForType(S.regBikeTypes[i])
     }));
-    await Promise.all(entries.map(e=>sb.from('queue_entries').insert(entryToDB(e))));
+    const insRes=await Promise.all(entries.map(e=>sb.from('queue_entries').insert(entryToDB(e))));
+    const insFail=insRes.find(r=>r&&r.error);
+    if(insFail){
+      // Roll back any partial inserts so the customer never has a half-saved booking
+      await Promise.all(entries.map(e=>sb.from('queue_entries').delete().eq('id',e.id)));
+      toast(insFail.error.message||t('errConnection'),'error');
+      return;
+    }
     // Race guard: if a simultaneous booking grabbed the same number(s), renumber ours
     if(bookingStatus==='waiting'){
       await loadData();
@@ -4147,10 +4154,14 @@ async function submitModifyBooking(){
     }
   }
 
-  if(calls.length>0)await Promise.all(calls);
+  if(calls.length>0){
+    const res=await Promise.all(calls);
+    const fail=res.find(r=>r&&r.error);
+    if(fail){toast(fail.error.message||t('errConnection'),'error');return;}
+  }
   await loadData();
 
-  
+
   const allUpdatedIds=[...existing.map(e=>e.id),...addedEntries.map(e=>e.id)];
   S.lastTickets=allUpdatedIds.map(id=>getQueue().find(e=>e.id===id)).filter(Boolean).slice(0,newQty);
   logAction(`Updated booking (${(S.loggedIn&&S.loggedIn.name)||'rider'})`);
@@ -5570,8 +5581,10 @@ function toggleSfSelect(id){
 function clearSfSelect(){S.sfSelected=[];renderStaffQueue();}
 async function bulkSfPaid(){
   const ids=S.sfSelected.slice();if(!ids.length)return;
-  await Promise.all(ids.map(id=>sb.from('queue_entries').update({paid:true}).eq('id',id)));
+  const res=await Promise.all(ids.map(id=>sb.from('queue_entries').update({paid:true}).eq('id',id)));
+  const fail=res.find(r=>r&&r.error);
   await loadData();S.sfSelected=[];
+  if(fail){toast(fail.error.message||t('errConnection'),'error');renderStaffQueue();return;}
   logAction(`Bulk marked ${ids.length} paid`);
   toast(`${ids.length} ${t('paidLabel')}`);
   renderStaffQueue();renderMyRides();
@@ -5579,8 +5592,10 @@ async function bulkSfPaid(){
 async function bulkSfCheckin(){
   const ids=S.sfSelected.filter(id=>{const e=getQueue().find(x=>x.id===id);return e&&e.status==='waiting';});
   if(!ids.length)return;
-  await Promise.all(ids.map(id=>sb.from('queue_entries').update({status:'active'}).eq('id',id)));
+  const res=await Promise.all(ids.map(id=>sb.from('queue_entries').update({status:'active'}).eq('id',id)));
+  const fail=res.find(r=>r&&r.error);
   await loadData();S.sfSelected=[];
+  if(fail){toast(fail.error.message||t('errConnection'),'error');renderStaffQueue();return;}
   logAction(`Bulk checked in ${ids.length}`);
   toast(`${ids.length} ${t('checkInBtn')}`);
   renderStaffQueue();
@@ -5593,10 +5608,12 @@ async function moveQueueEntry(id,dir){
   const swapWith=waiting[idx+dir];
   if(!swapWith)return;
   const a=e.queueNum,b=swapWith.queueNum;
-  await Promise.all([
+  const res=await Promise.all([
     sb.from('queue_entries').update({queue_num:b}).eq('id',e.id),
     sb.from('queue_entries').update({queue_num:a}).eq('id',swapWith.id)
   ]);
+  const fail=res.find(r=>r&&r.error);
+  if(fail)toast(fail.error.message||t('errConnection'),'error');
   await loadData();renderStaffQueue();
 }
 
@@ -5919,7 +5936,8 @@ function confirmLogUndo(logId){
 async function promoteWaitlist(id){
   const e=getQueue().find(x=>x.id===id);if(!e||e.status!=='waitlist')return;
   const newNum=nextQNum(e.sessionId);
-  await sb.from('queue_entries').update({status:'waiting',queue_num:newNum}).eq('id',id);
+  const{error}=await sb.from('queue_entries').update({status:'waiting',queue_num:newNum}).eq('id',id);
+  if(error){toast(error.message||t('errConnection'),'error');return;}
   await loadData();
   logAction&&logAction(`Promoted #${newNum} ${e.name} from waitlist`);
   toast(t('toastPromoted'));
