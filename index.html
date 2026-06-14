@@ -1589,6 +1589,7 @@ en:{
   staffResetTool:'Reset Customer Password',staffResetDesc:'Set a new password for a customer who is locked out.',
   staffResetEmailLabel:'Customer Email',staffResetNewPw:'New Password',staffResetSet:'Set Password',
   staffResetDone:'Password reset for {0}.',staffResetGiveMsg:'Give them this temporary password:',
+  logsTitle:'Action Log',logsPermanentNote:'Permanent record of all actions. Never cleared.',logsColTime:'Time',logsColBy:'By',logsColAction:'Action',
   authPhone:'Phone Number',authPhoneOpt:'(optional if using email)',
   authPassword:'Password',authPasswordHint:'Min 8 chars, 1 uppercase, 1 number',authConfirmPassword:'Confirm Password',
   tabReserve:'Reserve',tabMyRides:'My Rides',tabQueue:'Queue',tabSessions:'Sessions',tabBikes:'Bikes',tabHistory:'History',tabAnalytics:'Analytics',tabLogs:'Logs',
@@ -1881,6 +1882,7 @@ ar:{
   staffResetTool:'إعادة تعيين كلمة مرور العميل',staffResetDesc:'عيّن كلمة مرور جديدة لعميل لا يستطيع الدخول.',
   staffResetEmailLabel:'بريد العميل الإلكتروني',staffResetNewPw:'كلمة المرور الجديدة',staffResetSet:'تعيين كلمة المرور',
   staffResetDone:'تمت إعادة تعيين كلمة المرور لـ {0}.',staffResetGiveMsg:'أعطه كلمة المرور المؤقتة هذه:',
+  logsTitle:'سجل الإجراءات',logsPermanentNote:'سجل دائم لكل الإجراءات. لا يُمحى أبداً.',logsColTime:'الوقت',logsColBy:'بواسطة',logsColAction:'الإجراء',
   authPhone:'رقم الهاتف',authPhoneOpt:'(اختياري إذا استخدمت البريد)',
   authPassword:'كلمة المرور',authPasswordHint:'8 أحرف كحد أدنى، حرف كبير ورقم',authConfirmPassword:'تأكيد كلمة المرور',
   tabReserve:'حجز',tabMyRides:'رحلاتي',tabQueue:'الطابور',tabSessions:'الجلسات',tabBikes:'الدراجات',tabHistory:'السجل',tabAnalytics:'التحليلات',tabLogs:'السجلات',
@@ -2442,7 +2444,8 @@ const S={
   sfSort:'queue',sfSortDir:1,sfSearch:'',sfPay:'all',sfSize:'all',queueDensity:'compact',
   undoStack:[],
   actionLog:[],
-  
+  fullLog:[],
+
   showAddBike:false,editBikeId:null,bkTypeFilter:'all',bkSort:'name',
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],addBikeColorNames:[''],_bkName:'',
   _bkBrand:'',_bkModel:'',_bkGroupset:'',_bkSpeeds:'',_bkRentalPrice:'',
@@ -3105,6 +3108,7 @@ async function doResetPassword(){
     S.loggedIn=customer;setSession(customer);S.forgotStep=1;S.forgotEmail='';S.forgotVerified=null;S.authMode='login';
     await loadData();
     closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
+    logAction('Password reset (self-service): '+(customer.email||''));
     toast(t('toastPwReset'));
   }catch(e){authErr(t('errConnection'));}
 }
@@ -3140,6 +3144,7 @@ async function doSignup(){
     const safeCustomer={id:customer.id,name,email,phone:fullPhone,height,type_preference,created_at:customer.created_at};
     S.loggedIn=safeCustomer;setSession(safeCustomer);
     closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
+    logAction('Account created: '+name);
     toast(`${name}! ${t('toastAccountCreated')}`);
   }catch(e){authErr(t('errConnection'));}
 }
@@ -3201,6 +3206,7 @@ async function doCompleteGoogle(){
     const safe={id:customer.id,name,email:customer.email,phone:fullPhone,height:heightRaw,type_preference:customer.type_preference,created_at:customer.created_at};
     S.rememberMe=true;S.loggedIn=safe;setSession(safe);S._pendingGoogle=null;
     closeAuthModal();goCustomer('register');
+    logAction('Account created (Google): '+name);
     toast(`${name}! ${t('toastAccountCreated')}`);
   }catch(e){authErr(t('errConnection'));}
 }
@@ -3239,12 +3245,14 @@ async function doLogin(){
     S.loggedIn=customer;setSession(customer);
     await loadData();
     closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
+    logAction('Logged in: '+customer.name);
     toast(`${t('toastWelcomeBack')}, ${customer.name}!`);
   }catch(e){authErr(t('errConnection'));}
 }
 
 
 function doLogout(){
+  logAction('Logged out: '+((S.loggedIn&&S.loggedIn.name)||'customer'));
   S.loggedIn=null;clearSession();S._pendingGoogle=null;
   if(sb&&sb.auth)try{sb.auth.signOut();}catch(e){}
   S._rName='';S._rEmail='';S._rPhone='';S._rHeight='';
@@ -3284,7 +3292,22 @@ function showView(v){
   renderTopbarRight();
 }
 
-function goLanding(){showView('landing');renderLandingAvail();}
+let _navRestoring=false;
+function _navState(){return {view:S.view,ctab:S.custTab,stab:S.staffTab};}
+function _saveNav(){try{sessionStorage.setItem('cq_nav',JSON.stringify(_navState()));}catch(e){}}
+function _loadNav(){try{const r=sessionStorage.getItem('cq_nav');return r?JSON.parse(r):null;}catch(e){return null;}}
+function _pushNav(){if(_navRestoring)return;try{history.pushState(_navState(),'');}catch(e){}_saveNav();}
+function _applyNav(st){
+  if(!st)return;
+  _navRestoring=true;
+  if(st.view==='staff'&&localStorage.getItem('cq_staff')==='1'){goStaff();if(st.stab)setStaffTab(st.stab);}
+  else if(st.view==='customer'&&getSession()){goCustomer(st.ctab||'register');}
+  else{goLanding();}
+  _navRestoring=false;_saveNav();
+}
+window.addEventListener('popstate',function(e){_applyNav(e.state||_loadNav());});
+
+function goLanding(){showView('landing');renderLandingAvail();_pushNav();}
 function renderLandingAvail(){
   const strip=document.getElementById('land-avail-strip');if(!strip)return;
   const open=openSessions();
@@ -3313,6 +3336,7 @@ function goCustomer(tab){
     S.custTab=tab||'register';
     renderCustomerTabs();
     renderTopbarRight();
+    _pushNav();
     return;
   }
   prefillFromAccount();
@@ -3321,6 +3345,7 @@ function goCustomer(tab){
   renderCustomerTabs();
   renderRegister();
   renderMyRides();
+  _pushNav();
 }
 
 function goStaff(){
@@ -3333,6 +3358,7 @@ function goStaff(){
   renderSessions();
   renderBikes();
   renderHistory();
+  _pushNav();
 }
 function _autoSelectSession(){
   
@@ -3352,6 +3378,7 @@ function setCustTab(tab){
   if(tab==='myrides')renderMyRides();
   else if(tab==='register')renderRegister();
   else if(tab==='account')renderAccount();
+  _pushNav();
 }
 function setStaffTab(tab){
   S.staffTab=tab;
@@ -3365,6 +3392,7 @@ function setStaffTab(tab){
   else if(tab==='logs')renderLogs();
   else if(tab==='inventory')document.getElementById('tab-inventory').innerHTML=`<div class="empty-illustration" style="padding-top:80px"><div class="empty-illus-icon" style="font-size:64px">🌞</div><div class="empty-illus-title">Coming Soon</div><div class="empty-illus-sub">Inventory management is on its way.</div></div>`;
   else if(tab==='community')document.getElementById('tab-community').innerHTML=`<div class="empty-illustration" style="padding-top:80px"><div class="empty-illus-icon" style="font-size:64px">🌞</div><div class="empty-illus-title">Coming Soon</div><div class="empty-illus-sub">Community features are on their way.</div></div>`;
+  _pushNav();
 }
 
 function renderCustomerTabs(){
@@ -3490,6 +3518,7 @@ async function pinPress(d){
       if(S.pinCountdownInterval){clearInterval(S.pinCountdownInterval);S.pinCountdownInterval=null;}
       closePinModal();
       goStaff();
+      logAction('Staff panel unlocked');
       toast(t('toastStaffPanel'));
     } else {
       S.pinError=true;
@@ -4022,6 +4051,7 @@ async function submitReg(){
     S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
     S.regQty=1;S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regRiderNames=[];S._alreadyBookedSession=null;S.regStep=1;
     const numStr=qty>1?`#${baseQNum} – #${baseQNum+qty-1}`:`#${baseQNum}`;
+    logAction(`Booked ${numStr} (${(S.loggedIn&&S.loggedIn.name)||'rider'})`);
     toast(`${t('toastRegistered')} ${numStr}`);
     renderRegister();renderMyRides();
     showBoothPopup();
@@ -4100,6 +4130,7 @@ async function submitModifyBooking(){
   
   const allUpdatedIds=[...existing.map(e=>e.id),...addedEntries.map(e=>e.id)];
   S.lastTickets=allUpdatedIds.map(id=>getQueue().find(e=>e.id===id)).filter(Boolean).slice(0,newQty);
+  logAction(`Updated booking (${(S.loggedIn&&S.loggedIn.name)||'rider'})`);
 
   if(addedEntries.length>0){
     toast(`${t('toastBookingUpdated')} + ${t('toastRegistered')} ${addedEntries.map(e=>`#${e.queueNum}`).join(', ')}`);
@@ -5484,6 +5515,7 @@ async function staffResetPassword(){
   if(!cust)return err(t('errAccountNotFound'));
   const{error}=await sb.from('customers').update({password_hash:await makePwdHash(pw)}).eq('id',cust.id);
   if(error)return err(error.message||t('errConnection'));
+  logAction('Staff reset password for '+cust.name);
   el.innerHTML=`<div style="background:rgba(3,255,137,.07);border:1px solid rgba(3,255,137,.25);border-radius:12px;padding:16px 20px">
     <div style="font-size:13px;font-weight:800;color:var(--green);margin-bottom:6px">✓ ${t('staffResetDone').replace('{0}',esc(cust.name))}</div>
     <div style="font-size:12px;color:var(--muted-l);font-weight:600">${t('staffResetGiveMsg')} <strong style="color:var(--text);font-family:monospace">${esc(pw)}</strong></div>
@@ -5543,7 +5575,16 @@ async function togglePayment(id,mode){
 }
 
 
+function _saveFullLog(){try{localStorage.setItem('cq_full_log',JSON.stringify(S.fullLog));}catch(e){}}
+function logAction(label){
+  if(!label)return;
+  const by=S.view==='staff'?'Staff':((S.loggedIn&&S.loggedIn.name)||'Guest');
+  S.fullLog.push({ts:Date.now(),label:String(label),by,view:S.view||''});
+  _saveFullLog();
+  if(S.view==='staff'&&S.staffTab==='logs')renderLogs();
+}
 function pushUndo(label,fn){
+  logAction(label);
   const logId='alog-'+Date.now()+'-'+Math.random().toString(36).slice(2);
   const logEntry={id:logId,label,fn,timestamp:Date.now(),undone:false};
   S.actionLog.unshift(logEntry);
@@ -5708,31 +5749,29 @@ async function staffCancelEntry(id){
 
 function renderLogs(){
   const el=document.getElementById('tab-logs');if(!el)return;
-  const fmt=ts=>new Date(ts).toLocaleString('en-SA',{timeZone:KSA_TZ,hour12:false,month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
-  if(!S.actionLog.length){
+  const fmt=ts=>new Date(ts).toLocaleString('en-SA',{timeZone:KSA_TZ,hour12:false,year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const log=S.fullLog||[];
+  if(!log.length){
     el.innerHTML=`<div style="padding:40px;text-align:center;color:var(--muted);font-size:14px;">No actions logged yet.</div>`;
     return;
   }
-  const rows=S.actionLog.map(item=>`
-    <tr style="opacity:${item.undone?'0.45':'1'}">
-      <td style="padding:10px 14px;color:var(--muted);font-size:12px;white-space:nowrap">${fmt(item.timestamp)}</td>
+  const rows=log.slice().reverse().map(item=>`
+    <tr>
+      <td style="padding:10px 14px;color:var(--muted);font-size:12px;white-space:nowrap">${fmt(item.ts)}</td>
+      <td style="padding:10px 14px;font-size:12px;font-weight:700;color:${item.by==='Staff'?'var(--green)':'var(--muted-l)'};white-space:nowrap">${esc(item.by||'')}</td>
       <td style="padding:10px 14px;font-size:13px">${esc(item.label)}</td>
-      <td style="padding:10px 14px;font-size:12px;color:${item.undone?'var(--muted)':'#b45309'}">${item.undone?'Undone':''}</td>
-      <td style="padding:10px 14px;text-align:right">
-        ${item.undone?'':`<button class="btn-sm btn-muted" onclick="confirmLogUndo('${item.id}')">Undo</button>`}
-      </td>
     </tr>`).join('');
   el.innerHTML=`<div style="padding:16px 20px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-      <h3 style="font-size:16px;font-weight:700;color:var(--text)">Action Log</h3>
-      <button class="btn-sm btn-muted" onclick="S.actionLog=[];renderLogs()" style="font-size:11px">Clear</button>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <h3 style="font-size:16px;font-weight:700;color:var(--text)">${t('logsTitle')}</h3>
+      <span style="font-size:12px;font-weight:700;color:var(--muted)">${log.length}</span>
     </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:16px">${t('logsPermanentNote')}</div>
     <table style="width:100%;border-collapse:collapse">
       <thead><tr style="border-bottom:1px solid rgba(255,255,255,.08)">
-        <th style="padding:8px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)">Time</th>
-        <th style="padding:8px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)">Action</th>
-        <th style="padding:8px 14px"></th>
-        <th style="padding:8px 14px"></th>
+        <th style="padding:8px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)">${t('logsColTime')}</th>
+        <th style="padding:8px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)">${t('logsColBy')}</th>
+        <th style="padding:8px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)">${t('logsColAction')}</th>
       </tr></thead>
       <tbody>${rows}</tbody>
     </table>
@@ -6276,6 +6315,7 @@ function printSessionReport(){
 }
 
 function addHistLog(action,entry,undoFn){
+  logAction(`${action} #${entry.queueNum} ${entry.name}`);
   S.histLog.unshift({
     id:'log-'+Date.now()+'-'+Math.random().toString(36).slice(2),
     action,
@@ -8454,6 +8494,7 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   S.loggedIn=getSession();
   
   try{const cl=localStorage.getItem('cq_cancellations');if(cl)S.cancellationLog=JSON.parse(cl);}catch(e){}
+  try{const fl=localStorage.getItem('cq_full_log');if(fl)S.fullLog=JSON.parse(fl);}catch(e){}
   
   const _isStaffUrl=new URLSearchParams(window.location.search).has('staff');
   
@@ -8462,21 +8503,36 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
     if(g==='complete'){showView('customer');renderCustomerTabs();renderTopbarRight();openGoogleComplete();return;}
   }
   
-  if(localStorage.getItem('cq_staff')==='1'){
+  _navRestoring=true;
+  const staffOK=localStorage.getItem('cq_staff')==='1';
+  const nav=_loadNav();
+  let target;
+  if(_isStaffUrl&&!staffOK){
+    target='pin';
+  } else {
+    target=nav&&nav.view;
+    if(target==='staff'&&!staffOK)target=null;
+    if(target==='customer'&&!S.loggedIn)target=null;
+    if(!target)target=S.loggedIn?'customer':(staffOK?'staff':'landing');
+  }
+  if(target==='staff'){
     goStaff();
-    const savedStab=sessionStorage.getItem('cq_nav_stab');
-    if(savedStab&&['queue','sessions','bikes','history','analytics','logs'].includes(savedStab))setStaffTab(savedStab);
-  } else if(_isStaffUrl){
+    const stab=(nav&&nav.stab)||sessionStorage.getItem('cq_nav_stab');
+    if(stab&&['queue','sessions','bikes','history','analytics','logs'].includes(stab))setStaffTab(stab);
+  } else if(target==='customer'){
+    const ctab=(nav&&nav.ctab)||sessionStorage.getItem('cq_nav_ctab');
+    goCustomer(ctab&&['register','myrides','account'].includes(ctab)?ctab:'register');
+  } else if(target==='pin'){
     showView('landing');
     renderLandingAvail();
     openPinModal();
-  } else if(S.loggedIn){
-    const savedCtab=sessionStorage.getItem('cq_nav_ctab');
-    goCustomer(savedCtab&&['register','myrides','account'].includes(savedCtab)?savedCtab:'register');
   } else {
     showView('landing');
     renderLandingAvail();
   }
+  _navRestoring=false;
+  _saveNav();
+  try{history.replaceState(_navState(),'');}catch(e){}
 })();
 
 
