@@ -8689,8 +8689,10 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   try{const cl=localStorage.getItem('cq_cancellations');if(cl)S.cancellationLog=JSON.parse(cl);}catch(e){}
   try{const fl=localStorage.getItem('cq_full_log');if(fl)S.fullLog=JSON.parse(fl);}catch(e){}
   
-  const _isStaffUrl=new URLSearchParams(window.location.search).has('staff');
-  
+  const _staffEntry=sessionStorage.getItem('cq_staff_entry')==='1';
+  if(_staffEntry)sessionStorage.removeItem('cq_staff_entry');
+  const _isStaffUrl=new URLSearchParams(window.location.search).has('staff')||_staffEntry;
+
   if(!S.loggedIn&&localStorage.getItem('cq_staff')!=='1'&&!_isStaffUrl){
     const g=await handleGoogleReturn();
     if(g==='complete'){showView('customer');renderCustomerTabs();renderTopbarRight();openGoogleComplete();return;}
