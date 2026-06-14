@@ -27,13 +27,17 @@ create table if not exists bikes (
   status      text not null default 'available',
   location    text,            -- e.g. 'JCC'; order in the list sets the location number
   frame_type  text,            -- 'Steel' | 'Aluminum' | 'Carbon' | 'Titanium'
-  bike_number integer          -- globally unique across the whole fleet; padded to 4 digits in the auto name
+  bike_number integer,         -- globally unique across the whole fleet; padded to 4 digits in the auto name
+  in_service_date text,        -- 'YYYY-MM-DD' date the bike started being used
+  retired_date    text         -- 'YYYY-MM-DD' date the bike was retired (null while active)
 );
 
 -- Migration for existing databases (skip if creating fresh):
 -- alter table bikes add column if not exists location text;
 -- alter table bikes add column if not exists frame_type text;
 -- alter table bikes add column if not exists bike_number integer;
+-- alter table bikes add column if not exists in_service_date text;
+-- alter table bikes add column if not exists retired_date text;
 
 -- Enforce globally-unique bike numbers at the database level (prevents two staff colliding).
 -- Partial index so multiple NULLs are still allowed.

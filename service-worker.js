@@ -1,4 +1,4 @@
-/* MicroMobility Corniche Queue — service worker (offline app shell). Free, no dependencies. */
+
 const CACHE = 'mmcq-v2';
 const SHELL = [
   './',
@@ -24,10 +24,10 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
-  if (req.method !== 'GET') return; // never cache writes (Supabase POST/PATCH/DELETE)
+  if (req.method !== 'GET') return; 
   const url = new URL(req.url);
 
-  // App pages: network-first so updates ship immediately, fall back to cached shell offline.
+  
   if (req.mode === 'navigate') {
     e.respondWith(
       fetch(req).then((res) => {
@@ -39,7 +39,7 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Same-origin static assets: cache-first.
+  
   if (url.origin === self.location.origin) {
     e.respondWith(
       caches.match(req).then((hit) => hit || fetch(req).then((res) => {
@@ -50,7 +50,7 @@ self.addEventListener('fetch', (e) => {
     );
     return;
   }
-  // jsDelivr libraries (e.g. the QR generator): cache-first so QR codes still render offline.
+  
   if (url.hostname === 'cdn.jsdelivr.net') {
     e.respondWith(
       caches.match(req).then((hit) => hit || fetch(req).then((res) => {
@@ -61,5 +61,5 @@ self.addEventListener('fetch', (e) => {
     );
     return;
   }
-  // Other cross-origin (Supabase, fonts CDN): just go to network; let the app's own logic handle failures.
+  
 });
