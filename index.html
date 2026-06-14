@@ -8886,6 +8886,7 @@ let _refreshTimer=null;
 function _tickRefreshLabel(){
   const el=document.getElementById('staff-refresh-label');
   if(!el)return;
+  if(S._rtConnected){el.textContent=t('liveLabel');return;}
   const sec=Math.round((Date.now()-_lastRefresh)/1000);
   el.textContent=sec<5?t('justNow'):sec<60?`${sec}${t('secondsAgo')}`:`${Math.round(sec/60)}${t('minutesAgo')}`;
 }
@@ -8909,6 +8910,38 @@ async function _autoRefresh(){
 setInterval(()=>{_tickRefreshLabel();},5000);
 setInterval(()=>{_autoRefresh();},30000);
 
+// ── Supabase Realtime: push updates (polling above stays as a fallback if Realtime is off) ──
+let _rtDebounce=null;
+function _scheduleRealtimeRefresh(){
+  if(_rtDebounce)clearTimeout(_rtDebounce);
+  _rtDebounce=setTimeout(async()=>{
+    try{
+      await loadData();_lastRefresh=Date.now();
+      if(S.view==='staff'){
+        renderStaffQueue();renderSessions();
+        if(S.staffTab==='bikes')renderBikes();
+        if(S.staffTab==='history')renderHistory();
+        if(S.staffTab==='analytics')renderAnalytics();
+        if(S.staffTab==='logs')renderLogs();
+      } else if(S.view==='customer'&&S.custTab==='myrides'){
+        // Only My Rides updates live; never re-render the booking form (would disrupt typing)
+        renderMyRides();
+      }
+      renderLandingAvail();
+    }catch(e){console.warn('Realtime refresh error:',e);}
+  },350);
+}
+function initRealtime(){
+  if(!sb||!sb.channel)return;
+  try{
+    sb.channel('cq-live')
+      .on('postgres_changes',{event:'*',schema:'public',table:'queue_entries'},_scheduleRealtimeRefresh)
+      .on('postgres_changes',{event:'*',schema:'public',table:'sessions'},_scheduleRealtimeRefresh)
+      .on('postgres_changes',{event:'*',schema:'public',table:'bikes'},_scheduleRealtimeRefresh)
+      .subscribe(status=>{S._rtConnected=(status==='SUBSCRIBED');const el=document.getElementById('staff-refresh-label');if(el)_tickRefreshLabel();});
+  }catch(e){console.warn('Realtime init failed:',e);}
+}
+initRealtime();
 
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{navigator.serviceWorker.register('service-worker.js').catch(e=>console.warn('SW registration failed:',e));});
