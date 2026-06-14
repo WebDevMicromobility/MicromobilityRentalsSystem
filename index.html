@@ -19,7 +19,7 @@
       --bg:#0a0b0a; --s1:#101210; --s2:#141613; --s3:#1a1d19;
       --green:#03ff89; --green-h:#00e07a; --green-d:#00c96b;
       --red:#d90909; --orange:#e08828; --blue:#4aa8f8; --purple:#a06af0;
-      --text:#ffffff; --muted:#8b918b; --muted-l:#5c625c; --border:rgba(255,255,255,.08);
+      --text:#ffffff; --muted:#8b918b; --muted-l:#7e857e; --border:rgba(255,255,255,.08);
       
       --accent2:rgba(3,255,137,.55); --warn:rgba(255,255,255,.55);
     }
@@ -1716,6 +1716,7 @@ en:{
   
   totalStat:'Total',waitingStat:'Waiting',onBikeStat:'On Bike',doneStat:'Done',waitingRidersStat:'Waiting Riders',ridersStat:'Riders',
   addToCalendarBtn:'Add to Calendar',autoLabel:'auto',
+  aheadOfYou:'{0} ahead of you',youreNext:'You\'re next!',onBikeNow:'On the bike now',
   statusWaitlist:'Waitlist',waitlistLabel:'Waitlist',toastWaitlisted:'Added to the waitlist',joinWaitlistBtn:'Join waitlist',sessionFullWaitlistMsg:'This session is full. You can join the waitlist and we will promote you if a spot opens.',promoteBtn:'Promote',toastPromoted:'Promoted from waitlist',
   bulkPaidBtn:'Mark paid',bulkCheckinBtn:'Check in',bulkClearSel:'Clear',bulkSelectedLabel:'selected',moveUpLabel:'Move up',moveDownLabel:'Move down',
   anBikeUtilTitle:'Bike Utilization',anBikeUtilSub:'Completed rides per bike, and bikes sitting idle',anRidesUnit:'rides',anIdleBikesTitle:'Idle bikes',anNeverUsed:'Never used',anNoBikesData:'No bike data yet.',
@@ -1747,7 +1748,7 @@ en:{
   errLoginFirst:'Please log in first.',
   errSelectSession:'Please select a session above.',
   errSessionClosed:'That session is no longer open.',
-  errValidHeightCm:'Please enter a valid height in cm.',
+  errValidHeightCm:'Enter a height between 100 and 250 cm.',
   errSelectSizeGeneric:'Please select a frame size.',
   errSelectTypeGeneric:'Please select a bike type.',
   errPhoneInSession:'This phone number is already registered for that session.',
@@ -2011,6 +2012,7 @@ ar:{
   sessOpened:'تم فتح الجلسة.',sessClosed:'تم إغلاق الجلسة.',sessDeleted:'تم حذف الجلسة.',sessRestored:'تم استعادة الجلسة.',
   totalStat:'الكل',waitingStat:'بانتظار',onBikeStat:'على الدراجة',doneStat:'منتهٍ',waitingRidersStat:'في الانتظار',ridersStat:'الراكبون',
   addToCalendarBtn:'أضف إلى التقويم',autoLabel:'تلقائي',
+  aheadOfYou:'{0} أمامك',youreNext:'أنت التالي!',onBikeNow:'على الدراجة الآن',
   statusWaitlist:'قائمة الانتظار',waitlistLabel:'قائمة الانتظار',toastWaitlisted:'تمت إضافتك إلى قائمة الانتظار',joinWaitlistBtn:'انضم لقائمة الانتظار',sessionFullWaitlistMsg:'هذه الجلسة ممتلئة. يمكنك الانضمام لقائمة الانتظار وسنرقّيك عند توفر مكان.',promoteBtn:'ترقية',toastPromoted:'تمت الترقية من قائمة الانتظار',
   bulkPaidBtn:'تحديد كمدفوع',bulkCheckinBtn:'تسجيل الدخول',bulkClearSel:'مسح',bulkSelectedLabel:'محدد',moveUpLabel:'تحريك لأعلى',moveDownLabel:'تحريك لأسفل',
   anBikeUtilTitle:'استخدام الدراجات',anBikeUtilSub:'عدد الرحلات المكتملة لكل دراجة والدراجات غير المستخدمة',anRidesUnit:'رحلات',anIdleBikesTitle:'دراجات غير مستخدمة',anNeverUsed:'لم تُستخدم',anNoBikesData:'لا توجد بيانات للدراجات بعد.',
@@ -2036,7 +2038,7 @@ ar:{
   errLoginFirst:'الرجاء تسجيل الدخول أولاً.',
   errSelectSession:'الرجاء اختيار جلسة من الأعلى.',
   errSessionClosed:'هذه الجلسة لم تعد مفتوحة.',
-  errValidHeightCm:'الرجاء إدخال طول صحيح بالسنتيمتر.',
+  errValidHeightCm:'أدخل طولاً بين 100 و250 سم.',
   errSelectSizeGeneric:'الرجاء اختيار مقاس الإطار.',
   errSelectTypeGeneric:'الرجاء اختيار نوع الدراجة.',
   errPhoneInSession:'رقم الهاتف مسجّل في هذه الجلسة مسبقاً.',
@@ -3017,7 +3019,7 @@ function renderAuthModal(){
       <div class="auth-field"><label>${t('authPhone')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
         <div class="auth-cc-row">
           <select id="a-cc">${ccOpts}</select>
-          <input id="a-phone" type="tel" placeholder="${t('enterPhone')}">
+          <input id="a-phone" type="tel" inputmode="tel" autocomplete="tel" oninput="fmtPhoneInput(this)" placeholder="${t('enterPhone')}">
         </div></div>
       <button class="btn-primary auth-submit" onclick="doCompleteGoogle()">${t('finishBtn')}</button>`;
   } else {
@@ -3041,7 +3043,7 @@ function renderAuthModal(){
       <div class="auth-field"><label>${t('authPhone')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
         <div class="auth-cc-row">
           <select id="a-cc">${ccOpts}</select>
-          <input id="a-phone" type="tel" placeholder="${t('enterPhone')}">
+          <input id="a-phone" type="tel" inputmode="tel" autocomplete="tel" oninput="fmtPhoneInput(this)" placeholder="${t('enterPhone')}">
         </div></div>
       <div class="auth-field"><label>${t('authPassword')}</label><input id="a-pwd" type="password" placeholder="${t('authPasswordHint')}"></div>
       <div class="auth-field"><label>${t('authConfirmPassword')}</label><input id="a-pwd2" type="password" placeholder="${t('authConfirmPassword')}"></div>
@@ -3122,12 +3124,21 @@ async function doResetPassword(){
   }catch(e){authErr(t('errConnection'));}
 }
 function authErr(msg){const el=document.getElementById('auth-err');if(el)el.textContent=msg;}
+// Live phone mask: groups digits as "5XX XXX XXXX" while typing (display only; saved value is stripped to digits)
+function fmtPhoneInput(el){
+  if(!el)return;
+  const d=el.value.replace(/\D/g,'').slice(0,10);
+  let out=d;
+  if(d.length>6)out=d.slice(0,3)+' '+d.slice(3,6)+' '+d.slice(6);
+  else if(d.length>3)out=d.slice(0,3)+' '+d.slice(3);
+  el.value=out;
+}
 
 async function doSignup(){
   const name=(document.getElementById('a-name')?.value||'').trim();
   const email=(document.getElementById('a-email')?.value||'').trim().toLowerCase();
   const cc=document.getElementById('a-cc')?.value||'+966';
-  const phone=(document.getElementById('a-phone')?.value||'').trim();
+  const phone=(document.getElementById('a-phone')?.value||'').replace(/\D/g,'');
   const pwd=(document.getElementById('a-pwd')?.value||'');
   const pwd2=(document.getElementById('a-pwd2')?.value||'');
   if(!name||name.trim().split(/\s+/).length<2){authErr(t('errEnterName'));return;}
@@ -3199,7 +3210,7 @@ async function doCompleteGoogle(){
   const g=S._pendingGoogle||{};
   const name=(document.getElementById('a-name')?.value||g.name||'').trim();
   const cc=document.getElementById('a-cc')?.value||'+966';
-  const phone=(document.getElementById('a-phone')?.value||'').trim();
+  const phone=(document.getElementById('a-phone')?.value||'').replace(/\D/g,'');
   if(!name||name.trim().split(/\s+/).length<2){authErr(t('errEnterName'));return;}
   if(!S.signupGender){authErr(t('errSelectGender'));return;}
   if(!phone){authErr(t('errPhoneRequired'));return;}
@@ -3681,9 +3692,9 @@ function renderRegister(){
     <div class="form-group" style="margin-bottom:24px">
       <label>${t('numBikes')}</label>
       <div class="qty-stepper">
-        <button class="qty-btn" onclick="changeRegQty(-1)" type="button">-</button>
+        <button class="qty-btn" onclick="changeRegQty(-1)" type="button" aria-label="Decrease number of bikes">-</button>
         <span class="qty-val">${S.regQty}</span>
-        <button class="qty-btn" onclick="changeRegQty(1)" type="button">+</button>
+        <button class="qty-btn" onclick="changeRegQty(1)" type="button" aria-label="Increase number of bikes">+</button>
       </div>
     </div>`;
 
@@ -4196,6 +4207,15 @@ function renderBookingTicket(entries,opts){
   const stForBadge=anyActive?'active':allDone?'done':allNoShow?'noshow':primary.status;
   const total=g.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
   const canEdit=opts.actions&&g.some(e=>e.status==='waiting'||e.status==='waitlist');
+  // Live position cue (how many waiting riders are ahead in this session)
+  let cueHtml='';
+  if(stForBadge==='active'){
+    cueHtml=`<div style="display:flex;align-items:center;gap:8px;margin:12px 0 0;padding:9px 12px;border-radius:10px;background:rgba(3,255,137,.08);border:1px solid rgba(3,255,137,.22)"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></span><span style="font-size:12px;font-weight:800;color:var(--green)">${t('onBikeNow')}</span></div>`;
+  } else if(stForBadge==='waiting'){
+    const ahead=getQueue().filter(o=>o.sessionId===primary.sessionId&&(o.status==='waiting'||o.status==='active')&&o.queueNum<primary.queueNum).length;
+    const txt=ahead<=0?t('youreNext'):t('aheadOfYou').replace('{0}',ahead);
+    cueHtml=`<div style="display:flex;align-items:center;gap:8px;margin:12px 0 0;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid var(--border)"><span style="font-size:14px">${ahead<=0?'🎯':'⏳'}</span><span style="font-size:12px;font-weight:800;color:${ahead<=0?'var(--green)':'var(--text)'}">${txt}</span></div>`;
+  }
   const riderRows=g.map((e,i)=>{
     const bike=getAssignedBikes(e)[0]||null;
     const payBadge=e.paid
@@ -4236,6 +4256,7 @@ function renderBookingTicket(entries,opts){
       </div>
     </div>
     <div style="padding:2px 18px 0">
+      ${cueHtml}
       <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;padding:10px 0 0">${t('reviewRidersLabel')} · ${numDisplay}</div>
       ${riderRows}
       ${noShowMsg}
@@ -4369,7 +4390,7 @@ function renderAccount(){
         <div class="form-group"><label>${t('phoneNum')}</label>
           <div class="phone-row">
             <select class="phone-cc" id="acc-cc">${ccOpts}</select>
-            <input type="tel" class="phone-num" id="acc-phone" value="${esc(accPhone)}" placeholder="5x xxx xxxx">
+            <input type="tel" class="phone-num" id="acc-phone" inputmode="tel" autocomplete="tel" oninput="fmtPhoneInput(this)" value="${esc(accPhone)}" placeholder="5x xxx xxxx">
           </div></div>
         <div class="form-group"><label>${t('heightLabel')} &nbsp;<span class="label-hint">${t('heightHint')}</span></label>
           <div class="height-row">
@@ -4427,7 +4448,7 @@ async function saveAccount(){
   const name=(document.getElementById('acc-name')?.value||'').trim();
   const email=(document.getElementById('acc-email')?.value||'').trim().toLowerCase();
   const cc=document.getElementById('acc-cc')?.value||'+966';
-  const phone=(document.getElementById('acc-phone')?.value||'').trim();
+  const phone=(document.getElementById('acc-phone')?.value||'').replace(/\D/g,'');
   const heightRaw=parseInt(document.getElementById('acc-height')?.value||'');
   const errEl=document.getElementById('acc-err');
   const setErr=msg=>{if(errEl)errEl.textContent=msg;};
