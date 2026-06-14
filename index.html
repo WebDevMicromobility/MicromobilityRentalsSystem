@@ -3067,13 +3067,11 @@ function toggleRememberMe(){
 }
 
 function _phoneMatches(stored,cc,phoneRaw){
-  const sd=String(stored||'').replace(/\D/g,'');
-  if(!sd)return false;
-  const digits=String(phoneRaw||'').replace(/\D/g,'');
-  const bare=digits.replace(/^0+/,'');
-  if(bare.length<7)return false;
-  const full=String(cc||'').replace(/\D/g,'')+bare;
-  return sd===full||sd===bare||sd.endsWith(bare);
+  const norm=x=>String(x||'').replace(/\D/g,'').replace(/^0+/,'');
+  const s=norm(stored),p=norm(phoneRaw);
+  if(!s||p.length<7)return false;
+  const ccd=String(cc||'').replace(/\D/g,'');
+  return [p,ccd+p].some(c=>s===c||s.endsWith(c)||c.endsWith(s));
 }
 async function doForgotVerify(){
   const email=(document.getElementById('a-forgot-email')?.value||'').trim().toLowerCase();
