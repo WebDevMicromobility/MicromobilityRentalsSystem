@@ -1,3 +1,15 @@
+"""
+DEPRECATED / NOT USED BY THE LIVE SITE.
+
+This Flask + SQLite backend is the original local prototype. The deployed website
+(index.html) talks DIRECTLY to Supabase and never calls these /api/* routes, so
+this file and its schema (schema.sql) are dead code kept only for reference.
+
+Source of truth for the real database is: supabase_schema.sql
+If you ever revive a local backend, mirror supabase_schema.sql here first - the two
+schemas have drifted (this one lacks inventory, the customer profile fields, the
+bike location/frame/number/date columns, queue height/ride_duration, etc.).
+"""
 import sqlite3
 import json
 import os
