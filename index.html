@@ -2563,12 +2563,15 @@ async function loadData(showLoader=false){
   if(!sb)return;
   if(showLoader){const ls=document.getElementById('loading-screen');if(ls)ls.style.display='flex';}
   const startToken=Date.now();
-  const [q,b,c,ses]=await Promise.all([
+  // NOTE: we deliberately do NOT bulk-fetch the customers table here. Doing so used to
+  // download every customer's name/email/phone into every visitor's browser. Staff views
+  // already use the denormalized name/phone/email on each queue_entry, so the dump is unneeded.
+  const [q,b,ses]=await Promise.all([
     sb.from('queue_entries').select('*').order('session_id').order('queue_num'),
     sb.from('bikes').select('*'),
-    sb.from('customers').select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city,photo'),
     sb.from('sessions').select('*').order('session_date'),
   ]);
+  const c={data:[],error:null};
   if(q.error)console.error('loadData queue error:',q.error.message);
   if(b.error)console.error('loadData bikes error:',b.error.message);
   if(c.error)console.error('loadData customers error:',c.error.message);
