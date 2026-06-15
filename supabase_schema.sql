@@ -11,6 +11,7 @@ create table if not exists customers (
   password_hash text not null,
   created_at    text not null,
   height        integer,         -- rider height in cm (100-250), used for automatic bike size selection
+  type_preference text,          -- preferred bike type (Road | Hybrid | Mountain | Gravel | Any), set at signup
   gender        text,            -- 'male' | 'female', collected at signup
   birth_date    text,            -- optional 'YYYY-MM-DD'
   country       text,            -- optional
@@ -20,6 +21,7 @@ create table if not exists customers (
 
 -- Migration for existing databases (skip if creating fresh):
 -- alter table customers add column if not exists height integer;
+-- alter table customers add column if not exists type_preference text;
 -- alter table customers add column if not exists gender text;
 -- alter table customers add column if not exists birth_date text;
 -- alter table customers add column if not exists country text;
@@ -32,7 +34,13 @@ create table if not exists bikes (
   size        text not null,
   type        text not null,
   colors      jsonb not null default '[]',
+  color_names jsonb not null default '[]',  -- per-color display names, parallel to colors
   status      text not null default 'available',
+  brand       text,            -- optional manufacturer (e.g. 'Trek')
+  model       text,            -- optional model name
+  groupset    text,            -- optional drivetrain groupset
+  speeds      integer,         -- optional number of gears
+  rental_price numeric,        -- optional per-ride override price (falls back to type price)
   location    text,            -- e.g. 'JCC'; order in the list sets the location number
   frame_type  text,            -- 'Steel' | 'Aluminum' | 'Carbon' | 'Titanium'
   bike_number integer,         -- globally unique across the whole fleet; padded to 4 digits in the auto name
@@ -41,11 +49,17 @@ create table if not exists bikes (
 );
 
 -- Migration for existing databases (skip if creating fresh):
+-- alter table bikes add column if not exists color_names jsonb not null default '[]';
+-- alter table bikes add column if not exists brand text;
+-- alter table bikes add column if not exists model text;
+-- alter table bikes add column if not exists groupset text;
+-- alter table bikes add column if not exists speeds integer;
+-- alter table bikes add column if not exists rental_price numeric;
 -- alter table bikes add column if not exists location text;
 -- alter table bikes add column if not exists frame_type text;
 -- alter table bikes add column if not exists bike_number integer;
--- alter table bikes add column if not exists in_service_date text;
--- alter table bikes add column if not exists retired_date text;
+-- alter table bikes add column if not exists in_service_date text;   -- REQUIRED: live DB is missing this; Add/Edit/Retire bike fails without it
+-- alter table bikes add column if not exists retired_date text;      -- REQUIRED: live DB is missing this; Retire/Restore bike fails without it
 
 -- Enforce globally-unique bike numbers at the database level (prevents two staff colliding).
 -- Partial index so multiple NULLs are still allowed.
@@ -82,8 +96,14 @@ create table if not exists queue_entries (
   status           text not null default 'waiting',
   registered_at    text not null,
   walk_in          boolean not null default false,
-  customer_id      text references customers(id)
+  customer_id      text references customers(id),
+  height           integer,         -- rider height in cm captured at booking (drives size)
+  ride_duration    integer          -- minutes the ride lasted (set on return), null until completed
 );
+
+-- Migration for existing databases (skip if creating fresh):
+-- alter table queue_entries add column if not exists height integer;
+-- alter table queue_entries add column if not exists ride_duration integer;
 
 -- Inventory: helmets, accessories and spare-part stock (Inventory tab)
 create table if not exists inventory (
