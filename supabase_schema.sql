@@ -98,12 +98,28 @@ create table if not exists queue_entries (
   walk_in          boolean not null default false,
   customer_id      text references customers(id),
   height           integer,         -- rider height in cm captured at booking (drives size)
-  ride_duration    integer          -- minutes the ride lasted (set on return), null until completed
+  ride_duration    integer,         -- minutes the ride lasted (set on return), null until completed
+  rating_bike      integer,         -- post-ride bike rating 1-10
+  rating_exp       integer,         -- post-ride experience rating 1-10
+  feedback         text             -- optional post-ride comment
 );
 
 -- Migration for existing databases (skip if creating fresh):
 -- alter table queue_entries add column if not exists height integer;
 -- alter table queue_entries add column if not exists ride_duration integer;
+-- alter table queue_entries add column if not exists rating_bike integer;
+-- alter table queue_entries add column if not exists rating_exp integer;
+-- alter table queue_entries add column if not exists feedback text;
+
+-- Promo codes (staff-defined discounts applied at checkout)
+create table if not exists promo_codes (
+  id         text primary key,
+  code       text not null,
+  kind       text not null default 'percent',  -- 'percent' | 'flat'
+  value      numeric not null default 0,
+  active     boolean not null default true,
+  created_at text
+);
 
 -- Inventory: helmets, accessories and spare-part stock (Inventory tab)
 create table if not exists inventory (
@@ -155,9 +171,11 @@ alter table bikes        enable row level security;
 alter table sessions     enable row level security;
 alter table queue_entries enable row level security;
 alter table inventory    enable row level security;
+alter table promo_codes  enable row level security;
 
 create policy "public access" on customers     for all using (true) with check (true);
 create policy "public access" on bikes         for all using (true) with check (true);
 create policy "public access" on sessions      for all using (true) with check (true);
 create policy "public access" on queue_entries for all using (true) with check (true);
 create policy "public access" on inventory     for all using (true) with check (true);
+create policy "public access" on promo_codes   for all using (true) with check (true);
