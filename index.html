@@ -1598,6 +1598,7 @@ en:{
   anRevCollected:'Revenue Collected',anRevPending:'Revenue Pending',anRevTotal:'Total Revenue',anAvgPerSession:'Avg / Session',
   anTotalRides:'Completed Rides',anUniqueCustomers:'Unique Customers',anRepeatRiders:'Repeat Riders',
   anSessionsHeld:'Sessions Held',anAvgOccupancy:'Avg Occupancy',anNoShowRate:'No-Show Rate',anCollectionRate:'Collection Rate',
+  anRatingsSection:'Ratings & Bike Health',anAvgBikeRating:'Avg bike rating',anAvgExpRating:'Avg experience',anRatedRidesUnit:'rated rides',anNeedsAttention:'Bikes needing attention',anNoAttention:'All bikes look healthy.',noRatingsYet:'No ratings collected yet.',anAttnLowRated:'Low rating',anAttnHeavyUse:'Heavy use',anDaysInServiceShort:'{0}d in service',anRidesShortN:'{0} rides',anOutOf10:'/10',
   anByType:'Rides by Bike Type',anBySize:'Rides by Frame Size',anByDay:'Rides by Day of Week',anByRevType:'Revenue by Bike Type',anFleetSection:'Fleet Analytics',anByBrand:'Rentals by Brand',anByBrandSub:'Total completed rides per brand',anByModel:'Rentals by Model',anByModelSub:'Total completed rides per model',anRevByModel:'Revenue by Model',anRevByModelSub:'Collected revenue per bike model',anAvgPerPiece:'Avg Rides per Piece',anAvgPerPieceSub:'Total model rides divided by number of bikes of that model',confirmDeleteBikeTitle:'Delete Bike?',
   anSessionTrend:'Session-by-Session Performance',
   anColDate:'Date',anColRiders:'Riders',anColRevenue:'Revenue',anColPending:'Pending',anColNoShows:'No-Shows',anColOccupancy:'Occupancy',anColTopType:'Top Type',
@@ -1907,6 +1908,7 @@ ar:{
   anRevCollected:'الإيرادات المحصلة',anRevPending:'الإيرادات المعلقة',anRevTotal:'إجمالي الإيرادات',anAvgPerSession:'متوسط الجلسة',
   anTotalRides:'الرحلات المكتملة',anUniqueCustomers:'العملاء الفريدون',anRepeatRiders:'الراكبون المتكررون',
   anSessionsHeld:'الجلسات المنعقدة',anAvgOccupancy:'متوسط الإشغال',anNoShowRate:'معدل الغياب',anCollectionRate:'معدل التحصيل',
+  anRatingsSection:'التقييمات وصحة الدراجات',anAvgBikeRating:'متوسط تقييم الدراجة',anAvgExpRating:'متوسط التجربة',anRatedRidesUnit:'رحلات مقيّمة',anNeedsAttention:'دراجات تحتاج انتباهاً',anNoAttention:'كل الدراجات بحالة جيدة.',noRatingsYet:'لا توجد تقييمات بعد.',anAttnLowRated:'تقييم منخفض',anAttnHeavyUse:'استخدام كثيف',anDaysInServiceShort:'{0} يوم بالخدمة',anRidesShortN:'{0} رحلة',anOutOf10:'/10',
   anByType:'الرحلات حسب نوع الدراجة',anBySize:'الرحلات حسب مقاس الإطار',anByDay:'الرحلات حسب يوم الأسبوع',anByRevType:'الإيرادات حسب نوع الدراجة',anFleetSection:'تحليلات الأسطول',anByBrand:'الإيجارات حسب الماركة',anByBrandSub:'إجمالي الرحلات المكتملة لكل ماركة',anByModel:'الإيجارات حسب الموديل',anByModelSub:'إجمالي الرحلات المكتملة لكل موديل',anRevByModel:'الإيرادات حسب الموديل',anRevByModelSub:'الإيرادات المحصّلة لكل موديل',anAvgPerPiece:'متوسط الرحلات لكل قطعة',anAvgPerPieceSub:'إجمالي رحلات الموديل ÷ عدد دراجات هذا الموديل',confirmDeleteBikeTitle:'حذف الدراجة؟',
   anSessionTrend:'أداء الجلسات',
   anColDate:'التاريخ',anColRiders:'الراكبون',anColRevenue:'الإيرادات',anColPending:'المعلق',anColNoShows:'الغياب',anColOccupancy:'الإشغال',anColTopType:'النوع الأكثر',
@@ -8472,6 +8474,47 @@ function renderCommunity(){
     </div>`;
 }
 
+// Ratings summary + per-bike health (avg ratings, usage, service age -> "needs attention")
+function bikeHealthSection(){
+  const done=getQueue().filter(e=>e.status==='done');
+  const rated=done.filter(e=>e.ratingBike||e.ratingExp);
+  const avgOf=(arr,k)=>{const v=arr.map(e=>e[k]).filter(Boolean);return v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length*10)/10:0;};
+  const avgBike=avgOf(rated,'ratingBike'),avgExp=avgOf(rated,'ratingExp');
+  const bikes=getBikes().filter(b=>b.status!=='retired'&&b.status!=='maintenance');
+  const perBike=bikes.map(b=>{
+    const rides=done.filter(e=>getAssignedBikeIds(e).includes(b.id));
+    const br=rides.map(e=>e.ratingBike).filter(Boolean);
+    const avgR=br.length?Math.round(br.reduce((a,c)=>a+c,0)/br.length*10)/10:0;
+    const days=b.in_service_date?Math.max(0,Math.floor((Date.now()-new Date(b.in_service_date+'T00:00:00'))/86400000)):null;
+    const lowRated=avgR>0&&avgR<5;
+    const heavyUse=rides.length>=40;
+    return{b,rides:rides.length,avgR,days,lowRated,heavyUse,attn:lowRated||heavyUse};
+  });
+  const attn=perBike.filter(x=>x.attn).sort((a,b)=>(a.avgR||99)-(b.avgR||99));
+  const kpis=`<div class="analytics-kpi-grid">
+    <div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--green)">${avgBike?avgBike+t('anOutOf10'):'—'}</div><div class="analytics-kpi-label">${t('anAvgBikeRating')}</div><div class="analytics-kpi-sub">${rated.length} ${t('anRatedRidesUnit')}</div></div>
+    <div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--green)">${avgExp?avgExp+t('anOutOf10'):'—'}</div><div class="analytics-kpi-label">${t('anAvgExpRating')}</div><div class="analytics-kpi-sub">${rated.length} ${t('anRatedRidesUnit')}</div></div>
+  </div>`;
+  const attnHtml=!rated.length&&!attn.length
+    ? `<div class="empty-state">${t('noRatingsYet')}</div>`
+    : (attn.length
+        ? `<div style="display:flex;flex-direction:column;gap:8px">${attn.map(x=>`
+            <div style="display:flex;align-items:center;gap:10px;padding:11px 14px;background:rgba(224,136,40,.06);border:1px solid rgba(224,136,40,.25);border-radius:12px">
+              <span style="font-size:16px">⚠️</span>
+              <div style="flex:1;min-width:0"><div style="font-weight:800;font-size:13px">${esc(x.b.name)}</div>
+                <div style="font-size:11px;color:var(--muted);margin-top:1px">${t('anRidesShortN').replace('{0}',x.rides)}${x.days!=null?` · ${t('anDaysInServiceShort').replace('{0}',x.days)}`:''}</div></div>
+              <div style="text-align:right">
+                <div style="font-weight:900;color:${x.lowRated?'var(--red)':'var(--green)'}">${x.avgR?x.avgR+t('anOutOf10'):'—'}</div>
+                <div style="font-size:10px;font-weight:800;color:var(--orange)">${x.lowRated?t('anAttnLowRated'):t('anAttnHeavyUse')}</div>
+              </div>
+            </div>`).join('')}</div>`
+        : `<div class="empty-state">${t('anNoAttention')}</div>`);
+  return`<div class="analytics-section-title">${t('anRatingsSection')}</div>
+    ${kpis}
+    <div style="font-size:13px;font-weight:800;color:var(--muted);margin:14px 0 8px">${t('anNeedsAttention')}</div>
+    ${attnHtml}`;
+}
+
 function renderAnalytics(){
   const allQ=getQueue();
   const allSess=allSessions();
@@ -8820,7 +8863,8 @@ function renderAnalytics(){
     <div class="page-sub">${t('anPageSub')}</div>
     ${_rangeBar()}
 
-    
+    ${bikeHealthSection()}
+
     <div class="analytics-section-title">${t('anInsights')}</div>
     <div class="insights-grid">${insights.join('')}</div>
 
