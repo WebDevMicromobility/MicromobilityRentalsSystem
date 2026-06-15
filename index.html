@@ -1721,6 +1721,8 @@ en:{
   profilePhotoLabel:'Profile Photo',uploadPhotoBtn:'Upload photo',removePhotoBtn:'Remove',photoSavedToast:'Photo updated',photoErrToast:'Could not read that image.',
   rideTierLabel:'Rider tier',ridesToNext:'{0} more rides to {1}',tierNewcomer:'Newcomer',tierRegular:'Regular',tierPro:'Pro',tierElite:'Elite',tierLegend:'Legend',profileCompleteLabel:'Profile {0}% complete',
   repeatWeeksLabel:'Repeat weekly',repeatWeeksHint:'creates the same session for the next weeks',repeatOnceOpt:'Just this date',repeatWeeksOpt:'{0} weeks',toastRecurringCreated:'{0} sessions created',someDatesSkipped:'{0} created, {1} already existed',
+  invTitle:'Inventory',invSub:'Helmets, accessories and spare-part stock.',invAddBtn:'+ Add item',invItemName:'Item',invCategory:'Category',invQty:'In stock',invLowAt:'Low-stock at',invLowStock:'Low stock',invOutStock:'Out of stock',invInStock:'In stock',invLowAlert:'{0} item(s) need restocking',invNoItems:'No inventory items yet. Add helmets, locks, accessories or spare parts.',invSaved:'Inventory updated',catHelmet:'Helmet',catAccessory:'Accessory',catSparePart:'Spare part',catApparel:'Apparel',catOther:'Other',
+  commTitle:'Community',commSub:'Rider leaderboard and upcoming rides.',commLeaderboard:'Leaderboard',commEvents:'Upcoming rides',commRank:'Rank',commRider:'Rider',commRides:'Rides',commNoLeaders:'No completed rides yet.',commNoEvents:'No upcoming sessions scheduled.',commTopRiders:'Top riders by completed rides',commSpotsLeft:'{0} spots left',
   statusWaitlist:'Waitlist',waitlistLabel:'Waitlist',toastWaitlisted:'Added to the waitlist',joinWaitlistBtn:'Join waitlist',sessionFullWaitlistMsg:'This session is full. You can join the waitlist and we will promote you if a spot opens.',promoteBtn:'Promote',toastPromoted:'Promoted from waitlist',
   bulkPaidBtn:'Mark paid',bulkCheckinBtn:'Check in',bulkClearSel:'Clear',bulkSelectedLabel:'selected',moveUpLabel:'Move up',moveDownLabel:'Move down',
   anBikeUtilTitle:'Bike Utilization',anBikeUtilSub:'Completed rides per bike, and bikes sitting idle',anRidesUnit:'rides',anIdleBikesTitle:'Idle bikes',anNeverUsed:'Never used',anNoBikesData:'No bike data yet.',
@@ -2021,6 +2023,8 @@ ar:{
   profilePhotoLabel:'صورة الملف',uploadPhotoBtn:'رفع صورة',removePhotoBtn:'إزالة',photoSavedToast:'تم تحديث الصورة',photoErrToast:'تعذّرت قراءة الصورة.',
   rideTierLabel:'مستوى الراكب',ridesToNext:'{0} رحلات للوصول إلى {1}',tierNewcomer:'مبتدئ',tierRegular:'منتظم',tierPro:'محترف',tierElite:'نخبة',tierLegend:'أسطورة',profileCompleteLabel:'اكتمال الملف {0}%',
   repeatWeeksLabel:'تكرار أسبوعي',repeatWeeksHint:'ينشئ نفس الجلسة للأسابيع القادمة',repeatOnceOpt:'هذا التاريخ فقط',repeatWeeksOpt:'{0} أسابيع',toastRecurringCreated:'تم إنشاء {0} جلسات',someDatesSkipped:'تم إنشاء {0}، {1} موجودة مسبقاً',
+  invTitle:'المخزون',invSub:'الخوذ والإكسسوارات وقطع الغيار.',invAddBtn:'+ إضافة عنصر',invItemName:'العنصر',invCategory:'الفئة',invQty:'المتوفر',invLowAt:'تنبيه عند',invLowStock:'مخزون منخفض',invOutStock:'نفد المخزون',invInStock:'متوفر',invLowAlert:'{0} عنصر بحاجة لإعادة تخزين',invNoItems:'لا توجد عناصر بعد. أضف الخوذ والأقفال والإكسسوارات أو قطع الغيار.',invSaved:'تم تحديث المخزون',catHelmet:'خوذة',catAccessory:'إكسسوار',catSparePart:'قطعة غيار',catApparel:'ملابس',catOther:'أخرى',
+  commTitle:'المجتمع',commSub:'لوحة المتصدرين والرحلات القادمة.',commLeaderboard:'المتصدرون',commEvents:'الرحلات القادمة',commRank:'الترتيب',commRider:'الراكب',commRides:'الرحلات',commNoLeaders:'لا توجد رحلات مكتملة بعد.',commNoEvents:'لا توجد جلسات قادمة.',commTopRiders:'أفضل الركّاب حسب الرحلات المكتملة',commSpotsLeft:'{0} مقاعد متبقية',
   statusWaitlist:'قائمة الانتظار',waitlistLabel:'قائمة الانتظار',toastWaitlisted:'تمت إضافتك إلى قائمة الانتظار',joinWaitlistBtn:'انضم لقائمة الانتظار',sessionFullWaitlistMsg:'هذه الجلسة ممتلئة. يمكنك الانضمام لقائمة الانتظار وسنرقّيك عند توفر مكان.',promoteBtn:'ترقية',toastPromoted:'تمت الترقية من قائمة الانتظار',
   bulkPaidBtn:'تحديد كمدفوع',bulkCheckinBtn:'تسجيل الدخول',bulkClearSel:'مسح',bulkSelectedLabel:'محدد',moveUpLabel:'تحريك لأعلى',moveDownLabel:'تحريك لأسفل',
   anBikeUtilTitle:'استخدام الدراجات',anBikeUtilSub:'عدد الرحلات المكتملة لكل دراجة والدراجات غير المستخدمة',anRidesUnit:'رحلات',anIdleBikesTitle:'دراجات غير مستخدمة',anNeverUsed:'لم تُستخدم',anNoBikesData:'لا توجد بيانات للدراجات بعد.',
@@ -2456,6 +2460,8 @@ const S={
   custTab:'register',
   staffTab:'queue',
   staffRole:(()=>{try{return localStorage.getItem('cq_role')==='frontdesk'?'frontdesk':'admin';}catch(e){return'admin';}})(),
+  inventory:[],showAddInv:false,editInvId:null,_invName:'',_invCat:'Helmet',_invQty:'',_invLow:'',
+  communityTab:'leaderboard',
   pinDigits:'',
   pinError:false,
   pinCountdownInterval:null,
@@ -2575,6 +2581,8 @@ async function loadData(showLoader=false){
   S.bikes=b.data||[];
   S.customers=c.data||[];
   S.sessions=ses.data||[];
+  // Inventory is optional/error-tolerant (table may not exist until the migration is run)
+  try{const inv=await sb.from('inventory').select('*');if(!inv.error)S.inventory=inv.data||[];}catch(e){}
 }
 let _bootReadyAt=0;
 
@@ -3431,8 +3439,8 @@ function setStaffTab(tab){
   else if(tab==='history')renderHistory();
   else if(tab==='analytics')renderAnalytics();
   else if(tab==='logs')renderLogs();
-  else if(tab==='inventory')document.getElementById('tab-inventory').innerHTML=`<div class="empty-illustration" style="padding-top:80px"><div class="empty-illus-icon" style="font-size:64px">🌞</div><div class="empty-illus-title">Coming Soon</div><div class="empty-illus-sub">Inventory management is on its way.</div></div>`;
-  else if(tab==='community')document.getElementById('tab-community').innerHTML=`<div class="empty-illustration" style="padding-top:80px"><div class="empty-illus-icon" style="font-size:64px">🌞</div><div class="empty-illus-title">Coming Soon</div><div class="empty-illus-sub">Community features are on their way.</div></div>`;
+  else if(tab==='inventory')renderInventory();
+  else if(tab==='community')renderCommunity();
   _pushNav();
 }
 
@@ -8091,6 +8099,131 @@ function setAnSort(col){
   renderAnalytics();
 }
 
+/* ══════════════════════════════════════════════
+   INVENTORY
+══════════════════════════════════════════════ */
+const INV_CATS=['Helmet','Accessory','SparePart','Apparel','Other'];
+function _invCatLabel(c){return{Helmet:t('catHelmet'),Accessory:t('catAccessory'),SparePart:t('catSparePart'),Apparel:t('catApparel'),Other:t('catOther')}[c]||c;}
+function renderInventory(){
+  const el=document.getElementById('tab-inventory');if(!el)return;
+  const items=[...(S.inventory||[])].sort((a,b)=>(a.category||'').localeCompare(b.category||'')||(a.name||'').localeCompare(b.name||''));
+  const lowItems=items.filter(i=>(Number(i.qty)||0)<=(Number(i.low_threshold)||0));
+  const isEdit=!!S.editInvId;
+  const addForm=(S.showAddInv||isEdit)?`<div class="inline-form">
+    <div class="form-title">${isEdit?t('editBtn'):t('invAddBtn')}</div>
+    <div class="form-row">
+      <div class="form-group"><label>${t('invItemName')}</label><input id="inv-name" value="${esc(S._invName)}" oninput="S._invName=this.value" placeholder="e.g. Medium helmet"></div>
+      <div class="form-group"><label>${t('invCategory')}</label><select id="inv-cat" onchange="S._invCat=this.value">${INV_CATS.map(c=>`<option value="${c}"${S._invCat===c?' selected':''}>${_invCatLabel(c)}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>${t('invQty')}</label><input id="inv-qty" type="number" min="0" value="${esc(S._invQty)}" oninput="S._invQty=this.value"></div>
+      <div class="form-group"><label>${t('invLowAt')}</label><input id="inv-low" type="number" min="0" value="${esc(S._invLow)}" oninput="S._invLow=this.value" placeholder="0"></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-primary" onclick="${isEdit?'saveInvEdit()':'addInvItem()'}">${isEdit?t('saveBtn'):t('invAddBtn')}</button>
+      <button class="btn-secondary" onclick="cancelInvForm()">${t('cancelBtn')}</button>
+    </div>
+  </div>`:'';
+  const rows=items.length?items.map(it=>{
+    const qty=Number(it.qty)||0,low=Number(it.low_threshold)||0;
+    const state=qty<=0?'out':qty<=low?'low':'in';
+    const stClr=state==='out'?'var(--red)':state==='low'?'var(--orange)':'var(--green)';
+    const stTxt=state==='out'?t('invOutStock'):state==='low'?t('invLowStock'):t('invInStock');
+    return`<tr>
+      <td><div class="rider-name">${esc(it.name)}</div></td>
+      <td style="font-weight:700;font-size:13px">${_invCatLabel(it.category)}</td>
+      <td><div style="display:flex;align-items:center;gap:8px">
+        <button class="btn-sm btn-muted" onclick="adjInv('${it.id}',-1)" aria-label="Decrease quantity">-</button>
+        <span style="font-weight:900;font-size:15px;min-width:28px;text-align:center">${qty}</span>
+        <button class="btn-sm btn-muted" onclick="adjInv('${it.id}',1)" aria-label="Increase quantity">+</button>
+      </div></td>
+      <td><span style="color:${stClr};font-weight:800;font-size:12px">${stTxt}</span></td>
+      <td><div class="actions-cell">
+        <button class="btn-sm btn-blue" onclick="startInvEdit('${it.id}')">${t('editBtn')}</button>
+        ${isAdmin()?`<button class="btn-sm btn-red" onclick="delInvItem('${it.id}')">${t('deleteBtn')}</button>`:''}
+      </div></td>
+    </tr>`;
+  }).join(''):`<tr><td colspan="5" style="padding:22px;text-align:center;color:var(--muted)">${t('invNoItems')}</td></tr>`;
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
+      <div><div class="page-title">${t('invTitle')}</div><div class="page-sub" style="margin-bottom:0">${t('invSub')}</div></div>
+      <button class="btn-primary" onclick="toggleAddInv()">${t('invAddBtn')}</button>
+    </div>
+    ${lowItems.length?`<div class="next-up-banner" style="background:rgba(224,136,40,.08);border-color:rgba(224,136,40,.3);margin-top:14px"><div style="font-weight:800;color:var(--orange)">⚠️ ${t('invLowAlert').replace('{0}',lowItems.length)}</div></div>`:''}
+    ${addForm}
+    <div class="table-wrapper" style="margin-top:14px"><table class="queue-table"><thead><tr>
+      <th>${t('invItemName')}</th><th>${t('invCategory')}</th><th>${t('invQty')}</th><th>${t('colStatus')}</th><th></th>
+    </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function toggleAddInv(){S.showAddInv=true;S.editInvId=null;S._invName='';S._invCat='Helmet';S._invQty='';S._invLow='';renderInventory();}
+function cancelInvForm(){S.showAddInv=false;S.editInvId=null;renderInventory();}
+function startInvEdit(id){const it=(S.inventory||[]).find(x=>x.id===id);if(!it)return;S.editInvId=id;S.showAddInv=false;S._invName=it.name||'';S._invCat=it.category||'Other';S._invQty=String(it.qty??'');S._invLow=String(it.low_threshold??'');renderInventory();}
+async function addInvItem(){
+  const name=(S._invName||'').trim();if(!name){toast(t('invItemName'),'error');return;}
+  const item={id:uid(),name,category:S._invCat||'Other',qty:parseInt(S._invQty)||0,low_threshold:parseInt(S._invLow)||0,updated_at:new Date().toISOString()};
+  const{error}=await sb.from('inventory').insert(item);
+  if(error){toast(error.message,'error');return;}
+  await loadData();S.showAddInv=false;toast(t('invSaved'));renderInventory();
+}
+async function saveInvEdit(){
+  const id=S.editInvId;if(!id)return;
+  const name=(S._invName||'').trim();if(!name){toast(t('invItemName'),'error');return;}
+  const upd={name,category:S._invCat||'Other',qty:parseInt(S._invQty)||0,low_threshold:parseInt(S._invLow)||0,updated_at:new Date().toISOString()};
+  const{error}=await sb.from('inventory').update(upd).eq('id',id);
+  if(error){toast(error.message,'error');return;}
+  await loadData();S.editInvId=null;toast(t('invSaved'));renderInventory();
+}
+async function adjInv(id,delta){
+  const it=(S.inventory||[]).find(x=>x.id===id);if(!it)return;
+  const q=Math.max(0,(Number(it.qty)||0)+delta);
+  it.qty=q;renderInventory();
+  const{error}=await sb.from('inventory').update({qty:q,updated_at:new Date().toISOString()}).eq('id',id);
+  if(error){toast(error.message,'error');await loadData();renderInventory();}
+}
+function delInvItem(id){
+  if(!isAdmin()){toast(t('adminOnlyMsg'),'error');return;}
+  const it=(S.inventory||[]).find(x=>x.id===id);if(!it)return;
+  confirmDialog({title:t('deleteBtn'),body:it.name,confirmLabel:t('deleteBtn'),confirmClass:'btn-red',onConfirm:async()=>{
+    const{error}=await sb.from('inventory').delete().eq('id',id);
+    if(error){toast(error.message,'error');return;}
+    await loadData();renderInventory();
+  }});
+}
+
+/* ══════════════════════════════════════════════
+   COMMUNITY (leaderboard + upcoming rides)
+══════════════════════════════════════════════ */
+function renderCommunity(){
+  const el=document.getElementById('tab-community');if(!el)return;
+  const counts={};
+  getQueue().filter(e=>e.status==='done'&&e.paid).forEach(e=>{const k=e.customerId||('name:'+e.name);if(!counts[k])counts[k]={name:e.name,n:0};counts[k].n++;counts[k].name=e.name;});
+  const leaders=Object.values(counts).sort((a,b)=>b.n-a.n).slice(0,10);
+  const medals=['🥇','🥈','🥉'];
+  const lb=leaders.length?leaders.map((r,i)=>`<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)">
+      <span style="width:30px;text-align:center;font-size:${i<3?'18px':'13px'};font-weight:900;color:${i<3?'var(--green)':'var(--muted)'}">${medals[i]||(i+1)}</span>
+      <span style="flex:1;font-weight:800;font-size:14px;min-width:0">${esc(r.name)}</span>
+      <span style="font-weight:900;color:var(--green)">${r.n} <span style="font-size:11px;color:var(--muted);font-weight:700">${t('commRides')}</span></span>
+    </div>`).join(''):`<div class="empty-state">${t('commNoLeaders')}</div>`;
+  const today=todayStr();
+  const upcoming=allSessions().filter(s=>(s.session_date||s.id)>=today&&(s.status==='open'||s.status==='full')).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+  const ev=upcoming.length?upcoming.map(s=>{
+    const left=spotsLeft(s.id);
+    return`<div class="sess-card" style="cursor:default;margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+        <div><div class="sess-card-date">${dayLabel(s.day)} · ${shortDate(s.session_date||s.id)}</div>
+        <div style="font-size:12px;color:var(--muted);font-weight:700">${sessionTime(s)}</div></div>
+        <span class="sess-card-spots ${s.status==='full'?'spots-red':'spots-green'}">${s.status==='full'?t('waitlistLabel'):t('commSpotsLeft').replace('{0}',left)}</span>
+      </div></div>`;
+  }).join(''):`<div class="empty-state">${t('commNoEvents')}</div>`;
+  el.innerHTML=`
+    <div class="page-title">${t('commTitle')}</div>
+    <div class="page-sub">${t('commSub')}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-top:14px;align-items:start">
+      <div class="form-section"><div class="form-title">🏆 ${t('commLeaderboard')}</div><div style="font-size:12px;color:var(--muted);margin-bottom:6px">${t('commTopRiders')}</div>${lb}</div>
+      <div class="form-section"><div class="form-title">📅 ${t('commEvents')}</div><div style="margin-top:8px">${ev}</div></div>
+    </div>`;
+}
+
 function renderAnalytics(){
   const allQ=getQueue();
   const allSess=allSessions();
@@ -8900,6 +9033,8 @@ async function _autoRefresh(){
     if(S.staffTab==='history')renderHistory();
     if(S.staffTab==='analytics')renderAnalytics();
     if(S.staffTab==='logs')renderLogs();
+    if(S.staffTab==='inventory')renderInventory();
+    if(S.staffTab==='community')renderCommunity();
     renderLandingAvail();
   }catch(e){
     console.warn('Auto-refresh error:',e);
@@ -8923,6 +9058,8 @@ function _scheduleRealtimeRefresh(){
         if(S.staffTab==='history')renderHistory();
         if(S.staffTab==='analytics')renderAnalytics();
         if(S.staffTab==='logs')renderLogs();
+        if(S.staffTab==='inventory')renderInventory();
+        if(S.staffTab==='community')renderCommunity();
       } else if(S.view==='customer'&&S.custTab==='myrides'){
         // Only My Rides updates live; never re-render the booking form (would disrupt typing)
         renderMyRides();

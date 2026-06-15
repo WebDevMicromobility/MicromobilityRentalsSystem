@@ -85,6 +85,16 @@ create table if not exists queue_entries (
   customer_id      text references customers(id)
 );
 
+-- Inventory: helmets, accessories and spare-part stock (Inventory tab)
+create table if not exists inventory (
+  id            text primary key,
+  name          text not null,
+  category      text not null default 'Other',  -- Helmet | Accessory | SparePart | Apparel | Other
+  qty           integer not null default 0,
+  low_threshold integer not null default 0,      -- "low stock" warning fires when qty <= this
+  updated_at    text
+);
+
 -- ── ROW LEVEL SECURITY ────────────────────────────────────────────────────────
 -- SECURITY WARNING -------------------------------------------------------------
 -- The policies below grant the public anon key full read/write on every table.
@@ -121,8 +131,10 @@ alter table customers    enable row level security;
 alter table bikes        enable row level security;
 alter table sessions     enable row level security;
 alter table queue_entries enable row level security;
+alter table inventory    enable row level security;
 
 create policy "public access" on customers     for all using (true) with check (true);
 create policy "public access" on bikes         for all using (true) with check (true);
 create policy "public access" on sessions      for all using (true) with check (true);
 create policy "public access" on queue_entries for all using (true) with check (true);
+create policy "public access" on inventory     for all using (true) with check (true);
