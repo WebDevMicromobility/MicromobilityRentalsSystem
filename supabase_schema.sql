@@ -89,11 +89,14 @@ create table if not exists queue_entries (
 create table if not exists inventory (
   id            text primary key,
   name          text not null,
-  category      text not null default 'Other',  -- Helmet | Accessory | SparePart | Apparel | Other
+  brand         text,                            -- optional brand
+  category      text not null default 'Other',  -- Helmet | Accessory | ProteinGummies | ElectrolyteSachets | EnergyGels | custom
   qty           integer not null default 0,
   low_threshold integer not null default 0,      -- "low stock" warning fires when qty <= this
   updated_at    text
 );
+-- Migration for existing inventory tables:
+-- alter table inventory add column if not exists brand text;
 
 -- ── ROW LEVEL SECURITY ────────────────────────────────────────────────────────
 -- SECURITY WARNING -------------------------------------------------------------
