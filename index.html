@@ -6735,7 +6735,7 @@ function exportSessionExcel(){
   const sessId=S.sfSession;if(sessId==='all')return;
   const sess=allSessions().find(s=>s.id===sessId);if(!sess)return;
   const entries=getQueue()
-    .filter(e=>e.sessionId===sessId&&e.status!=='removed'&&e.status!=='cancelled')
+    .filter(e=>e.sessionId===sessId&&e.status!=='removed'&&e.status!=='cancelled'&&e.status!=='noshow')
     .sort((a,b)=>a.queueNum-b.queueNum);
   if(!entries.length){toast('No bookings to export','warning');return;}
   const groups=[];
@@ -6774,7 +6774,7 @@ function printSessionReport(){
   const sessId=S.sfSession;if(sessId==='all')return;
   const sess=allSessions().find(s=>s.id===sessId);if(!sess)return;
   const entries=getQueue()
-    .filter(e=>e.sessionId===sessId&&e.status!=='removed'&&e.status!=='cancelled')
+    .filter(e=>e.sessionId===sessId&&e.status!=='removed'&&e.status!=='cancelled'&&e.status!=='noshow')
     .sort((a,b)=>a.queueNum-b.queueNum);
   const paidSAR=entries.filter(e=>e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
   const statusLabels={waiting:'Waiting',active:'On Bike',done:'Done',noshow:'No-Show',cancelled:'Cancelled'};
