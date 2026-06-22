@@ -302,6 +302,13 @@
     .rides-stat-label{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;}
     .rides-empty{background:var(--s1);border:1px dashed var(--border);border-radius:14px;padding:48px;text-align:center;color:var(--muted);font-size:14px;font-weight:600;}
     .myrides-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px;margin-top:14px;align-items:start;}
+    .inv-layout{display:flex;gap:16px;align-items:flex-start;margin-top:14px;}
+    .inv-sidebar{flex:0 0 200px;display:flex;flex-direction:column;gap:6px;}
+    .inv-content{flex:1;min-width:0;}
+    .inv-navbtn{text-align:left;padding:12px 14px;border-radius:11px;border:1px solid var(--border);background:var(--s1);color:var(--muted);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:800;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:8px;}
+    .inv-navbtn:hover{border-color:rgba(255,255,255,.2);color:var(--text);}
+    .inv-navbtn.active{background:rgba(3,255,137,.1);border-color:rgba(3,255,137,.4);color:var(--green);}
+    @media(max-width:640px){.inv-layout{flex-direction:column;}.inv-sidebar{flex:none;flex-direction:row;flex-wrap:wrap;}.inv-navbtn{flex:1;justify-content:center;}}
     @media(max-width:560px){.myrides-grid{grid-template-columns:1fr;}}
 
     
@@ -2495,7 +2502,7 @@ const S={
   custBranch:'all',newSessLocation:'',newSessRepeat:'1',sessBranchFilter:'all',newSessAddons:[],regAddons:[],
   promoCodes:[],promoApplied:null,_promoMsg:'',
   _pcCode:'',_pcKind:'percent',_pcValue:'',
-  inventory:[],showAddInv:false,editInvId:null,_invName:'',_invCat:'Helmet',_invQty:'',_invLow:'',
+  inventory:[],showAddInv:false,editInvId:null,_invName:'',_invCat:'Helmet',_invQty:'',_invLow:'',invSection:'bikes',
   _invBrand:'',_invCatAdd:false,_invBrandAdd:false,
   invCustomCats:(()=>{try{return JSON.parse(localStorage.getItem('cq_inv_cats'))||[];}catch(e){return[];}})(),
   invBrands:(()=>{try{return JSON.parse(localStorage.getItem('cq_inv_brands'))||[];}catch(e){return[];}})(),
@@ -3682,14 +3689,8 @@ function renderRegister(){
   let available=allSessions().filter(s=>s.status==='open'||s.status==='full')
     .sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
   ensureBikeSizes();
-  // Multi-location: branch filter (only shown when sessions span more than one branch)
-  const branchesAvail=[...new Set(available.map(s=>s.location).filter(Boolean))];
-  if(branchesAvail.length>1&&S.custBranch!=='all'&&!branchesAvail.includes(S.custBranch))S.custBranch='all';
-  if(S.custBranch!=='all')available=available.filter(s=>s.location===S.custBranch);
-  const branchFilter=branchesAvail.length>1?`<div class="toggle-group" style="margin-bottom:14px">
-    <button class="toggle-btn${S.custBranch==='all'?' active':''}" onclick="S.custBranch='all';renderRegister()">${t('allBranchesLabel')}</button>
-    ${branchesAvail.map(b=>`<button class="toggle-btn${S.custBranch===b?' active':''}" onclick="S.custBranch='${esc(b).replace(/'/g,"\\'")}';renderRegister()">${esc(b)}</button>`).join('')}
-  </div>`:'';
+  // Branch is not shown to customers (staff-only); no branch filter or labels here.
+  const branchFilter='';
 
   const sessCards=available.length
     ? available.map(s=>{
@@ -3699,7 +3700,6 @@ function renderRegister(){
           <div class="sess-card-day">${dayLabel(s.day)}</div>
           <div class="sess-card-date">${shortDate(s.session_date||s.id)}</div>
           <div style="font-size:10px;color:var(--muted);font-weight:700;margin-bottom:3px">${sessionTime(s)}</div>
-          ${s.location?`<div style="font-size:10px;color:var(--green);font-weight:800;margin-bottom:3px">📍 ${esc(s.location)}</div>`:''}
           <div class="sess-card-spots ${isFull?'spots-red':'spots-green'}">${isFull?t('waitlistLabel'):t('availLabel')}</div>
         </div>`;
       }).join('')
@@ -3975,7 +3975,6 @@ function renderRegister(){
           <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">${t('reviewSessionLabel')}</div>
           <div style="font-weight:800;font-size:15px">${selSess?dayLabel(selSess.day):''} · ${selSess?shortDate(selSess.session_date||selSess.id):''}</div>
           <div style="font-size:12px;color:var(--muted);margin-top:2px">${sessionTime(selSess)}</div>
-          ${selSess&&selSess.location?`<div style="font-size:12px;color:var(--green);font-weight:700;margin-top:2px">📍 ${esc(selSess.location)}</div>`:''}
         </div>
         ${cust?`<div style="text-align:right">
           <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">${t('bookedByLabel')}</div>
@@ -8592,33 +8591,42 @@ function renderInventory(){
   const bAvail=bikes.filter(b=>b.status==='available').length;
   const bUse=bikes.filter(b=>b.status==='in-use').length;
   const byType=['Road','Hybrid','Mountain','Gravel'].map(ty=>({ty,n:bActive.filter(b=>b.type===ty).length})).filter(x=>x.n);
-  const bikesSection=`
-    <div class="analytics-section-title" style="margin-top:22px">🚲 ${t('invSecBikes')}</div>
-    <div class="stats-row" style="margin-top:8px">
+  const bikesBody=`
+    <div class="stats-row" style="margin-top:4px">
       <div class="stat-card"><div class="stat-num">${bActive.length}</div><div class="stat-label">${t('invBikesTotal')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${bAvail}</div><div class="stat-label">${t('availLabel')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:#a0f0c0">${bUse}</div><div class="stat-label">${t('inUseLabel')}</div></div>
     </div>
     ${byType.length?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">${byType.map(x=>`<span style="font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;background:var(--s2);border:1px solid var(--border)">${typeLabel(x.ty)}: <span style="color:var(--green);font-weight:900">${x.n}</span></span>`).join('')}</div>`:''}
     <button class="btn-secondary" onclick="setStaffTab('bikes')" style="margin-top:12px;font-size:12px">${t('invManageBikes')}</button>`;
+  const sec=S.invSection||'bikes';
+  const navbtn=(k,label)=>`<button class="inv-navbtn${sec===k?' active':''}" onclick="setInvSection('${k}')">${label}</button>`;
+  const addBtn=`<button class="btn-primary" onclick="toggleAddInv()">${t('invAddBtn')}</button>`;
+  const secHead=(title,withAdd)=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px"><div class="page-title" style="font-size:18px;margin:0">${title}</div>${withAdd?addBtn:''}</div>`;
+  let content;
+  if(sec==='supplements')content=secHead('🥤 '+t('invSecSupplements'),true)+addForm+invTable(suppItems);
+  else if(sec==='equipment')content=secHead('🛡️ '+t('invSecEquipment'),true)+addForm+invTable(equipItems);
+  else content=secHead('🚲 '+t('invSecBikes'),false)+bikesBody;
   el.innerHTML=`
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:4px">
-      <div><div class="page-title">${t('invTitle')}</div><div class="page-sub" style="margin-bottom:0">${t('invSub')}</div></div>
-      <button class="btn-primary" onclick="toggleAddInv()">${t('invAddBtn')}</button>
-    </div>
+    <div class="page-title">${t('invTitle')}</div>
+    <div class="page-sub">${t('invSub')}</div>
     ${lowItems.length?`<div class="next-up-banner" style="background:rgba(224,136,40,.08);border-color:rgba(224,136,40,.3);margin-top:14px"><div style="font-weight:800;color:var(--orange)">⚠️ ${t('invLowAlert').replace('{0}',lowItems.length)}</div></div>`:''}
-    ${addForm}
-    ${bikesSection}
-    <div class="analytics-section-title" style="margin-top:22px">🛡️ ${t('invSecEquipment')}</div>
-    ${invTable(equipItems)}
-    <div class="analytics-section-title" style="margin-top:22px">🥤 ${t('invSecSupplements')}</div>
-    ${invTable(suppItems)}`;
+    <div class="inv-layout">
+      <div class="inv-sidebar">
+        ${navbtn('bikes','🚲 '+t('invSecBikes'))}
+        ${navbtn('equipment','🛡️ '+t('invSecEquipment'))}
+        ${navbtn('supplements','🥤 '+t('invSecSupplements'))}
+      </div>
+      <div class="inv-content">${content}</div>
+    </div>`;
 }
-function toggleAddInv(){S.showAddInv=true;S.editInvId=null;S._invName='';S._invCat='Helmet';S._invQty='';S._invLow='';S._invBrand='';S._invCatAdd=false;S._invBrandAdd=false;renderInventory();}
+function setInvSection(v){S.invSection=v;S.showAddInv=false;S.editInvId=null;renderInventory();}
+function toggleAddInv(){S.showAddInv=true;S.editInvId=null;S._invName='';S._invCat=(S.invSection==='supplements'?'ProteinGummies':'Helmet');S._invQty='';S._invLow='';S._invBrand='';S._invCatAdd=false;S._invBrandAdd=false;renderInventory();}
 function cancelInvForm(){S.showAddInv=false;S.editInvId=null;S._invCatAdd=false;S._invBrandAdd=false;renderInventory();}
 function startInvEdit(id){
   const it=(S.inventory||[]).find(x=>x.id===id);if(!it)return;
   S.editInvId=id;S.showAddInv=false;S._invName=it.name||'';S._invCat=it.category||'Helmet';S._invQty=String(it.qty??'');S._invLow=String(it.low_threshold??'');S._invBrand=it.brand||'';S._invCatAdd=false;S._invBrandAdd=false;
+  S.invSection=['ProteinGummies','ElectrolyteSachets','EnergyGels'].includes(it.category)?'supplements':'equipment';
   // Make sure a custom category/brand on this item appears in the dropdowns
   if(S._invCat&&!INV_CATS.includes(S._invCat)&&!S.invCustomCats.includes(S._invCat))S.invCustomCats=[...S.invCustomCats,S._invCat];
   if(S._invBrand&&!S.invBrands.includes(S._invBrand))S.invBrands=[...S.invBrands,S._invBrand];
