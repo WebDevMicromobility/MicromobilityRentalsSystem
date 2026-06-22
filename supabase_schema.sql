@@ -74,12 +74,15 @@ create table if not exists sessions (
   status       text not null default 'closed',
   created_at   bigint not null,
   bike_slots   text,            -- JSON: {"Road":{"XS":0,"S":0,"M":2,"L":1},"Hybrid":{...},"Mountain":{...}}
-  location     text             -- branch this session runs at (e.g. 'JCC', 'Sharafeyah Branch')
+  location     text,            -- branch this session runs at (e.g. 'JCC', 'Sharafeyah Branch')
+  addons       text             -- JSON array of inventory item ids offered as add-ons for this session
 );
 
 -- Migration for existing databases:
 -- alter table sessions add column if not exists bike_slots text;
 -- alter table sessions add column if not exists location text;
+-- alter table sessions add column if not exists addons text;
+-- alter table queue_entries add column if not exists addons text;  -- selected add-on item ids per booking
 
 create table if not exists queue_entries (
   id               text primary key,
