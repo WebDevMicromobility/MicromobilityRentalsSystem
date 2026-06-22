@@ -5456,7 +5456,8 @@ function renderStaffQueue(){
     ?queue.filter(e=>e.sessionId===S.sfSession&&e.status!=='removed'&&e.status!=='cancelled')
     :queue.filter(e=>e.status!=='removed'&&e.status!=='cancelled');
   const total=base.length,nWait=base.filter(e=>e.status==='waiting').length,
-        nBike=base.filter(e=>e.status==='active').length,nDone=base.filter(e=>e.status==='done').length;
+        nBike=base.filter(e=>e.status==='active').length,nDone=base.filter(e=>e.status==='done').length,
+        nDonePaid=base.filter(e=>e.status==='done'&&e.paid).length;
   const nRiders=new Set(base.map(e=>e.customerId||e.id)).size;
   const nWaitingRiders=new Set(base.filter(e=>e.status==='waiting').map(e=>e.customerId||e.id)).size;
   let filtered=[...base];
@@ -5887,7 +5888,7 @@ function renderStaffQueue(){
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('statNumRiders')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWait}</div><div class="stat-label">${t('statExpected')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:#a0f0c0">${nBike}</div><div class="stat-label">${t('onBikeStat')}</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nDone}</div><div class="stat-label">${t('statCompleted')}</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nDonePaid}</div><div class="stat-label">${t('statCompleted')}</div></div>
     </div>
     ${nextUp}
     ${(()=>{
