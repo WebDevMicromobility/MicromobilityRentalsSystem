@@ -1723,6 +1723,7 @@ en:{
   
   totalStat:'Total',waitingStat:'Waiting',onBikeStat:'On Bike',doneStat:'Done',waitingRidersStat:'Waiting Riders',ridersStat:'Riders',
   todayLabel:'Today',todayRevenue:'Revenue today',todayServed:'Riders served',todayNoShows:'No-shows',todayBikesOut:'Bikes out',
+  statNumRiders:'# of Riders',statExpected:'Expected',statCompleted:'Completed',
   custProfileTitle:'Customer profile',custTotalRides:'Completed rides',custTotalSpent:'Total spent',custFavType:'Favorite type',custAvgRating:'Avg rating',custBookingsLabel:'Booking history',custNoBookings:'No bookings.',custMemberSince:'First seen',custWalkIn:'Walk-in (no account)',
   addToCalendarBtn:'Add to Calendar',autoLabel:'auto',
   aheadOfYou:'{0} ahead of you',youreNext:'You\'re next!',onBikeNow:'On the bike now',inQueueMsg:'You\'re in the queue',
@@ -2034,6 +2035,7 @@ ar:{
   sessOpened:'تم فتح الجلسة.',sessClosed:'تم إغلاق الجلسة.',sessDeleted:'تم حذف الجلسة.',sessRestored:'تم استعادة الجلسة.',
   totalStat:'الكل',waitingStat:'بانتظار',onBikeStat:'على الدراجة',doneStat:'منتهٍ',waitingRidersStat:'في الانتظار',ridersStat:'الراكبون',
   todayLabel:'اليوم',todayRevenue:'إيرادات اليوم',todayServed:'الركّاب المخدومون',todayNoShows:'لم يحضروا',todayBikesOut:'دراجات بالخارج',
+  statNumRiders:'عدد الركّاب',statExpected:'متوقّع',statCompleted:'مكتمل',
   custProfileTitle:'ملف العميل',custTotalRides:'الرحلات المكتملة',custTotalSpent:'إجمالي الإنفاق',custFavType:'النوع المفضل',custAvgRating:'متوسط التقييم',custBookingsLabel:'سجل الحجوزات',custNoBookings:'لا حجوزات.',custMemberSince:'أول ظهور',custWalkIn:'زائر (بدون حساب)',
   addToCalendarBtn:'أضف إلى التقويم',autoLabel:'تلقائي',
   aheadOfYou:'{0} أمامك',youreNext:'أنت التالي!',onBikeNow:'على الدراجة الآن',inQueueMsg:'أنت في قائمة الانتظار',
@@ -5881,28 +5883,11 @@ function renderStaffQueue(){
     if(!filtered.length)mobileCards=`<div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div>`;
   }
   document.getElementById('tab-queue').innerHTML=_queueHeader+_sessSummaryBar+`
-    ${(()=>{
-      const today=todayStr();
-      const tq=getQueue().filter(e=>e.sessionDate===today);
-      const rev=tq.filter(e=>e.paid&&e.status!=='cancelled'&&e.status!=='removed').reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
-      const served=tq.filter(e=>e.status==='done').length;
-      const ns=tq.filter(e=>e.status==='noshow').length;
-      const out=getBikes().filter(b=>b.status==='in-use').length;
-      return`<div style="font-size:11px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;margin:2px 0 8px">${t('todayLabel')}</div>
-      <div class="stats-row" style="margin-bottom:14px">
-        <div class="stat-card"><div class="stat-num" style="color:var(--green)">SAR ${rev}</div><div class="stat-label">${t('todayRevenue')}</div></div>
-        <div class="stat-card"><div class="stat-num">${served}</div><div class="stat-label">${t('todayServed')}</div></div>
-        <div class="stat-card"><div class="stat-num" style="color:${ns>0?'var(--red)':'var(--muted)'}">${ns}</div><div class="stat-label">${t('todayNoShows')}</div></div>
-        <div class="stat-card"><div class="stat-num" style="color:#a0f0c0">${out}</div><div class="stat-label">${t('todayBikesOut')}</div></div>
-      </div>`;
-    })()}
     <div class="stats-row">
-      <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('totalStat')}</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWait}</div><div class="stat-label">${t('waitingStat')}</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWaitingRiders}</div><div class="stat-label">${t('waitingRidersStat')}</div></div>
+      <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('statNumRiders')}</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWait}</div><div class="stat-label">${t('statExpected')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:#a0f0c0">${nBike}</div><div class="stat-label">${t('onBikeStat')}</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--muted)">${nDone}</div><div class="stat-label">${t('doneStat')}</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--muted-l)">${nRiders}</div><div class="stat-label">${t('ridersStat')}</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nDone}</div><div class="stat-label">${t('statCompleted')}</div></div>
     </div>
     ${nextUp}
     ${(()=>{
@@ -6790,9 +6775,7 @@ function printSessionReport(){
   const entries=getQueue()
     .filter(e=>e.sessionId===sessId&&e.status!=='removed'&&e.status!=='cancelled')
     .sort((a,b)=>a.queueNum-b.queueNum);
-  const totalSAR=entries.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
   const paidSAR=entries.filter(e=>e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
-  const pendingSAR=entries.filter(e=>!e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
   const statusLabels={waiting:'Waiting',active:'On Bike',done:'Done',noshow:'No-Show',cancelled:'Cancelled'};
   
   const groups=[];
@@ -6812,7 +6795,8 @@ function printSessionReport(){
     const lead=group[0];
     const qNums=group.map(x=>`#${x.queueNum}`).join(', ');
     const allBikes=[...new Set(group.flatMap(x=>getAssignedBikes(x).map(b=>b.name)))].join(', ')||'—';
-    const totalPrice=group.reduce((s,x)=>s+(x.price??DEFAULT_PRICE),0);
+    // Only the amount actually collected: sum of paid riders in the booking (partial bookings show just the paid portion)
+    const paidPrice=group.filter(x=>x.paid).reduce((s,x)=>s+(x.price??DEFAULT_PRICE),0);
     const statusPriority={active:0,waiting:1,done:2,noshow:3,cancelled:4};
     const topStatus=group.slice().sort((a,b)=>(statusPriority[a.status]??5)-(statusPriority[b.status]??5))[0].status;
     const phone=lead.phone||'';
@@ -6825,7 +6809,7 @@ function printSessionReport(){
       <td>${allBikes}</td>
       <td>${phone?`<a href="tel:${phone}">${phone}</a>`:''}</td>
       <td>${email?`<a href="mailto:${email}">${email}</a>`:''}</td>
-      <td>SAR ${totalPrice}</td>
+      <td>SAR ${paidPrice}</td>
       <td>${statusLabels[topStatus]||topStatus}</td>
     </tr>`;
   }).join('');
@@ -6852,12 +6836,10 @@ function printSessionReport(){
     <div class="meta">${t('printReportTitle')} &nbsp;·&nbsp; ${new Date().toLocaleString('en-SA',{timeZone:KSA_TZ})}</div>
     <div class="totals">
       <div class="total-item"><span class="total-num">${entries.length}</span><span class="total-lbl">${t('printTotalRiders')}</span></div>
-      <div class="total-item"><span class="total-num">SAR ${totalSAR}</span><span class="total-lbl">${t('colRevenue')||'Revenue'}</span></div>
       <div class="total-item"><span class="total-num" style="color:#16a34a">SAR ${paidSAR}</span><span class="total-lbl">${t('printCollected')}</span></div>
-      <div class="total-item"><span class="total-num" style="color:#b45309">SAR ${pendingSAR}</span><span class="total-lbl">${t('printPending')}</span></div>
     </div>
     <table>
-      <thead><tr><th>#</th><th>Name</th><th>Type</th><th>Bike</th><th>Phone</th><th>Email</th><th>Price</th><th>Status</th></tr></thead>
+      <thead><tr><th>#</th><th>Name</th><th>Type</th><th>Bike</th><th>Phone</th><th>Email</th><th>${t('paidLabel')}</th><th>Status</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     <br><button onclick="window.print()" style="margin-top:16px;padding:8px 20px;background:#111;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">Print</button>
