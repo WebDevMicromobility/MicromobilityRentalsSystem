@@ -135,12 +135,14 @@ create table if not exists inventory (
   category      text not null default 'Other',  -- Helmet | Accessory | ProteinGummies | ElectrolyteSachets | EnergyGels | custom
   qty           integer not null default 0,
   low_threshold integer not null default 0,      -- "low stock" warning fires when qty <= this
+  price         numeric,         -- optional per-unit price (SAR); used for add-on sales reporting
   updated_at    text,
   photo         text             -- optional item photo as a data URL
 );
 -- Migration for existing inventory tables:
 -- alter table inventory add column if not exists brand text;
 -- alter table inventory add column if not exists photo text;
+-- alter table inventory add column if not exists price numeric;   -- add-on unit price (SAR), used for sales reporting
 -- alter table bikes     add column if not exists photo text;  -- bike photo (data URL)
 
 -- ── ROW LEVEL SECURITY ────────────────────────────────────────────────────────
