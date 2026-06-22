@@ -1606,7 +1606,7 @@ en:{
   anTotalRides:'Completed Rides',anUniqueCustomers:'Unique Customers',anRepeatRiders:'Repeat Riders',
   anSessionsHeld:'Sessions Held',anAvgOccupancy:'Avg Occupancy',anNoShowRate:'No-Show Rate',anCollectionRate:'Collection Rate',
   anRatingsSection:'Ratings & Bike Health',anAvgBikeRating:'Avg bike rating',anAvgExpRating:'Avg experience',anRatedRidesUnit:'rated rides',anNeedsAttention:'Bikes needing attention',anNoAttention:'All bikes look healthy.',noRatingsYet:'No ratings collected yet.',anAttnLowRated:'Low rating',anAttnHeavyUse:'Heavy use',anDaysInServiceShort:'{0}d in service',anRidesShortN:'{0} rides',anOutOf10:'/10',
-  anByType:'Rides by Bike Type',anBySize:'Rides by Frame Size',anByDay:'Rides by Day of Week',anByRevType:'Revenue by Bike Type',anFleetSection:'Fleet Analytics',anByBrand:'Rentals by Brand',anByBrandSub:'Total completed rides per brand',anByModel:'Rentals by Model',anByModelSub:'Total completed rides per model',anRevByModel:'Revenue by Model',anRevByModelSub:'Collected revenue per bike model',anAvgPerPiece:'Avg Rides per Piece',anAvgPerPieceSub:'Total model rides divided by number of bikes of that model',confirmDeleteBikeTitle:'Delete Bike?',
+  anByType:'Rides by Bike Type',anBySize:'Rides by Frame Size',anByDay:'Rides by Day of Week',anByRevType:'Revenue by Bike Type',anFleetSection:'Fleet Analytics',anByBrand:'Rentals by Brand',anByBrandSub:'Total completed rides per brand',anByModel:'Rentals by Model',anByModelSub:'Total completed rides per model',anRevByModel:'Revenue by Model',anRevByModelSub:'Collected revenue per bike model',anAvgPerPiece:'Avg Rides per Piece',anAvgPerPieceSub:'Total model rides divided by number of bikes of that model',anRatingByModel:'Bike Rating by Model',anRatingByModelSub:'Average bike rating per model — guides purchasing & retirement',confirmDeleteBikeTitle:'Delete Bike?',
   anSessionTrend:'Session-by-Session Performance',
   anColDate:'Date',anColRiders:'Riders',anColRevenue:'Revenue',anColPending:'Pending',anColNoShows:'No-Shows',anColOccupancy:'Occupancy',anColTopType:'Top Type',
   anNoData:'No completed rides yet. Data will appear here once sessions are done.',
@@ -1926,7 +1926,7 @@ ar:{
   anTotalRides:'الرحلات المكتملة',anUniqueCustomers:'العملاء الفريدون',anRepeatRiders:'الراكبون المتكررون',
   anSessionsHeld:'الجلسات المنعقدة',anAvgOccupancy:'متوسط الإشغال',anNoShowRate:'معدل الغياب',anCollectionRate:'معدل التحصيل',
   anRatingsSection:'التقييمات وصحة الدراجات',anAvgBikeRating:'متوسط تقييم الدراجة',anAvgExpRating:'متوسط التجربة',anRatedRidesUnit:'رحلات مقيّمة',anNeedsAttention:'دراجات تحتاج انتباهاً',anNoAttention:'كل الدراجات بحالة جيدة.',noRatingsYet:'لا توجد تقييمات بعد.',anAttnLowRated:'تقييم منخفض',anAttnHeavyUse:'استخدام كثيف',anDaysInServiceShort:'{0} يوم بالخدمة',anRidesShortN:'{0} رحلة',anOutOf10:'/10',
-  anByType:'الرحلات حسب نوع الدراجة',anBySize:'الرحلات حسب مقاس الإطار',anByDay:'الرحلات حسب يوم الأسبوع',anByRevType:'الإيرادات حسب نوع الدراجة',anFleetSection:'تحليلات الأسطول',anByBrand:'الإيجارات حسب الماركة',anByBrandSub:'إجمالي الرحلات المكتملة لكل ماركة',anByModel:'الإيجارات حسب الموديل',anByModelSub:'إجمالي الرحلات المكتملة لكل موديل',anRevByModel:'الإيرادات حسب الموديل',anRevByModelSub:'الإيرادات المحصّلة لكل موديل',anAvgPerPiece:'متوسط الرحلات لكل قطعة',anAvgPerPieceSub:'إجمالي رحلات الموديل ÷ عدد دراجات هذا الموديل',confirmDeleteBikeTitle:'حذف الدراجة؟',
+  anByType:'الرحلات حسب نوع الدراجة',anBySize:'الرحلات حسب مقاس الإطار',anByDay:'الرحلات حسب يوم الأسبوع',anByRevType:'الإيرادات حسب نوع الدراجة',anFleetSection:'تحليلات الأسطول',anByBrand:'الإيجارات حسب الماركة',anByBrandSub:'إجمالي الرحلات المكتملة لكل ماركة',anByModel:'الإيجارات حسب الموديل',anByModelSub:'إجمالي الرحلات المكتملة لكل موديل',anRevByModel:'الإيرادات حسب الموديل',anRevByModelSub:'الإيرادات المحصّلة لكل موديل',anAvgPerPiece:'متوسط الرحلات لكل قطعة',anAvgPerPieceSub:'إجمالي رحلات الموديل ÷ عدد دراجات هذا الموديل',anRatingByModel:'تقييم الدراجة حسب الموديل',anRatingByModelSub:'متوسط تقييم الدراجة لكل موديل — يوجّه قرارات الشراء والتقاعد',confirmDeleteBikeTitle:'حذف الدراجة؟',
   anSessionTrend:'أداء الجلسات',
   anColDate:'التاريخ',anColRiders:'الراكبون',anColRevenue:'الإيرادات',anColPending:'المعلق',anColNoShows:'الغياب',anColOccupancy:'الإشغال',anColTopType:'النوع الأكثر',
   anNoData:'لا توجد رحلات مكتملة بعد. ستظهر البيانات هنا عند اكتمال الجلسات.',
@@ -8958,6 +8958,20 @@ function bikeHealthSection(){
     return{b,rides:rides.length,avgR,days,lowRated,heavyUse,attn:lowRated||heavyUse};
   });
   const attn=perBike.filter(x=>x.attn).sort((a,b)=>(a.avgR||99)-(b.avgR||99));
+  // Bike rating aggregated by model (purchasing/retirement signal; uses all bikes so retired units' history still counts).
+  const allBk=getBikes(),rbSumM={},rbCntM={};
+  done.forEach(e=>{if(!e.ratingBike)return;getAssignedBikeIds(e).forEach(id=>{const bk=allBk.find(x=>x.id===id);if(!bk)return;const mk=bk.brand&&bk.model?`${bk.brand} - ${bk.model}`:bk.name;rbSumM[mk]=(rbSumM[mk]||0)+e.ratingBike;rbCntM[mk]=(rbCntM[mk]||0)+1;});});
+  const modelRows=Object.keys(rbSumM).map(k=>({k,avg:rbSumM[k]/rbCntM[k],n:rbCntM[k]})).sort((a,b)=>b.avg-a.avg);
+  const _ratingColor=v=>v>=7?'#03ff89':v>=5?'#e08828':'#f87171';
+  const modelCard=modelRows.length?`<div class="chart-card" style="margin-top:14px">
+    <div class="chart-card-title">${t('anRatingByModel')}</div>
+    <div class="chart-card-sub">${t('anRatingByModelSub')}</div>
+    ${modelRows.map(r=>`<div class="analytics-bar-row">
+      <div class="analytics-bar-label" style="display:flex;align-items:center;gap:5px">${esc(r.k)}<span style="font-size:10px;background:var(--s3);border:1px solid rgba(255,255,255,.1);border-radius:5px;padding:1px 5px;color:var(--muted-l);font-weight:700">${r.n} ${t('anRatedRidesUnit')}</span></div>
+      <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(r.avg/10*100)}%;background:${_ratingColor(r.avg)}"></div></div>
+      <div class="analytics-bar-value">${r.avg.toFixed(1)}${t('anOutOf10')}</div>
+    </div>`).join('')}
+  </div>`:'';
   const kpis=`<div class="analytics-kpi-grid">
     <div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--green)">${avgBike?avgBike+t('anOutOf10'):'—'}</div><div class="analytics-kpi-label">${t('anAvgBikeRating')}</div><div class="analytics-kpi-sub">${rated.length} ${t('anRatedRidesUnit')}</div></div>
     <div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--green)">${avgExp?avgExp+t('anOutOf10'):'—'}</div><div class="analytics-kpi-label">${t('anAvgExpRating')}</div><div class="analytics-kpi-sub">${rated.length} ${t('anRatedRidesUnit')}</div></div>
@@ -8979,7 +8993,8 @@ function bikeHealthSection(){
   return`<div class="analytics-section-title">${t('anRatingsSection')}</div>
     ${kpis}
     <div style="font-size:13px;font-weight:800;color:var(--muted);margin:14px 0 8px">${t('anNeedsAttention')}</div>
-    ${attnHtml}`;
+    ${attnHtml}
+    ${modelCard}`;
 }
 
 function renderAnalytics(){
