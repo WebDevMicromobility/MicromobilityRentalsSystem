@@ -45,7 +45,8 @@ create table if not exists bikes (
   frame_type  text,            -- 'Steel' | 'Aluminum' | 'Carbon' | 'Titanium'
   bike_number integer,         -- globally unique across the whole fleet; padded to 4 digits in the auto name
   in_service_date text,        -- 'YYYY-MM-DD' date the bike started being used
-  retired_date    text         -- 'YYYY-MM-DD' date the bike was retired (null while active)
+  retired_date    text,        -- 'YYYY-MM-DD' date the bike was retired (null while active)
+  photo           text         -- optional bike photo as a data URL
 );
 
 -- Migration for existing databases (skip if creating fresh):
@@ -134,10 +135,13 @@ create table if not exists inventory (
   category      text not null default 'Other',  -- Helmet | Accessory | ProteinGummies | ElectrolyteSachets | EnergyGels | custom
   qty           integer not null default 0,
   low_threshold integer not null default 0,      -- "low stock" warning fires when qty <= this
-  updated_at    text
+  updated_at    text,
+  photo         text             -- optional item photo as a data URL
 );
 -- Migration for existing inventory tables:
 -- alter table inventory add column if not exists brand text;
+-- alter table inventory add column if not exists photo text;
+-- alter table bikes     add column if not exists photo text;  -- bike photo (data URL)
 
 -- ── ROW LEVEL SECURITY ────────────────────────────────────────────────────────
 -- SECURITY WARNING -------------------------------------------------------------

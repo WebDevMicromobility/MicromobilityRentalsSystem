@@ -1486,7 +1486,6 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
   <nav class="tab-nav" id="staff-tab-nav" aria-label="Staff sections">
     <button class="tab-btn active" data-stab="queue"     onclick="setStaffTab('queue')">Bookings</button>
     <button class="tab-btn"        data-stab="sessions"  onclick="setStaffTab('sessions')">Sessions</button>
-    <button class="tab-btn"        data-stab="bikes"     onclick="setStaffTab('bikes')">Bikes</button>
     <button class="tab-btn"        data-stab="inventory" onclick="setStaffTab('inventory')">Inventory</button>
     <button class="tab-btn"        data-stab="community" onclick="setStaffTab('community')">Community</button>
     <button class="tab-btn"        data-stab="analytics" onclick="setStaffTab('analytics')">Analytics</button>
@@ -1496,7 +1495,6 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
   <div class="view-main">
     <div id="tab-queue"     class="tab-panel active"></div>
     <div id="tab-sessions"  class="tab-panel"></div>
-    <div id="tab-bikes"      class="tab-panel"></div>
     <div id="tab-inventory"  class="tab-panel"></div>
     <div id="tab-community"  class="tab-panel"></div>
     <div id="tab-analytics"  class="tab-panel"></div>
@@ -2502,7 +2500,7 @@ const S={
   custBranch:'all',newSessLocation:'',newSessRepeat:'1',sessBranchFilter:'all',newSessAddons:[],regAddons:[],
   promoCodes:[],promoApplied:null,_promoMsg:'',
   _pcCode:'',_pcKind:'percent',_pcValue:'',
-  inventory:[],showAddInv:false,editInvId:null,_invName:'',_invCat:'Helmet',_invQty:'',_invLow:'',invSection:'bikes',
+  inventory:[],showAddInv:false,editInvId:null,_invName:'',_invCat:'Helmet',_invQty:'',_invLow:'',_invPhoto:'',invSection:'bikes',
   _invBrand:'',_invCatAdd:false,_invBrandAdd:false,
   invCustomCats:(()=>{try{return JSON.parse(localStorage.getItem('cq_inv_cats'))||[];}catch(e){return[];}})(),
   invBrands:(()=>{try{return JSON.parse(localStorage.getItem('cq_inv_brands'))||[];}catch(e){return[];}})(),
@@ -2529,7 +2527,7 @@ const S={
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],addBikeColorNames:[''],_bkName:'',
   _bkBrand:'',_bkModel:'',_bkGroupset:'',_bkSpeeds:'',_bkRentalPrice:'',
   _bkBrandAdd:false,_bkModelAdd:false,_bkGroupsetAdd:false,
-  _bkLocation:'Sharafeyah Branch',_bkLocationAdd:false,_bkFrame:'',_bkNumber:'',
+  _bkLocation:'Sharafeyah Branch',_bkLocationAdd:false,_bkFrame:'',_bkNumber:'',_bkPhoto:'',
   bkLocations:(()=>{try{let l=JSON.parse(localStorage.getItem('cq_bk_locations'));if(!Array.isArray(l)||!l.length)l=['Sharafeyah Branch','JCC'];if(!l.includes('Sharafeyah Branch'))l.unshift('Sharafeyah Branch');if(!l.includes('JCC'))l.push('JCC');try{localStorage.setItem('cq_bk_locations',JSON.stringify(l));}catch(e){}return l;}catch(e){return['Sharafeyah Branch','JCC'];}})(),
   bkBrands:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_brands'))||[];}catch(e){return[];}})(),
   bkModels:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_models'))||[];}catch(e){return[];}})(),
@@ -3487,7 +3485,6 @@ function setStaffTab(tab){
   renderStaffTabs();
   if(tab==='sessions')renderSessions();
   else if(tab==='queue')renderStaffQueue();
-  else if(tab==='bikes')renderBikes();
   else if(tab==='history')renderHistory();
   else if(tab==='analytics')renderAnalytics();
   else if(tab==='logs')renderLogs();
@@ -3520,7 +3517,6 @@ function renderStaffTabs(){
   });
   document.getElementById('tab-queue')     .classList.toggle('active',S.staffTab==='queue');
   document.getElementById('tab-sessions')  .classList.toggle('active',S.staffTab==='sessions');
-  document.getElementById('tab-bikes')     .classList.toggle('active',S.staffTab==='bikes');
   document.getElementById('tab-inventory') .classList.toggle('active',S.staffTab==='inventory');
   document.getElementById('tab-community') .classList.toggle('active',S.staffTab==='community');
   document.getElementById('tab-history')   .classList.toggle('active',S.staffTab==='history');
@@ -4735,17 +4731,19 @@ async function saveAccount(){
 }
 
 // ── Profile photo: resize client-side to a small square and store as a data URL ──
-function accUploadPhoto(input){
+// Read an image file, resize it to a max dimension, and hand back a JPEG data URL
+function pickImage(input,cb,max){
   const file=input.files&&input.files[0];if(!file)return;
+  max=max||300;
   const reader=new FileReader();
   reader.onload=ev=>{
     const img=new Image();
     img.onload=()=>{
-      const max=256;let w=img.width,h=img.height;
+      let w=img.width,h=img.height;
       if(w>h){if(w>max){h=Math.round(h*max/w);w=max;}}else{if(h>max){w=Math.round(w*max/h);h=max;}}
       const c=document.createElement('canvas');c.width=w;c.height=h;
       c.getContext('2d').drawImage(img,0,0,w,h);
-      _saveAccPhoto(c.toDataURL('image/jpeg',0.82));
+      cb(c.toDataURL('image/jpeg',0.82));
     };
     img.onerror=()=>toast(t('photoErrToast'),'error');
     img.src=ev.target.result;
@@ -4753,6 +4751,7 @@ function accUploadPhoto(input){
   reader.onerror=()=>toast(t('photoErrToast'),'error');
   reader.readAsDataURL(file);
 }
+function accUploadPhoto(input){pickImage(input,url=>_saveAccPhoto(url),256);}
 async function _saveAccPhoto(dataUrl){
   const cust=S.loggedIn;if(!cust)return;
   const{error}=await sb.from('customers').update({photo:dataUrl}).eq('id',cust.id);
@@ -7433,6 +7432,7 @@ function addColorSlot(){if(S.addBikeColors.length>=4)return;S.addBikeColors.push
 function removeColor(i){if(S.addBikeColors.length<=1)return;S.addBikeColors.splice(i,1);S.addBikeColorNames.splice(i,1);renderBikes();}
 
 function renderBikes(){
+  if(!document.getElementById('tab-bikes'))return; // Bikes UI now lives inside the Inventory > Bikes section
   const bikes=getBikes();
   const total=bikes.length,nAvail=bikes.filter(b=>b.status==='available').length,
         nUse=bikes.filter(b=>b.status==='in-use').length,
@@ -7534,6 +7534,14 @@ function renderBikes(){
         <div class="color-slots">${colorSlots}${addColorBtn}</div>
       </div>
     </div>
+    <div class="form-group" style="margin-bottom:16px">
+      <label>${t('profilePhotoLabel')}</label>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+        ${S._bkPhoto?`<img src="${esc(S._bkPhoto)}" alt="" style="width:54px;height:54px;border-radius:10px;object-fit:cover;border:1px solid var(--border)">`:''}
+        <label class="btn-secondary" style="font-size:12px;padding:8px 14px;cursor:pointer;margin:0">${t('uploadPhotoBtn')}<input type="file" accept="image/*" style="display:none" onchange="pickImage(this,u=>{S._bkPhoto=u;renderBikes();},480)"></label>
+        ${S._bkPhoto?`<button class="btn-secondary" style="font-size:12px;padding:8px 12px" onclick="S._bkPhoto='';renderBikes()">${t('removePhotoBtn')}</button>`:''}
+      </div>
+    </div>
     <div style="display:flex;gap:8px">
       <button class="btn-primary" onclick="${isEdit?'saveBikeEdit()':'addBike()'}"> ${isEdit?t('saveBikeBtn'):t('addBikeBtn')}</button>
       <button class="btn-secondary" onclick="cancelBikeForm()">${t('cancelBtn')}</button>
@@ -7575,7 +7583,7 @@ function renderBikes(){
     const rowBorderClr=orphaned?'rgba(224,136,40,.7)':b.status==='available'?'rgba(3,255,137,.45)':b.status==='in-use'?'rgba(74,168,248,.45)':'rgba(224,64,64,.45)';
     const rowBg=orphaned?'background:rgba(224,136,40,.06);':b.status==='in-use'?'background:rgba(74,168,248,.025);':isRetired?'background:rgba(224,64,64,.025);opacity:.75;':'';
     return`<tr style="border-left:3px solid ${rowBorderClr};${rowBg}">
-      <td><div class="rider-name">${esc(b.name)}</div></td>
+      <td><div style="display:flex;align-items:center;gap:10px">${b.photo?`<img src="${esc(b.photo)}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}<div class="rider-name">${esc(b.name)}</div></div></td>
       <td style="font-weight:700;font-size:13px">${b.brand?esc(b.brand):`<span style="color:var(--muted)">—</span>`}</td>
       <td style="font-weight:700;font-size:13px">${b.model?esc(b.model):`<span style="color:var(--muted)">—</span>`}</td>
       <td style="font-weight:700;font-size:13px">${b.groupset?esc(b.groupset):`<span style="color:var(--muted)">—</span>`}</td>
@@ -7620,6 +7628,7 @@ function renderBikes(){
       const dots=colors.map(c=>`<span style="width:11px;height:11px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);display:inline-block;flex-shrink:0"></span>`).join('');
       const el=b.status==='in-use'&&user?rideElapsed(user.id):null;
       return`<div class="bike-grid-card" style="border-color:${borderClr};${bgStyle}">
+        ${b.photo?`<img src="${esc(b.photo)}" alt="" style="width:100%;height:110px;border-radius:10px;object-fit:cover;border:1px solid var(--border);margin-bottom:8px">`:''}
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:6px">
           <div style="font-weight:900;font-size:13px;line-height:1.3">${esc(b.name)}</div>
           <div style="display:flex;gap:3px;flex-shrink:0">${dots}</div>
@@ -7754,7 +7763,7 @@ function renderBikes(){
           <th>${t('bikeNameLabel')}</th><th>${t('bikeBrand')}</th><th>${t('bikeModel')}</th>
           <th>${t('bikeTypeLabel')}</th><th>${t('frameSizeLabel')}</th><th>${t('lifespanLabel')}</th><th>${t('colStatus')}</th><th>${t('colManageBike')}</th>
         </tr></thead><tbody>${retiredBikes.map(b=>`<tr style="opacity:.7">
-          <td><div class="rider-name">${esc(b.name)}</div></td>
+          <td><div style="display:flex;align-items:center;gap:10px">${b.photo?`<img src="${esc(b.photo)}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}<div class="rider-name">${esc(b.name)}</div></div></td>
           <td style="font-weight:700;font-size:13px">${b.brand?esc(b.brand):`<span style="color:var(--muted)">—</span>`}</td>
           <td style="font-weight:700;font-size:13px">${b.model?esc(b.model):`<span style="color:var(--muted)">—</span>`}</td>
           <td>${typeBadge(b.type)}</td>
@@ -7813,7 +7822,7 @@ function renderBikes(){
     ${retiredSection}`;
 }
 
-function _resetBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S.addBikeColorNames=[''];S._bkName='';S._bkBrand='';S._bkModel='';S._bkGroupset='';S._bkSpeeds='';S._bkRentalPrice='';S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;S._bkLocation=S.bkLocations[0]||'Sharafeyah Branch';S._bkLocationAdd=false;S._bkFrame='';S._bkNumber='';S._bkStartDate=_todayISO();}
+function _resetBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S.addBikeColorNames=[''];S._bkName='';S._bkBrand='';S._bkModel='';S._bkGroupset='';S._bkSpeeds='';S._bkRentalPrice='';S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;S._bkLocation=S.bkLocations[0]||'Sharafeyah Branch';S._bkLocationAdd=false;S._bkFrame='';S._bkNumber='';S._bkStartDate=_todayISO();S._bkPhoto='';}
 
 function _bkLocationChange(val){
   if(val==='__add__'){S._bkLocationAdd=true;S._bkLocation='__pending__';renderBikes();setTimeout(()=>document.getElementById('bk-location')?.focus(),50);return;}
@@ -7921,6 +7930,8 @@ async function addBike(){
     ({error:insErr}=await sb.from('bikes').insert(bike));
     if(insErr){toast(insErr.message||t('errBikeNumberDup'),'error');return;}
   }
+  // Photo saved separately so a missing 'photo' column can't block adding a bike
+  if(S._bkPhoto){try{await sb.from('bikes').update({photo:S._bkPhoto}).eq('id',bike.id);}catch(e){}}
   await loadData();
   _resetBikeForm();
   toast(`${bike.name} ${t('toastAddedToFleet')}`);
@@ -7940,7 +7951,7 @@ function startEdit(id){
   S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;
   S._bkLocation=bike.location&&S.bkLocations.includes(bike.location)?bike.location:(S.bkLocations[0]||'JCC');
   S._bkLocationAdd=false;S._bkFrame=bike.frame_type||'';S._bkNumber=bike.bike_number!=null?String(bike.bike_number):'';
-  S._bkStartDate=bike.in_service_date||'';
+  S._bkStartDate=bike.in_service_date||'';S._bkPhoto=bike.photo||'';
   _autoSaveBkOpts(bike.brand,bike.model,bike.groupset);
   renderBikes();
 }
@@ -7971,6 +7982,7 @@ async function saveBikeEdit(){
   const bid=S.editBikeId;
   const{error}=await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:editColorNames,status:existing.status,brand,model,groupset,speeds,rental_price:rentalPrice,location,frame_type:S._bkFrame,bike_number:bikeNum,in_service_date:startDate}).eq('id',bid);
   if(error){toast(error.message||'Save failed','error');return;}
+  try{await sb.from('bikes').update({photo:S._bkPhoto||null}).eq('id',bid);}catch(e){}
   await loadData();
   _resetBikeForm();
   toast(t('toastBikeUpdated'));
@@ -8553,6 +8565,13 @@ function renderInventory(){
     </div>
     <div class="form-row">
       <div class="form-group"><label>${t('invLowAt')}</label><input id="inv-low" type="number" min="0" value="${esc(S._invLow)}" oninput="S._invLow=this.value" placeholder="0"></div>
+      <div class="form-group"><label>${t('profilePhotoLabel')}</label>
+        <div style="display:flex;align-items:center;gap:10px">
+          ${S._invPhoto?`<img src="${esc(S._invPhoto)}" alt="" style="width:48px;height:48px;border-radius:8px;object-fit:cover;border:1px solid var(--border)">`:''}
+          <label class="btn-secondary" style="font-size:12px;padding:7px 14px;cursor:pointer;margin:0">${t('uploadPhotoBtn')}<input type="file" accept="image/*" style="display:none" onchange="pickImage(this,u=>{S._invPhoto=u;renderInventory();},400)"></label>
+          ${S._invPhoto?`<button class="btn-secondary" style="font-size:12px;padding:7px 12px" onclick="S._invPhoto='';renderInventory()">${t('removePhotoBtn')}</button>`:''}
+        </div>
+      </div>
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn-primary" onclick="${isEdit?'saveInvEdit()':'addInvItem()'}">${isEdit?t('saveBtn'):t('invAddBtn')}</button>
@@ -8565,7 +8584,10 @@ function renderInventory(){
     const stClr=state==='out'?'var(--red)':state==='low'?'var(--orange)':'var(--green)';
     const stTxt=state==='out'?t('invOutStock'):state==='low'?t('invLowStock'):t('invInStock');
     return`<tr>
-      <td><div class="rider-name">${esc(it.name)}</div>${it.brand?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">${esc(it.brand)}</div>`:''}</td>
+      <td><div style="display:flex;align-items:center;gap:10px">
+        ${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}
+        <div><div class="rider-name">${esc(it.name)}</div>${it.brand?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">${esc(it.brand)}</div>`:''}</div>
+      </div></td>
       <td style="font-weight:700;font-size:13px">${_invCatLabel(it.category)}</td>
       <td><div style="display:flex;align-items:center;gap:8px">
         <button class="btn-sm btn-muted" onclick="adjInv('${it.id}',-1)" aria-label="Decrease quantity">-</button>
@@ -8606,7 +8628,7 @@ function renderInventory(){
   let content;
   if(sec==='supplements')content=secHead('🥤 '+t('invSecSupplements'),true)+addForm+invTable(suppItems);
   else if(sec==='equipment')content=secHead('🛡️ '+t('invSecEquipment'),true)+addForm+invTable(equipItems);
-  else content=secHead('🚲 '+t('invSecBikes'),false)+bikesBody;
+  else content=`<div id="tab-bikes"></div>`; // full Bikes management UI renders here
   el.innerHTML=`
     <div class="page-title">${t('invTitle')}</div>
     <div class="page-sub">${t('invSub')}</div>
@@ -8619,13 +8641,14 @@ function renderInventory(){
       </div>
       <div class="inv-content">${content}</div>
     </div>`;
+  if(sec==='bikes')renderBikes();
 }
 function setInvSection(v){S.invSection=v;S.showAddInv=false;S.editInvId=null;renderInventory();}
-function toggleAddInv(){S.showAddInv=true;S.editInvId=null;S._invName='';S._invCat=(S.invSection==='supplements'?'ProteinGummies':'Helmet');S._invQty='';S._invLow='';S._invBrand='';S._invCatAdd=false;S._invBrandAdd=false;renderInventory();}
+function toggleAddInv(){S.showAddInv=true;S.editInvId=null;S._invName='';S._invCat=(S.invSection==='supplements'?'ProteinGummies':'Helmet');S._invQty='';S._invLow='';S._invBrand='';S._invPhoto='';S._invCatAdd=false;S._invBrandAdd=false;renderInventory();}
 function cancelInvForm(){S.showAddInv=false;S.editInvId=null;S._invCatAdd=false;S._invBrandAdd=false;renderInventory();}
 function startInvEdit(id){
   const it=(S.inventory||[]).find(x=>x.id===id);if(!it)return;
-  S.editInvId=id;S.showAddInv=false;S._invName=it.name||'';S._invCat=it.category||'Helmet';S._invQty=String(it.qty??'');S._invLow=String(it.low_threshold??'');S._invBrand=it.brand||'';S._invCatAdd=false;S._invBrandAdd=false;
+  S.editInvId=id;S.showAddInv=false;S._invName=it.name||'';S._invCat=it.category||'Helmet';S._invQty=String(it.qty??'');S._invLow=String(it.low_threshold??'');S._invBrand=it.brand||'';S._invPhoto=it.photo||'';S._invCatAdd=false;S._invBrandAdd=false;
   S.invSection=['ProteinGummies','ElectrolyteSachets','EnergyGels'].includes(it.category)?'supplements':'equipment';
   // Make sure a custom category/brand on this item appears in the dropdowns
   if(S._invCat&&!INV_CATS.includes(S._invCat)&&!S.invCustomCats.includes(S._invCat))S.invCustomCats=[...S.invCustomCats,S._invCat];
@@ -8638,6 +8661,8 @@ async function addInvItem(){
   const item={id:uid(),name,brand:(brand&&brand!=='__add__')?brand:null,category:S._invCat||'Other',qty:parseInt(S._invQty)||0,low_threshold:parseInt(S._invLow)||0,updated_at:new Date().toISOString()};
   const{error}=await sb.from('inventory').insert(item);
   if(error){toast(error.message,'error');return;}
+  // Photo saved separately so a missing 'photo' column can't block adding an item
+  if(S._invPhoto){try{await sb.from('inventory').update({photo:S._invPhoto}).eq('id',item.id);}catch(e){}}
   await loadData();S.showAddInv=false;toast(t('invSaved'));renderInventory();
 }
 async function saveInvEdit(){
@@ -8647,6 +8672,8 @@ async function saveInvEdit(){
   const upd={name,brand:(brand&&brand!=='__add__')?brand:null,category:S._invCat||'Other',qty:parseInt(S._invQty)||0,low_threshold:parseInt(S._invLow)||0,updated_at:new Date().toISOString()};
   const{error}=await sb.from('inventory').update(upd).eq('id',id);
   if(error){toast(error.message,'error');return;}
+  // Photo saved separately (tolerant) so a missing column can't fail the whole edit
+  try{await sb.from('inventory').update({photo:S._invPhoto||null}).eq('id',id);}catch(e){}
   await loadData();S.editInvId=null;toast(t('invSaved'));renderInventory();
 }
 async function adjInv(id,delta){
@@ -9573,7 +9600,7 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   if(target==='staff'){
     goStaff();
     const stab=(nav&&nav.stab)||sessionStorage.getItem('cq_nav_stab');
-    if(stab&&['queue','sessions','bikes','history','analytics','logs'].includes(stab))setStaffTab(stab);
+    if(stab&&['queue','sessions','inventory','community','history','analytics','logs'].includes(stab))setStaffTab(stab);
   } else if(target==='customer'){
     const ctab=(nav&&nav.ctab)||sessionStorage.getItem('cq_nav_ctab');
     goCustomer(ctab&&['register','myrides','account'].includes(ctab)?ctab:'register');
