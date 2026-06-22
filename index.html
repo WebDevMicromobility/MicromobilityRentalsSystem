@@ -1730,6 +1730,7 @@ en:{
   rideTierLabel:'Rider tier',ridesToNext:'{0} more rides to {1}',tierNewcomer:'Newcomer',tierRegular:'Regular',tierPro:'Pro',tierElite:'Elite',tierLegend:'Legend',profileCompleteLabel:'Profile {0}% complete',
   repeatWeeksLabel:'Repeat weekly',repeatWeeksHint:'creates the same session for the next weeks',repeatOnceOpt:'Just this date',repeatWeeksOpt:'{0} weeks',toastRecurringCreated:'{0} sessions created',someDatesSkipped:'{0} created, {1} already existed',
   branchLabel:'Branch',allBranchesLabel:'All branches',sessionBranchLabel:'Location / Branch',
+  nsSelectAll:'Select all',nsClear:'Clear',nsSelectAllBikes:'Select all bikes',
   invTitle:'Inventory',invSub:'Helmets, accessories and spare-part stock.',invAddBtn:'+ Add item',invItemName:'Item',invCategory:'Category',invQty:'In stock',invLowAt:'Low-stock at',invLowStock:'Low stock',invOutStock:'Out of stock',invInStock:'In stock',invLowAlert:'{0} item(s) need restocking',invNoItems:'No inventory items yet. Add helmets, locks, accessories or spare parts.',invSaved:'Inventory updated',catHelmet:'Helmet',catAccessory:'Accessory',catSparePart:'Spare part',catApparel:'Apparel',catOther:'Other',catProteinGummies:'Protein Gummies',catElectrolyteSachets:'Electrolyte Sachets',catEnergyGels:'Energy Gels',
   invBrand:'Brand',invNoBrand:'No brand',addCustomCatLabel:'Add custom category...',addCustomBrandLabel:'Add brand...',
   commTitle:'Community',commSub:'Rider leaderboard and upcoming rides.',commLeaderboard:'Leaderboard',commEvents:'Upcoming rides',commRank:'Rank',commRider:'Rider',commRides:'Rides',commNoLeaders:'No completed rides yet.',commNoEvents:'No upcoming sessions scheduled.',commTopRiders:'Top riders by completed rides',commSpotsLeft:'{0} spots left',
@@ -2040,6 +2041,7 @@ ar:{
   rideTierLabel:'مستوى الراكب',ridesToNext:'{0} رحلات للوصول إلى {1}',tierNewcomer:'مبتدئ',tierRegular:'منتظم',tierPro:'محترف',tierElite:'نخبة',tierLegend:'أسطورة',profileCompleteLabel:'اكتمال الملف {0}%',
   repeatWeeksLabel:'تكرار أسبوعي',repeatWeeksHint:'ينشئ نفس الجلسة للأسابيع القادمة',repeatOnceOpt:'هذا التاريخ فقط',repeatWeeksOpt:'{0} أسابيع',toastRecurringCreated:'تم إنشاء {0} جلسات',someDatesSkipped:'تم إنشاء {0}، {1} موجودة مسبقاً',
   branchLabel:'الفرع',allBranchesLabel:'كل الفروع',sessionBranchLabel:'الموقع / الفرع',
+  nsSelectAll:'تحديد الكل',nsClear:'مسح',nsSelectAllBikes:'تحديد كل الدراجات',
   invTitle:'المخزون',invSub:'الخوذ والإكسسوارات وقطع الغيار.',invAddBtn:'+ إضافة عنصر',invItemName:'العنصر',invCategory:'الفئة',invQty:'المتوفر',invLowAt:'تنبيه عند',invLowStock:'مخزون منخفض',invOutStock:'نفد المخزون',invInStock:'متوفر',invLowAlert:'{0} عنصر بحاجة لإعادة تخزين',invNoItems:'لا توجد عناصر بعد. أضف الخوذ والأقفال والإكسسوارات أو قطع الغيار.',invSaved:'تم تحديث المخزون',catHelmet:'خوذة',catAccessory:'إكسسوار',catSparePart:'قطعة غيار',catApparel:'ملابس',catOther:'أخرى',catProteinGummies:'علكة بروتين',catElectrolyteSachets:'أكياس إلكتروليت',catEnergyGels:'جل طاقة',
   invBrand:'العلامة التجارية',invNoBrand:'بدون علامة',addCustomCatLabel:'إضافة فئة مخصصة...',addCustomBrandLabel:'إضافة علامة...',
   commTitle:'المجتمع',commSub:'لوحة المتصدرين والرحلات القادمة.',commLeaderboard:'المتصدرون',commEvents:'الرحلات القادمة',commRank:'الترتيب',commRider:'الراكب',commRides:'الرحلات',commNoLeaders:'لا توجد رحلات مكتملة بعد.',commNoEvents:'لا توجد جلسات قادمة.',commTopRiders:'أفضل الركّاب حسب الرحلات المكتملة',commSpotsLeft:'{0} مقاعد متبقية',
@@ -2478,7 +2480,7 @@ const S={
   custTab:'register',
   staffTab:'queue',
   staffRole:(()=>{try{return localStorage.getItem('cq_role')==='frontdesk'?'frontdesk':'admin';}catch(e){return'admin';}})(),
-  custBranch:'all',newSessLocation:'',sessBranchFilter:'all',
+  custBranch:'all',newSessLocation:'',newSessRepeat:'1',sessBranchFilter:'all',
   promoCodes:[],promoApplied:null,_promoMsg:'',
   _pcCode:'',_pcKind:'percent',_pcValue:'',
   inventory:[],showAddInv:false,editInvId:null,_invName:'',_invCat:'Helmet',_invQty:'',_invLow:'',
@@ -4819,6 +4821,26 @@ function toggleNewSessBike(bikeId){
   renderSessions();
   setTimeout(()=>document.getElementById('sess-add-form')?.scrollIntoView({behavior:'smooth',block:'nearest'}),40);
 }
+// Bikes already tied to an active/waiting rider can't be added to a new session
+function _nsBusyIds(){return new Set(getQueue().filter(e=>e.status==='active'||e.status==='waiting').flatMap(e=>getAssignedBikeIds(e)));}
+function _nsSelectable(filterFn){
+  const busy=_nsBusyIds();
+  return getBikes().filter(b=>b.status!=='retired'&&b.status!=='maintenance'&&filterFn(b)&&(!busy.has(b.id)||S.newSessAssignedIds.includes(b.id))).map(b=>b.id);
+}
+function selectAllNewSessType(ty){
+  const ids=_nsSelectable(b=>b.type===ty);
+  const allSel=ids.length&&ids.every(id=>S.newSessAssignedIds.includes(id));
+  if(allSel)S.newSessAssignedIds=S.newSessAssignedIds.filter(id=>!ids.includes(id));
+  else ids.forEach(id=>{if(!S.newSessAssignedIds.includes(id))S.newSessAssignedIds.push(id);});
+  renderSessions();setTimeout(()=>document.getElementById('sess-add-form')?.scrollIntoView({behavior:'smooth',block:'nearest'}),40);
+}
+function selectAllNewSessAll(){
+  const ids=_nsSelectable(()=>true);
+  const allSel=ids.length&&ids.every(id=>S.newSessAssignedIds.includes(id));
+  if(allSel)S.newSessAssignedIds=[];
+  else S.newSessAssignedIds=[...new Set([...S.newSessAssignedIds,...ids])];
+  renderSessions();setTimeout(()=>document.getElementById('sess-add-form')?.scrollIntoView({behavior:'smooth',block:'nearest'}),40);
+}
 
 
 function renderSessions(){
@@ -4836,11 +4858,19 @@ function renderSessions(){
       queue.filter(e=>e.status==='active'||e.status==='waiting')
         .flatMap(e=>getAssignedBikeIds(e))
     );
-    return types.map(ty=>{
+    const allSelectable=allBikes.filter(b=>b.status!=='retired'&&b.status!=='maintenance'&&(!busyIds.has(b.id)||nsAssigned.includes(b.id)));
+    const allSelAll=allSelectable.length&&allSelectable.every(b=>nsAssigned.includes(b.id));
+    const topBtn=allSelectable.length?`<div style="margin-bottom:14px"><button type="button" class="btn-secondary" style="font-size:12px" onclick="selectAllNewSessAll()">${allSelAll?t('nsClear'):t('nsSelectAllBikes')}</button></div>`:'';
+    return topBtn+types.map(ty=>{
       const typeBikes=allBikes.filter(b=>b.type===ty&&b.status!=='retired'&&b.status!=='maintenance');
       if(!typeBikes.length)return`<div style="color:var(--muted);font-size:13px;margin-bottom:12px">${typeLabel(ty)}: ${t('noBikes')}</div>`;
+      const selectableTy=typeBikes.filter(b=>!busyIds.has(b.id)||nsAssigned.includes(b.id));
+      const allSelTy=selectableTy.length&&selectableTy.every(b=>nsAssigned.includes(b.id));
       return`<div style="margin-bottom:18px">
-        <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.6px;color:${typeColorHex[ty]};margin-bottom:8px">${typeLabel(ty)} (${typeBikes.filter(b=>nsAssigned.includes(b.id)).length} ${t('anOf')} ${typeBikes.length})</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+          <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.6px;color:${typeColorHex[ty]}">${typeLabel(ty)} (${typeBikes.filter(b=>nsAssigned.includes(b.id)).length} ${t('anOf')} ${typeBikes.length})</div>
+          ${selectableTy.length?`<button type="button" class="btn-sm btn-muted" style="font-size:11px;padding:4px 10px" onclick="selectAllNewSessType('${ty}')">${allSelTy?t('nsClear'):t('nsSelectAll')}</button>`:''}
+        </div>
         <div class="bike-assign-grid">
           ${typeBikes.map(b=>{
             const sel=nsAssigned.includes(b.id);
@@ -4870,14 +4900,14 @@ function renderSessions(){
         </div>
         <div class="form-group">
           <label>${t('repeatWeeksLabel')} &nbsp;<span class="label-hint">${t('repeatWeeksHint')}</span></label>
-          <select id="ns-repeat" style="max-width:240px">
-            <option value="1">${t('repeatOnceOpt')}</option>
-            ${[2,3,4,6,8,12].map(n=>`<option value="${n}">${t('repeatWeeksOpt').replace('{0}',n)}</option>`).join('')}
+          <select id="ns-repeat" style="max-width:240px" onchange="S.newSessRepeat=this.value">
+            <option value="1"${(S.newSessRepeat||'1')==='1'?' selected':''}>${t('repeatOnceOpt')}</option>
+            ${[2,3,4,6,8,12].map(n=>`<option value="${n}"${String(S.newSessRepeat)===String(n)?' selected':''}>${t('repeatWeeksOpt').replace('{0}',n)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
           <label>${t('sessionBranchLabel')}</label>
-          <select id="ns-location" style="max-width:240px">
+          <select id="ns-location" style="max-width:240px" onchange="S.newSessLocation=this.value">
             ${(S.bkLocations||['Sharafeyah Branch','JCC']).map(l=>`<option value="${esc(l)}"${(S.newSessLocation||S.bkLocations[0])===l?' selected':''}>${esc(l)}</option>`).join('')}
           </select>
         </div>
@@ -5356,7 +5386,7 @@ async function addSession(){
     // Set the branch separately so a missing 'location' column can never block session creation
     if(sessLocation&&createdIds.length){try{await Promise.all(createdIds.map(id=>sb.from('sessions').update({location:sessLocation}).eq('id',id)));}catch(e){}}
     await loadData();
-    S.showAddSession=false;S.newSessDate='';S.newSessAssignedIds=[];S.newSessStartTime='21:00';S.newSessEndTime='23:00';
+    S.showAddSession=false;S.newSessDate='';S.newSessAssignedIds=[];S.newSessStartTime='21:00';S.newSessEndTime='23:00';S.newSessRepeat='1';
     S.newSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
     if(created===0&&skipped>0)toast(t('errDateExists'),'error');
     else if(skipped>0)toast(t('someDatesSkipped').replace('{0}',created).replace('{1}',skipped));
