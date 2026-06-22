@@ -1542,6 +1542,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 <div id="confirm-modal"    style="display:none"></div>
 <div id="rate-modal"       style="display:none"></div>
 <div id="cust-modal"       style="display:none"></div>
+<div id="help-modal"       style="display:none"></div>
 <div id="cancel-reason-modal" style="display:none"></div>
 <div id="factory-reset-modal" style="display:none"></div>
 <div id="print-opts-modal"   style="display:none"></div>
@@ -1724,6 +1725,8 @@ en:{
   totalStat:'Total',waitingStat:'Waiting',onBikeStat:'On Bike',doneStat:'Done',waitingRidersStat:'Waiting Riders',ridersStat:'Riders',
   todayLabel:'Today',todayRevenue:'Revenue today',todayServed:'Riders served',todayNoShows:'No-shows',todayBikesOut:'Bikes out',
   statNumRiders:'# of Riders',statExpected:'Expected',statCompleted:'Completed',
+  exportBackupBtn:'Export backup',exportedToast:'Backup downloaded',noShowFlagTip:'{0} past no-shows',cloneSessBtn:'Clone',helpBtn:'Help',helpTitle:'Staff quick guide',
+  helpBody:'Open a session so customers can book it (Sessions tab).\nWhen a rider arrives, check them in from the Bookings tab and assign a bike.\nMark payment with the Paid toggle; use On the House for free rides.\nIn Sessions you can open, close, mark full, clone, or delete sessions.\nPrint or export a session report from the Bookings tab toolbar.\nA ⚠️ on a rider means they have repeat no-shows.\nUse Lock (top bar) when you step away.',
   custProfileTitle:'Customer profile',custTotalRides:'Completed rides',custTotalSpent:'Total spent',custFavType:'Favorite type',custAvgRating:'Avg rating',custBookingsLabel:'Booking history',custNoBookings:'No bookings.',custMemberSince:'First seen',custWalkIn:'Walk-in (no account)',
   addToCalendarBtn:'Add to Calendar',autoLabel:'auto',
   aheadOfYou:'{0} ahead of you',youreNext:'You\'re next!',onBikeNow:'On the bike now',inQueueMsg:'You\'re in the queue',
@@ -2037,6 +2040,8 @@ ar:{
   totalStat:'الكل',waitingStat:'بانتظار',onBikeStat:'على الدراجة',doneStat:'منتهٍ',waitingRidersStat:'في الانتظار',ridersStat:'الراكبون',
   todayLabel:'اليوم',todayRevenue:'إيرادات اليوم',todayServed:'الركّاب المخدومون',todayNoShows:'لم يحضروا',todayBikesOut:'دراجات بالخارج',
   statNumRiders:'عدد الركّاب',statExpected:'متوقّع',statCompleted:'مكتمل',
+  exportBackupBtn:'تصدير نسخة احتياطية',exportedToast:'تم تنزيل النسخة الاحتياطية',noShowFlagTip:'{0} حالات عدم حضور سابقة',cloneSessBtn:'نسخ',helpBtn:'مساعدة',helpTitle:'دليل سريع للموظفين',
+  helpBody:'افتح جلسة ليتمكن العملاء من الحجز (تبويب الجلسات).\nعند وصول الراكب، سجّل دخوله من تبويب الحجوزات وخصّص دراجة.\nحدّد الدفع بزر مدفوع؛ استخدم "على الحساب" للرحلات المجانية.\nفي الجلسات يمكنك الفتح والإغلاق والتعليم كممتلئة والنسخ والحذف.\nاطبع أو صدّر تقرير الجلسة من شريط أدوات الحجوزات.\nعلامة ⚠️ على الراكب تعني تكرار عدم الحضور.\nاستخدم القفل (الشريط العلوي) عند الابتعاد.',
   custProfileTitle:'ملف العميل',custTotalRides:'الرحلات المكتملة',custTotalSpent:'إجمالي الإنفاق',custFavType:'النوع المفضل',custAvgRating:'متوسط التقييم',custBookingsLabel:'سجل الحجوزات',custNoBookings:'لا حجوزات.',custMemberSince:'أول ظهور',custWalkIn:'زائر (بدون حساب)',
   addToCalendarBtn:'أضف إلى التقويم',autoLabel:'تلقائي',
   aheadOfYou:'{0} أمامك',youreNext:'أنت التالي!',onBikeNow:'على الدراجة الآن',inQueueMsg:'أنت في قائمة الانتظار',
@@ -3543,6 +3548,8 @@ function renderTopbarRight(){
         ?`<button class="topbar-btn" onclick="setStaffRole('frontdesk')" title="${t('switchToFrontDesk')}">${t('switchToFrontDesk')}</button>`
         :`<button class="topbar-btn" onclick="openPinModal(true)" title="${t('switchToAdmin')}">🔓 ${t('switchToAdmin')}</button>`}
       ${last?`<button class="topbar-btn undo-btn" onclick="doUndo()" title="${esc(last.label)}" style="animation:undoPulse 2s ease-in-out infinite">&#x21B6; Undo</button>`:''}
+      <button class="topbar-btn" onclick="openHelp()" title="${t('helpBtn')}" aria-label="${t('helpBtn')}">?</button>
+      ${isAdmin()?`<button class="topbar-btn" onclick="exportAllData()" title="${t('exportBackupBtn')}">⤓</button>`:''}
       <button class="topbar-btn danger" onclick="localStorage.removeItem('cq_staff');window.location.href='/'">${t('lockBtn')}</button>`;
   } else {
     el.innerHTML='';
@@ -4847,6 +4854,64 @@ function selectAllNewSessAll(){
 }
 
 
+// One-click data backup (admin): downloads the whole dataset as JSON
+async function exportAllData(){
+  if(!isAdmin()){toast(t('adminOnlyMsg'),'error');return;}
+  let customers=[];
+  try{const{data}=await sb.from('customers').select('*');customers=data||[];}catch(e){}
+  const dump={exported_at:new Date().toISOString(),sessions:S.sessions||[],bikes:S.bikes||[],queue_entries:getQueue().map(entryToDB),inventory:S.inventory||[],promo_codes:S.promoCodes||[],customers};
+  const blob=new Blob([JSON.stringify(dump,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='micromobility-backup-'+todayStr()+'.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),1500);
+  logAction('Exported data backup');toast(t('exportedToast'));
+}
+// Repeat no-show count for the rider behind an entry (by account, else name+phone)
+function customerNoShows(e){
+  if(!e)return 0;
+  const q=getQueue();
+  return e.customerId
+    ?q.filter(x=>x.customerId===e.customerId&&x.status==='noshow').length
+    :q.filter(x=>!x.customerId&&x.status==='noshow'&&x.name===e.name&&(x.phone||'')===(e.phone||'')).length;
+}
+function noShowFlag(e){
+  const n=customerNoShows(e);
+  return n>=3?`<span title="${t('noShowFlagTip').replace('{0}',n)}" style="margin-left:5px;font-size:11px;color:var(--orange);font-weight:800;white-space:nowrap">⚠️ ${n}</span>`:'';
+}
+// Clone a session's bike config into the new-session form (staff picks a fresh date)
+function cloneSession(id){
+  const s=allSessions().find(x=>x.id===id);if(!s)return;
+  const slots=parseSlots(s.bike_slots)||{};
+  S.showAddSession=true;S.editSessionId=null;S.newSessDate='';S.newSessRepeat='1';
+  S.newSessLocation=s.location||(S.bkLocations&&S.bkLocations[0])||'';
+  const m=String((slots._time)||'09:00 - 11:00').match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/);
+  if(m){S.newSessStartTime=m[1];S.newSessEndTime=m[2];}
+  if(slots._bikes&&slots._bikes.length){
+    S.newSessMode='ids';S.newSessAssignedIds=[...slots._bikes];
+  }else{
+    S.newSessMode='counts';
+    const ts={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
+    ['Road','Hybrid','Mountain'].forEach(ty=>{if(slots[ty])['XS','S','M','L'].forEach(sz=>{ts[ty][sz]=slots[ty][sz]||0;});});
+    S.newSessTypeSizes=ts;
+  }
+  renderSessions();
+  setTimeout(()=>document.getElementById('sess-add-form')?.scrollIntoView({behavior:'smooth',block:'start'}),50);
+}
+function openHelp(){
+  const body=(t('helpBody')||'').split('\n').map(l=>`<div style="display:flex;gap:8px;padding:6px 0;font-size:13px;line-height:1.5"><span style="color:var(--green)">•</span><span>${esc(l)}</span></div>`).join('');
+  document.getElementById('help-modal').innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeHelp()">
+    <div class="modal-box" style="max-width:480px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
+        <div class="modal-title" style="margin-bottom:0">${t('helpTitle')}</div>
+        <button onclick="closeHelp()" aria-label="Close" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 2px">&times;</button>
+      </div>
+      ${body}
+    </div></div>`;
+  document.getElementById('help-modal').style.display='flex';
+}
+function closeHelp(){document.getElementById('help-modal').style.display='none';}
+
 function renderSessions(){
   const sessions=allSessions();
   const allBikes=getBikes();
@@ -5134,6 +5199,7 @@ function renderSessions(){
       <td>
         <div class="actions-cell">
           <button class="btn-sm btn-blue" onclick="startEditSession('${s.id}')">${t('editBtn2')}</button>
+          <button class="btn-sm btn-muted" onclick="cloneSession('${s.id}')">${t('cloneSessBtn')}</button>
           ${actionBtns}
           ${isAdmin()?`<button class="btn-sm btn-red" onclick="deleteSession('${s.id}')" ${booked>0?`disabled title="${t('hasBookingsTitle')}"`:''}>${t('deleteBtn')}</button>`:''}
         </div>
@@ -5586,7 +5652,7 @@ function renderStaffQueue(){
         <button onclick="showEditQNumModal('${e.id}')" title="Edit booking number" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:1px 3px;line-height:1;display:block;margin-top:2px" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">#</button>
       </td>
       <td style="text-align:center">${posCell}</td>
-      <td><div class="rider-name">${esc(e.name)}${wiTag}</div><div class="rider-sub">${esc(fmtPhone(e.phone))||'—'}</div></td>
+      <td><div class="rider-name">${esc(e.name)}${wiTag}${noShowFlag(e)}</div><div class="rider-sub">${esc(fmtPhone(e.phone))||'—'}</div></td>
       <td style="font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">${e.height?e.height+' cm':'<span style="color:var(--muted)">—</span>'}</td>
       <td>${typeBadge(resolvedType(e))}</td>
       ${S.sfSession==='all'?`<td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
@@ -5658,7 +5724,7 @@ function renderStaffQueue(){
       const ownerPhone=isFirst?entryPhone(primary):'';
       const riderCell=`<div style="display:flex;align-items:baseline;gap:5px">
         <span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--green);color:#000;font-size:10px;font-weight:900;flex-shrink:0">${i+1}</span>
-        <span class="rider-name" style="margin:0;font-weight:${isFirst?'900':'600'}">${esc(e.name)}</span>
+        <span class="rider-name" style="margin:0;font-weight:${isFirst?'900':'600'}">${esc(e.name)}${isFirst?noShowFlag(e):''}</span>
       </div>${isFirst&&ownerPhone?`<div class="rider-sub" style="margin-top:3px;padding-left:22px">${esc(fmtPhone(ownerPhone))}</div>`:''}`;
       const heightCell=`<td style="vertical-align:middle;font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">${e.height?e.height+' cm':'<span style="color:var(--muted)">—</span>'}</td>`;
       const groupLine=isFirst?'border-top:2px solid rgba(3,255,137,.15)':'';
@@ -8078,7 +8144,7 @@ function renderHistory(){
         ${regDate?`<div style="font-size:10px;color:var(--muted);margin-top:3px;font-weight:600">${regDate}</div>`:''}
       </td>
       <td>
-        <div class="rider-name" onclick="openCustomerProfile('${e.id}')" style="cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,.2);text-underline-offset:2px" title="${t('custProfileTitle')}">${esc(e.name)}${wiTag}</div>
+        <div class="rider-name" onclick="openCustomerProfile('${e.id}')" style="cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,.2);text-underline-offset:2px" title="${t('custProfileTitle')}">${esc(e.name)}${wiTag}${noShowFlag(e)}</div>
         <div class="rider-sub" style="margin-top:3px">${esc(fmtPhone(e.phone))||'—'}</div>
         <div class="rider-sub">${hasEmail?esc(e.email):`<span style="font-style:italic;color:var(--muted)">${t('noEmailLabel')}</span>`}</div>
       </td>
