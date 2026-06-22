@@ -2579,6 +2579,14 @@ const SUPABASE_URL  = 'https://ariyvnxeywozmwxmylhb.supabase.co';
 const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFyaXl2bnhleXdvem13eG15bGhiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MDUzMTcsImV4cCI6MjA5NjE4MTMxN30.zi-0_k0M1xgSlrZKJ2QdKMLB3BnTi4nSecQutQnnNo4';
 let sb;try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);}catch(e){console.error('Supabase init failed:',e.message);}
 
+// ── Security mode ────────────────────────────────────────────────────────────
+// false = legacy direct-table auth (current behaviour, unchanged).
+// true  = route customer auth/profile through SECURITY DEFINER RPCs so the
+//         customers table can be locked down (see security-migration.sql +
+//         SECURITY-RUNBOOK.md). Flip to true ONLY after running Sections 1–2 of
+//         the migration on the matching Supabase project. Default false is safe.
+const SECURE_AUTH = false;
+
 
 const getQueue=()=>S.queue||[];
 const getBikes=()=>S.bikes||[];
@@ -3172,6 +3180,11 @@ async function doForgotVerify(){
   const phoneRaw=(document.getElementById('a-forgot-phone')?.value||'').trim();
   if(!email||!/^\S+@\S+\.\S+$/.test(email)){authErr(t('errValidEmail'));return;}
   if(!phoneRaw){authErr(t('errPhoneRequired'));return;}
+  if(SECURE_AUTH){
+    // Can't pre-read the locked table; capture inputs and let customer_reset() validate at step 2.
+    S.forgotEmail=email;S.forgotCc=cc;S.forgotPhoneRaw=phoneRaw;S.forgotVerified='pending';S.forgotStep=2;
+    renderAuthModal();return;
+  }
   const btn=document.querySelector('#auth-modal .auth-submit');
   if(btn){btn.disabled=true;btn.textContent=t('verifying')||'…';}
   const{data:customer}=await sb.from('customers').select('id,name,phone,password_hash').eq('email',email).maybeSingle();
@@ -3189,6 +3202,17 @@ async function doResetPassword(){
   if(pwd.length<8||!/[A-Z]/.test(pwd)||!/[0-9]/.test(pwd)){authErr(t('errPasswordLen'));return;}
   if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
   try{
+    if(SECURE_AUTH){
+      const ph=(S.forgotCc||'')+(S.forgotPhoneRaw||'');
+      const{data,error}=await sb.rpc('customer_reset',{p_email:S.forgotEmail,p_phone:ph,p_new_hash:await makePwdHash(pwd)});
+      const customer=(data&&data[0])||null;
+      if(error||!customer){authErr(t('errResetNoMatch'));return;}
+      S.loggedIn=customer;setSession(customer);S.forgotStep=1;S.forgotEmail='';S.forgotVerified=null;S.authMode='login';
+      await loadData();
+      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
+      logAction('Password reset (self-service): '+(customer.email||''));
+      toast(t('toastPwReset'));return;
+    }
     const{data:customer}=await sb.from('customers')
       .select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city,photo')
       .eq('id',S.forgotVerified).maybeSingle();
@@ -3231,6 +3255,23 @@ async function doSignup(){
   if(!isNaN(heightRaw)&&(heightRaw<100||heightRaw>250)){authErr(t('errValidHeightCm'));return;}
   const fullPhone=phone?(cc+phone):'';
   try{
+    if(SECURE_AUTH){
+      const height=isNaN(heightRaw)?null:heightRaw;
+      const newId=uid();
+      const{data,error}=await sb.rpc('customer_signup',{
+        p_id:newId,p_name:name,p_email:email,p_phone:fullPhone,
+        p_pwd_hash:await makePwdHash(pwd),p_height:height,
+        p_type_preference:S.signupTypePref||'Any',p_gender:S.signupGender});
+      if(error){authErr((error.code==='23505'||/DUPLICATE/i.test(error.message||''))?t('errEmailExists'):t('errConnection'));return;}
+      const tok=(data&&data[0]&&data[0].session_token)||null;
+      const safeCustomer={id:newId,name,email,phone:fullPhone,height,type_preference:S.signupTypePref||'Any',created_at:new Date().toISOString(),session_token:tok};
+      S.loggedIn=safeCustomer;setSession(safeCustomer);
+      await loadData();
+      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
+      logAction('Account created: '+name);
+      toast(`${name}! ${t('toastAccountCreated')}`);
+      return;
+    }
     if(email){const{data:ex}=await sb.from('customers').select('id').eq('email',email).maybeSingle();if(ex){authErr(t('errEmailExists'));return;}}
     if(fullPhone){const{data:ex}=await sb.from('customers').select('id').eq('phone',fullPhone).maybeSingle();if(ex){authErr(t('errPhoneExists'));return;}}
     const height=isNaN(heightRaw)?null:heightRaw;
@@ -3321,7 +3362,17 @@ async function doLogin(){
   if(!identifier){authErr(t('errEmailOrPhone'));return;}
   if(!pwd){authErr(t('errPasswordRequired'));return;}
   try{
-    
+    if(SECURE_AUTH){
+      const{data,error}=await sb.rpc('customer_login',{p_identifier:identifier,p_pwd:pwd});
+      const customer=(data&&data[0])||null;
+      if(error||!customer){authErr(t('errInvalidCredentials'));return;}
+      S.loggedIn=customer;setSession(customer);
+      await loadData();
+      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
+      logAction('Logged in: '+customer.name);
+      toast(`${t('toastWelcomeBack')}, ${customer.name}!`);
+      return;
+    }
     const isEmail=identifier.includes('@');
     const filters=[];
     if(isEmail){
@@ -4788,6 +4839,15 @@ async function saveAccount(){
   const city=(document.getElementById('acc-city')?.value||'')||null;
   try{
     const type_preference=S.loggedIn.type_preference||'Any';
+    if(SECURE_AUTH){
+      const{data:ok,error}=await sb.rpc('customer_update_profile',{p_id:cust.id,p_token:cust.session_token,p_name:name,p_email:email,p_phone:fullPhone,p_height:height,p_type_preference:type_preference,p_birth_date:birth_date,p_country:country,p_city:city});
+      if(error||!ok)throw(error||new Error('denied'));
+      S.loggedIn={...cust,name,email,phone:fullPhone,height,type_preference,birth_date,country,city};
+      setSession(S.loggedIn);
+      if(height){S._rHeight=String(height);}
+      if(type_preference&&S.regBikeTypes.length===0)S.regBikeTypes=[type_preference];
+      toast(t('accountSaved'));renderAccount();renderTopbarRight();return;
+    }
     const updates={name,height,type_preference,birth_date,country,city};
     if(email!==undefined)updates.email=email;
     if(fullPhone!==undefined)updates.phone=fullPhone;
@@ -4828,15 +4888,25 @@ function pickImage(input,cb,max){
 function accUploadPhoto(input){pickImage(input,url=>_saveAccPhoto(url),256);}
 async function _saveAccPhoto(dataUrl){
   const cust=S.loggedIn;if(!cust)return;
-  const{error}=await sb.from('customers').update({photo:dataUrl}).eq('id',cust.id);
-  if(error){toast(error.message||t('photoErrToast'),'error');return;}
+  if(SECURE_AUTH){
+    const{data:ok,error}=await sb.rpc('customer_set_photo',{p_id:cust.id,p_token:cust.session_token,p_photo:dataUrl});
+    if(error||!ok){toast((error&&error.message)||t('photoErrToast'),'error');return;}
+  }else{
+    const{error}=await sb.from('customers').update({photo:dataUrl}).eq('id',cust.id);
+    if(error){toast(error.message||t('photoErrToast'),'error');return;}
+  }
   S.loggedIn={...cust,photo:dataUrl};setSession(S.loggedIn);
   toast(t('photoSavedToast'));renderAccount();renderTopbarRight();
 }
 async function accRemovePhoto(){
   const cust=S.loggedIn;if(!cust)return;
-  const{error}=await sb.from('customers').update({photo:null}).eq('id',cust.id);
-  if(error){toast(error.message,'error');return;}
+  if(SECURE_AUTH){
+    const{data:ok,error}=await sb.rpc('customer_set_photo',{p_id:cust.id,p_token:cust.session_token,p_photo:null});
+    if(error||!ok){toast((error&&error.message)||t('photoErrToast'),'error');return;}
+  }else{
+    const{error}=await sb.from('customers').update({photo:null}).eq('id',cust.id);
+    if(error){toast(error.message,'error');return;}
+  }
   S.loggedIn={...cust,photo:null};setSession(S.loggedIn);
   renderAccount();renderTopbarRight();
 }
