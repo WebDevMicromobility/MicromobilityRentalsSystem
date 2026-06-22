@@ -2504,6 +2504,7 @@ const S={
   promoCodes:[],promoApplied:null,_promoMsg:'',
   _pcCode:'',_pcKind:'percent',_pcValue:'',
   inventory:[],showAddInv:false,editInvId:null,_invName:'',_invCat:'Helmet',_invQty:'',_invLow:'',_invPhoto:'',invSection:'bikes',
+  invView:(()=>{try{return localStorage.getItem('cq_inv_view')==='table'?'table':'grid';}catch(e){return'grid';}})(),
   _invBrand:'',_invCatAdd:false,_invBrandAdd:false,
   invCatsEquip:(()=>{try{return JSON.parse(localStorage.getItem('cq_inv_cats_eq'))||[];}catch(e){return[];}})(),
   invCatsSupp:(()=>{try{return JSON.parse(localStorage.getItem('cq_inv_cats_supp'))||[];}catch(e){return[];}})(),
@@ -8770,6 +8771,36 @@ function renderInventory(){
   const invTable=list=>`<div class="table-wrapper" style="margin-top:10px"><table class="queue-table"><thead><tr>
       <th>${t('invItemName')}</th><th>${t('invCategory')}</th><th>${t('invQty')}</th><th>${t('colStatus')}</th><th></th>
     </tr></thead><tbody>${list.length?list.map(invRow).join(''):`<tr><td colspan="5" style="padding:18px;text-align:center;color:var(--muted)">${t('invNoItems')}</td></tr>`}</tbody></table></div>`;
+  const invCard=it=>{
+    const qty=Number(it.qty)||0,low=Number(it.low_threshold)||0;
+    const state=qty<=0?'out':qty<=low?'low':'in';
+    const stClr=state==='out'?'var(--red)':state==='low'?'var(--orange)':'var(--green)';
+    const stTxt=state==='out'?t('invOutStock'):state==='low'?t('invLowStock'):t('invInStock');
+    const borderClr=state==='out'?'rgba(224,64,64,.4)':state==='low'?'rgba(224,136,40,.45)':'rgba(3,255,137,.3)';
+    return`<div class="bike-grid-card" style="border-color:${borderClr};display:flex;flex-direction:column;gap:8px">
+      ${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:100%;height:120px;border-radius:10px;object-fit:cover;border:1px solid var(--border)">`:`<div style="width:100%;height:120px;border-radius:10px;background:var(--s3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:30px;opacity:.5">📦</div>`}
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px">
+        <div style="min-width:0"><div style="font-weight:900;font-size:13px;line-height:1.3">${esc(it.name)}</div>${it.brand?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">${esc(it.brand)}</div>`:''}</div>
+        <span style="font-size:10px;font-weight:800;color:${stClr};white-space:nowrap;flex-shrink:0">${stTxt}</span>
+      </div>
+      <span style="align-self:flex-start;font-size:10px;font-weight:700;background:var(--s3);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:2px 8px;color:var(--muted-l)">${_invCatLabel(it.category)}</span>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:auto">
+        <button class="btn-sm btn-muted" onclick="adjInv('${it.id}',-1)" aria-label="Decrease quantity">-</button>
+        <span style="font-weight:900;font-size:16px;min-width:28px;text-align:center">${qty}</span>
+        <button class="btn-sm btn-muted" onclick="adjInv('${it.id}',1)" aria-label="Increase quantity">+</button>
+      </div>
+      <div style="display:flex;gap:4px">
+        <button class="btn-sm btn-blue" style="flex:1" onclick="startInvEdit('${it.id}')">${t('editBtn')}</button>
+        ${isAdmin()?`<button class="btn-sm btn-red" style="flex:1" onclick="delInvItem('${it.id}')">${t('deleteBtn')}</button>`:''}
+      </div>
+    </div>`;
+  };
+  const invGrid=list=>list.length?`<div class="bike-grid" style="margin-top:10px">${list.map(invCard).join('')}</div>`:`<div class="empty-state" style="margin-top:10px">${t('invNoItems')}</div>`;
+  const invItems=list=>S.invView==='grid'?invGrid(list):invTable(list);
+  const viewToggle=`<div class="view-toggle">
+    <button class="view-toggle-btn${S.invView==='grid'?' active':''}" onclick="setInvView('grid')" title="${t('gridViewBtn')}">⊞</button>
+    <button class="view-toggle-btn${S.invView==='table'?' active':''}" onclick="setInvView('table')" title="${t('tableViewBtn')}">☰</button>
+  </div>`;
   const suppItems=items.filter(it=>SUPP_CATS.includes(it.category));
   const equipItems=items.filter(it=>!SUPP_CATS.includes(it.category));
   // Bikes section: read-only fleet summary
@@ -8788,10 +8819,10 @@ function renderInventory(){
     <button class="btn-secondary" onclick="setStaffTab('bikes')" style="margin-top:12px;font-size:12px">${t('invManageBikes')}</button>`;
   const navbtn=(k,label)=>`<button class="inv-navbtn${sec===k?' active':''}" onclick="setInvSection('${k}')">${label}</button>`;
   const addBtn=`<button class="btn-primary" onclick="toggleAddInv()">${t('invAddBtn')}</button>`;
-  const secHead=(title,withAdd)=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px"><div class="page-title" style="font-size:18px;margin:0">${title}</div>${withAdd?addBtn:''}</div>`;
+  const secHead=(title,withAdd,withToggle)=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px"><div class="page-title" style="font-size:18px;margin:0">${title}</div><div style="display:flex;align-items:center;gap:8px">${withToggle?viewToggle:''}${withAdd?addBtn:''}</div></div>`;
   let content;
-  if(sec==='supplements')content=secHead('🥤 '+t('invSecSupplements'),true)+addForm+invTable(suppItems);
-  else if(sec==='equipment')content=secHead('🛡️ '+t('invSecEquipment'),true)+addForm+invTable(equipItems);
+  if(sec==='supplements')content=secHead('🥤 '+t('invSecSupplements'),true,true)+addForm+invItems(suppItems);
+  else if(sec==='equipment')content=secHead('🛡️ '+t('invSecEquipment'),true,true)+addForm+invItems(equipItems);
   else content=`<div id="tab-bikes"></div>`; // full Bikes management UI renders here
   el.innerHTML=`
     <div class="page-title">${t('invTitle')}</div>
@@ -8808,6 +8839,7 @@ function renderInventory(){
   if(sec==='bikes')renderBikes();
 }
 function setInvSection(v){S.invSection=v;S.showAddInv=false;S.editInvId=null;renderInventory();}
+function setInvView(v){S.invView=(v==='table'?'table':'grid');try{localStorage.setItem('cq_inv_view',S.invView);}catch(e){}renderInventory();}
 function toggleAddInv(){S.showAddInv=true;S.editInvId=null;S._invName='';S._invCat=(S.invSection==='supplements'?'ProteinGummies':'Helmet');S._invQty='';S._invLow='';S._invBrand='';S._invPhoto='';S._invCatAdd=false;S._invBrandAdd=false;renderInventory();}
 function cancelInvForm(){S.showAddInv=false;S.editInvId=null;S._invCatAdd=false;S._invBrandAdd=false;renderInventory();}
 function startInvEdit(id){
