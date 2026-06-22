@@ -2011,6 +2011,7 @@ ar:{
   colBookings:'الحجوزات',colActions:'الإجراءات',colManageBooking:'إدارة الحجز',colManageSession:'إدارة الجلسة',colManageBike:'إدارة الدراجة',colManageRecord:'إدارة السجل',openBtn:'فتح',closeBtn:'إغلاق',deleteBtn:'حذف',
   statusOpen:'مفتوح',statusClosed:'مغلق',statusFull:'محجوز بالكامل',markFullBtn:'تعيين كمكتمل',reopenBtn:'إعادة فتح',noSessionsYet:'لا توجد جلسات بعد. أنشئ واحدة أعلاه.',
   editSessionTitle:'تعديل الجلسة',saveSessionBtn:'حفظ التغييرات',editBtn2:'تعديل',dateWarning:'تغيير التاريخ سيحدّث جميع الحجوزات الموجودة لهذه الجلسة.',
+  sessionAddonsLabel:'الإضافات المتاحة',sessionAddonsHint:'عناصر من المخزون يمكن للعملاء إضافتها إلى الحجز',addonStepTitle:'أضف إلى حجزك',addonStepSub:'إضافات اختيارية متاحة لهذه الجلسة',addonNone:'لا توجد إضافات متاحة لهذه الجلسة.',addonsLabel:'الإضافات',addonsSelectedToast:'تم حفظ الإضافات مع حجزك',
   bikesTitle:'الأسطول',addBike:'+ إضافة دراجة',editBikeTitle:'تعديل الدراجة',addBikeTitle:'إضافة دراجة جديدة',
   bikeNameLabel:'اسم الدراجة',frameSizeLabel:'مقاس الإطار',bikeTypeLabel:'نوع الدراجة',
   bikeLocationLabel:'الموقع',bikeFrameTypeLabel:'نوع الإطار',bikeNumberLabel:'رقم الدراجة',bikeAutoName:'الاسم التلقائي',bikeStartDate:'تاريخ بدء الاستخدام',bikeEndDate:'تاريخ التقاعد',lifespanLabel:'مدة الخدمة',daysLabel:'يوم',frameSteel:'فولاذ',frameAluminum:'ألمنيوم',frameCarbon:'كربون',frameTitanium:'تيتانيوم',errBikeFrameReq:'الرجاء اختيار نوع الإطار.',errBikeLocationReq:'الرجاء اختيار الموقع.',errBikeNumberReq:'الرجاء إدخال رقم الدراجة.',errBikeNumberDup:'رقم الدراجة مستخدم بالفعل.',addLocationLabel:'إضافة موقع جديد...',
@@ -8803,20 +8804,6 @@ function renderInventory(){
   </div>`;
   const suppItems=items.filter(it=>SUPP_CATS.includes(it.category));
   const equipItems=items.filter(it=>!SUPP_CATS.includes(it.category));
-  // Bikes section: read-only fleet summary
-  const bikes=getBikes();
-  const bActive=bikes.filter(b=>b.status!=='retired'&&b.status!=='maintenance');
-  const bAvail=bikes.filter(b=>b.status==='available').length;
-  const bUse=bikes.filter(b=>b.status==='in-use').length;
-  const byType=['Road','Hybrid','Mountain','Gravel'].map(ty=>({ty,n:bActive.filter(b=>b.type===ty).length})).filter(x=>x.n);
-  const bikesBody=`
-    <div class="stats-row" style="margin-top:4px">
-      <div class="stat-card"><div class="stat-num">${bActive.length}</div><div class="stat-label">${t('invBikesTotal')}</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:var(--green)">${bAvail}</div><div class="stat-label">${t('availLabel')}</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:#a0f0c0">${bUse}</div><div class="stat-label">${t('inUseLabel')}</div></div>
-    </div>
-    ${byType.length?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">${byType.map(x=>`<span style="font-size:12px;font-weight:700;padding:5px 12px;border-radius:20px;background:var(--s2);border:1px solid var(--border)">${typeLabel(x.ty)}: <span style="color:var(--green);font-weight:900">${x.n}</span></span>`).join('')}</div>`:''}
-    <button class="btn-secondary" onclick="setStaffTab('bikes')" style="margin-top:12px;font-size:12px">${t('invManageBikes')}</button>`;
   const navbtn=(k,label)=>`<button class="inv-navbtn${sec===k?' active':''}" onclick="setInvSection('${k}')">${label}</button>`;
   const addBtn=`<button class="btn-primary" onclick="toggleAddInv()">${t('invAddBtn')}</button>`;
   const secHead=(title,withAdd,withToggle)=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px"><div class="page-title" style="font-size:18px;margin:0">${title}</div><div style="display:flex;align-items:center;gap:8px">${withToggle?viewToggle:''}${withAdd?addBtn:''}</div></div>`;
