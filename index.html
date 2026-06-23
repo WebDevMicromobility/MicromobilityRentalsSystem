@@ -5150,6 +5150,15 @@ async function _restockAddonsOnExit(entry){
   const stillActive=getQueue().filter(e=>(e.customerId||e.id)===gid&&e.sessionId===entry.sessionId&&e.id!==entry.id&&!['cancelled','removed','noshow'].includes(e.status));
   if(stillActive.length===0)await _addonStock(ids,1);
 }
+// Inverse of _restockAddonsOnExit: reserve a booking's add-on stock once when one of its riders enters a
+// confirmed state (waitlist promotion, undo no-show, undo cancel) and is the booking's first confirmed rider.
+// Waitlist bookings never reserve stock, so this is the point where a promoted booking finally consumes it.
+async function _consumeAddonsOnEnter(entry){
+  const ids=entryAddonIds(entry);if(!ids.length)return;
+  const gid=entry.customerId||entry.id;
+  const otherConfirmed=getQueue().filter(e=>(e.customerId||e.id)===gid&&e.sessionId===entry.sessionId&&e.id!==entry.id&&['waiting','active','done'].includes(e.status));
+  if(otherConfirmed.length===0)await _addonStock(ids,-1);
+}
 
 
 // One-click data backup (admin): downloads the whole dataset as JSON
@@ -6615,8 +6624,10 @@ async function rescheduleBooking(fromSessionId,toSessionId){
   closeRescheduleModal();
   const base=nextQNum(toSessionId);
   const sorted=moving.slice().sort((a,b)=>(a.queueNum||0)-(b.queueNum||0));
+  const wasAllWaitlist=moving.every(e=>e.status==='waitlist');
   await Promise.all(sorted.map((e,i)=>sb.from('queue_entries').update({session_id:toSessionId,session_day:newSess.day,session_date:newSess.session_date||toSessionId,queue_num:base+i,status:'waiting'}).eq('id',e.id)));
   await loadData();
+  if(wasAllWaitlist)await _addonStock(entryAddonIds(moving[0]),-1); // waitlist booking became confirmed in the new session
   toast(t('toastRescheduled'));
   renderMyRides();
 }
@@ -6647,7 +6658,7 @@ async function cancelBooking(id,reason){
     try{localStorage.setItem('cq_cancellations',JSON.stringify(S.cancellationLog));}catch(e){}
   }
   await loadData();
-  await _restockAddonsOnExit(entry);
+  if(!isWaitlist)await _restockAddonsOnExit(entry); // waitlist bookings never reserved stock, so nothing to restock
   toast(t('toastBookingCancelled'));
   pushUndo(`${t('undoCancelBooking')} #${savedQNum} ${entry.name}`,async()=>{
     await sb.from('queue_entries').update({status:'waiting',queue_num:savedQNum}).eq('id',id);
@@ -6768,6 +6779,7 @@ async function promoteWaitlist(id){
   const{error}=await sb.from('queue_entries').update({status:'waiting',queue_num:newNum}).eq('id',id);
   if(error){toast(error.message||t('errConnection'),'error');return;}
   await loadData();
+  await _consumeAddonsOnEnter(e); // booking is now confirmed, so reserve its add-on stock
   logAction&&logAction(t('logPromotedFromWaitlist').replace('{0}',newNum).replace('{1}',e.name));
   toast(t('toastPromoted'));
   renderStaffQueue();renderMyRides();
@@ -6780,6 +6792,7 @@ async function _autoPromoteOldestWaitlist(sessionId){
   const e=wl[0];
   const newNum=nextQNum(sessionId);
   await sb.from('queue_entries').update({status:'waiting',queue_num:newNum}).eq('id',e.id);
+  await _consumeAddonsOnEnter(e); // promoted booking now reserves its add-on stock
   return true;
 }
 async function doNoShow(id){
@@ -6812,7 +6825,9 @@ async function doUndoNoShow(id){
   const savedAhead=ahead.map(e=>({id:e.id,queueNum:e.queueNum}));
   if(ahead.length)await Promise.all(ahead.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum+1}).eq('id',e.id)));
   await sb.from('queue_entries').update({status:'waiting'}).eq('id',id);
-  await loadData();toast(t('toastUndoNoShow'));
+  await loadData();
+  await _consumeAddonsOnEnter(entry); // rider is active again, re-reserve stock that was restocked on no-show
+  toast(t('toastUndoNoShow'));
   pushUndo(`${t('undoUndoNoShow')} #${entry.queueNum} ${entry.name}`,async()=>{
     await sb.from('queue_entries').update({status:'noshow'}).eq('id',id);
     if(savedAhead.length)await Promise.all(savedAhead.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum}).eq('id',e.id)));
