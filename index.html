@@ -23,6 +23,21 @@
       
       --accent2:rgba(3,255,137,.55); --warn:rgba(255,255,255,.55);
     }
+    /* Sunlight / high-contrast light theme - toggled via [data-theme="light"] on <html> for outdoor booth readability */
+    :root[data-theme="light"]{
+      --bg:#e9ede8; --s1:#ffffff; --s2:#f4f7f3; --s3:#e8ece7;
+      --green:#0a8f50; --green-h:#097c45; --green-d:#08693a;
+      --red:#c20808; --orange:#9c5516; --blue:#1f6fd0; --purple:#6d33bf;
+      --text:#0a0d0a; --muted:#4d544d; --muted-l:#697069; --border:rgba(0,0,0,.16);
+      --accent2:rgba(10,143,80,.5); --warn:rgba(0,0,0,.5);
+    }
+    :root[data-theme="light"] body{background-image:radial-gradient(ellipse 80% 50% at 50% -10%, rgba(10,143,80,.08), transparent 60%);}
+    :root[data-theme="light"] .btn-primary,:root[data-theme="light"] .btn-green,:root[data-theme="light"] .btn-blue{color:#fff;}
+    :root[data-theme="light"] .tab-btn:hover{color:rgba(0,0,0,.72);}
+    :root[data-theme="light"] .an-sort-th:hover{color:rgba(0,0,0,.8)!important;}
+    :root[data-theme="light"] .modal-box{box-shadow:0 18px 56px rgba(0,0,0,.22);}
+    :root[data-theme="light"] .topbar-btn,:root[data-theme="light"] .lang-toggle{background:rgba(0,0,0,.04);border-color:rgba(0,0,0,.14);}
+    :root[data-theme="light"] input,:root[data-theme="light"] select,:root[data-theme="light"] textarea{background:#fff;border-color:rgba(0,0,0,.2);color:var(--text);}
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;-webkit-font-smoothing:antialiased;
       background-image:radial-gradient(ellipse 80% 50% at 50% -10%, rgba(3,255,137,.05), transparent 60%);}
@@ -969,6 +984,10 @@
     .confirm-box{background:var(--s2);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:24px;width:min(92vw,420px);animation:modalSlideUp .18s ease;}
 
     .empty-state{text-align:center;padding:52px 24px;color:var(--muted);font-size:14px;font-weight:600;letter-spacing:.1px;}
+    /* Skeleton loaders shown while the first data fetch is in flight (reuses the shimmer keyframe) */
+    .sk-wrap{padding:16px;display:flex;flex-direction:column;gap:10px;}
+    .sk-row{height:54px;border-radius:12px;border:1px solid var(--border);background:linear-gradient(100deg,var(--s1) 30%,var(--s2) 50%,var(--s1) 70%);background-size:200% 100%;animation:shimmer 1.3s linear infinite;}
+    .sk-row.tall{height:74px;}
 
     
     *{-webkit-tap-highlight-color:transparent;}
@@ -1417,6 +1436,7 @@
     .booth-popup-title{font-size:20px;font-weight:900;margin-bottom:10px;}
     .booth-popup-msg{font-size:14px;font-weight:600;color:var(--muted-l);line-height:1.7;}
   </style>
+<script>try{if(localStorage.getItem('cq_theme')==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}</script>
 </head>
 <body>
 <div id="loading-screen">
@@ -1433,7 +1453,8 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <img src="brand.png" alt="MicroMobility">
   </button>
   <div style="display:flex;align-items:center;gap:10px">
-    <button class="lang-toggle" id="lang-btn" onclick="setLang(S.lang==='en'?'ar':'en')" title="Switch language" aria-label="Switch language"><span>&#x1F1F8;&#x1F1E6;</span> العربية</button>
+    <button class="lang-toggle" id="lang-btn" onclick="setLang(S.lang==='en'?'ar':'en')" title="Switch language" aria-label="Switch language">العربية</button>
+    <button type="button" class="topbar-btn" id="theme-toggle-btn" onclick="toggleTheme()" aria-label="Sunlight mode" title="Sunlight mode" style="padding:7px 10px;line-height:0"></button>
     <div class="topbar-right" id="topbar-right"></div>
   </div>
 </header>
@@ -1881,7 +1902,7 @@ en:{
   
   liveLabel:'Live',justNow:'just now',secondsAgo:'s ago',minutesAgo:'m ago',
   selectSessionPrompt:'Select a session above',selectSessionSub:'Click a session chip to view and manage its queue independently.',
-  undoBtn:'↩ Undo',undoneMsg:'↩ Undone.',undoFailed:'Undo failed.',
+  undoBtn:'↩ Undo',undoneMsg:'↩ Undone.',undoFailed:'Undo failed.',themeLight:'Sunlight mode',themeDark:'Night mode',
   fleetBadge:'Fleet',altBadge:'Alt',
   showOtherTypes:'↓ Show other types',hideOtherTypes:'↑ Hide other types',available2:'available',
   noOtherTypes:'No other types available either.',
@@ -2214,7 +2235,7 @@ ar:{
   typeRoad:'طريق',typeHybrid:'هجين',typeMountain:'جبلي',typeGravel:'حصى',typeAny:'أي نوع',
   liveLabel:'مباشر',justNow:'الآن',secondsAgo:'ث مضت',minutesAgo:'د مضت',
   selectSessionPrompt:'اختر جلسة من الأعلى',selectSessionSub:'انقر على إحدى الجلسات لعرض طابورها وإدارته بشكل مستقل.',
-  undoBtn:'↩ تراجع',undoneMsg:'↩ تم التراجع.',undoFailed:'فشل التراجع.',
+  undoBtn:'↩ تراجع',undoneMsg:'↩ تم التراجع.',undoFailed:'فشل التراجع.',themeLight:'وضع النهار',themeDark:'الوضع الليلي',
   fleetBadge:'الأسطول',altBadge:'بديل',
   showOtherTypes:'↓ عرض أنواع أخرى',hideOtherTypes:'↑ إخفاء الأنواع الأخرى',available2:'متاح',
   noOtherTypes:'لا توجد أنواع أخرى متاحة.',
@@ -2258,7 +2279,7 @@ function setLang(lang){
   S.lang=lang;
   document.documentElement.dir=lang==='ar'?'rtl':'ltr';
   document.documentElement.lang=lang;
-  {const _lb=document.getElementById('lang-btn');_lb.innerHTML=lang==='ar'?'<span>&#x1F1FA;&#x1F1F8;</span> English':'<span>&#x1F1F8;&#x1F1E6;</span> العربية';_lb.title=t('switchLangTip');_lb.setAttribute('aria-label',t('switchLangTip'));}
+  {const _lb=document.getElementById('lang-btn');_lb.innerHTML=lang==='ar'?'English':'العربية';_lb.title=t('switchLangTip');_lb.setAttribute('aria-label',t('switchLangTip'));}
   const lt=document.getElementById('land-title');if(lt)lt.innerHTML=`<span>MicroMobility</span> Corniche Circuit`;
   const ls=document.getElementById('land-sub');if(ls)ls.textContent=t('landingSub');
   const lmt=document.getElementById('land-main-title');
@@ -2564,6 +2585,7 @@ const S={
   invBrandsEquip:(()=>{try{return JSON.parse(localStorage.getItem('cq_inv_brands_eq'))||[];}catch(e){return[];}})(),
   invBrandsSupp:(()=>{try{let l=JSON.parse(localStorage.getItem('cq_inv_brands_supp'))||[];if(!l.includes('SIS'))l=['SIS',...l];return l;}catch(e){return['SIS'];}})(),
   weatherByDate:null,
+  dataLoaded:false,
   communityTab:'leaderboard',lbWindow:'all',lbScope:'owner',lbMetric:'count',lbBranch:'all',
   pinDigits:'',
   pinError:false,
@@ -2674,7 +2696,7 @@ function entryToDB(e){
 
 let _bootDone=false; 
 async function loadData(showLoader=false){
-  if(!sb)return;
+  if(!sb){S.dataLoaded=true;return;}
   if(showLoader){const ls=document.getElementById('loading-screen');if(ls)ls.style.display='flex';}
   const startToken=Date.now();
   // NOTE: we deliberately do NOT bulk-fetch the customers table here. Doing so used to
@@ -2691,13 +2713,14 @@ async function loadData(showLoader=false){
   if(c.error)console.error('loadData customers error:',c.error.message);
   if(ses.error)console.error('loadData sessions error:',ses.error.message);
   const anyError=q.error||b.error||c.error||ses.error;
-  if(anyError&&!q.data&&!b.data&&!c.data&&!ses.data){toast(t('toastConnStale'),'error');return;}
+  if(anyError&&!q.data&&!b.data&&!c.data&&!ses.data){S.dataLoaded=true;toast(t('toastConnStale'),'error');return;}
   
   if(_bootDone&&startToken<_bootReadyAt)return;
   S.queue=(q.data||[]).map(entryFromDB);
   S.bikes=b.data||[];
   S.customers=c.data||[];
   S.sessions=ses.data||[];
+  S.dataLoaded=true; // first successful load - render real content instead of skeletons
   // Inventory + promo codes are optional/error-tolerant (tables may not exist until migration is run)
   try{const inv=await sb.from('inventory').select('*');if(!inv.error)S.inventory=inv.data||[];}catch(e){}
   try{const pc=await sb.from('promo_codes').select('*');if(!pc.error)S.promoCodes=pc.data||[];}catch(e){}
@@ -3020,7 +3043,6 @@ const typeBadge=ty=>`<span class="type-badge ${TYPE_CLS[ty]||'type-any'}">${bike
 const STATUS_CLS={waiting:'badge-waiting',waitlist:'badge-waiting',active:'badge-active',done:'badge-done',noshow:'badge-noshow',cancelled:'badge-noshow',removed:'badge-noshow'};
 const STATUS_KEY={waiting:'statusWaiting',waitlist:'statusWaitlist',active:'statusActive',done:'statusDone',noshow:'statusNoshow',cancelled:'statusCancelled',removed:'removedLabel'};
 const statusBadge=s=>`<span class="status-badge ${STATUS_CLS[s]||'badge-done'}">${t(STATUS_KEY[s]||'statusDone')}</span>`;
-function isoToFlag(iso){return iso.toUpperCase().replace(/./g,c=>String.fromCodePoint(c.charCodeAt(0)-65+0x1F1E6));}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function fmtPhone(p){
   if(!p)return'';
@@ -3080,7 +3102,7 @@ function renderAuthModal(){
   const mode=S.authMode;
   const isLogin=mode==='login';
   const isForgot=mode==='forgot';
-  const ccOpts=COUNTRY_CODES.map(([code,iso])=>`<option value="${code}"${code==='+966'?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
+  const ccOpts=COUNTRY_CODES.map(([code,iso])=>`<option value="${code}"${code==='+966'?' selected':''}>${code}</option>`).join('');
   const logoSrc='brand.png';
   let title=t('authWelcome'),subtitle=t('authSub'),tabs='',body='';
   const googleBlock=`
@@ -3644,6 +3666,18 @@ function renderStaffTabs(){
   document.getElementById('tab-logs')      .classList.toggle('active',S.staffTab==='logs');
 }
 
+function toggleTheme(){
+  const isLight=document.documentElement.getAttribute('data-theme')==='light';
+  if(isLight){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('cq_theme');}catch(e){}}
+  else{document.documentElement.setAttribute('data-theme','light');try{localStorage.setItem('cq_theme','light');}catch(e){}}
+  applyThemeIcon();
+}
+function applyThemeIcon(){
+  const b=document.getElementById('theme-toggle-btn');if(!b)return;
+  const isLight=document.documentElement.getAttribute('data-theme')==='light';
+  const lbl=isLight?t('themeDark'):t('themeLight');
+  b.innerHTML=isLight?ICON_MOON:ICON_SUN;b.title=lbl;b.setAttribute('aria-label',lbl);
+}
 function renderTopbarRight(){
   const el=document.getElementById('topbar-right');
   if(S.view==='customer'){
@@ -3676,11 +3710,12 @@ function renderTopbarRight(){
         :`<button class="topbar-btn" onclick="openPinModal(true)" title="${t('switchToAdmin')}"> ${t('switchToAdmin')}</button>`}
       ${last?`<button class="topbar-btn undo-btn" onclick="doUndo()" title="${esc(last.label)}" style="animation:undoPulse 2s ease-in-out infinite">&#x21B6; Undo</button>`:''}
       <button class="topbar-btn" onclick="openHelp()" title="${t('helpBtn')}" aria-label="${t('helpBtn')}">?</button>
-      ${isAdmin()?`<button class="topbar-btn" onclick="exportAllData()" title="${t('exportBackupBtn')}">⤓</button>`:''}
+      ${isAdmin()?`<button class="topbar-btn" onclick="exportAllData()" title="${t('exportBackupBtn')}" aria-label="${t('exportBackupBtn')}">⤓</button>`:''}
       <button class="topbar-btn danger" onclick="localStorage.removeItem('cq_staff');window.location.href='/'">${t('lockBtn')}</button>`;
   } else {
     el.innerHTML='';
   }
+  applyThemeIcon();
 }
 
 
@@ -4512,7 +4547,7 @@ function renderBookingTicket(entries,opts){
   const rateBtn=(opts.bookAgain&&!rated)?`<button class="btn-sm btn-green" style="flex:1" onclick="openRateModal('${primary.id}')">★ ${t('rateRideBtn')}</button>`:'';
   const actionsHtml=canEdit?`<div style="display:flex;gap:8px;padding:14px 18px 16px;flex-wrap:wrap">
       <button class="btn-sm btn-blue" style="flex:1;min-width:88px" onclick="S.lastTickets=[];S.selSession='${primary.sessionId}';S.regStep=2;setCustTab('register')">${t('editBtn')}</button>
-      <button class="btn-sm btn-secondary" style="flex:1;min-width:88px" onclick="showRescheduleModal('${primary.sessionId}')">↻ ${t('rescheduleBtn')}</button>
+      <button class="btn-sm btn-secondary" style="flex:1;min-width:88px" onclick="showRescheduleModal('${primary.sessionId}')">${ICON_RESCHEDULE} ${t('rescheduleBtn')}</button>
       <button class="btn-sm btn-red" style="flex:1;min-width:88px" onclick="showCancelReasonModal('${primary.id}')">${t('cancelBooking')}</button>
     </div>`:(opts.bookAgain?`<div style="display:flex;gap:8px;padding:14px 18px 16px;flex-wrap:wrap">
       ${rateBtn}
@@ -4764,7 +4799,7 @@ function renderAccount(){
     else accPhone=cust.phone;
   }
   const ccOpts=COUNTRY_CODES.map(([code,iso])=>
-    `<option value="${code}"${accCC===code?' selected':''}>${isoToFlag(iso)} ${code}</option>`).join('');
+    `<option value="${code}"${accCC===code?' selected':''}>${code}</option>`).join('');
   const accH=cust.height||'';
   const accSz=null;
   const sizeDisplay='';
@@ -5178,6 +5213,14 @@ function customerNoShows(e){
     :q.filter(x=>!x.customerId&&x.status==='noshow'&&x.name===e.name&&(x.phone||'')===(e.phone||'')).length;
 }
 const ICON_PENCIL='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+// Shared monochrome action-icon set (inherits currentColor), unifies button visuals now that emoji are gone.
+const _IB='width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;flex-shrink:0"';
+const ICON_PRINT=`<svg ${_IB}><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>`;
+const ICON_EXPORT=`<svg ${_IB}><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>`;
+const ICON_RESCHEDULE=`<svg ${_IB}><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v5h-5"/></svg>`;
+const ICON_PROMOTE=`<svg ${_IB}><path d="M12 19V5"/><path d="M6 11l6-6 6 6"/></svg>`;
+const ICON_SUN=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="12" cy="12" r="4"/><path d="M12 3v1M12 20v1M4 12H3M21 12h-1M5.6 5.6l.7.7M17.7 17.7l.7.7M18.4 5.6l-.7.7M6.3 17.7l-.7.7"/></svg>`;
+const ICON_MOON=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>`;
 function noShowFlag(e){
   const n=customerNoShows(e);
   return n>=3?`<span title="${t('noShowFlagTip').replace('{0}',n)}" style="margin-left:5px;font-size:10px;color:var(--orange);font-weight:800;white-space:nowrap;border:1px solid var(--orange);border-radius:6px;padding:1px 5px">${n}</span>`:'';
@@ -5233,6 +5276,7 @@ function _kbCheckInNext(){
 }
 
 function renderSessions(){
+  if(!S.dataLoaded){const _el=document.getElementById('tab-sessions');if(_el)_el.innerHTML=skeletonList(5,true);return;}
   const sessions=allSessions();
   const allBikes=getBikes();
   const types=['Road','Hybrid','Mountain'];
@@ -5270,7 +5314,7 @@ function renderSessions(){
               ${!busy?`onclick="toggleNewSessBike('${b.id}')"`:`title="${t('inUseLabel')}"`}>
               <div style="display:flex;gap:3px;align-items:center;margin-bottom:7px">${colorDots}</div>
               <div class="bike-assign-name">${esc(b.name)}</div>
-              <div style="font-size:11px;color:var(--muted)"><span class="avail-dot ${dot}" style="display:inline-block;vertical-align:middle"></span> ${b.size}</div>
+              <div style="font-size:11px;color:var(--muted)"><span class="avail-dot ${dot}" aria-hidden="true" style="display:inline-block;vertical-align:middle"></span> ${b.size}</div>
               ${sel?`<div class="bike-assign-check">&#x2713; ${t('assignBikeTitle')}</div>`:''}
             </div>`;
           }).join('')}
@@ -5311,8 +5355,8 @@ function renderSessions(){
       </div>
       
       <div style="display:flex;gap:6px;margin-bottom:16px">
-        <button class="toggle-btn${S.newSessMode==='counts'?' active':''}" onclick="S.newSessMode='counts';renderSessions()">&#x1F522; ${t('sessModeCounts')}</button>
-        <button class="toggle-btn${S.newSessMode==='fleet'?' active':''}" onclick="S.newSessMode='fleet';renderSessions()">&#x1F6B4; ${t('sessModeFleet')}</button>
+        <button class="toggle-btn${S.newSessMode==='counts'?' active':''}" onclick="S.newSessMode='counts';renderSessions()">${t('sessModeCounts')}</button>
+        <button class="toggle-btn${S.newSessMode==='fleet'?' active':''}" onclick="S.newSessMode='fleet';renderSessions()">${t('sessModeFleet')}</button>
       </div>
       <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;display:block">
         ${t('bikeFleetComp')}
@@ -5388,7 +5432,7 @@ function renderSessions(){
               ${!busy?`onclick="toggleAssignBike('${b.id}')"`:`title="${t('inUseElse')}"`}>
               <div style="display:flex;gap:3px;align-items:center;margin-bottom:7px">${colorDots}</div>
               <div class="bike-assign-name">${esc(b.name)}</div>
-              <div style="font-size:11px;color:var(--muted)"><span class="avail-dot ${dot}" style="display:inline-block;vertical-align:middle"></span> ${b.size} &middot; ${b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel')}</div>
+              <div style="font-size:11px;color:var(--muted)"><span class="avail-dot ${dot}" aria-hidden="true" style="display:inline-block;vertical-align:middle"></span> ${b.size} &middot; ${b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel')}</div>
               ${sel?`<div class="bike-assign-check">✓ ${t('assignBikeTitle')}</div>`:''}
               ${busy?`<div style="font-size:10px;color:var(--muted);margin-top:4px">${t('inUseLabel')}</div>`:''}
             </div>`;
@@ -5426,8 +5470,8 @@ function renderSessions(){
       </div>
       
       <div style="display:flex;gap:6px;margin-bottom:16px">
-        <button class="toggle-btn${S.editSessMode==='counts'?' active':''}" onclick="S.editSessMode='counts';renderSessions()">&#x1F522; ${t('sessModeCounts')}</button>
-        <button class="toggle-btn${S.editSessMode==='fleet'?' active':''}" onclick="S.editSessMode='fleet';renderSessions()">&#x1F6B4; ${t('sessModeFleet')}</button>
+        <button class="toggle-btn${S.editSessMode==='counts'?' active':''}" onclick="S.editSessMode='counts';renderSessions()">${t('sessModeCounts')}</button>
+        <button class="toggle-btn${S.editSessMode==='fleet'?' active':''}" onclick="S.editSessMode='fleet';renderSessions()">${t('sessModeFleet')}</button>
       </div>
       <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;display:block">
         ${t('bikeFleetComp')}${S.editSessMode==='fleet'?` &nbsp;·&nbsp; <span style="color:var(--green)"><bdi>${esTotal} ${t('bikesWord')}</bdi> ${t('assignBikeTitle').toLowerCase()}</span>`:''}
@@ -5850,7 +5894,9 @@ function _contactCell(phone){
 }
 
 
+function skeletonList(n=6,tall){return`<div class="sk-wrap">${Array.from({length:n}).map(()=>`<div class="sk-row${tall?' tall':''}"></div>`).join('')}</div>`;}
 function renderStaffQueue(){
+  if(!S.dataLoaded){const _el=document.getElementById('tab-queue');if(_el)_el.innerHTML=skeletonList(7);return;}
   reconcileOrphanBikes();
   const queue=getQueue();const sessions=allSessions();
   const base=S.sfSession!=='all'
@@ -5959,7 +6005,7 @@ function renderStaffQueue(){
     return`<button class="btn-sm btn-muted" title="${t('moveUpLabel')}" aria-label="${t('moveUpLabel')}" style="padding:5px 8px" onclick="moveQueueEntry('${e.id}',-1)">▲</button><button class="btn-sm btn-muted" title="${t('moveDownLabel')}" aria-label="${t('moveDownLabel')}" style="padding:5px 8px" onclick="moveQueueEntry('${e.id}',1)">▼</button>`;
   }
   function _entryActions(e){
-    if(e.status==='waitlist')return`<button class="btn-sm btn-green" onclick="promoteWaitlist('${e.id}')">↑ ${t('promoteBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
+    if(e.status==='waitlist')return`<button class="btn-sm btn-green" onclick="promoteWaitlist('${e.id}')">${ICON_PROMOTE} ${t('promoteBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
     if(e.status==='waiting')return`${_bulkChk(e)}${_reorderBtns(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
     if(e.status==='active')return`${_bulkChk(e)}<button class="btn-sm btn-blue" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
     if(e.status==='done')return`<button class="btn-sm btn-blue" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
@@ -6002,7 +6048,7 @@ function renderStaffQueue(){
           <button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
             ${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}
           </button>
-          <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>
+          <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" aria-label="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>
         </div>
       </td>
       <td>${statusCellHtml(e)}</td>
@@ -6086,7 +6132,7 @@ function renderStaffQueue(){
               <button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
                 ${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}
               </button>
-              <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>
+              <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" aria-label="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>
             </div>
           </td>
           <td style="vertical-align:middle">${statusCellHtml(e)}</td>
@@ -6106,7 +6152,7 @@ function renderStaffQueue(){
               <button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
                 ${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}
               </button>
-              <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>
+              <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" aria-label="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>
             </div>
           </td>
           <td style="vertical-align:middle">${statusCellHtml(e)}</td>
@@ -6177,12 +6223,12 @@ function renderStaffQueue(){
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        ${S.sfSession!=='all'?`<button onclick="showPrintReportOptions()" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);font-family:'Space Grotesk',sans-serif;transition:all .18s;line-height:1" onmouseover="this.style.borderColor='rgba(3,255,137,.35)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='rgba(255,255,255,.1)';this.style.color='var(--muted)'">${t('printReportBtn')}</button>`:''}
+        ${S.sfSession!=='all'?`<button onclick="showPrintReportOptions()" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);font-family:'Space Grotesk',sans-serif;transition:all .18s;line-height:1" onmouseover="this.style.borderColor='rgba(3,255,137,.35)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='rgba(255,255,255,.1)';this.style.color='var(--muted)'">${ICON_PRINT} ${t('printReportBtn')}</button>`:''}
         <div class="density-toggle">
           <button class="density-btn${S.queueDensity==='comfortable'?' active':''}" onclick="S.queueDensity='comfortable';renderStaffQueue()" title="${t('comfortableTip')}">⊡</button>
           <button class="density-btn${S.queueDensity==='compact'?' active':''}" onclick="S.queueDensity='compact';renderStaffQueue()" title="${t('compactTip')}">⊟</button>
         </div>
-        <button onclick="toggleResetTool()" title="${t('staffResetTool')}" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 9px;cursor:pointer;font-size:15px;line-height:1;transition:all .18s" onmouseover="this.style.borderColor='rgba(3,255,137,.35)'" onmouseout="this.style.borderColor='rgba(255,255,255,.1)'">&#x1F511;</button>
+        <button onclick="toggleResetTool()" title="${t('staffResetTool')}" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 9px;cursor:pointer;font-size:15px;line-height:1;transition:all .18s" onmouseover="this.style.borderColor='rgba(3,255,137,.35)'" onmouseout="this.style.borderColor='rgba(255,255,255,.1)'"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="8" cy="15" r="5"/><path d="M11.5 11.5 21 2"/><path d="M17 6l3 3"/></svg></button>
       </div>
     </div>
     ${S.showResetTool?`<div class="inline-form" style="max-width:420px">
@@ -7177,8 +7223,8 @@ function showPrintReportOptions(){
       <div class="modal-title" style="margin-bottom:6px">${t('expTitle')}</div>
       <div style="font-size:13px;color:var(--muted);margin-bottom:20px">${t('expChoose')}</div>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <button class="btn-primary" style="width:100%;padding:13px 16px;font-size:14px" onclick="_closePrintOpts();printSessionReport()">${t('expPdf')}</button>
-        <button style="width:100%;padding:13px 16px;border-radius:12px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:800;cursor:pointer" onclick="_closePrintOpts();exportSessionExcel()">${t('expExcel')}</button>
+        <button class="btn-primary" style="width:100%;padding:13px 16px;font-size:14px" onclick="_closePrintOpts();printSessionReport()">${ICON_PRINT} ${t('expPdf')}</button>
+        <button style="width:100%;padding:13px 16px;border-radius:12px;border:1.5px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:800;cursor:pointer" onclick="_closePrintOpts();exportSessionExcel()">${ICON_EXPORT} ${t('expExcel')}</button>
         <button style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:'Space Grotesk',sans-serif" onclick="_closePrintOpts()">${t('cancelBtn')}</button>
       </div>
     </div>
@@ -7524,7 +7570,7 @@ function renderModal(){
 
   const fleetLine=slots?`<div style="font-size:12px;color:var(--muted);margin-bottom:16px">${t('sessionFleetLabel')}: ${slotsLabel(slots)}</div>`:'';
   const searchBar=`<div style="position:relative;margin-bottom:10px">
-    <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--muted);pointer-events:none">&#x1F50D;</span>
+    <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--muted);pointer-events:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
     <input id="modal-search-input" type="text" value="${esc(S.modalSearch)}"
       placeholder="${t('searchLabel')||'Search bikes...'}"
       oninput="S.modalSearch=this.value;renderModal();document.getElementById('modal-search-input')?.focus()"
@@ -7555,7 +7601,7 @@ function renderModal(){
   const isHouseRider=rider.paid&&(rider.price??DEFAULT_PRICE)===0;
   const _pbs='padding:4px 10px;border-radius:20px;border:1.5px solid;display:inline-flex;align-items:center;gap:4px;font-family:\'Space Grotesk\',sans-serif;font-size:11px;font-weight:800;cursor:pointer;background:transparent';
   const priceWidget=S.modalPriceEdit
-    ?`<span style="display:inline-flex;align-items:center;gap:4px">SAR&nbsp;<input id="modal-price-inp" type="number" min="0" step="0.5" value="${rider.price??DEFAULT_PRICE}" style="width:68px;padding:3px 8px;background:#1a1a1a;border:1px solid rgba(255,255,255,.2);border-radius:6px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;outline:none" onkeydown="if(event.key==='Enter')saveModalPrice('${rider.id}')"><button onclick="saveModalPrice('${rider.id}')" style="${_pbs};color:var(--green);border-color:rgba(3,255,137,.4)">${t('setBtnShort')}</button><button onclick="S.modalPriceEdit=false;renderModal()" style="${_pbs};color:var(--muted);border-color:rgba(255,255,255,.15)">✕</button></span>`
+    ?`<span style="display:inline-flex;align-items:center;gap:4px">SAR&nbsp;<input id="modal-price-inp" type="number" min="0" step="0.5" value="${rider.price??DEFAULT_PRICE}" style="width:68px;padding:3px 8px;background:#1a1a1a;border:1px solid rgba(255,255,255,.2);border-radius:6px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;outline:none" onkeydown="if(event.key==='Enter')saveModalPrice('${rider.id}')"><button onclick="saveModalPrice('${rider.id}')" style="${_pbs};color:var(--green);border-color:rgba(3,255,137,.4)">${t('setBtnShort')}</button><button onclick="S.modalPriceEdit=false;renderModal()" aria-label="${t('cancelBtn')}" style="${_pbs};color:var(--muted);border-color:rgba(255,255,255,.15)">✕</button></span>`
     :`<span onclick="S.modalPriceEdit=true;renderModal()" title="${t('editPriceTip')}" style="cursor:pointer;font-size:12px;font-weight:800;color:var(--muted-l);border-bottom:1px dashed rgba(255,255,255,.25);padding-bottom:1px">SAR ${rider.price??DEFAULT_PRICE} </span>`;
   const paySection=!rider.paid
     ?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(224,136,40,.1);border:1px solid rgba(224,136,40,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px">
@@ -7825,7 +7871,7 @@ function renderBikes(){
         <input id="bk-location" type="text" value="${esc(S._bkLocation==='__pending__'?'':S._bkLocation)}" placeholder="${t('addLocationLabel')}" style="flex:1"
           onkeydown="if(event.key==='Enter'){event.preventDefault();_bkLocationSave();}">
         <button class="btn-primary" style="padding:8px 14px;flex-shrink:0;white-space:nowrap" onclick="_bkLocationSave()">✓ ${t('saveBtn')||'Save'}</button>
-        <button class="btn-secondary" style="padding:8px 10px;flex-shrink:0" onclick="_bkLocationCancel()">✕</button>
+        <button class="btn-secondary" style="padding:8px 10px;flex-shrink:0" onclick="_bkLocationCancel()" aria-label="${t('cancelBtn')}">✕</button>
       </div>`
     :`<select id="bk-location" onchange="_bkLocationChange(this.value)">
         ${S.bkLocations.map(l=>`<option value="${esc(l)}"${l===S._bkLocation?' selected':''}>${esc(l)}</option>`).join('')}
@@ -7936,9 +7982,9 @@ function renderBikes(){
     const el=b.status==='in-use'&&user?rideElapsed(user.id):null;
     const riderCell=user
       ?`<div style="font-size:12px;font-weight:800;color:var(--text)">${esc(user.name)}</div>
-        <div style="font-size:11px;color:var(--blue);font-weight:700">#${user.queueNum}${el?` &nbsp;·&nbsp; <span style="color:var(--muted-l)">&#x23F1; ${el}</span>`:''}</div>`
+        <div style="font-size:11px;color:var(--blue);font-weight:700">#${user.queueNum}${el?` &nbsp;·&nbsp; <span style="color:var(--muted-l)">${el}</span>`:''}</div>`
       :orphaned
-        ?`<div style="font-size:11px;font-weight:700;color:#e08828">&#x26A0; ${t('noRiderAssigned')}</div>`
+        ?`<div style="font-size:11px;font-weight:700;color:#e08828">${t('noRiderAssigned')}</div>`
         :`<span style="color:var(--muted)">—</span>`;
     const rowBorderClr=orphaned?'rgba(224,136,40,.7)':b.status==='available'?'rgba(3,255,137,.45)':b.status==='in-use'?'rgba(74,168,248,.45)':'rgba(224,64,64,.45)';
     const rowBg=orphaned?'background:rgba(224,136,40,.06);':b.status==='in-use'?'background:rgba(74,168,248,.025);':isRetired?'background:rgba(224,64,64,.025);opacity:.75;':'';
@@ -8002,7 +8048,7 @@ function renderBikes(){
           <span style="color:${sclr};font-weight:700;font-size:12px">${b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):isRetiredG?t('retiredLabel'):t('maintLabel')}</span>
           ${el?`<span style="font-size:10px;color:var(--blue);font-weight:700;margin-left:2px"> ${el}</span>`:''}
         </div>
-        ${user?`<div style="font-size:11px;font-weight:700;color:var(--green)">&#x1F464; #${user.queueNum} ${esc(user.name)}</div>`:orphaned?`<div style="font-size:11px;font-weight:700;color:#e08828">&#x26A0; ${t('noRiderAssigned')}</div>`:''}
+        ${user?`<div style="font-size:11px;font-weight:700;color:var(--green)">#${user.queueNum} ${esc(user.name)}</div>`:orphaned?`<div style="font-size:11px;font-weight:700;color:#e08828">${t('noRiderAssigned')}</div>`:''}
         <div style="display:flex;flex-direction:column;gap:4px;margin-top:10px">
           <div style="display:flex;gap:4px">
             <button class="btn-sm btn-blue" style="flex:1" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
@@ -8261,6 +8307,14 @@ function setBkSearch(v){S.bkSearch=v;renderBikes();const inp=document.getElement
 function _todayISO(){return new Date().toLocaleDateString('en-CA');}
 // ── Weather (Open-Meteo: free, no API key, CORS-enabled) for the Jeddah Corniche ──
 const WEATHER_COORDS={lat:21.54,lon:39.17};
+// Monochrome SVG weather glyph (4 buckets: clear / cloud / storm / rain) - emoji-free, inherits currentColor.
+function _wxIcon(c){
+  const a='width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"';
+  if(c<=2)return`<svg ${a}><circle cx="12" cy="12" r="4"/><path d="M12 3v1M12 20v1M4 12H3M21 12h-1M5.6 5.6l.7.7M17.7 17.7l.7.7M18.4 5.6l-.7.7M6.3 17.7l-.7.7"/></svg>`;
+  if(c>=95)return`<svg ${a}><path d="M16 13a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.5 1.8A3.2 3.2 0 0 0 6 13"/><path d="M12 12l-2.5 4H13l-2.5 4"/></svg>`;
+  if(c<=48)return`<svg ${a}><path d="M16.5 18a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.8A3.4 3.4 0 0 0 6.5 18Z"/></svg>`;
+  return`<svg ${a}><path d="M16.5 15a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.8A3.4 3.4 0 0 0 6.5 15"/><path d="M8 18v2M12 18.5v2.5M16 18v2"/></svg>`;
+}
 async function fetchWeather(){
   try{
     const u=`https://api.open-meteo.com/v1/forecast?latitude=${WEATHER_COORDS.lat}&longitude=${WEATHER_COORDS.lon}&daily=temperature_2m_max,wind_speed_10m_max,weather_code&timezone=Asia%2FRiyadh&forecast_days=16`;
@@ -8279,7 +8333,7 @@ function weatherChip(dateStr){
   const hot=w.tmax>=40,windy=w.wind>=30,warn=hot||windy;
   const clr=warn?'var(--orange)':'var(--muted)';
   const tip=windy?t('wxWindy'):hot?t('wxHot'):'';
-  return`<div${tip?` title="${tip}"`:''} style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:${clr};margin-top:5px"><bdi>${w.tmax}°</bdi>${windy?` · <bdi>${w.wind} ${t('wxWind')}</bdi>`:''}</div>`;
+  return`<div${tip?` title="${tip}"`:''} style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:${clr};margin-top:5px"><span style="display:inline-flex">${_wxIcon(w.code)}</span><bdi>${w.tmax}°</bdi>${windy?` · <bdi>${w.wind} ${t('wxWind')}</bdi>`:''}</div>`;
 }
 function _bikeLifespan(b){
   const s=b.in_service_date||'',e=b.retired_date||'';
@@ -8442,7 +8496,7 @@ function _bkFieldHtml(id,val,addMode,list){
         style="flex:1"
         onkeydown="if(event.key==='Enter'){event.preventDefault();_bkOptSave('${id}');}">
       <button class="btn-primary" style="padding:8px 14px;flex-shrink:0;white-space:nowrap" onclick="_bkOptSave('${id}')">✓ ${t('saveBtn')||'Save'}</button>
-      <button class="btn-secondary" style="padding:8px 10px;flex-shrink:0" onclick="_bkOptCancel('${id}')">✕</button>
+      <button class="btn-secondary" style="padding:8px 10px;flex-shrink:0" onclick="_bkOptCancel('${id}')" aria-label="${t('cancelBtn')}">✕</button>
     </div>`;
   }
   const opts=list.map(v=>`<option value="${esc(v)}"${v===val?' selected':''}>${esc(v)}</option>`).join('');
@@ -8617,7 +8671,7 @@ function renderHistory(){
           <button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
             ${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}
           </button>
-          <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>
+          <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" aria-label="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:2px 4px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>
         </div>
       </td>
       <td>${statusBadge(e.status)}</td>
@@ -8641,8 +8695,8 @@ function renderHistory(){
         <div class="page-sub" style="margin-bottom:0">${t('historySub')}</div>
       </div>
       <div class="hist-action-btns" style="display:flex;gap:8px;align-items:center;flex-shrink:0">
-        <button class="btn-secondary" onclick="S.showHistLog=!S.showHistLog;renderHistory()" style="white-space:nowrap">&#x1F4CB; Log${S.histLog.length>0?` (${S.histLog.length})`:''}</button>
-        <button class="btn-secondary" onclick="exportHistoryCSV()" style="white-space:nowrap">&#x2B07; ${t('exportBtn')||'Export CSV'}</button>
+        <button class="btn-secondary" onclick="S.showHistLog=!S.showHistLog;renderHistory()" style="white-space:nowrap">Log${S.histLog.length>0?` (${S.histLog.length})`:''}</button>
+        <button class="btn-secondary" onclick="exportHistoryCSV()" style="white-space:nowrap">${ICON_EXPORT} ${t('exportBtn')||'Export CSV'}</button>
       </div>
     </div>
     ${S.showHistLog?`<div style="margin-bottom:20px;background:#1a1a1a;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px;max-height:240px;overflow-y:auto">
@@ -8906,7 +8960,7 @@ function _invSelHtml(id,value,addMode,options,addLabel){
       <input id="${id}" type="text" value="${esc(value==='__pending__'?'':value)}" placeholder="${addLabel}" style="flex:1"
         onkeydown="if(event.key==='Enter'){event.preventDefault();_invOptSave('${id}')}">
       <button class="btn-primary" style="padding:8px 12px;flex-shrink:0" onclick="_invOptSave('${id}')">✓</button>
-      <button class="btn-secondary" style="padding:8px 10px;flex-shrink:0" onclick="_invOptCancel('${id}')">✕</button>
+      <button class="btn-secondary" style="padding:8px 10px;flex-shrink:0" onclick="_invOptCancel('${id}')" aria-label="${t('cancelBtn')}">✕</button>
     </div>`;
   }
   return`<select id="${id}" onchange="_invSelChange('${id}',this.value)">
@@ -10131,6 +10185,7 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
     console.warn('Could not reach backend:',e.message);
   }
   _bootDone=true;_bootReadyAt=Date.now();
+  applyThemeIcon();
   const ls=document.getElementById('loading-screen');
   if(ls){ls.style.opacity='0';setTimeout(()=>{ls.style.display='none';},400);}
   S.loggedIn=getSession();
