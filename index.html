@@ -1715,7 +1715,7 @@ en:{
   regStep2Title:'Rider details',regStep2Msg:'Tell us who is riding and their bike preference.',
   regStep3Title:'Review & confirm',regStep3Msg:'Check everything below, then confirm your booking.',
   regBackBtn:'Back',regContinueBtn:'Continue',regReviewBtn:'Review booking',regConfirmBtn:'Confirm booking',regBookAnotherBtn:'Book another ride',
-  reviewSessionLabel:'Session',reviewRidersLabel:'Riders',reviewTotalLabel:'Total',bookedByLabel:'Booked by',
+  reviewSessionLabel:'Session',reviewRidersLabel:'Riders',reviewTotalLabel:'Total',reviewRentalLabel:'Rental',bookedByLabel:'Booked by',
   promoLabel:'Promo code',promoApplyBtn:'Apply',promoInvalidMsg:'Invalid or inactive code',promoAppliedMsg:'{0} applied',promoRemoveBtn:'Remove',promoDiscountLabel:'Discount',
   promoMgrTitle:'Promo Codes',promoCodeLabel:'Code',promoKindLabel:'Type',promoValueLabel:'Value',promoPercentOpt:'Percent (%)',promoFlatOpt:'Flat (SAR)',promoActiveLabel:'Active',promoInactiveLabel:'Inactive',promoAddBtn:'+ Add code',promoNoCodes:'No promo codes yet.',promoSavedToast:'Promo code saved',
   myCurrentRides:'Current & upcoming',myPastRides:'Past rides',noPastRides:'No completed rides yet.',noCurrentRides:'No upcoming bookings. Reserve a ride to get started.',
@@ -2060,7 +2060,7 @@ ar:{
   regStep2Title:'بيانات الراكب',regStep2Msg:'أخبرنا من سيركب وتفضيل الدراجة.',
   regStep3Title:'المراجعة والتأكيد',regStep3Msg:'تحقق من التفاصيل أدناه ثم أكّد حجزك.',
   regBackBtn:'رجوع',regContinueBtn:'متابعة',regReviewBtn:'مراجعة الحجز',regConfirmBtn:'تأكيد الحجز',regBookAnotherBtn:'حجز رحلة أخرى',
-  reviewSessionLabel:'الجلسة',reviewRidersLabel:'الركّاب',reviewTotalLabel:'الإجمالي',bookedByLabel:'حجز بواسطة',
+  reviewSessionLabel:'الجلسة',reviewRidersLabel:'الركّاب',reviewTotalLabel:'الإجمالي',reviewRentalLabel:'الإيجار',bookedByLabel:'حجز بواسطة',
   promoLabel:'رمز الخصم',promoApplyBtn:'تطبيق',promoInvalidMsg:'رمز غير صالح أو غير مفعّل',promoAppliedMsg:'تم تطبيق {0}',promoRemoveBtn:'إزالة',promoDiscountLabel:'الخصم',
   promoMgrTitle:'رموز الخصم',promoCodeLabel:'الرمز',promoKindLabel:'النوع',promoValueLabel:'القيمة',promoPercentOpt:'نسبة (%)',promoFlatOpt:'مبلغ ثابت (ريال)',promoActiveLabel:'مفعّل',promoInactiveLabel:'غير مفعّل',promoAddBtn:'+ إضافة رمز',promoNoCodes:'لا توجد رموز خصم بعد.',promoSavedToast:'تم حفظ رمز الخصم',
   myCurrentRides:'الحالية والقادمة',myPastRides:'الرحلات السابقة',noPastRides:'لا توجد رحلات مكتملة بعد.',noCurrentRides:'لا حجوزات قادمة. احجز رحلة للبدء.',
@@ -4035,6 +4035,7 @@ function renderRegister(){
   const totalMax=S.regBikeTypes.slice(0,S.regQty).reduce((s,ty)=>s+priceForTypeMax(ty||'Any'),0);
   const hasRange=S.regBikeTypes.slice(0,S.regQty).some(ty=>ty==='Any');
   const totalDisplay=hasRange?(totalMin===totalMax?`SAR ${totalMin}`:`SAR ${totalMin} - ${totalMax}`):`SAR ${totalMin.toFixed(2).replace(/\.00$/,'')}`;
+  const addonTotal=addonsCost(S.regAddons);
   const breakdown=S.regQty>1
     ?S.regBikeTypes.slice(0,S.regQty).map((ty,i)=>`${t('bike')} ${i+1}: ${priceDisplay(ty)}`).join(' &nbsp;&middot;&nbsp; ')
     :t('pricePerBike');
@@ -4186,19 +4187,42 @@ function renderRegister(){
           ${disc>0?`<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--green);margin-top:8px"><span>${t('promoDiscountLabel')} (${esc(S.promoApplied.code)})</span><span>- SAR ${disc}</span></div>`:''}
         </div>`;
       })()}
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:14px">
-        <div style="font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${t('reviewTotalLabel')}</div>
-        <div style="font-size:22px;font-weight:900;color:var(--green)">${(S.promoApplied&&!isModifyMode)?`SAR ${Math.max(0,Math.round((totalMin-_promoDiscount(totalMin))*100)/100)}`:totalDisplay}</div>
-      </div>
+      ${(()=>{
+        const _af=(S.promoApplied&&!isModifyMode)?Math.max(0,Math.round((totalMin-_promoDiscount(totalMin))*100)/100):null;
+        const rentalStr=_af!=null?`SAR ${_af}`:totalDisplay;
+        const grandStr=_af!=null
+          ?`SAR ${Math.round((_af+addonTotal)*100)/100}`
+          :(hasRange?(()=>{const lo=Math.round((totalMin+addonTotal)*100)/100,hi=Math.round((totalMax+addonTotal)*100)/100;return lo===hi?`SAR ${lo}`:`SAR ${lo} - ${hi}`;})():`SAR ${Math.round((totalMin+addonTotal)*100)/100}`);
+        return`${addonTotal>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;margin-top:12px"><span style="color:var(--muted)">${t('reviewRentalLabel')}</span><span style="font-weight:700">${rentalStr}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span style="color:var(--muted)">${t('addonsLabel')}</span><span style="font-weight:700">SAR ${addonTotal}</span></div>`:''}
+        <div style="display:flex;align-items:center;justify-content:space-between;${addonTotal>0?'border-top:1px solid var(--border);margin-top:6px;padding-top:8px':'margin-top:14px'}">
+          <div style="font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${t('reviewTotalLabel')}</div>
+          <div style="font-size:22px;font-weight:900;color:var(--green)">${grandStr}</div>
+        </div>`;
+      })()}
     </div>
-    ${(()=>{
+    ${isModifyMode?'':(()=>{
       const items=sessionAddonItems(selSess);
       if(!items.length)return'';
       return`<div class="form-section" style="margin-top:16px">
-        <div class="form-title"> ${t('addonStepTitle')}</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:10px">${t('addonStepSub')}</div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">
-          ${items.map(it=>{const sel=(S.regAddons||[]).includes(it.id);return`<button type="button" class="toggle-btn${sel?' active':''}" style="display:inline-flex;align-items:center;gap:8px" onclick="_toggleRegAddon('${it.id}')">${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:28px;height:28px;border-radius:6px;object-fit:cover;flex-shrink:0">`:''}<span>${esc(it.name)}${it.brand?' · '+esc(it.brand):''}${it.price!=null&&Number(it.price)>0?' · SAR '+Number(it.price):''}</span></button>`;}).join('')}
+        <div class="form-title">${t('addonStepTitle')}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${t('addonStepSub')}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px">
+          ${items.map(it=>{const qn=_regAddonQty(it.id);const stock=Number(it.qty)||0;return`<div style="border:1.5px solid ${qn>0?'var(--green)':'var(--border)'};border-radius:14px;overflow:hidden;background:var(--s1)">
+            ${it.photo?`<img src="${esc(it.photo)}" alt="${esc(it.name)}" style="width:100%;height:132px;object-fit:cover;display:block">`:`<div style="width:100%;height:132px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:12px;text-align:center;padding:8px">${esc(it.name)}</div>`}
+            <div style="padding:11px 12px">
+              <div style="font-weight:800;font-size:14px;line-height:1.2">${esc(it.name)}</div>
+              ${it.brand?`<div style="font-size:11px;color:var(--muted);margin-top:1px">${esc(it.brand)}</div>`:''}
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px">
+                <span style="font-weight:800;color:var(--green);font-size:14px">${it.price!=null?`SAR ${Number(it.price)}`:''}</span>
+                <div style="display:flex;align-items:center;gap:6px">
+                  <button type="button" onclick="_setRegAddonQty('${it.id}',-1)" ${qn<=0?'disabled':''} aria-label="−" style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-size:18px;font-weight:800;cursor:${qn<=0?'default':'pointer'};line-height:1;${qn<=0?'opacity:.4':''}">−</button>
+                  <span style="min-width:18px;text-align:center;font-weight:800">${qn}</span>
+                  <button type="button" onclick="_setRegAddonQty('${it.id}',1)" ${qn>=stock?'disabled':''} aria-label="+" style="width:30px;height:30px;border-radius:8px;border:1px solid ${qn>=stock?'var(--border)':'var(--green)'};background:${qn>=stock?'var(--s2)':'rgba(3,255,137,.12)'};color:${qn>=stock?'var(--muted)':'var(--green)'};font-size:18px;font-weight:800;cursor:${qn>=stock?'default':'pointer'};line-height:1;${qn>=stock?'opacity:.5':''}">+</button>
+                </div>
+              </div>
+            </div>
+          </div>`;}).join('')}
         </div>
       </div>`;
     })()}
@@ -4218,7 +4242,15 @@ function renderRegister(){
 }
 
 function regGoStep(n){S.regStep=n;renderRegister();try{window.scrollTo({top:0,behavior:'smooth'});}catch(e){}}
-function _toggleRegAddon(id){S.regAddons=S.regAddons||[];const i=S.regAddons.indexOf(id);if(i>=0)S.regAddons.splice(i,1);else S.regAddons.push(id);renderRegister();}
+function _regAddonQty(id){const a=(S.regAddons||[]).find(x=>(x&&typeof x==='object'?x.id:x)===id);return a?(typeof a==='object'?(Number(a.qty)||1):1):0;}
+function _setRegAddonQty(id,delta){
+  S.regAddons=(S.regAddons||[]).map(x=>(x&&typeof x==='object')?x:{id:x,qty:1});
+  const it=(S.inventory||[]).find(x=>x.id===id);const max=it?(Number(it.qty)||0):99;
+  let a=S.regAddons.find(x=>x.id===id);
+  if(!a){if(delta>0&&max>0)S.regAddons.push({id,qty:1});}
+  else{a.qty=Math.min(max,Math.max(0,a.qty+delta));if(a.qty<=0)S.regAddons=S.regAddons.filter(x=>x.id!==id);}
+  renderRegister();
+}
 function regNextFromSession(){
   if(!S.selSession){toast(t('errSelectSession'),'error');return;}
   S.regStep=2;renderRegister();try{window.scrollTo({top:0,behavior:'smooth'});}catch(e){}
@@ -4423,7 +4455,7 @@ async function submitReg(){
       const _aj=JSON.stringify(S.regAddons);
       try{await Promise.all(entries.map(e=>sb.from('queue_entries').update({addons:_aj}).eq('id',e.id)));}catch(e){}
       // Consume add-on stock once for the whole booking
-      if(bookingStatus!=='waitlist')await _addonStock(S.regAddons,-1);
+      if(bookingStatus!=='waitlist')await _addonStockQ(S.regAddons,-1);
     }
     // Record the promo code used (tolerant) so redemptions can be reported
     if(S.promoApplied&&S.promoApplied.code){const _pc=String(S.promoApplied.code);try{await Promise.all(entries.map(e=>sb.from('queue_entries').update({promo_code:_pc}).eq('id',e.id)));}catch(e){}}
@@ -4612,15 +4644,18 @@ function renderBookingTicket(entries,opts){
       ${riderRows}
       ${noShowMsg}
       ${(()=>{
-        const ids=(g.find(e=>e.addons&&e.addons.length)||{}).addons||[];
-        if(!ids.length)return'';
-        const names=ids.map(id=>{const it=(S.inventory||[]).find(x=>x.id===id);return it?it.name:null;}).filter(Boolean);
-        if(!names.length)return'';
-        return`<div style="padding:8px 0;border-top:1px dashed var(--border)"><span style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px"> ${t('addonsLabel')}</span><div style="font-size:13px;font-weight:700;margin-top:3px">${names.map(esc).join(', ')}</div></div>`;
+        const ad=addonLineItems(entryAddons(g.find(e=>entryAddons(e).length)||g[0]));
+        if(!ad.length)return'';
+        return`<div style="padding:10px 0;border-top:1px dashed var(--border)"><span style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${t('addonsLabel')}</span>
+          ${ad.map(a=>`<div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+            ${a.photo?`<img src="${esc(a.photo)}" alt="" style="width:30px;height:30px;border-radius:7px;object-fit:cover;flex-shrink:0">`:''}
+            <span style="flex:1;min-width:0;font-size:13px;font-weight:700">${esc(a.name)}${a.qty>1?` <span style="color:var(--muted)">×${a.qty}</span>`:''}</span>
+            <bdi style="font-weight:800;font-size:13px">SAR ${a.lineTotal}</bdi>
+          </div>`).join('')}</div>`;
       })()}
       <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 0">
         <span style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${t('reviewTotalLabel')}</span>
-        <span style="font-weight:900;font-size:18px;color:var(--green)">SAR ${total}</span>
+        <span style="font-weight:900;font-size:18px;color:var(--green)">SAR ${Math.round((total+addonsCost(entryAddons(g.find(e=>entryAddons(e).length)||g[0])))*100)/100}</span>
       </div>
     </div>
     <div style="padding:0 18px 16px">
@@ -4695,9 +4730,15 @@ function printRideReceipt(ids){
       <td>${paid}</td>
     </tr>`;
   }).join('');
-  const addonIds=(g.find(e=>e.addons&&e.addons.length)||{}).addons||[];
-  const addonNames=addonIds.map(id=>{const it=(S.inventory||[]).find(x=>x.id===id);return it?it.name:null;}).filter(Boolean);
-  const addonsHtml=addonNames.length?`<div class="addons"><strong> ${t('addonsLabel')}:</strong> ${addonNames.map(esc).join(', ')}</div>`:'';
+  const addonItems=addonLineItems(entryAddons(g.find(e=>entryAddons(e).length)||primary));
+  const addonTotal=addonItems.reduce((s,a)=>s+a.lineTotal,0);
+  const grandTotal=Math.round((total+addonTotal)*100)/100;
+  const addonsHtml=addonItems.length?`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:#666;font-weight:800;margin:14px 0 4px">${t('addonsLabel')}</div>
+    <table><tbody>${addonItems.map(a=>`<tr>
+      <td><div style="display:flex;align-items:center;gap:8px">${a.photo?`<img src="${esc(a.photo)}" alt="" style="width:30px;height:30px;border-radius:6px;object-fit:cover">`:''}<span>${esc(a.name)}${a.brand?` · ${esc(a.brand)}`:''}</span></div></td>
+      <td style="text-align:center;white-space:nowrap">×${a.qty}</td>
+      <td style="text-align:${ar?'left':'right'};white-space:nowrap">SAR ${a.lineTotal}</td>
+    </tr>`).join('')}</tbody></table>`:'';
   const html=`<!DOCTYPE html><html lang="${ar?'ar':'en'}" dir="${ar?'rtl':'ltr'}"><head><meta charset="UTF-8">
     <title>${t('receiptTitle')} ${esc(ref)}</title>
     <style>
@@ -4732,7 +4773,7 @@ function printRideReceipt(ids){
       <tbody>${rows}</tbody>
     </table>
     ${addonsHtml}
-    <div class="total"><span style="font-weight:800;text-transform:uppercase;font-size:12px;letter-spacing:.5px">${t('reviewTotalLabel')}</span><span class="num">SAR ${total}</span></div>
+    <div class="total"><span style="font-weight:800;text-transform:uppercase;font-size:12px;letter-spacing:.5px">${t('reviewTotalLabel')}</span><span class="num">SAR ${grandTotal}</span></div>
     <div class="foot">${t('receiptSeeYou')}<br><b>MicroMobility Team</b> · Corniche Circuit, Jeddah</div>
     <button onclick="window.print()" style="margin-top:22px;padding:10px 22px;background:#111;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">${t('receiptPrintBtn')}</button>
   </body></html>`;
@@ -5191,21 +5232,40 @@ function sessionAddonItems(sess){
   let ids=[];try{ids=sess.addons?(Array.isArray(sess.addons)?sess.addons:JSON.parse(sess.addons)):[];}catch(_){ids=[];}
   return ids.map(id=>(S.inventory||[]).find(it=>it.id===id)).filter(it=>it&&(Number(it.qty)||0)>0);
 }
-// The add-on ids attached to a booking (entries in one booking share the same addons array)
-function entryAddonIds(e){
-  if(!e)return[];
-  try{return Array.isArray(e.addons)?e.addons:(e.addons?JSON.parse(e.addons):[]);}catch(_){return[];}
+// A booking's add-ons normalized to [{id,qty}] (back-compat: legacy format was a flat [id] array)
+function entryAddons(e){
+  let raw=[];try{raw=e&&e.addons?(Array.isArray(e.addons)?e.addons:JSON.parse(e.addons)):[];}catch(_){raw=[];}
+  const out=[];
+  (raw||[]).forEach(a=>{
+    const id=(a&&typeof a==='object')?a.id:a;
+    const qty=(a&&typeof a==='object')?Math.max(1,Number(a.qty)||1):1;
+    if(!id)return;const ex=out.find(x=>x.id===id);if(ex)ex.qty+=qty;else out.push({id,qty});
+  });
+  return out;
 }
-// Tally add-ons across booking groups (each group = one booking, so add-ons are counted once per booking).
-// Returns {items:[{id,name,brand,units,value}], totalUnits, totalValue}
+// Flat list of add-on ids for a booking (back-compat helper)
+function entryAddonIds(e){return entryAddons(e).map(a=>a.id);}
+// Join add-ons to inventory -> [{id,qty,name,brand,photo,price,lineTotal}]
+function addonLineItems(arr){
+  return (arr||[]).map(a=>{
+    const id=(a&&typeof a==='object')?a.id:a;
+    const qty=(a&&typeof a==='object')?Math.max(1,Number(a.qty)||1):1;
+    const it=(S.inventory||[]).find(x=>x.id===id)||{};
+    const price=it.price!=null?Number(it.price):0;
+    return{id,qty,name:it.name||id,brand:it.brand||'',photo:it.photo||'',price,lineTotal:Math.round(price*qty*100)/100};
+  }).filter(a=>a.id);
+}
+// Total SAR cost of a set of add-ons
+function addonsCost(arr){return Math.round(addonLineItems(arr).reduce((s,a)=>s+a.lineTotal,0)*100)/100;}
+// Tally add-ons across booking groups (qty-aware). Returns {items:[{id,name,brand,units,value}], totalUnits, totalValue}
 function addonSalesFromGroups(groups){
   const tally={};let totalUnits=0,totalValue=0;
   (groups||[]).forEach(group=>{
-    entryAddonIds(group&&group[0]).forEach(id=>{
+    entryAddons(group&&group[0]).forEach(({id,qty})=>{
       const it=(S.inventory||[]).find(x=>x.id===id);
       const name=it?it.name:id,brand=it?(it.brand||''):'',price=(it&&it.price!=null)?Number(it.price):0;
       if(!tally[id])tally[id]={id,name,brand,units:0,value:0};
-      tally[id].units++;tally[id].value+=price;totalUnits++;totalValue+=price;
+      tally[id].units+=qty;tally[id].value+=price*qty;totalUnits+=qty;totalValue+=price*qty;
     });
   });
   return{items:Object.values(tally).sort((a,b)=>b.units-a.units||b.value-a.value),totalUnits,totalValue};
@@ -5219,21 +5279,31 @@ async function _addonStock(ids,delta){
     try{await sb.from('inventory').update({qty:q,updated_at:new Date().toISOString()}).eq('id',id);}catch(e){}
   }));
 }
+// Qty-aware stock adjustment for a booking's add-ons [{id,qty}] (sign -1 consume, +1 restock)
+async function _addonStockQ(arr,sign){
+  const norm=(arr||[]).map(a=>(a&&typeof a==='object')?{id:a.id,qty:Math.max(1,Number(a.qty)||1)}:{id:a,qty:1}).filter(a=>a.id);
+  if(!norm.length||!sb)return;
+  await Promise.all(norm.map(async({id,qty})=>{
+    const it=(S.inventory||[]).find(x=>x.id===id);if(!it)return;
+    const q=Math.max(0,(Number(it.qty)||0)+sign*qty);it.qty=q;
+    try{await sb.from('inventory').update({qty:q,updated_at:new Date().toISOString()}).eq('id',id);}catch(e){}
+  }));
+}
 // Restock a booking's add-ons once, only when its LAST active rider exits (cancel/no-show), so multi-rider bookings don't over-restock.
 async function _restockAddonsOnExit(entry){
-  const ids=entryAddonIds(entry);if(!ids.length)return;
+  const ad=entryAddons(entry);if(!ad.length)return;
   const gid=entry.customerId||entry.id;
   const stillActive=getQueue().filter(e=>(e.customerId||e.id)===gid&&e.sessionId===entry.sessionId&&e.id!==entry.id&&!['cancelled','removed','noshow'].includes(e.status));
-  if(stillActive.length===0)await _addonStock(ids,1);
+  if(stillActive.length===0)await _addonStockQ(ad,1);
 }
 // Inverse of _restockAddonsOnExit: reserve a booking's add-on stock once when one of its riders enters a
 // confirmed state (waitlist promotion, undo no-show, undo cancel) and is the booking's first confirmed rider.
 // Waitlist bookings never reserve stock, so this is the point where a promoted booking finally consumes it.
 async function _consumeAddonsOnEnter(entry){
-  const ids=entryAddonIds(entry);if(!ids.length)return;
+  const ad=entryAddons(entry);if(!ad.length)return;
   const gid=entry.customerId||entry.id;
   const otherConfirmed=getQueue().filter(e=>(e.customerId||e.id)===gid&&e.sessionId===entry.sessionId&&e.id!==entry.id&&['waiting','active','done'].includes(e.status));
-  if(otherConfirmed.length===0)await _addonStock(ids,-1);
+  if(otherConfirmed.length===0)await _addonStockQ(ad,-1);
 }
 
 
@@ -6733,7 +6803,7 @@ async function rescheduleBooking(fromSessionId,toSessionId){
   const wasAllWaitlist=moving.every(e=>e.status==='waitlist');
   await Promise.all(sorted.map((e,i)=>sb.from('queue_entries').update({session_id:toSessionId,session_day:newSess.day,session_date:newSess.session_date||toSessionId,queue_num:base+i,status:'waiting'}).eq('id',e.id)));
   await loadData();
-  if(wasAllWaitlist)await _addonStock(entryAddonIds(moving[0]),-1); // waitlist booking became confirmed in the new session
+  if(wasAllWaitlist)await _addonStockQ(entryAddons(moving[0]),-1); // waitlist booking became confirmed in the new session
   toast(t('toastRescheduled'));
   renderMyRides();
 }
@@ -7332,7 +7402,7 @@ function exportSessionExcel(){
     const payLabel=allPaid?t('paidLabel'):somePaid?t('repPayPartial'):t('pendingLabel');
     const topStatus=group.slice().sort((a,b)=>(statusPriority[a.status]??5)-(statusPriority[b.status]??5))[0].status;
     const types=[...new Set(group.map(x=>resolvedType(x)).filter(Boolean))].join(', ')||'—';
-    const addonNames=entryAddonIds(lead).map(id=>{const it=(S.inventory||[]).find(x=>x.id===id);return it?it.name:id;}).join('; ')||'—';
+    const addonNames=entryAddons(lead).map(a=>{const it=(S.inventory||[]).find(x=>x.id===a.id);return (it?it.name:a.id)+(a.qty>1?` ×${a.qty}`:'');}).join('; ')||'—';
     return[qNums,lead.name,lead.phone||'',lead.email||'',types,bikes,totalPrice,addonNames,payLabel,reportStatusLabel(topStatus)];
   });
   // Append an add-on sales summary block below the bookings
