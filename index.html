@@ -1575,6 +1575,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 <div id="confirm-modal"    style="display:none"></div>
 <div id="rate-modal"       style="display:none"></div>
 <div id="cust-modal"       style="display:none"></div>
+<div id="cashier-modal"    style="display:none"></div>
 <div id="help-modal"       style="display:none"></div>
 <div id="cancel-reason-modal" style="display:none"></div>
 <div id="factory-reset-modal" style="display:none"></div>
@@ -1792,6 +1793,7 @@ en:{
   sessionAddonsLabel:'Add-ons offered',sessionAddonsHint:'inventory items customers can add to a booking',addonStepTitle:'Add on your booking',addonStepSub:'Optional extras available for this session',addonNone:'No add-ons available for this session.',addonsLabel:'Add-ons',addonsSelectedToast:'Add-ons saved with your booking',
   nsSelectAll:'Select all',nsClear:'Clear',nsSelectAllBikes:'Select all bikes',
   invTitle:'Inventory',invSub:'Helmets, accessories and spare-part stock.',invAddBtn:'+ Add item',invItemName:'Item',invCategory:'Category',invQty:'In stock',invLowAt:'Low-stock at',invPrice:'Price (SAR)',invLowStock:'Low stock',invOutStock:'Out of stock',invInStock:'In stock',invLowAlert:'{0} item(s) need restocking',invNoItems:'No inventory items yet. Add helmets, locks, accessories or spare parts.',invSaved:'Inventory updated',catHelmet:'Helmet',catAccessory:'Accessory',catSparePart:'Spare part',catApparel:'Apparel',catOther:'Other',catProteinGummies:'Protein Gummies',catElectrolyteSachets:'Electrolyte Sachets',catEnergyGels:'Energy Gels',
+  cashierTitle:'Cashier',cashierSub:'Items sold with this rental',cashierAddBtn:'Add purchase',cashCustomOpt:'Custom item…',cashAmtLabel:'Unit price (SAR)',cashQtyLabel:'Qty',cashPayLabel:'Payment',cashRingUp:'Add to sale',cashNoSales:'No purchases yet.',cashVoid:'Void',cashDone:'Done',cashAddedToast:'Sale recorded',cashVoidedToast:'Purchase voided',cashSelectItem:'Choose an item',cashNameLabel:'Item name',cashAmtRequired:'Enter a valid amount',cashSalesTitle:'Cashier sales',cashValue:'Sales value',cashQtyCol:'Qty sold',
   invBrand:'Brand',invNoBrand:'No brand',addCustomCatLabel:'Add custom category...',addCustomBrandLabel:'Add brand...',
   invSecBikes:'Bikes',invSecEquipment:'Equipment',invSecSupplements:'Supplements & Beverages',invManageBikes:'Manage in Bikes tab',invBikesTotal:'Fleet',
   commTitle:'Community',commSub:'Rider leaderboard.',commLeaderboard:'Leaderboard',commEvents:'Upcoming rides',commRank:'Rank',commRider:'Rider',commRides:'rides',commNoLeaders:'No completed rides yet.',commNoEvents:'No upcoming sessions scheduled.',commTopRiders:'Top riders by completed rides',commSpotsLeft:'{0} spots left',
@@ -2133,6 +2135,7 @@ ar:{
   branchLabel:'الفرع',allBranchesLabel:'كل الفروع',sessionBranchLabel:'الموقع / الفرع',
   nsSelectAll:'تحديد الكل',nsClear:'مسح',nsSelectAllBikes:'تحديد كل الدراجات',
   invTitle:'المخزون',invSub:'الخوذ والإكسسوارات وقطع الغيار.',invAddBtn:'+ إضافة عنصر',invItemName:'العنصر',invCategory:'الفئة',invQty:'المتوفر',invLowAt:'تنبيه عند',invPrice:'السعر (ريال)',invLowStock:'مخزون منخفض',invOutStock:'نفد المخزون',invInStock:'متوفر',invLowAlert:'{0} عنصر بحاجة لإعادة تخزين',invNoItems:'لا توجد عناصر بعد. أضف الخوذ والأقفال والإكسسوارات أو قطع الغيار.',invSaved:'تم تحديث المخزون',catHelmet:'خوذة',catAccessory:'إكسسوار',catSparePart:'قطعة غيار',catApparel:'ملابس',catOther:'أخرى',catProteinGummies:'علكة بروتين',catElectrolyteSachets:'أكياس إلكتروليت',catEnergyGels:'جل طاقة',
+  cashierTitle:'الكاشير',cashierSub:'العناصر المباعة مع هذا الإيجار',cashierAddBtn:'إضافة عملية بيع',cashCustomOpt:'عنصر مخصص…',cashAmtLabel:'سعر الوحدة (ريال)',cashQtyLabel:'الكمية',cashPayLabel:'الدفع',cashRingUp:'إضافة للبيع',cashNoSales:'لا توجد مشتريات بعد.',cashVoid:'إلغاء',cashDone:'تم',cashAddedToast:'تم تسجيل البيع',cashVoidedToast:'تم إلغاء العملية',cashSelectItem:'اختر عنصراً',cashNameLabel:'اسم العنصر',cashAmtRequired:'أدخل مبلغاً صحيحاً',cashSalesTitle:'مبيعات الكاشير',cashValue:'قيمة المبيعات',cashQtyCol:'الكمية المباعة',
   invBrand:'العلامة التجارية',invNoBrand:'بدون علامة',addCustomCatLabel:'إضافة فئة مخصصة...',addCustomBrandLabel:'إضافة علامة...',
   invSecBikes:'الدراجات',invSecEquipment:'المعدات',invSecSupplements:'المكمّلات والمشروبات',invManageBikes:'الإدارة في تبويب الدراجات',invBikesTotal:'الأسطول',
   commTitle:'المجتمع',commSub:'لوحة متصدّري الركّاب.',commLeaderboard:'المتصدرون',commEvents:'الرحلات القادمة',commRank:'الترتيب',commRider:'الراكب',commRides:'رحلات',commNoLeaders:'لا توجد رحلات مكتملة بعد.',commNoEvents:'لا توجد جلسات قادمة.',commTopRiders:'أفضل الركّاب حسب الرحلات المكتملة',commSpotsLeft:'{0} مقاعد متبقية',
@@ -2578,6 +2581,7 @@ const S={
   promoCodes:[],promoApplied:null,_promoMsg:'',
   _pcCode:'',_pcKind:'percent',_pcValue:'',
   inventory:[],showAddInv:false,editInvId:null,_invName:'',_invCat:'Helmet',_invQty:'',_invLow:'',_invPrice:'',_invPhoto:'',invSection:'bikes',
+  _cashEntry:null,_cashItem:'',_cashQty:'1',_cashAmt:'',_cashName:'',_cashCat:'Helmet',_cashPay:'paid',
   invView:(()=>{try{return localStorage.getItem('cq_inv_view')==='table'?'table':'grid';}catch(e){return'grid';}})(),
   _invBrand:'',_invCatAdd:false,_invBrandAdd:false,
   invCatsEquip:(()=>{try{return JSON.parse(localStorage.getItem('cq_inv_cats_eq'))||[];}catch(e){return[];}})(),
@@ -2683,7 +2687,8 @@ function entryFromDB(e){
     rideDuration:e.ride_duration||null,
     ratingBike:e.rating_bike||null,ratingExp:e.rating_exp||null,feedback:e.feedback||null,
     promoCode:e.promo_code||null,
-    addons:(()=>{try{return e.addons?(Array.isArray(e.addons)?e.addons:JSON.parse(e.addons)):[];}catch(_){return[];}})()};
+    addons:(()=>{try{return e.addons?(Array.isArray(e.addons)?e.addons:JSON.parse(e.addons)):[];}catch(_){return[];}})(),
+    purchases:(()=>{try{return e.purchases?(Array.isArray(e.purchases)?e.purchases:JSON.parse(e.purchases)):[];}catch(_){return[];}})()};
 }
 function entryToDB(e){
   return{id:e.id,name:e.name,email:e.email||'',phone:e.phone||'',
@@ -6007,7 +6012,7 @@ function renderStaffQueue(){
   function _entryActions(e){
     if(e.status==='waitlist')return`<button class="btn-sm btn-green" onclick="promoteWaitlist('${e.id}')">${ICON_PROMOTE} ${t('promoteBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
     if(e.status==='waiting')return`${_bulkChk(e)}${_reorderBtns(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
-    if(e.status==='active')return`${_bulkChk(e)}<button class="btn-sm btn-blue" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
+    if(e.status==='active')return`${_bulkChk(e)}<button class="btn-sm btn-blue" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="showCashierModal('${e.id}')">${t('cashierAddBtn')}</button><button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
     if(e.status==='done')return`<button class="btn-sm btn-blue" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
     if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
     return`<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
@@ -6898,6 +6903,7 @@ function showReturnPayModal(id){
         <span style="color:var(--muted-l);font-size:14px">SAR ${entry.price??DEFAULT_PRICE} ${t('pendingLabel')}</span>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn-secondary" style="width:100%" onclick="showCashierModal('${id}')">${t('cashierAddBtn')}</button>
         <button class="btn-primary" style="width:100%" onclick="closeReturnPayModal();_execReturn('${id}',true)">✓ ${t('returnMarkPaidBtn')}</button>
         <button style="width:100%;padding:10px 16px;border-radius:12px;background:rgba(224,136,40,.12);border:1.5px solid rgba(224,136,40,.4);color:#e08828;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:800;cursor:pointer" onclick="closeReturnPayModal();_execReturn('${id}',false)"> ${t('returnPendingBtn')}</button>
         <button style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:'Space Grotesk',sans-serif" onclick="closeReturnPayModal()">${t('cancelBtn')}</button>
@@ -7273,7 +7279,13 @@ function exportSessionExcel(){
   const summary=addonSales.totalUnits>0?[[],[t('repAddon'),t('repBrand'),t('repBookings'),t('repValueSar')],
     ...addonSales.items.map(a=>[a.name,a.brand||'',a.units,a.value]),
     [t('repTotal'),'',addonSales.totalUnits,addonSales.totalValue]]:[];
-  const csv=[headers,...rows,...summary].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  // Cashier sales for the session, grouped by inventory category
+  const sessPurch=_purchaseTotals(getQueue().filter(e=>e.sessionId===sessId));
+  const cashRows=sessPurch.units>0?[[],[t('cashSalesTitle')],[t('invCategory'),t('cashQtyCol'),t('repValueSar')],
+    ...sessPurch.cats.map(c=>[_invCatLabel(c.cat),c.qty,c.value]),
+    [t('repTotal'),sessPurch.units,sessPurch.value],
+    [t('printCollected'),'',sessPurch.collected],[t('printPending'),'',sessPurch.pending]]:[];
+  const csv=[headers,...rows,...summary,...cashRows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
   const filename=`report_${dayLabel(sess.day)}_${sess.session_date||sess.id}.csv`;
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
@@ -7304,6 +7316,7 @@ function printSessionReport(){
     }
   }
   const addonSales=addonSalesFromGroups(groups);
+  const sessPurch=_purchaseTotals(getQueue().filter(e=>e.sessionId===sessId));
   const rows=groups.map(group=>{
     const lead=group[0];
     const qNums=group.map(x=>`#${x.queueNum}`).join(', ');
@@ -7352,6 +7365,7 @@ function printSessionReport(){
       <div class="total-item"><span class="total-num">${entries.length}</span><span class="total-lbl">${t('printTotalRiders')}</span></div>
       <div class="total-item"><span class="total-num" style="color:#16a34a">SAR ${paidSAR}</span><span class="total-lbl">${t('printCollected')}</span></div>
       ${addonSales.totalUnits>0?`<div class="total-item"><span class="total-num" style="color:#2563eb">SAR ${addonSales.totalValue}</span><span class="total-lbl">${t('repAddonValue')} (${addonSales.totalUnits})</span></div>`:''}
+      ${sessPurch.value>0?`<div class="total-item"><span class="total-num" style="color:#7c3aed">SAR ${sessPurch.value}</span><span class="total-lbl">${t('cashValue')} (${sessPurch.units})</span></div>`:''}
     </div>
     <table>
       <thead><tr><th>${t('colQueueNum')}</th><th>${t('nameLabel')}</th><th>${t('repColType')}</th><th>${t('colBike')}</th><th>${t('repColPhone')}</th><th>${t('repColEmail')}</th><th>${t('paidLabel')}</th><th>${t('colStatus')}</th></tr></thead>
@@ -7365,6 +7379,15 @@ function printSessionReport(){
         <tr style="font-weight:800"><td>${t('repTotal')}</td><td></td><td>${addonSales.totalUnits}</td><td>SAR ${addonSales.totalValue}</td></tr>
       </tbody>
     </table>`:''}
+    ${sessPurch.units>0?`
+    <h2 style="font-size:15px;font-weight:800;margin:24px 0 8px">${t('cashSalesTitle')}</h2>
+    <table>
+      <thead><tr><th>${t('invCategory')}</th><th>${t('cashQtyCol')}</th><th>${t('repValueSar')}</th></tr></thead>
+      <tbody>${sessPurch.cats.map(c=>`<tr><td>${esc(_invCatLabel(c.cat))}</td><td>${c.qty}</td><td>SAR ${c.value}</td></tr>`).join('')}
+        <tr style="font-weight:800"><td>${t('repTotal')}</td><td>${sessPurch.units}</td><td>SAR ${sessPurch.value}</td></tr>
+      </tbody>
+    </table>
+    <div style="margin-top:8px;font-size:12px;color:#444">${t('printCollected')}: <strong style="color:#16a34a">SAR ${sessPurch.collected}</strong> &nbsp;·&nbsp; ${t('printPending')}: <strong style="color:#b45309">SAR ${sessPurch.pending}</strong></div>`:''}
     <br><button onclick="window.print()" style="margin-top:16px;padding:8px 20px;background:#111;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700">${t('repPrintNow')}</button>
   </body></html>`;
   const w=window.open('','_blank','width=1100,height=720');
@@ -7706,7 +7729,7 @@ function renderModal(){
       ${fleetLine}
       ${cards}
       ${addBikeToggle}
-      <div class="modal-footer"><button class="btn-secondary" onclick="closeModal()">${t('cancelBtn')}</button></div>
+      <div class="modal-footer" style="display:flex;gap:10px;justify-content:space-between"><button class="btn-secondary" onclick="showCashierModal('${rider.id}')">${t('cashierAddBtn')}</button><button class="btn-secondary" onclick="closeModal()">${t('cancelBtn')}</button></div>
     </div>
   </div>`;
 }
@@ -8953,6 +8976,126 @@ const SUPP_CATS=['ProteinGummies','ElectrolyteSachets','EnergyGels'];
 const INV_CATS=[...EQUIP_CATS,...SUPP_CATS];
 function _invSecOf(cat){return SUPP_CATS.includes(cat)?'supplements':'equipment';}
 function _invCatLabel(c){return{Helmet:t('catHelmet'),Accessory:t('catAccessory'),ProteinGummies:t('catProteinGummies'),ElectrolyteSachets:t('catElectrolyteSachets'),EnergyGels:t('catEnergyGels'),SparePart:t('catSparePart'),Apparel:t('catApparel'),Other:t('catOther')}[c]||c;}
+// ── Cashier: per-rental purchases (items sold at assignment / checkout), categorized like inventory ──
+function entryPurchases(e){
+  if(!e)return[];
+  try{return Array.isArray(e.purchases)?e.purchases:(e.purchases?JSON.parse(e.purchases):[]);}catch(_){return[];}
+}
+// Aggregate purchases across a set of entries -> category breakdown + collected/pending/free totals
+function _purchaseTotals(entries){
+  const byCat={};let units=0,value=0,collected=0,pending=0,free=0;
+  (entries||[]).forEach(e=>entryPurchases(e).forEach(p=>{
+    const q=Number(p.qty)||0,lineVal=q*(Number(p.price)||0),cat=p.cat||'Other';
+    if(!byCat[cat])byCat[cat]={cat,qty:0,value:0};
+    byCat[cat].qty+=q;byCat[cat].value+=lineVal;units+=q;value+=lineVal;
+    if(p.pay==='paid')collected+=lineVal;else if(p.pay==='house')free+=lineVal;else pending+=lineVal;
+  }));
+  return{cats:Object.values(byCat).sort((a,b)=>b.value-a.value),units,value:Math.round(value*100)/100,collected:Math.round(collected*100)/100,pending:Math.round(pending*100)/100,free:Math.round(free*100)/100};
+}
+function _cashPayBadge(pay){
+  if(pay==='house')return`<span style="color:var(--muted-l);font-weight:700">${t('onTheHouseLabel')}</span>`;
+  if(pay==='pending')return`<span style="color:var(--orange);font-weight:700">${t('pendingLabel')}</span>`;
+  return`<span style="color:var(--green);font-weight:700">${t('paidLabel')}</span>`;
+}
+function showCashierModal(id){
+  const e=getQueue().find(x=>x.id===id);if(!e)return;
+  S._cashEntry=id;S._cashItem='';S._cashQty='1';S._cashAmt='';S._cashName='';S._cashCat='Other';S._cashPay='paid';
+  renderCashierModal();
+}
+function closeCashierModal(){const m=document.getElementById('cashier-modal');if(m){m.style.display='none';m.innerHTML='';}S._cashEntry=null;}
+// Field setter; picking an inventory item prefills its price + category
+function _cashSet(k,v){
+  S[k]=v;
+  if(k==='_cashItem'){
+    const it=(S.inventory||[]).find(x=>x.id===v);
+    if(it){S._cashName=it.name;S._cashCat=it.category||'Other';if(it.price!=null)S._cashAmt=String(it.price);}
+    else if(v==='__custom__'){S._cashName='';S._cashCat=INV_CATS[0]||'Other';}
+  }
+  renderCashierModal();
+}
+async function _cashAddLine(){
+  const e=getQueue().find(x=>x.id===S._cashEntry);if(!e)return;
+  const isCustom=S._cashItem==='__custom__';
+  const it=isCustom?null:(S.inventory||[]).find(x=>x.id===S._cashItem);
+  const name=isCustom?(S._cashName||'').trim():(it?it.name:'');
+  if(!S._cashItem||(isCustom&&!name)){toast(t('cashSelectItem'),'error');return;}
+  const qty=Math.max(1,parseInt(S._cashQty)||1);
+  const price=parseFloat(S._cashAmt);
+  if(isNaN(price)||price<0){toast(t('cashAmtRequired'),'error');return;}
+  const cat=isCustom?(S._cashCat||'Other'):(it?(it.category||'Other'):'Other');
+  const line={id:it?it.id:null,name,cat,qty,price:Math.round(price*100)/100,pay:S._cashPay,at:new Date().toISOString()};
+  const next=[...entryPurchases(e),line];
+  e.purchases=next;
+  try{await sb.from('queue_entries').update({purchases:JSON.stringify(next)}).eq('id',e.id);}catch(_){}
+  if(it)await _addonStock([it.id],-qty); // point-of-sale: decrement inventory stock by quantity sold
+  S._cashItem='';S._cashQty='1';S._cashAmt='';S._cashName='';S._cashCat='Other'; // keep payment selection
+  logAction(`${t('cashierTitle')}: ${name} ×${qty} - #${e.queueNum} ${e.name}`);
+  toast(t('cashAddedToast'));
+  renderCashierModal();
+  if(S.view==='staff')renderStaffQueue();
+}
+async function _cashVoid(i){
+  const e=getQueue().find(x=>x.id===S._cashEntry);if(!e)return;
+  const arr=entryPurchases(e);const line=arr[i];if(!line)return;
+  const next=arr.filter((_,idx)=>idx!==i);
+  e.purchases=next;
+  try{await sb.from('queue_entries').update({purchases:JSON.stringify(next)}).eq('id',e.id);}catch(_){}
+  if(line.id)await _addonStock([line.id],Number(line.qty)||1); // void restocks inventory items
+  toast(t('cashVoidedToast'));
+  renderCashierModal();
+  if(S.view==='staff')renderStaffQueue();
+}
+function renderCashierModal(){
+  const e=getQueue().find(x=>x.id===S._cashEntry);if(!e){closeCashierModal();return;}
+  const purchases=entryPurchases(e);
+  const tot=Math.round(purchases.reduce((s,p)=>s+(Number(p.qty)||0)*(Number(p.price)||0),0)*100)/100;
+  const invItems=(S.inventory||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const isCustom=S._cashItem==='__custom__';
+  const _inp='padding:9px 11px;border-radius:9px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-family:inherit;font-size:13px;width:100%';
+  const lines=purchases.length?purchases.map((p,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px">${esc(p.name)}${Number(p.qty)>1?` <span style="color:var(--muted)">×${p.qty}</span>`:''}</div>
+        <div style="font-size:11px;color:var(--muted)">${esc(_invCatLabel(p.cat))} · ${_cashPayBadge(p.pay)}</div>
+      </div>
+      <div style="font-weight:800;white-space:nowrap"><bdi>SAR ${Math.round((Number(p.qty)||0)*(Number(p.price)||0)*100)/100}</bdi></div>
+      <button class="btn-sm btn-muted" onclick="_cashVoid(${i})" aria-label="${t('cashVoid')}">${t('cashVoid')}</button>
+    </div>`).join(''):`<div class="empty-state" style="padding:18px">${t('cashNoSales')}</div>`;
+  const payBtn=(val,label)=>`<button onclick="_cashSet('_cashPay','${val}')" style="flex:1;padding:9px;border-radius:9px;border:1.5px solid ${S._cashPay===val?'var(--green)':'var(--border)'};background:${S._cashPay===val?'rgba(3,255,137,.12)':'transparent'};color:${S._cashPay===val?'var(--green)':'var(--muted)'};font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">${label}</button>`;
+  const m=document.getElementById('cashier-modal');m.style.display='flex';
+  m.innerHTML=`<div class="modal-backdrop" style="z-index:250" onclick="if(event.target===this)closeCashierModal()">
+    <div class="modal-box" role="dialog" aria-modal="true" style="max-width:440px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:2px">
+        <div class="modal-title" style="margin-bottom:0">${t('cashierTitle')}</div>
+        <button onclick="closeCashierModal()" aria-label="${t('cashDone')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 2px">&times;</button>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${t('cashierSub')} · <strong style="color:var(--text)">#${e.queueNum} ${esc(e.name)}</strong></div>
+      <div style="margin-bottom:14px">${lines}
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0 2px;border-top:2px solid var(--border);margin-top:4px;font-weight:900">
+          <span>${t('repTotal')}</span><span style="color:var(--green)"><bdi>SAR ${tot}</bdi></span>
+        </div>
+      </div>
+      <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:13px;display:flex;flex-direction:column;gap:9px">
+        <select onchange="_cashSet('_cashItem',this.value)" style="${_inp}">
+          <option value="">${t('cashSelectItem')}</option>
+          ${invItems.map(it=>`<option value="${it.id}"${S._cashItem===it.id?' selected':''}>${esc(it.name)} (${esc(_invCatLabel(it.category))}${it.price!=null?`, SAR ${it.price}`:''})</option>`).join('')}
+          <option value="__custom__"${isCustom?' selected':''}>${t('cashCustomOpt')}</option>
+        </select>
+        ${isCustom?`<input type="text" value="${esc(S._cashName)}" oninput="S._cashName=this.value" placeholder="${t('cashNameLabel')}" style="${_inp}">
+        <select onchange="_cashSet('_cashCat',this.value)" style="${_inp}">${INV_CATS.map(c=>`<option value="${c}"${S._cashCat===c?' selected':''}>${esc(_invCatLabel(c))}</option>`).join('')}</select>`:''}
+        <div style="display:flex;gap:9px">
+          <div style="flex:1"><label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${t('cashQtyLabel')}</label>
+            <input type="number" min="1" value="${esc(S._cashQty)}" oninput="S._cashQty=this.value" style="${_inp}"></div>
+          <div style="flex:2"><label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${t('cashAmtLabel')}</label>
+            <input type="number" min="0" step="0.5" value="${esc(S._cashAmt)}" oninput="S._cashAmt=this.value" placeholder="0" style="${_inp}"></div>
+        </div>
+        <div><label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${t('cashPayLabel')}</label>
+          <div style="display:flex;gap:7px;margin-top:4px">${payBtn('paid',t('paidLabel'))}${payBtn('pending',t('pendingLabel'))}${payBtn('house',t('onTheHouseLabel'))}</div></div>
+        <button class="btn-primary" style="width:100%;margin-top:2px" onclick="_cashAddLine()">${t('cashRingUp')}</button>
+      </div>
+      <div class="modal-footer"><button class="btn-secondary" onclick="closeCashierModal()">${t('cashDone')}</button></div>
+    </div>
+  </div>`;
+}
 // Inventory category/brand dropdowns with a custom-add button
 function _invSelHtml(id,value,addMode,options,addLabel){
   if(addMode){

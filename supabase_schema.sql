@@ -116,6 +116,9 @@ create table if not exists queue_entries (
 -- alter table queue_entries add column if not exists rating_bike integer;
 -- alter table queue_entries add column if not exists rating_exp integer;
 -- alter table queue_entries add column if not exists feedback text;
+-- alter table queue_entries add column if not exists addons text;     -- selected add-on item ids per booking
+-- alter table queue_entries add column if not exists promo_code text; -- promo code applied to the booking
+-- alter table queue_entries add column if not exists purchases text;  -- JSON array of cashier purchases sold with the rental (cashier system)
 
 -- Promo codes (staff-defined discounts applied at checkout)
 create table if not exists promo_codes (
