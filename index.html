@@ -38,6 +38,21 @@
     :root[data-theme="light"] .modal-box{box-shadow:0 18px 56px rgba(0,0,0,.22);}
     :root[data-theme="light"] .topbar-btn,:root[data-theme="light"] .lang-toggle{background:rgba(0,0,0,.04);border-color:rgba(0,0,0,.14);}
     :root[data-theme="light"] input,:root[data-theme="light"] select,:root[data-theme="light"] textarea{background:#fff;border-color:rgba(0,0,0,.2);color:var(--text);}
+    /* High-contrast mode - pure black on white, heavy borders, for direct sun */
+    :root[data-theme="hc"]{
+      --bg:#ffffff; --s1:#ffffff; --s2:#ffffff; --s3:#eaeeea;
+      --green:#04612f; --green-h:#03562a; --green-d:#024524;
+      --red:#a90000; --orange:#7e3d00; --blue:#0a4699; --purple:#4f1f99;
+      --text:#000000; --muted:#1c1f1a; --muted-l:#2b2f27; --border:rgba(0,0,0,.55);
+      --accent2:rgba(4,97,47,.7); --warn:rgba(0,0,0,.7);
+    }
+    :root[data-theme="hc"] body{background-image:none;font-weight:500;}
+    :root[data-theme="hc"] .btn-primary,:root[data-theme="hc"] .btn-green,:root[data-theme="hc"] .btn-blue{color:#fff;}
+    :root[data-theme="hc"] .card,:root[data-theme="hc"] .modal-box{border-color:#000;}
+    :root[data-theme="hc"] input,:root[data-theme="hc"] select,:root[data-theme="hc"] textarea{background:#fff;border-color:#000;color:#000;}
+    :root[data-theme="hc"] .topbar-btn,:root[data-theme="hc"] .lang-toggle{background:#fff;border-color:#000;color:#000;}
+    :root[data-theme="hc"] .tab-btn{color:#1c1f1a;}
+    :root[data-theme="hc"] .tab-btn.active{border-bottom-width:3px;}
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;-webkit-font-smoothing:antialiased;
       background-image:radial-gradient(ellipse 80% 50% at 50% -10%, rgba(3,255,137,.05), transparent 60%);}
@@ -1438,7 +1453,7 @@
     .booth-popup-title{font-size:20px;font-weight:900;margin-bottom:10px;}
     .booth-popup-msg{font-size:14px;font-weight:600;color:var(--muted-l);line-height:1.7;}
   </style>
-<script>try{if(localStorage.getItem('cq_theme')==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}</script>
+<script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
 <div id="loading-screen">
@@ -1800,7 +1815,7 @@ en:{
   nsSelectAll:'Select all',nsClear:'Clear',nsSelectAllBikes:'Select all bikes',
   invTitle:'Inventory',invSub:'Helmets, accessories and spare-part stock.',invAddBtn:'+ Add item',invItemName:'Item',invCategory:'Category',invQty:'In stock',invLowAt:'Low-stock at',invPrice:'Price (SAR)',invLowStock:'Low stock',invOutStock:'Out of stock',invInStock:'In stock',invLowAlert:'{0} item(s) need restocking',invNoItems:'No inventory items yet. Add helmets, locks, accessories or spare parts.',invSaved:'Inventory updated',catHelmet:'Helmet',catAccessory:'Accessory',catSparePart:'Spare part',catApparel:'Apparel',catOther:'Other',catProteinGummies:'Protein Gummies',catElectrolyteSachets:'Electrolyte Sachets',catEnergyGels:'Energy Gels',
   cashierTitle:'Sales',cashierSub:'Items sold with this rental',cashierAddBtn:'Add purchase',cashCustomOpt:'Custom item…',cashAmtLabel:'Unit price (SAR)',cashQtyLabel:'Qty',cashPayLabel:'Payment',cashRingUp:'Add to sale',cashNoSales:'No purchases yet.',cashVoid:'Void',cashDone:'Done',cashAddedToast:'Sale recorded',cashVoidedToast:'Purchase voided',cashSelectItem:'Choose an item',cashNameLabel:'Item name',cashAmtRequired:'Enter a valid amount',cashSalesTitle:'Sales',cashValue:'Sales value',cashQtyCol:'Qty sold',
-  tabCashier:'Sales',cashTabSub:'Sell items and track sales for a session',cashNewSale:'New sale',cashCustomerLabel:'Customer (optional)',cashCustomerPh:'Walk-up or name',cashRecordBtn:'Record sale',cashLedgerTitle:'Sales',cashNoSalesSession:'No sales recorded for this session yet.',cashRentalTag:'rental',cashNoSessions:'No sessions yet. Create a session first.',cashWalkup:'Walk-up',cashAddItemBtn:'Add item',cashRecordReceiptBtn:'Record receipt',cashReceiptWord:'Receipt',cashReceiptRecorded:'Receipt recorded',cashCartEmpty:'Add at least one item',cashCartTitle:'Receipt items',payTeam:'MM Team',teamChoose:'Choose team member',teamCustom:'Custom name',teamCustomPrompt:'Team member name',teamManage:'Manage team',teamMgrTitle:'MM Team members',teamAddMember:'Add member',teamEmpty:'No team members yet.',cashEditBtn:'Edit',cashMarkPaid:'Mark paid',receiptEditTitle:'Edit receipt',cashSavedToast:'Receipt updated',
+  tabCashier:'Sales',cashTabSub:'Sell items and track sales for a session',cashNewSale:'New sale',cashCustomerLabel:'Customer (optional)',cashCustomerPh:'Walk-up or name',cashRecordBtn:'Record sale',cashLedgerTitle:'Sales',cashNoSalesSession:'No sales recorded for this session yet.',cashRentalTag:'rental',cashNoSessions:'No sessions yet. Create a session first.',cashWalkup:'Walk-up',cashAddItemBtn:'Add item',cashRecordReceiptBtn:'Record receipt',cashReceiptWord:'Receipt',cashReceiptRecorded:'Receipt recorded',cashCartEmpty:'Add at least one item',cashCartTitle:'Receipt items',payTeam:'MM Team',teamChoose:'Choose team member',teamCustom:'Custom name',teamCustomPrompt:'Team member name',teamManage:'Manage team',teamMgrTitle:'MM Team members',teamAddMember:'Add member',teamEmpty:'No team members yet.',cashShare:'Share',closeoutBtn:'Close-out',closeoutTitle:'Day close-out',coRentals:'Bike rentals',coSales:'Product sales',coGrand:'Grand total',anTopSellers:'Top sellers',anTopSellersSub:'Most-sold products (this range)',cashPendingSync:'{0} pending sync',cashEditBtn:'Edit',cashMarkPaid:'Mark paid',receiptEditTitle:'Edit receipt',cashSavedToast:'Receipt updated',
   invBrand:'Brand',invNoBrand:'No brand',addCustomCatLabel:'Add custom category...',addCustomBrandLabel:'Add brand...',
   invSecBikes:'Bikes',invSecEquipment:'Equipment',invSecSupplements:'Supplements & Beverages',invManageBikes:'Manage in Bikes tab',invBikesTotal:'Fleet',
   commTitle:'Community',commSub:'Rider leaderboard.',commLeaderboard:'Leaderboard',commEvents:'Upcoming rides',commRank:'Rank',commRider:'Rider',commRides:'rides',commNoLeaders:'No completed rides yet.',commNoEvents:'No upcoming sessions scheduled.',commTopRiders:'Top riders by completed rides',commSpotsLeft:'{0} spots left',
@@ -1911,7 +1926,7 @@ en:{
   
   liveLabel:'Live',justNow:'just now',secondsAgo:'s ago',minutesAgo:'m ago',
   selectSessionPrompt:'Select a session above',selectSessionSub:'Click a session chip to view and manage its queue independently.',
-  undoBtn:'↩ Undo',undoneMsg:'↩ Undone.',undoFailed:'Undo failed.',themeLight:'Sunlight mode',themeDark:'Night mode',
+  undoBtn:'↩ Undo',undoneMsg:'↩ Undone.',undoFailed:'Undo failed.',themeHc:'High contrast',themeLight:'Sunlight mode',themeDark:'Night mode',
   fleetBadge:'Fleet',altBadge:'Alt',
   showOtherTypes:'↓ Show other types',hideOtherTypes:'↑ Hide other types',available2:'available',
   noOtherTypes:'No other types available either.',
@@ -2143,7 +2158,7 @@ ar:{
   nsSelectAll:'تحديد الكل',nsClear:'مسح',nsSelectAllBikes:'تحديد كل الدراجات',
   invTitle:'المخزون',invSub:'الخوذ والإكسسوارات وقطع الغيار.',invAddBtn:'+ إضافة عنصر',invItemName:'العنصر',invCategory:'الفئة',invQty:'المتوفر',invLowAt:'تنبيه عند',invPrice:'السعر (ريال)',invLowStock:'مخزون منخفض',invOutStock:'نفد المخزون',invInStock:'متوفر',invLowAlert:'{0} عنصر بحاجة لإعادة تخزين',invNoItems:'لا توجد عناصر بعد. أضف الخوذ والأقفال والإكسسوارات أو قطع الغيار.',invSaved:'تم تحديث المخزون',catHelmet:'خوذة',catAccessory:'إكسسوار',catSparePart:'قطعة غيار',catApparel:'ملابس',catOther:'أخرى',catProteinGummies:'علكة بروتين',catElectrolyteSachets:'أكياس إلكتروليت',catEnergyGels:'جل طاقة',
   cashierTitle:'المبيعات',cashierSub:'العناصر المباعة مع هذا الإيجار',cashierAddBtn:'إضافة عملية بيع',cashCustomOpt:'عنصر مخصص…',cashAmtLabel:'سعر الوحدة (ريال)',cashQtyLabel:'الكمية',cashPayLabel:'الدفع',cashRingUp:'إضافة للبيع',cashNoSales:'لا توجد مشتريات بعد.',cashVoid:'إلغاء',cashDone:'تم',cashAddedToast:'تم تسجيل البيع',cashVoidedToast:'تم إلغاء العملية',cashSelectItem:'اختر عنصراً',cashNameLabel:'اسم العنصر',cashAmtRequired:'أدخل مبلغاً صحيحاً',cashSalesTitle:'المبيعات',cashValue:'قيمة المبيعات',cashQtyCol:'الكمية المباعة',
-  tabCashier:'المبيعات',cashTabSub:'بيع العناصر وتتبع المبيعات لكل جلسة',cashNewSale:'عملية بيع جديدة',cashCustomerLabel:'العميل (اختياري)',cashCustomerPh:'عابر أو اسم',cashRecordBtn:'تسجيل البيع',cashLedgerTitle:'المبيعات',cashNoSalesSession:'لا توجد مبيعات مسجلة لهذه الجلسة بعد.',cashRentalTag:'إيجار',cashNoSessions:'لا توجد جلسات بعد. أنشئ جلسة أولاً.',cashWalkup:'زبون عابر',cashAddItemBtn:'إضافة عنصر',cashRecordReceiptBtn:'تسجيل الفاتورة',cashReceiptWord:'فاتورة',cashReceiptRecorded:'تم تسجيل الفاتورة',cashCartEmpty:'أضف عنصراً واحداً على الأقل',cashCartTitle:'عناصر الفاتورة',payTeam:'فريق MM',teamChoose:'اختر عضو الفريق',teamCustom:'اسم مخصص',teamCustomPrompt:'اسم عضو الفريق',teamManage:'إدارة الفريق',teamMgrTitle:'أعضاء فريق MM',teamAddMember:'إضافة عضو',teamEmpty:'لا يوجد أعضاء فريق بعد.',cashEditBtn:'تعديل',cashMarkPaid:'تحديد مدفوع',receiptEditTitle:'تعديل الفاتورة',cashSavedToast:'تم تحديث الفاتورة',
+  tabCashier:'المبيعات',cashTabSub:'بيع العناصر وتتبع المبيعات لكل جلسة',cashNewSale:'عملية بيع جديدة',cashCustomerLabel:'العميل (اختياري)',cashCustomerPh:'عابر أو اسم',cashRecordBtn:'تسجيل البيع',cashLedgerTitle:'المبيعات',cashNoSalesSession:'لا توجد مبيعات مسجلة لهذه الجلسة بعد.',cashRentalTag:'إيجار',cashNoSessions:'لا توجد جلسات بعد. أنشئ جلسة أولاً.',cashWalkup:'زبون عابر',cashAddItemBtn:'إضافة عنصر',cashRecordReceiptBtn:'تسجيل الفاتورة',cashReceiptWord:'فاتورة',cashReceiptRecorded:'تم تسجيل الفاتورة',cashCartEmpty:'أضف عنصراً واحداً على الأقل',cashCartTitle:'عناصر الفاتورة',payTeam:'فريق MM',teamChoose:'اختر عضو الفريق',teamCustom:'اسم مخصص',teamCustomPrompt:'اسم عضو الفريق',teamManage:'إدارة الفريق',teamMgrTitle:'أعضاء فريق MM',teamAddMember:'إضافة عضو',teamEmpty:'لا يوجد أعضاء فريق بعد.',cashShare:'مشاركة',closeoutBtn:'إغلاق اليوم',closeoutTitle:'تقرير إغلاق اليوم',coRentals:'تأجير الدراجات',coSales:'مبيعات المنتجات',coGrand:'الإجمالي الكلي',anTopSellers:'الأكثر مبيعاً',anTopSellersSub:'المنتجات الأكثر مبيعاً (هذا النطاق)',cashPendingSync:'{0} بانتظار المزامنة',cashEditBtn:'تعديل',cashMarkPaid:'تحديد مدفوع',receiptEditTitle:'تعديل الفاتورة',cashSavedToast:'تم تحديث الفاتورة',
   invBrand:'العلامة التجارية',invNoBrand:'بدون علامة',addCustomCatLabel:'إضافة فئة مخصصة...',addCustomBrandLabel:'إضافة علامة...',
   invSecBikes:'الدراجات',invSecEquipment:'المعدات',invSecSupplements:'المكمّلات والمشروبات',invManageBikes:'الإدارة في تبويب الدراجات',invBikesTotal:'الأسطول',
   commTitle:'المجتمع',commSub:'لوحة متصدّري الركّاب.',commLeaderboard:'المتصدرون',commEvents:'الرحلات القادمة',commRank:'الترتيب',commRider:'الراكب',commRides:'رحلات',commNoLeaders:'لا توجد رحلات مكتملة بعد.',commNoEvents:'لا توجد جلسات قادمة.',commTopRiders:'أفضل الركّاب حسب الرحلات المكتملة',commSpotsLeft:'{0} مقاعد متبقية',
@@ -2246,7 +2261,7 @@ ar:{
   typeRoad:'طريق',typeHybrid:'هجين',typeMountain:'جبلي',typeGravel:'حصى',typeAny:'أي نوع',
   liveLabel:'مباشر',justNow:'الآن',secondsAgo:'ث مضت',minutesAgo:'د مضت',
   selectSessionPrompt:'اختر جلسة من الأعلى',selectSessionSub:'انقر على إحدى الجلسات لعرض طابورها وإدارته بشكل مستقل.',
-  undoBtn:'↩ تراجع',undoneMsg:'↩ تم التراجع.',undoFailed:'فشل التراجع.',themeLight:'وضع النهار',themeDark:'الوضع الليلي',
+  undoBtn:'↩ تراجع',undoneMsg:'↩ تم التراجع.',undoFailed:'فشل التراجع.',themeHc:'تباين عالٍ',themeLight:'وضع النهار',themeDark:'الوضع الليلي',
   fleetBadge:'الأسطول',altBadge:'بديل',
   showOtherTypes:'↓ عرض أنواع أخرى',hideOtherTypes:'↑ إخفاء الأنواع الأخرى',available2:'متاح',
   noOtherTypes:'لا توجد أنواع أخرى متاحة.',
@@ -2742,6 +2757,8 @@ async function loadData(showLoader=false){
   try{const inv=await sb.from('inventory').select('*');if(!inv.error)S.inventory=inv.data||[];}catch(e){}
   try{const pc=await sb.from('promo_codes').select('*');if(!pc.error)S.promoCodes=pc.data||[];}catch(e){}
   try{const cs=await sb.from('cashier_sales').select('*');if(!cs.error)S.cashSales=cs.data||[];}catch(e){}
+  try{_outbox().forEach(op=>{if(op.kind==='delete')S.cashSales=(S.cashSales||[]).filter(r=>r.id!==op.id);else{const i=(S.cashSales||[]).findIndex(r=>r.id===op.id);if(i>=0)S.cashSales[i]=op.data;else S.cashSales.push(op.data);}});}catch(e){} // keep unsynced offline sales visible
+  _outboxFlush();
   try{const _tm=localStorage.getItem('cq_team');if(_tm!==null){S.teamMembers=JSON.parse(_tm)||[];}else{S.teamMembers=[...new Set((S.cashSales||[]).map(r=>r.team_name).filter(Boolean))].sort();localStorage.setItem('cq_team',JSON.stringify(S.teamMembers));}}catch(e){}
 }
 let _bootReadyAt=0;
@@ -3688,16 +3705,18 @@ function renderStaffTabs(){
 }
 
 function toggleTheme(){
-  const isLight=document.documentElement.getAttribute('data-theme')==='light';
-  if(isLight){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('cq_theme');}catch(e){}}
-  else{document.documentElement.setAttribute('data-theme','light');try{localStorage.setItem('cq_theme','light');}catch(e){}}
+  const cur=document.documentElement.getAttribute('data-theme')||'dark';
+  const next=cur==='dark'?'light':cur==='light'?'hc':'dark';
+  if(next==='dark'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('cq_theme');}catch(e){}}
+  else{document.documentElement.setAttribute('data-theme',next);try{localStorage.setItem('cq_theme',next);}catch(e){}}
   applyThemeIcon();
 }
 function applyThemeIcon(){
   const b=document.getElementById('theme-toggle-btn');if(!b)return;
-  const isLight=document.documentElement.getAttribute('data-theme')==='light';
-  const lbl=isLight?t('themeDark'):t('themeLight');
-  b.innerHTML=isLight?ICON_MOON:ICON_SUN;b.title=lbl;b.setAttribute('aria-label',lbl);
+  const cur=document.documentElement.getAttribute('data-theme')||'dark';
+  const next=cur==='dark'?'light':cur==='light'?'hc':'dark';
+  const lbl=next==='light'?t('themeLight'):next==='hc'?t('themeHc'):t('themeDark');
+  b.innerHTML=next==='dark'?ICON_MOON:ICON_SUN;b.title=lbl;b.setAttribute('aria-label',lbl);
 }
 function renderTopbarRight(){
   const el=document.getElementById('topbar-right');
@@ -7309,6 +7328,36 @@ function exportSessionExcel(){
   URL.revokeObjectURL(url);
 }
 
+// End-of-day close-out: bike rentals + product sales for the selected session's whole day, by payment type
+function printCloseout(){
+  const sel=allSessions().find(s=>s.id===S._ctSession);
+  if(!sel){toast(t('errSelectSession'),'error');return;}
+  const ar=S.lang==='ar';const r2=n=>Math.round(n*100)/100;
+  const date=sel.session_date||sel.id;
+  const daySessions=allSessions().filter(s=>(s.session_date||s.id)===date);
+  const sessIds=new Set(daySessions.map(s=>s.id));
+  const rentEntries=getQueue().filter(e=>sessIds.has(e.sessionId)&&(e.status==='active'||e.status==='done'));
+  const rentCollected=r2(rentEntries.filter(e=>e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0));
+  const rentPending=r2(rentEntries.filter(e=>!e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0));
+  let salesLines=[];daySessions.forEach(s=>{salesLines=salesLines.concat(_cashSessionLines(s.id));});
+  const st=_salesTotals(salesLines);
+  const grandCollected=r2(rentCollected+st.collected),grandPending=r2(rentPending+st.pending);
+  const row=(label,val,color)=>`<div style="display:flex;justify-content:space-between;padding:4px 0"><span>${label}</span><strong${color?` style="color:${color}"`:''}>SAR ${val}</strong></div>`;
+  const catRows=st.cats.map(c=>`<tr><td>${esc(_invCatLabel(c.cat))}</td><td style="text-align:center">${c.qty}</td><td style="text-align:end">SAR ${c.value}</td></tr>`).join('');
+  const html=`<!DOCTYPE html><html lang="${ar?'ar':'en'}" dir="${ar?'rtl':'ltr'}"><head><meta charset="UTF-8"><title>${t('closeoutTitle')}</title>${ar?'<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">':''}
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:${ar?"'Cairo',":''}system-ui,sans-serif;color:#111;padding:24px 28px;max-width:520px;margin:0 auto;font-size:13px}h1{font-size:20px;font-weight:900}.meta{color:#666;font-size:12px;margin-bottom:18px}h2{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#444;margin:18px 0 6px;border-bottom:1px solid #ddd;padding-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:4px}th{padding:4px 6px;border-bottom:2px solid #222;font-size:11px;text-transform:uppercase}td{padding:4px 6px;border-bottom:1px solid #eee;text-align:start}.grand{margin-top:14px;border-top:2px solid #222;padding-top:10px;font-size:15px}@media print{button{display:none}}</style></head><body>
+    <h1>${t('closeoutTitle')}</h1>
+    <div class="meta">${dayLabel(sel.day)} ${shortDate(date)} &middot; ${new Date().toLocaleString(ar?'ar-u-ca-gregory-nu-latn':'en-SA',{timeZone:KSA_TZ})}</div>
+    <h2>${t('coRentals')}</h2>
+    ${row(t('printTotalRiders'),rentEntries.length)}${row(t('printCollected'),rentCollected,'#16a34a')}${row(t('printPending'),rentPending,'#b45309')}
+    <h2>${t('coSales')}</h2>
+    ${st.cats.length?`<table><thead><tr><th style="text-align:start">${t('invCategory')}</th><th style="text-align:center">${t('cashQtyCol')}</th><th style="text-align:end">${t('repValueSar')}</th></tr></thead><tbody>${catRows}</tbody></table>`:''}
+    <div style="margin-top:8px">${row(t('printCollected'),st.collected,'#16a34a')}${row(t('printPending'),st.pending,'#b45309')}${st.team>0?row(t('payTeam'),st.team,'#7c3aed'):''}${st.free>0?row(t('onTheHouseLabel'),st.free,'#666'):''}</div>
+    <div class="grand">${row('<strong>'+t('coGrand')+' &middot; '+t('printCollected')+'</strong>',grandCollected,'#16a34a')}${row('<strong>'+t('coGrand')+' &middot; '+t('printPending')+'</strong>',grandPending,'#b45309')}</div>
+    <br><button onclick="window.print()" style="display:block;margin:0 auto;padding:9px 22px;background:#111;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-family:inherit">${t('repPrintNow')}</button>
+  </body></html>`;
+  const w=window.open('','_blank','width=600,height=780');if(!w)return;w.document.write(html);w.document.close();w.focus();setTimeout(()=>w.print(),350);
+}
 function printSessionReport(){
   const sessId=S.sfSession;if(sessId==='all')return;
   const sess=allSessions().find(s=>s.id===sessId);if(!sess)return;
@@ -9060,6 +9109,8 @@ function renderTeamManager(){
 // Product image helpers (inventory items carry an optional data-URL photo)
 function _itemPhoto(id){const it=id&&(S.inventory||[]).find(x=>x.id===id);return(it&&it.photo)?it.photo:'';}
 function _itemThumb(id,size){const p=_itemPhoto(id);return p?`<img src="${esc(p)}" alt="" style="width:${size}px;height:${size}px;border-radius:6px;object-fit:cover;flex-shrink:0">`:'';}
+// Units sold per inventory item (cashier sales + rental add-ons) -> drives top-seller ordering
+function _itemSalesCount(){const c={};(S.cashSales||[]).forEach(r=>{if(r.item_id)c[r.item_id]=(c[r.item_id]||0)+(Number(r.qty)||0);});getQueue().forEach(e=>entryPurchases(e).forEach(p=>{if(p.id)c[p.id]=(c[p.id]||0)+(Number(p.qty)||0);}));return c;}
 function showCashierModal(id){
   const e=getQueue().find(x=>x.id===id);if(!e)return;
   S._cashEntry=id;S._cashItem='';S._cashQty='1';S._cashAmt='';S._cashName='';S._cashCat='Other';S._cashPay='paid';
@@ -9199,14 +9250,36 @@ function _ctCartAdd(){
   renderCashier();
 }
 function _ctCartRemove(i){S._ctCart=(S._ctCart||[]).filter((_,idx)=>idx!==i);renderCashier();}
+// ── Offline-safe sales: queue cashier_sales writes in localStorage, flush when the connection returns ──
+function _outbox(){try{return JSON.parse(localStorage.getItem('cq_sales_outbox')||'[]');}catch(_){return[];}}
+function _outboxSave(o){try{localStorage.setItem('cq_sales_outbox',JSON.stringify(o));}catch(_){}}
+function _outboxCount(){return _outbox().length;}
+function _outboxEnqueue(kind,id,data){const o=_outbox();o.push({kind,id,data:data||null});_outboxSave(o);_outboxFlush();}
+let _outboxBusy=false;
+async function _outboxFlush(){
+  if(_outboxBusy||!sb||(typeof navigator!=='undefined'&&navigator.onLine===false))return;
+  _outboxBusy=true;
+  const o=_outbox();const keep=[];
+  for(const op of o){
+    try{
+      const res=op.kind==='delete'?await sb.from('cashier_sales').delete().eq('id',op.id):await sb.from('cashier_sales').upsert(op.data);
+      if(res&&res.error)keep.push(op);
+    }catch(_){keep.push(op);}
+  }
+  _outboxSave(keep);
+  _outboxBusy=false;
+  if(keep.length!==o.length&&S.view==='staff'&&S.staffTab==='cashier')renderCashier();
+}
+// Local + queued upsert/delete of a sale row (never lost on refresh; syncs to the DB when online)
+function _salesUpsert(row){const i=(S.cashSales||[]).findIndex(r=>r.id===row.id);if(i>=0)S.cashSales[i]=row;else S.cashSales=[...(S.cashSales||[]),row];_outboxEnqueue('upsert',row.id,row);}
+function _salesDelete(id){S.cashSales=(S.cashSales||[]).filter(r=>r.id!==id);_outboxEnqueue('delete',id,null);}
 // Commit the whole cart as one receipt (shared receipt_id), decrement stock, then print it
 async function _ctRecord(){
   const sessId=S._ctSession;if(!sessId){toast(t('errSelectSession'),'error');return;}
   if(!(S._ctCart||[]).length){toast(t('cashCartEmpty'),'error');return;}
   const rid=uid(),cust=(S._ctCust||'').trim()||null,at=new Date().toISOString();
   const rows=S._ctCart.map(l=>({id:uid(),receipt_id:rid,session_id:sessId,customer_name:cust,item_id:l.item_id||null,name:l.name,category:l.cat,qty:l.qty,price:l.price,pay:l.pay,team_name:l.team||null,created_at:at}));
-  S.cashSales=[...(S.cashSales||[]),...rows];
-  try{await Promise.all(rows.map(r=>sb.from('cashier_sales').insert(r)));}catch(_){}
+  rows.forEach(r=>_salesUpsert(r)); // local + queued for offline-safe sync
   await Promise.all(rows.filter(r=>r.item_id).map(r=>_addonStock([r.item_id],-r.qty))); // decrement stock for stocked items
   logAction(`${t('cashierTitle')}: ${t('cashReceiptWord')} ×${rows.length}${cust?` (${cust})`:''}`);
   S._ctCart=[];
@@ -9215,8 +9288,7 @@ async function _ctRecord(){
 }
 async function _ctVoidReceipt(key){
   const rows=(S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key);if(!rows.length)return;
-  S.cashSales=(S.cashSales||[]).filter(r=>(r.receipt_id||r.id)!==key);
-  try{await Promise.all(rows.map(r=>sb.from('cashier_sales').delete().eq('id',r.id)));}catch(_){}
+  rows.forEach(r=>_salesDelete(r.id)); // local + queued
   await Promise.all(rows.filter(r=>r.item_id).map(r=>_addonStock([r.item_id],Number(r.qty)||1))); // restock voided items
   toast(t('cashVoidedToast'));renderCashier();
 }
@@ -9225,8 +9297,7 @@ function _ctReprint(key){const rows=(S.cashSales||[]).filter(r=>(r.receipt_id||r
 async function _ctMarkReceiptPaid(key){
   const rows=(S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key&&r.pay==='pending');
   if(!rows.length)return;
-  rows.forEach(r=>{r.pay='paid';});
-  try{await Promise.all(rows.map(r=>sb.from('cashier_sales').update({pay:'paid'}).eq('id',r.id)));}catch(_){}
+  rows.forEach(r=>{r.pay='paid';_salesUpsert({...r});});
   toast(t('cashSavedToast'));renderCashier();
 }
 // Edit a recorded receipt: change each line's payment / amount / team member
@@ -9245,8 +9316,7 @@ async function saveReceiptEdit(){
     let price=parseFloat(l.price);if(l.pay==='house')price=0;if(isNaN(price)||price<0)price=0;price=Math.round(price*100)/100;
     const team=l.pay==='team'?((l.team_name||'').trim()||null):null;
     const row=(S.cashSales||[]).find(r=>r.id===l.id);
-    if(row){row.pay=l.pay;row.price=price;row.team_name=team;}
-    try{await sb.from('cashier_sales').update({pay:l.pay,price,team_name:team}).eq('id',l.id);}catch(_){}
+    if(row){row.pay=l.pay;row.price=price;row.team_name=team;_salesUpsert({...row});}
   }
   closeReceiptEdit();toast(t('cashSavedToast'));renderCashier();
 }
@@ -9277,14 +9347,23 @@ function renderReceiptEdit(){
     </div>
   </div>`;
 }
+async function _ctShareReceipt(key){
+  const rows=(S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key);if(!rows.length)return;
+  const total=Math.round(rows.reduce((s,r)=>s+(Number(r.qty)||0)*(Number(r.price)||0),0)*100)/100;
+  const body=rows.map(r=>`${r.name}${Number(r.qty)>1?' x'+r.qty:''}: SAR ${Math.round((Number(r.qty)||0)*(Number(r.price)||0)*100)/100}`).join('\n');
+  const txt=`MicroMobility ${t('cashReceiptWord')}\n${body}\n${t('repTotal')}: SAR ${total}`;
+  try{if(navigator.share){await navigator.share({title:'MicroMobility',text:txt});return;}}catch(e){return;}
+  try{window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');}catch(e){}
+}
 function _ctPrintReceipt(rows,cust,at){
   if(!rows||!rows.length)return;
   const ar=S.lang==='ar';
+  const logoUrl=new URL('logo.png',location.href).href;
   const total=Math.round(rows.reduce((s,r)=>s+(Number(r.qty)||0)*(Number(r.price)||0),0)*100)/100;
   const sess=allSessions().find(s=>s.id===rows[0].session_id);
   const body=rows.map(r=>`<tr><td>${esc(r.name)}</td><td style="text-align:center">${r.qty}</td><td style="text-align:end">SAR ${Math.round((Number(r.qty)||0)*(Number(r.price)||0)*100)/100}</td></tr>`).join('');
   const html=`<!DOCTYPE html><html lang="${ar?'ar':'en'}" dir="${ar?'rtl':'ltr'}"><head><meta charset="UTF-8"><title>${t('cashReceiptWord')}</title>${ar?'<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">':''}<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:${ar?"'Cairo',":''}system-ui,sans-serif;color:#111;padding:18px;max-width:320px;margin:0 auto;font-size:13px}h1{font-size:18px;font-weight:900;text-align:center}.sub{text-align:center;color:#666;font-size:11px;margin-bottom:10px;line-height:1.5}table{width:100%;border-collapse:collapse;margin-top:6px}td{padding:5px 4px;border-bottom:1px dashed #ccc;text-align:start}.tot{display:flex;justify-content:space-between;font-weight:900;font-size:15px;margin-top:10px;border-top:2px solid #222;padding-top:8px}@media print{button{display:none}}</style></head><body>
-    <h1>MicroMobility</h1>
+    <img src="${logoUrl}" alt="MicroMobility" style="height:44px;display:block;margin:0 auto 4px;object-fit:contain"><h1 style="font-size:15px">MicroMobility</h1>
     <div class="sub">${t('cashReceiptWord')} &middot; ${new Date(at).toLocaleString(ar?'ar-u-ca-gregory-nu-latn':'en-SA',{timeZone:KSA_TZ})}${cust?`<br>${esc(cust)}`:''}${sess?`<br>${dayLabel(sess.day)} ${shortDate(sess.session_date||sess.id)}`:''}</div>
     <table><tbody>${body}</tbody></table>
     <div class="tot"><span>${t('repTotal')}</span><span>SAR ${total}</span></div>
@@ -9301,7 +9380,9 @@ function renderCashier(){
   const sessId=S._ctSession;
   const lines=_cashSessionLines(sessId);
   const tot=_salesTotals(lines);
-  const invItems=(S.inventory||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const _salesCnt=_itemSalesCount();
+  const invItems=(S.inventory||[]).slice().sort((a,b)=>((_salesCnt[b.id]||0)-(_salesCnt[a.id]||0))||(a.name||'').localeCompare(b.name||''));
+  const lowItems=(S.inventory||[]).filter(it=>{const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;return q<=0||(lo>0&&q<=lo);});
   const isCustom=S._ctItem==='__custom__';
   const ar=S.lang==='ar';
   const cart=S._ctCart||[];
@@ -9325,6 +9406,7 @@ function renderCashier(){
           ${rc.lines.some(l=>l.pay==='pending')?`<button class="btn-sm btn-green" onclick="_ctMarkReceiptPaid('${rc.key}')">${t('cashMarkPaid')}</button>`:''}
           <button class="btn-sm btn-muted" onclick="showReceiptEdit('${rc.key}')">${t('cashEditBtn')}</button>
           <button class="btn-sm btn-muted" onclick="_ctReprint('${rc.key}')">${t('repPrintNow')}</button>
+          <button class="btn-sm btn-muted" onclick="_ctShareReceipt('${rc.key}')">${t('cashShare')}</button>
           <button class="btn-sm btn-muted" onclick="_ctVoidReceipt('${rc.key}')" aria-label="${t('cashVoid')}">${t('cashVoid')}</button>
         </div>
       </div>
@@ -9341,9 +9423,14 @@ function renderCashier(){
   el.innerHTML=`<div style="padding:18px 20px;max-width:1100px;margin:0 auto">
     <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:4px">
       <div><h2 style="font-size:20px;font-weight:900">${t('cashierTitle')}</h2>
-        <div style="font-size:13px;color:var(--muted)">${t('cashTabSub')}</div></div>
-      <div><label style="${_lbl}">${t('colSession')}</label><br><select onchange="_ctSet('_ctSession',this.value)" style="${_inp};max-width:260px;margin-top:3px">${sessOpts}</select></div>
+        <div style="font-size:13px;color:var(--muted)">${t('cashTabSub')}</div>
+        ${_outboxCount()?`<div onclick="_outboxFlush()" title="${t('cashPendingSync').replace('{0}',_outboxCount())}" style="cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:11px;font-weight:800;color:var(--orange);background:rgba(224,136,40,.12);border:1px solid rgba(224,136,40,.4);border-radius:8px;padding:3px 9px">↻ ${t('cashPendingSync').replace('{0}',_outboxCount())}</div>`:''}</div>
+      <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap">
+        <div><label style="${_lbl}">${t('colSession')}</label><br><select onchange="_ctSet('_ctSession',this.value)" style="${_inp};max-width:240px;margin-top:3px">${sessOpts}</select></div>
+        <button class="btn-secondary" onclick="printCloseout()" style="white-space:nowrap">${t('closeoutBtn')}</button>
+      </div>
     </div>
+    ${lowItems.length?`<div style="background:rgba(224,136,40,.12);border:1px solid rgba(224,136,40,.4);color:var(--orange);border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;margin-top:12px">${t('invLowAlert').replace('{0}',lowItems.length)}</div>`:''}
     <div class="cashier-grid" style="grid-template-columns:minmax(280px,360px) 1fr;gap:16px;margin-top:14px">
       <div class="card" style="padding:16px">
         <div style="font-weight:800;font-size:14px;margin-bottom:12px">${t('cashNewSale')}</div>
@@ -9352,7 +9439,8 @@ function renderCashier(){
             <input type="text" value="${esc(S._ctCust)}" oninput="S._ctCust=this.value" placeholder="${t('cashCustomerPh')}" style="${_inp}"></div>
           <div><label style="${_lbl}">${t('invItemName')}</label>
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;max-height:248px;overflow-y:auto;margin-top:4px;padding:2px">
-              ${invItems.map(it=>{const sel=S._ctItem===it.id;return`<button type="button" onclick="_ctSet('_ctItem','${it.id}')" title="${esc(it.name)}" style="text-align:start;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(3,255,137,.08)':'var(--s2)'};border-radius:10px;padding:0;overflow:hidden;cursor:pointer;font-family:inherit">
+              ${invItems.map(it=>{const sel=S._ctItem===it.id;const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;const lowB=(q<=0||(lo>0&&q<=lo));return`<button type="button" onclick="_ctSet('_ctItem','${it.id}')" title="${esc(it.name)}" style="position:relative;text-align:start;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(3,255,137,.08)':'var(--s2)'};border-radius:10px;padding:0;overflow:hidden;cursor:pointer;font-family:inherit">
+                ${lowB?`<span title="${q<=0?t('invOutStock'):t('invLowStock')}" style="position:absolute;top:4px;${ar?'left':'right'}:4px;z-index:1;background:${q<=0?'var(--red)':'var(--orange)'};color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:6px;line-height:1.5">${q}</span>`:''}
                 ${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:100%;height:62px;object-fit:cover;display:block">`:`<div style="width:100%;height:62px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:10px;text-align:center;padding:4px">${esc(_invCatLabel(it.category))}</div>`}
                 <div style="padding:5px 7px"><div style="font-weight:700;font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.name)}</div><div style="font-size:11px;color:var(--green);font-weight:700">${it.price!=null?`SAR ${it.price}`:'—'}</div></div>
               </button>`;}).join('')}
@@ -9789,7 +9877,11 @@ function renderAnalytics(){
   const sessions=sessCandidates;
   const done=queue.filter(e=>e.status==='done');
   const noshow=queue.filter(e=>e.status==='noshow');
-  
+  // Product sales for the in-range sessions (cashier sales + rental add-ons)
+  const anSalesLines=[...sessIds].reduce((acc,sid)=>acc.concat(_cashSessionLines(sid)),[]);
+  const anSales=_salesTotals(anSalesLines);
+  const anTopItems=(()=>{const c={};anSalesLines.forEach(l=>{const k=l.name||'—';if(!c[k])c[k]={name:k,qty:0,value:0};c[k].qty+=(Number(l.qty)||0);c[k].value+=(Number(l.qty)||0)*(Number(l.price)||0);});return Object.values(c).sort((a,b)=>b.qty-a.qty||b.value-a.value).slice(0,8);})();
+
   function _rangeBar(){
     const _sh=sessions.filter(s=>queue.some(e=>e.sessionId===s.id&&e.status==='done')).length;
     const _td=done.length;
@@ -10592,6 +10684,22 @@ function renderAnalytics(){
         <thead><tr><th>${t('anPromoCol')}</th><th>${t('anPromoUses')}</th></tr></thead>
         <tbody>${promoRows.map(([code,n])=>`<tr><td style="font-weight:800">${esc(code)}</td><td>${n}</td></tr>`).join('')}</tbody>
       </table></div>`:`<div class="empty-state">${t('anNoPromo')}</div>`}
+    </div>
+
+    <div class="analytics-section-title">${t('coSales')}</div>
+    <div class="analytics-kpi-grid">
+      <div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--green)"><bdi>SAR ${anSales.collected}</bdi></div><div class="analytics-kpi-label">${t('cashValue')}</div><div class="analytics-kpi-sub">${anSales.units} ${t('cashQtyCol').toLowerCase()}</div></div>
+      <div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--orange)"><bdi>SAR ${anSales.pending}</bdi></div><div class="analytics-kpi-label">${t('printPending')}</div></div>
+      ${anSales.team>0?`<div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--purple)"><bdi>SAR ${anSales.team}</bdi></div><div class="analytics-kpi-label">${t('payTeam')}</div></div>`:''}
+    </div>
+    <div class="chart-card">
+      <div class="chart-card-title">${t('anTopSellers')}</div>
+      <div class="chart-card-sub">${t('anTopSellersSub')}</div>
+      ${anTopItems.length?anTopItems.map(it=>{const mx=anTopItems[0].qty||1;return`<div class="analytics-bar-row">
+        <div class="analytics-bar-label" style="min-width:120px">${esc(it.name)}</div>
+        <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.min(100,Math.round(it.qty/mx*100))}%;background:var(--green)"></div></div>
+        <div class="analytics-bar-value"><bdi>${it.qty}</bdi> · SAR ${Math.round(it.value*100)/100}</div>
+      </div>`;}).join(''):`<div class="empty-state">${t('cashNoSalesSession')}</div>`}
     </div>`;
 }
 
@@ -10787,6 +10895,8 @@ function initRealtime(){
 initRealtime();
 fetchWeather();
 setInterval(fetchWeather,3600000); // refresh the forecast hourly
+try{window.addEventListener('online',_outboxFlush);}catch(e){} // sync queued sales when the connection returns
+try{_outboxFlush();}catch(e){}
 
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{navigator.serviceWorker.register('service-worker.js').catch(e=>console.warn('SW registration failed:',e));});
