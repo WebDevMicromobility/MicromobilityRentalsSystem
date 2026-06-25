@@ -2652,7 +2652,7 @@ const S={
   
   myStatus:'all',mySort:'date',mySortDir:-1,
   
-  sessSort:'date',sessSortDir:1,sessStatusFilter:'all',showDeletedSess:false,sessShowAll:false,
+  sessSort:'date',sessSortDir:-1,sessStatusFilter:'all',showDeletedSess:false,sessShowAll:false,
   
   analyticsRange:'all', analyticsTrendSort:'date', analyticsTrendDir:-1, analyticsCustomN:20,
   analyticsDateFrom:'', analyticsDateTo:'',
@@ -5579,9 +5579,9 @@ function renderSessions(){
     `<option value="${v}"${S.sessSort===v?' selected':''}>${l}</option>`).join('');
   const SESS_LIMIT=5;
   const _sessCollapse=!S.sessShowAll&&sessList.length>SESS_LIMIT;
-  // Collapsed default: the 5 most recent sessions by date, shown in ascending order
+  // Collapsed default: the 5 most recent sessions by date, shown newest first (descending)
   const displaySessions=_sessCollapse
-    ?[...sessList].sort((a,b)=>new Date(b.session_date||b.id)-new Date(a.session_date||a.id)).slice(0,SESS_LIMIT).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id))
+    ?[...sessList].sort((a,b)=>new Date(b.session_date||b.id)-new Date(a.session_date||a.id)).slice(0,SESS_LIMIT)
     :sessList;
   const rows=sessList.length?displaySessions.map(s=>{
     const booked=getQueue().filter(e=>e.sessionId===s.id&&e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed').length;
