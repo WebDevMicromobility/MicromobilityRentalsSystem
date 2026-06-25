@@ -2603,7 +2603,7 @@ const S={
   custTab:'register',
   staffTab:'queue',
   staffRole:(()=>{try{return localStorage.getItem('cq_role')==='frontdesk'?'frontdesk':'admin';}catch(e){return'admin';}})(),
-  custBranch:'all',newSessLocation:'',newSessRepeat:'1',sessBranchFilter:'all',newSessAddons:[],regAddons:[],
+  custBranch:'all',newSessLocation:'',newSessRepeat:'1',sessBranchFilter:'all',newSessAddons:[],editSessAddons:[],regAddons:[],
   promoCodes:[],promoApplied:null,_promoMsg:'',
   _pcCode:'',_pcKind:'percent',_pcValue:'',
   inventory:[],showAddInv:false,editInvId:null,_invName:'',_invCat:'Helmet',_invQty:'',_invLow:'',_invPrice:'',_invPhoto:'',invSection:'bikes',
@@ -5136,6 +5136,7 @@ function startEditSession(id){
     S.editSessAssignedIds=[];
     S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
   }
+  S.editSessAddons=(()=>{try{return sess.addons?(Array.isArray(sess.addons)?sess.addons:JSON.parse(sess.addons)):[];}catch(_){return[];}})();
   renderSessions();
   setTimeout(()=>document.getElementById('sess-edit-form')?.scrollIntoView({behavior:'smooth',block:'start'}),80);
 }
@@ -5178,6 +5179,12 @@ function _toggleNewSessAddon(id){
   const i=S.newSessAddons.indexOf(id);
   if(i>=0)S.newSessAddons.splice(i,1);else S.newSessAddons.push(id);
   renderSessions();setTimeout(()=>document.getElementById('sess-add-form')?.scrollIntoView({behavior:'smooth',block:'nearest'}),40);
+}
+function _toggleEditSessAddon(id){
+  S.editSessAddons=S.editSessAddons||[];
+  const i=S.editSessAddons.indexOf(id);
+  if(i>=0)S.editSessAddons.splice(i,1);else S.editSessAddons.push(id);
+  renderSessions();setTimeout(()=>document.getElementById('sess-edit-form')?.scrollIntoView({behavior:'smooth',block:'nearest'}),40);
 }
 // Read a session's offered add-on inventory items (in stock)
 function sessionAddonItems(sess){
@@ -5543,6 +5550,16 @@ function renderSessions(){
             </tr></tfoot>
           </table>
         </div>`:bikePicker()}
+      ${(()=>{
+        const items=(S.inventory||[]).filter(it=>(Number(it.qty)||0)>0);
+        if(!items.length)return'';
+        return`<div class="form-group" style="margin-top:18px">
+          <label>${t('sessionAddonsLabel')} &nbsp;<span class="label-hint">${t('sessionAddonsHint')}</span></label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
+            ${items.map(it=>{const sel=(S.editSessAddons||[]).includes(it.id);return`<button type="button" class="toggle-btn${sel?' active':''}" onclick="_toggleEditSessAddon('${it.id}')">${esc(it.name)}${it.brand?' · '+esc(it.brand):''}${it.price!=null&&Number(it.price)>0?' · SAR '+Number(it.price):''}</button>`;}).join('')}
+          </div>
+        </div>`;
+      })()}
       <div style="display:flex;gap:8px;margin-top:16px">
         <button class="btn-primary" onclick="saveSessionEdit()">${t('saveSessionBtn')}</button>
         <button class="btn-secondary" onclick="S.editSessionId=null;S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};renderSessions()">${t('cancelBtn')}</button>
@@ -5796,6 +5813,8 @@ async function saveSessionEdit(){
         status:newStatus,bike_slots:JSON.stringify(slots)
       }).eq('id',oldId);
     }
+    // Persist offered add-ons separately so a missing column can't block the save (always written so removals stick)
+    {try{await sb.from('sessions').update({addons:JSON.stringify(S.editSessAddons||[])}).eq('id',newDate);}catch(e){}}
     await loadData();
     const displayDate=shortDate(newDate);
     toast(t('toastSessionUpdated').replace('{0}',displayDate));
