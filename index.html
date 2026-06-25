@@ -988,6 +988,8 @@
     .sk-wrap{padding:16px;display:flex;flex-direction:column;gap:10px;}
     .sk-row{height:54px;border-radius:12px;border:1px solid var(--border);background:linear-gradient(100deg,var(--s1) 30%,var(--s2) 50%,var(--s1) 70%);background-size:200% 100%;animation:shimmer 1.3s linear infinite;}
     .sk-row.tall{height:74px;}
+    .cashier-grid{display:grid;}
+    @media(max-width:820px){.cashier-grid{grid-template-columns:1fr!important;}}
 
     
     *{-webkit-tap-highlight-color:transparent;}
@@ -1515,6 +1517,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <button class="tab-btn active" data-stab="queue"     onclick="setStaffTab('queue')">Bookings</button>
     <button class="tab-btn"        data-stab="sessions"  onclick="setStaffTab('sessions')">Sessions</button>
     <button class="tab-btn"        data-stab="inventory" onclick="setStaffTab('inventory')">Inventory</button>
+    <button class="tab-btn"        data-stab="cashier"   onclick="setStaffTab('cashier')">Cashier</button>
     <button class="tab-btn"        data-stab="community" onclick="setStaffTab('community')">Community</button>
     <button class="tab-btn"        data-stab="analytics" onclick="setStaffTab('analytics')">Analytics</button>
     <button class="tab-btn"        data-stab="history"   onclick="setStaffTab('history')">History</button>
@@ -1524,6 +1527,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <div id="tab-queue"     class="tab-panel active"></div>
     <div id="tab-sessions"  class="tab-panel"></div>
     <div id="tab-inventory"  class="tab-panel"></div>
+    <div id="tab-cashier"   class="tab-panel"></div>
     <div id="tab-community"  class="tab-panel"></div>
     <div id="tab-analytics"  class="tab-panel"></div>
     <div id="tab-history"   class="tab-panel"></div>
@@ -1794,6 +1798,7 @@ en:{
   nsSelectAll:'Select all',nsClear:'Clear',nsSelectAllBikes:'Select all bikes',
   invTitle:'Inventory',invSub:'Helmets, accessories and spare-part stock.',invAddBtn:'+ Add item',invItemName:'Item',invCategory:'Category',invQty:'In stock',invLowAt:'Low-stock at',invPrice:'Price (SAR)',invLowStock:'Low stock',invOutStock:'Out of stock',invInStock:'In stock',invLowAlert:'{0} item(s) need restocking',invNoItems:'No inventory items yet. Add helmets, locks, accessories or spare parts.',invSaved:'Inventory updated',catHelmet:'Helmet',catAccessory:'Accessory',catSparePart:'Spare part',catApparel:'Apparel',catOther:'Other',catProteinGummies:'Protein Gummies',catElectrolyteSachets:'Electrolyte Sachets',catEnergyGels:'Energy Gels',
   cashierTitle:'Cashier',cashierSub:'Items sold with this rental',cashierAddBtn:'Add purchase',cashCustomOpt:'Custom item…',cashAmtLabel:'Unit price (SAR)',cashQtyLabel:'Qty',cashPayLabel:'Payment',cashRingUp:'Add to sale',cashNoSales:'No purchases yet.',cashVoid:'Void',cashDone:'Done',cashAddedToast:'Sale recorded',cashVoidedToast:'Purchase voided',cashSelectItem:'Choose an item',cashNameLabel:'Item name',cashAmtRequired:'Enter a valid amount',cashSalesTitle:'Cashier sales',cashValue:'Sales value',cashQtyCol:'Qty sold',
+  tabCashier:'Cashier',cashTabSub:'Sell items and track sales for a session',cashNewSale:'New sale',cashCustomerLabel:'Customer (optional)',cashCustomerPh:'Walk-up or name',cashRecordBtn:'Record sale',cashLedgerTitle:'Sales',cashNoSalesSession:'No sales recorded for this session yet.',cashRentalTag:'rental',cashNoSessions:'No sessions yet. Create a session first.',cashWalkup:'Walk-up',
   invBrand:'Brand',invNoBrand:'No brand',addCustomCatLabel:'Add custom category...',addCustomBrandLabel:'Add brand...',
   invSecBikes:'Bikes',invSecEquipment:'Equipment',invSecSupplements:'Supplements & Beverages',invManageBikes:'Manage in Bikes tab',invBikesTotal:'Fleet',
   commTitle:'Community',commSub:'Rider leaderboard.',commLeaderboard:'Leaderboard',commEvents:'Upcoming rides',commRank:'Rank',commRider:'Rider',commRides:'rides',commNoLeaders:'No completed rides yet.',commNoEvents:'No upcoming sessions scheduled.',commTopRiders:'Top riders by completed rides',commSpotsLeft:'{0} spots left',
@@ -2136,6 +2141,7 @@ ar:{
   nsSelectAll:'تحديد الكل',nsClear:'مسح',nsSelectAllBikes:'تحديد كل الدراجات',
   invTitle:'المخزون',invSub:'الخوذ والإكسسوارات وقطع الغيار.',invAddBtn:'+ إضافة عنصر',invItemName:'العنصر',invCategory:'الفئة',invQty:'المتوفر',invLowAt:'تنبيه عند',invPrice:'السعر (ريال)',invLowStock:'مخزون منخفض',invOutStock:'نفد المخزون',invInStock:'متوفر',invLowAlert:'{0} عنصر بحاجة لإعادة تخزين',invNoItems:'لا توجد عناصر بعد. أضف الخوذ والأقفال والإكسسوارات أو قطع الغيار.',invSaved:'تم تحديث المخزون',catHelmet:'خوذة',catAccessory:'إكسسوار',catSparePart:'قطعة غيار',catApparel:'ملابس',catOther:'أخرى',catProteinGummies:'علكة بروتين',catElectrolyteSachets:'أكياس إلكتروليت',catEnergyGels:'جل طاقة',
   cashierTitle:'الكاشير',cashierSub:'العناصر المباعة مع هذا الإيجار',cashierAddBtn:'إضافة عملية بيع',cashCustomOpt:'عنصر مخصص…',cashAmtLabel:'سعر الوحدة (ريال)',cashQtyLabel:'الكمية',cashPayLabel:'الدفع',cashRingUp:'إضافة للبيع',cashNoSales:'لا توجد مشتريات بعد.',cashVoid:'إلغاء',cashDone:'تم',cashAddedToast:'تم تسجيل البيع',cashVoidedToast:'تم إلغاء العملية',cashSelectItem:'اختر عنصراً',cashNameLabel:'اسم العنصر',cashAmtRequired:'أدخل مبلغاً صحيحاً',cashSalesTitle:'مبيعات الكاشير',cashValue:'قيمة المبيعات',cashQtyCol:'الكمية المباعة',
+  tabCashier:'الكاشير',cashTabSub:'بيع العناصر وتتبع المبيعات لكل جلسة',cashNewSale:'عملية بيع جديدة',cashCustomerLabel:'العميل (اختياري)',cashCustomerPh:'عابر أو اسم',cashRecordBtn:'تسجيل البيع',cashLedgerTitle:'المبيعات',cashNoSalesSession:'لا توجد مبيعات مسجلة لهذه الجلسة بعد.',cashRentalTag:'إيجار',cashNoSessions:'لا توجد جلسات بعد. أنشئ جلسة أولاً.',cashWalkup:'زبون عابر',
   invBrand:'العلامة التجارية',invNoBrand:'بدون علامة',addCustomCatLabel:'إضافة فئة مخصصة...',addCustomBrandLabel:'إضافة علامة...',
   invSecBikes:'الدراجات',invSecEquipment:'المعدات',invSecSupplements:'المكمّلات والمشروبات',invManageBikes:'الإدارة في تبويب الدراجات',invBikesTotal:'الأسطول',
   commTitle:'المجتمع',commSub:'لوحة متصدّري الركّاب.',commLeaderboard:'المتصدرون',commEvents:'الرحلات القادمة',commRank:'الترتيب',commRider:'الراكب',commRides:'رحلات',commNoLeaders:'لا توجد رحلات مكتملة بعد.',commNoEvents:'لا توجد جلسات قادمة.',commTopRiders:'أفضل الركّاب حسب الرحلات المكتملة',commSpotsLeft:'{0} مقاعد متبقية',
@@ -2301,10 +2307,11 @@ function setLang(lang){
     if(b.dataset.stab==='history')b.textContent=t('tabHistory');
     if(b.dataset.stab==='analytics')b.textContent=t('tabAnalytics');
     if(b.dataset.stab==='logs')b.textContent=t('tabLogs');
+    if(b.dataset.stab==='cashier')b.textContent=t('tabCashier');
   });
   renderTopbarRight();
   if(S.view==='customer'){renderRegister();renderMyRides();if(S.custTab==='account')renderAccount();}
-  else if(S.view==='staff'){renderStaffQueue();renderSessions();renderBikes();renderHistory();if(S.staffTab==='analytics')renderAnalytics();if(S.staffTab==='logs')renderLogs();}
+  else if(S.view==='staff'){renderStaffQueue();renderSessions();renderBikes();renderHistory();if(S.staffTab==='analytics')renderAnalytics();if(S.staffTab==='logs')renderLogs();if(S.staffTab==='cashier')renderCashier();}
   else if(S.view==='landing')renderLandingAvail();
   if(document.getElementById('auth-modal')?.style.display!=='none')renderAuthModal();
 }
@@ -2582,6 +2589,7 @@ const S={
   _pcCode:'',_pcKind:'percent',_pcValue:'',
   inventory:[],showAddInv:false,editInvId:null,_invName:'',_invCat:'Helmet',_invQty:'',_invLow:'',_invPrice:'',_invPhoto:'',invSection:'bikes',
   _cashEntry:null,_cashItem:'',_cashQty:'1',_cashAmt:'',_cashName:'',_cashCat:'Helmet',_cashPay:'paid',
+  cashSales:[],_ctSession:'',_ctCust:'',_ctItem:'',_ctName:'',_ctCat:'Helmet',_ctQty:'1',_ctAmt:'',_ctPay:'paid',
   invView:(()=>{try{return localStorage.getItem('cq_inv_view')==='table'?'table':'grid';}catch(e){return'grid';}})(),
   _invBrand:'',_invCatAdd:false,_invBrandAdd:false,
   invCatsEquip:(()=>{try{return JSON.parse(localStorage.getItem('cq_inv_cats_eq'))||[];}catch(e){return[];}})(),
@@ -2729,6 +2737,7 @@ async function loadData(showLoader=false){
   // Inventory + promo codes are optional/error-tolerant (tables may not exist until migration is run)
   try{const inv=await sb.from('inventory').select('*');if(!inv.error)S.inventory=inv.data||[];}catch(e){}
   try{const pc=await sb.from('promo_codes').select('*');if(!pc.error)S.promoCodes=pc.data||[];}catch(e){}
+  try{const cs=await sb.from('cashier_sales').select('*');if(!cs.error)S.cashSales=cs.data||[];}catch(e){}
 }
 let _bootReadyAt=0;
 
@@ -3636,6 +3645,7 @@ function setStaffTab(tab){
   else if(tab==='analytics')renderAnalytics();
   else if(tab==='logs')renderLogs();
   else if(tab==='inventory')renderInventory();
+  else if(tab==='cashier')renderCashier();
   else if(tab==='community')renderCommunity();
   _pushNav();
 }
@@ -3665,6 +3675,7 @@ function renderStaffTabs(){
   document.getElementById('tab-queue')     .classList.toggle('active',S.staffTab==='queue');
   document.getElementById('tab-sessions')  .classList.toggle('active',S.staffTab==='sessions');
   document.getElementById('tab-inventory') .classList.toggle('active',S.staffTab==='inventory');
+  document.getElementById('tab-cashier')   .classList.toggle('active',S.staffTab==='cashier');
   document.getElementById('tab-community') .classList.toggle('active',S.staffTab==='community');
   document.getElementById('tab-history')   .classList.toggle('active',S.staffTab==='history');
   document.getElementById('tab-analytics') .classList.toggle('active',S.staffTab==='analytics');
@@ -7280,7 +7291,7 @@ function exportSessionExcel(){
     ...addonSales.items.map(a=>[a.name,a.brand||'',a.units,a.value]),
     [t('repTotal'),'',addonSales.totalUnits,addonSales.totalValue]]:[];
   // Cashier sales for the session, grouped by inventory category
-  const sessPurch=_purchaseTotals(getQueue().filter(e=>e.sessionId===sessId));
+  const sessPurch=_salesTotals(_cashSessionLines(sessId));
   const cashRows=sessPurch.units>0?[[],[t('cashSalesTitle')],[t('invCategory'),t('cashQtyCol'),t('repValueSar')],
     ...sessPurch.cats.map(c=>[_invCatLabel(c.cat),c.qty,c.value]),
     [t('repTotal'),sessPurch.units,sessPurch.value],
@@ -7316,7 +7327,7 @@ function printSessionReport(){
     }
   }
   const addonSales=addonSalesFromGroups(groups);
-  const sessPurch=_purchaseTotals(getQueue().filter(e=>e.sessionId===sessId));
+  const sessPurch=_salesTotals(_cashSessionLines(sessId));
   const rows=groups.map(group=>{
     const lead=group[0];
     const qNums=group.map(x=>`#${x.queueNum}`).join(', ');
@@ -8981,15 +8992,17 @@ function entryPurchases(e){
   if(!e)return[];
   try{return Array.isArray(e.purchases)?e.purchases:(e.purchases?JSON.parse(e.purchases):[]);}catch(_){return[];}
 }
-// Aggregate purchases across a set of entries -> category breakdown + collected/pending/free totals
-function _purchaseTotals(entries){
+// All sale lines for a session, normalized: rental add-ons (entry.purchases) + standalone cashier-tab sales
+function _cashSessionLines(sessId){
+  const lines=[];
+  getQueue().filter(e=>e.sessionId===sessId).forEach(e=>entryPurchases(e).forEach(p=>lines.push({name:p.name,cat:p.cat,qty:Number(p.qty)||0,price:Number(p.price)||0,pay:p.pay,who:e.name,src:'rental'})));
+  (S.cashSales||[]).filter(r=>r.session_id===sessId).forEach(r=>lines.push({name:r.name,cat:r.category,qty:Number(r.qty)||0,price:Number(r.price)||0,pay:r.pay,who:r.customer_name||t('cashWalkup'),src:'sale',id:r.id}));
+  return lines;
+}
+// Aggregate sale lines -> category breakdown + collected/pending/free totals
+function _salesTotals(lines){
   const byCat={};let units=0,value=0,collected=0,pending=0,free=0;
-  (entries||[]).forEach(e=>entryPurchases(e).forEach(p=>{
-    const q=Number(p.qty)||0,lineVal=q*(Number(p.price)||0),cat=p.cat||'Other';
-    if(!byCat[cat])byCat[cat]={cat,qty:0,value:0};
-    byCat[cat].qty+=q;byCat[cat].value+=lineVal;units+=q;value+=lineVal;
-    if(p.pay==='paid')collected+=lineVal;else if(p.pay==='house')free+=lineVal;else pending+=lineVal;
-  }));
+  (lines||[]).forEach(p=>{const q=p.qty||0,v=q*(p.price||0),cat=p.cat||'Other';if(!byCat[cat])byCat[cat]={cat,qty:0,value:0};byCat[cat].qty+=q;byCat[cat].value+=v;units+=q;value+=v;if(p.pay==='paid')collected+=v;else if(p.pay==='house')free+=v;else pending+=v;});
   return{cats:Object.values(byCat).sort((a,b)=>b.value-a.value),units,value:Math.round(value*100)/100,collected:Math.round(collected*100)/100,pending:Math.round(pending*100)/100,free:Math.round(free*100)/100};
 }
 function _cashPayBadge(pay){
@@ -9093,6 +9106,109 @@ function renderCashierModal(){
         <button class="btn-primary" style="width:100%;margin-top:2px" onclick="_cashAddLine()">${t('cashRingUp')}</button>
       </div>
       <div class="modal-footer"><button class="btn-secondary" onclick="closeCashierModal()">${t('cashDone')}</button></div>
+    </div>
+  </div>`;
+}
+
+// ── Standalone Cashier tab: a full point-of-sale for a session (walk-up + counter sales) ──
+function _ctSet(k,v){
+  S[k]=v;
+  if(k==='_ctItem'){
+    const it=(S.inventory||[]).find(x=>x.id===v);
+    if(it){S._ctName=it.name;S._ctCat=it.category||'Other';if(it.price!=null)S._ctAmt=String(it.price);}
+    else if(v==='__custom__'){S._ctName='';S._ctCat=INV_CATS[0]||'Other';}
+  }
+  renderCashier();
+}
+async function _ctRecord(){
+  const sessId=S._ctSession;if(!sessId){toast(t('errSelectSession'),'error');return;}
+  const isCustom=S._ctItem==='__custom__';
+  const it=isCustom?null:(S.inventory||[]).find(x=>x.id===S._ctItem);
+  const name=isCustom?(S._ctName||'').trim():(it?it.name:'');
+  if(!S._ctItem||(isCustom&&!name)){toast(t('cashSelectItem'),'error');return;}
+  const qty=Math.max(1,parseInt(S._ctQty)||1);
+  const price=parseFloat(S._ctAmt);
+  if(isNaN(price)||price<0){toast(t('cashAmtRequired'),'error');return;}
+  const cat=isCustom?(S._ctCat||'Other'):(it?(it.category||'Other'):'Other');
+  const row={id:uid(),session_id:sessId,customer_name:(S._ctCust||'').trim()||null,item_id:it?it.id:null,name,category:cat,qty,price:Math.round(price*100)/100,pay:S._ctPay,created_at:new Date().toISOString()};
+  S.cashSales=[...(S.cashSales||[]),row];
+  try{await sb.from('cashier_sales').insert(row);}catch(_){}
+  if(it)await _addonStock([it.id],-qty); // decrement stock for items sold from inventory
+  S._ctItem='';S._ctName='';S._ctQty='1';S._ctAmt='';S._ctCat=INV_CATS[0]||'Other'; // keep customer + payment for fast repeat sales
+  logAction(`${t('cashierTitle')}: ${name} ×${qty}${row.customer_name?` (${row.customer_name})`:''}`);
+  toast(t('cashAddedToast'));
+  renderCashier();
+}
+async function _ctVoid(id){
+  const row=(S.cashSales||[]).find(x=>x.id===id);if(!row)return;
+  S.cashSales=(S.cashSales||[]).filter(x=>x.id!==id);
+  try{await sb.from('cashier_sales').delete().eq('id',id);}catch(_){}
+  if(row.item_id)await _addonStock([row.item_id],Number(row.qty)||1); // void restocks
+  toast(t('cashVoidedToast'));
+  renderCashier();
+}
+function renderCashier(){
+  const el=document.getElementById('tab-cashier');if(!el)return;
+  if(!S.dataLoaded){el.innerHTML=skeletonList(5);return;}
+  const sessions=allSessions().filter(s=>s.status!=='deleted');
+  if(!sessions.length){el.innerHTML=`<div class="empty-state" style="padding:48px">${t('cashNoSessions')}</div>`;return;}
+  if(!S._ctSession||!sessions.find(s=>s.id===S._ctSession)){const open=sessions.find(s=>s.status==='open')||sessions[0];S._ctSession=open.id;}
+  const sessId=S._ctSession;
+  const lines=_cashSessionLines(sessId);
+  const tot=_salesTotals(lines);
+  const invItems=(S.inventory||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const isCustom=S._ctItem==='__custom__';
+  const _inp='padding:9px 11px;border-radius:9px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-family:inherit;font-size:13px;width:100%';
+  const _lbl='font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px';
+  const payBtn=(val,label)=>`<button onclick="_ctSet('_ctPay','${val}')" style="flex:1;padding:9px;border-radius:9px;border:1.5px solid ${S._ctPay===val?'var(--green)':'var(--border)'};background:${S._ctPay===val?'rgba(3,255,137,.12)':'transparent'};color:${S._ctPay===val?'var(--green)':'var(--muted)'};font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">${label}</button>`;
+  const sessOpts=sessions.map(s=>`<option value="${s.id}"${sessId===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${s.status&&s.status!=='open'?` (${esc(s.status)})`:''}</option>`).join('');
+  const ledger=lines.length?lines.slice().reverse().map(p=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:13px">${esc(p.name)}${p.qty>1?` <span style="color:var(--muted)">×${p.qty}</span>`:''}</div>
+        <div style="font-size:11px;color:var(--muted)">${esc(_invCatLabel(p.cat))} · ${_cashPayBadge(p.pay)} · ${esc(p.who)}${p.src==='rental'?` <span style="opacity:.65">(${t('cashRentalTag')})</span>`:''}</div>
+      </div>
+      <div style="font-weight:800;white-space:nowrap"><bdi>SAR ${Math.round(p.qty*p.price*100)/100}</bdi></div>
+      ${p.src==='sale'?`<button class="btn-sm btn-muted" onclick="_ctVoid('${p.id}')" aria-label="${t('cashVoid')}">${t('cashVoid')}</button>`:''}
+    </div>`).join(''):`<div class="empty-state" style="padding:24px">${t('cashNoSalesSession')}</div>`;
+  const catRows=tot.cats.map(c=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span style="color:var(--muted)">${esc(_invCatLabel(c.cat))} <span style="opacity:.6">×${c.qty}</span></span><span style="font-weight:700"><bdi>SAR ${c.value}</bdi></span></div>`).join('');
+  el.innerHTML=`<div style="padding:18px 20px;max-width:1100px;margin:0 auto">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:4px">
+      <div><h2 style="font-size:20px;font-weight:900">${t('cashierTitle')}</h2>
+        <div style="font-size:13px;color:var(--muted)">${t('cashTabSub')}</div></div>
+      <div><label style="${_lbl}">${t('colSession')}</label><br><select onchange="_ctSet('_ctSession',this.value)" style="${_inp};max-width:260px;margin-top:3px">${sessOpts}</select></div>
+    </div>
+    <div class="cashier-grid" style="grid-template-columns:minmax(280px,360px) 1fr;gap:16px;margin-top:14px">
+      <div class="card" style="padding:16px">
+        <div style="font-weight:800;font-size:14px;margin-bottom:12px">${t('cashNewSale')}</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div><label style="${_lbl}">${t('cashCustomerLabel')}</label>
+            <input type="text" value="${esc(S._ctCust)}" oninput="S._ctCust=this.value" placeholder="${t('cashCustomerPh')}" style="${_inp}"></div>
+          <div><label style="${_lbl}">${t('invItemName')}</label>
+            <select onchange="_ctSet('_ctItem',this.value)" style="${_inp}">
+              <option value="">${t('cashSelectItem')}</option>
+              ${invItems.map(it=>`<option value="${it.id}"${S._ctItem===it.id?' selected':''}>${esc(it.name)} (${esc(_invCatLabel(it.category))}${it.price!=null?`, SAR ${it.price}`:''})</option>`).join('')}
+              <option value="__custom__"${isCustom?' selected':''}>${t('cashCustomOpt')}</option>
+            </select></div>
+          ${isCustom?`<div><label style="${_lbl}">${t('cashNameLabel')}</label><input type="text" value="${esc(S._ctName)}" oninput="S._ctName=this.value" style="${_inp}"></div>
+          <div><label style="${_lbl}">${t('invCategory')}</label><select onchange="_ctSet('_ctCat',this.value)" style="${_inp}">${INV_CATS.map(c=>`<option value="${c}"${S._ctCat===c?' selected':''}>${esc(_invCatLabel(c))}</option>`).join('')}</select></div>`:''}
+          <div style="display:flex;gap:9px">
+            <div style="flex:1"><label style="${_lbl}">${t('cashQtyLabel')}</label><input type="number" min="1" value="${esc(S._ctQty)}" oninput="S._ctQty=this.value" style="${_inp}"></div>
+            <div style="flex:2"><label style="${_lbl}">${t('cashAmtLabel')}</label><input type="number" min="0" step="0.5" value="${esc(S._ctAmt)}" oninput="S._ctAmt=this.value" placeholder="0" style="${_inp}"></div>
+          </div>
+          <div><label style="${_lbl}">${t('cashPayLabel')}</label><div style="display:flex;gap:7px;margin-top:4px">${payBtn('paid',t('paidLabel'))}${payBtn('pending',t('pendingLabel'))}${payBtn('house',t('onTheHouseLabel'))}</div></div>
+          <button class="btn-primary" style="width:100%;margin-top:2px" onclick="_ctRecord()">${t('cashRecordBtn')}</button>
+        </div>
+      </div>
+      <div class="card" style="padding:16px">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px">
+          <div><div style="font-size:22px;font-weight:900"><bdi>SAR ${tot.value}</bdi></div><div style="${_lbl}">${t('cashValue')}</div></div>
+          <div><div style="font-size:22px;font-weight:900;color:var(--green)"><bdi>SAR ${tot.collected}</bdi></div><div style="${_lbl}">${t('printCollected')}</div></div>
+          <div><div style="font-size:22px;font-weight:900;color:var(--orange)"><bdi>SAR ${tot.pending}</bdi></div><div style="${_lbl}">${t('printPending')}</div></div>
+        </div>
+        ${catRows?`<div style="background:var(--s2);border-radius:10px;padding:10px 12px;margin-bottom:12px">${catRows}</div>`:''}
+        <div style="font-weight:800;font-size:13px;margin-bottom:2px">${t('cashLedgerTitle')} <span style="color:var(--muted);font-weight:600">(${lines.length})</span></div>
+        ${ledger}
+      </div>
     </div>
   </div>`;
 }

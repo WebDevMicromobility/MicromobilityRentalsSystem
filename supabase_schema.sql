@@ -120,6 +120,22 @@ create table if not exists queue_entries (
 -- alter table queue_entries add column if not exists promo_code text; -- promo code applied to the booking
 -- alter table queue_entries add column if not exists purchases text;  -- JSON array of cashier purchases sold with the rental (cashier system)
 
+-- Standalone cashier / point-of-sale transactions (the Cashier staff tab). Walk-up or counter sales.
+create table if not exists cashier_sales (
+  id            text primary key,
+  session_id    text,
+  customer_name text,            -- optional label (walk-up name); null = walk-up
+  item_id       text,            -- inventory item id if sold from stock (drives stock decrement), else null
+  name          text not null,
+  category      text,            -- inventory category key (Helmet, ProteinGummies, ...)
+  qty           integer not null default 1,
+  price         numeric not null default 0,   -- unit price
+  pay           text not null default 'paid', -- paid | pending | house
+  created_at    text
+);
+-- alter table cashier_sales enable row level security;
+-- create policy "public access" on cashier_sales for all using (true) with check (true);
+
 -- Promo codes (staff-defined discounts applied at checkout)
 create table if not exists promo_codes (
   id         text primary key,
