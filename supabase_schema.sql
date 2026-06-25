@@ -131,7 +131,8 @@ create table if not exists cashier_sales (
   category      text,            -- inventory category key (Helmet, ProteinGummies, ...)
   qty           integer not null default 1,
   price         numeric not null default 0,   -- unit price
-  pay           text not null default 'paid', -- paid | pending | house
+  pay           text not null default 'paid', -- paid | pending | house | team
+  team_name     text,            -- MM Team member name when pay = team
   created_at    text
 );
 -- alter table cashier_sales enable row level security;
