@@ -1514,7 +1514,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 
 <div id="view-staff">
   <nav class="tab-nav" id="staff-tab-nav" aria-label="Staff sections">
-    <button class="tab-btn"        data-stab="cashier"   onclick="setStaffTab('cashier')">Cashier</button>
+    <button class="tab-btn"        data-stab="cashier"   onclick="setStaffTab('cashier')">Sales</button>
     <button class="tab-btn active" data-stab="queue"     onclick="setStaffTab('queue')">Bookings</button>
     <button class="tab-btn"        data-stab="sessions"  onclick="setStaffTab('sessions')">Sessions</button>
     <button class="tab-btn"        data-stab="inventory" onclick="setStaffTab('inventory')">Inventory</button>
@@ -1581,6 +1581,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 <div id="cust-modal"       style="display:none"></div>
 <div id="cashier-modal"    style="display:none"></div>
 <div id="receipt-edit-modal" style="display:none"></div>
+<div id="team-mgr-modal"   style="display:none"></div>
 <div id="help-modal"       style="display:none"></div>
 <div id="cancel-reason-modal" style="display:none"></div>
 <div id="factory-reset-modal" style="display:none"></div>
@@ -1798,8 +1799,8 @@ en:{
   sessionAddonsLabel:'Add-ons offered',sessionAddonsHint:'inventory items customers can add to a booking',addonStepTitle:'Add on your booking',addonStepSub:'Optional extras available for this session',addonNone:'No add-ons available for this session.',addonsLabel:'Add-ons',addonsSelectedToast:'Add-ons saved with your booking',
   nsSelectAll:'Select all',nsClear:'Clear',nsSelectAllBikes:'Select all bikes',
   invTitle:'Inventory',invSub:'Helmets, accessories and spare-part stock.',invAddBtn:'+ Add item',invItemName:'Item',invCategory:'Category',invQty:'In stock',invLowAt:'Low-stock at',invPrice:'Price (SAR)',invLowStock:'Low stock',invOutStock:'Out of stock',invInStock:'In stock',invLowAlert:'{0} item(s) need restocking',invNoItems:'No inventory items yet. Add helmets, locks, accessories or spare parts.',invSaved:'Inventory updated',catHelmet:'Helmet',catAccessory:'Accessory',catSparePart:'Spare part',catApparel:'Apparel',catOther:'Other',catProteinGummies:'Protein Gummies',catElectrolyteSachets:'Electrolyte Sachets',catEnergyGels:'Energy Gels',
-  cashierTitle:'Cashier',cashierSub:'Items sold with this rental',cashierAddBtn:'Add purchase',cashCustomOpt:'Custom item…',cashAmtLabel:'Unit price (SAR)',cashQtyLabel:'Qty',cashPayLabel:'Payment',cashRingUp:'Add to sale',cashNoSales:'No purchases yet.',cashVoid:'Void',cashDone:'Done',cashAddedToast:'Sale recorded',cashVoidedToast:'Purchase voided',cashSelectItem:'Choose an item',cashNameLabel:'Item name',cashAmtRequired:'Enter a valid amount',cashSalesTitle:'Cashier sales',cashValue:'Sales value',cashQtyCol:'Qty sold',
-  tabCashier:'Cashier',cashTabSub:'Sell items and track sales for a session',cashNewSale:'New sale',cashCustomerLabel:'Customer (optional)',cashCustomerPh:'Walk-up or name',cashRecordBtn:'Record sale',cashLedgerTitle:'Sales',cashNoSalesSession:'No sales recorded for this session yet.',cashRentalTag:'rental',cashNoSessions:'No sessions yet. Create a session first.',cashWalkup:'Walk-up',cashAddItemBtn:'Add item',cashRecordReceiptBtn:'Record receipt',cashReceiptWord:'Receipt',cashReceiptRecorded:'Receipt recorded',cashCartEmpty:'Add at least one item',cashCartTitle:'Receipt items',payTeam:'MM Team',teamChoose:'Choose team member',teamCustom:'Custom name',teamCustomPrompt:'Team member name',cashEditBtn:'Edit',cashMarkPaid:'Mark paid',receiptEditTitle:'Edit receipt',cashSavedToast:'Receipt updated',
+  cashierTitle:'Sales',cashierSub:'Items sold with this rental',cashierAddBtn:'Add purchase',cashCustomOpt:'Custom item…',cashAmtLabel:'Unit price (SAR)',cashQtyLabel:'Qty',cashPayLabel:'Payment',cashRingUp:'Add to sale',cashNoSales:'No purchases yet.',cashVoid:'Void',cashDone:'Done',cashAddedToast:'Sale recorded',cashVoidedToast:'Purchase voided',cashSelectItem:'Choose an item',cashNameLabel:'Item name',cashAmtRequired:'Enter a valid amount',cashSalesTitle:'Sales',cashValue:'Sales value',cashQtyCol:'Qty sold',
+  tabCashier:'Sales',cashTabSub:'Sell items and track sales for a session',cashNewSale:'New sale',cashCustomerLabel:'Customer (optional)',cashCustomerPh:'Walk-up or name',cashRecordBtn:'Record sale',cashLedgerTitle:'Sales',cashNoSalesSession:'No sales recorded for this session yet.',cashRentalTag:'rental',cashNoSessions:'No sessions yet. Create a session first.',cashWalkup:'Walk-up',cashAddItemBtn:'Add item',cashRecordReceiptBtn:'Record receipt',cashReceiptWord:'Receipt',cashReceiptRecorded:'Receipt recorded',cashCartEmpty:'Add at least one item',cashCartTitle:'Receipt items',payTeam:'MM Team',teamChoose:'Choose team member',teamCustom:'Custom name',teamCustomPrompt:'Team member name',teamManage:'Manage team',teamMgrTitle:'MM Team members',teamAddMember:'Add member',teamEmpty:'No team members yet.',cashEditBtn:'Edit',cashMarkPaid:'Mark paid',receiptEditTitle:'Edit receipt',cashSavedToast:'Receipt updated',
   invBrand:'Brand',invNoBrand:'No brand',addCustomCatLabel:'Add custom category...',addCustomBrandLabel:'Add brand...',
   invSecBikes:'Bikes',invSecEquipment:'Equipment',invSecSupplements:'Supplements & Beverages',invManageBikes:'Manage in Bikes tab',invBikesTotal:'Fleet',
   commTitle:'Community',commSub:'Rider leaderboard.',commLeaderboard:'Leaderboard',commEvents:'Upcoming rides',commRank:'Rank',commRider:'Rider',commRides:'rides',commNoLeaders:'No completed rides yet.',commNoEvents:'No upcoming sessions scheduled.',commTopRiders:'Top riders by completed rides',commSpotsLeft:'{0} spots left',
@@ -2141,8 +2142,8 @@ ar:{
   branchLabel:'الفرع',allBranchesLabel:'كل الفروع',sessionBranchLabel:'الموقع / الفرع',
   nsSelectAll:'تحديد الكل',nsClear:'مسح',nsSelectAllBikes:'تحديد كل الدراجات',
   invTitle:'المخزون',invSub:'الخوذ والإكسسوارات وقطع الغيار.',invAddBtn:'+ إضافة عنصر',invItemName:'العنصر',invCategory:'الفئة',invQty:'المتوفر',invLowAt:'تنبيه عند',invPrice:'السعر (ريال)',invLowStock:'مخزون منخفض',invOutStock:'نفد المخزون',invInStock:'متوفر',invLowAlert:'{0} عنصر بحاجة لإعادة تخزين',invNoItems:'لا توجد عناصر بعد. أضف الخوذ والأقفال والإكسسوارات أو قطع الغيار.',invSaved:'تم تحديث المخزون',catHelmet:'خوذة',catAccessory:'إكسسوار',catSparePart:'قطعة غيار',catApparel:'ملابس',catOther:'أخرى',catProteinGummies:'علكة بروتين',catElectrolyteSachets:'أكياس إلكتروليت',catEnergyGels:'جل طاقة',
-  cashierTitle:'الكاشير',cashierSub:'العناصر المباعة مع هذا الإيجار',cashierAddBtn:'إضافة عملية بيع',cashCustomOpt:'عنصر مخصص…',cashAmtLabel:'سعر الوحدة (ريال)',cashQtyLabel:'الكمية',cashPayLabel:'الدفع',cashRingUp:'إضافة للبيع',cashNoSales:'لا توجد مشتريات بعد.',cashVoid:'إلغاء',cashDone:'تم',cashAddedToast:'تم تسجيل البيع',cashVoidedToast:'تم إلغاء العملية',cashSelectItem:'اختر عنصراً',cashNameLabel:'اسم العنصر',cashAmtRequired:'أدخل مبلغاً صحيحاً',cashSalesTitle:'مبيعات الكاشير',cashValue:'قيمة المبيعات',cashQtyCol:'الكمية المباعة',
-  tabCashier:'الكاشير',cashTabSub:'بيع العناصر وتتبع المبيعات لكل جلسة',cashNewSale:'عملية بيع جديدة',cashCustomerLabel:'العميل (اختياري)',cashCustomerPh:'عابر أو اسم',cashRecordBtn:'تسجيل البيع',cashLedgerTitle:'المبيعات',cashNoSalesSession:'لا توجد مبيعات مسجلة لهذه الجلسة بعد.',cashRentalTag:'إيجار',cashNoSessions:'لا توجد جلسات بعد. أنشئ جلسة أولاً.',cashWalkup:'زبون عابر',cashAddItemBtn:'إضافة عنصر',cashRecordReceiptBtn:'تسجيل الفاتورة',cashReceiptWord:'فاتورة',cashReceiptRecorded:'تم تسجيل الفاتورة',cashCartEmpty:'أضف عنصراً واحداً على الأقل',cashCartTitle:'عناصر الفاتورة',payTeam:'فريق MM',teamChoose:'اختر عضو الفريق',teamCustom:'اسم مخصص',teamCustomPrompt:'اسم عضو الفريق',cashEditBtn:'تعديل',cashMarkPaid:'تحديد مدفوع',receiptEditTitle:'تعديل الفاتورة',cashSavedToast:'تم تحديث الفاتورة',
+  cashierTitle:'المبيعات',cashierSub:'العناصر المباعة مع هذا الإيجار',cashierAddBtn:'إضافة عملية بيع',cashCustomOpt:'عنصر مخصص…',cashAmtLabel:'سعر الوحدة (ريال)',cashQtyLabel:'الكمية',cashPayLabel:'الدفع',cashRingUp:'إضافة للبيع',cashNoSales:'لا توجد مشتريات بعد.',cashVoid:'إلغاء',cashDone:'تم',cashAddedToast:'تم تسجيل البيع',cashVoidedToast:'تم إلغاء العملية',cashSelectItem:'اختر عنصراً',cashNameLabel:'اسم العنصر',cashAmtRequired:'أدخل مبلغاً صحيحاً',cashSalesTitle:'المبيعات',cashValue:'قيمة المبيعات',cashQtyCol:'الكمية المباعة',
+  tabCashier:'المبيعات',cashTabSub:'بيع العناصر وتتبع المبيعات لكل جلسة',cashNewSale:'عملية بيع جديدة',cashCustomerLabel:'العميل (اختياري)',cashCustomerPh:'عابر أو اسم',cashRecordBtn:'تسجيل البيع',cashLedgerTitle:'المبيعات',cashNoSalesSession:'لا توجد مبيعات مسجلة لهذه الجلسة بعد.',cashRentalTag:'إيجار',cashNoSessions:'لا توجد جلسات بعد. أنشئ جلسة أولاً.',cashWalkup:'زبون عابر',cashAddItemBtn:'إضافة عنصر',cashRecordReceiptBtn:'تسجيل الفاتورة',cashReceiptWord:'فاتورة',cashReceiptRecorded:'تم تسجيل الفاتورة',cashCartEmpty:'أضف عنصراً واحداً على الأقل',cashCartTitle:'عناصر الفاتورة',payTeam:'فريق MM',teamChoose:'اختر عضو الفريق',teamCustom:'اسم مخصص',teamCustomPrompt:'اسم عضو الفريق',teamManage:'إدارة الفريق',teamMgrTitle:'أعضاء فريق MM',teamAddMember:'إضافة عضو',teamEmpty:'لا يوجد أعضاء فريق بعد.',cashEditBtn:'تعديل',cashMarkPaid:'تحديد مدفوع',receiptEditTitle:'تعديل الفاتورة',cashSavedToast:'تم تحديث الفاتورة',
   invBrand:'العلامة التجارية',invNoBrand:'بدون علامة',addCustomCatLabel:'إضافة فئة مخصصة...',addCustomBrandLabel:'إضافة علامة...',
   invSecBikes:'الدراجات',invSecEquipment:'المعدات',invSecSupplements:'المكمّلات والمشروبات',invManageBikes:'الإدارة في تبويب الدراجات',invBikesTotal:'الأسطول',
   commTitle:'المجتمع',commSub:'لوحة متصدّري الركّاب.',commLeaderboard:'المتصدرون',commEvents:'الرحلات القادمة',commRank:'الترتيب',commRider:'الراكب',commRides:'رحلات',commNoLeaders:'لا توجد رحلات مكتملة بعد.',commNoEvents:'لا توجد جلسات قادمة.',commTopRiders:'أفضل الركّاب حسب الرحلات المكتملة',commSpotsLeft:'{0} مقاعد متبقية',
@@ -2592,7 +2593,7 @@ const S={
   _pcCode:'',_pcKind:'percent',_pcValue:'',
   inventory:[],showAddInv:false,editInvId:null,_invName:'',_invCat:'Helmet',_invQty:'',_invLow:'',_invPrice:'',_invPhoto:'',invSection:'bikes',
   _cashEntry:null,_cashItem:'',_cashQty:'1',_cashAmt:'',_cashName:'',_cashCat:'Helmet',_cashPay:'paid',
-  cashSales:[],_ctSession:'',_ctCust:'',_ctItem:'',_ctName:'',_ctCat:'Helmet',_ctQty:'1',_ctAmt:'',_ctPay:'paid',_ctCart:[],_ctTeam:'',_teamExtra:[],_cashTeam:'',_reKey:null,_reEdit:[],
+  cashSales:[],_ctSession:'',_ctCust:'',_ctItem:'',_ctName:'',_ctCat:'Helmet',_ctQty:'1',_ctAmt:'',_ctPay:'paid',_ctCart:[],_ctTeam:'',teamMembers:[],_teamDraft:[],_cashTeam:'',_reKey:null,_reEdit:[],
   invView:(()=>{try{return localStorage.getItem('cq_inv_view')==='table'?'table':'grid';}catch(e){return'grid';}})(),
   _invBrand:'',_invCatAdd:false,_invBrandAdd:false,
   invCatsEquip:(()=>{try{return JSON.parse(localStorage.getItem('cq_inv_cats_eq'))||[];}catch(e){return[];}})(),
@@ -2741,6 +2742,7 @@ async function loadData(showLoader=false){
   try{const inv=await sb.from('inventory').select('*');if(!inv.error)S.inventory=inv.data||[];}catch(e){}
   try{const pc=await sb.from('promo_codes').select('*');if(!pc.error)S.promoCodes=pc.data||[];}catch(e){}
   try{const cs=await sb.from('cashier_sales').select('*');if(!cs.error)S.cashSales=cs.data||[];}catch(e){}
+  try{const _tm=localStorage.getItem('cq_team');if(_tm!==null){S.teamMembers=JSON.parse(_tm)||[];}else{S.teamMembers=[...new Set((S.cashSales||[]).map(r=>r.team_name).filter(Boolean))].sort();localStorage.setItem('cq_team',JSON.stringify(S.teamMembers));}}catch(e){}
 }
 let _bootReadyAt=0;
 
@@ -9015,8 +9017,46 @@ function _cashPayBadge(pay,team){
   if(pay==='pending')return`<span style="color:var(--orange);font-weight:700">${t('pendingLabel')}</span>`;
   return`<span style="color:var(--green);font-weight:700">${t('paidLabel')}</span>`;
 }
-function teamNames(){const s=new Set();(S.cashSales||[]).forEach(r=>{if(r.team_name)s.add(r.team_name);});(S._teamExtra||[]).forEach(n=>{if(n)s.add(n);});return[...s].sort();}
-function _ctTeamCustom(){const n=(prompt(t('teamCustomPrompt'))||'').trim();if(!n)return;if(!(S._teamExtra||[]).includes(n))S._teamExtra=[...(S._teamExtra||[]),n];S._ctTeam=n;renderCashier();}
+// MM Team roster (editable, persisted in localStorage; seeded once from past sales in loadData)
+function teamNames(){return[...new Set((S.teamMembers||[]).filter(Boolean))].sort();}
+function _teamRosterSave(){try{localStorage.setItem('cq_team',JSON.stringify(S.teamMembers||[]));}catch(e){}}
+function _teamRosterAdd(name){const n=(name||'').trim();if(!n)return'';if(!(S.teamMembers||[]).includes(n)){S.teamMembers=[...(S.teamMembers||[]),n];_teamRosterSave();}return n;}
+function _ctTeamCustom(){const n=_teamRosterAdd(prompt(t('teamCustomPrompt')));if(!n)return;S._ctTeam=n;renderCashier();}
+// Roster manager: rename / delete / add team members
+function showTeamManager(){S._teamDraft=[...teamNames()];renderTeamManager();}
+function closeTeamManager(){const m=document.getElementById('team-mgr-modal');if(m){m.style.display='none';m.innerHTML='';}S._teamDraft=[];}
+function _teamDel(i){S._teamDraft=(S._teamDraft||[]).filter((_,idx)=>idx!==i);renderTeamManager();}
+function _teamAddRow(){S._teamDraft=[...(S._teamDraft||[]),''];renderTeamManager();}
+function saveTeamManager(){
+  S.teamMembers=[...new Set((S._teamDraft||[]).map(s=>(s||'').trim()).filter(Boolean))];
+  _teamRosterSave();
+  if(S._ctTeam&&!S.teamMembers.includes(S._ctTeam))S._ctTeam='';
+  if(S._cashTeam&&!S.teamMembers.includes(S._cashTeam))S._cashTeam='';
+  closeTeamManager();toast(t('cashSavedToast'));
+  renderCashier();if(S._cashEntry)renderCashierModal();
+}
+function renderTeamManager(){
+  const m=document.getElementById('team-mgr-modal');if(!m)return;
+  const draft=S._teamDraft||[];
+  const _inp='padding:9px 11px;border-radius:9px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-family:inherit;font-size:13px;width:100%';
+  m.style.display='flex';
+  m.innerHTML=`<div class="modal-backdrop" style="z-index:260" onclick="if(event.target===this)closeTeamManager()">
+    <div class="modal-box" role="dialog" aria-modal="true" style="max-width:400px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div class="modal-title" style="margin-bottom:0">${t('teamMgrTitle')}</div>
+        <button onclick="closeTeamManager()" aria-label="${t('cancelBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1">&times;</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto">
+        ${draft.length?draft.map((n,i)=>`<div style="display:flex;gap:8px;align-items:center">
+          <input type="text" value="${esc(n)}" oninput="S._teamDraft[${i}]=this.value" placeholder="${t('teamCustomPrompt')}" style="${_inp}">
+          <button class="btn-sm btn-muted" onclick="_teamDel(${i})" aria-label="${t('removeBtn')}" style="flex-shrink:0">${t('removeBtn')}</button>
+        </div>`).join(''):`<div class="empty-state" style="padding:16px">${t('teamEmpty')}</div>`}
+      </div>
+      <button class="btn-secondary" style="width:100%;margin-top:10px" onclick="_teamAddRow()">+ ${t('teamAddMember')}</button>
+      <div class="modal-footer" style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px"><button class="btn-secondary" onclick="closeTeamManager()">${t('cancelBtn')}</button><button class="btn-primary" onclick="saveTeamManager()">${t('saveBtn')}</button></div>
+    </div>
+  </div>`;
+}
 // Product image helpers (inventory items carry an optional data-URL photo)
 function _itemPhoto(id){const it=id&&(S.inventory||[]).find(x=>x.id===id);return(it&&it.photo)?it.photo:'';}
 function _itemThumb(id,size){const p=_itemPhoto(id);return p?`<img src="${esc(p)}" alt="" style="width:${size}px;height:${size}px;border-radius:6px;object-fit:cover;flex-shrink:0">`:'';}
@@ -9037,7 +9077,7 @@ function _cashSet(k,v){
   if(k==='_cashPay'&&v==='house')S._cashAmt='0'; // on the house is always free
   renderCashierModal();
 }
-function _cashTeamCustom(){const n=(prompt(t('teamCustomPrompt'))||'').trim();if(!n)return;if(!(S._teamExtra||[]).includes(n))S._teamExtra=[...(S._teamExtra||[]),n];S._cashTeam=n;renderCashierModal();}
+function _cashTeamCustom(){const n=_teamRosterAdd(prompt(t('teamCustomPrompt')));if(!n)return;S._cashTeam=n;renderCashierModal();}
 async function _cashAddLine(){
   const e=getQueue().find(x=>x.id===S._cashEntry);if(!e)return;
   const isCustom=S._cashItem==='__custom__';
@@ -9121,6 +9161,7 @@ function renderCashierModal(){
           ${S._cashPay==='team'?`<div style="display:flex;gap:7px;margin-top:7px">
             <select onchange="S._cashTeam=this.value" style="${_inp};flex:1">${(S._cashTeam&&!teamNames().includes(S._cashTeam))?`<option value="${esc(S._cashTeam)}" selected>${esc(S._cashTeam)}</option>`:''}<option value=""${!S._cashTeam?' selected':''}>${t('teamChoose')}</option>${teamNames().map(n=>`<option value="${esc(n)}"${S._cashTeam===n?' selected':''}>${esc(n)}</option>`).join('')}</select>
             <button type="button" class="btn-secondary" style="white-space:nowrap;flex-shrink:0" onclick="_cashTeamCustom()">+ ${t('teamCustom')}</button>
+            <button type="button" class="btn-secondary" onclick="showTeamManager()" aria-label="${t('teamManage')}" title="${t('teamManage')}" style="flex-shrink:0;padding:7px 9px">${ICON_PENCIL}</button>
           </div>`:''}</div>
         <button class="btn-primary" style="width:100%;margin-top:2px" onclick="_cashAddLine()">${t('cashRingUp')}</button>
       </div>
@@ -9328,6 +9369,7 @@ function renderCashier(){
             ${S._ctPay==='team'?`<div style="display:flex;gap:7px;margin-top:7px">
               <select onchange="S._ctTeam=this.value" style="${_inp};flex:1">${(S._ctTeam&&!teamNames().includes(S._ctTeam))?`<option value="${esc(S._ctTeam)}" selected>${esc(S._ctTeam)}</option>`:''}<option value=""${!S._ctTeam?' selected':''}>${t('teamChoose')}</option>${teamNames().map(n=>`<option value="${esc(n)}"${S._ctTeam===n?' selected':''}>${esc(n)}</option>`).join('')}</select>
               <button type="button" class="btn-secondary" style="white-space:nowrap;flex-shrink:0" onclick="_ctTeamCustom()">+ ${t('teamCustom')}</button>
+              <button type="button" class="btn-secondary" onclick="showTeamManager()" aria-label="${t('teamManage')}" title="${t('teamManage')}" style="flex-shrink:0;padding:7px 9px">${ICON_PENCIL}</button>
             </div>`:''}
           </div>
           <button class="btn-secondary" style="width:100%;margin-top:2px" onclick="_ctCartAdd()">+ ${t('cashAddItemBtn')}</button>
