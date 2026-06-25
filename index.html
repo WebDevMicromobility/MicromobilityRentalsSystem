@@ -1740,7 +1740,7 @@ en:{
   addWalkinBtn:'Add Walk-in',cancelBtn:'Cancel',
   checkInBtn:'Check In',returnBikeBtn:'Return Bike',removeBtn:'Remove',noShowBtn:'No-Show',customerShowedBtn:'Customer Showed',undoCheckinBtn:'Undo Check-in',toastUndoCheckin:'Check-in reversed - rider moved back to waiting.',
   paidLabel:'Paid',pendingLabel:'Pending',
-  sessionsTitle:'Sessions',sessionsSub:'Create sessions and open them to accept reservations. Closed by default.',
+  sessionsTitle:'Sessions',sessionsSub:'Create sessions and open them to accept reservations. Closed by default.',sessShowMore:'Show {0} more',sessShowLess:'Show less',
   newSession:'+ New Session',newSessionTitle:'New Session',dateLabel:'Date',capacityLabel:'Capacity (spots)',
   createSession:'Create Session',colDate:'Date',colDay:'Day',colCapacity:'Capacity',
   colBookings:'Bookings',colActions:'Actions',colManageBooking:'Manage Booking',colManageSession:'Manage Session',colManageBike:'Manage Bike',colManageRecord:'Manage Record',openBtn:'Open',closeBtn:'Close',deleteBtn:'Delete',
@@ -2085,7 +2085,7 @@ ar:{
   addWalkinBtn:'إضافة زيارة',cancelBtn:'إلغاء',
   checkInBtn:'تسجيل الدخول',returnBikeBtn:'إرجاع الدراجة',removeBtn:'حذف',noShowBtn:'لم يحضر',customerShowedBtn:'العميل حضر',undoCheckinBtn:'تراجع عن تسجيل الدخول',toastUndoCheckin:'تم التراجع عن تسجيل الدخول - الراكب عاد إلى قائمة الانتظار.',
   paidLabel:'مدفوع',pendingLabel:'معلق',
-  sessionsTitle:'الجلسات',sessionsSub:'أنشئ الجلسات وافتحها لقبول الحجوزات. مغلقة بشكل افتراضي.',
+  sessionsTitle:'الجلسات',sessionsSub:'أنشئ الجلسات وافتحها لقبول الحجوزات. مغلقة بشكل افتراضي.',sessShowMore:'عرض {0} أخرى',sessShowLess:'عرض أقل',
   newSession:'+ جلسة جديدة',newSessionTitle:'جلسة جديدة',dateLabel:'التاريخ',capacityLabel:'الطاقة الاستيعابية',
   createSession:'إنشاء جلسة',colDate:'التاريخ',colDay:'اليوم',colCapacity:'الطاقة',
   colBookings:'الحجوزات',colActions:'الإجراءات',colManageBooking:'إدارة الحجز',colManageSession:'إدارة الجلسة',colManageBike:'إدارة الدراجة',colManageRecord:'إدارة السجل',openBtn:'فتح',closeBtn:'إغلاق',deleteBtn:'حذف',
@@ -2652,7 +2652,7 @@ const S={
   
   myStatus:'all',mySort:'date',mySortDir:-1,
   
-  sessSort:'date',sessSortDir:1,sessStatusFilter:'all',showDeletedSess:false,
+  sessSort:'date',sessSortDir:1,sessStatusFilter:'all',showDeletedSess:false,sessShowAll:false,
   
   analyticsRange:'all', analyticsTrendSort:'date', analyticsTrendDir:-1, analyticsCustomN:20,
   analyticsDateFrom:'', analyticsDateTo:'',
@@ -5577,7 +5577,13 @@ function renderSessions(){
     return`<option value="${s}"${S.sessStatusFilter===s?' selected':''}>${l}</option>`;}).join('');
   const sessSortOpts=[['date',t('colDate')],['day',t('colDay')],['capacity',t('colCapacity')],['bookings',t('colBookings')],['status',t('colStatus')]].map(([v,l])=>
     `<option value="${v}"${S.sessSort===v?' selected':''}>${l}</option>`).join('');
-  const rows=sessList.length?sessList.map(s=>{
+  const SESS_LIMIT=5;
+  const _sessCollapse=!S.sessShowAll&&sessList.length>SESS_LIMIT;
+  // Collapsed default: the 5 most recent sessions by date, shown in ascending order
+  const displaySessions=_sessCollapse
+    ?[...sessList].sort((a,b)=>new Date(b.session_date||b.id)-new Date(a.session_date||a.id)).slice(0,SESS_LIMIT).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id))
+    :sessList;
+  const rows=sessList.length?displaySessions.map(s=>{
     const booked=getQueue().filter(e=>e.sessionId===s.id&&e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed').length;
     const cap=s.capacity||12;
     const left=Math.max(0,cap-booked);
@@ -5651,6 +5657,7 @@ function renderSessions(){
         <tbody>${rows}</tbody>
       </table>
     </div>
+    ${sessList.length>SESS_LIMIT?`<div style="margin-top:14px;text-align:center"><button class="btn-secondary" onclick="S.sessShowAll=!S.sessShowAll;renderSessions()">${S.sessShowAll?t('sessShowLess'):t('sessShowMore').replace('{0}',sessList.length-SESS_LIMIT)}</button></div>`:''}
     ${(()=>{
       const deleted=sessions.filter(s=>s.status==='deleted').sort((a,b)=>new Date(b.session_date||b.id)-new Date(a.session_date||a.id));
       if(!deleted.length)return'';
@@ -8865,6 +8872,7 @@ function setMySort(col){
 function setSessSort(col){
   if(S.sessSort===col) S.sessSortDir=-S.sessSortDir;
   else{S.sessSort=col;S.sessSortDir=1;}
+  S.sessShowAll=true; // sorting only makes sense across the full list
   renderSessions();
 }
 function setSessStatusFilter(v){S.sessStatusFilter=v;renderSessions();}
