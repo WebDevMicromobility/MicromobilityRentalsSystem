@@ -9251,24 +9251,27 @@ function _ctCartAdd(){
 }
 function _ctCartRemove(i){S._ctCart=(S._ctCart||[]).filter((_,idx)=>idx!==i);renderCashier();}
 // ── Offline-safe sales: queue cashier_sales writes in localStorage, flush when the connection returns ──
-function _outbox(){try{return JSON.parse(localStorage.getItem('cq_sales_outbox')||'[]');}catch(_){return[];}}
+function _outbox(){try{const o=JSON.parse(localStorage.getItem('cq_sales_outbox')||'[]');let ch=false;o.forEach(op=>{if(!op.oid){op.oid=uid();ch=true;}});if(ch)_outboxSave(o);return o;}catch(_){return[];}}
 function _outboxSave(o){try{localStorage.setItem('cq_sales_outbox',JSON.stringify(o));}catch(_){}}
 function _outboxCount(){return _outbox().length;}
-function _outboxEnqueue(kind,id,data){const o=_outbox();o.push({kind,id,data:data||null});_outboxSave(o);_outboxFlush();}
+function _outboxEnqueue(kind,id,data){const o=_outbox();o.push({oid:uid(),kind,id,data:data||null});_outboxSave(o);_outboxFlush();}
 let _outboxBusy=false;
 async function _outboxFlush(){
   if(_outboxBusy||!sb||(typeof navigator!=='undefined'&&navigator.onLine===false))return;
   _outboxBusy=true;
-  const o=_outbox();const keep=[];
-  for(const op of o){
+  const snapshot=_outbox();const doneIds=[];
+  for(const op of snapshot){
     try{
       const res=op.kind==='delete'?await sb.from('cashier_sales').delete().eq('id',op.id):await sb.from('cashier_sales').upsert(op.data);
-      if(res&&res.error)keep.push(op);
-    }catch(_){keep.push(op);}
+      if(!(res&&res.error))doneIds.push(op.oid);
+    }catch(_){/* keep op for retry */}
   }
-  _outboxSave(keep);
+  // Re-read the live outbox (ops may have been queued during the awaits) and drop only the ones we actually completed
+  const cur=_outbox().filter(op=>doneIds.indexOf(op.oid)<0);
+  _outboxSave(cur);
   _outboxBusy=false;
-  if(keep.length!==o.length&&S.view==='staff'&&S.staffTab==='cashier')renderCashier();
+  if(doneIds.length&&S.view==='staff'&&S.staffTab==='cashier')renderCashier();
+  if(doneIds.length&&cur.length)_outboxFlush(); // drain ops that arrived mid-flush (e.g. a void right after a record)
 }
 // Local + queued upsert/delete of a sale row (never lost on refresh; syncs to the DB when online)
 function _salesUpsert(row){const i=(S.cashSales||[]).findIndex(r=>r.id===row.id);if(i>=0)S.cashSales[i]=row;else S.cashSales=[...(S.cashSales||[]),row];_outboxEnqueue('upsert',row.id,row);}
