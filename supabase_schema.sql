@@ -126,6 +126,7 @@ create table if not exists cashier_sales (
   session_id    text,
   customer_name text,            -- optional label (walk-up name); null = walk-up
   item_id       text,            -- inventory item id if sold from stock (drives stock decrement), else null
+  receipt_id    text,            -- groups multiple line items sold together as one receipt
   name          text not null,
   category      text,            -- inventory category key (Helmet, ProteinGummies, ...)
   qty           integer not null default 1,
