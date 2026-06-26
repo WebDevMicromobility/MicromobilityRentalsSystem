@@ -123,8 +123,22 @@ create table if not exists queue_entries (
 -- alter table queue_entries add column if not exists card_amount numeric;  -- SAR paid by card on a split rental; the rest is cash
 
 -- Optional but RECOMMENDED: stop two devices from issuing the same queue number in a session.
--- The client retries on conflict, so this is the hard guarantee. Requires NO existing duplicates among
--- active rows first (dedupe before creating, or it will error). Partial so cancelled/removed rows don't collide.
+-- The client retries on conflict, so this is the hard guarantee. Partial so cancelled/removed rows don't collide.
+-- If the index errors with 23505 (duplicate key), dedupe FIRST with the renumber query below, then create it.
+--
+-- Dedupe (renumbers only the duplicate copies, pushing them above each session's max - earliest row keeps its number):
+--   with ranked as (
+--     select id, session_id, queue_num,
+--            row_number() over (partition by session_id, queue_num order by registered_at, id) as rn
+--     from queue_entries where status not in ('cancelled','removed','noshow')),
+--   maxes as (
+--     select session_id, max(queue_num) as maxq from queue_entries
+--     where status not in ('cancelled','removed','noshow') group by session_id),
+--   to_fix as (
+--     select r.id, m.maxq + row_number() over (partition by r.session_id order by r.queue_num, r.id) as new_num
+--     from ranked r join maxes m on m.session_id = r.session_id where r.rn > 1)
+--   update queue_entries q set queue_num = f.new_num from to_fix f where q.id = f.id;
+--
 -- create unique index if not exists queue_entries_session_qnum_uniq
 --   on queue_entries (session_id, queue_num)
 --   where status not in ('cancelled','removed','noshow');
