@@ -122,10 +122,31 @@ create table if not exists queue_entries (
 -- alter table queue_entries add column if not exists pay_method text;  -- 'card' | 'cash' | 'split' for a paid rental (close-out card/cash split)
 -- alter table queue_entries add column if not exists card_amount numeric;  -- SAR paid by card on a split rental; the rest is cash
 
+-- Optional but RECOMMENDED: stop two devices from issuing the same queue number in a session.
+-- The client retries on conflict, so this is the hard guarantee. Requires NO existing duplicates among
+-- active rows first (dedupe before creating, or it will error). Partial so cancelled/removed rows don't collide.
+-- create unique index if not exists queue_entries_session_qnum_uniq
+--   on queue_entries (session_id, queue_num)
+--   where status not in ('cancelled','removed','noshow');
+
 -- Optional: JS error capture (the app inserts here tolerantly; safe to skip)
 -- create table if not exists error_log (id bigint generated always as identity primary key, at text, msg text, src text, ua text);
 -- alter table error_log enable row level security;
 -- create policy "error insert" on error_log for insert with check (true);
+
+-- Optional but RECOMMENDED: cross-device staff audit trail (the app inserts here tolerantly; safe to skip).
+-- 'who' is the operator name set in the Logs tab; 'device' is a stable per-browser id.
+-- create table if not exists staff_actions (
+--   id      bigint generated always as identity primary key,
+--   at      text,
+--   action  text,
+--   who     text,
+--   device  text,
+--   view    text
+-- );
+-- alter table staff_actions enable row level security;
+-- create policy "audit insert" on staff_actions for insert with check (true);
+-- create policy "audit read"   on staff_actions for select using (true);
 
 -- Standalone cashier / point-of-sale transactions (the Cashier staff tab). Walk-up or counter sales.
 create table if not exists cashier_sales (
