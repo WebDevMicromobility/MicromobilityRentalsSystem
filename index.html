@@ -9228,7 +9228,7 @@ function renderTeamManager(){
 function _itemPhoto(id){const it=id&&(S.inventory||[]).find(x=>x.id===id);return(it&&it.photo)?it.photo:'';}
 function _itemThumb(id,size){const p=_itemPhoto(id);return p?`<img src="${esc(p)}" alt="" style="width:${size}px;height:${size}px;border-radius:6px;object-fit:cover;flex-shrink:0">`:'';}
 // Units sold per inventory item (cashier sales + rental add-ons) -> drives top-seller ordering
-function _itemSalesCount(){const c={};(S.cashSales||[]).forEach(r=>{if(r.item_id)c[r.item_id]=(c[r.item_id]||0)+(Number(r.qty)||0);});getQueue().forEach(e=>entryPurchases(e).forEach(p=>{if(p.id)c[p.id]=(c[p.id]||0)+(Number(p.qty)||0);}));return c;}
+function _itemSalesCount(){const c={};(S.cashSales||[]).forEach(r=>{if(r.item_id&&r.pay!=='refunded')c[r.item_id]=(c[r.item_id]||0)+(Number(r.qty)||0);});getQueue().forEach(e=>entryPurchases(e).forEach(p=>{if(p.id)c[p.id]=(c[p.id]||0)+(Number(p.qty)||0);}));return c;}
 function showCashierModal(id){
   const e=getQueue().find(x=>x.id===id);if(!e)return;
   S._cashEntry=id;S._cashItem='';S._cashQty='1';S._cashAmt='';S._cashName='';S._cashCat='Other';S._cashPay='paid';
@@ -9414,6 +9414,16 @@ async function _bookOutboxFlush(){
 }
 // Commit the whole cart as one receipt (shared receipt_id), decrement stock, then print it
 function _ctDiscountSAR(cartTotal){const v=parseFloat(S._ctDisc);if(isNaN(v)||v<=0)return 0;const d=S._ctDiscPct?cartTotal*(v/100):v;return Math.min(Math.max(0,cartTotal),Math.round(d*100)/100);}
+// Live preview of discounted total + card/cash split without a full re-render (avoids swallowing the next click)
+function _ctPreview(){
+  const cart=S._ctCart||[];
+  const cartTot=Math.round(cart.reduce((s,l)=>s+(Number(l.qty)||0)*(Number(l.price)||0),0)*100)/100;
+  const cartPaidNum=cart.filter(l=>l.pay==='paid').reduce((s,l)=>s+(Number(l.qty)||0)*(Number(l.price)||0),0);
+  const disc=_ctDiscountSAR(cartTot),after=Math.round((cartTot-disc)*100)/100;
+  const paidAfter=Math.max(0,Math.round((cartPaidNum-disc)*100)/100),card=_ctCardSAR(paidAfter),cash=Math.max(0,Math.round((paidAfter-card)*100)/100);
+  const g=document.getElementById('ct-grand');if(g)g.textContent='SAR '+after;
+  const sp=document.getElementById('ct-split');if(sp)sp.innerHTML=card>0?`<span>${t('cashCard')} SAR ${card}</span><span>${t('cashCash')} SAR ${cash}</span>`:'';
+}
 function _ctCardSAR(paidTotal){const v=parseFloat(S._ctCard);if(isNaN(v)||v<=0)return 0;const c=S._ctCardPct?paidTotal*(v/100):v;return Math.min(Math.max(0,paidTotal),Math.round(c*100)/100);}
 async function _ctRecord(){
   const sessId=S._ctSession;if(!sessId){toast(t('errSelectSession'),'error');return;}
@@ -9423,7 +9433,7 @@ async function _ctRecord(){
   // Per-receipt discount as a negative 'paid' line (no schema change needed)
   const cartTotal=S._ctCart.reduce((s,l)=>s+l.qty*l.price,0);
   const discSAR=_ctDiscountSAR(cartTotal);
-  if(discSAR>0)rows.push({id:uid(),receipt_id:rid,session_id:sessId,customer_name:cust,item_id:null,name:t('cashDiscount'),category:'__discount__',qty:1,price:-discSAR,pay:'paid',team_name:null,created_at:at});
+  if(discSAR>0)rows.push({id:uid(),receipt_id:rid,session_id:sessId,customer_name:cust,item_id:null,name:t('cashDiscount'),category:'__discount__',qty:1,price:-discSAR,pay:S._ctCart.some(l=>l.pay==='paid')?'paid':'pending',team_name:null,created_at:at});
   // Card/cash split as a qty-0 metadata line (never affects sales totals)
   const paidTotal=rows.filter(r=>r.pay==='paid').reduce((s,r)=>s+r.qty*r.price,0);
   const cardSAR=_ctCardSAR(paidTotal);
@@ -9641,16 +9651,16 @@ function renderCashier(){
             </div>`).join('')}
             <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
               <label style="${_lbl};flex:1">${t('cashDiscount')}</label>
-              <input type="number" min="0" step="0.5" value="${esc(S._ctDisc)}" onchange="S._ctDisc=this.value;renderCashier()" placeholder="0" style="${_inp};width:88px">
+              <input type="number" min="0" step="0.5" value="${esc(S._ctDisc)}" oninput="S._ctDisc=this.value;_ctPreview()" placeholder="0" style="${_inp};width:88px">
               <button type="button" onclick="S._ctDiscPct=!S._ctDiscPct;renderCashier()" style="${_tgl}">${S._ctDiscPct?'%':'SAR'}</button>
             </div>
             ${cartPaidNum>0?`<div style="display:flex;align-items:center;gap:8px;margin-top:7px">
               <label style="${_lbl};flex:1">${t('cashSplitLabel')}</label>
-              <input type="number" min="0" step="0.5" value="${esc(S._ctCard)}" onchange="S._ctCard=this.value;renderCashier()" placeholder="0" style="${_inp};width:88px">
+              <input type="number" min="0" step="0.5" value="${esc(S._ctCard)}" oninput="S._ctCard=this.value;_ctPreview()" placeholder="0" style="${_inp};width:88px">
               <button type="button" onclick="S._ctCardPct=!S._ctCardPct;renderCashier()" style="${_tgl}">${S._ctCardPct?'%':'SAR'}</button>
             </div>`:''}
-            <div style="display:flex;justify-content:space-between;font-weight:900;border-top:1px solid var(--border);margin-top:8px;padding-top:6px"><span>${t('repTotal')}</span><bdi style="color:var(--green)">SAR ${cartAfterDisc}</bdi></div>
-            ${cartCardSAR>0?`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:2px"><span>${t('cashCard')} SAR ${cartCardSAR}</span><span>${t('cashCash')} SAR ${cartCashSAR}</span></div>`:''}
+            <div style="display:flex;justify-content:space-between;font-weight:900;border-top:1px solid var(--border);margin-top:8px;padding-top:6px"><span>${t('repTotal')}</span><bdi id="ct-grand" style="color:var(--green)">SAR ${cartAfterDisc}</bdi></div>
+            <div id="ct-split" style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:2px">${cartCardSAR>0?`<span>${t('cashCard')} SAR ${cartCardSAR}</span><span>${t('cashCash')} SAR ${cartCashSAR}</span>`:''}</div>
             <button class="btn-primary" style="width:100%;margin-top:10px" onclick="_ctRecord()">${t('cashRecordReceiptBtn')}</button>
           </div>`:''}
         </div>
@@ -9666,7 +9676,7 @@ function renderCashier(){
         ${tot.discount>0?`<div style="font-size:12px;color:var(--muted);font-weight:700;margin-bottom:8px">${t('cashDiscount')}: <bdi>SAR ${tot.discount}</bdi></div>`:''}
         ${tot.refunded>0?`<div style="font-size:12px;color:var(--orange);font-weight:800;margin-bottom:10px">${t('cashRefunds')}: <bdi>SAR ${tot.refunded}</bdi></div>`:''}
         ${catRows?`<div style="background:var(--s2);border-radius:10px;padding:10px 12px;margin-bottom:12px">${catRows}</div>`:''}
-        <div style="font-weight:800;font-size:13px;margin-bottom:2px">${t('cashLedgerTitle')} <span style="color:var(--muted);font-weight:600">(${lines.length})</span></div>
+        <div style="font-weight:800;font-size:13px;margin-bottom:2px">${t('cashLedgerTitle')} <span style="color:var(--muted);font-weight:600">(${lines.filter(l=>l.cat!=='__discount__'&&l.cat!=='__cardmeta__').length})</span></div>
         ${ledger}
       </div>
     </div>
@@ -10081,7 +10091,7 @@ function renderAnalytics(){
   // Product sales for the in-range sessions (cashier sales + rental add-ons)
   const anSalesLines=[...sessIds].reduce((acc,sid)=>acc.concat(_cashSessionLines(sid)),[]);
   const anSales=_salesTotals(anSalesLines);
-  const anTopItems=(()=>{const c={};anSalesLines.forEach(l=>{const k=l.name||'—';if(!c[k])c[k]={name:k,qty:0,value:0};c[k].qty+=(Number(l.qty)||0);c[k].value+=(Number(l.qty)||0)*(Number(l.price)||0);});return Object.values(c).sort((a,b)=>b.qty-a.qty||b.value-a.value).slice(0,8);})();
+  const anTopItems=(()=>{const c={};anSalesLines.filter(l=>l.cat!=='__discount__'&&l.cat!=='__cardmeta__'&&l.pay!=='refunded'&&(Number(l.qty)||0)>0).forEach(l=>{const k=l.name||'—';if(!c[k])c[k]={name:k,qty:0,value:0};c[k].qty+=(Number(l.qty)||0);c[k].value+=(Number(l.qty)||0)*(Number(l.price)||0);});return Object.values(c).sort((a,b)=>b.qty-a.qty||b.value-a.value).slice(0,8);})();
 
   function _rangeBar(){
     const _sh=sessions.filter(s=>queue.some(e=>e.sessionId===s.id&&e.status==='done')).length;
