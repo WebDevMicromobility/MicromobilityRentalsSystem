@@ -91,6 +91,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 
 <div id="view-staff">
   <nav class="tab-nav" id="staff-tab-nav" aria-label="Staff sections">
+    <button class="tab-btn"        data-stab="dashboard" onclick="setStaffTab('dashboard')">Dashboard</button>
     <button class="tab-btn"        data-stab="cashier"   onclick="setStaffTab('cashier')">Sales</button>
     <button class="tab-btn active" data-stab="queue"     onclick="setStaffTab('queue')">Bookings</button>
     <button class="tab-btn"        data-stab="sessions"  onclick="setStaffTab('sessions')">Sessions</button>
@@ -101,6 +102,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <button class="tab-btn"        data-stab="logs"      onclick="setStaffTab('logs')">Logs</button>
   </nav>
   <div class="view-main">
+    <div id="tab-dashboard" class="tab-panel"></div>
     <div id="tab-queue"     class="tab-panel active"></div>
     <div id="tab-sessions"  class="tab-panel"></div>
     <div id="tab-inventory"  class="tab-panel"></div>
@@ -214,6 +216,7 @@ en:{
   authPhone:'Phone Number',authPhoneOpt:'(optional if using email)',
   authPassword:'Password',authPasswordHint:'Min 8 chars, 1 uppercase, 1 number',authConfirmPassword:'Confirm Password',
   tabReserve:'Reserve',tabMyRides:'My Rides',tabQueue:'Queue',tabSessions:'Sessions',tabBikes:'Bikes',tabHistory:'History',tabAnalytics:'Analytics',tabLogs:'Logs',tabInventory:'Inventory',tabCommunity:'Community',
+  tabDashboard:'Dashboard',dashTitle:'Dashboard',dashSub:'Live overview of the booth right now.',dashWaiting:'Waiting',dashOnBikes:'On bikes now',dashOpenSessions:'Open sessions',dashAvailBikes:'Available bikes',dashAlerts:'Alerts',dashOverdueSub:'Ride running long',dashMaintAlert:'{0} bike(s) in maintenance',dashLowBikes:'Only {0} bikes available',dashAllClear:'All clear - nothing needs attention.',sessSelectMsg:'Select a session to see its details and bookings.',sessRidersTitle:'Bookings',sessBackList:'All sessions',sessNoRiders:'No bookings in this session yet.',
   anRevCollected:'Revenue Collected',anRevPending:'Revenue Pending',anRevTotal:'Total Revenue',anAvgPerSession:'Avg / Session',
   anTotalRides:'Completed Rides',anUniqueCustomers:'Unique Customers',anRepeatRiders:'Repeat Riders',
   anSessionsHeld:'Sessions Held',anAvgOccupancy:'Avg Occupancy',anNoShowRate:'No-Show Rate',anCollectionRate:'Collection Rate',
@@ -559,6 +562,7 @@ ar:{
   authPhone:'رقم الهاتف',authPhoneOpt:'(اختياري إذا استخدمت البريد)',
   authPassword:'كلمة المرور',authPasswordHint:'8 أحرف كحد أدنى، حرف كبير ورقم',authConfirmPassword:'تأكيد كلمة المرور',
   tabReserve:'حجز',tabMyRides:'رحلاتي',tabQueue:'الطابور',tabSessions:'الجلسات',tabBikes:'الدراجات',tabHistory:'السجل',tabAnalytics:'التحليلات',tabLogs:'السجلات',tabInventory:'المخزون',tabCommunity:'المجتمع',
+  tabDashboard:'لوحة القيادة',dashTitle:'لوحة القيادة',dashSub:'نظرة حية على الكشك الآن.',dashWaiting:'في الانتظار',dashOnBikes:'على الدراجات الآن',dashOpenSessions:'الجلسات المفتوحة',dashAvailBikes:'الدراجات المتاحة',dashAlerts:'التنبيهات',dashOverdueSub:'الرحلة تطول',dashMaintAlert:'{0} دراجة في الصيانة',dashLowBikes:'تبقّى {0} دراجات متاحة فقط',dashAllClear:'كل شيء على ما يرام - لا شيء يحتاج انتباهاً.',sessSelectMsg:'اختر جلسة لعرض تفاصيلها وحجوزاتها.',sessRidersTitle:'الحجوزات',sessBackList:'كل الجلسات',sessNoRiders:'لا توجد حجوزات في هذه الجلسة بعد.',
   anRevCollected:'الإيرادات المحصلة',anRevPending:'الإيرادات المعلقة',anRevTotal:'إجمالي الإيرادات',anAvgPerSession:'متوسط الجلسة',
   anTotalRides:'الرحلات المكتملة',anUniqueCustomers:'العملاء الفريدون',anRepeatRiders:'الراكبون المتكررون',
   anSessionsHeld:'الجلسات المنعقدة',anAvgOccupancy:'متوسط الإشغال',anNoShowRate:'معدل الغياب',anCollectionRate:'معدل التحصيل',
@@ -1178,7 +1182,7 @@ const S={
   invBrandsEquip:(()=>{try{return JSON.parse(localStorage.getItem('cq_inv_brands_eq'))||[];}catch(e){return[];}})(),
   invBrandsSupp:(()=>{try{let l=JSON.parse(localStorage.getItem('cq_inv_brands_supp'))||[];if(!l.includes('SIS'))l=['SIS',...l];return l;}catch(e){return['SIS'];}})(),
   dataLoaded:false,
-  communityTab:'leaderboard',lbWindow:'all',lbScope:'owner',lbMetric:'count',lbBranch:'all',lbSearch:'',_lbSearchFocused:false,
+  communityTab:'leaderboard',lbWindow:'all',lbScope:'owner',lbMetric:'count',lbBranch:'all',lbSearch:'',_lbSearchFocused:false,selSessionDetail:null,
   pinDigits:'',
   pinError:false,
   pinCountdownInterval:null,
@@ -2255,7 +2259,8 @@ function setStaffTab(tab){
   S.staffTab=tab;
   try{sessionStorage.setItem('cq_nav_stab',tab);}catch(e){}
   renderStaffTabs();
-  if(tab==='sessions')renderSessions();
+  if(tab==='dashboard')renderDashboard();
+  else if(tab==='sessions')renderSessions();
   else if(tab==='queue')renderStaffQueue();
   else if(tab==='history')renderHistory();
   else if(tab==='analytics')renderAnalytics();
@@ -2288,6 +2293,7 @@ function renderStaffTabs(){
   document.querySelectorAll('#staff-tab-nav .tab-btn').forEach(b=>{
     b.classList.toggle('active',b.dataset.stab===S.staffTab);
   });
+  document.getElementById('tab-dashboard') .classList.toggle('active',S.staffTab==='dashboard');
   document.getElementById('tab-queue')     .classList.toggle('active',S.staffTab==='queue');
   document.getElementById('tab-sessions')  .classList.toggle('active',S.staffTab==='sessions');
   document.getElementById('tab-inventory') .classList.toggle('active',S.staffTab==='inventory');
@@ -4033,6 +4039,54 @@ function _kbCheckInNext(){
   openModal(waiting[0].id);
 }
 
+function selectSessionDetail(id){
+  S.selSessionDetail=id||null;
+  renderSessions();
+  // On phone the detail replaces the list, so bring it to the top
+  if(id&&window.matchMedia&&window.matchMedia('(max-width:767px)').matches){try{window.scrollTo({top:0,behavior:'smooth'});}catch(_){window.scrollTo(0,0);}}
+}
+function renderDashboard(){
+  const el=document.getElementById('tab-dashboard');if(!el)return;
+  if(!S.dataLoaded){el.innerHTML=skeletonList(4);return;}
+  const q=getQueue();
+  const sessions=allSessions();
+  const openSessions=sessions.filter(s=>s.status==='open');
+  const waiting=q.filter(e=>e.status==='waiting'||e.status==='waitlist');
+  const active=q.filter(e=>e.status==='active');
+  const bikes=getBikes().filter(b=>b.status!=='retired');
+  const avail=bikes.filter(b=>b.status==='available').length;
+  const inUse=bikes.filter(b=>b.status==='in-use').length;
+  const maint=bikes.filter(b=>b.status==='maintenance');
+  // Overdue rides: active riders whose elapsed time exceeds the threshold (best-effort, from this device's check-in stamps)
+  const OVERDUE=60;
+  const overdue=active.map(e=>{let m=null;try{const ts=localStorage.getItem('cq_ct_'+e.id);if(ts)m=Math.floor((Date.now()-Number(ts))/60000);}catch(_){}return{e,m};}).filter(x=>x.m!=null&&x.m>=OVERDUE).sort((a,b)=>b.m-a.m);
+  const nearFull=openSessions.map(s=>({s,left:spotsLeft(s.id)})).filter(x=>x.left<=1).sort((a,b)=>a.left-b.left);
+  const kpi=(num,label,sub,color,tab)=>`<button class="dash-kpi" ${tab?`onclick="setStaffTab('${tab}')"`:''} aria-label="${esc(label)}: ${num}">
+      <div class="dash-kpi-num" style="color:${color}">${num}</div>
+      <div class="dash-kpi-lbl">${esc(label)}</div>
+      ${sub?`<div class="dash-kpi-sub">${sub}</div>`:''}
+    </button>`;
+  const alerts=[];
+  overdue.forEach(({e,m})=>{const bk=getAssignedBikes(e).map(b=>b.name).join(', ');alerts.push({tone:'red',title:`${esc(e.name)} · ${fmtDur(m)}`,sub:`${t('dashOverdueSub')}${bk?' · '+esc(bk):''}`,tab:'queue'});});
+  if(maint.length)alerts.push({tone:'orange',title:t('dashMaintAlert').replace('{0}',maint.length),sub:maint.map(b=>esc(b.name)).join(', '),tab:'inventory'});
+  nearFull.forEach(({s,left})=>alerts.push({tone:'blue',title:`${shortDate(s.session_date||s.id)} · ${left===0?t('statusFull'):t('commSpotsLeft').replace('{0}',left)}`,sub:`${dayLabel(s.day)||''}${s.location?' · '+esc(s.location):''}`,tab:'sessions'}));
+  if(openSessions.length&&avail<=2)alerts.push({tone:'orange',title:t('dashLowBikes').replace('{0}',avail),sub:'',tab:'inventory'});
+  el.innerHTML=`
+    <div class="section-header"><div><div class="page-title">${t('dashTitle')}</div><div class="page-sub">${t('dashSub')}</div></div></div>
+    <div class="dash-kpi-grid">
+      ${kpi(waiting.length,t('dashWaiting'),'',waiting.length>0?'var(--green)':'var(--muted)','queue')}
+      ${kpi(active.length,t('dashOnBikes'),'',active.length>0?'var(--blue)':'var(--muted)','queue')}
+      ${kpi(openSessions.length,t('dashOpenSessions'),'',openSessions.length>0?'var(--green)':'var(--muted)','sessions')}
+      ${kpi(avail,t('dashAvailBikes'),`${inUse} ${t('inUseLabel').toLowerCase()}${maint.length?' · '+maint.length+' '+t('maintLabel').toLowerCase():''}`,(avail<=2&&openSessions.length)?'var(--orange)':'var(--text)','inventory')}
+    </div>
+    <div class="dash-section-title">${t('dashAlerts')}${alerts.length?` <span class="dash-alert-count">${alerts.length}</span>`:''}</div>
+    ${alerts.length?`<div class="dash-alerts">${alerts.map(a=>`<button class="dash-alert tone-${a.tone}" ${a.tab?`onclick="setStaffTab('${a.tab}')"`:''}>
+        <span class="dash-alert-dot" aria-hidden="true"></span>
+        <span class="dash-alert-body"><span class="dash-alert-title">${a.title}</span>${a.sub?`<span class="dash-alert-sub">${a.sub}</span>`:''}</span>
+        <span class="dash-alert-go" aria-hidden="true">›</span>
+      </button>`).join('')}</div>`
+      :`<div class="dash-allclear">${t('dashAllClear')}</div>`}`;
+}
 function renderSessions(){
   if(!S.dataLoaded){const _el=document.getElementById('tab-sessions');if(_el)_el.innerHTML=skeletonList(5,true);return;}
   const sessions=allSessions();
@@ -4355,6 +4409,46 @@ function renderSessions(){
     </tr>`;
   }).join(''):`<tr><td colspan="6"><div style="padding:8px">${emptyIllustration(ILLUS_CALENDAR,t('noSessionsYet'),'',`<button class="btn-primary" onclick="S.showAddSession=true;S.editSessionId=null;renderSessions()">${t('newSession')}</button>`)}</div></td></tr>`;
 
+  // ── Two-pane session browser: list (left) + detail (right) on iPad/desktop; master-detail on phone ──
+  const _sessD=(s)=>{
+    const booked=(_bySession.get(s.id)||[]).filter(e=>e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed').length;
+    const cap=s.capacity||12;const left=Math.max(0,cap-booked);
+    const slots=parseSlots(s.bike_slots);const fleetInfo=slots?slotsLabel(slots):'';
+    let badge,actions;
+    if(s.status==='open'){badge=`<span class="badge-open">${t('statusOpen')}</span>`;actions=`<button class="btn-sm btn-orange" onclick="event.stopPropagation();toggleSession('${s.id}','full')">${t('markFullBtn')}</button><button class="btn-sm btn-red" onclick="event.stopPropagation();toggleSession('${s.id}','closed')">${t('closeBtn')}</button>`;}
+    else if(s.status==='full'){badge=`<span class="badge-full">${t('statusFull')}</span>`;actions=`<button class="btn-sm btn-green" onclick="event.stopPropagation();toggleSession('${s.id}','open')">${t('reopenBtn')}</button><button class="btn-sm btn-red" onclick="event.stopPropagation();toggleSession('${s.id}','closed')">${t('closeBtn')}</button>`;}
+    else{badge=`<span class="badge-closed">${t('statusClosed')}</span>`;actions=`<button class="btn-sm btn-green" onclick="event.stopPropagation();toggleSession('${s.id}','open')">${t('openBtn')}</button>`;}
+    return{booked,cap,left,fleetInfo,badge,actions};
+  };
+  const _listCard=(s)=>{const d=_sessD(s);const pct=d.cap?Math.round(d.booked/d.cap*100):0;const sel=S.selSessionDetail===s.id;
+    return`<button class="sess-lc${sel?' selected':''}" onclick="selectSessionDetail('${s.id}')" aria-label="${esc(shortDate(s.session_date||s.id))}">
+      <div class="sess-lc-top"><span class="sess-lc-date">${shortDate(s.session_date||s.id)}</span>${d.badge}</div>
+      <div class="sess-lc-meta">${dayLabel(s.day)||''} · ${sessionTime(s)}${s.location?` · ${esc(s.location)}`:''}</div>
+      <div class="sess-lc-bar"><div style="width:${pct}%;background:${d.left===0?'var(--orange)':'var(--green)'}"></div></div>
+      <div class="sess-lc-count">${d.booked}/${d.cap} · ${d.left} ${t('spotsLeft')}</div>
+    </button>`;};
+  const _selSess=S.selSessionDetail?sessions.find(s=>s.id===S.selSessionDetail&&s.status!=='deleted'):null;
+  const _detailHtml=_selSess?(()=>{
+    const d=_sessD(_selSess);
+    const riders=(_bySession.get(_selSess.id)||[]).filter(e=>e.status!=='removed').sort((a,b)=>(a.queueNum||0)-(b.queueNum||0));
+    const rr=riders.length?riders.map(e=>{const bk=getAssignedBikes(e).map(b=>esc(b.name)).join(', ');
+      return`<div class="sess-rider"><span class="sess-rider-q">#${e.queueNum}</span><div class="sess-rider-info"><div class="sess-rider-name">${esc(e.name)}</div>${bk?`<div class="sess-rider-bike">${bk}</div>`:''}</div>${statusBadge(e.status)}</div>`;
+    }).join(''):`<div class="empty-state" style="padding:18px;font-size:13px">${t('sessNoRiders')}</div>`;
+    return`<button class="sess-back-btn" onclick="selectSessionDetail(null)">‹ ${t('sessBackList')}</button>
+      <div class="sess-detail-head"><div style="min-width:0"><div class="sess-detail-date">${shortDate(_selSess.session_date||_selSess.id)}</div><div class="sess-detail-day">${dayLabel(_selSess.day)||''} · ${sessionTime(_selSess)}${_selSess.location?` · ${esc(_selSess.location)}`:''}</div></div>${d.badge}</div>
+      <div class="sess-detail-stats"><div><div class="sess-ds-num">${d.booked}/${d.cap}</div><div class="sess-ds-lbl">${t('colBookings')}</div></div><div><div class="sess-ds-num">${d.left}</div><div class="sess-ds-lbl">${t('spotsLeft')}</div></div>${d.fleetInfo?`<div class="sess-ds-fleet"><div class="sess-ds-fleetval">${d.fleetInfo}</div><div class="sess-ds-lbl">${t('bikeFleetComp')}</div></div>`:''}</div>
+      <div class="sess-detail-actions"><button class="btn-sm btn-blue" onclick="startEditSession('${_selSess.id}')">${t('editBtn2')}</button><button class="btn-sm btn-muted" onclick="cloneSession('${_selSess.id}')">${t('cloneSessBtn')}</button>${d.actions}${isAdmin()?`<button class="btn-sm btn-red" onclick="deleteSession('${_selSess.id}')" ${d.booked>0?`disabled title="${t('hasBookingsTitle')}"`:''}>${t('deleteBtn')}</button>`:''}</div>
+      <div class="sess-detail-rtitle">${t('sessRidersTitle')} <span style="color:var(--muted)">(${riders.length})</span></div>
+      <div class="sess-detail-riders">${rr}</div>`;
+  })():`<div class="sess-detail-empty">${emptyIllustration(ILLUS_CALENDAR,t('sessSelectMsg'))}</div>`;
+  const sessTwoPane=`<div class="sess-twopane${(S.selSessionDetail&&_selSess)?' has-detail':''}">
+    <div class="sess-list-pane">
+      <div class="sess-list-scroll">${sessList.length?displaySessions.map(_listCard).join(''):emptyIllustration(ILLUS_CALENDAR,t('noSessionsYet'),'',`<button class="btn-primary" onclick="S.showAddSession=true;S.editSessionId=null;renderSessions()">${t('newSession')}</button>`)}</div>
+      ${sessList.length>SESS_LIMIT?`<div style="margin-top:10px;text-align:center"><button class="btn-secondary" onclick="S.sessShowAll=!S.sessShowAll;renderSessions()">${S.sessShowAll?t('sessShowLess'):t('sessShowMore').replace('{0}',sessList.length-SESS_LIMIT)}</button></div>`:''}
+    </div>
+    <div class="sess-detail-pane">${_detailHtml}</div>
+  </div>`;
+
   document.getElementById('tab-sessions').innerHTML=`
     <div class="section-header">
       <div>
@@ -4369,23 +4463,11 @@ function renderSessions(){
       <div class="filter-row">
         <span class="filter-label">${t('filterStatus')}:</span>
         <select class="filter-select" onchange="setSessStatusFilter(this.value)">${sessStatusOpts}</select>
+        <select class="filter-select" onchange="setSessSort(this.value)" aria-label="${t('colDate')}">${sessSortOpts}</select>
       </div>
       ${sessList.length!==sessions.length?`<div class="result-count">${sessList.length} ${t('resultOf')} ${sessions.length} ${t('resultSessions')}</div>`:''}
     </div>
-    <div class="table-wrapper">
-      <table class="sess-admin-table">
-        <thead><tr>
-          ${thSessSort('date',t('colDate'))}
-          ${thSessSort('day',t('colDay'))}
-          ${thSessSort('capacity',t('colCapacity'))}
-          ${thSessSort('bookings',t('colBookings'))}
-          ${thSessSort('status',t('colStatus'))}
-          <th>${t('colManageSession')}</th>
-        </tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-    ${sessList.length>SESS_LIMIT?`<div style="margin-top:14px;text-align:center"><button class="btn-secondary" onclick="S.sessShowAll=!S.sessShowAll;renderSessions()">${S.sessShowAll?t('sessShowLess'):t('sessShowMore').replace('{0}',sessList.length-SESS_LIMIT)}</button></div>`:''}
+    ${sessTwoPane}
     ${(()=>{
       const deleted=sessions.filter(s=>s.status==='deleted').sort((a,b)=>new Date(b.session_date||b.id)-new Date(a.session_date||a.id));
       if(!deleted.length)return'';
@@ -9757,7 +9839,7 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   if(target==='staff'){
     goStaff();
     const stab=(nav&&nav.stab)||sessionStorage.getItem('cq_nav_stab');
-    if(stab&&['queue','sessions','inventory','community','history','analytics','logs'].includes(stab))setStaffTab(stab);
+    if(stab&&['dashboard','queue','sessions','inventory','community','history','analytics','logs'].includes(stab))setStaffTab(stab);
   } else if(target==='customer'){
     const ctab=(nav&&nav.ctab)||sessionStorage.getItem('cq_nav_ctab');
     goCustomer(ctab&&['register','myrides','account'].includes(ctab)?ctab:'register');
@@ -9823,7 +9905,8 @@ async function _autoRefresh(full){
     await (full?loadData():loadDataLight());
     _lastRefresh=Date.now();
     const tab=S.staffTab; // re-render only the visible tab; switching tabs re-renders fresh anyway
-    if(tab==='queue')renderStaffQueue();
+    if(tab==='dashboard')renderDashboard();
+    else if(tab==='queue')renderStaffQueue();
     else if(tab==='sessions')renderSessions();
     else if(tab==='bikes')renderBikes();
     else if(tab==='history')renderHistory();
@@ -9908,7 +9991,7 @@ document.addEventListener('keydown',e=>{
   if(k==='/'){e.preventDefault();if(S.staffTab!=='queue')setStaffTab('queue');setTimeout(()=>{const el=document.getElementById('sf-search-input');if(el){el.focus();try{el.select();}catch(_){}}},60);return;}
   if(k==='n'){e.preventDefault();_kbCheckInNext();return;}
   if(k==='r'){e.preventDefault();if(typeof _autoRefresh==='function')_autoRefresh(true);return;}
-  const tabKeys={b:'queue',s:'sessions',i:'inventory',c:'community',a:'analytics',h:'history',l:'logs'};
+  const tabKeys={d:'dashboard',b:'queue',s:'sessions',i:'inventory',c:'community',a:'analytics',h:'history',l:'logs'};
   if(tabKeys[k]){e.preventDefault();setStaffTab(tabKeys[k]);return;}
 });
 
@@ -9933,6 +10016,42 @@ document.addEventListener('keydown',e=>{
 // (Realtime is set up once above via setupRealtime(); the old second channel was removed to avoid double-fetching.)
 try{window.addEventListener('online',()=>{_updateConnUI();_outboxFlush();_bookOutboxFlush();try{setupRealtime();}catch(_){}});}catch(e){} // sync queued work + re-subscribe when the connection returns
 try{window.addEventListener('offline',()=>{S._rtConnected=false;_updateConnUI();});}catch(e){}
+// ── Pull-to-refresh: drag down at the top of the queue / sessions / dashboard / My Rides lists to refresh ──
+(function(){
+  let startY=0,pulling=false,dist=0;
+  function eligible(){
+    if(document.querySelector('.modal-backdrop,.pin-backdrop,.auth-backdrop,.pay-menu-popup'))return false;
+    if(S.view==='staff')return ['queue','sessions','dashboard'].includes(S.staffTab);
+    if(S.view==='customer')return S.custTab==='myrides';
+    return false;
+  }
+  function ind(){let e=document.getElementById('ptr-ind');if(!e){e=document.createElement('div');e.id='ptr-ind';e.innerHTML='<div class="ptr-spin" aria-hidden="true"></div>';document.body.appendChild(e);}return e;}
+  function sTop(){return window.scrollY||document.documentElement.scrollTop||document.body.scrollTop||0;}
+  function reset(el){el.classList.remove('ready','refreshing');el.style.transform='translateX(-50%) translateY(-64px)';el.style.opacity='0';}
+  document.addEventListener('touchstart',e=>{
+    if(!eligible()||sTop()>2||e.touches.length!==1){pulling=false;return;}
+    startY=e.touches[0].clientY;pulling=true;dist=0;
+  },{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!pulling)return;
+    const dy=e.touches[0].clientY-startY;
+    if(dy<=0||sTop()>2){pulling=false;ind().style.opacity='0';return;}
+    dist=Math.min(dy*0.5,90);
+    if(dy>8)e.preventDefault();              // replace native rubber-band with our indicator (only when pulling down at the very top)
+    const el=ind();el.style.transform=`translateX(-50%) translateY(${Math.min(dist-50,16)}px)`;el.style.opacity=String(Math.min(1,dist/60));
+    el.classList.toggle('ready',dist>=60);
+  },{passive:false});
+  document.addEventListener('touchend',()=>{
+    if(!pulling)return;pulling=false;
+    const el=ind();
+    if(dist>=60){
+      el.classList.add('refreshing','ready');el.style.transform='translateX(-50%) translateY(14px)';el.style.opacity='1';
+      Promise.resolve().then(()=>S.view==='staff'?_autoRefresh(true):loadData().then(()=>{renderMyRides();renderLandingAvail();}))
+        .catch(()=>{}).finally(()=>setTimeout(()=>reset(el),450));
+    }else reset(el);
+    dist=0;
+  },{passive:true});
+})();
 try{_outboxFlush();}catch(e){}
 try{_bookOutboxFlush();}catch(e){}
 // ── Global error capture: keep the last 50 errors locally, surface a throttled toast, log to a tolerant table ──
