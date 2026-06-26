@@ -69,6 +69,8 @@ CREATE TABLE IF NOT EXISTS queue_entries (
 CREATE INDEX IF NOT EXISTS idx_queue_session  ON queue_entries(session_id);
 CREATE INDEX IF NOT EXISTS idx_queue_customer ON queue_entries(customer_id);
 CREATE INDEX IF NOT EXISTS idx_queue_status   ON queue_entries(status);
+CREATE INDEX IF NOT EXISTS idx_queue_session_date ON queue_entries(session_date); -- speeds the recent-window load
+CREATE INDEX IF NOT EXISTS idx_cashier_session ON cashier_sales(session_id);
 
 -- ── USEFUL QUERIES ─────────────────────────────────────────────────────────
 

@@ -2646,7 +2646,7 @@ const S={
   bkGroupsets:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_groupsets'))||[];}catch(e){return[];}})(),
   bkStatus:'all',bkSize:'all',bkSearch:'',bkSortCol:'name',bkSortDir:1,bkView:'table',bkShowRetired:false,
   
-  histStatus:'all',histPay:'all',histSess:'all',histSort:'date',histSortDir:-1,histType:'all',histSize:'all',histSearch:'',
+  histStatus:'all',histPay:'all',histSess:'all',histSort:'date',histSortDir:-1,histType:'all',histSize:'all',histSearch:'',histLimit:60,
   histLog:[],showHistLog:false,
   
   myStatus:'all',mySort:'date',mySortDir:-1,
@@ -2777,8 +2777,14 @@ async function loadData(showLoader=false){
   try{const _v=_voidedIds();if(_v.length)S.cashSales=(S.cashSales||[]).filter(r=>_v.indexOf(r.id)<0);}catch(e){} // never resurrect a voided sale
   _outboxFlush();
   try{const _tm=localStorage.getItem('cq_team');if(_tm!==null){S.teamMembers=JSON.parse(_tm)||[];}else{S.teamMembers=[...new Set((S.cashSales||[]).map(r=>r.team_name).filter(Boolean))].sort();localStorage.setItem('cq_team',JSON.stringify(S.teamMembers));}}catch(e){}
+  _lastLoadOk=true;_cacheSave();
 }
 let _bootReadyAt=0;
+let _lastLoadOk=false;
+// Cold-start resilience: keep a local snapshot of the last good load (photos stripped to stay under quota).
+// On boot, if the network load brought nothing, render last-known data instead of an empty screen.
+function _cacheSave(){try{const strip=a=>(a||[]).map(x=>{const{photo,...r}=x;return r;});localStorage.setItem('cq_snapshot',JSON.stringify({q:S.queue,ses:S.sessions,bk:strip(S.bikes),inv:strip(S.inventory),cs:S.cashSales}));}catch(e){}}
+function _cacheRestore(){try{const s=JSON.parse(localStorage.getItem('cq_snapshot')||'null');if(s&&s.q){S.queue=s.q||[];S.sessions=s.ses||[];S.bikes=s.bk||[];S.inventory=s.inv||[];S.cashSales=s.cs||[];S.dataLoaded=true;}}catch(e){}}
 
 
 function hashPwd(s){
@@ -3021,7 +3027,14 @@ function spotsLeft(sid){
   return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed').length);
 }
 function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid&&e.status!=='removed'&&e.status!=='cancelled').map(e=>e.queueNum);return nums.length?nums.reduce((a,b)=>Math.max(a,b),0)+1:1;}
-const bikeById=id=>getBikes().find(b=>b.id===id);
+// Memoized bike lookup (id -> bike); rebuilds only when the bikes array/length changes. Holds live
+// references, so in-place status edits are reflected. Avoids O(entries x bikes) finds in render loops.
+let _bbRef=null,_bbLen=-1,_bbMap=null;
+function bikeById(id){
+  const bs=getBikes();
+  if(_bbRef!==bs||_bbLen!==bs.length||!_bbMap){_bbMap=new Map(bs.map(b=>[b.id,b]));_bbRef=bs;_bbLen=bs.length;}
+  return _bbMap.get(id);
+}
 function getAssignedBikeIds(entry){
   if(!entry)return[];
   
@@ -7034,7 +7047,7 @@ async function doNoShow(id){
   await sb.from('queue_entries').update({status:'noshow'}).eq('id',id);
   if(savedBehind.length)await Promise.all(behind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
   const _promoted=await _autoPromoteOldestWaitlist(entry.sessionId);
-  await loadData();
+  await loadDataLight(); // queue-only status change: slim re-sync (no photo refetch)
   await _restockAddonsOnExit(entry);
   toast(_promoted?`${t('toastNoShow')} · ${t('toastPromoted')}`:t('toastNoShow'));
   S._flashId=id;S._flashColor='orange';setTimeout(()=>{S._flashId=null;},800);
@@ -7054,7 +7067,7 @@ async function doUndoNoShow(id){
   const savedAhead=ahead.map(e=>({id:e.id,queueNum:e.queueNum}));
   if(ahead.length)await Promise.all(ahead.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum+1}).eq('id',e.id)));
   await sb.from('queue_entries').update({status:'waiting'}).eq('id',id);
-  await loadData();
+  await loadDataLight(); // queue-only status change: slim re-sync
   await _consumeAddonsOnEnter(entry); // rider is active again, re-reserve stock that was restocked on no-show
   toast(t('toastUndoNoShow'));
   pushUndo(`${t('undoUndoNoShow')} #${entry.queueNum} ${entry.name}`,async()=>{
@@ -8844,7 +8857,8 @@ function renderHistory(){
     `<option value="${v}"${S.histSort===v?' selected':''}>${l}</option>`).join('');
   const sessOpts=`<option value="all"${S.histSess==='all'?' selected':''}>${t('allSessions')}</option>`+
     sessions.map(s=>`<option value="${s.id}"${S.histSess===s.id?' selected':''}>${s.day} ${s.display}</option>`).join('');
-  const rows=filtered.map(e=>{
+  const _histShown=filtered.slice(0,S.histLimit||60);
+  const rows=_histShown.map(e=>{
     const bike=getAssignedBikes(e)[0]||null;
     const grad=bike&&bike.colors?bikeGradient(bike.colors):null;
     const payColor=e.paid?'var(--green)':'var(--muted-l)';
@@ -8961,7 +8975,8 @@ function renderHistory(){
         <th>${t('colManageRecord')}</th>
       </tr></thead>
       <tbody>${rows}${emptyRow}</tbody>
-    </table></div>`;
+    </table></div>
+    ${filtered.length>_histShown.length?`<div style="margin-top:12px;text-align:center"><button class="btn-secondary" onclick="S.histLimit=(S.histLimit||60)+100;renderHistory()">${t('sessShowMore').replace('{0}',filtered.length-_histShown.length)}</button></div>`:''}`;
 }
 
 function setHistStatus(v){S.histStatus=v;renderHistory();}
@@ -8974,7 +8989,8 @@ function setHistSort(col){
 }
 function setHistType(v){S.histType=v;renderHistory();}
 function setHistSize(v){S.histSize=v;renderHistory();}
-function setHistSearch(v){S.histSearch=v;renderHistory();}
+let _histSearchT;
+function setHistSearch(v){S.histSearch=v;S.histLimit=60;clearTimeout(_histSearchT);_histSearchT=setTimeout(()=>{renderHistory();const i=document.querySelector('#tab-history .search-input');if(i){i.focus();try{i.setSelectionRange(i.value.length,i.value.length);}catch(e){}}},220);} // debounced: type freely, filter on pause, keep focus
 function setMyStatus(v){S.myStatus=v;renderMyRides();}
 function setMySort(col){
   if(S.mySort===col) S.mySortDir=-S.mySortDir;
@@ -10980,6 +10996,7 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   }catch(e){
     console.warn('Could not reach backend:',e.message);
   }
+  if(!_lastLoadOk){try{_cacheRestore();}catch(e){}} // network down/slow: show last-known data instead of an empty screen
   _bootDone=true;_bootReadyAt=Date.now();
   applyThemeIcon();
   const ls=document.getElementById('loading-screen');
@@ -11083,6 +11100,21 @@ async function _autoRefresh(full){
 setInterval(()=>{if(!document.hidden)_tickRefreshLabel();},5000);
 setInterval(()=>{if(!document.hidden)_autoRefresh(false);},30000); // light poll, paused while the tab is hidden
 try{document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.view==='staff')_autoRefresh(true);});}catch(e){} // full catch-up when the booth screen comes back
+// Realtime: push updates to the staff screen instantly (debounced) instead of waiting for the poll.
+// Safe by default - if Realtime isn't enabled on the tables, the channel simply never fires and the 30s poll still covers it.
+let _rtT;
+function _onRealtime(){clearTimeout(_rtT);_rtT=setTimeout(()=>{if(S.view==='staff'&&!document.hidden)_autoRefresh(false);},400);}
+function _setupRealtime(){
+  if(!sb||!sb.channel)return;
+  try{
+    sb.channel('mmcq-rt')
+      .on('postgres_changes',{event:'*',schema:'public',table:'queue_entries'},_onRealtime)
+      .on('postgres_changes',{event:'*',schema:'public',table:'sessions'},_onRealtime)
+      .on('postgres_changes',{event:'*',schema:'public',table:'cashier_sales'},_onRealtime)
+      .subscribe();
+  }catch(e){}
+}
+try{_setupRealtime();}catch(e){}
 
 // ── Supabase Realtime: push updates (polling above stays as a fallback if Realtime is off) ──
 let _rtDebounce=null;
