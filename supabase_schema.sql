@@ -119,7 +119,8 @@ create table if not exists queue_entries (
 -- alter table queue_entries add column if not exists addons text;     -- selected add-on item ids per booking
 -- alter table queue_entries add column if not exists promo_code text; -- promo code applied to the booking
 -- alter table queue_entries add column if not exists purchases text;  -- JSON array of cashier purchases sold with the rental (cashier system)
--- alter table queue_entries add column if not exists pay_method text;  -- 'card' | 'cash' for a paid rental (close-out card/cash split)
+-- alter table queue_entries add column if not exists pay_method text;  -- 'card' | 'cash' | 'split' for a paid rental (close-out card/cash split)
+-- alter table queue_entries add column if not exists card_amount numeric;  -- SAR paid by card on a split rental; the rest is cash
 
 -- Optional: JS error capture (the app inserts here tolerantly; safe to skip)
 -- create table if not exists error_log (id bigint generated always as identity primary key, at text, msg text, src text, ua text);

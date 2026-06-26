@@ -1,5 +1,5 @@
 
-const CACHE = 'mmcq-v16';
+const CACHE = 'mmcq-v17';
 const SHELL = [
   './',
   './index.html',
