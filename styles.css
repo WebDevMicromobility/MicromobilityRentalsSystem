@@ -1316,6 +1316,29 @@
       .btn-sm{padding:5px 8px;font-size:11px;}
     }
 
+    /* ── Sessions tab (phones <=480px): stack the admin tables into label/value cards so every
+       session is fully visible with vertical-only scrolling. No contained horizontal table scroll.
+       Desktop/tablet are untouched (these rules only apply under 480px). ── */
+    @media(max-width:480px){
+      #tab-sessions .table-wrapper{overflow-x:visible;border:none;border-radius:0;}
+      #tab-sessions .sess-admin-table,
+      #tab-sessions .sess-admin-table tbody,
+      #tab-sessions .sess-admin-table tr,
+      #tab-sessions .sess-admin-table td{display:block;width:100%;max-width:100%;box-sizing:border-box;}
+      #tab-sessions .sess-admin-table thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);border:0;}
+      #tab-sessions .sess-admin-table tr{background:var(--s1);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;padding:2px;overflow:hidden;}
+      #tab-sessions .sess-admin-table td{border:none;border-bottom:1px solid rgba(255,255,255,.05);padding:8px 14px;font-size:13px;text-align:left;overflow-wrap:anywhere;}
+      #tab-sessions .sess-admin-table td:last-child{border-bottom:none;}
+      #tab-sessions .sess-admin-table td::before{content:attr(data-label);display:block;font-size:10px;font-weight:900;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;}
+      #tab-sessions .sess-admin-table td[colspan]{text-align:center;}
+      #tab-sessions .sess-admin-table td[colspan]::before{display:none;}
+      #tab-sessions .sess-admin-table td.cell-actions::before{display:none;}
+      #tab-sessions .sess-admin-table td.cell-actions .actions-cell{gap:8px;}
+      #tab-sessions .sess-admin-table td.cell-actions .btn-sm{flex:1 1 calc(50% - 5px);min-width:0;padding:10px;font-size:12px;}
+      /* keep the "new session" add-form fleet-count grid contained (admin entry), not page-wide */
+      #tab-sessions .inline-form table{min-width:0;}
+    }
+
     
     .analytics-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px;}
     @media(max-width:1023px){.analytics-kpi-grid{grid-template-columns:repeat(2,1fr);}}

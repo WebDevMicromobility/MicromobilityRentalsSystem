@@ -4336,15 +4336,15 @@ function renderSessions(){
       actionBtns=`<button class="btn-sm btn-green" onclick="toggleSession('${s.id}','open')">${t('openBtn')}</button>`;
     }
     return`<tr>
-      <td style="font-weight:800">${shortDate(s.session_date||s.id)}${s.location?`<div style="font-size:10px;color:var(--green);font-weight:700;margin-top:2px"> ${esc(s.location)}</div>`:''}</td>
-      <td style="color:var(--muted)">${dayLabel(s.day)||''}</td>
-      <td>
+      <td data-label="${t('colDate')}" style="font-weight:800">${shortDate(s.session_date||s.id)}${s.location?`<div style="font-size:10px;color:var(--green);font-weight:700;margin-top:2px"> ${esc(s.location)}</div>`:''}</td>
+      <td data-label="${t('colDay')}" style="color:var(--muted)">${dayLabel(s.day)||''}</td>
+      <td data-label="${t('colCapacity')}">
         <div style="font-weight:800">${cap}</div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px">${fleetInfo}</div>
       </td>
-      <td>${booked} / ${cap} &nbsp;<span style="color:var(--muted);font-size:11px">(${left} ${t('spotsLeft')})</span></td>
-      <td>${statusBadgeHtml}</td>
-      <td>
+      <td data-label="${t('colBookings')}">${booked} / ${cap} &nbsp;<span style="color:var(--muted);font-size:11px">(${left} ${t('spotsLeft')})</span></td>
+      <td data-label="${t('colStatus')}">${statusBadgeHtml}</td>
+      <td class="cell-actions">
         <div class="actions-cell">
           <button class="btn-sm btn-blue" onclick="startEditSession('${s.id}')">${t('editBtn2')}</button>
           <button class="btn-sm btn-muted" onclick="cloneSession('${s.id}')">${t('cloneSessBtn')}</button>
@@ -4406,11 +4406,11 @@ function renderSessions(){
             const slots=parseSlots(s.bike_slots);
             const fleetInfo=slots?Object.entries(slots).filter(([k])=>!k.startsWith('_')).map(([ty,n])=>`${ty.slice(0,3)}&times;${n}`).join(', '):'';
             return`<tr style="opacity:.65">
-              <td style="font-weight:800">${shortDate(s.session_date||s.id)}</td>
-              <td style="color:var(--muted)">${dayLabel(s.day)||''}</td>
-              <td><div style="font-weight:800">${cap}</div><div style="font-size:11px;color:var(--muted)">${fleetInfo}</div></td>
-              <td>${bk} / ${cap}</td>
-              <td><button class="btn-sm btn-green" onclick="restoreSession('${s.id}')">${t('restoreBtn')}</button></td>
+              <td data-label="${t('colDate')}" style="font-weight:800">${shortDate(s.session_date||s.id)}</td>
+              <td data-label="${t('colDay')}" style="color:var(--muted)">${dayLabel(s.day)||''}</td>
+              <td data-label="${t('colCapacity')}"><div style="font-weight:800">${cap}</div><div style="font-size:11px;color:var(--muted)">${fleetInfo}</div></td>
+              <td data-label="${t('colBookings')}">${bk} / ${cap}</td>
+              <td class="cell-actions"><button class="btn-sm btn-green" onclick="restoreSession('${s.id}')">${t('restoreBtn')}</button></td>
             </tr>`;
           }).join('')}</tbody>
         </table></div>`:''}
@@ -4423,10 +4423,10 @@ function renderPromoManager(){
   if(!isAdmin())return'';
   const codes=[...(S.promoCodes||[])].sort((a,b)=>String(a.code).localeCompare(String(b.code)));
   const rows=codes.length?codes.map(c=>`<tr${c.active?'':' style="opacity:.5"'}>
-    <td style="font-weight:900;font-family:monospace">${esc(c.code)}</td>
-    <td>${c.kind==='flat'?`SAR ${c.value}`:`${c.value}%`}</td>
-    <td><button class="btn-sm ${c.active?'btn-green':'btn-muted'}" onclick="togglePromoActive('${c.id}')">${c.active?t('promoActiveLabel'):t('promoInactiveLabel')}</button></td>
-    <td><button class="btn-sm btn-red" onclick="delPromo('${c.id}')">${t('deleteBtn')}</button></td>
+    <td data-label="${t('promoCodeLabel')}" style="font-weight:900;font-family:monospace">${esc(c.code)}</td>
+    <td data-label="${t('promoValueLabel')}">${c.kind==='flat'?`SAR ${c.value}`:`${c.value}%`}</td>
+    <td data-label="${t('promoActiveLabel')}"><button class="btn-sm ${c.active?'btn-green':'btn-muted'}" onclick="togglePromoActive('${c.id}')">${c.active?t('promoActiveLabel'):t('promoInactiveLabel')}</button></td>
+    <td class="cell-actions"><button class="btn-sm btn-red" onclick="delPromo('${c.id}')">${t('deleteBtn')}</button></td>
   </tr>`).join(''):`<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--muted)">${t('promoNoCodes')}</td></tr>`;
   return`<div style="margin-top:32px">
     <div class="page-title" style="font-size:18px;margin-bottom:10px">${t('promoMgrTitle')}</div>
