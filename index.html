@@ -2757,6 +2757,7 @@ async function loadData(showLoader=false){
   try{const pc=await sb.from('promo_codes').select('*');if(!pc.error)S.promoCodes=pc.data||[];}catch(e){}
   try{const cs=await sb.from('cashier_sales').select('*');if(!cs.error)S.cashSales=cs.data||[];}catch(e){}
   try{_outbox().forEach(op=>{if(op.kind==='delete')S.cashSales=(S.cashSales||[]).filter(r=>r.id!==op.id);else{const i=(S.cashSales||[]).findIndex(r=>r.id===op.id);if(i>=0)S.cashSales[i]=op.data;else S.cashSales.push(op.data);}});}catch(e){} // keep unsynced offline sales visible
+  try{const _v=_voidedIds();if(_v.length)S.cashSales=(S.cashSales||[]).filter(r=>_v.indexOf(r.id)<0);}catch(e){} // never resurrect a voided sale
   _outboxFlush();
   try{const _tm=localStorage.getItem('cq_team');if(_tm!==null){S.teamMembers=JSON.parse(_tm)||[];}else{S.teamMembers=[...new Set((S.cashSales||[]).map(r=>r.team_name).filter(Boolean))].sort();localStorage.setItem('cq_team',JSON.stringify(S.teamMembers));}}catch(e){}
 }
@@ -9317,6 +9318,9 @@ function _ctCartAdd(){
 }
 function _ctCartRemove(i){S._ctCart=(S._ctCart||[]).filter((_,idx)=>idx!==i);renderCashier();}
 // ── Offline-safe sales: queue cashier_sales writes in localStorage, flush when the connection returns ──
+// Voided sale ids (kept locally so a voided purchase can never reappear, even if the DB DELETE was blocked/no-op)
+function _voidedIds(){try{return JSON.parse(localStorage.getItem('cq_sales_voided')||'[]');}catch(_){return[];}}
+function _voidedAdd(id){try{const v=_voidedIds();if(v.indexOf(id)<0){v.push(id);localStorage.setItem('cq_sales_voided',JSON.stringify(v));}}catch(_){}}
 function _outbox(){try{const o=JSON.parse(localStorage.getItem('cq_sales_outbox')||'[]');let ch=false;o.forEach(op=>{if(!op.oid){op.oid=uid();ch=true;}});if(ch)_outboxSave(o);return o;}catch(_){return[];}}
 function _outboxSave(o){try{localStorage.setItem('cq_sales_outbox',JSON.stringify(o));}catch(_){}}
 function _outboxCount(){return _outbox().length;}
@@ -9341,7 +9345,7 @@ async function _outboxFlush(){
 }
 // Local + queued upsert/delete of a sale row (never lost on refresh; syncs to the DB when online)
 function _salesUpsert(row){const i=(S.cashSales||[]).findIndex(r=>r.id===row.id);if(i>=0)S.cashSales[i]=row;else S.cashSales=[...(S.cashSales||[]),row];_outboxEnqueue('upsert',row.id,row);}
-function _salesDelete(id){S.cashSales=(S.cashSales||[]).filter(r=>r.id!==id);_outboxEnqueue('delete',id,null);}
+function _salesDelete(id){_voidedAdd(id);S.cashSales=(S.cashSales||[]).filter(r=>r.id!==id);_outboxEnqueue('delete',id,null);}
 // Commit the whole cart as one receipt (shared receipt_id), decrement stock, then print it
 async function _ctRecord(){
   const sessId=S._ctSession;if(!sessId){toast(t('errSelectSession'),'error');return;}
