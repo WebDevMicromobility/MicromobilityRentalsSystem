@@ -2697,6 +2697,19 @@ const SECURE_AUTH = false;
 
 
 const getQueue=()=>S.queue||[];
+// Only load bookings from the last N days into memory (bounds payload + render cost as history grows).
+// Generous window so nothing current is affected; raise it if you need older history in the live views.
+const QUEUE_WINDOW_DAYS=365;
+function _qWindowCut(){return new Date(Date.now()-QUEUE_WINDOW_DAYS*864e5).toISOString().slice(0,10);}
+// Memoized sessionId -> entries[] map (rebuilds only when the queue array or its length changes;
+// in-place status edits stay live because the map holds entry references). Kills O(n^2) per-session filters.
+let _qbsRef=null,_qbsLen=-1,_qbsMap=null;
+function _qBySession(){
+  const ql=S.queue||[];
+  if(_qbsRef===S.queue&&_qbsLen===ql.length&&_qbsMap)return _qbsMap;
+  const m=new Map();ql.forEach(e=>{let a=m.get(e.sessionId);if(!a){a=[];m.set(e.sessionId,a);}a.push(e);});
+  _qbsRef=S.queue;_qbsLen=ql.length;_qbsMap=m;return m;
+}
 const getBikes=()=>S.bikes||[];
 const getCustomers=()=>S.customers||[];
 const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36);
@@ -2736,7 +2749,7 @@ async function loadData(showLoader=false){
   let q,b,ses;
   try{
     [q,b,ses]=await Promise.all([
-      sb.from('queue_entries').select('*').order('session_id').order('queue_num'),
+      sb.from('queue_entries').select('*').gte('session_date',_qWindowCut()).order('session_id').order('queue_num'),
       sb.from('bikes').select('*'),
       sb.from('sessions').select('*').order('session_date'),
     ]);
@@ -5072,8 +5085,26 @@ async function saveAccount(){
   }catch(e){setErr(t('errSaveAccount'));}
 }
 
-// ── Profile photo: resize client-side to a small square and store as a data URL ──
-// Read an image file, resize it to a max dimension, and hand back a JPEG data URL
+// Output a resized canvas as a small image: upload to the public Supabase Storage bucket 'photos' (tiny
+// row payloads, browser-cacheable) and hand back its URL; if Storage isn't set up or fails, fall back to a
+// data URL (current behaviour). Existing data-URL photos keep rendering either way.
+function _photoOut(c,cb){
+  const dataUrl=c.toDataURL('image/jpeg',0.82);
+  if(!sb||!sb.storage||!c.toBlob){cb(dataUrl);return;}
+  try{
+    c.toBlob(async blob=>{
+      if(!blob){cb(dataUrl);return;}
+      try{
+        const path='p/'+uid()+'.jpg';
+        const{error}=await sb.storage.from('photos').upload(path,blob,{contentType:'image/jpeg',upsert:true});
+        if(error){cb(dataUrl);return;}
+        const{data}=sb.storage.from('photos').getPublicUrl(path);
+        cb((data&&data.publicUrl)?data.publicUrl:dataUrl);
+      }catch(e){cb(dataUrl);}
+    },'image/jpeg',0.82);
+  }catch(e){cb(dataUrl);}
+}
+// ── Profile photo: resize client-side to a small square; stored to Storage (URL) or as a data-URL fallback ──
 function pickImage(input,cb,max,square){
   const file=input.files&&input.files[0];if(!file)return;
   max=max||300;
@@ -5087,13 +5118,13 @@ function pickImage(input,cb,max,square){
         const sx=(img.width-side)/2,sy=(img.height-side)/2;
         const c=document.createElement('canvas');c.width=max;c.height=max;
         c.getContext('2d').drawImage(img,sx,sy,side,side,0,0,max,max);
-        cb(c.toDataURL('image/jpeg',0.82));return;
+        _photoOut(c,cb);return;
       }
       let w=img.width,h=img.height;
       if(w>h){if(w>max){h=Math.round(h*max/w);w=max;}}else{if(h>max){w=Math.round(w*max/h);h=max;}}
       const c=document.createElement('canvas');c.width=w;c.height=h;
       c.getContext('2d').drawImage(img,0,0,w,h);
-      cb(c.toDataURL('image/jpeg',0.82));
+      _photoOut(c,cb);
     };
     img.onerror=()=>toast(t('photoErrToast'),'error');
     img.src=ev.target.result;
@@ -5662,13 +5693,13 @@ function renderSessions(){
   let sessList=sessions.filter(s=>s.status!=='deleted');
   if(S.sessStatusFilter!=='all') sessList=sessList.filter(s=>s.status===S.sessStatusFilter);
   const _sd=S.sessSortDir;
+  const _bySession=_qBySession();
+  const _sessBooked=id=>(_bySession.get(id)||[]).filter(e=>e.status!=='noshow'&&e.status!=='cancelled').length;
   sessList.sort((a,b)=>{
     if(S.sessSort==='day')      return _sd*(a.day||'').localeCompare(b.day||'');
     if(S.sessSort==='capacity') return _sd*((a.capacity||12)-(b.capacity||12));
     if(S.sessSort==='bookings'){
-      const ba=getQueue().filter(e=>e.sessionId===a.id&&e.status!=='noshow'&&e.status!=='cancelled').length;
-      const bb=getQueue().filter(e=>e.sessionId===b.id&&e.status!=='noshow'&&e.status!=='cancelled').length;
-      return _sd*(ba-bb);
+      return _sd*(_sessBooked(a.id)-_sessBooked(b.id));
     }
     if(S.sessSort==='status')   return _sd*(a.status||'').localeCompare(b.status||'');
     return _sd*(new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
@@ -5692,7 +5723,7 @@ function renderSessions(){
     ?[...sessList].sort((a,b)=>new Date(b.session_date||b.id)-new Date(a.session_date||a.id)).slice(0,SESS_LIMIT)
     :sessList;
   const rows=sessList.length?displaySessions.map(s=>{
-    const booked=getQueue().filter(e=>e.sessionId===s.id&&e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed').length;
+    const booked=(_bySession.get(s.id)||[]).filter(e=>e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed').length;
     const cap=s.capacity||12;
     const left=Math.max(0,cap-booked);
     const isOpen=s.status==='open';
@@ -6684,10 +6715,10 @@ async function togglePayment(id,mode){
   const stateLabel=newPaid&&newPrice===0?' '+t('onTheHouseLabel'):newPaid?'✓ '+t('paidLabel'):t('pendingLabel');
   toast(stateLabel,newPaid?'':'warning');
   await sb.from('queue_entries').update({paid:newPaid,price:newPrice}).eq('id',id);
-  await loadData();renderStaffQueue();renderHistory();
+  await loadDataLight();renderStaffQueue();renderHistory(); // queue-only change: slim re-sync (no photo refetch)
   pushUndo(`${t('undoPayment')} #${entry.queueNum} ${entry.name}`,async()=>{
     await sb.from('queue_entries').update({paid:prevPaid,price:prevPrice}).eq('id',id);
-    await loadData();renderStaffQueue();renderHistory();
+    await loadDataLight();renderStaffQueue();renderHistory();
   });
 }
 
@@ -10444,7 +10475,7 @@ function renderAnalytics(){
   // ── Demand: fill rate per session (within range) ──
   const demandRows=sessions.map(s=>{
     const cap=s.capacity||12;
-    const booked=queue.filter(e=>e.sessionId===s.id&&['waiting','active','done','noshow'].includes(e.status)).length;
+    const booked=(_qBySession().get(s.id)||[]).filter(e=>['waiting','active','done','noshow'].includes(e.status)).length;
     return{s,cap,booked,fill:cap?Math.round(booked/cap*100):0,soldOut:booked>=cap};
   }).sort((a,b)=>b.fill-a.fill);
   const demandSoldOut=demandRows.filter(r=>r.soldOut).length;
@@ -11009,18 +11040,39 @@ function _tickRefreshLabel(){
   const sec=Math.round((Date.now()-_lastRefresh)/1000);
   el.textContent=sec<5?t('justNow'):sec<60?`${sec}${t('secondsAgo')}`:`${Math.round(sec/60)}${t('minutesAgo')}`;
 }
-async function _autoRefresh(){
+// Slim refresh for the 30s poll: only the volatile, photo-free tables (queue + sessions + sales).
+// Bikes/inventory/promo (which carry base64 photo data-URLs) are NOT refetched here - they load on
+// full loadData() (boot, manual refresh, tab focus), so the poll payload stays tiny.
+async function loadDataLight(){
+  if(!sb)return;
+  let q,ses,cs;
+  try{[q,ses,cs]=await Promise.all([
+    sb.from('queue_entries').select('*').gte('session_date',_qWindowCut()).order('session_id').order('queue_num'),
+    sb.from('sessions').select('*').order('session_date'),
+    sb.from('cashier_sales').select('*'),
+  ]);}catch(e){return;} // offline: keep current state
+  if(q&&!q.error){S.queue=(q.data||[]).map(entryFromDB);try{_applyBookOutbox();}catch(_){}_bookOutboxFlush();}
+  if(ses&&!ses.error)S.sessions=ses.data||[];
+  if(cs&&!cs.error){S.cashSales=cs.data||[];
+    try{_outbox().forEach(op=>{if(op.kind==='delete')S.cashSales=(S.cashSales||[]).filter(r=>r.id!==op.id);else{const i=(S.cashSales||[]).findIndex(r=>r.id===op.id);if(i>=0)S.cashSales[i]=op.data;else S.cashSales.push(op.data);}});}catch(_){}
+    try{const _v=_voidedIds();if(_v.length)S.cashSales=(S.cashSales||[]).filter(r=>_v.indexOf(r.id)<0);}catch(_){}}
+  _outboxFlush();
+}
+async function _autoRefresh(full){
   if(S.view!=='staff')return;
   try{
-    await loadData();
+    await (full?loadData():loadDataLight());
     _lastRefresh=Date.now();
-    renderStaffQueue();renderSessions();
-    if(S.staffTab==='bikes')renderBikes();
-    if(S.staffTab==='history')renderHistory();
-    if(S.staffTab==='analytics')renderAnalytics();
-    if(S.staffTab==='logs')renderLogs();
-    if(S.staffTab==='inventory')renderInventory();
-    if(S.staffTab==='community')renderCommunity();
+    const tab=S.staffTab; // re-render only the visible tab; switching tabs re-renders fresh anyway
+    if(tab==='queue')renderStaffQueue();
+    else if(tab==='sessions')renderSessions();
+    else if(tab==='bikes')renderBikes();
+    else if(tab==='history')renderHistory();
+    else if(tab==='analytics')renderAnalytics();
+    else if(tab==='logs')renderLogs();
+    else if(tab==='inventory')renderInventory();
+    else if(tab==='community')renderCommunity();
+    else if(tab==='cashier')renderCashier();
     renderLandingAvail();
   }catch(e){
     console.warn('Auto-refresh error:',e);
@@ -11028,8 +11080,9 @@ async function _autoRefresh(){
     if(el)el.textContent=t('errConnection')||'Connection error';
   }
 }
-setInterval(()=>{_tickRefreshLabel();},5000);
-setInterval(()=>{_autoRefresh();},30000);
+setInterval(()=>{if(!document.hidden)_tickRefreshLabel();},5000);
+setInterval(()=>{if(!document.hidden)_autoRefresh(false);},30000); // light poll, paused while the tab is hidden
+try{document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.view==='staff')_autoRefresh(true);});}catch(e){} // full catch-up when the booth screen comes back
 
 // ── Supabase Realtime: push updates (polling above stays as a fallback if Realtime is off) ──
 let _rtDebounce=null;
@@ -11069,7 +11122,7 @@ document.addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
   if(k==='/'){e.preventDefault();if(S.staffTab!=='queue')setStaffTab('queue');setTimeout(()=>{const el=document.getElementById('sf-search-input');if(el){el.focus();try{el.select();}catch(_){}}},60);return;}
   if(k==='n'){e.preventDefault();_kbCheckInNext();return;}
-  if(k==='r'){e.preventDefault();if(typeof _autoRefresh==='function')_autoRefresh();return;}
+  if(k==='r'){e.preventDefault();if(typeof _autoRefresh==='function')_autoRefresh(true);return;}
   const tabKeys={b:'queue',s:'sessions',i:'inventory',c:'community',a:'analytics',h:'history',l:'logs'};
   if(tabKeys[k]){e.preventDefault();setStaffTab(tabKeys[k]);return;}
 });
