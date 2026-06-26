@@ -1847,7 +1847,7 @@ en:{
   errPasswordMatch:'Passwords do not match.',
   errEmailExists:'An account with this email already exists.',
   errPhoneExists:'An account with this phone number already exists.',
-  errConnection:'Connection error. Check your network.',
+  errConnection:'Connection error. Check your network.',errSomethingWrong:'Something went wrong - it was logged.',
   errLoginFirst:'Please log in first.',
   errSelectSession:'Please select a session above.',
   errSessionClosed:'That session is no longer open.',
@@ -2184,7 +2184,7 @@ ar:{
   errPasswordMatch:'كلمتا المرور غير متطابقتين.',
   errEmailExists:'يوجد حساب بهذا البريد الإلكتروني مسبقاً.',
   errPhoneExists:'يوجد حساب بهذا الرقم مسبقاً.',
-  errConnection:'خطأ في الاتصال. تحقق من شبكتك.',
+  errConnection:'خطأ في الاتصال. تحقق من شبكتك.',errSomethingWrong:'حدث خطأ ما - تم تسجيله.',
   errLoginFirst:'الرجاء تسجيل الدخول أولاً.',
   errSelectSession:'الرجاء اختيار جلسة من الأعلى.',
   errSessionClosed:'هذه الجلسة لم تعد مفتوحة.',
@@ -2727,6 +2727,7 @@ function entryFromDB(e){
     ratingBike:e.rating_bike||null,ratingExp:e.rating_exp||null,feedback:e.feedback||null,
     promoCode:e.promo_code||null,
     addons:(()=>{try{return e.addons?(Array.isArray(e.addons)?e.addons:JSON.parse(e.addons)):[];}catch(_){return[];}})(),
+    pay_method:e.pay_method||null,
     purchases:(()=>{try{return e.purchases?(Array.isArray(e.purchases)?e.purchases:JSON.parse(e.purchases)):[];}catch(_){return[];}})()};
 }
 function entryToDB(e){
@@ -6691,7 +6692,8 @@ function showPayMenu(id,evt){
   const isHouse=entry.paid&&(entry.price??DEFAULT_PRICE)===0;
   const opts=[
     {label:` ${t('pendingLabel')}`,mode:'pending',active:!entry.paid},
-    {label:`✓ ${t('paidLabel')}`,mode:'paid',active:entry.paid&&!isHouse},
+    {label:`✓ ${t('paidLabel')} · ${t('cashCash')}`,mode:'cash',active:entry.paid&&!isHouse&&entry.pay_method!=='card'},
+    {label:`✓ ${t('paidLabel')} · ${t('cashCard')}`,mode:'card',active:entry.paid&&!isHouse&&entry.pay_method==='card'},
     {label:` ${t('onTheHouseLabel')} · SAR 0`,mode:'house',active:isHouse},
   ];
   const menu=document.createElement('div');
@@ -6714,7 +6716,7 @@ async function togglePayment(id,mode){
   
   let newPaid,newPrice;
   if(mode==='house'){newPaid=true;newPrice=0;}
-  else if(mode===true||mode==='paid'){newPaid=true;newPrice=entry.price===0?_entryFallbackPrice(entry):(entry.price??DEFAULT_PRICE);}
+  else if(mode===true||mode==='paid'||mode==='cash'||mode==='card'){newPaid=true;newPrice=entry.price===0?_entryFallbackPrice(entry):(entry.price??DEFAULT_PRICE);}
   else if(mode===false||mode==='pending'){newPaid=false;newPrice=entry.price===0?_entryFallbackPrice(entry):(entry.price??DEFAULT_PRICE);}
   else{
     
@@ -6722,15 +6724,19 @@ async function togglePayment(id,mode){
     else if(!isHouse){newPaid=true;newPrice=0;}
     else{newPaid=false;newPrice=_entryFallbackPrice(entry);}
   }
-  const prevPaid=entry.paid,prevPrice=entry.price;
-  entry.paid=newPaid;entry.price=newPrice;
+  let newMethod=entry.pay_method||null; // card vs cash for the rental (aggregates to the close-out split)
+  if(mode==='card')newMethod='card';else if(mode==='cash')newMethod='cash';else if(mode==='house'||mode==='pending'||mode===false||(newPaid&&newPrice===0))newMethod=null;
+  const prevPaid=entry.paid,prevPrice=entry.price,prevMethod=entry.pay_method||null;
+  entry.paid=newPaid;entry.price=newPrice;entry.pay_method=newMethod;
   renderStaffQueue();renderHistory();
   const stateLabel=newPaid&&newPrice===0?' '+t('onTheHouseLabel'):newPaid?'✓ '+t('paidLabel'):t('pendingLabel');
   toast(stateLabel,newPaid?'':'warning');
   await sb.from('queue_entries').update({paid:newPaid,price:newPrice}).eq('id',id);
+  try{await sb.from('queue_entries').update({pay_method:newMethod}).eq('id',id);}catch(e){} // tolerant: column may not exist yet
   await loadDataLight();renderStaffQueue();renderHistory(); // queue-only change: slim re-sync (no photo refetch)
   pushUndo(`${t('undoPayment')} #${entry.queueNum} ${entry.name}`,async()=>{
     await sb.from('queue_entries').update({paid:prevPaid,price:prevPrice}).eq('id',id);
+    try{await sb.from('queue_entries').update({pay_method:prevMethod}).eq('id',id);}catch(e){}
     await loadDataLight();renderStaffQueue();renderHistory();
   });
 }
@@ -7500,6 +7506,8 @@ function printCloseout(){
   const rentEntries=getQueue().filter(e=>sessIds.has(e.sessionId)&&(e.status==='active'||e.status==='done'));
   const rentCollected=r2(rentEntries.filter(e=>e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0));
   const rentPending=r2(rentEntries.filter(e=>!e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0));
+  const rentCard=r2(rentEntries.filter(e=>e.paid&&e.pay_method==='card').reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0));
+  const rentCash=r2(Math.max(0,rentCollected-rentCard));
   let salesLines=[];daySessions.forEach(s=>{salesLines=salesLines.concat(_cashSessionLines(s.id));});
   const st=_salesTotals(salesLines);
   const grandCollected=r2(rentCollected+st.collected),grandPending=r2(rentPending+st.pending);
@@ -7511,11 +7519,11 @@ function printCloseout(){
     <h1>${t('closeoutTitle')}</h1>
     <div class="meta">${dayLabel(sel.day)} ${shortDate(date)} &middot; ${new Date().toLocaleString(ar?'ar-u-ca-gregory-nu-latn':'en-SA',{timeZone:KSA_TZ})}</div>
     <h2>${t('coRentals')}</h2>
-    ${row(t('printTotalRiders'),rentEntries.length)}${row(t('printCollected'),rentCollected,'#16a34a')}${row(t('printPending'),rentPending,'#b45309')}
+    ${row(t('printTotalRiders'),rentEntries.length)}${row(t('printCollected'),rentCollected,'#16a34a')}${rentCard>0?row('&nbsp;&nbsp;'+t('cashCard'),rentCard,'#2563eb')+row('&nbsp;&nbsp;'+t('cashCash'),rentCash,'#16a34a'):''}${row(t('printPending'),rentPending,'#b45309')}
     <h2>${t('coSales')}</h2>
     ${st.cats.length?`<table><thead><tr><th style="text-align:start">${t('invCategory')}</th><th style="text-align:center">${t('cashQtyCol')}</th><th style="text-align:end">${t('repValueSar')}</th></tr></thead><tbody>${catRows}</tbody></table>`:''}
     <div style="margin-top:8px">${row(t('printCollected'),st.collected,'#16a34a')}${(coCard>0||coCash>0)?row('&nbsp;&nbsp;'+t('cashCard'),coCard,'#2563eb')+row('&nbsp;&nbsp;'+t('cashCash'),coCash,'#16a34a'):''}${row(t('printPending'),st.pending,'#b45309')}${st.team>0?row(t('payTeam'),st.team,'#7c3aed'):''}${st.free>0?row(t('onTheHouseLabel'),st.free,'#666'):''}${st.discount>0?row(t('cashDiscount'),st.discount,'#666'):''}${st.refunded>0?row(t('cashRefunds'),st.refunded,'#b45309'):''}</div>
-    <div class="grand">${row('<strong>'+t('coGrand')+' &middot; '+t('printCollected')+'</strong>',grandCollected,'#16a34a')}${row('<strong>'+t('coGrand')+' &middot; '+t('printPending')+'</strong>',grandPending,'#b45309')}</div>
+    <div class="grand">${row('<strong>'+t('coGrand')+' &middot; '+t('printCollected')+'</strong>',grandCollected,'#16a34a')}${(rentCard+coCard)>0?row('&nbsp;&nbsp;'+t('cashCard'),r2(rentCard+coCard),'#2563eb')+row('&nbsp;&nbsp;'+t('cashCash'),r2(rentCash+coCash),'#16a34a'):''}${row('<strong>'+t('coGrand')+' &middot; '+t('printPending')+'</strong>',grandPending,'#b45309')}</div>
     <br><button onclick="window.print()" style="display:block;margin:0 auto;padding:9px 22px;background:#111;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-family:inherit">${t('repPrintNow')}</button>
   </body></html>`;
   const w=window.open('','_blank','width=600,height=780');if(!w)return;w.document.write(html);w.document.close();w.focus();setTimeout(()=>w.print(),350);
@@ -11192,6 +11200,24 @@ initRealtime();
 try{window.addEventListener('online',()=>{_outboxFlush();_bookOutboxFlush();});}catch(e){} // sync queued sales + bookings when the connection returns
 try{_outboxFlush();}catch(e){}
 try{_bookOutboxFlush();}catch(e){}
+// ── Global error capture: keep the last 50 errors locally, surface a throttled toast, log to a tolerant table ──
+let _errToastAt=0;
+function _logError(msg,src){
+  msg=String(msg||'error').slice(0,500);src=String(src||'');
+  try{const a=JSON.parse(localStorage.getItem('cq_errors')||'[]');a.push({t:new Date().toISOString(),msg,src});while(a.length>50)a.shift();localStorage.setItem('cq_errors',JSON.stringify(a));}catch(e){}
+  try{console.error('[mm]',msg,src);}catch(e){}
+  try{if(typeof sb!=='undefined'&&sb)sb.from('error_log').insert({at:new Date().toISOString(),msg,src,ua:(navigator.userAgent||'').slice(0,200)}).then(()=>{},()=>{});}catch(e){}
+  const now=Date.now();if(now-_errToastAt>15000){_errToastAt=now;try{toast(t('errSomethingWrong'),'error');}catch(e){}}
+}
+try{window.addEventListener('error',e=>{_logError((e&&e.message)||(e&&e.error&&e.error.message)||'error',((e&&e.filename)||'')+':'+((e&&e.lineno)||''));});}catch(e){}
+try{window.addEventListener('unhandledrejection',e=>{const r=e&&e.reason;_logError((r&&(r.message||r))||'unhandledrejection','promise');});}catch(e){}
+try{window._mmErrors=()=>{try{return JSON.parse(localStorage.getItem('cq_errors')||'[]');}catch(e){return[];}};}catch(e){}
+// Accessibility: Escape closes the topmost open modal (z-order: team mgr / receipt edit on top, then the rest)
+try{document.addEventListener('keydown',function(e){
+  if(e.key!=='Escape'&&e.keyCode!==27)return;
+  var order=[['team-mgr-modal','closeTeamManager'],['receipt-edit-modal','closeReceiptEdit'],['cashier-modal','closeCashierModal'],['return-pay-modal','closeReturnPayModal'],['reschedule-modal','closeRescheduleModal'],['edit-price-modal','closeEditPriceModal'],['rate-modal','closeRateModal'],['print-opts-modal','_closePrintOpts'],['bike-modal','closeModal'],['receipt-modal',''],['cust-modal',''],['auth-modal','closeAuthModal']];
+  for(var i=0;i<order.length;i++){var el=document.getElementById(order[i][0]);if(el&&el.style.display&&el.style.display!=='none'){var fn=order[i][1];if(fn&&typeof window[fn]==='function'){try{window[fn]();}catch(_){el.style.display='none';}}else{el.style.display='none';el.innerHTML='';}return;}}
+});}catch(e){}
 
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{navigator.serviceWorker.register('service-worker.js').catch(e=>console.warn('SW registration failed:',e));});
