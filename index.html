@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=30">
+  <link rel="stylesheet" href="./styles.css?v=31">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -7904,6 +7904,14 @@ const SUPP_CATS=['ProteinGummies','ElectrolyteSachets','EnergyGels'];
 const INV_CATS=[...EQUIP_CATS,...SUPP_CATS];
 function _invSecOf(cat){return SUPP_CATS.includes(cat)?'supplements':'equipment';}
 function _invCatLabel(c){return{Helmet:t('catHelmet'),Accessory:t('catAccessory'),ProteinGummies:t('catProteinGummies'),ElectrolyteSachets:t('catElectrolyteSachets'),EnergyGels:t('catEnergyGels'),SparePart:t('catSparePart'),Apparel:t('catApparel'),Other:t('catOther')}[c]||c;}
+// Sentinel guard: the picker uses '__pending__'/'__add__' while typing; never let those (or a stray 'pending') become a real flavour
+function _badFlav(v){const s=String(v||'').trim().toLowerCase();return s===''||s==='__pending__'||s==='__add__'||s==='pending';}
+let _flavCleaned=false;
+async function _sanitizeFlavours(){
+  if(_flavCleaned)return;_flavCleaned=true;
+  try{const m=S.invFlavoursByBrand||{};let ch=false;Object.keys(m).forEach(k=>{const c=(m[k]||[]).filter(f=>!_badFlav(f));if(c.length!==(m[k]||[]).length){m[k]=c;ch=true;}});if(ch){S.invFlavoursByBrand=m;try{localStorage.setItem('cq_inv_flavs_by_brand',JSON.stringify(m));}catch(e){}}}catch(e){}
+  try{const items=(S.inventory||[]).filter(it=>it.flavour&&_badFlav(it.flavour));if(items.length){items.forEach(it=>{it.flavour=null;});for(const it of items){try{await sb.from('inventory').update({flavour:null}).eq('id',it.id);}catch(e){}}renderInventory();}}catch(e){}
+}
 // ── Cashier: per-rental purchases (items sold at assignment / checkout), categorized like inventory ──
 function entryPurchases(e){
   if(!e)return[];
@@ -8491,6 +8499,7 @@ function _invOptSave(id){
     if(!presets.includes(v)&&!(S[listKey]||[]).includes(v)){S[listKey]=[...(S[listKey]||[]),v];try{localStorage.setItem(lsKey,JSON.stringify(S[listKey]));}catch(e){}}
     S._invCat=v;S._invCatAdd=false;
   }else if(id==='inv-flav'){
+    if(_badFlav(v)){_invOptCancel(id);return;}
     const _bk=S._invBrand||'';const _m=S.invFlavoursByBrand||{};if(!((_m[_bk]||[]).includes(v))){_m[_bk]=[...(_m[_bk]||[]),v];S.invFlavoursByBrand=_m;try{localStorage.setItem('cq_inv_flavs_by_brand',JSON.stringify(_m));}catch(e){}}
     S._invFlav=v;S._invFlavAdd=false;
   }else{
@@ -8509,6 +8518,7 @@ function _invOptCancel(id){
 }
 function renderInventory(){
   const el=document.getElementById('tab-inventory');if(!el)return;
+  try{_sanitizeFlavours();}catch(e){}
   const items=[...(S.inventory||[])].sort((a,b)=>(a.category||'').localeCompare(b.category||'')||(a.name||'').localeCompare(b.name||''));
   const lowItems=items.filter(i=>(Number(i.qty)||0)<=(Number(i.low_threshold)||0));
   const isEdit=!!S.editInvId;
@@ -8521,7 +8531,7 @@ function renderInventory(){
   const brandOptions=[{v:'',l:t('invNoBrand')},...brandList.map(b=>({v:b,l:b}))];
   const catField=_invSelHtml('inv-cat',S._invCat,S._invCatAdd,catOptions,t('addCustomCatLabel'));
   const brandField=_invSelHtml('inv-brand',S._invBrand,S._invBrandAdd,brandOptions,t('addCustomBrandLabel'));
-  const flavOptions=[{v:'',l:t('invNoFlavour')},...(((S.invFlavoursByBrand||{})[S._invBrand||'']||[]).map(f=>({v:f,l:f})))];
+  const flavOptions=[{v:'',l:t('invNoFlavour')},...(((S.invFlavoursByBrand||{})[S._invBrand||'']||[]).filter(f=>!_badFlav(f)).map(f=>({v:f,l:f})))];
   const flavourField=_invSelHtml('inv-flav',S._invFlav,S._invFlavAdd,flavOptions,t('addCustomFlavLabel'));
   const addForm=(S.showAddInv||isEdit)?`<div class="inline-form">
     <div class="form-title">${isEdit?t('editBtn'):t('invAddBtn')}</div>
@@ -8563,7 +8573,7 @@ function renderInventory(){
         <div><div class="rider-name">${esc(it.name)}</div>${it.price!=null&&Number(it.price)>0?`<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:1px">SAR ${Number(it.price)}</div>`:''}</div>
       </div></td>
       <td style="font-size:13px;font-weight:600">${it.brand?esc(it.brand):'<span style="color:var(--muted)">—</span>'}</td>
-      ${isSupp?`<td style="font-size:13px;font-weight:600">${it.flavour?esc(it.flavour):'<span style="color:var(--muted)">—</span>'}</td>`:''}
+      ${isSupp?`<td style="font-size:13px;font-weight:600">${(it.flavour&&!_badFlav(it.flavour))?esc(it.flavour):'<span style="color:var(--muted)">—</span>'}</td>`:''}
       <td><div style="display:flex;align-items:center;gap:8px">
         <button class="btn-sm btn-muted" onclick="adjInv('${it.id}',-1)" aria-label="Decrease quantity">-</button>
         <span style="font-weight:900;font-size:15px;min-width:28px;text-align:center">${qty}</span>
@@ -8588,7 +8598,7 @@ function renderInventory(){
     return`<div class="bike-grid-card" style="border-color:${borderClr};display:flex;flex-direction:column;gap:8px">
       ${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:100%;aspect-ratio:1/1;border-radius:10px;object-fit:cover;border:1px solid var(--border)">`:`<div style="width:100%;aspect-ratio:1/1;border-radius:10px;background:var(--s3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:30px;opacity:.5"></div>`}
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px">
-        <div style="min-width:0"><div style="font-weight:900;font-size:13px;line-height:1.3">${esc(it.name)}</div>${it.brand?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">${esc(it.brand)}</div>`:''}${it.flavour?`<div style="font-size:11px;color:var(--muted-l);font-weight:600;margin-top:1px">${esc(it.flavour)}</div>`:''}${it.price!=null&&Number(it.price)>0?`<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:1px">SAR ${Number(it.price)}</div>`:''}</div>
+        <div style="min-width:0"><div style="font-weight:900;font-size:13px;line-height:1.3">${esc(it.name)}</div>${it.brand?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">${esc(it.brand)}</div>`:''}${it.price!=null&&Number(it.price)>0?`<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:1px">SAR ${Number(it.price)}</div>`:''}</div>
         <span style="font-size:10px;font-weight:800;color:${stClr};white-space:nowrap;flex-shrink:0">${stTxt}</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:auto">
@@ -8687,7 +8697,7 @@ async function addInvItem(){
   // Photo and price saved separately (each tolerant) so a missing column can't block adding an item
   if(S._invPhoto){try{await sb.from('inventory').update({photo:S._invPhoto}).eq('id',item.id);}catch(e){}}
   {const _p=parseFloat(S._invPrice);if(!isNaN(_p)&&_p>0){try{await sb.from('inventory').update({price:_p}).eq('id',item.id);}catch(e){}}}
-  if(S.invSection==='supplements'){const _fv=(document.getElementById('inv-flav')?.value||S._invFlav||'').trim();const _f=(_fv&&_fv!=='__add__')?_fv:null;try{await sb.from('inventory').update({flavour:_f}).eq('id',item.id);}catch(e){}}
+  if(S.invSection==='supplements'){const _fv=(document.getElementById('inv-flav')?.value||S._invFlav||'').trim();const _f=_badFlav(_fv)?null:_fv;try{await sb.from('inventory').update({flavour:_f}).eq('id',item.id);}catch(e){}}
   await loadData();S.showAddInv=false;toast(t('invSaved'));renderInventory();
 }
 async function saveInvEdit(){
@@ -8700,7 +8710,7 @@ async function saveInvEdit(){
   // Photo and price saved separately (each tolerant) so a missing column can't fail the whole edit
   try{await sb.from('inventory').update({photo:S._invPhoto||null}).eq('id',id);}catch(e){}
   {const _p=parseFloat(S._invPrice);try{await sb.from('inventory').update({price:isNaN(_p)?null:_p}).eq('id',id);}catch(e){}}
-  {const _fv=(document.getElementById('inv-flav')?.value||S._invFlav||'').trim();const _f=(S.invSection==='supplements'&&_fv&&_fv!=='__add__')?_fv:null;try{await sb.from('inventory').update({flavour:_f}).eq('id',id);}catch(e){}}
+  {const _fv=(document.getElementById('inv-flav')?.value||S._invFlav||'').trim();const _f=(S.invSection==='supplements'&&!_badFlav(_fv))?_fv:null;try{await sb.from('inventory').update({flavour:_f}).eq('id',id);}catch(e){}}
   await loadData();S.editInvId=null;toast(t('invSaved'));renderInventory();
 }
 async function adjInv(id,delta){
