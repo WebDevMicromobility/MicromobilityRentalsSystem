@@ -207,6 +207,7 @@ create table if not exists inventory (
 -- alter table inventory add column if not exists photo text;
 -- alter table inventory add column if not exists price numeric;   -- add-on unit price (SAR), used for sales reporting
 -- alter table inventory add column if not exists flavour text;     -- supplements/beverages flavour (saved tolerantly; safe to skip)
+-- alter table inventory add column if not exists volume_ml integer; -- drink/beverage volume in ml (saved tolerantly; safe to skip)
 -- alter table bikes     add column if not exists photo text;  -- bike photo (data URL)
 
 -- ── ROW LEVEL SECURITY ────────────────────────────────────────────────────────
