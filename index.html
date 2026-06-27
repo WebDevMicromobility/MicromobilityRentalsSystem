@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=28">
+  <link rel="stylesheet" href="./styles.css?v=29">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -1177,7 +1177,7 @@ const S={
   cashSales:[],_ctSession:'',_ctCust:'',_ctItem:'',_ctName:'',_ctCat:'Helmet',_ctQty:'1',_ctAmt:'',_ctPay:'paid',_ctCart:[],_ctTeam:'',teamMembers:[],_teamDraft:[],_cashTeam:'',_reKey:null,_reEdit:[],_ctDisc:'',_ctDiscPct:false,_ctCard:'',_ctCardPct:false,
   invView:(()=>{try{return localStorage.getItem('cq_inv_view')==='table'?'table':'grid';}catch(e){return'grid';}})(),
   _invBrand:'',_invCatAdd:false,_invBrandAdd:false,_invFlav:'',_invFlavAdd:false,
-  invFlavoursSupp:(()=>{try{return JSON.parse(localStorage.getItem('cq_inv_flavs_supp'))||[];}catch(e){return[];}})(),
+  invFlavoursByBrand:(()=>{try{return JSON.parse(localStorage.getItem('cq_inv_flavs_by_brand'))||{};}catch(e){return{};}})(),
   invCatsEquip:(()=>{try{return JSON.parse(localStorage.getItem('cq_inv_cats_eq'))||[];}catch(e){return[];}})(),
   invCatsSupp:(()=>{try{return JSON.parse(localStorage.getItem('cq_inv_cats_supp'))||[];}catch(e){return[];}})(),
   invBrandsEquip:(()=>{try{return JSON.parse(localStorage.getItem('cq_inv_brands_eq'))||[];}catch(e){return[];}})(),
@@ -8478,7 +8478,9 @@ function _invSelChange(id,val){
     else{S._invBrandAdd=true;S._invBrand='__pending__';}
     renderInventory();setTimeout(()=>document.getElementById(id)?.focus(),50);return;
   }
-  if(id==='inv-cat')S._invCat=val;else if(id==='inv-flav')S._invFlav=val;else S._invBrand=val;
+  if(id==='inv-cat'){S._invCat=val;}
+  else if(id==='inv-flav'){S._invFlav=val;}
+  else{S._invBrand=val;const _list=((S.invFlavoursByBrand||{})[val||''])||[];if(S._invFlav&&!_list.includes(S._invFlav))S._invFlav='';renderInventory();} // flavours are per-brand: refresh the list, drop a flavour that doesn't belong to the new brand
 }
 function _invOptSave(id){
   const v=(document.getElementById(id)?.value||'').trim();
@@ -8489,12 +8491,13 @@ function _invOptSave(id){
     if(!presets.includes(v)&&!(S[listKey]||[]).includes(v)){S[listKey]=[...(S[listKey]||[]),v];try{localStorage.setItem(lsKey,JSON.stringify(S[listKey]));}catch(e){}}
     S._invCat=v;S._invCatAdd=false;
   }else if(id==='inv-flav'){
-    if(!(S.invFlavoursSupp||[]).includes(v)){S.invFlavoursSupp=[...(S.invFlavoursSupp||[]),v];try{localStorage.setItem('cq_inv_flavs_supp',JSON.stringify(S.invFlavoursSupp));}catch(e){}}
+    const _bk=S._invBrand||'';const _m=S.invFlavoursByBrand||{};if(!((_m[_bk]||[]).includes(v))){_m[_bk]=[...(_m[_bk]||[]),v];S.invFlavoursByBrand=_m;try{localStorage.setItem('cq_inv_flavs_by_brand',JSON.stringify(_m));}catch(e){}}
     S._invFlav=v;S._invFlavAdd=false;
   }else{
     const listKey=isSupp?'invBrandsSupp':'invBrandsEquip',lsKey=isSupp?'cq_inv_brands_supp':'cq_inv_brands_eq';
     if(!(S[listKey]||[]).includes(v)){S[listKey]=[...(S[listKey]||[]),v];try{localStorage.setItem(lsKey,JSON.stringify(S[listKey]));}catch(e){}}
     S._invBrand=v;S._invBrandAdd=false;
+    if(S._invFlav&&!(((S.invFlavoursByBrand||{})[v]||[]).includes(S._invFlav)))S._invFlav=''; // new brand has its own flavour list
   }
   renderInventory();
 }
@@ -8518,7 +8521,7 @@ function renderInventory(){
   const brandOptions=[{v:'',l:t('invNoBrand')},...brandList.map(b=>({v:b,l:b}))];
   const catField=_invSelHtml('inv-cat',S._invCat,S._invCatAdd,catOptions,t('addCustomCatLabel'));
   const brandField=_invSelHtml('inv-brand',S._invBrand,S._invBrandAdd,brandOptions,t('addCustomBrandLabel'));
-  const flavOptions=[{v:'',l:t('invNoFlavour')},...((S.invFlavoursSupp||[]).map(f=>({v:f,l:f})))];
+  const flavOptions=[{v:'',l:t('invNoFlavour')},...(((S.invFlavoursByBrand||{})[S._invBrand||'']||[]).map(f=>({v:f,l:f})))];
   const flavourField=_invSelHtml('inv-flav',S._invFlav,S._invFlavAdd,flavOptions,t('addCustomFlavLabel'));
   const addForm=(S.showAddInv||isEdit)?`<div class="inline-form">
     <div class="form-title">${isEdit?t('editBtn'):t('invAddBtn')}</div>
@@ -8557,9 +8560,10 @@ function renderInventory(){
     return`<tr>
       <td><div style="display:flex;align-items:center;gap:10px">
         ${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}
-        <div><div class="rider-name">${esc(it.name)}</div>${it.brand?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">${esc(it.brand)}</div>`:''}${it.flavour?`<div style="font-size:11px;color:var(--muted-l);font-weight:600;margin-top:1px">${esc(it.flavour)}</div>`:''}${it.price!=null&&Number(it.price)>0?`<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:1px">SAR ${Number(it.price)}</div>`:''}</div>
+        <div><div class="rider-name">${esc(it.name)}</div>${it.price!=null&&Number(it.price)>0?`<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:1px">SAR ${Number(it.price)}</div>`:''}</div>
       </div></td>
-      <td style="font-weight:700;font-size:13px">${_invCatLabel(it.category)}</td>
+      <td style="font-size:13px;font-weight:600">${it.brand?esc(it.brand):'<span style="color:var(--muted)">—</span>'}</td>
+      ${isSupp?`<td style="font-size:13px;font-weight:600">${it.flavour?esc(it.flavour):'<span style="color:var(--muted)">—</span>'}</td>`:''}
       <td><div style="display:flex;align-items:center;gap:8px">
         <button class="btn-sm btn-muted" onclick="adjInv('${it.id}',-1)" aria-label="Decrease quantity">-</button>
         <span style="font-weight:900;font-size:15px;min-width:28px;text-align:center">${qty}</span>
@@ -8572,9 +8576,9 @@ function renderInventory(){
       </div></td>
     </tr>`;
   };
-  const invTable=list=>`<div class="table-wrapper" style="margin-top:10px"><table class="queue-table"><thead><tr>
-      <th>${t('invItemName')}</th><th>${t('invCategory')}</th><th>${t('invQty')}</th><th>${t('colStatus')}</th><th></th>
-    </tr></thead><tbody>${list.length?list.map(invRow).join(''):`<tr><td colspan="5" style="padding:18px;text-align:center;color:var(--muted)">${t('invNoItems')}</td></tr>`}</tbody></table></div>`;
+  const invTable=list=>`<div class="table-wrapper" style="margin-top:10px;overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch"><table class="queue-table"><thead><tr>
+      <th>${t('invItemName')}</th><th>${t('invBrand')}</th>${isSupp?`<th>${t('invFlavour')}</th>`:''}<th>${t('invQty')}</th><th>${t('colStatus')}</th><th></th>
+    </tr></thead><tbody>${list.length?list.map(invRow).join(''):`<tr><td colspan="${isSupp?6:5}" style="padding:18px;text-align:center;color:var(--muted)">${t('invNoItems')}</td></tr>`}</tbody></table></div>`;
   const invCard=it=>{
     const qty=Number(it.qty)||0,low=Number(it.low_threshold)||0;
     const state=qty<=0?'out':qty<=low?'low':'in';
@@ -8672,7 +8676,7 @@ function startInvEdit(id){
   const presets=isSupp?SUPP_CATS:EQUIP_CATS,catKey=isSupp?'invCatsSupp':'invCatsEquip',brandKey=isSupp?'invBrandsSupp':'invBrandsEquip';
   if(S._invCat&&!presets.includes(S._invCat)&&!(S[catKey]||[]).includes(S._invCat))S[catKey]=[...(S[catKey]||[]),S._invCat];
   if(S._invBrand&&!(S[brandKey]||[]).includes(S._invBrand))S[brandKey]=[...(S[brandKey]||[]),S._invBrand];
-  if(S._invFlav&&!(S.invFlavoursSupp||[]).includes(S._invFlav))S.invFlavoursSupp=[...(S.invFlavoursSupp||[]),S._invFlav];
+  if(S._invFlav){const _bk=S._invBrand||'';const _m=S.invFlavoursByBrand||{};if(!((_m[_bk]||[]).includes(S._invFlav))){_m[_bk]=[...(_m[_bk]||[]),S._invFlav];S.invFlavoursByBrand=_m;}}
   renderInventory();
 }
 async function addInvItem(){
