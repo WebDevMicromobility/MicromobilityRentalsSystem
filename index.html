@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=42">
+  <link rel="stylesheet" href="./styles.css?v=43">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -3380,7 +3380,8 @@ function printRideReceipt(ids){
       <td>${paid}</td>
     </tr>`;
   }).join('');
-  const addonItems=addonLineItems(entryAddons(g.find(e=>entryAddons(e).length)||primary));
+  const _rcptAdd={};g.forEach(e=>entryAddons(e).forEach(a=>{_rcptAdd[a.id]=(_rcptAdd[a.id]||0)+a.qty;})); // aggregate every rider's add-ons, not just the first
+  const addonItems=addonLineItems(Object.entries(_rcptAdd).map(([id,qty])=>({id,qty})));
   const addonTotal=addonItems.reduce((s,a)=>s+a.lineTotal,0);
   const grandTotal=Math.round((total+addonTotal)*100)/100;
   const addonsHtml=addonItems.length?`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:#666;font-weight:800;margin:14px 0 4px">${t('addonsLabel')}</div>
@@ -3936,12 +3937,12 @@ function addonsCost(arr){return Math.round(addonLineItems(arr).reduce((s,a)=>s+a
 function addonSalesFromGroups(groups){
   const tally={};let totalUnits=0,totalValue=0;
   (groups||[]).forEach(group=>{
-    entryAddons(group&&group[0]).forEach(({id,qty})=>{
+    (group||[]).forEach(e=>entryAddons(e).forEach(({id,qty})=>{ // per-rider: every rider's own add-ons, not just the lead
       const it=(S.inventory||[]).find(x=>x.id===id);
       const name=it?it.name:id,brand=it?(it.brand||''):'',price=(it&&it.price!=null)?Number(it.price):0;
       if(!tally[id])tally[id]={id,name,brand,units:0,value:0};
       tally[id].units+=qty;tally[id].value+=price*qty;totalUnits+=qty;totalValue+=price*qty;
-    });
+    }));
   });
   return{items:Object.values(tally).sort((a,b)=>b.units-a.units||b.value-a.value),totalUnits,totalValue};
 }
@@ -6260,7 +6261,8 @@ function exportSessionExcel(){
     const payLabel=allPaid?t('paidLabel'):somePaid?t('repPayPartial'):t('pendingLabel');
     const topStatus=group.slice().sort((a,b)=>(statusPriority[a.status]??5)-(statusPriority[b.status]??5))[0].status;
     const types=[...new Set(group.map(x=>resolvedType(x)).filter(Boolean))].join(', ')||'—';
-    const addonNames=entryAddons(lead).map(a=>{const it=(S.inventory||[]).find(x=>x.id===a.id);return (it?it.name:a.id)+(a.qty>1?` ×${a.qty}`:'');}).join('; ')||'—';
+    const _grpAd={};group.forEach(x=>entryAddons(x).forEach(a=>{_grpAd[a.id]=(_grpAd[a.id]||0)+a.qty;})); // aggregate every rider's add-ons
+    const addonNames=Object.entries(_grpAd).map(([id,qty])=>{const it=(S.inventory||[]).find(x=>x.id===id);return (it?it.name:id)+(qty>1?` ×${qty}`:'');}).join('; ')||'—';
     return[qNums,lead.name,lead.phone||'',lead.email||'',types,bikes,totalPrice,addonNames,payLabel,reportStatusLabel(topStatus)];
   });
   // Append an add-on sales summary block below the bookings
@@ -6295,9 +6297,12 @@ function printCloseout(){
   const _rcard=e=>{const p=e.price??DEFAULT_PRICE;if(e.card_amount!=null)return Math.min(Math.max(0,Number(e.card_amount)||0),p);return e.pay_method==='card'?p:0;};
   const rentCard=r2(rentEntries.filter(e=>e.paid).reduce((s,e)=>s+_rcard(e),0));
   const rentCash=r2(Math.max(0,rentCollected-rentCard));
+  // Booking add-on revenue, per-rider, following each rider's paid state (collected if the rider is paid, else pending)
+  const addonCollected=r2(rentEntries.filter(e=>e.paid).reduce((s,e)=>s+addonsCost(entryAddons(e)),0));
+  const addonPending=r2(rentEntries.filter(e=>!e.paid).reduce((s,e)=>s+addonsCost(entryAddons(e)),0));
   let salesLines=[];daySessions.forEach(s=>{salesLines=salesLines.concat(_cashSessionLines(s.id));});
   const st=_salesTotals(salesLines);
-  const grandCollected=r2(rentCollected+st.collected),grandPending=r2(rentPending+st.pending);
+  const grandCollected=r2(rentCollected+st.collected+addonCollected),grandPending=r2(rentPending+st.pending+addonPending);
   let coCard=0,coCash=0;daySessions.forEach(s=>{const c=_cashCardCash(s.id);coCard+=c.card;coCash+=c.cash;});coCard=r2(coCard);coCash=r2(coCash);
   const row=(label,val,color)=>`<div style="display:flex;justify-content:space-between;padding:4px 0"><span>${label}</span><strong${color?` style="color:${color}"`:''}>SAR ${val}</strong></div>`;
   const catRows=st.cats.map(c=>`<tr><td>${esc(_invCatLabel(c.cat))}</td><td style="text-align:center">${c.qty}</td><td style="text-align:end">SAR ${c.value}</td></tr>`).join('');
@@ -6306,11 +6311,11 @@ function printCloseout(){
     <h1>${t('closeoutTitle')}</h1>
     <div class="meta">${dayLabel(sel.day)} ${shortDate(date)} &middot; ${new Date().toLocaleString(ar?'ar-u-ca-gregory-nu-latn':'en-SA',{timeZone:KSA_TZ})}</div>
     <h2>${t('coRentals')}</h2>
-    ${row(t('printTotalRiders'),rentEntries.length)}${row(t('printCollected'),rentCollected,'#16a34a')}${rentCard>0?row('&nbsp;&nbsp;'+t('cashCard'),rentCard,'#2563eb')+row('&nbsp;&nbsp;'+t('cashCash'),rentCash,'#16a34a'):''}${row(t('printPending'),rentPending,'#b45309')}
+    ${row(t('printTotalRiders'),rentEntries.length)}${row(t('printCollected'),rentCollected,'#16a34a')}${rentCard>0?row('&nbsp;&nbsp;'+t('cashCard'),rentCard,'#2563eb')+row('&nbsp;&nbsp;'+t('cashCash'),rentCash,'#16a34a'):''}${row(t('printPending'),rentPending,'#b45309')}${(addonCollected>0||addonPending>0)?row(t('addonsLabel')+' &middot; '+t('printCollected'),addonCollected,'#16a34a')+(addonPending>0?row(t('addonsLabel')+' &middot; '+t('printPending'),addonPending,'#b45309'):''):''}
     <h2>${t('coSales')}</h2>
     ${st.cats.length?`<table><thead><tr><th style="text-align:start">${t('invCategory')}</th><th style="text-align:center">${t('cashQtyCol')}</th><th style="text-align:end">${t('repValueSar')}</th></tr></thead><tbody>${catRows}</tbody></table>`:''}
     <div style="margin-top:8px">${row(t('printCollected'),st.collected,'#16a34a')}${(coCard>0||coCash>0)?row('&nbsp;&nbsp;'+t('cashCard'),coCard,'#2563eb')+row('&nbsp;&nbsp;'+t('cashCash'),coCash,'#16a34a'):''}${row(t('printPending'),st.pending,'#b45309')}${st.team>0?row(t('payTeam'),st.team,'#7c3aed'):''}${st.free>0?row(t('onTheHouseLabel'),st.free,'#666'):''}${st.discount>0?row(t('cashDiscount'),st.discount,'#666'):''}${st.refunded>0?row(t('cashRefunds'),st.refunded,'#b45309'):''}</div>
-    <div class="grand">${row('<strong>'+t('coGrand')+' &middot; '+t('printCollected')+'</strong>',grandCollected,'#16a34a')}${(rentCard+coCard)>0?row('&nbsp;&nbsp;'+t('cashCard'),r2(rentCard+coCard),'#2563eb')+row('&nbsp;&nbsp;'+t('cashCash'),r2(rentCash+coCash),'#16a34a'):''}${row('<strong>'+t('coGrand')+' &middot; '+t('printPending')+'</strong>',grandPending,'#b45309')}</div>
+    <div class="grand">${row('<strong>'+t('coGrand')+' &middot; '+t('printCollected')+'</strong>',grandCollected,'#16a34a')}${(rentCard+coCard)>0?row('&nbsp;&nbsp;'+t('cashCard'),r2(rentCard+coCard),'#2563eb')+row('&nbsp;&nbsp;'+t('cashCash'),r2(rentCash+coCash+addonCollected),'#16a34a'):''}${row('<strong>'+t('coGrand')+' &middot; '+t('printPending')+'</strong>',grandPending,'#b45309')}</div>
     <br><button onclick="window.print()" style="display:block;margin:0 auto;padding:9px 22px;background:#111;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-family:inherit">${t('repPrintNow')}</button>
   </body></html>`;
   const w=window.open('','_blank','width=600,height=780');if(!w)return;w.document.write(html);w.document.close();w.focus();setTimeout(()=>w.print(),350);
