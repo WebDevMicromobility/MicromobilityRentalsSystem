@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=38">
+  <link rel="stylesheet" href="./styles.css?v=39">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -4936,7 +4936,7 @@ function renderStaffQueue(){
   }
   function _entryActions(e){
     if(e.status==='waitlist')return`<button class="btn-sm btn-green" onclick="promoteWaitlist('${e.id}')">${ICON_PROMOTE} ${t('promoteBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
-    if(e.status==='waiting')return`${_bulkChk(e)}${_reorderBtns(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
+    if(e.status==='waiting')return`${_bulkChk(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
     if(e.status==='active')return`${_bulkChk(e)}<button class="btn-sm btn-blue" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="showCashierModal('${e.id}')">${t('cashierAddBtn')}</button><button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
     if(e.status==='done')return`<button class="btn-sm btn-blue" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
     if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
@@ -8354,7 +8354,19 @@ function showCashierModal(id){
   S._cashEntry=id;S._cashItem='';S._cashQty='1';S._cashAmt='';S._cashName='';S._cashCat='Other';S._cashPay='paid';
   renderCashierModal();
 }
-function closeCashierModal(){const m=document.getElementById('cashier-modal');if(m){m.style.display='none';m.innerHTML='';}S._cashEntry=null;}
+function closeCashierModal(){const m=document.getElementById('cashier-modal');if(m){m.style.display='none';m.innerHTML='';}S._cashEntry=null;if(S.view==='staff'){if(S.staffTab==='cashier')renderCashier();else renderStaffQueue();}}
+// Delete a rental sale (a purchase recorded on a booking) straight from the Sales ledger: remove it + restock
+async function _rentalSaleDelete(entryId,pidx){
+  const e=getQueue().find(x=>x.id===entryId);if(!e)return;
+  const arr=entryPurchases(e);const line=arr[pidx];if(!line)return;
+  confirmDialog({title:t('cashVoid'),body:esc(line.name),confirmLabel:t('cashVoid'),confirmClass:'btn-red',onConfirm:async()=>{
+    const next=arr.filter((_,i)=>i!==pidx);
+    e.purchases=next;
+    try{await sb.from('queue_entries').update({purchases:JSON.stringify(next)}).eq('id',entryId);}catch(_){}
+    if(line.id)await _addonStock([line.id],Number(line.qty)||1);
+    toast(t('cashVoidedToast'));renderCashier();
+  }});
+}
 // Field setter; picking an inventory item prefills its price + category
 function _cashSet(k,v){
   S[k]=v;
@@ -8707,7 +8719,7 @@ function renderCashier(){
   const byR={};const rOrder=[];
   csRows.forEach(r=>{const k=r.receipt_id||r.id;if(!byR[k]){byR[k]={key:k,cust:r.customer_name,at:r.created_at,lines:[]};rOrder.push(k);}byR[k].lines.push(r);});
   const receipts=rOrder.map(k=>byR[k]).sort((a,b)=>new Date(b.at||0)-new Date(a.at||0));
-  const rentalLines=[];getQueue().filter(e=>e.sessionId===sessId).forEach(e=>entryPurchases(e).forEach(p=>rentalLines.push({...p,who:e.name})));
+  const rentalLines=[];getQueue().filter(e=>e.sessionId===sessId).forEach(e=>entryPurchases(e).forEach((p,i)=>rentalLines.push({...p,who:e.name,entryId:e.id,pidx:i})));
   const receiptCards=receipts.map(rc=>{
     const refunded=rc.lines.some(l=>l.pay==='refunded');
     const disp=rc.lines.filter(l=>l.category!=='__cardmeta__');
@@ -8728,10 +8740,11 @@ function renderCashier(){
       <div style="display:flex;justify-content:space-between;font-weight:800;border-top:1px solid var(--border);margin-top:5px;padding-top:5px;font-size:12px"><span>${t('repTotal')}</span><bdi>SAR ${rt}</bdi></div>
       ${(cardAmt>0&&!refunded)?`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:2px"><span>${t('cashCard')} SAR ${cardShown}</span><span>${t('cashCash')} SAR ${cashShown}</span></div>`:''}
     </div>`;}).join('');
-  const rentalRows=rentalLines.map(p=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border)">
-      ${_itemThumb(p.id,28)}<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${esc(p.name)}${Number(p.qty)>1?` <span style="color:var(--muted)">×${p.qty}</span>`:''}</div>
+  const rentalRows=rentalLines.map(p=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border);flex-wrap:wrap">
+      ${_itemThumb(p.id,28)}<div style="flex:1;min-width:120px"><div style="font-weight:700;font-size:13px">${esc(p.name)}${Number(p.qty)>1?` <span style="color:var(--muted)">×${p.qty}</span>`:''}</div>
       <div style="font-size:11px;color:var(--muted)">${esc(_invCatLabel(p.cat))} · ${_cashPayBadge(p.pay,p.team)} · ${esc(p.who)} <span style="opacity:.65">(${t('cashRentalTag')})</span></div></div>
       <bdi style="font-weight:800;white-space:nowrap">SAR ${Math.round((Number(p.qty)||0)*(Number(p.price)||0)*100)/100}</bdi>
+      <div style="display:flex;gap:6px"><button class="btn-sm btn-muted" onclick="showCashierModal('${p.entryId}')">${t('cashEditBtn')}</button><button class="btn-sm btn-orange" onclick="_rentalSaleDelete('${p.entryId}',${p.pidx})">${t('cashVoid')}</button></div>
     </div>`).join('');
   const ledger=(receipts.length||rentalLines.length)?`${receiptCards}${rentalRows}`:`<div class="empty-state" style="padding:24px">${t('cashNoSalesSession')}</div>`;
   const catRows=tot.cats.map(c=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span style="color:var(--muted)">${esc(_invCatLabel(c.cat))} <span style="opacity:.6">×${c.qty}</span></span><span style="font-weight:700"><bdi>SAR ${c.value}</bdi></span></div>`).join('');
