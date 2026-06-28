@@ -318,6 +318,7 @@ en:{
   bikeLocationLabel:'Location',bikeFrameTypeLabel:'Frame Type',bikeNumberLabel:'Bike Number',bikeAutoName:'Auto Name',bikeStartDate:'In-Service Date',bikeEndDate:'Retired Date',lifespanLabel:'Lifespan',daysLabel:'days',frameSteel:'Steel',frameAluminum:'Aluminum',frameCarbon:'Carbon',frameTitanium:'Titanium',errBikeFrameReq:'Please select a frame type.',errBikeLocationReq:'Please select a location.',errBikeNumberReq:'Please enter a bike number.',errBikeNumberDup:'That bike number is already in use.',addLocationLabel:'Add new location...',
   bikeColorsLabel:'Bike Color(s)',colorsHint:'1 required - up to 4',
   saveBikeBtn:'Save Changes',addBikeBtn:'Add Bike',
+  bikeNameLabel:'Bike Name',bikeNameHint:'(edit to rename)',bikeNameAuto:'Auto',
   bikeBrand:'Brand',bikeModel:'Model',bikeGroupset:'Groupset',bikeSpeeds:'Speeds',
   riderLabel:'Rider',riderName:'Rider\'s Full Name',riderNamePlaceholder:'Enter rider\'s full name',
   availLabel:'Available',inUseLabel:'In Use',maintLabel:'Maintenance',retiredLabel:'Retired',
@@ -668,6 +669,7 @@ ar:{
   bikeLocationLabel:'الموقع',bikeFrameTypeLabel:'نوع الإطار',bikeNumberLabel:'رقم الدراجة',bikeAutoName:'الاسم التلقائي',bikeStartDate:'تاريخ بدء الاستخدام',bikeEndDate:'تاريخ التقاعد',lifespanLabel:'مدة الخدمة',daysLabel:'يوم',frameSteel:'فولاذ',frameAluminum:'ألمنيوم',frameCarbon:'كربون',frameTitanium:'تيتانيوم',errBikeFrameReq:'الرجاء اختيار نوع الإطار.',errBikeLocationReq:'الرجاء اختيار الموقع.',errBikeNumberReq:'الرجاء إدخال رقم الدراجة.',errBikeNumberDup:'رقم الدراجة مستخدم بالفعل.',addLocationLabel:'إضافة موقع جديد...',
   bikeColorsLabel:'لون الدراجة',colorsHint:'مطلوب 1 - حتى 4',
   saveBikeBtn:'حفظ التغييرات',addBikeBtn:'إضافة دراجة',
+  bikeNameLabel:'اسم الدراجة',bikeNameHint:'(عدّل لإعادة التسمية)',bikeNameAuto:'تلقائي',
   bikeBrand:'الماركة',bikeModel:'الموديل',bikeGroupset:'منظومة التروس',bikeSpeeds:'عدد السرعات',
   riderLabel:'الراكب',riderName:'الاسم الكامل للراكب',riderNamePlaceholder:'أدخل الاسم الكامل',
   availLabel:'متاح',inUseLabel:'قيد الاستخدام',maintLabel:'صيانة',retiredLabel:'متقاعد',
@@ -6967,8 +6969,15 @@ function renderBikes(){
   const formNum=isEdit?(S._bkNumber||''):_nextBikeNumber();
   S._bkNumber=String(Number(formNum)||'');
   const numField=`<input id="bk-number" type="text" value="${String(Number(formNum)||0).padStart(4,'0')}" readonly style="background:var(--s2);color:var(--muted);cursor:not-allowed">`;
-  const autoNamePreview=`<div class="form-group full" style="margin-bottom:16px"><label>${t('bikeAutoName')}</label>
-    <div id="bk-name-preview" style="font-size:22px;font-weight:900;letter-spacing:-.5px;color:var(--green);padding:10px 14px;background:rgba(3,255,137,.06);border:1px solid rgba(3,255,137,.2);border-radius:10px">${genBikeName(S.addBikeType,S._bkFrame,formNum,curSize)}</div></div>`;
+  const _autoNm=genBikeName(S.addBikeType,S._bkFrame,formNum,curSize);
+  const _nameVal=(S._bkNameCustom&&S._bkName)?S._bkName:_autoNm;
+  const autoNamePreview=`<div class="form-group full" style="margin-bottom:16px"><label>${t('bikeNameLabel')} <span class="label-hint">${t('bikeNameHint')}</span></label>
+    <div style="display:flex;gap:8px;align-items:stretch">
+      <input id="bk-name" type="text" value="${esc(_nameVal)}" placeholder="${esc(_autoNm)}" maxlength="60"
+        style="flex:1;min-width:0;font-size:20px;font-weight:900;letter-spacing:-.4px;color:var(--green);padding:10px 14px;background:rgba(3,255,137,.06);border:1px solid rgba(3,255,137,.2);border-radius:10px"
+        oninput="S._bkName=this.value;S._bkNameCustom=true;_bkNameSyncResetBtn()">
+      <button type="button" id="bk-name-auto" class="btn-secondary" style="flex-shrink:0;padding:8px 14px;font-size:12px;white-space:nowrap" onclick="_bkNameResetAuto()"${S._bkNameCustom?'':' disabled'}>↺ ${t('bikeNameAuto')}</button>
+    </div></div>`;
   const addForm=(S.showAddBike||isEdit)?`<div class="inline-form" id="bk-add-form">
     <div class="form-title">${isEdit?t('editBikeTitle'):t('addBikeTitle')}</div>
     <div class="form-row">
@@ -7343,7 +7352,7 @@ function renderBikes(){
     ${retiredSection}`;
 }
 
-function _resetBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S.addBikeColorNames=[''];S._bkName='';S._bkBrand='';S._bkModel='';S._bkGroupset='';S._bkSpeeds='';S._bkRentalPrice='';S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;S._bkLocation=S.bkLocations[0]||'Sharafeyah Branch';S._bkLocationAdd=false;S._bkFrame='';S._bkNumber='';S._bkStartDate=_todayISO();S._bkPhoto='';}
+function _resetBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S.addBikeColorNames=[''];S._bkName='';S._bkNameCustom=false;S._bkBrand='';S._bkModel='';S._bkGroupset='';S._bkSpeeds='';S._bkRentalPrice='';S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;S._bkLocation=S.bkLocations[0]||'Sharafeyah Branch';S._bkLocationAdd=false;S._bkFrame='';S._bkNumber='';S._bkStartDate=_todayISO();S._bkPhoto='';}
 
 function _bkLocationChange(val){
   if(val==='__add__'){S._bkLocationAdd=true;S._bkLocation='__pending__';renderBikes();setTimeout(()=>document.getElementById('bk-location')?.focus(),50);return;}
@@ -7357,11 +7366,25 @@ function _bkLocationSave(){
 }
 function _bkLocationCancel(){S._bkLocationAdd=false;S._bkLocation=S.bkLocations[0]||'Sharafeyah Branch';renderBikes();}
 function _updateBkNamePreview(){
-  const el=document.getElementById('bk-name-preview');if(!el)return;
+  const el=document.getElementById('bk-name');if(!el)return;
   const num=document.getElementById('bk-number')?.value||S._bkNumber;
   const size=document.getElementById('bk-size')?.value||S.addBikeSize;
-  el.textContent=genBikeName(S.addBikeType,S._bkFrame,num,size);
+  const auto=genBikeName(S.addBikeType,S._bkFrame,num,size);
+  el.placeholder=auto;
+  if(!S._bkNameCustom){el.value=auto;S._bkName=auto;} // keep auto name in sync until the user types a custom one
 }
+// Reset the bike name back to the auto-generated value
+function _bkNameResetAuto(){
+  S._bkNameCustom=false;S._bkName='';
+  const el=document.getElementById('bk-name');
+  const num=document.getElementById('bk-number')?.value||S._bkNumber;
+  const size=document.getElementById('bk-size')?.value||S.addBikeSize;
+  const auto=genBikeName(S.addBikeType,S._bkFrame,num,size);
+  if(el)el.value=auto;
+  _bkNameSyncResetBtn();
+}
+// Enable/disable the "↺ Auto" button without a full re-render (so typing isn't interrupted)
+function _bkNameSyncResetBtn(){const b=document.getElementById('bk-name-auto');if(b)b.disabled=!S._bkNameCustom;}
 
 function setBkRentalPrice(v){
   if(!isAdmin()){toast(t('adminOnlyMsg'),'error');return;}
@@ -7445,7 +7468,8 @@ async function addBike(){
   const bikeNum=parseInt(document.getElementById('bk-number')?.value||S._bkNumber||'');
   if(!bikeNum||bikeNum<1){toast(t('errBikeNumberReq'),'error');return;}
   if(getBikes().some(b=>Number(b.bike_number)===bikeNum)){toast(t('errBikeNumberDup'),'error');return;}
-  const name=genBikeName(S.addBikeType,S._bkFrame,bikeNum,size);
+  const customName=(document.getElementById('bk-name')?.value||'').trim();
+  const name=customName||genBikeName(S.addBikeType,S._bkFrame,bikeNum,size);
   _autoSaveBkOpts(brand,model,groupset);
   const colorNames=S.addBikeColorNames.slice(0,S.addBikeColors.length).map(n=>n||'');
   const rentalPrice=S._bkRentalPrice?parseFloat(S._bkRentalPrice)||null:null;
@@ -7456,7 +7480,7 @@ async function addBike(){
   if(insErr){
     await loadData();
     const retryNum=_nextBikeNumber();
-    bike.bike_number=retryNum;bike.name=genBikeName(S.addBikeType,S._bkFrame,retryNum,size);
+    bike.bike_number=retryNum;bike.name=customName||genBikeName(S.addBikeType,S._bkFrame,retryNum,size);
     ({error:insErr}=await sb.from('bikes').insert(bike));
     if(insErr){toast(insErr.message||t('errBikeNumberDup'),'error');return;}
   }
@@ -7476,7 +7500,7 @@ function startEdit(id){
   S.editBikeId=id;S.showAddBike=false;S.addBikeType=bike.type;S.addBikeSize=bike.size;
   S.addBikeColors=bike.colors&&bike.colors.length?[...bike.colors]:['#6ee89a'];
   S.addBikeColorNames=bike.color_names&&bike.color_names.length?[...bike.color_names]:bike.colors.map(()=>'');
-  S._bkName=bike.name;S._bkBrand=bike.brand||'';S._bkModel=bike.model||'';
+  S._bkName=bike.name;S._bkNameCustom=bike.name!==genBikeName(bike.type,bike.frame_type,bike.bike_number,bike.size);S._bkBrand=bike.brand||'';S._bkModel=bike.model||'';
   S._bkGroupset=bike.groupset||'';S._bkSpeeds=bike.speeds!=null?String(bike.speeds):'';S._bkRentalPrice=bike.rental_price!=null?String(bike.rental_price):'';
   S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;
   S._bkLocation=bike.location&&S.bkLocations.includes(bike.location)?bike.location:(S.bkLocations[0]||'JCC');
@@ -7502,7 +7526,7 @@ async function saveBikeEdit(){
   const bikeNum=parseInt(document.getElementById('bk-number')?.value||S._bkNumber||'');
   if(!bikeNum||bikeNum<1){toast(t('errBikeNumberReq'),'error');return;}
   if(getBikes().some(b=>b.id!==S.editBikeId&&Number(b.bike_number)===bikeNum)){toast(t('errBikeNumberDup'),'error');return;}
-  const name=genBikeName(S.addBikeType,S._bkFrame,bikeNum,size);
+  const name=(document.getElementById('bk-name')?.value||'').trim()||genBikeName(S.addBikeType,S._bkFrame,bikeNum,size);
   _autoSaveBkOpts(brand,model,groupset);
   const b=getBikes();const existing=b.find(x=>x.id===S.editBikeId);if(!existing)return;
   const editColorNames=S.addBikeColorNames.slice(0,S.addBikeColors.length).map(n=>n||'');
