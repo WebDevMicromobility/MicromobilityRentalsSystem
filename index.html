@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=44">
+  <link rel="stylesheet" href="./styles.css?v=45">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -2812,7 +2812,7 @@ function renderRegister(){
       const items=sessionAddonItems(selSess);
       if(!items.length)return'';
       const _aCard=it=>{const qn=_regAddonQty(it.id);const stock=Number(it.qty)||0;return`<div style="border:1.5px solid ${qn>0?'var(--green)':'var(--border)'};border-radius:14px;overflow:hidden;background:var(--s1)">
-            ${it.photo?`<img src="${esc(it.photo)}" alt="${esc(it.name)}" style="width:100%;height:132px;object-fit:cover;display:block">`:`<div style="width:100%;height:132px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:12px;text-align:center;padding:8px">${esc(it.name)}</div>`}
+            ${it.photo?`<img src="${esc(it.photo)}" alt="${esc(it.name)}" style="width:100%;height:132px;object-fit:contain;background:var(--s3);display:block">`:`<div style="width:100%;height:132px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:12px;text-align:center;padding:8px">${esc(it.name)}</div>`}
             <div style="padding:11px 12px">
               <div style="font-weight:800;font-size:14px;line-height:1.2">${esc(it.name)}</div>
               ${it.brand?`<div style="font-size:11px;color:var(--muted);margin-top:1px">${esc(it.brand)}</div>`:''}
@@ -3296,7 +3296,7 @@ function renderBookingTicket(entries,opts){
               ${canEdit?`<button type="button" onclick="showAddonPicker('${e.id}')" style="background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);font-family:inherit;font-size:11px;font-weight:800;padding:4px 10px;border-radius:8px;cursor:pointer">+ ${t('addonAddBtn')}</button>`:''}
             </div>
             ${ad.length?ad.map(a=>`<div style="display:flex;align-items:center;gap:8px;margin-top:6px">
-              ${a.photo?`<img src="${esc(a.photo)}" alt="" style="width:30px;height:30px;border-radius:7px;object-fit:cover;flex-shrink:0">`:''}
+              ${a.photo?`<img src="${esc(a.photo)}" alt="" style="width:30px;height:30px;border-radius:7px;object-fit:contain;flex-shrink:0">`:''}
               <span style="flex:1;min-width:0;font-size:13px;font-weight:700">${esc(a.name)}${a.qty>1?` <span style="color:var(--muted)">×${a.qty}</span>`:''}</span>
               <bdi style="font-weight:800;font-size:13px">SAR ${a.lineTotal}</bdi>
             </div>`).join(''):`<div style="font-size:12px;color:var(--muted);margin-top:4px">—</div>`}
@@ -3386,7 +3386,7 @@ function printRideReceipt(ids){
   const grandTotal=Math.round((total+addonTotal)*100)/100;
   const addonsHtml=addonItems.length?`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:#666;font-weight:800;margin:14px 0 4px">${t('addonsLabel')}</div>
     <table><tbody>${addonItems.map(a=>`<tr>
-      <td><div style="display:flex;align-items:center;gap:8px">${a.photo?`<img src="${esc(a.photo)}" alt="" style="width:30px;height:30px;border-radius:6px;object-fit:cover">`:''}<span>${esc(a.name)}${a.brand?` · ${esc(a.brand)}`:''}</span></div></td>
+      <td><div style="display:flex;align-items:center;gap:8px">${a.photo?`<img src="${esc(a.photo)}" alt="" style="width:30px;height:30px;border-radius:6px;object-fit:contain">`:''}<span>${esc(a.name)}${a.brand?` · ${esc(a.brand)}`:''}</span></div></td>
       <td style="text-align:center;white-space:nowrap">×${a.qty}</td>
       <td style="text-align:${ar?'left':'right'};white-space:nowrap">SAR ${a.lineTotal}</td>
     </tr>`).join('')}</tbody></table>`:'';
@@ -3887,7 +3887,7 @@ function selectAllNewSessAll(){
 function _sessAddonGroups(items,selIds,toggleFn){
   const cats=[...new Set(items.map(it=>it.category||'Other'))].sort((a,b)=>_invCatLabel(a).localeCompare(_invCatLabel(b)));
   const card=it=>{const sel=(selIds||[]).includes(it.id);const sub=`${it.brand?esc(it.brand):''}${(it.brand&&it.price!=null&&Number(it.price)>0)?' · ':''}${(it.price!=null&&Number(it.price)>0)?'SAR '+Number(it.price):''}`;
-    return`<button type="button" onclick="${toggleFn}('${it.id}')" title="${esc(it.name)}" style="display:flex;align-items:center;gap:8px;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(3,255,137,.08)':'var(--s2)'};border-radius:10px;padding:6px 11px 6px 6px;cursor:pointer;font-family:inherit;text-align:start">${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:34px;height:34px;border-radius:7px;object-fit:cover;flex-shrink:0">`:`<div style="width:34px;height:34px;border-radius:7px;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:11px;font-weight:800">${esc((it.name||'?').charAt(0))}</div>`}<div style="min-width:0"><div style="font-size:12px;font-weight:800;color:${sel?'var(--green)':'var(--text)'};white-space:nowrap">${esc(it.name)}</div>${sub?`<div style="font-size:10px;color:var(--muted);white-space:nowrap">${sub}</div>`:''}</div></button>`;};
+    return`<button type="button" onclick="${toggleFn}('${it.id}')" title="${esc(it.name)}" style="display:flex;align-items:center;gap:8px;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(3,255,137,.08)':'var(--s2)'};border-radius:10px;padding:6px 11px 6px 6px;cursor:pointer;font-family:inherit;text-align:start">${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:34px;height:34px;border-radius:7px;object-fit:contain;flex-shrink:0">`:`<div style="width:34px;height:34px;border-radius:7px;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:11px;font-weight:800">${esc((it.name||'?').charAt(0))}</div>`}<div style="min-width:0"><div style="font-size:12px;font-weight:800;color:${sel?'var(--green)':'var(--text)'};white-space:nowrap">${esc(it.name)}</div>${sub?`<div style="font-size:10px;color:var(--muted);white-space:nowrap">${sub}</div>`:''}</div></button>`;};
   return cats.map(cat=>`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px">${esc(_invCatLabel(cat))}</div><div style="display:flex;flex-wrap:wrap;gap:8px">${items.filter(it=>(it.category||'Other')===cat).map(card).join('')}</div></div>`).join('');
 }
 function _toggleNewSessAddon(id){
@@ -3998,7 +3998,7 @@ function renderAddonPicker(){
     <div style="font-size:12px;color:var(--muted);margin-bottom:14px">#${e.queueNum} ${esc(e.name)}</div>
     ${items.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px">
       ${items.map(it=>{const qn=_q(it.id);const stock=Number(it.qty)||0;const out=stock<=0;const low=stock>0&&stock<=5;return`<div style="border:1.5px solid ${qn>0?'var(--green)':'var(--border)'};border-radius:14px;overflow:hidden;background:var(--s1);${out&&qn<=0?'opacity:.55':''}">
-        ${it.photo?`<img src="${esc(it.photo)}" alt="${esc(it.name)}" style="width:100%;height:120px;object-fit:cover;display:block">`:`<div style="width:100%;height:120px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:12px;text-align:center;padding:8px">${esc(it.name)}</div>`}
+        ${it.photo?`<img src="${esc(it.photo)}" alt="${esc(it.name)}" style="width:100%;height:120px;object-fit:contain;background:var(--s3);display:block">`:`<div style="width:100%;height:120px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:12px;text-align:center;padding:8px">${esc(it.name)}</div>`}
         <div style="padding:10px 12px">
           <div style="font-weight:800;font-size:14px;line-height:1.2">${esc(it.name)}</div>
           ${stock<=10?`<div style="margin-top:4px;font-size:11px;font-weight:800;color:${out?'#e5484d':low?'var(--orange)':'var(--muted)'}">${out?t('outOfStock'):stock+' '+t('stockLeft')}</div>`:''}
@@ -8378,7 +8378,7 @@ function renderTeamManager(){
 }
 // Product image helpers (inventory items carry an optional data-URL photo)
 function _itemPhoto(id){const it=id&&(S.inventory||[]).find(x=>x.id===id);return(it&&it.photo)?it.photo:'';}
-function _itemThumb(id,size){const p=_itemPhoto(id);return p?`<img src="${esc(p)}" alt="" style="width:${size}px;height:${size}px;border-radius:6px;object-fit:cover;flex-shrink:0">`:'';}
+function _itemThumb(id,size){const p=_itemPhoto(id);return p?`<img src="${esc(p)}" alt="" style="width:${size}px;height:${size}px;border-radius:6px;object-fit:contain;flex-shrink:0">`:'';}
 // Units sold per inventory item (cashier sales + rental add-ons) -> drives top-seller ordering
 function _itemSalesCount(){const c={};(S.cashSales||[]).forEach(r=>{if(r.item_id&&r.pay!=='refunded')c[r.item_id]=(c[r.item_id]||0)+(Number(r.qty)||0);});getQueue().forEach(e=>entryPurchases(e).forEach(p=>{if(p.id)c[p.id]=(c[p.id]||0)+(Number(p.qty)||0);}));return c;}
 function showCashierModal(id){
@@ -8730,7 +8730,7 @@ function renderCashier(){
   const _tgl='padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0;min-width:46px';
   const _inp='padding:9px 11px;border-radius:9px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-family:inherit;font-size:13px;width:100%';
   // Category-first item picker for Sales: pick a category, then see the items inside it
-  const _ctItemBtn=it=>{const sel=S._ctItem===it.id;const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;const lowB=(q<=0||(lo>0&&q<=lo));return`<button type="button" onclick="_ctSet('_ctItem','${it.id}')" title="${esc(it.name)}" style="position:relative;text-align:start;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(3,255,137,.08)':'var(--s2)'};border-radius:10px;padding:0;overflow:hidden;cursor:pointer;font-family:inherit">${lowB?`<span title="${q<=0?t('invOutStock'):t('invLowStock')}" style="position:absolute;top:4px;${ar?'left':'right'}:4px;z-index:1;background:${q<=0?'var(--red)':'var(--orange)'};color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:6px;line-height:1.5">${q}</span>`:''}${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:100%;height:62px;object-fit:cover;display:block">`:`<div style="width:100%;height:62px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:10px;text-align:center;padding:4px">${esc(_invCatLabel(it.category))}</div>`}<div style="padding:5px 7px"><div style="font-weight:700;font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.name)}</div><div style="font-size:11px;color:var(--green);font-weight:700">${it.price!=null?`SAR ${it.price}`:'—'}</div></div></button>`;};
+  const _ctItemBtn=it=>{const sel=S._ctItem===it.id;const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;const lowB=(q<=0||(lo>0&&q<=lo));return`<button type="button" onclick="_ctSet('_ctItem','${it.id}')" title="${esc(it.name)}" style="position:relative;text-align:start;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(3,255,137,.08)':'var(--s2)'};border-radius:10px;padding:0;overflow:hidden;cursor:pointer;font-family:inherit">${lowB?`<span title="${q<=0?t('invOutStock'):t('invLowStock')}" style="position:absolute;top:4px;${ar?'left':'right'}:4px;z-index:1;background:${q<=0?'var(--red)':'var(--orange)'};color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:6px;line-height:1.5">${q}</span>`:''}${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:100%;height:62px;object-fit:contain;background:var(--s3);display:block">`:`<div style="width:100%;height:62px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:10px;text-align:center;padding:4px">${esc(_invCatLabel(it.category))}</div>`}<div style="padding:5px 7px"><div style="font-weight:700;font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.name)}</div><div style="font-size:11px;color:var(--green);font-weight:700">${it.price!=null?`SAR ${it.price}`:'—'}</div></div></button>`;};
   const _ctCustomBtn=`<button type="button" onclick="_ctSet('_ctItem','__custom__')" style="border:1.5px dashed ${isCustom?'var(--green)':'var(--border)'};background:${isCustom?'rgba(3,255,137,.08)':'transparent'};border-radius:10px;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:96px;color:${isCustom?'var(--green)':'var(--muted)'}"><span style="font-size:20px;line-height:1">+</span><span style="font-size:10px;font-weight:700;text-align:center;padding:0 4px">${t('cashCustomOpt')}</span></button>`;
   const _ctGrid=inner=>`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;max-height:248px;overflow-y:auto;margin-top:4px;padding:2px">${inner}</div>`;
   const _ctCats=[...new Set(invItems.map(it=>it.category||'Other'))].sort((a,b)=>_invCatLabel(a).localeCompare(_invCatLabel(b)));
@@ -8739,7 +8739,7 @@ function renderCashier(){
     const _catItems=S._ctPickCat==='__all__'?invItems:invItems.filter(it=>(it.category||'Other')===S._ctPickCat);
     _ctItemPicker=`<button type="button" onclick="_ctSet('_ctPickCat','')" style="display:inline-flex;align-items:center;gap:5px;background:none;border:none;color:var(--green);font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;padding:5px 0 2px">‹ ${esc(S._ctPickCat==='__all__'?t('cashAllItems'):_invCatLabel(S._ctPickCat))}</button>${_ctGrid(_catItems.map(_ctItemBtn).join('')+_ctCustomBtn)}`;
   }else{
-    const _cards=_ctCats.map(cat=>{const n=invItems.filter(it=>(it.category||'Other')===cat).length;const ph=invItems.find(it=>(it.category||'Other')===cat&&it.photo);return`<button type="button" data-cat="${esc(cat)}" onclick="_ctSet('_ctPickCat',this.dataset.cat)" style="text-align:start;border:1.5px solid var(--border);background:var(--s2);border-radius:10px;padding:0;overflow:hidden;cursor:pointer;font-family:inherit">${ph?`<img src="${esc(ph.photo)}" alt="" style="width:100%;height:62px;object-fit:cover;display:block">`:`<div style="width:100%;height:62px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:20px;font-weight:800">${esc((_invCatLabel(cat)||'?').charAt(0))}</div>`}<div style="padding:5px 7px"><div style="font-weight:700;font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(_invCatLabel(cat))}</div><div style="font-size:11px;color:var(--muted);font-weight:700">${n} ${t('cashItemsWord')}</div></div></button>`;}).join('');
+    const _cards=_ctCats.map(cat=>{const n=invItems.filter(it=>(it.category||'Other')===cat).length;const ph=invItems.find(it=>(it.category||'Other')===cat&&it.photo);return`<button type="button" data-cat="${esc(cat)}" onclick="_ctSet('_ctPickCat',this.dataset.cat)" style="text-align:start;border:1.5px solid var(--border);background:var(--s2);border-radius:10px;padding:0;overflow:hidden;cursor:pointer;font-family:inherit">${ph?`<img src="${esc(ph.photo)}" alt="" style="width:100%;height:62px;object-fit:contain;background:var(--s3);display:block">`:`<div style="width:100%;height:62px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:20px;font-weight:800">${esc((_invCatLabel(cat)||'?').charAt(0))}</div>`}<div style="padding:5px 7px"><div style="font-weight:700;font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(_invCatLabel(cat))}</div><div style="font-size:11px;color:var(--muted);font-weight:700">${n} ${t('cashItemsWord')}</div></div></button>`;}).join('');
     const _allCard=invItems.length?`<button type="button" data-cat="__all__" onclick="_ctSet('_ctPickCat',this.dataset.cat)" style="text-align:start;border:1.5px solid var(--border);background:var(--s2);border-radius:10px;padding:0;overflow:hidden;cursor:pointer;font-family:inherit"><div style="width:100%;height:62px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--green);font-size:20px;font-weight:900">★</div><div style="padding:5px 7px"><div style="font-weight:700;font-size:11px;color:var(--text)">${t('cashAllItems')}</div><div style="font-size:11px;color:var(--muted);font-weight:700">${invItems.length} ${t('cashItemsWord')}</div></div></button>`:'';
     _ctItemPicker=_ctGrid(_allCard+_cards+_ctCustomBtn);
   }
@@ -8942,7 +8942,7 @@ function renderInventory(){
     <div class="form-row">
       <div class="form-group"><label>${t('profilePhotoLabel')}</label>
         <div style="display:flex;align-items:center;gap:10px">
-          ${S._invPhoto?`<img src="${esc(S._invPhoto)}" alt="" style="width:48px;height:48px;border-radius:8px;object-fit:cover;border:1px solid var(--border)">`:''}
+          ${S._invPhoto?`<img src="${esc(S._invPhoto)}" alt="" style="width:48px;height:48px;border-radius:8px;object-fit:contain;border:1px solid var(--border)">`:''}
           <label class="btn-secondary" style="font-size:12px;padding:7px 14px;cursor:pointer;margin:0">${t('uploadPhotoBtn')}<input type="file" accept="image/*" style="display:none" onchange="pickImage(this,u=>{S._invPhoto=u;renderInventory();},400,true)"></label>
           ${S._invPhoto?`<button class="btn-secondary" style="font-size:12px;padding:7px 12px" onclick="S._invPhoto='';renderInventory()">${t('removePhotoBtn')}</button>`:''}
         </div>
@@ -8981,7 +8981,7 @@ function renderInventory(){
     const stTxt=state==='out'?t('invOutStock'):state==='low'?t('invLowStock'):t('invInStock');
     return`<tr>
       <td><div style="display:flex;align-items:center;gap:10px">
-        ${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}
+        ${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:contain;border:1px solid var(--border);flex-shrink:0">`:''}
         <div><div class="rider-name">${esc(it.name)}</div>${it.volume_ml?`<div style="font-size:11px;color:var(--muted-l);font-weight:600;margin-top:1px">${it.volume_ml} ml</div>`:''}${it.price!=null&&Number(it.price)>0?`<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:1px">SAR ${Number(it.price)}</div>`:''}</div>
       </div></td>
       <td style="font-size:13px;font-weight:600">${it.brand?esc(it.brand):'<span style="color:var(--muted)">—</span>'}</td>
@@ -9009,7 +9009,7 @@ function renderInventory(){
     const stTxt=state==='out'?t('invOutStock'):state==='low'?t('invLowStock'):t('invInStock');
     const borderClr=state==='out'?'rgba(224,64,64,.4)':state==='low'?'rgba(224,136,40,.45)':'rgba(3,255,137,.3)';
     return`<div class="bike-grid-card" style="border-color:${borderClr};display:flex;flex-direction:column;gap:8px">
-      ${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:100%;aspect-ratio:1/1;border-radius:10px;object-fit:cover;border:1px solid var(--border)">`:`<div style="width:100%;aspect-ratio:1/1;border-radius:10px;background:var(--s3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:30px;opacity:.5"></div>`}
+      ${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:100%;aspect-ratio:1/1;border-radius:10px;object-fit:contain;background:var(--s3);border:1px solid var(--border)">`:`<div style="width:100%;aspect-ratio:1/1;border-radius:10px;background:var(--s3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:30px;opacity:.5"></div>`}
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px">
         <div style="min-width:0"><div style="font-weight:900;font-size:13px;line-height:1.3">${esc(it.name)}</div>${it.brand?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">${esc(it.brand)}</div>`:''}${it.volume_ml?`<div style="font-size:11px;color:var(--muted-l);font-weight:600;margin-top:1px">${it.volume_ml} ml</div>`:''}${it.price!=null&&Number(it.price)>0?`<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:1px">SAR ${Number(it.price)}</div>`:''}</div>
         <span style="font-size:10px;font-weight:800;color:${stClr};white-space:nowrap;flex-shrink:0">${stTxt}</span>
