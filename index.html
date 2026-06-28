@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=36">
+  <link rel="stylesheet" href="./styles.css?v=38">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -158,6 +158,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 <div id="confirm-modal"    style="display:none"></div>
 <div id="rate-modal"       style="display:none"></div>
 <div id="cust-modal"       style="display:none"></div>
+<div id="bike-profile-modal" style="display:none"></div>
 <div id="cashier-modal"    style="display:none"></div>
 <div id="receipt-edit-modal" style="display:none"></div>
 <div id="team-mgr-modal"   style="display:none"></div>
@@ -320,6 +321,8 @@ en:{
   riderLabel:'Rider',riderName:'Rider\'s Full Name',riderNamePlaceholder:'Enter rider\'s full name',
   availLabel:'Available',inUseLabel:'In Use',maintLabel:'Maintenance',retiredLabel:'Retired',
   editBtn:'Edit',maintBtn:'Maintenance',retireBtn:'Retire',restoreBtn:'Restore',
+  bkSelectAll:'Select all',bkSelectedN:'{0} selected',bkBulkRetire:'Retire',bkBulkMaint:'Maintenance',bkBulkMove:'Move',bkBulkSetPrice:'Set price',bkBulkExport:'Export CSV',bkBulkLocPh:'Location…',bkBulkPricePh:'SAR',bkBulkRetireConfirm:'Retire {0} selected bike(s)? In-use bikes are skipped.',bkBulkMaintConfirm:'Move {0} selected bike(s) to maintenance? In-use bikes are skipped.',bkBulkUpdated:'{0} bike(s) updated',bkBulkNoneEligible:'No eligible bikes in selection.',bkBulkPickLoc:'Choose a location first.',bkBulkPickPrice:'Enter a valid price.',
+  bpRides:'Rides',bpRevenue:'Revenue',bpAvgRating:'Avg rating',bpLastUsed:'Last used',bpNever:'Never',bpSpecsTitle:'Specifications',bpHistoryTitle:'Recent rides',bpNoRides:'No completed rides yet.',bpFeedbackTitle:'Rider feedback',bpInServiceLabel:'In service',bpUtilLabel:'Utilization',bpColorsLabel:'Colors',
   noBikes:'No bikes found. Add your first bike above.',
   historyTitle:'Ride History',historySub:'Log of all completed and no-show rides. Send receipts directly to customers.',
   filterPaid:'Paid',filterUnpaid:'Unpaid',filterCancelled:'Cancelled',
@@ -667,6 +670,8 @@ ar:{
   riderLabel:'الراكب',riderName:'الاسم الكامل للراكب',riderNamePlaceholder:'أدخل الاسم الكامل',
   availLabel:'متاح',inUseLabel:'قيد الاستخدام',maintLabel:'صيانة',retiredLabel:'متقاعد',
   editBtn:'تعديل',maintBtn:'صيانة',retireBtn:'تقاعد',restoreBtn:'استعادة',
+  bkSelectAll:'تحديد الكل',bkSelectedN:'{0} محدد',bkBulkRetire:'تقاعد',bkBulkMaint:'صيانة',bkBulkMove:'نقل',bkBulkSetPrice:'تحديد السعر',bkBulkExport:'تصدير CSV',bkBulkLocPh:'الموقع…',bkBulkPricePh:'ريال',bkBulkRetireConfirm:'تقاعد {0} دراجة محددة؟ يتم تخطّي الدراجات قيد الاستخدام.',bkBulkMaintConfirm:'نقل {0} دراجة محددة إلى الصيانة؟ يتم تخطّي الدراجات قيد الاستخدام.',bkBulkUpdated:'تم تحديث {0} دراجة',bkBulkNoneEligible:'لا توجد دراجات مؤهلة ضمن التحديد.',bkBulkPickLoc:'اختر موقعاً أولاً.',bkBulkPickPrice:'أدخل سعراً صحيحاً.',
+  bpRides:'الرحلات',bpRevenue:'الإيرادات',bpAvgRating:'متوسط التقييم',bpLastUsed:'آخر استخدام',bpNever:'لم تُستخدم',bpSpecsTitle:'المواصفات',bpHistoryTitle:'أحدث الرحلات',bpNoRides:'لا توجد رحلات مكتملة بعد.',bpFeedbackTitle:'ملاحظات الركّاب',bpInServiceLabel:'في الخدمة',bpUtilLabel:'الاستخدام',bpColorsLabel:'الألوان',
   noBikes:'لا توجد دراجات. أضف أول دراجة أعلاه.',
   historyTitle:'سجل الرحلات',historySub:'سجل جميع الرحلات المكتملة والغيابات.',
   filterPaid:'مدفوع',filterUnpaid:'غير مدفوع',filterCancelled:'ملغي',
@@ -2806,11 +2811,7 @@ function renderRegister(){
     ${isModifyMode?'':(()=>{
       const items=sessionAddonItems(selSess);
       if(!items.length)return'';
-      return`<div class="form-section" style="margin-top:16px">
-        <div class="form-title">${t('addonStepTitle')}</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${t('addonStepSub')}</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px">
-          ${items.map(it=>{const qn=_regAddonQty(it.id);const stock=Number(it.qty)||0;return`<div style="border:1.5px solid ${qn>0?'var(--green)':'var(--border)'};border-radius:14px;overflow:hidden;background:var(--s1)">
+      const _aCard=it=>{const qn=_regAddonQty(it.id);const stock=Number(it.qty)||0;return`<div style="border:1.5px solid ${qn>0?'var(--green)':'var(--border)'};border-radius:14px;overflow:hidden;background:var(--s1)">
             ${it.photo?`<img src="${esc(it.photo)}" alt="${esc(it.name)}" style="width:100%;height:132px;object-fit:cover;display:block">`:`<div style="width:100%;height:132px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:12px;text-align:center;padding:8px">${esc(it.name)}</div>`}
             <div style="padding:11px 12px">
               <div style="font-weight:800;font-size:14px;line-height:1.2">${esc(it.name)}</div>
@@ -2824,8 +2825,17 @@ function renderRegister(){
                 </div>
               </div>
             </div>
-          </div>`;}).join('')}
-        </div>
+          </div>`;};
+      const _aGrid=its=>`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px">${its.map(_aCard).join('')}</div>`;
+      const _aCatRank=c=>_isDrinkCat(c)?2:(_isSuppCat(c)?1:0); // Equipment first, then Supplements, then Beverages
+      const _aCats=[...new Set(items.map(it=>it.category||'Other'))].sort((a,b)=>(_aCatRank(a)-_aCatRank(b))||_invCatLabel(a).localeCompare(_invCatLabel(b)));
+      const _aGrouped=_aCats.length>1
+        ?_aCats.map(cat=>`<div style="margin-bottom:16px"><div style="font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:10px">${esc(_invCatLabel(cat))}</div>${_aGrid(items.filter(it=>(it.category||'Other')===cat))}</div>`).join('')
+        :_aGrid(items);
+      return`<div class="form-section" style="margin-top:16px">
+        <div class="form-title">${t('addonStepTitle')}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${t('addonStepSub')}</div>
+        ${_aGrouped}
       </div>`;
     })()}
     ${alreadyBanner}
@@ -6819,13 +6829,14 @@ function renderBikes(){
   const bikes=getBikes();
   const total=bikes.length,nAvail=bikes.filter(b=>b.status==='available').length,
         nUse=bikes.filter(b=>b.status==='in-use').length,
+        nMaint=bikes.filter(b=>b.status==='maintenance').length,
         nRoad=bikes.filter(b=>b.type==='Road').length,
         nHybrid=bikes.filter(b=>b.type==='Hybrid').length,
         nMtn=bikes.filter(b=>b.type==='Mountain').length;
   const bkTypeOpts=['all','Road','Hybrid','Mountain','Gravel'].map(ty=>
     `<option value="${ty}"${S.bkTypeFilter===ty?' selected':''}>${ty==='all'?t('filterAll'):typeLabel(ty)}</option>`).join('');
-  const bkStatusOpts=['all','available','in-use'].map(s=>{
-    const l={all:t('filterAll'),available:t('availLabel'),'in-use':t('inUseLabel')}[s];
+  const bkStatusOpts=['all','available','in-use','maintenance','retired'].map(s=>{
+    const l={all:t('filterAll'),available:t('availLabel'),'in-use':t('inUseLabel'),maintenance:t('maintLabel'),retired:t('retiredLabel')}[s];
     return`<option value="${s}"${S.bkStatus===s?' selected':''}>${l}</option>`;}).join('');
   const bkSizeOpts=['all','XS','S','M','L'].map(sz=>
     `<option value="${sz}"${S.bkSize===sz?' selected':''}>${sz==='all'?t('filterAll'):sz}</option>`).join('');
@@ -6942,9 +6953,11 @@ function renderBikes(){
 
   function renderBikeRow(b){
     const isRetired=b.status==='retired'||b.status==='maintenance';
-    const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-blue':'dot-red';
-    const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):isRetired?t('retiredLabel'):t('maintLabel');
-    const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--blue)':'var(--red)';
+    const isMaint=b.status==='maintenance';
+    const sel=(S.bkSelected||[]).includes(b.id);
+    const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-blue':isMaint?'dot-orange':'dot-red';
+    const slbl=b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):isMaint?t('maintLabel'):t('retiredLabel');
+    const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--blue)':isMaint?'var(--orange)':'var(--red)';
     const colors=b.colors&&b.colors.length?b.colors:['#03ff89'];
     const colorSwatches=colors.map((c,ci)=>{
       const cn=b.color_names&&b.color_names[ci]?b.color_names[ci]:'';
@@ -6965,8 +6978,9 @@ function renderBikes(){
         :`<span style="color:var(--muted)">—</span>`;
     const rowBorderClr=orphaned?'rgba(224,136,40,.7)':b.status==='available'?'rgba(3,255,137,.45)':b.status==='in-use'?'rgba(74,168,248,.45)':'rgba(224,64,64,.45)';
     const rowBg=orphaned?'background:rgba(224,136,40,.06);':b.status==='in-use'?'background:rgba(74,168,248,.025);':isRetired?'background:rgba(224,64,64,.025);opacity:.75;':'';
-    return`<tr style="border-left:3px solid ${rowBorderClr};${rowBg}">
-      <td><div style="display:flex;align-items:center;gap:10px">${b.photo?`<img src="${esc(b.photo)}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}<div class="rider-name">${esc(b.name)}</div></div></td>
+    return`<tr style="border-left:3px solid ${rowBorderClr};${rowBg}${sel?'background:rgba(3,255,137,.07);':''}">
+      <td style="text-align:center"><input type="checkbox" aria-label="${esc(b.name)}" ${sel?'checked':''} onclick="_bkToggleSel('${b.id}')"></td>
+      <td><div style="display:flex;align-items:center;gap:10px">${b.photo?`<img src="${esc(b.photo)}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}<button type="button" onclick="openBikeProfile('${b.id}')" title="${esc(b.name)}" style="background:none;border:none;padding:0;cursor:pointer;text-align:start;font:inherit;color:var(--text)"><span class="rider-name" style="text-decoration:underline;text-decoration-color:rgba(255,255,255,.2);text-underline-offset:2px">${esc(b.name)}</span></button></div></td>
       <td style="font-weight:700;font-size:13px">${b.brand?esc(b.brand):`<span style="color:var(--muted)">—</span>`}</td>
       <td style="font-weight:700;font-size:13px">${b.model?esc(b.model):`<span style="color:var(--muted)">—</span>`}</td>
       <td style="font-weight:700;font-size:13px">${b.groupset?esc(b.groupset):`<span style="color:var(--muted)">—</span>`}</td>
@@ -6984,7 +6998,8 @@ function renderBikes(){
       <td>${riderCell}</td>
       <td><div class="actions-cell">
         <button class="btn-sm btn-blue" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
-        ${orphaned?`<button class="btn-sm btn-orange" onclick="releaseBike('${b.id}')">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-${isRetired?'green':'muted'}" onclick="toggleRetire('${b.id}')">${isRetired?t('restoreBtn'):t('retireBtn')}</button>`}
+        ${b.status==='available'?`<button class="btn-sm btn-orange" onclick="setMaintenance('${b.id}')">${t('maintBtn')}</button>`:''}
+        ${orphaned?`<button class="btn-sm btn-orange" onclick="releaseBike('${b.id}')">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-${isRetired?'green':'muted'}" onclick="${isMaint?`setMaintenance('${b.id}')`:`toggleRetire('${b.id}')`}">${isRetired?t('restoreBtn'):t('retireBtn')}</button>`}
         <button class="btn-sm btn-red" ${b.status!=='in-use'&&!isRetired?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
       </div></td>
     </tr>`;
@@ -7000,10 +7015,11 @@ function renderBikes(){
   function renderBikeGrid(typeBikes){
     if(!typeBikes.length)return`<div class="empty-state">${t('noBikes')}</div>`;
     return`<div class="bike-grid">${typeBikes.map(b=>{
-      const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-blue':'dot-red';
+      const isMaintG=b.status==='maintenance';
+      const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-blue':isMaintG?'dot-orange':'dot-red';
       const user=bikeUserMap[b.id];
       const orphaned=b.status==='in-use'&&!user;
-      const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--blue)':'var(--red)';
+      const sclr=b.status==='available'?'var(--green)':b.status==='in-use'?'var(--blue)':isMaintG?'var(--orange)':'var(--red)';
       const borderClr=orphaned?'rgba(224,136,40,.7)':b.status==='available'?'rgba(3,255,137,.4)':b.status==='in-use'?'rgba(74,168,248,.4)':'rgba(224,64,64,.4)';
       const isRetiredG=b.status==='retired'||b.status==='maintenance';
       const bgStyle=orphaned?'background:rgba(224,136,40,.06);':b.status==='in-use'?'background:rgba(74,168,248,.025);':isRetiredG?'background:rgba(224,64,64,.025);opacity:.75;':'';
@@ -7013,7 +7029,7 @@ function renderBikes(){
       return`<div class="bike-grid-card" style="border-color:${borderClr};${bgStyle}">
         ${b.photo?`<img src="${esc(b.photo)}" alt="" style="width:100%;height:110px;border-radius:10px;object-fit:cover;border:1px solid var(--border);margin-bottom:8px">`:''}
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:6px">
-          <div style="font-weight:900;font-size:13px;line-height:1.3">${esc(b.name)}</div>
+          <button type="button" onclick="openBikeProfile('${b.id}')" style="background:none;border:none;padding:0;cursor:pointer;text-align:start;font-weight:900;font-size:13px;line-height:1.3;color:var(--text)"><span style="text-decoration:underline;text-decoration-color:rgba(255,255,255,.2);text-underline-offset:2px">${esc(b.name)}</span></button>
           <div style="display:flex;gap:3px;flex-shrink:0">${dots}</div>
         </div>
         <div style="display:flex;gap:5px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
@@ -7022,7 +7038,7 @@ function renderBikes(){
         </div>
         <div style="display:flex;align-items:center;gap:5px${(user||orphaned)?';margin-bottom:5px':''}">
           <span class="avail-dot ${dot}" style="display:inline-block;flex-shrink:0"></span>
-          <span style="color:${sclr};font-weight:700;font-size:12px">${b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):isRetiredG?t('retiredLabel'):t('maintLabel')}</span>
+          <span style="color:${sclr};font-weight:700;font-size:12px">${b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):isMaintG?t('maintLabel'):t('retiredLabel')}</span>
           ${el?`<span style="font-size:10px;color:var(--blue);font-weight:700;margin-left:2px"> ${el}</span>`:''}
         </div>
         ${user?`<div style="font-size:11px;font-weight:700;color:var(--green)">#${user.queueNum} ${esc(user.name)}</div>`:orphaned?`<div style="font-size:11px;font-weight:700;color:#e08828">${t('noRiderAssigned')}</div>`:''}
@@ -7039,8 +7055,10 @@ function renderBikes(){
 
   function renderTypeSection(ty,color){
     if(S.bkTypeFilter!=='all'&&S.bkTypeFilter!==ty) return '';
-    let typeBikes=bikes.filter(b=>b.type===ty&&b.status!=='retired'&&b.status!=='maintenance');
-    if(S.bkStatus!=='all') typeBikes=typeBikes.filter(b=>b.status===S.bkStatus);
+    let typeBikes=bikes.filter(b=>b.type===ty);
+    // Status-aware: 'all' hides retired+maintenance; a specific status (incl. maintenance/retired) shows only that
+    if(S.bkStatus==='all') typeBikes=typeBikes.filter(b=>b.status!=='retired'&&b.status!=='maintenance');
+    else                   typeBikes=typeBikes.filter(b=>b.status===S.bkStatus);
     if(S.bkSize!=='all')   typeBikes=typeBikes.filter(b=>b.size===S.bkSize);
     if(bkSearch){
       const q=bkSearch.toLowerCase();
@@ -7061,10 +7079,15 @@ function renderBikes(){
     const all=bikes.filter(b=>b.type===ty&&b.status!=='retired'&&b.status!=='maintenance');
     const tyAvail=all.filter(b=>b.status==='available').length;
     const tyUse  =all.filter(b=>b.status==='in-use').length;
+    const headCount=S.bkStatus==='all'?all.length:typeBikes.length;
+    const _vis=typeBikes.map(b=>b.id);
+    const _allSel=_vis.length>0&&_vis.every(id=>(S.bkSelected||[]).includes(id));
+    const _selHdr=`<th style="width:34px;text-align:center"><input type="checkbox" aria-label="${t('bkSelectAll')}" title="${t('bkSelectAll')}" ${_allSel?'checked':''} onclick="_bkSelectMany(${esc(JSON.stringify(_vis))},this.checked)"></th>`;
     const typeContent=S.bkView==='grid'
       ?renderBikeGrid(typeBikes)
       :`<div class="table-wrapper" style="overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch"><table class="queue-table" style="min-width:560px">
         <thead><tr>
+          ${_selHdr}
           ${sortHdr('name',t('bikeNameLabel'))}
           ${sortHdr('brand',t('bikeBrand'))}
           ${sortHdr('model',t('bikeModel'))}
@@ -7078,7 +7101,7 @@ function renderBikes(){
           <th>${t('colRider')}</th>
           <th>${t('colManageBike')}</th>
         </tr></thead>
-        <tbody>${typeBikes.length?typeBikes.map(renderBikeRow).join(''):`<tr><td colspan="11" style="padding:16px 0">${emptyIllustration(ILLUS_BIKE_OK,t('noBikes'))}</td></tr>`}</tbody>
+        <tbody>${typeBikes.length?typeBikes.map(renderBikeRow).join(''):`<tr><td colspan="13" style="padding:16px 0">${emptyIllustration(ILLUS_BIKE_OK,t('noBikes'))}</td></tr>`}</tbody>
       </table></div>`;
     return`<div style="margin-bottom:28px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -7105,11 +7128,12 @@ function renderBikes(){
   const typeColorMap={Road:'#4aa8f8',Hybrid:'#03ff89',Mountain:'#e08828',Gravel:'#a06af0'};
   const typeSections=['Road','Hybrid','Mountain','Gravel'].map(ty=>renderTypeSection(ty,typeColorMap[ty])).join('');
   const retiredBikes=bikes.filter(b=>b.status==='retired'||b.status==='maintenance');
-  const retiredSection=retiredBikes.length?`<div style="margin-bottom:28px">
+  // Only show the collapsed graveyard in the default 'all' view — a specific status filter shows those bikes inline instead
+  const retiredSection=(retiredBikes.length&&S.bkStatus==='all')?`<div style="margin-bottom:28px">
     <button onclick="S.bkShowRetired=!S.bkShowRetired;renderBikes()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(255,255,255,.02);border:1.5px solid rgba(255,255,255,.07);border-radius:12px;cursor:pointer;font-family:'Space Grotesk',sans-serif;transition:border-color .2s" onmouseover="this.style.borderColor='rgba(255,255,255,.15)'" onmouseout="this.style.borderColor='rgba(255,255,255,.07)'">
       <div style="display:flex;align-items:center;gap:10px">
         <div style="width:4px;height:24px;border-radius:3px;background:rgba(160,160,160,.4);flex-shrink:0"></div>
-        <div style="font-size:15px;font-weight:900;color:var(--muted-l)">${t('retiredLabel')} Bikes</div>
+        <div style="font-size:15px;font-weight:900;color:var(--muted-l)">${t('retiredLabel')} &amp; ${t('maintLabel')}</div>
         <div style="background:rgba(255,255,255,.07);border-radius:6px;padding:2px 8px;font-size:11px;font-weight:800;color:var(--muted)">${retiredBikes.length}</div>
       </div>
       <span style="font-size:16px;color:var(--muted)">${S.bkShowRetired?'▲':'▼'}</span>
@@ -7161,6 +7185,24 @@ function renderBikes(){
     </div>`:''}
   </div>`:''
 
+  const _selIds=(S.bkSelected||[]).filter(id=>bikes.some(b=>b.id===id));
+  if(_selIds.length!==(S.bkSelected||[]).length)S.bkSelected=_selIds; // drop stale ids
+  const bulkBar=_selIds.length?`<div class="bk-bulk-bar">
+      <span class="bk-bulk-count">${t('bkSelectedN').replace('{0}',_selIds.length)}</span>
+      <button class="btn-sm btn-orange" onclick="bkBulkMaintenance()">${t('bkBulkMaint')}</button>
+      <button class="btn-sm btn-muted" onclick="bkBulkRetire()">${t('bkBulkRetire')}</button>
+      <span class="bk-bulk-group">
+        <select id="bk-bulk-loc" class="filter-select" style="height:32px;min-width:120px">${S.bkLocations.map(l=>`<option value="${esc(l)}">${esc(l)}</option>`).join('')}</select>
+        <button class="btn-sm btn-blue" onclick="bkBulkLocation()">${t('bkBulkMove')}</button>
+      </span>
+      ${isAdmin()?`<span class="bk-bulk-group">
+        <input id="bk-bulk-price" type="number" min="0" step="0.5" placeholder="${t('bkBulkPricePh')}" class="filter-select" style="height:32px;width:84px">
+        <button class="btn-sm btn-blue" onclick="bkBulkPrice()">${t('bkBulkSetPrice')}</button>
+      </span>`:''}
+      <button class="btn-sm btn-green" onclick="bkBulkExport()">${t('bkBulkExport')}</button>
+      <button class="btn-sm btn-muted" onclick="bkClearSel()">✕ ${t('clearWord')}</button>
+    </div>`:'';
+
   document.getElementById('tab-bikes').innerHTML=`
     <div class="section-header" style="flex-wrap:wrap;gap:10px;max-width:100%">
       <div style="min-width:0">
@@ -7179,6 +7221,7 @@ function renderBikes(){
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('totalStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nAvail}</div><div class="stat-label">${t('availLabel')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--text)">${nUse}</div><div class="stat-label">${t('inUseLabel')}</div></div>
+      <div class="stat-card${nMaint>0?' stat-card-clickable':''}"${nMaint>0?` onclick="setBkStatus('maintenance')" style="cursor:pointer"`:''}><div class="stat-num" style="color:var(--orange)">${nMaint}</div><div class="stat-label">${t('maintLabel')}</div></div>
     </div>
     <div class="filter-bar" style="margin-bottom:20px">
       <div class="filter-row" style="flex-wrap:wrap;gap:10px;align-items:flex-end">
@@ -7201,6 +7244,7 @@ function renderBikes(){
         ${bkSearch||S.bkTypeFilter!=='all'||S.bkStatus!=='all'||S.bkSize!=='all'?`<button class="btn-secondary" style="font-size:12px;padding:5px 10px;align-self:flex-end" onclick="S.bkSearch='';S.bkTypeFilter='all';S.bkStatus='all';S.bkSize='all';renderBikes()">✕ ${t('clearWord')}</button>`:''}
       </div>
     </div>
+    ${bulkBar}
     ${typeSections}
     ${retiredSection}`;
 }
@@ -7413,6 +7457,160 @@ async function releaseBike(id){
   });
   renderBikes();
 }
+// Toggle a bike in/out of maintenance (available <-> maintenance). Reuses retired_date to stamp when it went out of service.
+async function setMaintenance(id){
+  const bike=getBikes().find(x=>x.id===id);if(!bike)return;
+  if(bike.status==='in-use'){toast(t('errBikeInUse'),'error');return;}
+  const prevStatus=bike.status,prevRetired=bike.retired_date||null;
+  const toMaint=bike.status!=='maintenance';
+  const newStatus=toMaint?'maintenance':'available';
+  const{error}=await sb.from('bikes').update({status:newStatus,retired_date:toMaint?_todayISO():null}).eq('id',id);
+  if(error){toast(error.message,'error');return;}
+  await loadData();
+  toast(`${bike.name} ${toMaint?t('maintLabel').toLowerCase():t('availLabel').toLowerCase()}`);
+  pushUndo(`${t('maintBtn')} ${bike.name}`,async()=>{
+    await sb.from('bikes').update({status:prevStatus,retired_date:prevRetired}).eq('id',id);
+    await loadData();renderBikes();
+  });
+  renderBikes();
+}
+
+// ── Bulk fleet actions ──
+function _bkToggleSel(id){
+  const set=new Set(S.bkSelected||[]);
+  if(set.has(id))set.delete(id);else set.add(id);
+  S.bkSelected=[...set];renderBikes();
+}
+function _bkSelectMany(ids,checked){
+  const set=new Set(S.bkSelected||[]);
+  (ids||[]).forEach(id=>{if(checked)set.add(id);else set.delete(id);});
+  S.bkSelected=[...set];renderBikes();
+}
+function bkClearSel(){S.bkSelected=[];renderBikes();}
+function _bkSelectedBikes(){return (S.bkSelected||[]).map(id=>getBikes().find(b=>b.id===id)).filter(Boolean);}
+
+async function bkBulkRetire(){
+  const picked=_bkSelectedBikes();
+  const eligible=picked.filter(b=>b.status!=='in-use'&&b.status!=='retired');
+  if(!eligible.length){toast(t('bkBulkNoneEligible'),'error');return;}
+  confirmDialog({title:t('bkBulkRetire'),body:t('bkBulkRetireConfirm').replace('{0}',eligible.length),confirmLabel:t('bkBulkRetire'),confirmClass:'btn-muted',onConfirm:async()=>{
+    const prev=eligible.map(b=>({id:b.id,status:b.status,retired_date:b.retired_date||null}));
+    await Promise.all(eligible.map(b=>sb.from('bikes').update({status:'retired',retired_date:_todayISO()}).eq('id',b.id)));
+    await loadData();S.bkSelected=[];
+    toast(t('bkBulkUpdated').replace('{0}',eligible.length));
+    pushUndo(`${t('undoRetire')} (${eligible.length})`,async()=>{await Promise.all(prev.map(p=>sb.from('bikes').update({status:p.status,retired_date:p.retired_date}).eq('id',p.id)));await loadData();renderBikes();});
+    renderBikes();
+  }});
+}
+async function bkBulkMaintenance(){
+  const picked=_bkSelectedBikes();
+  const eligible=picked.filter(b=>b.status!=='in-use'&&b.status!=='maintenance');
+  if(!eligible.length){toast(t('bkBulkNoneEligible'),'error');return;}
+  confirmDialog({title:t('bkBulkMaint'),body:t('bkBulkMaintConfirm').replace('{0}',eligible.length),confirmLabel:t('bkBulkMaint'),confirmClass:'btn-orange',onConfirm:async()=>{
+    const prev=eligible.map(b=>({id:b.id,status:b.status,retired_date:b.retired_date||null}));
+    await Promise.all(eligible.map(b=>sb.from('bikes').update({status:'maintenance',retired_date:_todayISO()}).eq('id',b.id)));
+    await loadData();S.bkSelected=[];
+    toast(t('bkBulkUpdated').replace('{0}',eligible.length));
+    pushUndo(`${t('maintBtn')} (${eligible.length})`,async()=>{await Promise.all(prev.map(p=>sb.from('bikes').update({status:p.status,retired_date:p.retired_date}).eq('id',p.id)));await loadData();renderBikes();});
+    renderBikes();
+  }});
+}
+async function bkBulkLocation(){
+  const loc=(document.getElementById('bk-bulk-loc')?.value||'').trim();
+  if(!loc){toast(t('bkBulkPickLoc'),'error');return;}
+  const picked=_bkSelectedBikes();if(!picked.length)return;
+  const prev=picked.map(b=>({id:b.id,location:b.location||null}));
+  await Promise.all(picked.map(b=>sb.from('bikes').update({location:loc}).eq('id',b.id)));
+  await loadData();S.bkSelected=[];
+  toast(t('bkBulkUpdated').replace('{0}',picked.length));
+  pushUndo(`${t('bkBulkMove')} (${picked.length})`,async()=>{await Promise.all(prev.map(p=>sb.from('bikes').update({location:p.location}).eq('id',p.id)));await loadData();renderBikes();});
+  renderBikes();
+}
+async function bkBulkPrice(){
+  if(!isAdmin()){toast(t('adminOnlyMsg'),'error');return;}
+  const raw=(document.getElementById('bk-bulk-price')?.value||'').trim();
+  const price=parseFloat(raw);
+  if(!(price>=0)){toast(t('bkBulkPickPrice'),'error');return;}
+  const picked=_bkSelectedBikes();if(!picked.length)return;
+  const prev=picked.map(b=>({id:b.id,rental_price:b.rental_price??null}));
+  await Promise.all(picked.map(b=>sb.from('bikes').update({rental_price:price}).eq('id',b.id)));
+  await loadData();S.bkSelected=[];
+  toast(t('bkBulkUpdated').replace('{0}',picked.length));
+  pushUndo(`${t('bkBulkSetPrice')} (${picked.length})`,async()=>{await Promise.all(prev.map(p=>sb.from('bikes').update({rental_price:p.rental_price}).eq('id',p.id)));await loadData();renderBikes();});
+  renderBikes();
+}
+function bkBulkExport(){
+  const picked=_bkSelectedBikes();if(!picked.length)return;
+  const cols=['bike_number','name','type','size','brand','model','groupset','speeds','rental_price','location','status','in_service_date','retired_date'];
+  const csvCell=v=>{const s=(v==null?'':String(v));return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;};
+  const rows=[cols.join(',')].concat(picked.map(b=>cols.map(c=>csvCell(b[c])).join(',')));
+  const blob=new Blob(['﻿'+rows.join('\n')],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`fleet_${_todayISO()}.csv`;document.body.appendChild(a);a.click();
+  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url);},100);
+  toast(t('bkBulkUpdated').replace('{0}',picked.length));
+}
+
+// ── Read-only bike profile drawer (usage, revenue, ratings, lifespan) ──
+function openBikeProfile(id){
+  const bike=getBikes().find(b=>b.id===id);if(!bike)return;
+  const done=getQueue().filter(e=>e.status==='done'&&getAssignedBikeIds(e).includes(id));
+  const ridesCount=done.length;
+  const revenue=Math.round(done.filter(e=>e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0)*100)/100;
+  const ratedB=done.filter(e=>e.ratingBike);
+  const avgBike=ratedB.length?Math.round(ratedB.reduce((s,e)=>s+e.ratingBike,0)/ratedB.length*10)/10:0;
+  const lastUsed=done.map(e=>e.sessionDate||((e.registeredAt||'').slice(0,10))).filter(Boolean).sort().pop()||'';
+  const fb=done.filter(e=>e.feedback&&e.feedback.trim()).sort((a,b)=>new Date(b.registeredAt||0)-new Date(a.registeredAt||0)).slice(0,5);
+  const recent=[...done].sort((a,b)=>new Date(b.registeredAt||0)-new Date(a.registeredAt||0)).slice(0,8);
+  const statusLbl=bike.status==='available'?t('availLabel'):bike.status==='in-use'?t('inUseLabel'):bike.status==='maintenance'?t('maintLabel'):t('retiredLabel');
+  const statusClr=bike.status==='available'?'var(--green)':bike.status==='in-use'?'var(--blue)':bike.status==='maintenance'?'var(--orange)':'var(--red)';
+  const colors=bike.colors&&bike.colors.length?bike.colors:['#03ff89'];
+  const kpi=(v,l)=>`<div style="flex:1;min-width:84px;background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:11px 13px"><div style="font-size:19px;font-weight:900">${v}</div><div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:3px">${l}</div></div>`;
+  const spec=(l,v)=>v?`<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted);font-size:12px">${l}</span><span style="font-weight:700;font-size:12px">${esc(String(v))}</span></div>`:'';
+  const histRows=recent.length?recent.map(e=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span class="queue-num-cell" style="font-size:13px;min-width:34px">#${e.queueNum}</span>
+      <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:12px">${dayLabel(e.sessionDay)||''} · ${shortDate(e.sessionDate)}</div>
+        <div style="font-size:11px;color:var(--muted)">${esc(e.name||'')}${e.ratingBike?` · ★ ${e.ratingBike}/10`:''}</div></div>
+      <span style="font-weight:800;font-size:12px;color:${e.paid?'var(--green)':'var(--muted-l)'}">SAR ${e.price??DEFAULT_PRICE}</span>
+    </div>`).join(''):`<div class="empty-state">${t('bpNoRides')}</div>`;
+  const fbHtml=fb.length?`<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 6px">${t('bpFeedbackTitle')}</div>
+    ${fb.map(e=>`<div style="background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:9px 11px;margin-bottom:6px"><div style="font-size:12px">${esc(e.feedback)}</div><div style="font-size:10px;color:var(--muted);margin-top:3px">${esc(e.name||'')}${e.ratingBike?` · ★ ${e.ratingBike}/10`:''}</div></div>`).join('')}`:'';
+  document.getElementById('bike-profile-modal').innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeBikeProfile()">
+    <div class="modal-box" role="dialog" aria-modal="true" style="max-width:600px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px">
+        <div style="display:flex;align-items:center;gap:12px;min-width:0">
+          ${bike.photo?`<img src="${esc(bike.photo)}" alt="" style="width:48px;height:48px;border-radius:10px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}
+          <div style="min-width:0"><div class="modal-title" style="margin-bottom:0">${esc(bike.name)}</div>
+            <div style="font-size:12px;color:var(--muted)">${typeLabel(bike.type)} · ${esc(bike.size||'')}${bike.location?' · '+esc(bike.location):''}</div></div>
+        </div>
+        <button onclick="closeBikeProfile()" aria-label="Close" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 2px">&times;</button>
+      </div>
+      <div style="margin:8px 0 12px"><span style="display:inline-flex;align-items:center;gap:6px;background:var(--s1);border:1px solid var(--border);border-radius:20px;padding:3px 11px"><span class="avail-dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${statusClr}"></span><span style="font-size:12px;font-weight:800;color:${statusClr}">${statusLbl}</span></span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        ${kpi(ridesCount,t('bpRides'))}
+        ${kpi('SAR '+revenue,t('bpRevenue'))}
+        ${kpi(avgBike?avgBike+'/10':'—',t('bpAvgRating'))}
+        ${kpi(lastUsed?shortDate(lastUsed):t('bpNever'),t('bpLastUsed'))}
+      </div>
+      <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:12px 0 4px">${t('bpSpecsTitle')}</div>
+      <div>
+        ${spec(t('bikeBrand'),bike.brand)}${spec(t('bikeModel'),bike.model)}${spec(t('bikeGroupset'),bike.groupset)}
+        ${spec(t('bikeSpeeds'),bike.speeds)}${spec(t('bikeRentalPrice'),bike.rental_price!=null?'SAR '+bike.rental_price:'')}
+        ${spec(t('bikeLocationLabel'),bike.location)}${spec(t('lifespanLabel'),_bikeLifespan(bike)!=='—'?_bikeLifespan(bike):(bike.in_service_date?t('bpInServiceLabel')+' '+shortDate(bike.in_service_date):''))}
+        <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0"><span style="color:var(--muted);font-size:12px">${t('bpColorsLabel')}</span><span style="display:flex;gap:4px">${colors.map(c=>`<span style="width:14px;height:14px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3)"></span>`).join('')}</span></div>
+      </div>
+      <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 4px">${t('bpHistoryTitle')}</div>
+      <div style="max-height:260px;overflow-y:auto">${histRows}</div>
+      ${fbHtml}
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn-secondary" onclick="closeBikeProfile();startEdit('${bike.id}')">${t('editBtn')}</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('bike-profile-modal').style.display='flex';
+}
+function closeBikeProfile(){const el=document.getElementById('bike-profile-modal');if(el){el.style.display='none';el.innerHTML='';}}
+
 function delBike(id){
   if(!isAdmin()){toast(t('adminOnlyMsg'),'error');return;}
   const bike=getBikes().find(x=>x.id===id);
@@ -10217,7 +10415,7 @@ try{window._mmErrors=()=>{try{return JSON.parse(localStorage.getItem('cq_errors'
 // Accessibility: Escape closes the topmost open modal (z-order: team mgr / receipt edit on top, then the rest)
 try{document.addEventListener('keydown',function(e){
   if(e.key!=='Escape'&&e.keyCode!==27)return;
-  var order=[['team-mgr-modal','closeTeamManager'],['receipt-edit-modal','closeReceiptEdit'],['cashier-modal','closeCashierModal'],['return-pay-modal','closeReturnPayModal'],['reschedule-modal','closeRescheduleModal'],['edit-price-modal','closeEditPriceModal'],['rate-modal','closeRateModal'],['print-opts-modal','_closePrintOpts'],['bike-modal','closeModal'],['receipt-modal',''],['cust-modal',''],['auth-modal','closeAuthModal']];
+  var order=[['team-mgr-modal','closeTeamManager'],['receipt-edit-modal','closeReceiptEdit'],['cashier-modal','closeCashierModal'],['return-pay-modal','closeReturnPayModal'],['reschedule-modal','closeRescheduleModal'],['edit-price-modal','closeEditPriceModal'],['rate-modal','closeRateModal'],['print-opts-modal','_closePrintOpts'],['bike-profile-modal','closeBikeProfile'],['bike-modal','closeModal'],['receipt-modal',''],['cust-modal',''],['auth-modal','closeAuthModal']];
   for(var i=0;i<order.length;i++){var el=document.getElementById(order[i][0]);if(el&&el.style.display&&el.style.display!=='none'){var fn=order[i][1];if(fn&&typeof window[fn]==='function'){try{window[fn]();}catch(_){el.style.display='none';}}else{el.style.display='none';el.innerHTML='';}return;}}
 });}catch(e){}
 
