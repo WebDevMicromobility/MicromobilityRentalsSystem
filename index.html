@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=40">
+  <link rel="stylesheet" href="./styles.css?v=41">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -2816,6 +2816,7 @@ function renderRegister(){
             <div style="padding:11px 12px">
               <div style="font-weight:800;font-size:14px;line-height:1.2">${esc(it.name)}</div>
               ${it.brand?`<div style="font-size:11px;color:var(--muted);margin-top:1px">${esc(it.brand)}</div>`:''}
+              ${_hasNutri(it)?`<button type="button" onclick="showNutrition('${it.id}')" style="margin-top:7px;background:rgba(3,255,137,.08);border:1px solid rgba(3,255,137,.22);color:var(--green);font-family:inherit;font-size:11px;font-weight:800;padding:4px 10px;border-radius:7px;cursor:pointer">${t('nuButton')}</button>`:''}
               <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px">
                 <span style="font-weight:800;color:var(--green);font-size:14px">${it.price!=null?`SAR ${Number(it.price)}`:''}</span>
                 <div style="display:flex;align-items:center;gap:6px">
@@ -3884,7 +3885,9 @@ function selectAllNewSessAll(){
 // Render session-offered add-on toggles grouped into category sub-sections
 function _sessAddonGroups(items,selIds,toggleFn){
   const cats=[...new Set(items.map(it=>it.category||'Other'))].sort((a,b)=>_invCatLabel(a).localeCompare(_invCatLabel(b)));
-  return cats.map(cat=>`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px">${esc(_invCatLabel(cat))}</div><div style="display:flex;flex-wrap:wrap;gap:8px">${items.filter(it=>(it.category||'Other')===cat).map(it=>{const sel=(selIds||[]).includes(it.id);return`<button type="button" class="toggle-btn${sel?' active':''}" onclick="${toggleFn}('${it.id}')">${esc(it.name)}${it.brand?' · '+esc(it.brand):''}${it.price!=null&&Number(it.price)>0?' · SAR '+Number(it.price):''}</button>`;}).join('')}</div></div>`).join('');
+  const card=it=>{const sel=(selIds||[]).includes(it.id);const sub=`${it.brand?esc(it.brand):''}${(it.brand&&it.price!=null&&Number(it.price)>0)?' · ':''}${(it.price!=null&&Number(it.price)>0)?'SAR '+Number(it.price):''}`;
+    return`<button type="button" onclick="${toggleFn}('${it.id}')" title="${esc(it.name)}" style="display:flex;align-items:center;gap:8px;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(3,255,137,.08)':'var(--s2)'};border-radius:10px;padding:6px 11px 6px 6px;cursor:pointer;font-family:inherit;text-align:start">${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:34px;height:34px;border-radius:7px;object-fit:cover;flex-shrink:0">`:`<div style="width:34px;height:34px;border-radius:7px;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:11px;font-weight:800">${esc((it.name||'?').charAt(0))}</div>`}<div style="min-width:0"><div style="font-size:12px;font-weight:800;color:${sel?'var(--green)':'var(--text)'};white-space:nowrap">${esc(it.name)}</div>${sub?`<div style="font-size:10px;color:var(--muted);white-space:nowrap">${sub}</div>`:''}</div></button>`;};
+  return cats.map(cat=>`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px">${esc(_invCatLabel(cat))}</div><div style="display:flex;flex-wrap:wrap;gap:8px">${items.filter(it=>(it.category||'Other')===cat).map(card).join('')}</div></div>`).join('');
 }
 function _toggleNewSessAddon(id){
   S.newSessAddons=S.newSessAddons||[];
@@ -3997,6 +4000,7 @@ function renderAddonPicker(){
         ${it.photo?`<img src="${esc(it.photo)}" alt="${esc(it.name)}" style="width:100%;height:120px;object-fit:cover;display:block">`:`<div style="width:100%;height:120px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:12px;text-align:center;padding:8px">${esc(it.name)}</div>`}
         <div style="padding:10px 12px">
           <div style="font-weight:800;font-size:14px;line-height:1.2">${esc(it.name)}</div>
+          ${_hasNutri(it)?`<button type="button" onclick="showNutrition('${it.id}')" style="margin-top:7px;background:rgba(3,255,137,.08);border:1px solid rgba(3,255,137,.22);color:var(--green);font-family:inherit;font-size:11px;font-weight:800;padding:4px 10px;border-radius:7px;cursor:pointer">${t('nuButton')}</button>`:''}
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px">
             <span style="font-weight:800;color:var(--green);font-size:14px">${it.price!=null?`SAR ${Number(it.price)}`:''}</span>
             <div style="display:flex;align-items:center;gap:6px">
@@ -8920,7 +8924,6 @@ function renderInventory(){
     ${isSupp?`<div style="border-top:1px solid var(--border);padding-top:10px">
       <button type="button" onclick="S._invNutriOpen=!S._invNutriOpen;renderInventory()" style="background:none;border:none;color:var(--green);font-family:inherit;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0"><span style="font-size:11px">${S._invNutriOpen?'▾':'▸'}</span> ${t('nuTitle')} <span style="color:var(--muted);font-weight:600">(${t('nuOptional')})</span></button>
       ${S._invNutriOpen?`<div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
-        <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span style="font-size:11px;font-weight:700;color:var(--muted)">${t('nuPrefill')}:</span>${VW_PRESETS.map(p=>`<button type="button" class="btn-secondary" style="font-size:11px;padding:5px 10px" onclick="_nuPrefillVW('${p.k}')">${esc(p.k)}</button>`).join('')}</div>
         <div class="form-group"><label>${t('servingSize')}</label><input type="text" value="${esc(S._invNutri.serving||'')}" oninput="S._invNutri.serving=this.value" placeholder="${t('nuServingPh')}"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           ${NUTRI_FIELDS.map(([k,lbl,unit])=>`<div class="form-group"><label>${t(lbl)} (${unit})</label><input type="number" min="0" step="any" value="${esc(S._invNutri[k]==null?'':S._invNutri[k])}" oninput="S._invNutri['${k}']=this.value"></div>`).join('')}
