@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=39">
+  <link rel="stylesheet" href="./styles.css?v=40">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -3881,6 +3881,11 @@ function selectAllNewSessAll(){
   else S.newSessAssignedIds=[...new Set([...S.newSessAssignedIds,...ids])];
   renderSessions();setTimeout(()=>document.getElementById('sess-add-form')?.scrollIntoView({behavior:'smooth',block:'nearest'}),40);
 }
+// Render session-offered add-on toggles grouped into category sub-sections
+function _sessAddonGroups(items,selIds,toggleFn){
+  const cats=[...new Set(items.map(it=>it.category||'Other'))].sort((a,b)=>_invCatLabel(a).localeCompare(_invCatLabel(b)));
+  return cats.map(cat=>`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px">${esc(_invCatLabel(cat))}</div><div style="display:flex;flex-wrap:wrap;gap:8px">${items.filter(it=>(it.category||'Other')===cat).map(it=>{const sel=(selIds||[]).includes(it.id);return`<button type="button" class="toggle-btn${sel?' active':''}" onclick="${toggleFn}('${it.id}')">${esc(it.name)}${it.brand?' · '+esc(it.brand):''}${it.price!=null&&Number(it.price)>0?' · SAR '+Number(it.price):''}</button>`;}).join('')}</div></div>`).join('');
+}
 function _toggleNewSessAddon(id){
   S.newSessAddons=S.newSessAddons||[];
   const i=S.newSessAddons.indexOf(id);
@@ -4273,9 +4278,7 @@ function renderSessions(){
         if(!items.length)return'';
         return`<div class="form-group" style="margin-top:18px">
           <label>${t('sessionAddonsLabel')} &nbsp;<span class="label-hint">${t('sessionAddonsHint')}</span></label>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
-            ${items.map(it=>{const sel=(S.newSessAddons||[]).includes(it.id);return`<button type="button" class="toggle-btn${sel?' active':''}" onclick="_toggleNewSessAddon('${it.id}')">${esc(it.name)}${it.brand?' · '+esc(it.brand):''}${it.price!=null&&Number(it.price)>0?' · SAR '+Number(it.price):''}</button>`;}).join('')}
-          </div>
+          <div style="margin-top:6px">${_sessAddonGroups(items,S.newSessAddons,'_toggleNewSessAddon')}</div>
         </div>`;
       })()}
       <div style="display:flex;gap:8px;margin-top:16px">
@@ -4388,9 +4391,7 @@ function renderSessions(){
         if(!items.length)return'';
         return`<div class="form-group" style="margin-top:18px">
           <label>${t('sessionAddonsLabel')} &nbsp;<span class="label-hint">${t('sessionAddonsHint')}</span></label>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px">
-            ${items.map(it=>{const sel=(S.editSessAddons||[]).includes(it.id);return`<button type="button" class="toggle-btn${sel?' active':''}" onclick="_toggleEditSessAddon('${it.id}')">${esc(it.name)}${it.brand?' · '+esc(it.brand):''}${it.price!=null&&Number(it.price)>0?' · SAR '+Number(it.price):''}</button>`;}).join('')}
-          </div>
+          <div style="margin-top:6px">${_sessAddonGroups(items,S.editSessAddons,'_toggleEditSessAddon')}</div>
         </div>`;
       })()}
       <div style="display:flex;gap:8px;margin-top:16px">
