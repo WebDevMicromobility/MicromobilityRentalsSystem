@@ -14,7 +14,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=45">
+  <link rel="stylesheet" href="./styles.css?v=46">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -227,6 +227,7 @@ en:{
   anColDate:'Date',anColRiders:'Riders',anColRevenue:'Revenue',anColPending:'Pending',anColNoShows:'No-Shows',anColOccupancy:'Occupancy',anColTopType:'Top Type',
   anNoData:'No completed rides yet. Data will appear here once sessions are done.',
   anRevenue:'Revenue',anRidership:'Ridership',anOperations:'Operations',anHighlights:'Highlights',
+  anNavOverview:'Overview',anNavCustomers:'Customers',anVsPrev:'vs prev period',anNoPrev:'no prior period',
   anPageSub:'Business performance · live data from all completed sessions.',
   anShowing:'Showing:',anAllTime:'All Time',anLast5:'Last 5 Sessions',anLast10:'Last 10 Sessions',anThisMonth:'This Month',anThisYear:'This Year',
   anCollected:'Collected',anTotal:'Total',anRiders:'Riders',anCapacity:'Capacity',
@@ -575,6 +576,7 @@ ar:{
   anColDate:'التاريخ',anColRiders:'الراكبون',anColRevenue:'الإيرادات',anColPending:'المعلق',anColNoShows:'الغياب',anColOccupancy:'الإشغال',anColTopType:'النوع الأكثر',
   anNoData:'لا توجد رحلات مكتملة بعد. ستظهر البيانات هنا عند اكتمال الجلسات.',
   anRevenue:'الإيرادات',anRidership:'الراكبون',anOperations:'العمليات',anHighlights:'أبرز المؤشرات',
+  anNavOverview:'نظرة عامة',anNavCustomers:'العملاء',anVsPrev:'مقارنة بالفترة السابقة',anNoPrev:'لا توجد فترة سابقة',
   anPageSub:'لوحة أداء الأعمال · بيانات مباشرة من جميع الجلسات المكتملة.',
   anShowing:'عرض:',anAllTime:'كل الوقت',anLast5:'آخر 5 جلسات',anLast10:'آخر 10 جلسات',anThisMonth:'هذا الشهر',anThisYear:'هذه السنة',
   anCollected:'المحصّل',anTotal:'الإجمالي',anRiders:'الراكبون',anCapacity:'الطاقة',
@@ -1225,7 +1227,7 @@ const S={
   
   sessSort:'date',sessSortDir:-1,sessStatusFilter:'all',showDeletedSess:false,sessShowAll:false,
   
-  analyticsRange:'all', analyticsTrendSort:'date', analyticsTrendDir:-1, analyticsCustomN:20,
+  analyticsRange:'all', analyticsTrendSort:'date', analyticsTrendDir:-1, analyticsCustomN:20, anView:'overview',
   analyticsDateFrom:'', analyticsDateTo:'',
   
   modalRider:null,modalBikes:[],modalShowAll:false,modalShowAddBike:false,modalAddBikeName:'',modalAddBikeType:null,modalAddBikeSize:'M',modalAddBikeFrame:'',modalAddBikeLocation:'',modalAddBikeNumber:'',modalSearch:'',modalSort:'default',modalSortDir:1,modalFilterSize:'all',modalFilterBrand:'all',modalFilterModel:'all',modalPriceEdit:false,
@@ -8144,7 +8146,13 @@ function _areaChart(series,labels,opts={}){
     const align=i===0?'start':i===n-1?'end':'middle';
     return`<text x="${xOf(i).toFixed(1)}" y="${H-5}" font-size="8.5" text-anchor="${align}" fill="rgba(255,255,255,.28)">${l}</text>`;
   }).join('');
-  return`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block;overflow:visible"><defs>${defs}</defs>${grid}${paths}${xlbls}</svg>`;
+  // Hover columns with native tooltips: exact per-point values for every series
+  const bandW=cW/Math.max(n,1);
+  const hover=labels.map((l,i)=>{
+    const tip=l+'\n'+series.map(s=>`${s.label}: ${opts.unitPfx||''}${Math.round(s.vals[i])}`).join('\n');
+    return`<rect class="an-hit" x="${(xOf(i)-bandW/2).toFixed(1)}" y="${pT}" width="${bandW.toFixed(1)}" height="${cH}" fill="transparent"><title>${tip}</title></rect>`;
+  }).join('');
+  return`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block;overflow:visible"><defs>${defs}</defs>${grid}${paths}${xlbls}${hover}</svg>`;
 }
 
 function _donut(segs,size=110){
@@ -8155,7 +8163,7 @@ function _donut(segs,size=110){
   const arcs=segs.filter(d=>d.v>0).map(d=>{
     const pct=d.v/total,rot=(off*360).toFixed(2);
     off+=pct;
-    return`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${d.c}" stroke-width="${sw}" stroke-dasharray="${(C*pct).toFixed(2)} ${(C*(1-pct)).toFixed(2)}" transform="rotate(${rot} ${cx} ${cy})"/>`;
+    return`<circle class="an-hit" cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${d.c}" stroke-width="${sw}" stroke-dasharray="${(C*pct).toFixed(2)} ${(C*(1-pct)).toFixed(2)}" transform="rotate(${rot} ${cx} ${cy})"><title>${d.label?d.label+': ':''}${d.v} (${Math.round(pct*100)}%)</title></circle>`;
   }).join('');
   return`<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" style="display:block;flex-shrink:0"><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="${sw}"/>${arcs}<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" font-size="14" font-weight="900" fill="white">${total}</text></svg>`;
 }
@@ -8172,7 +8180,7 @@ function _vbars(data,opts={}){
   const nth=Math.ceil(n/8);
   const barsHtml=data.map((d,i)=>{
     const bH=Math.max(2,(d.v/maxV)*cH);
-    return`<rect x="${(xOf(i)-bW/2).toFixed(1)}" y="${(pT+cH-bH).toFixed(1)}" width="${bW.toFixed(1)}" height="${bH.toFixed(1)}" rx="2" fill="${d.c||color}" opacity=".85"/>${(i%nth===0||i===n-1)?`<text x="${xOf(i).toFixed(1)}" y="${H-4}" font-size="8" text-anchor="middle" fill="rgba(255,255,255,.3)">${d.label}</text>`:''}`;
+    return`<rect class="an-hit" x="${(xOf(i)-bW/2).toFixed(1)}" y="${(pT+cH-bH).toFixed(1)}" width="${bW.toFixed(1)}" height="${bH.toFixed(1)}" rx="2" fill="${d.c||color}" opacity=".85"><title>${d.label}: ${d.v}%</title></rect>${(i%nth===0||i===n-1)?`<text x="${xOf(i).toFixed(1)}" y="${H-4}" font-size="8" text-anchor="middle" fill="rgba(255,255,255,.3)">${d.label}</text>`:''}`;
   }).join('');
   const refLine=refVal!==null?`<line x1="${pL}" y1="${yOf(refVal).toFixed(1)}" x2="${pL+cW}" y2="${yOf(refVal).toFixed(1)}" stroke="rgba(255,255,255,.2)" stroke-width="1" stroke-dasharray="4 3"/>`:'' ;
   return`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px;display:block">${refLine}${barsHtml}</svg>`;
@@ -8180,6 +8188,18 @@ function _vbars(data,opts={}){
 
 
 function setAnRange(v){S.analyticsRange=v;renderAnalytics();}
+// Analytics sub-tab switching: sections are tagged with <div class="an-anchor" data-anview="..."> markers; show only those belonging to the active view (no re-render needed).
+function setAnView(v){S.anView=v;_applyAnView(v);try{const c=document.getElementById('tab-analytics');if(c)c.scrollIntoView({block:'start',behavior:'smooth'});}catch(_){}}
+function _applyAnView(v){
+  const cont=document.getElementById('tab-analytics');if(!cont)return;
+  S.anView=v;let cur=null;
+  [...cont.children].forEach(ch=>{
+    if(ch.classList&&ch.classList.contains('an-anchor')){cur=ch.dataset.anview;return;}
+    if(cur===null)return; // header (title, range bar, sub-nav) stays visible for every view
+    ch.style.display=(cur===v)?'':'none';
+  });
+  cont.querySelectorAll('.an-nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.anview===v));
+}
 function setAnSort(col){
   if(S.analyticsTrendSort===col)S.analyticsTrendDir*=-1;
   else{S.analyticsTrendSort=col;S.analyticsTrendDir=-1;}
@@ -9640,7 +9660,7 @@ function renderAnalytics(){
   function bars(data,colorFn,valueFmt){
     const max=Math.max(...Object.values(data),1);
     return Object.entries(data).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0).map(([k,v])=>
-      `<div class="analytics-bar-row">
+      `<div class="analytics-bar-row" title="${(typeLabel(k)||k)}: ${valueFmt?String(valueFmt(v)).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim():v}">
         <div class="analytics-bar-label">${typeLabel(k)||k}</div>
         <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(v/max*100)}%;background:${colorFn(k)}"></div></div>
         <div class="analytics-bar-value">${valueFmt?valueFmt(v):v}</div>
@@ -9776,22 +9796,64 @@ function renderAnalytics(){
   });
   const promoRows=Object.entries(_promoTally).sort((a,b)=>b[1]-a[1]);
 
+  // ── Period-over-period comparison: compute the same headline metrics for the preceding equivalent window ──
+  function _anMetricsFor(fromISO,toISO){
+    const ss=allSess.filter(s=>{const d=(s.session_date||s.id);return d>=fromISO&&d<=toISO;});
+    const ids=new Set(ss.map(s=>s.id));
+    const q=allQ.filter(e=>ids.has(e.sessionId));
+    const dn=q.filter(e=>e.status==='done'),no=q.filter(e=>e.status==='noshow');
+    const rc=dn.filter(e=>e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
+    const sw=ss.filter(s=>dn.some(e=>e.sessionId===s.id));
+    const occ=sw.length?Math.round(sw.reduce((a,s)=>a+(dn.filter(e=>e.sessionId===s.id).length/(s.capacity||12)*100),0)/sw.length):0;
+    const att=dn.length+no.length;
+    return{revCollected:rc,rides:dn.length,occ,uniq:new Set(dn.filter(e=>e.customerId).map(e=>e.customerId)).size,comp:att?Math.round(dn.length/att*100):0};
+  }
+  const _isoL=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  let prevM=null;
+  if(S.analyticsRange==='month'){const n=new Date();prevM=_anMetricsFor(_isoL(new Date(n.getFullYear(),n.getMonth()-1,1)),_isoL(new Date(n.getFullYear(),n.getMonth(),0)));}
+  else if(S.analyticsRange==='year'){const y=new Date().getFullYear()-1;prevM=_anMetricsFor(y+'-01-01',y+'-12-31');}
+  else if(S.analyticsRange==='daterange'&&S.analyticsDateFrom&&S.analyticsDateTo){
+    const f=new Date(S.analyticsDateFrom),to=new Date(S.analyticsDateTo);
+    const len=Math.max(1,Math.round((to-f)/864e5)+1);
+    const pTo=new Date(f.getTime()-864e5),pFrom=new Date(pTo.getTime()-(len-1)*864e5);
+    prevM=_anMetricsFor(_isoL(pFrom),_isoL(pTo));
+  }
+  // Small delta pill: ▲/▼ % vs previous period. invert=true means "lower is better".
+  function deltaBadge(cur,prevVal,invert){
+    if(prevM===null)return'';
+    if((prevVal||0)===0&&(cur||0)===0)return'';
+    if((prevVal||0)===0)return`<span class="an-delta" style="color:var(--green)" title="${t('anVsPrev')}">▲ ${S.lang==='ar'?'جديد':'new'}</span>`;
+    const pct=Math.round((cur-prevVal)/Math.abs(prevVal)*100);
+    const flat=cur===prevVal;
+    const up=cur>prevVal,good=invert?!up:up;
+    const col=flat?'var(--muted)':good?'var(--green)':'var(--red)';
+    const arrow=flat?'•':up?'▲':'▼';
+    return`<span class="an-delta" style="color:${col}" title="${t('anVsPrev')}">${arrow} ${pct>0?'+':''}${pct}%</span>`;
+  }
+
   document.getElementById('tab-analytics').innerHTML=`
     <div class="page-title">${t('tabAnalytics')}</div>
     <div class="page-sub">${t('anPageSub')}</div>
-    ${_rangeBar()}
+    <div class="an-sticky">
+      ${_rangeBar()}
+      <div class="an-subnav">
+        ${[['overview',t('anNavOverview')],['revenue',t('anRevenue')],['ridership',t('anRidership')],['operations',t('anOperations')],['fleet',t('anFleetSection')],['customers',t('anNavCustomers')]].map(([v,l])=>`<button class="an-nav-btn${S.anView===v?' active':''}" data-anview="${v}" onclick="setAnView('${v}')">${l}</button>`).join('')}
+      </div>
+    </div>
 
+    <div class="an-anchor" data-anview="overview"></div>
     ${bikeHealthSection()}
 
     <div class="analytics-section-title">${t('anInsights')}</div>
     <div class="insights-grid">${insights.join('')}</div>
 
     
+    <div class="an-anchor" data-anview="revenue"></div>
     <div class="analytics-section-title">${t('anRevenue')}</div>
     <div class="analytics-kpi-grid">
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:var(--green)">${sarBoth(revCollected)}</div>
-        <div class="analytics-kpi-label">${t('anCollected')}</div>
+        <div class="analytics-kpi-label">${t('anCollected')} ${deltaBadge(revCollected,prevM&&prevM.revCollected)}</div>
         <div class="analytics-kpi-sub">${collectionRate}% ${t('anCollRateLabel')}</div>
       </div>
       <div class="analytics-kpi-card">
@@ -9840,21 +9902,22 @@ function renderAnalytics(){
     </div>
 
     
+    <div class="an-anchor" data-anview="ridership"></div>
     <div class="analytics-section-title">${t('anRidership')}</div>
     <div class="analytics-kpi-grid">
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value">${totalDone}</div>
-        <div class="analytics-kpi-label">${t('anTotalRides')}</div>
+        <div class="analytics-kpi-label">${t('anTotalRides')} ${deltaBadge(totalDone,prevM&&prevM.rides)}</div>
         <div class="analytics-kpi-sub">${noshow.length} ${t('filterNoshow').toLowerCase()} · ${cancelCount} ${t('anCancellations')}</div>
       </div>
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:${completionRate>=70?'var(--green)':'var(--red)'}">${completionRate}%</div>
-        <div class="analytics-kpi-label">${t('anCompletionRate')}</div>
+        <div class="analytics-kpi-label">${t('anCompletionRate')} ${deltaBadge(completionRate,prevM&&prevM.comp)}</div>
         <div class="analytics-kpi-sub">${done.length} ${t('anOf')} ${totalAttempted} ${t('anAttempts')}</div>
       </div>
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:var(--green)">${uniqueCustIds.length}</div>
-        <div class="analytics-kpi-label">${t('anUniqueCustomers')}</div>
+        <div class="analytics-kpi-label">${t('anUniqueCustomers')} ${deltaBadge(uniqueCustIds.length,prevM&&prevM.uniq)}</div>
         <div class="analytics-kpi-sub">${sarBoth(revPerCustomer,1)} ${t('anAvgSpend')}</div>
       </div>
       <div class="analytics-kpi-card">
@@ -9881,6 +9944,7 @@ function renderAnalytics(){
     </div>
 
     
+    <div class="an-anchor" data-anview="operations"></div>
     <div class="analytics-section-title">${t('anOperations')}</div>
     <div class="analytics-kpi-grid">
       <div class="analytics-kpi-card">
@@ -9890,7 +9954,7 @@ function renderAnalytics(){
       </div>
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:${avgOccupancy>=50?'var(--green)':'var(--red)'}">${avgOccupancy}%</div>
-        <div class="analytics-kpi-label">${t('anAvgOccupancy')}</div>
+        <div class="analytics-kpi-label">${t('anAvgOccupancy')} ${deltaBadge(avgOccupancy,prevM&&prevM.occ)}</div>
         <div class="analytics-kpi-sub">${t('anRidersCapacity')}</div>
       </div>
       <div class="analytics-kpi-card">
@@ -9921,6 +9985,7 @@ function renderAnalytics(){
     </div>
 
     
+    <div class="an-anchor" data-anview="revenue"></div>
     <div class="analytics-section-title">${t('anByRevType')}</div>
     <div class="chart-grid-wide">
       <div class="chart-card">
@@ -9936,6 +10001,7 @@ function renderAnalytics(){
     </div>
 
     
+    <div class="an-anchor" data-anview="fleet"></div>
     <div class="analytics-section-title">${t('anFleetSection')}</div>
     <div class="chart-grid-3">
       <div class="chart-card">
@@ -9987,6 +10053,7 @@ function renderAnalytics(){
       </div>
     </div>
 
+    <div class="an-anchor" data-anview="fleet"></div>
     ${(()=>{
       const allBikes=getBikes().filter(b=>b.status!=='retired'&&b.status!=='maintenance');
       if(!allBikes.length)return'';
@@ -10017,6 +10084,7 @@ function renderAnalytics(){
         </div>`;
     })()}
 
+    <div class="an-anchor" data-anview="ridership"></div>
     ${ridesWithDur.length?`
     <div class="analytics-section-title">${t('anDurationSection')}</div>
     <div class="analytics-kpi-grid">
@@ -10078,6 +10146,7 @@ function renderAnalytics(){
     </div>`:''}
 
     
+    <div class="an-anchor" data-anview="overview"></div>
     <div class="analytics-section-title">${t('anHighlights')}</div>
     <div class="analytics-highlight-row">
       <div class="analytics-highlight-card">
@@ -10121,6 +10190,7 @@ function renderAnalytics(){
     </div>
 
     
+    <div class="an-anchor" data-anview="operations"></div>
     <div class="analytics-section-title">${t('anSessPerformTable')}</div>
     <div class="table-wrapper">
       <table class="analytics-trend-table">
@@ -10138,6 +10208,7 @@ function renderAnalytics(){
       </table>
     </div>
 
+    <div class="an-anchor" data-anview="revenue"></div>
     <div class="analytics-section-title">${t('anAddonsTitle')}</div>
     <div class="chart-card">
       <div class="chart-card-title">${t('anAddonsTitle')}</div>
@@ -10149,6 +10220,7 @@ function renderAnalytics(){
         </div>`).join(''):`<div class="empty-state">${t('anNoAddons')}</div>`}
     </div>
 
+    <div class="an-anchor" data-anview="customers"></div>
     <div class="analytics-section-title">${t('anRetentionTitle')}</div>
     <div class="analytics-highlight-row">
       <div class="analytics-highlight-card">
@@ -10181,6 +10253,7 @@ function renderAnalytics(){
       </table>
     </div>`:''}
 
+    <div class="an-anchor" data-anview="operations"></div>
     <div class="analytics-section-title">${t('anDemandTitle')}</div>
     <div class="analytics-kpi-grid">
       <div class="analytics-kpi-card">
@@ -10204,6 +10277,7 @@ function renderAnalytics(){
         </div>`).join(''):noDataStr}
     </div>
 
+    <div class="an-anchor" data-anview="operations"></div>
     <div class="analytics-section-title">${t('anPromoTitle')}</div>
     <div class="chart-card">
       <div class="chart-card-title">${t('anPromoTitle')}</div>
@@ -10214,6 +10288,7 @@ function renderAnalytics(){
       </table></div>`:`<div class="empty-state">${t('anNoPromo')}</div>`}
     </div>
 
+    <div class="an-anchor" data-anview="revenue"></div>
     <div class="analytics-section-title">${t('coSales')}</div>
     <div class="analytics-kpi-grid">
       <div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--green)"><bdi>SAR ${anSales.collected}</bdi></div><div class="analytics-kpi-label">${t('cashValue')}</div><div class="analytics-kpi-sub">${anSales.units} ${t('cashQtyCol').toLowerCase()}</div></div>
@@ -10229,6 +10304,7 @@ function renderAnalytics(){
         <div class="analytics-bar-value"><bdi>${it.qty}</bdi> · SAR ${Math.round(it.value*100)/100}</div>
       </div>`;}).join(''):`<div class="empty-state">${t('cashNoSalesSession')}</div>`}
     </div>`;
+  _applyAnView(S.anView||'overview'); // show only the active sub-tab's sections
 }
 
 
@@ -10515,6 +10591,8 @@ try{window.addEventListener('offline',()=>{S._rtConnected=false;_updateConnUI();
 })();
 try{_outboxFlush();}catch(e){}
 try{_bookOutboxFlush();}catch(e){}
+// Background retry: flushes only fire on enqueue/online/load, so a queue that didn't drain (page opened offline, transient blip) would otherwise show "pending sync" forever. Retry every 15s while anything is pending; _outboxFlush no-ops when busy/offline/sb-missing.
+try{setInterval(()=>{if(_outboxCount()||_bookOutboxCount()){_outboxFlush();_bookOutboxFlush();}},15000);}catch(e){}
 // ── Global error capture: keep the last 50 errors locally, surface a throttled toast, log to a tolerant table ──
 let _errToastAt=0;
 function _logError(msg,src){

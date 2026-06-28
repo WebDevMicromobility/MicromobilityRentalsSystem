@@ -1,9 +1,9 @@
 
-const CACHE = 'mmcq-v45';
+const CACHE = 'mmcq-v46';
 const SHELL = [
   './',
   './index.html',
-  './styles.css?v=45',
+  './styles.css?v=46',
   './manifest.json',
   './logo.png',
   './brand.png',
