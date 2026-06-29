@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=48">
+  <link rel="stylesheet" href="./styles.css?v=49">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -5662,7 +5662,7 @@ async function rescheduleBooking(fromSessionId,toSessionId){
   const wasAllWaitlist=moving.every(e=>e.status==='waitlist');
   await Promise.all(sorted.map((e,i)=>sb.from('queue_entries').update({session_id:toSessionId,session_day:newSess.day,session_date:newSess.session_date||toSessionId,queue_num:base+i,status:'waiting'}).eq('id',e.id)));
   await loadData();
-  if(wasAllWaitlist)await _addonStockQ(entryAddons(moving[0]),-1); // waitlist booking became confirmed in the new session
+  if(wasAllWaitlist)for(const _m of moving)await _addonStockQ(entryAddons(_m),-1); // per-rider: reserve every moving rider's add-ons (not just the first), now that the waitlist booking is confirmed
   toast(t('toastRescheduled'));
   renderMyRides();
 }
