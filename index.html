@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=47">
+  <link rel="stylesheet" href="./styles.css?v=48">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -5858,19 +5858,32 @@ async function doNoShow(id){
 }
 async function doUndoNoShow(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry||entry.status!=='noshow')return;
-  
-  
   const currentSlotOccupied=getQueue().some(e=>e.sessionId===entry.sessionId&&e.queueNum===entry.queueNum&&e.id!==id&&e.status!=='cancelled'&&e.status!=='removed'&&e.status!=='noshow');
   const ahead=currentSlotOccupied?[]:getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>=entry.queueNum);
   const savedAhead=ahead.map(e=>({id:e.id,queueNum:e.queueNum}));
-  if(ahead.length)await Promise.all(ahead.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum+1}).eq('id',e.id)));
-  await sb.from('queue_entries').update({status:'waiting'}).eq('id',id);
+  try{
+    // Shift waiting riders up one at a time, highest number first, so a unique (session_id, queue_num) index never sees a transient collision.
+    for(const e of ahead.slice().sort((a,b)=>b.queueNum-a.queueNum)){
+      const{error}=await sb.from('queue_entries').update({queue_num:e.queueNum+1}).eq('id',e.id);
+      if(error)throw error;
+    }
+    const{error}=await sb.from('queue_entries').update({status:'waiting'}).eq('id',id); // Supabase returns the error, it does not throw, so check it explicitly
+    if(error)throw error;
+  }catch(err){
+    console.error('doUndoNoShow failed',err);
+    toast(t('errSomethingWrong')+(err&&(err.message||err.code)?' ('+(err.message||err.code)+')':''),'error');
+    await loadDataLight();renderStaffQueue();
+    return;
+  }
   await loadDataLight(); // queue-only status change: slim re-sync
   await _consumeAddonsOnEnter(entry); // rider is active again, re-reserve stock that was restocked on no-show
   toast(t('toastUndoNoShow'));
   pushUndo(`${t('undoUndoNoShow')} #${entry.queueNum} ${entry.name}`,async()=>{
     await sb.from('queue_entries').update({status:'noshow'}).eq('id',id);
-    if(savedAhead.length)await Promise.all(savedAhead.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum}).eq('id',e.id)));
+    // restore the shifted numbers lowest-first (reverse order of the shift) to keep a unique index happy
+    for(const e of savedAhead.slice().sort((a,b)=>a.queueNum-b.queueNum)){
+      await sb.from('queue_entries').update({queue_num:e.queueNum}).eq('id',e.id);
+    }
     await loadData();renderStaffQueue();
   });
   renderStaffQueue();
