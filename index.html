@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=49">
+  <link rel="stylesheet" href="./styles.css?v=50">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -418,7 +418,7 @@ en:{
   errPasswordMatch:'Passwords do not match.',
   errEmailExists:'An account with this email already exists.',
   errPhoneExists:'An account with this phone number already exists.',
-  errConnection:'Connection error. Check your network.',errSomethingWrong:'Something went wrong - it was logged.',
+  errConnection:'Connection error. Check your network.',errSomethingWrong:'Something went wrong - it was logged.',errQNumTaken:'That number is already taken by another booking.',
   errLoginFirst:'Please log in first.',
   errSelectSession:'Please select a session above.',
   errSessionClosed:'That session is no longer open.',
@@ -760,7 +760,7 @@ ar:{
   errPasswordMatch:'كلمتا المرور غير متطابقتين.',
   errEmailExists:'يوجد حساب بهذا البريد الإلكتروني مسبقاً.',
   errPhoneExists:'يوجد حساب بهذا الرقم مسبقاً.',
-  errConnection:'خطأ في الاتصال. تحقق من شبكتك.',errSomethingWrong:'حدث خطأ ما - تم تسجيله.',
+  errConnection:'خطأ في الاتصال. تحقق من شبكتك.',errSomethingWrong:'حدث خطأ ما - تم تسجيله.',errQNumTaken:'هذا الرقم مستخدم بالفعل لحجز آخر.',
   errLoginFirst:'الرجاء تسجيل الدخول أولاً.',
   errSelectSession:'الرجاء اختيار جلسة من الأعلى.',
   errSessionClosed:'هذه الجلسة لم تعد مفتوحة.',
@@ -1605,7 +1605,7 @@ function spotsLeft(sid){
   
   return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed').length);
 }
-function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid&&e.status!=='removed'&&e.status!=='cancelled').map(e=>e.queueNum);return nums.length?nums.reduce((a,b)=>Math.max(a,b),0)+1:1;}
+function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid).map(e=>e.queueNum||0);return nums.length?nums.reduce((a,b)=>Math.max(a,b),0)+1:1;} // max over ALL rows (incl. cancelled/removed/noshow): numbers are never reused while their row still exists, so the unique (session_id,queue_num) index is never violated
 // Memoized bike lookup (id -> bike); rebuilds only when the bikes array/length changes. Holds live
 // references, so in-place status edits are reflected. Avoids O(entries x bikes) finds in render loops.
 let _bbRef=null,_bbLen=-1,_bbMap=null;
@@ -5671,17 +5671,12 @@ async function cancelBooking(id,reason){
   const entry=getQueue().find(e=>e.id===id);
   if(!entry||(entry.status!=='waiting'&&entry.status!=='waitlist')){toast(t('errCancelWaiting'),'error');return;}
   const isWaitlist=entry.status==='waitlist';
-  const siblings=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.queueNum===entry.queueNum&&e.id!==id&&e.status!=='cancelled'&&e.status!=='removed');
-  const isLastInSlot=siblings.length===0;
-  const behind=(!isWaitlist&&isLastInSlot)?getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>entry.queueNum):[];
-  const savedBehind=behind.map(e=>({id:e.id,queueNum:e.queueNum}));
   const savedQNum=entry.queueNum;
-  
+  // Ticket numbers are stable and never reused; cancelling just frees the slot and leaves a gap (no shifting, which a unique index would reject).
   const bikeIds=getAssignedBikeIds(entry);
   await sb.from('queue_entries').update({status:'cancelled',assigned_bike_id:null}).eq('id',id);
   if(bikeIds.length)await Promise.all(bikeIds.map(bid=>sb.from('bikes').update({status:'available'}).eq('id',bid)));
-  if(savedBehind.length)await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
-  
+
   if(reason){
     S.cancellationLog.unshift({
       entryId:id,name:entry.name,queueNum:savedQNum,reason,
@@ -5696,8 +5691,7 @@ async function cancelBooking(id,reason){
   if(!isWaitlist)await _restockAddonsOnExit(entry); // waitlist bookings never reserved stock, so nothing to restock
   toast(t('toastBookingCancelled'));
   pushUndo(`${t('undoCancelBooking')} #${savedQNum} ${entry.name}`,async()=>{
-    await sb.from('queue_entries').update({status:'waiting',queue_num:savedQNum}).eq('id',id);
-    await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum}).eq('id',e.id)));
+    await sb.from('queue_entries').update({status:isWaitlist?'waitlist':'waiting',queue_num:savedQNum}).eq('id',id);
     await loadData();renderMyRides();renderStaffQueue();
   });
   renderMyRides();
@@ -5721,19 +5715,14 @@ async function staffCancelEntry(id){
       const savedStatus=entry.status;
       const savedAssigned=entry.assignedBikeId;
       if(entry.status==='waiting'){
-        const siblings=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.queueNum===entry.queueNum&&e.id!==id&&e.status!=='cancelled'&&e.status!=='removed');
-        const isLastInSlot=siblings.length===0;
-        const behind=isLastInSlot?getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>entry.queueNum):[];
-        const savedBehind=behind.map(e=>({id:e.id,queueNum:e.queueNum}));
         const savedQNum=entry.queueNum;
+        // Ticket numbers are stable and never reused; cancel frees the slot and leaves a gap (no shifting, which a unique index would reject).
         await sb.from('queue_entries').update({status:'cancelled'}).eq('id',id);
-        if(savedBehind.length)await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
         await loadData();
         await _restockAddonsOnExit(entry);
         toast(`Booking #${savedQNum} cancelled.`);
         pushUndo(`${t('undoStaffCancel')} #${savedQNum} ${entry.name}`,async()=>{
           await sb.from('queue_entries').update({status:'waiting',queue_num:savedQNum}).eq('id',id);
-          if(savedBehind.length)await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum}).eq('id',e.id)));
           await loadData();renderMyRides();renderStaffQueue();
         });
       }else{
@@ -5837,13 +5826,9 @@ async function _autoPromoteOldestWaitlist(sessionId){
 }
 async function doNoShow(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
-  const siblings=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.queueNum===entry.queueNum&&e.id!==id&&e.status!=='cancelled'&&e.status!=='removed'&&e.status!=='noshow');
-  const isLastInSlot=siblings.length===0;
-  const behind=isLastInSlot?getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>entry.queueNum):[];
-  const savedBehind=behind.map(e=>({id:e.id,queueNum:e.queueNum}));
   const savedQNum=entry.queueNum;
+  // Ticket numbers are stable and never reused; no-show just frees the slot and leaves a gap (no shifting, which a unique index would reject).
   await sb.from('queue_entries').update({status:'noshow'}).eq('id',id);
-  if(savedBehind.length)await Promise.all(behind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id)));
   const _promoted=await _autoPromoteOldestWaitlist(entry.sessionId);
   await loadDataLight(); // queue-only status change: slim re-sync (no photo refetch)
   await _restockAddonsOnExit(entry);
@@ -5851,23 +5836,19 @@ async function doNoShow(id){
   S._flashId=id;S._flashColor='orange';setTimeout(()=>{S._flashId=null;},800);
   pushUndo(`${t('undoNoShow')} #${savedQNum} ${entry.name}`,async()=>{
     await sb.from('queue_entries').update({status:'waiting',queue_num:savedQNum}).eq('id',id);
-    await Promise.all(savedBehind.map(e=>sb.from('queue_entries').update({queue_num:e.queueNum}).eq('id',e.id)));
     await loadData();renderStaffQueue();
   });
   renderStaffQueue();
 }
 async function doUndoNoShow(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry||entry.status!=='noshow')return;
-  const currentSlotOccupied=getQueue().some(e=>e.sessionId===entry.sessionId&&e.queueNum===entry.queueNum&&e.id!==id&&e.status!=='cancelled'&&e.status!=='removed'&&e.status!=='noshow');
-  const ahead=currentSlotOccupied?[]:getQueue().filter(e=>e.sessionId===entry.sessionId&&e.status==='waiting'&&e.queueNum>=entry.queueNum);
-  const savedAhead=ahead.map(e=>({id:e.id,queueNum:e.queueNum}));
+  // The rider keeps their original ticket number. If a live booking already holds that number (a leftover duplicate from the old shifting logic), give this rider a fresh number so the unique index is satisfied.
+  const slotTaken=getQueue().some(e=>e.sessionId===entry.sessionId&&e.queueNum===entry.queueNum&&e.id!==id&&['waiting','active','done'].includes(e.status));
+  const oldQNum=entry.queueNum;
+  const upd={status:'waiting'};
+  if(slotTaken)upd.queue_num=nextQNum(entry.sessionId);
   try{
-    // Shift waiting riders up one at a time, highest number first, so a unique (session_id, queue_num) index never sees a transient collision.
-    for(const e of ahead.slice().sort((a,b)=>b.queueNum-a.queueNum)){
-      const{error}=await sb.from('queue_entries').update({queue_num:e.queueNum+1}).eq('id',e.id);
-      if(error)throw error;
-    }
-    const{error}=await sb.from('queue_entries').update({status:'waiting'}).eq('id',id); // Supabase returns the error, it does not throw, so check it explicitly
+    const{error}=await sb.from('queue_entries').update(upd).eq('id',id); // Supabase returns the error rather than throwing, so check it explicitly
     if(error)throw error;
   }catch(err){
     console.error('doUndoNoShow failed',err);
@@ -5875,15 +5856,12 @@ async function doUndoNoShow(id){
     await loadDataLight();renderStaffQueue();
     return;
   }
+  if(upd.queue_num!=null)entry.queueNum=upd.queue_num;
   await loadDataLight(); // queue-only status change: slim re-sync
   await _consumeAddonsOnEnter(entry); // rider is active again, re-reserve stock that was restocked on no-show
   toast(t('toastUndoNoShow'));
-  pushUndo(`${t('undoUndoNoShow')} #${entry.queueNum} ${entry.name}`,async()=>{
-    await sb.from('queue_entries').update({status:'noshow'}).eq('id',id);
-    // restore the shifted numbers lowest-first (reverse order of the shift) to keep a unique index happy
-    for(const e of savedAhead.slice().sort((a,b)=>a.queueNum-b.queueNum)){
-      await sb.from('queue_entries').update({queue_num:e.queueNum}).eq('id',e.id);
-    }
+  pushUndo(`${t('undoUndoNoShow')} #${oldQNum} ${entry.name}`,async()=>{
+    await sb.from('queue_entries').update({status:'noshow',queue_num:oldQNum}).eq('id',id);
     await loadData();renderStaffQueue();
   });
   renderStaffQueue();
@@ -6018,9 +5996,15 @@ async function saveEditedQNum(entryId){
   const entry=getQueue().find(e=>e.id===entryId);if(!entry)return;
   const oldNum=entry.queueNum;
   if(newNum===oldNum){closeEditQNumModal();return;}
+  // Reject if a live booking already holds the target number (the unique session_id+queue_num index would reject it anyway)
+  if(getQueue().some(e=>e.sessionId===entry.sessionId&&e.queueNum===newNum&&!['cancelled','removed','noshow'].includes(e.status))){
+    if(inp)inp.style.borderColor='var(--red)';toast(t('errQNumTaken'),'error');return;
+  }
   const group=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.queueNum===oldNum&&e.status!=='cancelled'&&e.status!=='removed');
   closeEditQNumModal();
-  await Promise.all(group.map(e=>sb.from('queue_entries').update({queue_num:newNum}).eq('id',e.id)));
+  const _qr=await Promise.all(group.map(e=>sb.from('queue_entries').update({queue_num:newNum}).eq('id',e.id)));
+  const _qe=_qr.find(r=>r&&r.error);
+  if(_qe){toast(t('errSomethingWrong')+(_qe.error.message?' ('+_qe.error.message+')':''),'error');await loadData();renderStaffQueue();return;}
   await loadData();renderStaffQueue();renderHistory();
   pushUndo(`${t('undoRenumber')} #${oldNum}→#${newNum} ${entry.name}`,async()=>{
     const restored=getQueue().filter(e=>e.sessionId===entry.sessionId&&e.queueNum===newNum&&group.map(x=>x.id).includes(e.id));
