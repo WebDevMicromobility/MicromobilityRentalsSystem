@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=69">
+  <link rel="stylesheet" href="./styles.css?v=70">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -5356,7 +5356,7 @@ function renderStaffQueue(){
     <div class="stats-row">
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('statNumRiders')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWait}</div><div class="stat-label">${t('statExpected')}</div></div>
-      <div class="stat-card"><div class="stat-num" style="color:#a0f0c0">${nBike}</div><div class="stat-label">${t('onBikeStat')}</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nBike}</div><div class="stat-label">${t('onBikeStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nDonePaid}</div><div class="stat-label">${t('statCompleted')}</div></div>
     </div>
     ${nextUp}
@@ -5421,7 +5421,7 @@ function renderStaffQueue(){
       if(sel.length!==S.sfSelected.length)S.sfSelected=sel;
       if(!sel.length)return'';
       const anyWaiting=sel.some(id=>{const e=getQueue().find(x=>x.id===id);return e&&e.status==='waiting';});
-      return`<div style="position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:350;display:flex;align-items:center;gap:10px;background:#16181a;border:1px solid var(--border);border-radius:14px;padding:10px 14px;box-shadow:0 10px 40px rgba(0,0,0,.5)">
+      return`<div style="position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:350;display:flex;align-items:center;gap:10px;background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:10px 14px;box-shadow:0 10px 40px rgba(0,0,0,.5)">
         <span style="font-size:13px;font-weight:800;color:var(--green);white-space:nowrap">${sel.length} ${t('bulkSelectedLabel')}</span>
         <button class="btn-sm btn-green" onclick="bulkSfPaid()">✓ ${t('bulkPaidBtn')}</button>
         ${anyWaiting?`<button class="btn-sm btn-blue" onclick="bulkSfCheckin()">${t('bulkCheckinBtn')}</button>`:''}
@@ -5524,7 +5524,7 @@ function showPayMenu(id,evt){
   ];
   const menu=document.createElement('div');
   menu.className='pay-menu-popup';
-  menu.style.cssText='position:fixed;z-index:9001;background:#1c1c1c;border:1.5px solid rgba(255,255,255,.15);border-radius:10px;padding:5px;min-width:200px;box-shadow:0 6px 24px rgba(0,0,0,.6)';
+  menu.style.cssText='position:fixed;z-index:9001;background:var(--s2);border:1.5px solid var(--border);border-radius:10px;padding:5px;min-width:200px;box-shadow:0 6px 24px rgba(0,0,0,.6)';
   menu.innerHTML=opts.map(o=>`<button class="pay-menu-opt${o.active?' active':''}" onclick="${o.mode==='split'?`splitRentalPayment('${id}')`:`togglePayment('${id}','${o.mode}')`};document.querySelectorAll('.pay-menu-popup').forEach(m=>m.remove())">${o.label}</button>`).join('');
   document.body.appendChild(menu);
   const r=evt.currentTarget.getBoundingClientRect();
@@ -6897,7 +6897,7 @@ function renderModal(){
     :isHouseRider
       ?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.3);border-radius:10px;padding:10px 14px;margin-bottom:14px">
           <span style="font-size:16px"></span>
-          <span style="font-size:12px;font-weight:800;color:#a78bfa">${t('onTheHouseLabel')}</span>
+          <span style="font-size:12px;font-weight:800;color:var(--purple)">${t('onTheHouseLabel')}</span>
           <button class="pay-toggle pending" style="font-size:11px" onclick="togglePayment('${rider.id}','pending');S.modalPriceEdit=false;renderModal()">↩ ${t('pendingLabel')}</button>
           <button class="pay-toggle paid" style="font-size:11px" onclick="togglePayment('${rider.id}','paid');S.modalPriceEdit=false;renderModal()">✓ ${t('paidLabel')}</button>
         </div>`
@@ -9688,7 +9688,7 @@ function bikeHealthSection(){
   const allBk=getBikes(),rbSumM={},rbCntM={};
   done.forEach(e=>{if(!e.ratingBike)return;getAssignedBikeIds(e).forEach(id=>{const bk=allBk.find(x=>x.id===id);if(!bk)return;const mk=bk.brand&&bk.model?`${bk.brand} - ${bk.model}`:bk.name;rbSumM[mk]=(rbSumM[mk]||0)+e.ratingBike;rbCntM[mk]=(rbCntM[mk]||0)+1;});});
   const modelRows=Object.keys(rbSumM).map(k=>({k,avg:rbSumM[k]/rbCntM[k],n:rbCntM[k]})).sort((a,b)=>b.avg-a.avg);
-  const _ratingColor=v=>v>=7?'#03ff89':v>=5?'#e08828':'#f87171';
+  const _ratingColor=v=>v>=7?_thc('--green','#03ff89'):v>=5?_thc('--orange','#e08828'):_thc('--red','#f87171');
   const modelCard=modelRows.length?`<div class="chart-card" style="margin-top:14px">
     <div class="chart-card-title">${t('anRatingByModel')}</div>
     <div class="chart-card-sub">${t('anRatingByModelSub')}</div>
@@ -9743,6 +9743,8 @@ function bikeHealthSection(){
     ${allRatingsCard}`;
 }
 
+// Theme-aware chart color: resolves a CSS variable so charts stay readable in light/hc themes
+function _thc(varName,fb){try{const v=getComputedStyle(document.documentElement).getPropertyValue(varName).trim();return v||fb;}catch(e){return fb;}}
 function renderAnalytics(){
   const allQ=getQueue();
   const allSess=allSessions();
@@ -9855,7 +9857,7 @@ function renderAnalytics(){
   });
   const typeColor={Road:'var(--text)',Hybrid:'var(--green)',Mountain:'var(--text)',Any:'var(--muted-l)'};
   const typeColorHex={Road:'#4aa8f8',Hybrid:'#03ff89',Mountain:'#e08828',Any:'#777'};
-  const dayColorHex='#03ff89';
+  const dayColorHex=_thc('--green','#03ff89');
   const dayOrder=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const dayBreakOrdered=Object.fromEntries(dayOrder.filter(d=>dayBreak[d]).map(d=>[dayLabel(d),dayBreak[d]]));
   const topType=Object.keys(typeBreak).sort((a,b)=>typeBreak[b]-typeBreak[a])[0]||'—';
@@ -9981,7 +9983,7 @@ function renderAnalytics(){
     const r=44,cx=56,cy=56,sw=10;
     const arc=r*Math.PI; 
     const filled=arc*(pct/100);
-    const c=pct>=80?'#03ff89':pct>=50?'#e08828':'#d90909';
+    const c=pct>=80?_thc('--green','#03ff89'):pct>=50?_thc('--orange','#e08828'):_thc('--red','#d90909');
     return`<div class="occ-gauge-wrap">
       <svg class="occ-gauge-svg" width="112" height="66" viewBox="0 0 112 66">
         <path d="M ${cx-r} ${cy} A ${r} ${r} 0 0 1 ${cx+r} ${cy}" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="${sw}" stroke-linecap="round"/>
@@ -10038,7 +10040,7 @@ function renderAnalytics(){
   
   const chartLabels=trendData.map(d=>d.lbl);
   const revenueChart=_areaChart([
-    {vals:trendData.map(d=>d.rev),     color:'#03ff89',label:t('anCollected'),fill:true},
+    {vals:trendData.map(d=>d.rev),     color:_thc('--green','#03ff89'),label:t('anCollected'),fill:true},
     {vals:trendData.map(d=>d.revTotal),color:'rgba(3,255,137,.3)',label:t('anTotal'),fill:false,dashed:true},
   ],chartLabels,{unitPfx:'SAR '});
 
@@ -10048,8 +10050,8 @@ function renderAnalytics(){
   ],chartLabels);
 
   const occChart=_vbars(
-    trendData.map(d=>({label:d.lbl,v:d.occ,c:d.occ>=80?'#03ff89':d.occ>=50?'#e08828':'#d90909'})),
-    {color:'#03ff89',refVal:100}
+    trendData.map(d=>({label:d.lbl,v:d.occ,c:d.occ>=80?_thc('--green','#03ff89'):d.occ>=50?_thc('--orange','#e08828'):_thc('--red','#d90909')})),
+    {color:_thc('--green','#03ff89'),refVal:100}
   );
 
   const cumChart=_areaChart([
@@ -10057,11 +10059,11 @@ function renderAnalytics(){
   ],chartLabels,{unitPfx:'SAR '});
 
   const payDonut=_donut([
-    {v:done.filter(e=>e.paid).length,  c:'#03ff89',label:t('paidLabel')},
+    {v:done.filter(e=>e.paid).length,  c:_thc('--green','#03ff89'),label:t('paidLabel')},
     {v:done.filter(e=>!e.paid).length, c:'#e08828',label:t('pendingLabel')},
   ]);
   const payLegend=`<div class="donut-legend">
-    <div class="donut-legend-item"><span class="donut-dot" style="background:#03ff89"></span>${t('paidLabel')} - ${done.filter(e=>e.paid).length} (${collectionRate}%)</div>
+    <div class="donut-legend-item"><span class="donut-dot" style="background:${_thc('--green','#03ff89')}"></span>${t('paidLabel')} - ${done.filter(e=>e.paid).length} (${collectionRate}%)</div>
     <div class="donut-legend-item"><span class="donut-dot" style="background:#e08828"></span>${t('pendingLabel')} - ${done.filter(e=>!e.paid).length}</div>
     <div style="margin-top:8px;font-size:20px;font-weight:900;color:var(--green)">${sarBoth(revCollected)}</div>
     <div style="font-size:11px;color:var(--muted);font-weight:600">${t('anCollected')}</div>
@@ -10215,7 +10217,7 @@ function renderAnalytics(){
         <div class="chart-card-sub">${t('anChartRevSub')}</div>
         ${revenueChart}
         <div class="chart-legend">
-          <div class="chart-legend-item"><span class="chart-legend-dot" style="background:#03ff89"></span>${t('anCollected')}</div>
+          <div class="chart-legend-item"><span class="chart-legend-dot" style="background:${_thc('--green','#03ff89')}"></span>${t('anCollected')}</div>
           <div class="chart-legend-item"><span class="chart-legend-dot" style="background:rgba(3,255,137,.4)"></span>${t('anTotal')}</div>
         </div>
       </div>
@@ -10317,7 +10319,7 @@ function renderAnalytics(){
       <div class="chart-card">
         <div class="chart-card-title">${t('anByDay')}</div>
         <div class="chart-card-sub">${t('anChartDaySub')}</div>
-        ${Object.keys(dayBreakOrdered).length?bars(dayBreakOrdered,()=>'#03ff89'):noDataStr}
+        ${Object.keys(dayBreakOrdered).length?bars(dayBreakOrdered,()=>_thc('--green','#03ff89')):noDataStr}
       </div>
     </div>
 
@@ -10400,7 +10402,7 @@ function renderAnalytics(){
       const used=rows.filter(r=>r.n>0);const idle=rows.filter(r=>r.n===0);
       const barRows=(used.length?used:rows.slice(0,8)).map(r=>`<div class="analytics-bar-row">
           <div class="analytics-bar-label">${esc(r.b.name)}</div>
-          <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(r.n/maxN*100)}%;background:#03ff89"></div></div>
+          <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(r.n/maxN*100)}%;background:${_thc('--green','#03ff89')}"></div></div>
           <div class="analytics-bar-value">${r.n} ${t('anRidesUnit')}</div>
         </div>`).join('');
       return`<div class="analytics-section-title">${t('anBikeUtilTitle')}</div>
