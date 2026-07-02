@@ -8,14 +8,14 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#03ff89">
-  <title>MicroMobility: Corniche Circuit Queue</title>
+  <title>MicroMobility Rentals</title>
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=68">
+  <link rel="stylesheet" href="./styles.css?v=69">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -184,8 +184,8 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 
 const LANG={
 en:{
-  appSub:'Corniche Circuit Queue',landingTitle:'MicroMobility Corniche Circuit',
-  landingSub:'Bicycle rental queue - Jeddah Corniche Circuit',
+  appSub:'Rental and Inventory System',landingTitle:'MicroMobility Rentals',
+  landingSub:'Bicycle rentals - Jeddah Corniche Circuit',
   reserveTitle:'Reserve Your Spot',reserveDesc:'Register for an available session and join the queue.',
   staffAccess:'Staff Access',customerBadge:'Customer',staffBadge:'Staff Panel',
   lockBtn:'Lock',homeBtn:'Home',logOut:'Log Out',
@@ -534,8 +534,8 @@ en:{
   bikeRentalPrice:'Rental Price',bikeCustomPrice:'Custom Rental Price',
 },
 ar:{
-  appSub:'طابور حلبة الكورنيش',landingTitle:'مايكرو موبيليتي - حلبة الكورنيش',
-  landingSub:'طابور تأجير الدراجات - حلبة كورنيش جدة',
+  appSub:'نظام التأجير والمخزون',landingTitle:'مايكرو موبيليتي للتأجير',
+  landingSub:'تأجير الدراجات - حلبة كورنيش جدة',
   reserveTitle:'احجز دراجتك',reserveDesc:'سجل في جلسة متاحة وانضم إلى الطابور.',
   staffAccess:'دخول الموظفين',customerBadge:'عميل',staffBadge:'لوحة الموظفين',
   lockBtn:'قفل',homeBtn:'الرئيسية',logOut:'تسجيل الخروج',
@@ -880,7 +880,7 @@ function setLang(lang){
   document.documentElement.dir=lang==='ar'?'rtl':'ltr';
   document.documentElement.lang=lang;
   {const _lb=document.getElementById('lang-btn');_lb.innerHTML=lang==='ar'?'English':'العربية';_lb.title=t('switchLangTip');_lb.setAttribute('aria-label',t('switchLangTip'));}
-  const lt=document.getElementById('land-title');if(lt)lt.innerHTML=`<span>MicroMobility</span> Corniche Circuit`;
+  const lt=document.getElementById('land-title');if(lt)lt.innerHTML=`<span>MicroMobility</span> Rentals`;
   const ls=document.getElementById('land-sub');if(ls)ls.textContent=t('landingSub');
   const lmt=document.getElementById('land-main-title');
   if(lmt)lmt.innerHTML=lang==='ar'?'احجز <span>دراجتك الآن!</span>':'Reserve Your <span>Bicycle Now!</span>';
@@ -2182,6 +2182,7 @@ function showView(v){
   document.getElementById('view-customer').classList.toggle('active',v==='customer');
   document.getElementById('view-staff').classList.toggle('active',v==='staff');
   document.body.classList.toggle('view-staff',v==='staff');
+  document.title=v==='staff'?'MicroMobility Rental and Inventory System':'MicroMobility Rentals';
   renderTopbarRight();
 }
 
@@ -3455,7 +3456,7 @@ function printRideReceipt(ids){
       @media print{body{padding:8px;}button{display:none;}}
     </style>
   </head><body>
-    <div class="brand">MicroMobility · Corniche Circuit</div>
+    <div class="brand">MicroMobility Rentals · Corniche Circuit</div>
     <h1>${t('receiptTitle')}</h1>
     <div class="meta">
       <span><b>${t('receiptRefLabel')}:</b> ${esc(ref)}</span>
@@ -8178,7 +8179,7 @@ function showReceipt(id){
   const bike=getAssignedBikes(e)[0]||null;
   const lines=[
     '╔══════════════════════════════════════╗',
-    '║   MICROMOBILITY CORNICHE CIRCUIT     ║',
+    '║        MICROMOBILITY RENTALS         ║',
     `║      ${t('receiptTitle').padEnd(32)}║`,
     '╚══════════════════════════════════════╝',
     '',`${t('receiptDear')} ${e.name},`,'',
@@ -8849,7 +8850,7 @@ function _ctPrintReceipt(rows,cust,at){
   const sess=allSessions().find(s=>s.id===rows[0].session_id);
   const body=rows.map(r=>`<tr><td>${esc(r.name)}</td><td style="text-align:center">${r.qty}</td><td style="text-align:end">SAR ${Math.round((Number(r.qty)||0)*(Number(r.price)||0)*100)/100}</td></tr>`).join('');
   const html=`<!DOCTYPE html><html lang="${ar?'ar':'en'}" dir="${ar?'rtl':'ltr'}"><head><meta charset="UTF-8"><title>${t('cashReceiptWord')}</title>${ar?'<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">':''}<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:${ar?"'Cairo',":''}system-ui,sans-serif;color:#111;padding:18px;max-width:320px;margin:0 auto;font-size:13px}h1{font-size:18px;font-weight:900;text-align:center}.sub{text-align:center;color:#666;font-size:11px;margin-bottom:10px;line-height:1.5}table{width:100%;border-collapse:collapse;margin-top:6px}td{padding:5px 4px;border-bottom:1px dashed #ccc;text-align:start}.tot{display:flex;justify-content:space-between;font-weight:900;font-size:15px;margin-top:10px;border-top:2px solid #222;padding-top:8px}@media print{button{display:none}}</style></head><body>
-    <img src="${logoUrl}" alt="MicroMobility" style="height:44px;display:block;margin:0 auto 4px;object-fit:contain"><h1 style="font-size:15px">MicroMobility</h1>
+    <img src="${logoUrl}" alt="MicroMobility" style="height:44px;display:block;margin:0 auto 4px;object-fit:contain"><h1 style="font-size:15px">MicroMobility Rentals</h1>
     <div class="sub">${t('cashReceiptWord')} &middot; ${new Date(at).toLocaleString(ar?'ar-u-ca-gregory-nu-latn':'en-SA',{timeZone:KSA_TZ})}${cust?`<br>${esc(cust)}`:''}${sess?`<br>${dayLabel(sess.day)} ${shortDate(sess.session_date||sess.id)}`:''}</div>
     <table><tbody>${body}</tbody></table>
     <div class="tot"><span>${t('repTotal')}</span><span>SAR ${total}</span></div>
