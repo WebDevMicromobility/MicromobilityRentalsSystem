@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=67">
+  <link rel="stylesheet" href="./styles.css?v=68">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -8617,7 +8617,11 @@ function renderCashierModal(){
         <select onchange="_cashSet('_cashCat',this.value)" style="${_inp}">${INV_CATS.map(c=>`<option value="${c}"${S._cashCat===c?' selected':''}>${esc(_invCatLabel(c))}</option>`).join('')}</select>`:''}
         <div style="display:flex;gap:9px">
           <div style="flex:1"><label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${t('cashQtyLabel')}</label>
-            <input type="number" min="1" value="${esc(S._cashQty)}" oninput="S._cashQty=this.value" style="${_inp}"></div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <button type="button" onclick="_cashQtyStep(-1)" aria-label="−" style="width:38px;height:38px;flex-shrink:0;border-radius:9px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-size:18px;font-weight:800;cursor:pointer;line-height:1">−</button>
+              <input type="number" min="1" value="${esc(S._cashQty)}" oninput="S._cashQty=this.value" style="${_inp};text-align:center">
+              <button type="button" onclick="_cashQtyStep(1)" aria-label="+" style="width:38px;height:38px;flex-shrink:0;border-radius:9px;border:1px solid var(--green);background:rgba(3,255,137,.12);color:var(--green);font-size:18px;font-weight:800;cursor:pointer;line-height:1">+</button>
+            </div></div>
           <div style="flex:2"><label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${t('cashAmtLabel')}</label>
             <input type="number" min="0" step="0.5" value="${esc(S._cashAmt)}" oninput="S._cashAmt=this.value" placeholder="0" style="${_inp}"></div>
         </div>
@@ -8636,6 +8640,9 @@ function renderCashierModal(){
 }
 
 // ── Standalone Cashier tab: a full point-of-sale for a session (walk-up + counter sales) ──
+// Quantity steppers for the sale forms: +/- buttons around the qty field (min 1)
+function _ctQtyStep(d){S._ctQty=String(Math.max(1,(parseInt(S._ctQty)||1)+d));renderCashier();}
+function _cashQtyStep(d){S._cashQty=String(Math.max(1,(parseInt(S._cashQty)||1)+d));renderCashierModal();}
 function _ctSet(k,v){
   S[k]=v;
   if(k==='_ctItem'){
@@ -8903,8 +8910,20 @@ function renderCashier(){
   const _ctCats=[...new Set(invItems.map(it=>it.category||'Other'))].sort((a,b)=>_invCatLabel(a).localeCompare(_invCatLabel(b)));
   let _ctItemPicker;
   if(S._ctPickCat){
-    const _catItems=S._ctPickCat==='__all__'?invItems:invItems.filter(it=>(it.category||'Other')===S._ctPickCat);
-    _ctItemPicker=`<button type="button" onclick="_ctSet('_ctPickCat','')" style="display:inline-flex;align-items:center;gap:5px;background:none;border:none;color:var(--green);font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;padding:5px 0 2px">‹ ${esc(S._ctPickCat==='__all__'?t('cashAllItems'):_invCatLabel(S._ctPickCat))}</button>${_ctGrid(_catItems.map(_ctItemBtn).join('')+_ctCustomBtn)}`;
+    const _backBtn=`<button type="button" onclick="_ctSet('_ctPickCat','')" style="display:inline-flex;align-items:center;gap:5px;background:none;border:none;color:var(--green);font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;padding:5px 0 2px">‹ ${esc(S._ctPickCat==='__all__'?t('cashAllItems'):_invCatLabel(S._ctPickCat))}</button>`;
+    if(S._ctPickCat==='__all__'){
+      // All items: grouped into category sections (alphabetical), items inside keep the top-seller order
+      const _flatGrid=inner=>`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;padding:2px">${inner}</div>`;
+      const _sections=_ctCats.map(cat=>{
+        const its=invItems.filter(it=>(it.category||'Other')===cat);
+        if(!its.length)return'';
+        return`<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:6px 0 6px 2px">${esc(_invCatLabel(cat))}</div>${_flatGrid(its.map(_ctItemBtn).join(''))}</div>`;
+      }).join('');
+      _ctItemPicker=`${_backBtn}<div style="max-height:248px;overflow-y:auto;margin-top:4px">${_sections}${_flatGrid(_ctCustomBtn)}</div>`;
+    }else{
+      const _catItems=invItems.filter(it=>(it.category||'Other')===S._ctPickCat);
+      _ctItemPicker=`${_backBtn}${_ctGrid(_catItems.map(_ctItemBtn).join('')+_ctCustomBtn)}`;
+    }
   }else{
     const _cards=_ctCats.map(cat=>{const n=invItems.filter(it=>(it.category||'Other')===cat).length;const ph=invItems.find(it=>(it.category||'Other')===cat&&it.photo);return`<button type="button" data-cat="${esc(cat)}" onclick="_ctSet('_ctPickCat',this.dataset.cat)" style="text-align:start;border:1.5px solid var(--border);background:var(--s2);border-radius:10px;padding:0;overflow:hidden;cursor:pointer;font-family:inherit">${_salesArt(cat)}<div style="padding:5px 7px"><div style="font-weight:700;font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(_invCatLabel(cat))}</div><div style="font-size:11px;color:var(--muted);font-weight:700">${n} ${t('cashItemsWord')}</div></div></button>`;}).join('');
     const _allCard=invItems.length?`<button type="button" data-cat="__all__" onclick="_ctSet('_ctPickCat',this.dataset.cat)" style="text-align:start;border:1.5px solid var(--border);background:var(--s2);border-radius:10px;padding:0;overflow:hidden;cursor:pointer;font-family:inherit"><div style="width:100%;height:62px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--green);font-size:20px;font-weight:900">★</div><div style="padding:5px 7px"><div style="font-weight:700;font-size:11px;color:var(--text)">${t('cashAllItems')}</div><div style="font-size:11px;color:var(--muted);font-weight:700">${invItems.length} ${t('cashItemsWord')}</div></div></button>`:'';
@@ -8970,7 +8989,12 @@ function renderCashier(){
           ${isCustom?`<div><label style="${_lbl}">${t('cashNameLabel')}</label><input type="text" value="${esc(S._ctName)}" oninput="S._ctName=this.value" style="${_inp}"></div>
           <div><label style="${_lbl}">${t('invCategory')}</label><select onchange="_ctSet('_ctCat',this.value)" style="${_inp}">${INV_CATS.map(c=>`<option value="${c}"${S._ctCat===c?' selected':''}>${esc(_invCatLabel(c))}</option>`).join('')}</select></div>`:''}
           <div style="display:flex;gap:9px">
-            <div style="flex:1"><label style="${_lbl}">${t('cashQtyLabel')}</label><input type="number" min="1" value="${esc(S._ctQty)}" oninput="S._ctQty=this.value" style="${_inp}"></div>
+            <div style="flex:1"><label style="${_lbl}">${t('cashQtyLabel')}</label>
+              <div style="display:flex;align-items:center;gap:6px">
+                <button type="button" onclick="_ctQtyStep(-1)" aria-label="−" style="width:38px;height:38px;flex-shrink:0;border-radius:9px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-size:18px;font-weight:800;cursor:pointer;line-height:1">−</button>
+                <input type="number" min="1" value="${esc(S._ctQty)}" oninput="S._ctQty=this.value" style="${_inp};text-align:center">
+                <button type="button" onclick="_ctQtyStep(1)" aria-label="+" style="width:38px;height:38px;flex-shrink:0;border-radius:9px;border:1px solid var(--green);background:rgba(3,255,137,.12);color:var(--green);font-size:18px;font-weight:800;cursor:pointer;line-height:1">+</button>
+              </div></div>
             <div style="flex:2"><label style="${_lbl}">${t('cashAmtLabel')}</label><input type="number" min="0" step="0.5" value="${esc(S._ctAmt)}" oninput="S._ctAmt=this.value" placeholder="0" style="${_inp}"></div>
           </div>
           <div><label style="${_lbl}">${t('cashPayLabel')}</label>
