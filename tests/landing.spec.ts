@@ -20,7 +20,16 @@ test('arabic toggle flips direction and translates the landing page', async ({ p
   await page.locator('#lang-btn').click();
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   await expect(page.locator('#land-sub')).toHaveText('تأجير الدراجات - حلبة كورنيش جدة');
+  await expect(page.locator('#footer-copy')).toContainText('جميع الحقوق محفوظة');
   // and back
   await page.locator('#lang-btn').click();
   await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
+});
+
+test('language choice survives a reload', async ({ page }) => {
+  await page.locator('#lang-btn').click();
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await page.reload();
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await expect(page.locator('#land-sub')).toHaveText('تأجير الدراجات - حلبة كورنيش جدة');
 });

@@ -21,7 +21,8 @@
 <body>
 <div id="loading-screen">
   <img src="brand.png" alt="logo">
-  <div class="ld-txt">Loading...</div>
+  <div class="ld-txt" id="ld-txt">Loading...</div>
+  <script>try{if(localStorage.getItem('cq_lang')==='ar'){document.documentElement.dir='rtl';document.documentElement.lang='ar';document.getElementById('ld-txt').textContent='جارٍ التحميل...';}}catch(e){}</script>
 </div>
 <script>
 setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls.style.display!=='none'){ls.style.opacity='0';ls.style.pointerEvents='none';setTimeout(function(){ls.style.display='none';},400);}},5000);
@@ -144,7 +145,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
       </svg>
     </a>
   </div>
-  <div class="footer-copy">&#169; 2026 MicroMobility. All Rights Reserved</div>
+  <div class="footer-copy" id="footer-copy">&#169; 2026 MicroMobility. All Rights Reserved</div>
 </footer>
 
 
@@ -306,6 +307,7 @@ en:{
   walkinSession:'Session',walkinSize:'Frame Size',walkinType:'Bike Type Preference',
   addWalkinBtn:'Add Walk-in',cancelBtn:'Cancel',
   checkInBtn:'Check In',returnBikeBtn:'Return Bike',removeBtn:'Remove',noShowBtn:'No-Show',customerShowedBtn:'Customer Showed',undoCheckinBtn:'Undo Check-in',toastUndoCheckin:'Check-in reversed - rider moved back to waiting.',
+  footerCopy:'© 2026 MicroMobility. All Rights Reserved',sessDeletedGroup:'Deleted Sessions',histLogBtn:'Log',
   scanBtn:'Scan ticket',scanTitle:'Scan booking QR',scanHint:'Point the camera at the QR code on the customer\'s ticket.',scanNotFound:'No booking matches this code.',scanFound:'Found #{0} {1} - opening check-in.',scanAlreadyActive:'#{0} {1} is already on a bike.',scanDone:'#{0} {1} already completed this ride.',scanCancelled:'This booking was cancelled.',scanNoshow:'This booking was marked as a no-show.',scanCamDenied:'Camera access was denied. Allow camera permission and try again.',scanCamError:'Could not start the camera on this device.',
   paidLabel:'Paid',pendingLabel:'Pending',
   sessionsTitle:'Sessions',sessionsSub:'Create sessions and open them to accept reservations. Closed by default.',sessShowMore:'Show {0} more',sessShowLess:'Show less',
@@ -657,6 +659,7 @@ ar:{
   walkinSession:'الجلسة',walkinSize:'مقاس الإطار',walkinType:'تفضيل نوع الدراجة',
   addWalkinBtn:'إضافة زيارة',cancelBtn:'إلغاء',
   checkInBtn:'تسجيل الدخول',returnBikeBtn:'إرجاع الدراجة',removeBtn:'حذف',noShowBtn:'لم يحضر',customerShowedBtn:'العميل حضر',undoCheckinBtn:'تراجع عن تسجيل الدخول',toastUndoCheckin:'تم التراجع عن تسجيل الدخول - الراكب عاد إلى قائمة الانتظار.',
+  footerCopy:'© 2026 مايكروموبيليتي. جميع الحقوق محفوظة',sessDeletedGroup:'الجلسات المحذوفة',histLogBtn:'السجل',
   scanBtn:'مسح التذكرة',scanTitle:'مسح رمز الحجز',scanHint:'وجّه الكاميرا نحو رمز QR في تذكرة العميل.',scanNotFound:'لا يوجد حجز مطابق لهذا الرمز.',scanFound:'تم العثور على #{0} {1} - جارٍ فتح تسجيل الدخول.',scanAlreadyActive:'#{0} {1} على الدراجة بالفعل.',scanDone:'#{0} {1} أنهى الرحلة بالفعل.',scanCancelled:'تم إلغاء هذا الحجز.',scanNoshow:'هذا الحجز مسجل كغياب.',scanCamDenied:'تم رفض الوصول إلى الكاميرا. اسمح باستخدام الكاميرا وحاول مجدداً.',scanCamError:'تعذر تشغيل الكاميرا على هذا الجهاز.',
   paidLabel:'مدفوع',pendingLabel:'معلق',
   sessionsTitle:'الجلسات',sessionsSub:'أنشئ الجلسات وافتحها لقبول الحجوزات. مغلقة بشكل افتراضي.',sessShowMore:'عرض {0} أخرى',sessShowLess:'عرض أقل',
@@ -890,6 +893,10 @@ function setLang(lang){
   if(lmt)lmt.innerHTML=lang==='ar'?'احجز <span>دراجتك الآن!</span>':'Reserve Your <span>Bicycle Now!</span>';
   const lca=document.getElementById('land-cta-arrow');if(lca)lca.innerHTML=lang==='ar'?'&#8592;':'&#8594;';
   const lsb=document.getElementById('land-staff-btn');if(lsb)lsb.textContent=t('staffAccess');
+  const fc=document.getElementById('footer-copy');if(fc)fc.textContent=t('footerCopy');
+  const rl=document.getElementById('bnav-reserve-lbl');if(rl)rl.textContent=t('tabReserve');
+  const ml=document.getElementById('bnav-myrides-lbl');if(ml)ml.textContent=t('tabMyRides');
+  const al=document.getElementById('bnav-account-lbl');if(al)al.textContent=t('tabAccount');
   document.querySelectorAll('#customer-tab-nav .tab-btn').forEach(b=>{
     if(b.dataset.ctab==='register')b.textContent=t('tabReserve');
     if(b.dataset.ctab==='myrides')b.textContent=t('tabMyRides');
@@ -1173,6 +1180,10 @@ const COUNTRY_CITIES={
   "Germany":["Berlin","Munich","Hamburg","Cologne","Frankfurt","Stuttgart","Dusseldorf"]
 };
 const COUNTRY_LIST=Object.keys(COUNTRY_CITIES);
+const COUNTRY_AR={"Saudi Arabia":"السعودية","United Arab Emirates":"الإمارات","Kuwait":"الكويت","Qatar":"قطر","Bahrain":"البحرين","Oman":"عُمان","Egypt":"مصر","Jordan":"الأردن","Lebanon":"لبنان","Syria":"سوريا","Iraq":"العراق","Yemen":"اليمن","Palestine":"فلسطين","Sudan":"السودان","Morocco":"المغرب","Algeria":"الجزائر","Tunisia":"تونس","Libya":"ليبيا","Turkey":"تركيا","Pakistan":"باكستان","India":"الهند","Bangladesh":"بنغلاديش","Philippines":"الفلبين","Indonesia":"إندونيسيا","United Kingdom":"المملكة المتحدة","United States":"الولايات المتحدة","Canada":"كندا","France":"فرنسا","Germany":"ألمانيا"};
+const CITY_AR={"Riyadh":"الرياض","Jeddah":"جدة","Mecca":"مكة المكرمة","Medina":"المدينة المنورة","Dammam":"الدمام","Khobar":"الخبر","Dhahran":"الظهران","Taif":"الطائف","Tabuk":"تبوك","Buraydah":"بريدة","Khamis Mushait":"خميس مشيط","Abha":"أبها","Hail":"حائل","Najran":"نجران","Jazan":"جازان","Al Hofuf":"الهفوف","Yanbu":"ينبع","Jubail":"الجبيل","Qatif":"القطيف","Hafar Al-Batin":"حفر الباطن","Arar":"عرعر","Sakaka":"سكاكا","Al Bahah":"الباحة","Unaizah":"عنيزة","Al Kharj":"الخرج"};
+function countryLabel(c){return S&&S.lang==='ar'?(COUNTRY_AR[c]||c):c;}
+function cityLabel(c){return S&&S.lang==='ar'?(CITY_AR[c]||c):c;}
 
 
 const S={
@@ -3621,9 +3632,9 @@ function renderAccount(){
   const accBirth=cust.birth_date||'';
   const accCountry=cust.country||'';
   const accCity=cust.city||'';
-  const countryOpts=`<option value="">${t('selectCountryOpt')}</option>`+COUNTRY_LIST.map(c=>`<option value="${esc(c)}"${accCountry===c?' selected':''}>${esc(c)}</option>`).join('');
+  const countryOpts=`<option value="">${t('selectCountryOpt')}</option>`+COUNTRY_LIST.map(c=>`<option value="${esc(c)}"${accCountry===c?' selected':''}>${esc(countryLabel(c))}</option>`).join('');
   const _cityList=accCountry&&COUNTRY_CITIES[accCountry]?COUNTRY_CITIES[accCountry]:[];
-  const cityOpts=`<option value="">${accCountry?t('selectCityOpt'):t('selectCountryFirst')}</option>`+_cityList.map(c=>`<option value="${esc(c)}"${accCity===c?' selected':''}>${esc(c)}</option>`).join('');
+  const cityOpts=`<option value="">${accCountry?t('selectCityOpt'):t('selectCountryFirst')}</option>`+_cityList.map(c=>`<option value="${esc(c)}"${accCity===c?' selected':''}>${esc(cityLabel(c))}</option>`).join('');
   
   const myEntries=getQueue().filter(e=>e.customerId===cust.id);
   const myDone=myEntries.filter(e=>e.status==='done');
@@ -3631,7 +3642,7 @@ function renderAccount(){
   const typeCount={};myDone.forEach(e=>{typeCount[resolvedType(e)]=(typeCount[resolvedType(e)]||0)+1;});
   const favType=Object.keys(typeCount).sort((a,b)=>typeCount[b]-typeCount[a])[0]||'—';
   const memberSince=cust.created_at
-    ?new Date(cust.created_at).toLocaleDateString('en-GB',{month:'short',year:'numeric'})
+    ?new Date(cust.created_at).toLocaleDateString(S.lang==='ar'?'ar-u-ca-gregory-nu-latn':'en-GB',{month:'short',year:'numeric'})
     :'—';
 
   document.getElementById('tab-account').innerHTML=`
@@ -3729,7 +3740,7 @@ function onAccCountryChange(country){
   if(!citySel)return;
   const list=country&&COUNTRY_CITIES[country]?COUNTRY_CITIES[country]:[];
   citySel.disabled=!country;
-  citySel.innerHTML=`<option value="">${country?t('selectCityOpt'):t('selectCountryFirst')}</option>`+list.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  citySel.innerHTML=`<option value="">${country?t('selectCityOpt'):t('selectCountryFirst')}</option>`+list.map(c=>`<option value="${esc(c)}">${esc(cityLabel(c))}</option>`).join('');
 }
 function refreshAccSizeBadge(){
   const h=parseInt(document.getElementById('acc-height')?.value||'');
@@ -4605,7 +4616,7 @@ function renderSessions(){
         <button onclick="S.showDeletedSess=!S.showDeletedSess;renderSessions()"
           style="display:flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:800;color:var(--muted);padding:0;margin-bottom:12px">
           <span style="font-size:16px">${S.showDeletedSess?'▾':'▸'}</span>
-          Deleted Sessions (${deleted.length})
+          ${t('sessDeletedGroup')} (${deleted.length})
         </button>
         ${S.showDeletedSess?`<div class="table-wrapper"><table class="sess-admin-table">
           <thead><tr>
@@ -8107,7 +8118,7 @@ function renderHistory(){
   const hSortOpts=[['date',t('sortNewest')],['name',t('sortName')],['type',t('sortType')],['amount',t('colPayment')],['status',t('colStatus')],['dur',t('colDuration')]].map(([v,l])=>
     `<option value="${v}"${S.histSort===v?' selected':''}>${l}</option>`).join('');
   const sessOpts=`<option value="all"${S.histSess==='all'?' selected':''}>${t('allSessions')}</option>`+
-    sessions.map(s=>`<option value="${s.id}"${S.histSess===s.id?' selected':''}>${s.day} ${s.display}</option>`).join('');
+    sessions.map(s=>`<option value="${s.id}"${S.histSess===s.id?' selected':''}>${dayLabel(s.day)} ${s.display}</option>`).join('');
   const _histShown=filtered.slice(0,S.histLimit||60);
   const rows=_histShown.map(e=>{
     const bike=getAssignedBikes(e)[0]||null;
@@ -8167,7 +8178,7 @@ function renderHistory(){
         <div class="page-sub" style="margin-bottom:0">${t('historySub')}</div>
       </div>
       <div class="hist-action-btns" style="display:flex;gap:8px;align-items:center;flex-shrink:0">
-        <button class="btn-secondary" onclick="S.showHistLog=!S.showHistLog;renderHistory()" style="white-space:nowrap">Log${S.histLog.length>0?` (${S.histLog.length})`:''}</button>
+        <button class="btn-secondary" onclick="S.showHistLog=!S.showHistLog;renderHistory()" style="white-space:nowrap">${t('histLogBtn')}${S.histLog.length>0?` (${S.histLog.length})`:''}</button>
         <button class="btn-secondary" onclick="exportHistoryCSV()" style="white-space:nowrap">${ICON_EXPORT} ${t('exportBtn')||'Export CSV'}</button>
       </div>
     </div>
@@ -9051,7 +9062,7 @@ function renderCashier(){
   }
   const _lbl='font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px';
   const payBtn=(val,label)=>`<button onclick="_ctSet('_ctPay','${val}')" style="flex:1;padding:9px;border-radius:9px;border:1.5px solid ${S._ctPay===val?'var(--green)':'var(--border)'};background:${S._ctPay===val?'rgba(3,255,137,.12)':'transparent'};color:${S._ctPay===val?'var(--green)':'var(--muted)'};font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">${label}</button>`;
-  const sessOpts=sessions.map(s=>`<option value="${s.id}"${sessId===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${s.status&&s.status!=='open'?` (${esc(s.status)})`:''}</option>`).join('');
+  const sessOpts=sessions.map(s=>`<option value="${s.id}"${sessId===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${s.status&&s.status!=='open'?` (${{full:t('statusFull'),closed:t('statusClosed')}[s.status]||esc(s.status)})`:''}</option>`).join('');
   // Ledger: cashier-tab sales grouped into receipts (printable/voidable) + rental add-ons shown individually
   const csRows=(S.cashSales||[]).filter(r=>r.session_id===sessId);
   const byR={};const rOrder=[];
@@ -9845,7 +9856,7 @@ function renderAnalytics(){
   const typeColorHex={Road:'#4aa8f8',Hybrid:'#03ff89',Mountain:'#e08828',Any:'#777'};
   const dayColorHex='#03ff89';
   const dayOrder=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-  const dayBreakOrdered=Object.fromEntries(dayOrder.filter(d=>dayBreak[d]).map(d=>[d,dayBreak[d]]));
+  const dayBreakOrdered=Object.fromEntries(dayOrder.filter(d=>dayBreak[d]).map(d=>[dayLabel(d),dayBreak[d]]));
   const topType=Object.keys(typeBreak).sort((a,b)=>typeBreak[b]-typeBreak[a])[0]||'—';
   const topDay=Object.keys(dayBreak).sort((a,b)=>dayBreak[b]-dayBreak[a])[0]||'—';
   const revPerRide=totalDone>0?(revTotal/totalDone):0;
@@ -10063,7 +10074,7 @@ function renderAnalytics(){
   }).join('')}</div>`;
 
   
-  const revByDayOrdered=Object.fromEntries(dayOrder.filter(d=>revByDay[d]).map(d=>[d,revByDay[d]]));
+  const revByDayOrdered=Object.fromEntries(dayOrder.filter(d=>revByDay[d]).map(d=>[dayLabel(d),revByDay[d]]));
   
   const typeRevPerRideOrdered=Object.fromEntries(
     Object.keys(typeRevPerRide).filter(k=>typeRevPerRide[k]>0)
