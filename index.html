@@ -167,6 +167,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 <div id="print-opts-modal"   style="display:none"></div>
 <div id="qnum-edit-modal"    style="display:none"></div>
 <div id="reschedule-modal"   style="display:none"></div>
+<div id="scan-modal"         style="display:none"></div>
 
 
 <div id="booth-popup">
@@ -305,6 +306,7 @@ en:{
   walkinSession:'Session',walkinSize:'Frame Size',walkinType:'Bike Type Preference',
   addWalkinBtn:'Add Walk-in',cancelBtn:'Cancel',
   checkInBtn:'Check In',returnBikeBtn:'Return Bike',removeBtn:'Remove',noShowBtn:'No-Show',customerShowedBtn:'Customer Showed',undoCheckinBtn:'Undo Check-in',toastUndoCheckin:'Check-in reversed - rider moved back to waiting.',
+  scanBtn:'Scan ticket',scanTitle:'Scan booking QR',scanHint:'Point the camera at the QR code on the customer\'s ticket.',scanNotFound:'No booking matches this code.',scanFound:'Found #{0} {1} - opening check-in.',scanAlreadyActive:'#{0} {1} is already on a bike.',scanDone:'#{0} {1} already completed this ride.',scanCancelled:'This booking was cancelled.',scanNoshow:'This booking was marked as a no-show.',scanCamDenied:'Camera access was denied. Allow camera permission and try again.',scanCamError:'Could not start the camera on this device.',
   paidLabel:'Paid',pendingLabel:'Pending',
   sessionsTitle:'Sessions',sessionsSub:'Create sessions and open them to accept reservations. Closed by default.',sessShowMore:'Show {0} more',sessShowLess:'Show less',
   newSession:'+ New Session',newSessionTitle:'New Session',dateLabel:'Date',capacityLabel:'Capacity (spots)',
@@ -655,6 +657,7 @@ ar:{
   walkinSession:'الجلسة',walkinSize:'مقاس الإطار',walkinType:'تفضيل نوع الدراجة',
   addWalkinBtn:'إضافة زيارة',cancelBtn:'إلغاء',
   checkInBtn:'تسجيل الدخول',returnBikeBtn:'إرجاع الدراجة',removeBtn:'حذف',noShowBtn:'لم يحضر',customerShowedBtn:'العميل حضر',undoCheckinBtn:'تراجع عن تسجيل الدخول',toastUndoCheckin:'تم التراجع عن تسجيل الدخول - الراكب عاد إلى قائمة الانتظار.',
+  scanBtn:'مسح التذكرة',scanTitle:'مسح رمز الحجز',scanHint:'وجّه الكاميرا نحو رمز QR في تذكرة العميل.',scanNotFound:'لا يوجد حجز مطابق لهذا الرمز.',scanFound:'تم العثور على #{0} {1} - جارٍ فتح تسجيل الدخول.',scanAlreadyActive:'#{0} {1} على الدراجة بالفعل.',scanDone:'#{0} {1} أنهى الرحلة بالفعل.',scanCancelled:'تم إلغاء هذا الحجز.',scanNoshow:'هذا الحجز مسجل كغياب.',scanCamDenied:'تم رفض الوصول إلى الكاميرا. اسمح باستخدام الكاميرا وحاول مجدداً.',scanCamError:'تعذر تشغيل الكاميرا على هذا الجهاز.',
   paidLabel:'مدفوع',pendingLabel:'معلق',
   sessionsTitle:'الجلسات',sessionsSub:'أنشئ الجلسات وافتحها لقبول الحجوزات. مغلقة بشكل افتراضي.',sessShowMore:'عرض {0} أخرى',sessShowLess:'عرض أقل',
   newSession:'+ جلسة جديدة',newSessionTitle:'جلسة جديدة',dateLabel:'التاريخ',capacityLabel:'الطاقة الاستيعابية',
@@ -877,6 +880,7 @@ function t(k){return(LANG[S&&S.lang?S.lang:'en']||LANG.en)[k]||LANG.en[k]||k;}
 
 function setLang(lang){
   S.lang=lang;
+  try{localStorage.setItem('cq_lang',lang);}catch(e){}
   document.documentElement.dir=lang==='ar'?'rtl':'ltr';
   document.documentElement.lang=lang;
   {const _lb=document.getElementById('lang-btn');_lb.innerHTML=lang==='ar'?'English':'العربية';_lb.title=t('switchLangTip');_lb.setAttribute('aria-label',t('switchLangTip'));}
@@ -5375,6 +5379,10 @@ function renderStaffQueue(){
           <input id="sf-search-input" class="search-input" placeholder="${t('searchPlaceholder')}" value="${esc(S.sfSearch)}"
             oninput="setSfSearch(this.value)">
         </div>
+        <button class="btn-sm btn-green" style="margin-left:8px;display:inline-flex;align-items:center;gap:6px" onclick="openScanModal()" title="${t('scanTitle')}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          ${t('scanBtn')}
+        </button>
       </div>
       ${filtered.length!==base.length?`<div class="result-count">${filtered.length} ${t('resultOf')} ${base.length} ${t('resultRiders')}</div>`:''}
     </div>
@@ -6583,6 +6591,117 @@ async function undoHistLog(logId){
   }catch(e){toast(t('undoFailed'),'error');}
 }
 
+
+let _scanStream=null,_scanTimer=null,_scanDetector=null,_scanCanvas=null,_scanLastTxt='',_scanLastAt=0,_jsqrPromise=null;
+function _loadJsQR(){
+  if(window.jsQR)return Promise.resolve(window.jsQR);
+  if(!_jsqrPromise)_jsqrPromise=new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+    s.onload=()=>res(window.jsQR);
+    s.onerror=()=>{_jsqrPromise=null;rej(new Error('jsQR load failed'));};
+    document.head.appendChild(s);
+  });
+  return _jsqrPromise;
+}
+function openScanModal(){
+  const m=document.getElementById('scan-modal');
+  m.style.display='flex';
+  m.innerHTML=`<div class="pin-backdrop" onclick="if(event.target===this)closeScanModal()">
+    <div class="pin-box" style="max-width:380px;width:92vw">
+      <div class="pin-title">${t('scanTitle')}</div>
+      <div class="pin-sub">${t('scanHint')}</div>
+      <div style="position:relative;width:100%;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:1/1">
+        <video id="scan-video" playsinline muted style="width:100%;height:100%;object-fit:cover"></video>
+        <div style="position:absolute;inset:14%;border:2px solid rgba(3,255,137,.65);border-radius:16px;pointer-events:none"></div>
+      </div>
+      <div id="scan-msg" style="min-height:18px;font-size:12px;color:var(--muted);margin-top:10px;text-align:center;font-weight:600"></div>
+      <button class="pin-cancel" onclick="closeScanModal()">${t('cancelBtn')}</button>
+    </div>
+  </div>`;
+  _startScanner();
+}
+function _stopScanStream(){
+  if(_scanTimer){clearTimeout(_scanTimer);_scanTimer=null;}
+  if(_scanStream){try{_scanStream.getTracks().forEach(tr=>tr.stop());}catch(e){}_scanStream=null;}
+  _scanDetector=null;_scanLastTxt='';_scanLastAt=0;
+}
+function closeScanModal(){
+  _stopScanStream();
+  const m=document.getElementById('scan-modal');
+  if(m){m.style.display='none';m.innerHTML='';}
+}
+async function _startScanner(){
+  try{
+    if('BarcodeDetector' in window){
+      try{_scanDetector=new BarcodeDetector({formats:['qr_code']});}catch(e){_scanDetector=null;}
+    }
+    if(!_scanDetector)await _loadJsQR();
+    _scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    const v=document.getElementById('scan-video');
+    if(!v){_stopScanStream();return;}
+    v.srcObject=_scanStream;
+    await v.play();
+    _scanTick();
+  }catch(err){
+    const el=document.getElementById('scan-msg');
+    if(el){
+      el.style.color='var(--red)';
+      el.textContent=(err&&(err.name==='NotAllowedError'||err.name==='SecurityError'))?t('scanCamDenied'):t('scanCamError');
+    }
+    _stopScanStream();
+  }
+}
+async function _scanTick(){
+  if(!_scanStream)return;
+  const v=document.getElementById('scan-video');
+  if(v&&v.readyState>=2){
+    let txt='';
+    try{
+      if(_scanDetector){
+        const codes=await _scanDetector.detect(v);
+        if(codes&&codes.length)txt=codes[0].rawValue||'';
+      }else if(window.jsQR&&v.videoWidth){
+        const c=_scanCanvas||(_scanCanvas=document.createElement('canvas'));
+        const w=Math.min(v.videoWidth,480),h=Math.round(v.videoHeight*(w/v.videoWidth));
+        c.width=w;c.height=h;
+        const ctx=c.getContext('2d',{willReadFrequently:true});
+        ctx.drawImage(v,0,0,w,h);
+        const d=ctx.getImageData(0,0,w,h);
+        const code=window.jsQR(d.data,w,h);
+        if(code&&code.data)txt=code.data;
+      }
+    }catch(e){}
+    if(txt)_onScanPayload(txt);
+  }
+  if(_scanStream)_scanTimer=setTimeout(_scanTick,150);
+}
+function _onScanPayload(raw){
+  const txt=String(raw||'').trim();
+  const now=Date.now();
+  if(txt===_scanLastTxt&&now-_scanLastAt<2500)return;
+  _scanLastTxt=txt;_scanLastAt=now;
+  const el=document.getElementById('scan-msg');
+  const say=(msg,color)=>{if(el){el.textContent=msg;el.style.color=color||'var(--muted)';}};
+  const m=txt.match(/^MMC-(\d+)-([0-9a-fA-F][0-9a-fA-F-]{3,7})$/);
+  if(!m){say(t('scanNotFound'),'var(--red)');return;}
+  const ref=m[2].toLowerCase();
+  const entry=getQueue().find(e=>String(e.queueNum)===m[1]&&String(e.id).toLowerCase().startsWith(ref));
+  if(!entry){say(t('scanNotFound'),'var(--red)');return;}
+  const nm=entry.name||'';
+  if(entry.status==='waiting'){
+    try{if(navigator.vibrate)navigator.vibrate(80);}catch(e){}
+    toast(t('scanFound').replace('{0}',entry.queueNum).replace('{1}',nm));
+    closeScanModal();
+    openModal(entry.id);
+    return;
+  }
+  if(entry.status==='active'){say(t('scanAlreadyActive').replace('{0}',entry.queueNum).replace('{1}',nm),'#ffb347');return;}
+  if(entry.status==='done'){say(t('scanDone').replace('{0}',entry.queueNum).replace('{1}',nm),'var(--muted-l)');return;}
+  if(entry.status==='cancelled'){say(t('scanCancelled'),'var(--red)');return;}
+  if(entry.status==='noshow'){say(t('scanNoshow'),'var(--red)');return;}
+  say(t('scanNotFound'),'var(--red)');
+}
 
 function openModal(riderId){
   S.modalRider=riderId;S.modalBikes=[];S.modalShowAll=false;S.modalShowAddBike=false;S.modalAddBikeName='';S.modalAddBikeType=null;S.modalAddBikeSize='M';S.modalAddBikeFrame='';S.modalAddBikeLocation=S.bkLocations[0]||'JCC';S.modalAddBikeNumber='';S.modalSearch='';S.modalSort='default';S.modalSortDir=1;S.modalFilterSize='all';S.modalFilterBrand='all';S.modalFilterModel='all';S.modalPriceEdit=false;
@@ -10551,6 +10670,7 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   if(!_lastLoadOk){try{_cacheRestore();}catch(e){}} // network down/slow: show last-known data instead of an empty screen
   _bootDone=true;_bootReadyAt=Date.now();
   applyThemeIcon();
+  try{const savedLang=localStorage.getItem('cq_lang');setLang(savedLang==='ar'?'ar':'en');}catch(e){setLang('en');}
   const ls=document.getElementById('loading-screen');
   if(ls){ls.style.opacity='0';setTimeout(()=>{ls.style.display='none';},400);}
   S.loggedIn=getSession();
