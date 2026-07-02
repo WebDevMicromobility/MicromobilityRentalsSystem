@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=64">
+  <link rel="stylesheet" href="./styles.css?v=65">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -2780,9 +2780,7 @@ function renderRegister(){
       <button class="btn-secondary" onclick="regGoStep(2)" ${S.regSubmitting?'disabled':''}>${t('regBackBtn')}</button>
       <button class="btn-primary" style="flex:1" onclick="${isModifyMode?'submitModifyBooking()':'submitReg()'}" ${S.regSubmitting?'disabled':''}>${S.regSubmitting?' ...':(isModifyMode?t('modifyBookingBtn'):t('regConfirmBtn'))}</button>
     </div>`;
-  const panel3=`
-    ${stepHeader(t('regStep3Title'),t('regStep3Msg'))}
-    <div class="form-section">
+  const detailsCard=`<div class="form-section">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-bottom:14px;border-bottom:1px solid var(--border)">
         <div>
           <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">${t('reviewSessionLabel')}</div>
@@ -2811,7 +2809,9 @@ function renderRegister(){
           ${disc>0?`<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--green);margin-top:8px"><span>${t('promoDiscountLabel')} (${esc(S.promoApplied.code)})</span><span>- SAR ${disc}</span></div>`:''}
         </div>`;
       })()}
-    </div>
+    </div>`;
+  const panel3=`
+    ${stepHeader(t('regStep3Title'),t('regStep3Msg'))}
     ${isModifyMode?'':(()=>{
       const items=sessionAddonItems(selSess);
       if(!items.length)return'';
@@ -2843,6 +2843,7 @@ function renderRegister(){
         ${_aGrouped}
       </div>`;
     })()}
+    ${detailsCard}
     <div class="form-section" style="margin-top:16px">${(()=>{
       const _af=(S.promoApplied&&!isModifyMode)?Math.max(0,Math.round((totalMin-_promoDiscount(totalMin))*100)/100):null;
       const rentalStr=_af!=null?`SAR ${_af}`:totalDisplay;
