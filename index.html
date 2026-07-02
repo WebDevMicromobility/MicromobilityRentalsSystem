@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=51">
+  <link rel="stylesheet" href="./styles.css?v=52">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -92,7 +92,6 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 
 <div id="view-staff">
   <nav class="tab-nav" id="staff-tab-nav" aria-label="Staff sections">
-    <button class="tab-btn"        data-stab="dashboard" onclick="setStaffTab('dashboard')">Dashboard</button>
     <button class="tab-btn"        data-stab="cashier"   onclick="setStaffTab('cashier')">Sales</button>
     <button class="tab-btn active" data-stab="queue"     onclick="setStaffTab('queue')">Bookings</button>
     <button class="tab-btn"        data-stab="sessions"  onclick="setStaffTab('sessions')">Sessions</button>
@@ -103,7 +102,6 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <button class="tab-btn"        data-stab="logs"      onclick="setStaffTab('logs')">Logs</button>
   </nav>
   <div class="view-main">
-    <div id="tab-dashboard" class="tab-panel"></div>
     <div id="tab-queue"     class="tab-panel active"></div>
     <div id="tab-sessions"  class="tab-panel"></div>
     <div id="tab-inventory"  class="tab-panel"></div>
@@ -2270,8 +2268,7 @@ function setStaffTab(tab){
   S.staffTab=tab;
   try{sessionStorage.setItem('cq_nav_stab',tab);}catch(e){}
   renderStaffTabs();
-  if(tab==='dashboard')renderDashboard();
-  else if(tab==='sessions')renderSessions();
+  if(tab==='sessions')renderSessions();
   else if(tab==='queue')renderStaffQueue();
   else if(tab==='history')renderHistory();
   else if(tab==='analytics')renderAnalytics();
@@ -2304,7 +2301,6 @@ function renderStaffTabs(){
   document.querySelectorAll('#staff-tab-nav .tab-btn').forEach(b=>{
     b.classList.toggle('active',b.dataset.stab===S.staffTab);
   });
-  document.getElementById('tab-dashboard') .classList.toggle('active',S.staffTab==='dashboard');
   document.getElementById('tab-queue')     .classList.toggle('active',S.staffTab==='queue');
   document.getElementById('tab-sessions')  .classList.toggle('active',S.staffTab==='sessions');
   document.getElementById('tab-inventory') .classList.toggle('active',S.staffTab==='inventory');
@@ -4128,53 +4124,6 @@ function selectSessionDetail(id){
   renderSessions();
   // On phone the detail replaces the list, so bring it to the top
   if(id&&window.matchMedia&&window.matchMedia('(max-width:767px)').matches){try{window.scrollTo({top:0,behavior:'smooth'});}catch(_){window.scrollTo(0,0);}}
-}
-function renderDashboard(){
-  const el=document.getElementById('tab-dashboard');if(!el)return;
-  if(!S.dataLoaded){el.innerHTML=skeletonList(4);return;}
-  const q=getQueue();
-  const sessions=allSessions();
-  const openSessions=sessions.filter(s=>s.status==='open');
-  const waiting=q.filter(e=>e.status==='waiting'||e.status==='waitlist');
-  const active=q.filter(e=>e.status==='active');
-  const bikes=getBikes().filter(b=>b.status!=='retired');
-  const avail=bikes.filter(b=>b.status==='available').length;
-  const inUse=bikes.filter(b=>b.status==='in-use').length;
-  const maint=bikes.filter(b=>b.status==='maintenance');
-  // Overdue rides: active riders whose elapsed time exceeds the threshold (best-effort, from this device's check-in stamps)
-  const OVERDUE=60;
-  const overdue=active.map(e=>{let m=null;try{const ts=localStorage.getItem('cq_ct_'+e.id);if(ts)m=Math.floor((Date.now()-Number(ts))/60000);}catch(_){}return{e,m};}).filter(x=>x.m!=null&&x.m>=OVERDUE).sort((a,b)=>b.m-a.m);
-  const nearFull=openSessions.map(s=>({s,left:spotsLeft(s.id)})).filter(x=>x.left<=1).sort((a,b)=>a.left-b.left);
-  // Booking add-on revenue reserved for today's sessions (excludes cancelled/no-show riders, whose add-ons were restocked)
-  const _today=todayStr();
-  const _todaySessIds=new Set(sessions.filter(s=>(s.session_date||s.id)===_today).map(s=>s.id));
-  const addonRev=Math.round(q.filter(e=>_todaySessIds.has(e.sessionId)&&e.status!=='cancelled'&&e.status!=='noshow').reduce((sum,e)=>sum+addonsCost(entryAddons(e)),0)*100)/100;
-  const kpi=(num,label,sub,color,tab)=>`<button class="dash-kpi" ${tab?`onclick="setStaffTab('${tab}')"`:''} aria-label="${esc(label)}: ${num}">
-      <div class="dash-kpi-num" style="color:${color}">${num}</div>
-      <div class="dash-kpi-lbl">${esc(label)}</div>
-      ${sub?`<div class="dash-kpi-sub">${sub}</div>`:''}
-    </button>`;
-  const alerts=[];
-  overdue.forEach(({e,m})=>{const bk=getAssignedBikes(e).map(b=>b.name).join(', ');alerts.push({tone:'red',title:`${esc(e.name)} · ${fmtDur(m)}`,sub:`${t('dashOverdueSub')}${bk?' · '+esc(bk):''}`,tab:'queue'});});
-  if(maint.length)alerts.push({tone:'orange',title:t('dashMaintAlert').replace('{0}',maint.length),sub:maint.map(b=>esc(b.name)).join(', '),tab:'inventory'});
-  nearFull.forEach(({s,left})=>alerts.push({tone:'blue',title:`${shortDate(s.session_date||s.id)} · ${left===0?t('statusFull'):t('commSpotsLeft').replace('{0}',left)}`,sub:`${dayLabel(s.day)||''}${s.location?' · '+esc(s.location):''}`,tab:'sessions'}));
-  if(openSessions.length&&avail<=2)alerts.push({tone:'orange',title:t('dashLowBikes').replace('{0}',avail),sub:'',tab:'inventory'});
-  el.innerHTML=`
-    <div class="section-header"><div><div class="page-title">${t('dashTitle')}</div><div class="page-sub">${t('dashSub')}</div></div></div>
-    <div class="dash-kpi-grid">
-      ${kpi(waiting.length,t('dashWaiting'),'',waiting.length>0?'var(--green)':'var(--muted)','queue')}
-      ${kpi(active.length,t('dashOnBikes'),'',active.length>0?'var(--blue)':'var(--muted)','queue')}
-      ${kpi(openSessions.length,t('dashOpenSessions'),'',openSessions.length>0?'var(--green)':'var(--muted)','sessions')}
-      ${kpi(avail,t('dashAvailBikes'),`${inUse} ${t('inUseLabel').toLowerCase()}${maint.length?' · '+maint.length+' '+t('maintLabel').toLowerCase():''}`,(avail<=2&&openSessions.length)?'var(--orange)':'var(--text)','inventory')}
-      ${addonRev>0?kpi('SAR '+addonRev,t('dashAddonsToday'),'','var(--green)','cashier'):''}
-    </div>
-    <div class="dash-section-title">${t('dashAlerts')}${alerts.length?` <span class="dash-alert-count">${alerts.length}</span>`:''}</div>
-    ${alerts.length?`<div class="dash-alerts">${alerts.map(a=>`<button class="dash-alert tone-${a.tone}" ${a.tab?`onclick="setStaffTab('${a.tab}')"`:''}>
-        <span class="dash-alert-dot" aria-hidden="true"></span>
-        <span class="dash-alert-body"><span class="dash-alert-title">${a.title}</span>${a.sub?`<span class="dash-alert-sub">${a.sub}</span>`:''}</span>
-        <span class="dash-alert-go" aria-hidden="true">›</span>
-      </button>`).join('')}</div>`
-      :`<div class="dash-allclear">${t('dashAllClear')}</div>`}`;
 }
 function renderSessions(){
   if(!S.dataLoaded){const _el=document.getElementById('tab-sessions');if(_el)_el.innerHTML=skeletonList(5,true);return;}
@@ -10398,7 +10347,7 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   if(target==='staff'){
     goStaff();
     const stab=(nav&&nav.stab)||sessionStorage.getItem('cq_nav_stab');
-    if(stab&&['dashboard','queue','sessions','inventory','community','history','analytics','logs'].includes(stab))setStaffTab(stab);
+    if(stab&&['queue','sessions','inventory','community','history','analytics','logs'].includes(stab))setStaffTab(stab);
   } else if(target==='customer'){
     const ctab=(nav&&nav.ctab)||sessionStorage.getItem('cq_nav_ctab');
     goCustomer(ctab&&['register','myrides','account'].includes(ctab)?ctab:'register');
@@ -10464,8 +10413,7 @@ async function _autoRefresh(full){
     await (full?loadData():loadDataLight());
     _lastRefresh=Date.now();
     const tab=S.staffTab; // re-render only the visible tab; switching tabs re-renders fresh anyway
-    if(tab==='dashboard')renderDashboard();
-    else if(tab==='queue')renderStaffQueue();
+    if(tab==='queue')renderStaffQueue();
     else if(tab==='sessions')renderSessions();
     else if(tab==='bikes')renderBikes();
     else if(tab==='history')renderHistory();
@@ -10550,7 +10498,7 @@ document.addEventListener('keydown',e=>{
   if(k==='/'){e.preventDefault();if(S.staffTab!=='queue')setStaffTab('queue');setTimeout(()=>{const el=document.getElementById('sf-search-input');if(el){el.focus();try{el.select();}catch(_){}}},60);return;}
   if(k==='n'){e.preventDefault();_kbCheckInNext();return;}
   if(k==='r'){e.preventDefault();if(typeof _autoRefresh==='function')_autoRefresh(true);return;}
-  const tabKeys={d:'dashboard',b:'queue',s:'sessions',i:'inventory',c:'community',a:'analytics',h:'history',l:'logs'};
+  const tabKeys={b:'queue',s:'sessions',i:'inventory',c:'community',a:'analytics',h:'history',l:'logs'};
   if(tabKeys[k]){e.preventDefault();setStaffTab(tabKeys[k]);return;}
 });
 
@@ -10580,7 +10528,7 @@ try{window.addEventListener('offline',()=>{S._rtConnected=false;_updateConnUI();
   let startY=0,pulling=false,dist=0;
   function eligible(){
     if(document.querySelector('.modal-backdrop,.pin-backdrop,.auth-backdrop,.pay-menu-popup'))return false;
-    if(S.view==='staff')return ['queue','sessions','dashboard'].includes(S.staffTab);
+    if(S.view==='staff')return ['queue','sessions'].includes(S.staffTab);
     if(S.view==='customer')return S.custTab==='myrides';
     return false;
   }
