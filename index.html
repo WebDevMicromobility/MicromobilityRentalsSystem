@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=58">
+  <link rel="stylesheet" href="./styles.css?v=59">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -2804,19 +2804,6 @@ function renderRegister(){
           ${disc>0?`<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--green);margin-top:8px"><span>${t('promoDiscountLabel')} (${esc(S.promoApplied.code)})</span><span>- SAR ${disc}</span></div>`:''}
         </div>`;
       })()}
-      ${(()=>{
-        const _af=(S.promoApplied&&!isModifyMode)?Math.max(0,Math.round((totalMin-_promoDiscount(totalMin))*100)/100):null;
-        const rentalStr=_af!=null?`SAR ${_af}`:totalDisplay;
-        const grandStr=_af!=null
-          ?`SAR ${Math.round((_af+addonTotal)*100)/100}`
-          :(hasRange?(()=>{const lo=Math.round((totalMin+addonTotal)*100)/100,hi=Math.round((totalMax+addonTotal)*100)/100;return lo===hi?`SAR ${lo}`:`SAR ${lo} - ${hi}`;})():`SAR ${Math.round((totalMin+addonTotal)*100)/100}`);
-        return`${addonTotal>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;margin-top:12px"><span style="color:var(--muted)">${t('reviewRentalLabel')}</span><span style="font-weight:700">${rentalStr}</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span style="color:var(--muted)">${t('addonsLabel')}</span><span style="font-weight:700">SAR ${addonTotal}</span></div>`:''}
-        <div style="display:flex;align-items:center;justify-content:space-between;${addonTotal>0?'border-top:1px solid var(--border);margin-top:6px;padding-top:8px':'margin-top:14px'}">
-          <div style="font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${t('reviewTotalLabel')}</div>
-          <div style="font-size:22px;font-weight:900;color:var(--green)">${grandStr}</div>
-        </div>`;
-      })()}
     </div>
     ${isModifyMode?'':(()=>{
       const items=sessionAddonItems(selSess);
@@ -2849,6 +2836,19 @@ function renderRegister(){
         ${_aGrouped}
       </div>`;
     })()}
+    <div class="form-section" style="margin-top:16px">${(()=>{
+      const _af=(S.promoApplied&&!isModifyMode)?Math.max(0,Math.round((totalMin-_promoDiscount(totalMin))*100)/100):null;
+      const rentalStr=_af!=null?`SAR ${_af}`:totalDisplay;
+      const grandStr=_af!=null
+        ?`SAR ${Math.round((_af+addonTotal)*100)/100}`
+        :(hasRange?(()=>{const lo=Math.round((totalMin+addonTotal)*100)/100,hi=Math.round((totalMax+addonTotal)*100)/100;return lo===hi?`SAR ${lo}`:`SAR ${lo} - ${hi}`;})():`SAR ${Math.round((totalMin+addonTotal)*100)/100}`);
+      return`${addonTotal>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span style="color:var(--muted)">${t('reviewRentalLabel')}</span><span style="font-weight:700">${rentalStr}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span style="color:var(--muted)">${t('addonsLabel')}</span><span style="font-weight:700">SAR ${addonTotal}</span></div>`:''}
+      <div style="display:flex;align-items:center;justify-content:space-between;${addonTotal>0?'border-top:1px solid var(--border);margin-top:6px;padding-top:8px':''}">
+        <div style="font-size:13px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${t('reviewTotalLabel')}</div>
+        <div style="font-size:22px;font-weight:900;color:var(--green)">${grandStr}</div>
+      </div>`;
+    })()}</div>
     ${alreadyBanner}
     ${confirmBtns}`;
 
@@ -3478,9 +3478,13 @@ function setRate(kind,v){if(kind==='bike')S._rateBike=v;else S._rateExp=v;render
 function _rateNeedsReason(){return (S._rateBike>0&&S._rateBike<10)||(S._rateExp>0&&S._rateExp<10);}
 function renderRateModal(){
   const scale=n=>{const cur=n==='bike'?S._rateBike:S._rateExp;return Array.from({length:10},(_,i)=>i+1).map(v=>`<button onclick="setRate('${n}',${v})" aria-label="${v}" style="width:28px;height:28px;border-radius:50%;border:1px solid ${cur>=v?'var(--green)':'var(--border)'};background:${cur>=v?'rgba(3,255,137,.18)':'transparent'};color:${cur>=v?'var(--green)':'var(--muted)'};font-weight:800;font-size:11px;cursor:pointer">${v}</button>`).join('');};
+  const _re=getQueue().find(x=>x.id===S._rateId);
+  const _rs=_re?allSessions().find(s=>s.id===_re.sessionId):null;
+  const _rmeta=_re?`${_rs&&_rs.day?dayLabel(_rs.day)+' · ':''}${shortDate(_re.sessionDate||_re.sessionId)}${_rs&&_rs.location?' · '+esc(_rs.location):''}`:'';
   document.getElementById('rate-modal').innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeRateModal()">
     <div class="modal-box" role="dialog" aria-modal="true" style="max-width:440px">
       <div class="modal-title">${t('rateTitle')}</div>
+      ${_rmeta?`<div style="font-size:12px;color:var(--green);font-weight:700;margin-top:4px">${_rmeta}</div>`:''}
       ${S._rateForced?`<div style="font-size:12px;color:var(--muted);margin-top:4px">${t('rateForcedHint')}</div>`:''}
       <div style="margin:16px 0">
         <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${t('rateBikeLabel')}</div>
