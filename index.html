@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=55">
+  <link rel="stylesheet" href="./styles.css?v=56">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='light'||_th==='hc')document.documentElement.setAttribute('data-theme',_th);}catch(e){}</script>
 </head>
 <body>
@@ -285,7 +285,7 @@ en:{
   promoLabel:'Promo code',promoApplyBtn:'Apply',promoInvalidMsg:'Invalid or inactive code',promoAppliedMsg:'{0} applied',promoRemoveBtn:'Remove',promoDiscountLabel:'Discount',
   promoMgrTitle:'Promo Codes',promoCodeLabel:'Code',promoKindLabel:'Type',promoValueLabel:'Value',promoPercentOpt:'Percent (%)',promoFlatOpt:'Flat (SAR)',promoActiveLabel:'Active',promoInactiveLabel:'Inactive',promoAddBtn:'+ Add code',promoNoCodes:'No promo codes yet.',promoSavedToast:'Promo code saved',
   myCurrentRides:'Current & upcoming',myPastRides:'Past rides',noPastRides:'No completed rides yet.',noCurrentRides:'No upcoming bookings. Reserve a ride to get started.',
-  bookAgainBtn:'Book again',rateRideBtn:'Rate your ride',rateBikeLabel:'Bike',rateExpLabel:'Experience',rateNoteLabel:'Comments (optional)',rateSubmitBtn:'Submit rating',rateThanks:'Thanks for the feedback!',ratedLabel:'Rated',rateTitle:'How was your ride?',waRateMsg:'Thanks for riding with MicroMobility! How was your ride? Rate it here:\n\nشكراً لركوبك مع مايكروموبيليتي! كيف كانت رحلتك؟ قيّمها هنا:',
+  bookAgainBtn:'Book again',rateRideBtn:'Rate your ride',rateBikeLabel:'Bike',rateExpLabel:'Experience',rateNoteLabel:'Comments (optional)',rateReasonLabel:'What could be better?',rateReasonHint:'You rated below 10 - please tell us why.',rateReasonRequired:'Please tell us what could be better before submitting.',rateSubmitBtn:'Submit rating',rateThanks:'Thanks for the feedback!',ratedLabel:'Rated',rateTitle:'How was your ride?',waRateMsg:'Thanks for riding with MicroMobility! How was your ride? Rate it here:\n\nشكراً لركوبك مع مايكروموبيليتي! كيف كانت رحلتك؟ قيّمها هنا:',
   typePrefHint:'We\'ll pre-select this each time you book.',
   typePrefSaved:'Type preference saved.',
   pricePerBike:'Price per bike',bikesWord:'bikes',totalWord:'Total',
@@ -635,7 +635,7 @@ ar:{
   promoLabel:'رمز الخصم',promoApplyBtn:'تطبيق',promoInvalidMsg:'رمز غير صالح أو غير مفعّل',promoAppliedMsg:'تم تطبيق {0}',promoRemoveBtn:'إزالة',promoDiscountLabel:'الخصم',
   promoMgrTitle:'رموز الخصم',promoCodeLabel:'الرمز',promoKindLabel:'النوع',promoValueLabel:'القيمة',promoPercentOpt:'نسبة (%)',promoFlatOpt:'مبلغ ثابت (ريال)',promoActiveLabel:'مفعّل',promoInactiveLabel:'غير مفعّل',promoAddBtn:'+ إضافة رمز',promoNoCodes:'لا توجد رموز خصم بعد.',promoSavedToast:'تم حفظ رمز الخصم',
   myCurrentRides:'الحالية والقادمة',myPastRides:'الرحلات السابقة',noPastRides:'لا توجد رحلات مكتملة بعد.',noCurrentRides:'لا حجوزات قادمة. احجز رحلة للبدء.',
-  bookAgainBtn:'احجز مجدداً',rateRideBtn:'قيّم رحلتك',rateBikeLabel:'الدراجة',rateExpLabel:'التجربة',rateNoteLabel:'ملاحظات (اختياري)',rateSubmitBtn:'إرسال التقييم',rateThanks:'شكراً لتقييمك!',ratedLabel:'تم التقييم',rateTitle:'كيف كانت رحلتك؟',waRateMsg:'Thanks for riding with MicroMobility! How was your ride? Rate it here:\n\nشكراً لركوبك مع مايكروموبيليتي! كيف كانت رحلتك؟ قيّمها هنا:',
+  bookAgainBtn:'احجز مجدداً',rateRideBtn:'قيّم رحلتك',rateBikeLabel:'الدراجة',rateExpLabel:'التجربة',rateNoteLabel:'ملاحظات (اختياري)',rateReasonLabel:'ما الذي يمكن تحسينه؟',rateReasonHint:'قيّمت أقل من 10 - يرجى إخبارنا بالسبب.',rateReasonRequired:'يرجى إخبارنا بما يمكن تحسينه قبل الإرسال.',rateSubmitBtn:'إرسال التقييم',rateThanks:'شكراً لتقييمك!',ratedLabel:'تم التقييم',rateTitle:'كيف كانت رحلتك؟',waRateMsg:'Thanks for riding with MicroMobility! How was your ride? Rate it here:\n\nشكراً لركوبك مع مايكروموبيليتي! كيف كانت رحلتك؟ قيّمها هنا:',
   typePrefHint:'سيتم اختياره تلقائياً عند كل حجز.',
   typePrefSaved:'تم حفظ تفضيل النوع.',
   pricePerBike:'السعر للدراجة',bikesWord:'دراجات',totalWord:'الإجمالي',
@@ -3452,6 +3452,8 @@ function openRateModal(id){
 }
 function closeRateModal(){document.getElementById('rate-modal').style.display='none';}
 function setRate(kind,v){if(kind==='bike')S._rateBike=v;else S._rateExp=v;renderRateModal();}
+// A reason is required when the customer actually rated (>0) but gave less than a perfect 10 on either scale
+function _rateNeedsReason(){return (S._rateBike>0&&S._rateBike<10)||(S._rateExp>0&&S._rateExp<10);}
 function renderRateModal(){
   const scale=n=>{const cur=n==='bike'?S._rateBike:S._rateExp;return Array.from({length:10},(_,i)=>i+1).map(v=>`<button onclick="setRate('${n}',${v})" aria-label="${v}" style="width:28px;height:28px;border-radius:50%;border:1px solid ${cur>=v?'var(--green)':'var(--border)'};background:${cur>=v?'rgba(3,255,137,.18)':'transparent'};color:${cur>=v?'var(--green)':'var(--muted)'};font-weight:800;font-size:11px;cursor:pointer">${v}</button>`).join('');};
   document.getElementById('rate-modal').innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeRateModal()">
@@ -3466,8 +3468,9 @@ function renderRateModal(){
         <div style="display:flex;gap:5px;flex-wrap:wrap">${scale('exp')}</div>
       </div>
       <div class="form-group" style="margin:16px 0">
-        <label>${t('rateNoteLabel')}</label>
-        <textarea id="rate-note" rows="3" oninput="S._rateNote=this.value" style="width:100%;background:var(--s3);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text);font-family:'Space Grotesk',sans-serif;resize:vertical">${esc(S._rateNote||'')}</textarea>
+        <label>${_rateNeedsReason()?t('rateReasonLabel')+' <span style="color:var(--orange)">*</span>':t('rateNoteLabel')}</label>
+        <textarea id="rate-note" rows="3" oninput="S._rateNote=this.value" style="width:100%;background:var(--s3);border:1px solid ${_rateNeedsReason()&&!(S._rateNote||'').trim()?'var(--orange)':'var(--border)'};border-radius:10px;padding:10px;color:var(--text);font-family:'Space Grotesk',sans-serif;resize:vertical">${esc(S._rateNote||'')}</textarea>
+        ${_rateNeedsReason()?`<div style="font-size:11px;color:var(--orange);margin-top:5px">${t('rateReasonHint')}</div>`:''}
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeRateModal()">${t('cancelBtn')}</button>
@@ -3479,6 +3482,12 @@ function renderRateModal(){
 async function submitRating(){
   const id=S._rateId;if(!id)return;
   const note=(document.getElementById('rate-note')?.value||S._rateNote||'').trim();
+  S._rateNote=note;
+  if(_rateNeedsReason()&&!note){ // rated below 10: make them say why
+    const ta=document.getElementById('rate-note');if(ta){ta.style.borderColor='var(--orange)';ta.focus();}
+    toast(t('rateReasonRequired'),'warning');
+    return;
+  }
   const{error}=await sb.from('queue_entries').update({rating_bike:S._rateBike||null,rating_exp:S._rateExp||null,feedback:note||null}).eq('id',id);
   if(error){toast(error.message||t('errConnection'),'error');return;}
   const e=getQueue().find(x=>x.id===id);if(e){e.ratingBike=S._rateBike||null;e.ratingExp=S._rateExp||null;e.feedback=note||null;}
