@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="icon-192.png">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=71">
+  <link rel="stylesheet" href="./styles.css?v=72">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th='light';localStorage.setItem('cq_theme','light');}if(_th==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}</script>
 </head>
 <body>
@@ -5609,6 +5609,7 @@ function logAction(label){
   const op=_opName();
   const by=S.view==='staff'?(op||'Staff'):((S.loggedIn&&S.loggedIn.name)||'Guest');
   S.fullLog.push({ts:Date.now(),label:String(label),by,view:S.view||''});
+  if(S.fullLog.length>2000)S.fullLog=S.fullLog.slice(-2000); // rotate locally; the shared staff_actions table keeps the full history
   _saveFullLog();
   // Mirror to a shared audit table so every device's actions are attributable (tolerant: table may not exist yet)
   try{if(sb&&S.view==='staff')sb.from('staff_actions').insert({at:new Date().toISOString(),action:String(label).slice(0,300),who:op.slice(0,40)||null,device:_deviceId(),view:S.view||''}).then(()=>{},()=>{});}catch(_){}
@@ -5823,41 +5824,95 @@ async function staffCancelEntry(id){
   });
 }
 
+// ── Logs: shared audit trail ──
+// Reads the staff_actions table (all devices) and merges the local device log as a fallback,
+// deduping this device's mirrored writes by minute+text. The table may not exist yet: local-only then.
+let _dbLogBusy=false;
+async function _loadDbLogs(){
+  if(_dbLogBusy||!sb)return;
+  if(S._dbLog&&Date.now()-(S._dbLogAt||0)<60000)return; // 60s cache so re-renders don't hammer the DB
+  _dbLogBusy=true;
+  try{
+    const{data,error}=await sb.from('staff_actions').select('*').order('at',{ascending:false}).limit(1500);
+    if(!error&&Array.isArray(data)){S._dbLog=data.map(r=>({ts:new Date(r.at).getTime()||0,label:r.action||'',by:r.who||'Staff'}));S._dbLogAt=Date.now();}
+  }catch(_){}
+  _dbLogBusy=false;
+  if(S.view==='staff'&&S.staffTab==='logs')renderLogs();
+}
+// Category of a log line, matched bilingually (labels are stored in whichever UI language was active when written)
+function _logCatOf(lbl){
+  const s=(lbl||'').toLowerCase();
+  if(/login|logged|logout|unlock|password|account|switched|\u062f\u062e\u0648\u0644|\u062e\u0631\u0648\u062c|\u0643\u0644\u0645\u0629|\u062d\u0633\u0627\u0628|\u0641\u062a\u062d|\u062a\u062d\u0648\u064a\u0644/.test(s))return'auth';
+  if(/bike|fleet|retire|maintenance|\u062f\u0631\u0627\u062c\u0629|\u0623\u0633\u0637\u0648\u0644|\u0635\u064a\u0627\u0646\u0629/.test(s))return'bike';
+  if(/inventory|stock|item|reorder|\u0645\u062e\u0632\u0648\u0646|\u0639\u0646\u0635\u0631/.test(s))return'inv';
+  if(/paid|payment|refund|price|receipt|sale|discount|\u062f\u0641\u0639|\u0645\u062f\u0641\u0648\u0639|\u0627\u0633\u062a\u0631\u062f\u0627\u062f|\u0633\u0639\u0631|\u0641\u0627\u062a\u0648\u0631\u0629|\u0628\u064a\u0639|\u062e\u0635\u0645/.test(s))return'pay';
+  if(/book|cancel|no-?show|check|queue|promot|waitlist|renumber|session|rider|\u062d\u062c\u0632|\u0625\u0644\u063a\u0627\u0621|\u062d\u0636\u0648\u0631|\u062a\u0633\u062c\u064a\u0644|\u0637\u0627\u0628\u0648\u0631|\u062a\u0631\u0642\u064a\u0629|\u0627\u0646\u062a\u0638\u0627\u0631|\u062c\u0644\u0633\u0629|\u0631\u0627\u0643\u0628|\u0631\u0642\u0645/.test(s))return'book';
+  return'other';
+}
+const _LOG_CATS=[['pay','logCatPay'],['book','logCatBook'],['bike','logCatBike'],['inv','logCatInv'],['auth','logCatAuth'],['other','logCatOther']];
 function renderLogs(){
   const el=document.getElementById('tab-logs');if(!el)return;
-  const fmt=ts=>new Date(ts).toLocaleString('en-SA',{timeZone:KSA_TZ,hour12:false,year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  const log=S.fullLog||[];
+  try{_loadDbLogs();}catch(_){}
+  const fmtT=ts=>new Date(ts).toLocaleTimeString('en-GB',{timeZone:KSA_TZ,hour12:false,hour:'2-digit',minute:'2-digit'});
+  const seen=new Set();
+  const all=[...(S._dbLog||[]),...(S.fullLog||[]).map(i=>({ts:i.ts,label:i.label,by:i.by||''}))]
+    .filter(i=>{const k=Math.floor((i.ts||0)/60000)+'|'+(i.label||'');if(seen.has(k))return false;seen.add(k);return true;})
+    .sort((a,b)=>(b.ts||0)-(a.ts||0));
   const opBar=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
       <span style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">${t('logsOperator')}</span>
       <input type="text" value="${esc(_opName())}" placeholder="${t('logsOperatorPh')}" onchange="setOpName(this.value)" maxlength="40" style="flex:1;max-width:260px;background:#1a1a1a;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:7px 11px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;outline:none">
       ${isAdmin()?`<button class="btn-sm btn-muted" onclick="fixDuplicateQNums()" style="font-size:12px">${t('fixDupBtn')}</button>`:''}
     </div>`;
-  if(!log.length){
-    el.innerHTML=`<div style="padding:16px 20px">${opBar}<div style="padding:40px;text-align:center;color:var(--muted);font-size:14px;">${t('logsEmpty')}</div></div>`;
-    return;
-  }
-  const rows=log.slice().reverse().map(item=>`
-    <tr>
-      <td style="padding:10px 14px;color:var(--muted);font-size:12px;white-space:nowrap">${fmt(item.ts)}</td>
-      <td style="padding:10px 14px;font-size:12px;font-weight:700;color:${item.by==='Staff'?'var(--green)':'var(--muted-l)'};white-space:nowrap">${esc(item.by==='Staff'?t('byStaff'):item.by==='Guest'?t('byGuest'):(item.by||''))}</td>
-      <td style="padding:10px 14px;font-size:13px">${esc(item.label)}</td>
-    </tr>`).join('');
+  const ops=[...new Set(all.map(i=>i.by).filter(Boolean))].sort();
+  const q=(S._logSearch||'').trim().toLowerCase();
+  let list=all;
+  if(S._logCat&&S._logCat!=='all')list=list.filter(i=>_logCatOf(i.label)===S._logCat);
+  if(S._logOp&&S._logOp!=='all')list=list.filter(i=>i.by===S._logOp);
+  if(q)list=list.filter(i=>(i.label||'').toLowerCase().includes(q)||(i.by||'').toLowerCase().includes(q));
+  S._logExport=list; // stash for CSV export (respects current filters)
+  const catPill=(v,l)=>`<button class="filter-pill${(S._logCat||'all')===v?' active':''}" onclick="S._logCat='${v}';renderLogs()">${l}</button>`;
+  const filterBar=`
+    <div class="filter-row" style="margin-bottom:8px">${catPill('all',t('filterAll'))}${_LOG_CATS.map(([v,k])=>catPill(v,t(k))).join('')}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
+      <input id="log-search" type="text" value="${esc(S._logSearch||'')}" placeholder="${esc(t('logsSearchPh'))}" oninput="S._logSearch=this.value;renderLogs()" style="flex:1;min-width:170px;background:#1a1a1a;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:8px 12px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;outline:none">
+      ${ops.length>1?`<select class="filter-select" onchange="S._logOp=this.value;renderLogs()"><option value="all"${(S._logOp||'all')==='all'?' selected':''}>${t('filterAll')}</option>${ops.map(o=>`<option value="${esc(o)}"${S._logOp===o?' selected':''}>${esc(o)}</option>`).join('')}</select>`:''}
+      <button class="btn-secondary" onclick="exportLogsCSV()" style="white-space:nowrap">${t('logsExportBtn')}</button>
+    </div>`;
+  const dayKey=ts=>new Date(ts).toLocaleDateString('en-CA',{timeZone:KSA_TZ});
+  const todayK=todayStr(),yestK=fmtDate(new Date(Date.now()-864e5));
+  const catColors={pay:'var(--green)',book:'var(--blue)',bike:'var(--orange)',inv:'var(--purple)',auth:'var(--red)',other:'var(--muted)'};
+  const catChip=c=>{const k=_LOG_CATS.find(x=>x[0]===c);return`<span style="flex-shrink:0;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;color:${catColors[c]||'var(--muted)'};border:1px solid currentColor;border-radius:6px;padding:1px 6px;opacity:.85">${t(k?k[1]:'logCatOther')}</span>`;};
+  let out='',curDay=null;
+  list.slice(0,500).forEach(i=>{
+    const dk=dayKey(i.ts||0);
+    if(dk!==curDay){curDay=dk;out+=`<div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:16px 0 6px">${dk===todayK?t('logToday'):dk===yestK?t('logYesterday'):dk}</div>`;}
+    out+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border)">
+      <span style="color:var(--muted);font-size:11px;white-space:nowrap;flex-shrink:0;font-variant-numeric:tabular-nums">${fmtT(i.ts||0)}</span>
+      ${catChip(_logCatOf(i.label))}
+      <span style="flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(i.label)}</span>
+      <span style="font-size:11px;font-weight:800;color:var(--green);white-space:nowrap;flex-shrink:0">${esc(i.by==='Staff'?t('byStaff'):i.by==='Guest'?t('byGuest'):(i.by||''))}</span>
+    </div>`;
+  });
+  const hadFocus=document.activeElement&&document.activeElement.id==='log-search';
   el.innerHTML=`<div style="padding:16px 20px">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
       <h3 style="font-size:16px;font-weight:700;color:var(--text)">${t('logsTitle')}</h3>
-      <span style="font-size:12px;font-weight:700;color:var(--muted)">${log.length}</span>
+      <span style="font-size:12px;font-weight:700;color:var(--muted)">${list.length}</span>
     </div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:16px">${t('logsPermanentNote')}</div>
     ${opBar}
-    <table style="width:100%;border-collapse:collapse">
-      <thead><tr style="border-bottom:1px solid rgba(255,255,255,.08)">
-        <th style="padding:8px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)">${t('logsColTime')}</th>
-        <th style="padding:8px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)">${t('logsColBy')}</th>
-        <th style="padding:8px 14px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--muted)">${t('logsColAction')}</th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>
+    ${all.length?filterBar:''}
+    ${list.length?out:`<div style="padding:40px;text-align:center;color:var(--muted);font-size:14px">${t('logsEmpty')}</div>`}
   </div>`;
+  if(hadFocus){const inp=document.getElementById('log-search');if(inp){inp.focus();const v=inp.value;inp.value='';inp.value=v;}}
+}
+function exportLogsCSV(){
+  const list=S._logExport||[];if(!list.length){toast(t('logsEmpty'),'warning');return;}
+  const fmt=ts=>new Date(ts).toLocaleString('en-GB',{timeZone:KSA_TZ,hour12:false});
+  const rows=[[t('logsColTime'),t('logsColBy'),t('logsColAction')],...list.map(i=>[fmt(i.ts||0),i.by||'',i.label||''])];
+  const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='action_log.csv';a.click();URL.revokeObjectURL(url);
 }
 
 function confirmLogUndo(logId){
@@ -8092,11 +8147,18 @@ function closeCustomerProfile(){document.getElementById('cust-modal').style.disp
 function renderHistory(){
   const queue=getQueue();const hist=queue.filter(e=>e.status==='done'||e.status==='noshow'||e.status==='cancelled'||e.status==='removed');
   const sessions=allSessions();
-  const sessionFiltered=S.histSess!=='all'?hist.filter(e=>e.sessionId===S.histSess):hist;
+  const _hrCut=S.histRange==='today'?todayStr():S.histRange==='7d'?fmtDate(new Date(Date.now()-7*864e5)):S.histRange==='30d'?fmtDate(new Date(Date.now()-30*864e5)):null;
+  const _hrOk=e=>!_hrCut||String(e.sessionDate||'')>=_hrCut;
+  S.histSelected=(S.histSelected||[]).filter(id=>{const e=hist.find(x=>x.id===id);return e&&e.status==='done'&&!e.paid;}); // drop rows that got paid/removed since selection
+  const sessionFiltered=(S.histSess!=='all'?hist.filter(e=>e.sessionId===S.histSess):hist).filter(_hrOk);
   const nDone=sessionFiltered.filter(e=>e.status==='done').length,nPaid=sessionFiltered.filter(e=>e.status==='done'&&e.paid).length,
         nPend=sessionFiltered.filter(e=>e.status==='done'&&!e.paid).length,nNoShow=sessionFiltered.filter(e=>e.status==='noshow').length;
+  const _hr2=n=>Math.round(n*100)/100;
+  const sarCollected=_hr2(sessionFiltered.filter(e=>e.status==='done'&&e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0));
+  const sarPending=_hr2(sessionFiltered.filter(e=>e.status==='done'&&!e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0));
   let filtered=[...hist];
   if(S.histSess!=='all')   filtered=filtered.filter(e=>e.sessionId===S.histSess);
+  filtered=filtered.filter(_hrOk);
   if(S.histStatus!=='all') filtered=filtered.filter(e=>e.status===S.histStatus);
   if(S.histPay==='paid')   filtered=filtered.filter(e=>e.paid);
   if(S.histPay==='pending')filtered=filtered.filter(e=>!e.paid&&e.status==='done');
@@ -8129,6 +8191,7 @@ function renderHistory(){
     `<option value="${v}"${S.histSort===v?' selected':''}>${l}</option>`).join('');
   const sessOpts=`<option value="all"${S.histSess==='all'?' selected':''}>${t('allSessions')}</option>`+
     sessions.map(s=>`<option value="${s.id}"${S.histSess===s.id?' selected':''}>${dayLabel(s.day)} ${s.display}</option>`).join('');
+  const hRangeOpts=[['all',t('filterAll')],['today',t('histRangeToday')],['7d',t('histRange7')],['30d',t('histRange30')]].map(([v,l])=>`<option value="${v}"${S.histRange===v?' selected':''}>${l}</option>`).join('');
   const _histShown=filtered.slice(0,S.histLimit||60);
   const rows=_histShown.map(e=>{
     const bike=getAssignedBikes(e)[0]||null;
@@ -8161,6 +8224,7 @@ function renderHistory(){
       <td style="font-weight:900;font-size:15px;white-space:nowrap;color:${payColor}">SAR ${e.price??DEFAULT_PRICE}</td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+          ${e.status==='done'&&!e.paid?`<button class="btn-sm" title="${t('selectRowTip')}" onclick="toggleHistSelect('${e.id}')" style="padding:4px 8px;background:${S.histSelected.includes(e.id)?'rgba(3,255,137,.18)':'rgba(255,255,255,.04)'};border:1px solid ${S.histSelected.includes(e.id)?'var(--green)':'rgba(255,255,255,.14)'};color:${S.histSelected.includes(e.id)?'var(--green)':'var(--muted)'}">${S.histSelected.includes(e.id)?'☑':'☐'}</button>`:''}
           <button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
             ${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}
           </button>
@@ -8185,9 +8249,10 @@ function renderHistory(){
     <div class="section-header" style="margin-bottom:8px">
       <div>
         <div class="page-title">${t('historyTitle')}</div>
-        <div class="page-sub" style="margin-bottom:0">${t('historySub')}</div>
+        <div class="page-sub" style="margin-bottom:0">${t('historySub')} <span style="opacity:.65">· ${t('histWindowNote')}</span></div>
       </div>
       <div class="hist-action-btns" style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        ${(S.histSelected||[]).length?`<button class="btn-sm btn-green" onclick="bulkHistMarkPaid()" style="white-space:nowrap">${t('histMarkSelPaid').replace('{0}',S.histSelected.length)}</button>`:''}
         <button class="btn-secondary" onclick="S.showHistLog=!S.showHistLog;renderHistory()" style="white-space:nowrap">${t('histLogBtn')}${S.histLog.length>0?` (${S.histLog.length})`:''}</button>
         <button class="btn-secondary" onclick="exportHistoryCSV()" style="white-space:nowrap">${ICON_EXPORT} ${t('exportBtn')||'Export CSV'}</button>
       </div>
@@ -8211,6 +8276,8 @@ function renderHistory(){
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nPaid}</div><div class="stat-label">${t('filterPaid')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--muted-l)">${nPend}</div><div class="stat-label">${t('pendingLabel')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--red)">${nNoShow}</div><div class="stat-label">${t('filterNoshow')}</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--green);font-size:19px">SAR ${sarCollected}</div><div class="stat-label">${t('printCollected')}</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--orange);font-size:19px">SAR ${sarPending}</div><div class="stat-label">${t('printPending')}</div></div>
     </div>
     <div class="filter-bar">
       <div class="filter-row">
@@ -8227,6 +8294,8 @@ function renderHistory(){
         <select class="filter-select" onchange="setHistType(this.value)">${hTypeOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('colSession')}:</span>
         <select class="filter-select" onchange="setHistSess(this.value)">${sessOpts}</select>
+        <span class="filter-label" style="margin-left:8px">${t('histRangeLabel')}:</span>
+        <select class="filter-select" onchange="setHistRange(this.value)">${hRangeOpts}</select>
       </div>
       ${filtered.length!==hist.length?`<div class="result-count">${filtered.length} ${t('resultOf')} ${hist.length} ${t('resultRecords')}</div>`:''}
     </div>
@@ -8252,6 +8321,16 @@ function renderHistory(){
 }
 
 function setHistStatus(v){S.histStatus=v;renderHistory();}
+function setHistRange(v){S.histRange=v;S.histLimit=60;renderHistory();}
+function toggleHistSelect(id){S.histSelected=S.histSelected||[];const i=S.histSelected.indexOf(id);if(i>=0)S.histSelected.splice(i,1);else S.histSelected.push(id);renderHistory();}
+async function bulkHistMarkPaid(){
+  const ids=(S.histSelected||[]).slice();if(!ids.length)return;
+  const res=await Promise.all(ids.map(id=>sb.from('queue_entries').update({paid:true}).eq('id',id)));
+  if(_writeErr(res,'bulk mark paid')){await loadDataLight();renderHistory();return;}
+  logAction(t('logBulkPaid').replace('{0}',ids.length));
+  S.histSelected=[];
+  await loadDataLight();renderHistory();
+}
 function setHistPay(v){S.histPay=v;renderHistory();}
 function setHistSess(v){S.histSess=v;renderHistory();}
 function setHistSort(col){
@@ -8282,6 +8361,8 @@ function setBkSize(v){S.bkSize=v;renderBikes();}
 function exportHistoryCSV(){
   let hist=getQueue().filter(e=>['done','noshow','cancelled','removed'].includes(e.status));
   if(S.histSess!=='all') hist=hist.filter(e=>e.sessionId===S.histSess);
+  const _xCut=S.histRange==='today'?todayStr():S.histRange==='7d'?fmtDate(new Date(Date.now()-7*864e5)):S.histRange==='30d'?fmtDate(new Date(Date.now()-30*864e5)):null;
+  if(_xCut)hist=hist.filter(e=>String(e.sessionDate||'')>=_xCut);
   const sess=S.histSess!=='all'?allSessions().find(s=>s.id===S.histSess):null;
   const filename=sess
     ?`rides_${dayLabel(sess.day)}_${sess.session_date||sess.id}.csv`
