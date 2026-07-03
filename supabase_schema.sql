@@ -121,6 +121,8 @@ create table if not exists queue_entries (
 -- alter table queue_entries add column if not exists purchases text;  -- JSON array of cashier purchases sold with the rental (cashier system)
 -- alter table queue_entries add column if not exists pay_method text;  -- 'card' | 'cash' | 'split' for a paid rental (close-out card/cash split)
 -- alter table queue_entries add column if not exists card_amount numeric;  -- SAR paid by card on a split rental; the rest is cash
+-- alter table queue_entries add column if not exists checked_in_at text;   -- exact check-in timestamp (ISO; set when staff taps Check In)
+-- alter table queue_entries add column if not exists checked_out_at text;  -- exact check-out timestamp (ISO; set when staff taps Return Bike)
 
 -- Optional but RECOMMENDED: stop two devices from issuing the same queue number in a session.
 -- The client retries on conflict, so this is the hard guarantee. Partial so cancelled/removed rows don't collide.
