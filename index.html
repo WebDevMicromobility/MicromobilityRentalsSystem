@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=80">
+  <link rel="stylesheet" href="./styles.css?v=81">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th='light';localStorage.setItem('cq_theme','light');}if(_th==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}</script>
 </head>
 <body>
@@ -1628,7 +1628,22 @@ function spotsLeft(sid){
   
   return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed').length);
 }
-function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid).map(e=>e.queueNum||0);return nums.length?nums.reduce((a,b)=>Math.max(a,b),0)+1:1;} // max over ALL rows (incl. cancelled/removed/noshow): numbers are never reused while their row still exists, so the unique (session_id,queue_num) index is never violated
+function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid&&e.status!=='cancelled'&&e.status!=='removed').map(e=>e.queueNum||0);return nums.length?nums.reduce((a,b)=>Math.max(a,b),0)+1:1;} // cancelled/removed numbers are recycled (the partial unique index exempts those rows); noshow numbers stay reserved because the rider can come back
+// Close the gap a cancelled/removed booking leaves: shift every waiting rider behind it down one.
+// Sequential and ascending so the partial unique (session_id,queue_num) index never sees two LIVE rows share a number mid-shift.
+async function _shiftDownAfter(sessionId,fromNum){
+  const behind=getQueue().filter(e=>e.sessionId===sessionId&&e.status==='waiting'&&e.queueNum>fromNum).sort((a,b)=>a.queueNum-b.queueNum);
+  for(const e of behind){
+    const{error}=await sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id);
+    if(error){_writeErr({error},'renumber');break;}
+    e.queueNum=e.queueNum-1;
+  }
+}
+// Number to restore an undone booking to: its old number if still free among live rows, else a fresh one
+function _restoreNum(sessionId,oldNum,selfId){
+  const taken=getQueue().some(e=>e.sessionId===sessionId&&e.queueNum===oldNum&&e.id!==selfId&&['waiting','active','done'].includes(e.status));
+  return taken?nextQNum(sessionId):oldNum;
+}
 // Surface a Supabase write failure to the user. Supabase's .update()/.insert() return {error} instead of throwing, so silent failures are easy to miss (this is what hid the no-show bug).
 // Pass a single result or an array of results (from Promise.all). Returns true if any write errored, so callers can `if(_writeErr(res,'ctx'))return;`.
 function _writeErr(res,ctx){
@@ -5829,10 +5844,10 @@ async function cancelBooking(id,reason){
   if(!entry||(entry.status!=='waiting'&&entry.status!=='waitlist')){toast(t('errCancelWaiting'),'error');return;}
   const isWaitlist=entry.status==='waitlist';
   const savedQNum=entry.queueNum;
-  // Ticket numbers are stable and never reused; cancelling just frees the slot and leaves a gap (no shifting, which a unique index would reject).
   const bikeIds=getAssignedBikeIds(entry);
   await sb.from('queue_entries').update({status:'cancelled',assigned_bike_id:null}).eq('id',id);
   if(bikeIds.length)await Promise.all(bikeIds.map(bid=>sb.from('bikes').update({status:'available'}).eq('id',bid)));
+  if(!isWaitlist)await _shiftDownAfter(entry.sessionId,savedQNum); // close the number gap
 
   if(reason){
     S.cancellationLog.unshift({
@@ -5848,7 +5863,7 @@ async function cancelBooking(id,reason){
   if(!isWaitlist)await _restockAddonsOnExit(entry); // waitlist bookings never reserved stock, so nothing to restock
   toast(t('toastBookingCancelled'));
   pushUndo(`${t('undoCancelBooking')} #${savedQNum} ${entry.name}`,async()=>{
-    await sb.from('queue_entries').update({status:isWaitlist?'waitlist':'waiting',queue_num:savedQNum}).eq('id',id);
+    await sb.from('queue_entries').update({status:isWaitlist?'waitlist':'waiting',queue_num:_restoreNum(entry.sessionId,savedQNum,id)}).eq('id',id);
     await loadData();renderMyRides();renderStaffQueue();
   });
   renderMyRides();
@@ -5873,26 +5888,27 @@ async function staffCancelEntry(id){
       const savedAssigned=entry.assignedBikeId;
       if(entry.status==='waiting'){
         const savedQNum=entry.queueNum;
-        // Ticket numbers are stable and never reused; cancel frees the slot and leaves a gap (no shifting, which a unique index would reject).
         await sb.from('queue_entries').update({status:'cancelled'}).eq('id',id);
+        await _shiftDownAfter(entry.sessionId,savedQNum); // close the number gap
         await loadData();
         await _restockAddonsOnExit(entry);
         toast(`Booking #${savedQNum} cancelled.`);
         pushUndo(`${t('undoStaffCancel')} #${savedQNum} ${entry.name}`,async()=>{
-          await sb.from('queue_entries').update({status:'waiting',queue_num:savedQNum}).eq('id',id);
+          await sb.from('queue_entries').update({status:'waiting',queue_num:_restoreNum(entry.sessionId,savedQNum,id)}).eq('id',id);
           await loadData();renderMyRides();renderStaffQueue();
         });
       }else{
         const calls=[sb.from('queue_entries').update({status:'cancelled',assigned_bike_id:null}).eq('id',id)];
         bikeIds.forEach(bid=>calls.push(sb.from('bikes').update({status:'available'}).eq('id',bid)));
         await Promise.all(calls);
+        await _shiftDownAfter(entry.sessionId,entry.queueNum); // close the number gap
         await loadData();
         await _restockAddonsOnExit(entry);
         try{localStorage.removeItem('cq_ct_'+id);}catch(e){}
         toast(`Booking #${entry.queueNum} cancelled.`);
         pushUndo(`${t('undoStaffCancel')} #${entry.queueNum} ${entry.name}`,async()=>{
           const assignedVal=bikeIds.length===1?bikeIds[0]:(bikeIds.length?JSON.stringify(bikeIds):null);
-          const calls2=[sb.from('queue_entries').update({status:savedStatus,assigned_bike_id:assignedVal}).eq('id',id)];
+          const calls2=[sb.from('queue_entries').update({status:savedStatus,assigned_bike_id:assignedVal,queue_num:_restoreNum(entry.sessionId,entry.queueNum,id)}).eq('id',id)];
           bikeIds.forEach(bid=>calls2.push(sb.from('bikes').update({status:'in-use'}).eq('id',bid)));
           await Promise.all(calls2);
           await loadData();renderStaffQueue();
@@ -6232,7 +6248,7 @@ async function saveEditedQNum(entryId){
 async function fixDuplicateQNums(){
   if(!isAdmin()){toast(t('adminOnlyMsg'),'error');return;}
   const bySession={};
-  getQueue().forEach(e=>{(bySession[e.sessionId]=bySession[e.sessionId]||[]).push(e);});
+  getQueue().filter(e=>e.status!=='cancelled'&&e.status!=='removed').forEach(e=>{(bySession[e.sessionId]=bySession[e.sessionId]||[]).push(e);}); // recycled cancelled/removed numbers are legitimate
   const toFix=[];
   Object.keys(bySession).forEach(sid=>{
     const rows=bySession[sid];
@@ -6716,11 +6732,13 @@ function confirmHistRemove(id){
 async function doRemove(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
   const prevStatus=entry.status;
+  const savedQNum=entry.queueNum;
   addHistLog(t('histRemoved'),entry,async()=>{
-    await sb.from('queue_entries').update({status:prevStatus==='done'?'done':'waiting'}).eq('id',id);
+    await sb.from('queue_entries').update({status:prevStatus==='done'?'done':'waiting',queue_num:_restoreNum(entry.sessionId,savedQNum,id)}).eq('id',id);
     await loadData();renderStaffQueue();renderHistory();
   });
   await sb.from('queue_entries').update({status:'removed'}).eq('id',id);
+  if(prevStatus==='waiting')await _shiftDownAfter(entry.sessionId,savedQNum); // close the number gap
   await loadData();toast(t('toastRiderRemoved'));
   renderStaffQueue();renderHistory();
 }
@@ -6733,7 +6751,7 @@ async function doRestoreEntry(id){
     await sb.from('queue_entries').update({status:originalStatus}).eq('id',id);
     await loadData();renderHistory();
   });
-  await sb.from('queue_entries').update({status:restoreStatus}).eq('id',id);
+  await sb.from('queue_entries').update({status:restoreStatus,queue_num:_restoreNum(entry.sessionId,entry.queueNum,id)}).eq('id',id);
   await loadData();toast(t('restoreEntryBtn')||'Restored');
   renderHistory();
 }
