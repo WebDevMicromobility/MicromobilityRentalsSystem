@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=77">
+  <link rel="stylesheet" href="./styles.css?v=78">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th='light';localStorage.setItem('cq_theme','light');}if(_th==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}</script>
 </head>
 <body>
@@ -5038,6 +5038,15 @@ function renderStaffQueue(){
     return`<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
   }
 
+  const _adChips=e=>{
+    const ad=addonLineItems(entryAddons(e));
+    const canEdit=['waiting','active','waitlist'].includes(e.status);
+    if(!ad.length&&!canEdit)return'';
+    return`<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+      ${ad.map(a=>`<span style="font-size:10px;font-weight:700;background:rgba(3,255,137,.08);border:1px solid rgba(3,255,137,.2);border-radius:6px;padding:1px 6px;white-space:nowrap">${esc(a.name)}${a.qty>1?` ×${a.qty}`:''} · <bdi>SAR ${a.lineTotal}</bdi></span>`).join('')}
+      ${canEdit?`<button type="button" onclick="event.stopPropagation();showAddonPicker('${e.id}')" title="${t('addonEditTitle')}" style="background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);font-family:inherit;font-size:10px;font-weight:800;padding:1px 7px;border-radius:6px;cursor:pointer;line-height:1.6">+ ${t('addonAddBtn')}</button>`:''}
+    </div>`;
+  };
   function renderQRow(e){
     const assignedBikes=getAssignedBikes(e);
     const rowCls=e.status==='active'?'row-active':(e.status==='noshow'||e.status==='cancelled')?'row-noshow-cancel':(e.status==='done'&&e.paid)?'row-done-paid':(e.status==='done')?'row-done':'';
@@ -5056,7 +5065,7 @@ function renderStaffQueue(){
         <button onclick="showEditQNumModal('${e.id}')" title="${t('editQNumTip')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:1px 3px;line-height:1;display:block;margin-top:2px" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">#</button>
       </td>
       <td style="text-align:center">${posCell}</td>
-      <td><div class="rider-name">${esc(e.name)}${wiTag}${noShowFlag(e)}</div><div class="rider-sub">${esc(fmtPhone(e.phone))||'—'}</div></td>
+      <td><div class="rider-name">${esc(e.name)}${wiTag}${noShowFlag(e)}</div><div class="rider-sub">${esc(fmtPhone(e.phone))||'—'}</div>${_adChips(e)}</td>
       <td style="font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">${e.height?e.height+' cm':'<span style="color:var(--muted)">—</span>'}</td>
       <td>${typeBadge(resolvedType(e))}</td>
       ${S.sfSession==='all'?`<td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
@@ -5067,7 +5076,7 @@ function renderStaffQueue(){
           </div>`).join('')
         :'<span style="color:var(--muted)">—</span>'}</td>
       <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
-      <td style="font-weight:800;white-space:nowrap">SAR ${e.price??DEFAULT_PRICE}</td>
+      <td style="font-weight:800;white-space:nowrap">${(()=>{const _p=e.price??DEFAULT_PRICE,_a=addonsCost(entryAddons(e));return _a>0?`SAR ${Math.round((_p+_a)*100)/100}<div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${t('reviewRentalLabel')} ${_p} + ${t('addonsLabel')} ${_a}</div>`:`SAR ${_p}`;})()}</td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
           <button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">
@@ -5104,12 +5113,16 @@ function renderStaffQueue(){
       ?`<div class="pos-badge" style="font-size:12px;padding:3px 8px">${lp} / ${totalW}</div>`
       :`<span style="color:var(--muted);font-size:12px">—</span>`;
     const activeGroup=group.filter(e=>!['cancelled','noshow'].includes(e.status));
-    const totalPrice=activeGroup.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
-    const paidAmt=activeGroup.filter(e=>e.paid&&(e.price??DEFAULT_PRICE)>0).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
+    const _r2g=n=>Math.round(n*100)/100;
+    const adTotal=_r2g(activeGroup.reduce((s,e)=>s+addonsCost(entryAddons(e)),0));
+    const adPaid=_r2g(activeGroup.filter(e=>e.paid).reduce((s,e)=>s+addonsCost(entryAddons(e)),0)); // add-ons follow the rider's paid state, same rule as the close-out
+    const totalPrice=_r2g(activeGroup.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0)+adTotal);
+    const paidAmt=_r2g(activeGroup.filter(e=>e.paid&&(e.price??DEFAULT_PRICE)>0).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0)+adPaid);
     const houseAmt=activeGroup.filter(e=>e.paid&&(e.price??DEFAULT_PRICE)===0).length;
-    const remaining=totalPrice-paidAmt;
+    const remaining=_r2g(totalPrice-paidAmt);
     const paidCount=activeGroup.filter(e=>e.paid&&(e.price??DEFAULT_PRICE)>0).length;
     const priceSpan=`<span style="font-weight:800;white-space:nowrap">SAR ${totalPrice}</span>
+      ${adTotal>0?`<div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${t('addonsLabel')}: SAR ${adTotal}</div>`:''}
       <div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${paidCount}/${activeGroup.length} ${t('paidLabel')}${houseAmt>0?` · ${houseAmt} `:''}</div>
       ${remaining>0?`<div style="font-size:11px;font-weight:800;color:#e08828;margin-top:3px">SAR ${remaining} ${t('dueWord')}</div>`:`<div style="font-size:11px;font-weight:800;color:var(--green);margin-top:3px">✓ ${t('settledLabel')}</div>`}`;
 
@@ -5129,7 +5142,7 @@ function renderStaffQueue(){
       const riderCell=`<div style="display:flex;align-items:baseline;gap:5px">
         <span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--green);color:#000;font-size:10px;font-weight:900;flex-shrink:0">${i+1}</span>
         <span class="rider-name" style="margin:0;font-weight:${isFirst?'900':'600'}">${esc(e.name)}${isFirst?noShowFlag(e):''}</span>
-      </div>${isFirst&&ownerPhone?`<div class="rider-sub" style="margin-top:3px;padding-left:22px">${esc(fmtPhone(ownerPhone))}</div>`:''}`;
+      </div>${isFirst&&ownerPhone?`<div class="rider-sub" style="margin-top:3px;padding-left:22px">${esc(fmtPhone(ownerPhone))}</div>`:''}${_adChips(e)}`;
       const heightCell=`<td style="vertical-align:middle;font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">${e.height?e.height+' cm':'<span style="color:var(--muted)">—</span>'}</td>`;
       const groupLine=isFirst?'border-top:2px solid rgba(3,255,137,.15)':'';
       const bottomLine=isLast?'border-bottom:2px solid rgba(3,255,137,.15)':'';
