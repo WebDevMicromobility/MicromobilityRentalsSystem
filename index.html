@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=79">
+  <link rel="stylesheet" href="./styles.css?v=80">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th='light';localStorage.setItem('cq_theme','light');}if(_th==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}</script>
 </head>
 <body>
@@ -163,6 +163,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 <div id="help-modal"       style="display:none"></div>
 <div id="cancel-reason-modal" style="display:none"></div>
 <div id="factory-reset-modal" style="display:none"></div>
+<div id="walkin-modal" style="display:none"></div>
 <div id="print-opts-modal"   style="display:none"></div>
 <div id="qnum-edit-modal"    style="display:none"></div>
 <div id="reschedule-modal"   style="display:none"></div>
@@ -4911,6 +4912,62 @@ function _contactCell(phone,entry){
 
 
 function skeletonList(n=6,tall){return`<div class="sk-wrap">${Array.from({length:n}).map(()=>`<div class="sk-row${tall?' tall':''}"></div>`).join('')}</div>`;}
+// ── Staff walk-in: create a queue entry on the spot (no customer account) so walk-ups can rent bikes and buy items ──
+function showWalkinModal(){
+  const open=allSessions().filter(x=>x.status==='open'||x.status==='full').sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+  if(!open.length){toast(t('noSessionsAvail'),'warning');return;}
+  const selId=(S.sfSession!=='all'&&open.find(x=>x.id===S.sfSession))?S.sfSession:open[0].id;
+  S._wiType=S._wiType||'Any';
+  const m=document.getElementById('walkin-modal');
+  const tyBtn=ty=>`<button type="button" onclick="S._wiType='${ty}';showWalkinModal()" style="flex:1;padding:9px;border-radius:9px;border:1.5px solid ${S._wiType===ty?'var(--green)':'var(--border)'};background:${S._wiType===ty?'rgba(3,255,137,.12)':'transparent'};color:${S._wiType===ty?'var(--green)':'var(--muted)'};font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">${typeLabel(ty)}</button>`;
+  const keep=id=>{const el=document.getElementById(id);return el?el.value:'';} // preserve typed values across type-pill re-renders
+  const _n=keep('wi-name'),_p=keep('wi-phone'),_h=keep('wi-height'),_s=keep('wi-sess')||selId;
+  m.style.display='flex';
+  m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeWalkinModal()">
+    <div class="modal-box" role="dialog" aria-modal="true" style="max-width:420px">
+      <div class="modal-title">${t('addWalkinBtn')}</div>
+      <div class="form-group" style="margin:14px 0 10px"><label>${t('nameLabel')} *</label><input id="wi-name" type="text" value="${esc(_n)}" maxlength="60"></div>
+      <div style="display:flex;gap:10px">
+        <div class="form-group" style="flex:1;margin-bottom:10px"><label>${t('authPhone')}</label><input id="wi-phone" type="tel" value="${esc(_p)}" placeholder="05…"></div>
+        <div class="form-group" style="width:110px;margin-bottom:10px"><label>${t('colHeight')} (${t('cmUnit')})</label><input id="wi-height" type="number" min="80" max="230" value="${esc(_h)}"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:10px"><label>${t('bikeTypeLabel')}</label>
+        <div style="display:flex;gap:6px">${['Any','Road','Hybrid','Mountain'].map(tyBtn).join('')}</div></div>
+      <div class="form-group" style="margin-bottom:14px"><label>${t('colSession')}</label>
+        <select id="wi-sess">${open.map(x=>`<option value="${x.id}"${_s===x.id?' selected':''}>${dayLabel(x.day)} ${shortDate(x.session_date||x.id)} · ${sessionTime(x)}${x.status==='full'?` (${t('statusFull')})`:''}</option>`).join('')}</select></div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeWalkinModal()">${t('cancelBtn')}</button>
+        <button class="btn-primary" onclick="saveWalkin()">${t('addWalkinBtn')}</button>
+      </div>
+    </div></div>`;
+  setTimeout(()=>{const i=document.getElementById('wi-name');if(i&&!_n)i.focus();},60);
+}
+function closeWalkinModal(){const m=document.getElementById('walkin-modal');if(m){m.style.display='none';m.innerHTML='';}}
+async function saveWalkin(){
+  const name=(document.getElementById('wi-name')?.value||'').trim();
+  if(!name){const i=document.getElementById('wi-name');if(i){i.style.borderColor='var(--red)';i.focus();}return;}
+  const phone=(document.getElementById('wi-phone')?.value||'').trim();
+  const height=parseInt(document.getElementById('wi-height')?.value)||null;
+  const sessId=document.getElementById('wi-sess')?.value;
+  const sess=allSessions().find(x=>x.id===sessId);if(!sess)return;
+  const ty=S._wiType||'Any';
+  const entry={id:uid(),name,email:'',phone,size:height?heightToSize(height):'',height,
+    typePreference:ty,paid:false,assignedBikeId:null,sessionId:sessId,sessionDay:sess.day,
+    sessionDate:sess.session_date||sessId,queueNum:nextQNum(sessId),status:'waiting',
+    registeredAt:new Date().toISOString(),walkIn:true,customerId:null,price:priceForType(ty)};
+  let res=await sb.from('queue_entries').insert(entryToDB(entry));
+  if(res&&res.error&&(String(res.error.code||res.error.message).includes('23505')||/duplicate|unique/i.test(res.error.message||''))){
+    await loadDataLight();entry.queueNum=nextQNum(sessId); // another device grabbed the number: take a fresh one and retry once
+    res=await sb.from('queue_entries').insert(entryToDB(entry));
+  }
+  if(_writeErr(res,'walk-in'))return;
+  closeWalkinModal();
+  logAction(`${t('addWalkinBtn')}: #${entry.queueNum} ${name}`);
+  await loadDataLight();
+  toast(t('toastWalkInAdded'));
+  S._flashId=entry.id;S._flashColor='green';setTimeout(()=>{S._flashId=null;},800);
+  renderStaffQueue();
+}
 function renderStaffQueue(){
   if(!S.dataLoaded){const _el=document.getElementById('tab-queue');if(_el)_el.innerHTML=skeletonList(7);return;}
   const _qvPills=`<div class="filter-row" style="margin-bottom:12px">
@@ -5275,6 +5332,7 @@ function renderStaffQueue(){
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
+        <button class="btn-sm btn-green" onclick="showWalkinModal()" style="white-space:nowrap">${t('addWalkin')}</button>
         ${S.sfSession!=='all'?`<button onclick="showPrintReportOptions()" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);font-family:'Space Grotesk',sans-serif;transition:all .18s;line-height:1" onmouseover="this.style.borderColor='rgba(3,255,137,.35)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='rgba(255,255,255,.1)';this.style.color='var(--muted)'">${ICON_PRINT} ${t('printReportBtn')}</button>`:''}
         <div class="density-toggle">
           <button class="density-btn${S.queueDensity==='comfortable'?' active':''}" onclick="S.queueDensity='comfortable';renderStaffQueue()" title="${t('comfortableTip')}">⊡</button>
