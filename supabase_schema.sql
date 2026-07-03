@@ -164,6 +164,9 @@ create table if not exists queue_entries (
 -- create policy "audit insert" on staff_actions for insert with check (true);
 -- create policy "audit read"   on staff_actions for select using (true);
 
+-- Optional: link cashier sales to a customer account (Sales tab account picker; the app tolerates its absence)
+-- alter table cashier_sales add column if not exists customer_id text;
+
 -- Standalone cashier / point-of-sale transactions (the Cashier staff tab). Walk-up or counter sales.
 create table if not exists cashier_sales (
   id            text primary key,
