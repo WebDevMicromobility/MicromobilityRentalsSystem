@@ -9,13 +9,15 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="theme-color" content="#03ff89">
   <title>MicroMobility Rentals</title>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700;900&family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="preconnect" href="https://ariyvnxeywozmwxmylhb.supabase.co">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;900&family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
-  <link rel="stylesheet" href="./styles.css?v=73">
+  <link rel="stylesheet" href="./styles.css?v=74">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th='light';localStorage.setItem('cq_theme','light');}if(_th==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}</script>
 </head>
 <body>
@@ -182,6 +184,8 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 
 <div id="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script>
 
 const LANG={
@@ -1300,7 +1304,8 @@ const getQueue=()=>S.queue||[];
 // Only load bookings from the last N days into memory (bounds payload + render cost as history grows).
 // Generous window so nothing current is affected; raise it if you need older history in the live views.
 const QUEUE_WINDOW_DAYS=365;
-function _qWindowCut(){return new Date(Date.now()-QUEUE_WINDOW_DAYS*864e5).toISOString().slice(0,10);}
+const QUEUE_BOOT_DAYS=60; // cold start fetches a light 60-day window; the full 12 months stream in seconds later (see the _fullWindow timer after boot)
+function _qWindowCut(){return new Date(Date.now()-((S&&S._fullWindow)?QUEUE_WINDOW_DAYS:QUEUE_BOOT_DAYS)*864e5).toISOString().slice(0,10);}
 // Memoized sessionId -> entries[] map (rebuilds only when the queue array or its length changes;
 // in-place status edits stay live because the map holds entry references). Kills O(n^2) per-session filters.
 let _qbsRef=null,_qbsLen=-1,_qbsMap=null;
@@ -10881,6 +10886,15 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   }
   if(!_lastLoadOk){try{_cacheRestore();}catch(e){}} // network down/slow: show last-known data instead of an empty screen
   _bootDone=true;_bootReadyAt=Date.now();
+  // Widen to the full 12-month window shortly after first paint, so History/Analytics/My Rides see everything without slowing boot
+  setTimeout(async()=>{
+    if(S._fullWindow)return;S._fullWindow=true;
+    try{await loadDataLight();}catch(_){return;}
+    if(S.view==='staff'){const tb=S.staffTab;
+      if(tb==='queue')renderStaffQueue();else if(tb==='history')renderHistory();else if(tb==='analytics')renderAnalytics();
+      else if(tb==='sessions')renderSessions();else if(tb==='community')renderCommunity();else if(tb==='cashier')renderCashier();
+    }else if(S.view==='customer')renderMyRides();
+  },3000);
   applyThemeIcon();
   try{const savedLang=localStorage.getItem('cq_lang');setLang(savedLang==='ar'?'ar':'en');}catch(e){setLang('en');}
   const ls=document.getElementById('loading-screen');
