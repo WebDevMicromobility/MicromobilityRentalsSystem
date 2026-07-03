@@ -17,7 +17,7 @@
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=76">
+  <link rel="stylesheet" href="./styles.css?v=77">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th='light';localStorage.setItem('cq_theme','light');}if(_th==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}</script>
 </head>
 <body>
@@ -97,7 +97,6 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
   <nav class="tab-nav" id="staff-tab-nav" aria-label="Staff sections">
     <button class="tab-btn"        data-stab="cashier"   onclick="setStaffTab('cashier')">Sales</button>
     <button class="tab-btn active" data-stab="queue"     onclick="setStaffTab('queue')">Bookings</button>
-    <button class="tab-btn"        data-stab="sessions"  onclick="setStaffTab('sessions')">Sessions</button>
     <button class="tab-btn"        data-stab="inventory" onclick="setStaffTab('inventory')">Inventory</button>
     <button class="tab-btn"        data-stab="community" onclick="setStaffTab('community')">Community</button>
     <button class="tab-btn"        data-stab="analytics" onclick="setStaffTab('analytics')">Analytics</button>
@@ -105,7 +104,6 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
   </nav>
   <div class="view-main">
     <div id="tab-queue"     class="tab-panel active"></div>
-    <div id="tab-sessions"  class="tab-panel"></div>
     <div id="tab-inventory"  class="tab-panel"></div>
     <div id="tab-cashier"   class="tab-panel"></div>
     <div id="tab-community"  class="tab-panel"></div>
@@ -916,7 +914,6 @@ function setLang(lang){
   });
   document.querySelectorAll('#staff-tab-nav .tab-btn').forEach(b=>{
     if(b.dataset.stab==='queue')b.textContent=t('tabQueue');
-    if(b.dataset.stab==='sessions')b.textContent=t('tabSessions');
     if(b.dataset.stab==='bikes')b.textContent=t('tabBikes');
     if(b.dataset.stab==='history')b.textContent=t('tabHistory');
     if(b.dataset.stab==='analytics')b.textContent=t('tabAnalytics');
@@ -2302,11 +2299,11 @@ function setCustTab(tab){
   _pushNav();
 }
 function setStaffTab(tab){
+  if(tab==='sessions'){S.queueView='sessions';tab='queue';} // Sessions merged into the Bookings tab
   S.staffTab=tab;
   try{sessionStorage.setItem('cq_nav_stab',tab);}catch(e){}
   renderStaffTabs();
-  if(tab==='sessions')renderSessions();
-  else if(tab==='queue')renderStaffQueue();
+  if(tab==='queue')renderStaffQueue();
   else if(tab==='history')renderHistory();
   else if(tab==='analytics')renderAnalytics();
   else if(tab==='inventory')renderInventory();
@@ -2338,7 +2335,6 @@ function renderStaffTabs(){
     b.classList.toggle('active',b.dataset.stab===S.staffTab);
   });
   document.getElementById('tab-queue')     .classList.toggle('active',S.staffTab==='queue');
-  document.getElementById('tab-sessions')  .classList.toggle('active',S.staffTab==='sessions');
   document.getElementById('tab-inventory') .classList.toggle('active',S.staffTab==='inventory');
   document.getElementById('tab-cashier')   .classList.toggle('active',S.staffTab==='cashier');
   document.getElementById('tab-community') .classList.toggle('active',S.staffTab==='community');
@@ -4245,7 +4241,7 @@ function selectSessionDetail(id){
   if(id&&window.matchMedia&&window.matchMedia('(max-width:767px)').matches){try{window.scrollTo({top:0,behavior:'smooth'});}catch(_){window.scrollTo(0,0);}}
 }
 function renderSessions(){
-  if(!S.dataLoaded){const _el=document.getElementById('tab-sessions');if(_el)_el.innerHTML=skeletonList(5,true);return;}
+  if(!S.dataLoaded){const _el=document.getElementById('sess-host')||document.getElementById('tab-sessions');if(_el)_el.innerHTML=skeletonList(5,true);return;}
   const sessions=allSessions();
   const allBikes=getBikes();
   const types=['Road','Hybrid','Mountain'];
@@ -4602,7 +4598,7 @@ function renderSessions(){
     <div class="sess-detail-pane">${_detailHtml}</div>
   </div>`;
 
-  document.getElementById('tab-sessions').innerHTML=`
+  (document.getElementById('sess-host')||document.getElementById('tab-sessions')||{}).innerHTML=`
     <div class="section-header">
       <div>
         <div class="page-title">${t('sessionsTitle')}</div>
@@ -4917,6 +4913,15 @@ function _contactCell(phone,entry){
 function skeletonList(n=6,tall){return`<div class="sk-wrap">${Array.from({length:n}).map(()=>`<div class="sk-row${tall?' tall':''}"></div>`).join('')}</div>`;}
 function renderStaffQueue(){
   if(!S.dataLoaded){const _el=document.getElementById('tab-queue');if(_el)_el.innerHTML=skeletonList(7);return;}
+  const _qvPills=`<div class="filter-row" style="margin-bottom:12px">
+    <button class="filter-pill${(S.queueView||'bookings')==='bookings'?' active':''}" onclick="S.queueView='bookings';renderStaffQueue()">${t('tabQueue')}</button>
+    <button class="filter-pill${S.queueView==='sessions'?' active':''}" onclick="S.queueView='sessions';renderStaffQueue()">${t('tabSessions')}</button>
+  </div>`;
+  if(S.queueView==='sessions'){ // Sessions view lives inside the Bookings tab now
+    const _qh=document.getElementById('tab-queue');
+    if(_qh){_qh.innerHTML=_qvPills+'<div id="sess-host"></div>';renderSessions();}
+    return;
+  }
   reconcileOrphanBikes();
   const queue=getQueue();const sessions=allSessions();
   const base=S.sfSession!=='all'
@@ -5364,7 +5369,7 @@ function renderStaffQueue(){
     mobileCards=buildQueueGroups(filtered).map(g=>renderGroupCard(g)).join('');
     if(!filtered.length)mobileCards=`<div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div>`;
   }
-  document.getElementById('tab-queue').innerHTML=_queueHeader+_sessSummaryBar+`
+  document.getElementById('tab-queue').innerHTML=_qvPills+_queueHeader+_sessSummaryBar+`
     <div class="stats-row">
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('statNumRiders')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWait}</div><div class="stat-label">${t('statExpected')}</div></div>
@@ -11012,7 +11017,6 @@ async function _autoRefresh(full){
     _lastRefresh=Date.now();
     const tab=S.staffTab; // re-render only the visible tab; switching tabs re-renders fresh anyway
     if(tab==='queue')renderStaffQueue();
-    else if(tab==='sessions')renderSessions();
     else if(tab==='bikes')renderBikes();
     else if(tab==='history')renderHistory();
     else if(tab==='analytics')renderAnalytics();
@@ -11095,8 +11099,9 @@ document.addEventListener('keydown',e=>{
   if(k==='/'){e.preventDefault();if(S.staffTab!=='queue')setStaffTab('queue');setTimeout(()=>{const el=document.getElementById('sf-search-input');if(el){el.focus();try{el.select();}catch(_){}}},60);return;}
   if(k==='n'){e.preventDefault();_kbCheckInNext();return;}
   if(k==='r'){e.preventDefault();if(typeof _autoRefresh==='function')_autoRefresh(true);return;}
-  const tabKeys={b:'queue',s:'sessions',i:'inventory',c:'community',a:'analytics',h:'history',l:'history'};
+  const tabKeys={b:'queue',s:'queue',i:'inventory',c:'community',a:'analytics',h:'history',l:'history'};
   if(k==='l')S.histView='log';else if(k==='h')S.histView='rides';
+  if(k==='s')S.queueView='sessions';else if(k==='b')S.queueView='bookings';
   if(tabKeys[k]){e.preventDefault();setStaffTab(tabKeys[k]);return;}
 });
 
@@ -11126,7 +11131,7 @@ try{window.addEventListener('offline',()=>{S._rtConnected=false;_updateConnUI();
   let startY=0,pulling=false,dist=0;
   function eligible(){
     if(document.querySelector('.modal-backdrop,.pin-backdrop,.auth-backdrop,.pay-menu-popup'))return false;
-    if(S.view==='staff')return ['queue','sessions'].includes(S.staffTab);
+    if(S.view==='staff')return S.staffTab==='queue'; // covers both Bookings and Sessions sub-views
     if(S.view==='customer')return S.custTab==='myrides';
     return false;
   }
