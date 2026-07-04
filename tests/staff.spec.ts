@@ -49,3 +49,40 @@ test.describe('unlocked staff panel', () => {
     await expect(page.locator('#bike-modal')).toContainText('Scan Test');
   });
 });
+
+test.describe('inventory sections derive from the data, not this device', () => {
+  // Custom categories (Drinks, Protein Cookies) were created on another device, so
+  // this browser's localStorage has no cq_inv_cats_supp entry for them. Their items
+  // carry supplements-only fields (flavour/volume/nutrition), which must be enough
+  // to place them in Supplements & Beverages.
+  const fixtures = {
+    inventory: [
+      { id: 'i1', name: 'Recover Vitamin Water', brand: 'Vitamin Well', category: 'Drinks', qty: 10, low_threshold: 2, flavour: 'Berry', volume_ml: 500 },
+      { id: 'i2', name: 'Choc Chip Protein Cookies', brand: 'Quest', category: 'Protein Cookies', qty: 5, low_threshold: 2, flavour: 'Chocolate Chip' },
+      { id: 'i3', name: 'Road Helmet', brand: 'Trek', category: 'Helmet', qty: 3, low_threshold: 1 },
+    ],
+  };
+
+  test.beforeEach(async ({ page }) => {
+    await stubSupabase(page, fixtures);
+    await unlockStaff(page);
+    await page.goto('/');
+    await page.locator('#staff-tab-nav [data-stab="inventory"]').click();
+  });
+
+  test('custom supplement categories land in Supplements & Beverages on a fresh device', async ({ page }) => {
+    await page.locator('.inv-navbtn', { hasText: 'Supplements' }).click();
+    const inv = page.locator('#tab-inventory');
+    await expect(inv.getByText('Recover Vitamin Water').first()).toBeVisible();
+    await expect(inv.getByText('Choc Chip Protein Cookies').first()).toBeVisible();
+    await expect(inv.getByText('Road Helmet')).toHaveCount(0);
+  });
+
+  test('equipment shows only equipment items', async ({ page }) => {
+    await page.locator('.inv-navbtn', { hasText: 'Equipment' }).click();
+    const inv = page.locator('#tab-inventory');
+    await expect(inv.getByText('Road Helmet').first()).toBeVisible();
+    await expect(inv.getByText('Recover Vitamin Water')).toHaveCount(0);
+    await expect(inv.getByText('Choc Chip Protein Cookies')).toHaveCount(0);
+  });
+});

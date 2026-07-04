@@ -8672,7 +8672,7 @@ function setAnSort(col){
 const EQUIP_CATS=['Helmet'];
 const SUPP_CATS=['ProteinGummies','ElectrolyteSachets','EnergyGels'];
 const INV_CATS=[...EQUIP_CATS,...SUPP_CATS];
-function _isSuppCat(cat){return SUPP_CATS.includes(cat)||(S.invCatsSupp||[]).includes(cat);} // supplements = preset OR custom supplement categories
+function _isSuppCat(cat){return SUPP_CATS.includes(cat)||(S.invCatsSupp||[]).includes(cat)||(!EQUIP_CATS.includes(cat)&&!(S.invCatsEquip||[]).includes(cat)&&(S.inventory||[]).some(i=>i.category===cat&&(i.flavour||i.volume_ml||i.nutrition)));} // supplements = preset, custom (this device), or derived from the data: flavour/volume/nutrition can only be set on the supplements form, so any item carrying one marks its category as supplements on every device
 function _isDrinkCat(cat){const s=(_invCatLabel(cat)+' '+(cat||'')).toLowerCase();return /drink|beverage|water|juice|soda|cola|tea|coffee|مشروب|عصير|ماء/.test(s);} // drink categories get a volume (ml) field
 // ── Nutrition facts (stored as one tolerant JSON column 'nutrition') ──
 const NUTRI_FIELDS=[['kcal','nuCalories','kcal'],['fat_g','nuFat','g'],['satfat_g','nuSatFat','g'],['carbs_g','nuCarbs','g'],['sugar_g','nuSugar','g'],['fibre_g','nuFibre','g'],['protein_g','nuProtein','g'],['salt_g','nuSalt','g'],['sodium_mg','nuSodium','mg'],['caffeine_mg','nuCaffeine','mg']];
@@ -9486,13 +9486,15 @@ function renderInventory(){
   const sec=S.invSection||'bikes';
   const isSupp=sec==='supplements';
   const presetCats=isSupp?SUPP_CATS:EQUIP_CATS;
-  const customCats=isSupp?(S.invCatsSupp||[]):(S.invCatsEquip||[]);
-  const brandList=isSupp?(S.invBrandsSupp||[]):(S.invBrandsEquip||[]);
+  // Options = this device's saved lists PLUS whatever the data already uses, so custom categories/brands created on another device still appear
+  const secItems=(S.inventory||[]).filter(i=>_isSuppCat(i.category)===isSupp);
+  const customCats=[...new Set([...(isSupp?(S.invCatsSupp||[]):(S.invCatsEquip||[])),...secItems.map(i=>i.category).filter(c=>c&&!presetCats.includes(c))])];
+  const brandList=[...new Set([...(isSupp?(S.invBrandsSupp||[]):(S.invBrandsEquip||[])),...secItems.map(i=>i.brand).filter(Boolean)])];
   const catOptions=[...presetCats.map(c=>({v:c,l:_invCatLabel(c)})),...customCats.map(c=>({v:c,l:c}))];
   const brandOptions=[{v:'',l:t('invNoBrand')},...brandList.map(b=>({v:b,l:b}))];
   const catField=_invSelHtml('inv-cat',S._invCat,S._invCatAdd,catOptions,t('addCustomCatLabel'));
   const brandField=_invSelHtml('inv-brand',S._invBrand,S._invBrandAdd,brandOptions,t('addCustomBrandLabel'));
-  const flavOptions=[{v:'',l:t('invNoFlavour')},...(((S.invFlavoursByBrand||{})[S._invBrand||'']||[]).filter(f=>!_badFlav(f)).map(f=>({v:f,l:f})))];
+  const flavOptions=[{v:'',l:t('invNoFlavour')},...[...new Set([...((S.invFlavoursByBrand||{})[S._invBrand||'']||[]),...(S.inventory||[]).filter(i=>(i.brand||'')===(S._invBrand||'')&&i.flavour).map(i=>i.flavour)])].filter(f=>!_badFlav(f)).map(f=>({v:f,l:f}))];
   const flavourField=_invSelHtml('inv-flav',S._invFlav,S._invFlavAdd,flavOptions,t('addCustomFlavLabel'));
   const addForm=(S.showAddInv||isEdit)?`<div class="inline-form">
     <div class="form-title">${isEdit?t('editBtn'):t('invAddBtn')}</div>
