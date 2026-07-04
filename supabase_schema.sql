@@ -1,5 +1,11 @@
 -- MicroMobility Corniche Circuit — Supabase Schema
 -- Run this entire file in your Supabase project → SQL Editor → New query
+--
+-- ⚠️ Supabase projects created after the 2025 platform change no longer grant
+--    the anon/authenticated roles access to the public schema by default, so
+--    this file alone yields 42501 "permission denied for schema public" for
+--    the app. For a new project use new-project-setup.sql instead (full column
+--    set + the required GRANTs, idempotent).
 
 -- ── TABLES ────────────────────────────────────────────────────────────────────
 
