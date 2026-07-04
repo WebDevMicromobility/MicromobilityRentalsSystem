@@ -108,12 +108,23 @@ for (const table of PHOTO_TABLES) {
     const obj = await fetch(OLD_PREFIX + path);
     if (!obj.ok) { fail(`${table} ${row.id}: old object ${path} fetch ${obj.status}`); continue; }
     const blob = await obj.arrayBuffer();
+    // Plain insert (no x-upsert): the new bucket's RLS allows anon INSERT but not
+    // UPDATE, and upsert mode requires both. On "Duplicate" (object already in the
+    // new bucket) verify it is byte-identical to the old one before trusting it.
     const up = await fetch(`${NEW.url}/storage/v1/object/photos/${path}`, {
       method: 'POST',
-      headers: { apikey: NEW.key, Authorization: `Bearer ${NEW.key}`, 'Content-Type': obj.headers.get('content-type') || 'image/jpeg', 'x-upsert': 'true' },
+      headers: { apikey: NEW.key, Authorization: `Bearer ${NEW.key}`, 'Content-Type': obj.headers.get('content-type') || 'image/jpeg' },
       body: blob,
     });
-    if (!up.ok) { fail(`${table} ${row.id}: upload ${path} ${up.status} ${(await up.text()).slice(0, 120)}`); continue; }
+    if (!up.ok) {
+      const body = await up.text();
+      if (!/Duplicate|already exists/i.test(body)) { fail(`${table} ${row.id}: upload ${path} ${up.status} ${body.slice(0, 120)}`); continue; }
+      const existing = await fetch(NEW_PREFIX + path);
+      if (!existing.ok) { fail(`${table} ${row.id}: duplicate ${path} but new URL serves ${existing.status}`); continue; }
+      const { createHash } = await import('node:crypto');
+      const h = (buf) => createHash('sha256').update(Buffer.from(buf)).digest('hex');
+      if (h(await existing.arrayBuffer()) !== h(blob)) { fail(`${table} ${row.id}: ${path} exists in new bucket but content DIFFERS from old`); continue; }
+    }
     const patch = await fetch(`${NEW.url}/rest/v1/${table}?id=eq.${encodeURIComponent(row.id)}`, {
       method: 'PATCH',
       headers: hdrs(NEW, { Prefer: 'return=minimal' }),

@@ -156,7 +156,12 @@ create table if not exists staff_actions (
 
 
 -- ── B. COLUMN BACKFILL (covers a table created from an older schema copy) ────
+-- Every backfillable column: a pre-existing table may be missing any of them.
+-- (NOT NULL columns without defaults are omitted — they cannot be added to a
+-- populated table and are all original v1 columns that always exist.)
 
+alter table customers add column if not exists email text;
+alter table customers add column if not exists phone text;
 alter table customers add column if not exists height integer;
 alter table customers add column if not exists type_preference text;
 alter table customers add column if not exists gender text;
@@ -165,6 +170,8 @@ alter table customers add column if not exists country text;
 alter table customers add column if not exists city text;
 alter table customers add column if not exists photo text;
 
+alter table bikes add column if not exists colors jsonb not null default '[]';
+alter table bikes add column if not exists status text not null default 'available';
 alter table bikes add column if not exists color_names jsonb not null default '[]';
 alter table bikes add column if not exists brand text;
 alter table bikes add column if not exists model text;
@@ -178,10 +185,20 @@ alter table bikes add column if not exists in_service_date text;
 alter table bikes add column if not exists retired_date text;
 alter table bikes add column if not exists photo text;
 
+alter table sessions add column if not exists capacity integer not null default 12;
+alter table sessions add column if not exists status text not null default 'closed';
 alter table sessions add column if not exists bike_slots text;
 alter table sessions add column if not exists location text;
 alter table sessions add column if not exists addons text;
 
+alter table queue_entries add column if not exists email text;
+alter table queue_entries add column if not exists phone text;
+alter table queue_entries add column if not exists paid boolean not null default false;
+alter table queue_entries add column if not exists price numeric not null default 30;
+alter table queue_entries add column if not exists assigned_bike_id text references bikes(id);
+alter table queue_entries add column if not exists status text not null default 'waiting';
+alter table queue_entries add column if not exists walk_in boolean not null default false;
+alter table queue_entries add column if not exists customer_id text references customers(id);
 alter table queue_entries add column if not exists height integer;
 alter table queue_entries add column if not exists ride_duration integer;
 alter table queue_entries add column if not exists rating_bike integer;
@@ -195,9 +212,29 @@ alter table queue_entries add column if not exists card_amount numeric;
 alter table queue_entries add column if not exists checked_in_at text;
 alter table queue_entries add column if not exists checked_out_at text;
 
+alter table cashier_sales add column if not exists session_id text;
+alter table cashier_sales add column if not exists customer_name text;
+alter table cashier_sales add column if not exists item_id text;
+alter table cashier_sales add column if not exists receipt_id text;
+alter table cashier_sales add column if not exists category text;
+alter table cashier_sales add column if not exists qty integer not null default 1;
+alter table cashier_sales add column if not exists price numeric not null default 0;
+alter table cashier_sales add column if not exists pay text not null default 'paid';
+alter table cashier_sales add column if not exists team_name text;
+alter table cashier_sales add column if not exists created_at text;
 alter table cashier_sales add column if not exists customer_id text;
 
+alter table promo_codes add column if not exists code text;
+alter table promo_codes add column if not exists kind text not null default 'percent';
+alter table promo_codes add column if not exists value numeric not null default 0;
+alter table promo_codes add column if not exists active boolean not null default true;
+alter table promo_codes add column if not exists created_at text;
+
 alter table inventory add column if not exists brand text;
+alter table inventory add column if not exists category text not null default 'Other';
+alter table inventory add column if not exists qty integer not null default 0;
+alter table inventory add column if not exists low_threshold integer not null default 0;
+alter table inventory add column if not exists updated_at text;
 alter table inventory add column if not exists photo text;
 alter table inventory add column if not exists price numeric;
 alter table inventory add column if not exists flavour text;
