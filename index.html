@@ -2853,10 +2853,10 @@ function renderRegister(){
     ${isModifyMode?'':(()=>{
       const items=sessionAddonItems(selSess);
       if(!items.length)return'';
-      const _aCard=it=>{const qn=_regAddonQty(it.id);const stock=Number(it.qty)||0;const out=stock<=0;return`<div style="border:1.5px solid ${qn>0?'var(--green)':'var(--border)'};border-radius:14px;overflow:hidden;background:var(--s1);position:relative">
+      const _aCard=it=>{const qn=_regAddonQty(it.id);const stock=Number(it.qty)||0;const out=stock<=0;const cap=stock>0?stock:10;return`<div style="border:1.5px solid ${qn>0?'var(--green)':'var(--border)'};border-radius:14px;overflow:hidden;background:var(--s1);position:relative">
             ${out?`<div style="position:absolute;top:8px;inset-inline-end:8px;z-index:1;background:var(--red);color:#fff;font-size:10px;font-weight:900;letter-spacing:.5px;text-transform:uppercase;padding:3px 8px;border-radius:6px">${t('addonSoldOut')}</div>`:''}
             ${it.photo?`<img src="${esc(it.photo)}" alt="${esc(it.name)}" style="width:100%;height:132px;object-fit:contain;background:var(--photo-bg);display:block${out?';filter:grayscale(1);opacity:.55':''}">`:`<div style="width:100%;height:132px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:12px;text-align:center;padding:8px${out?';filter:grayscale(1);opacity:.55':''}">${esc(it.name)}</div>`}
-            <div style="padding:11px 12px${out?';opacity:.55':''}">
+            <div style="padding:11px 12px">
               <div style="font-weight:800;font-size:14px;line-height:1.2">${esc(it.name)}</div>
               ${it.brand?`<div style="font-size:11px;color:var(--muted);margin-top:1px">${esc(it.brand)}</div>`:''}
               ${_hasNutri(it)?`<button type="button" onclick="showNutrition('${it.id}')" style="margin-top:7px;background:rgba(3,255,137,.08);border:1px solid rgba(3,255,137,.22);color:var(--green);font-family:inherit;font-size:11px;font-weight:800;padding:4px 10px;border-radius:7px;cursor:pointer">${t('nuButton')}</button>`:''}
@@ -2865,7 +2865,7 @@ function renderRegister(){
                 <div style="display:flex;align-items:center;gap:6px">
                   <button type="button" onclick="_setRegAddonQty('${it.id}',-1)" ${qn<=0?'disabled':''} aria-label="−" style="width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-size:18px;font-weight:800;cursor:${qn<=0?'default':'pointer'};line-height:1;${qn<=0?'opacity:.4':''}">−</button>
                   <span style="min-width:18px;text-align:center;font-weight:800">${qn}</span>
-                  <button type="button" onclick="_setRegAddonQty('${it.id}',1)" ${qn>=stock?'disabled':''} aria-label="+" style="width:30px;height:30px;border-radius:8px;border:1px solid ${qn>=stock?'var(--border)':'var(--green)'};background:${qn>=stock?'var(--s2)':'rgba(3,255,137,.12)'};color:${qn>=stock?'var(--muted)':'var(--green)'};font-size:18px;font-weight:800;cursor:${qn>=stock?'default':'pointer'};line-height:1;${qn>=stock?'opacity:.5':''}">+</button>
+                  <button type="button" onclick="_setRegAddonQty('${it.id}',1)" ${qn>=cap?'disabled':''} aria-label="+" style="width:30px;height:30px;border-radius:8px;border:1px solid ${qn>=cap?'var(--border)':'var(--green)'};background:${qn>=cap?'var(--s2)':'rgba(3,255,137,.12)'};color:${qn>=cap?'var(--muted)':'var(--green)'};font-size:18px;font-weight:800;cursor:${qn>=cap?'default':'pointer'};line-height:1;${qn>=cap?'opacity:.5':''}">+</button>
                 </div>
               </div>
             </div>
@@ -2915,9 +2915,10 @@ function regGoStep(n){S.regStep=n;renderRegister();try{window.scrollTo({top:0,be
 function _regAddonQty(id){const a=(S.regAddons||[]).find(x=>(x&&typeof x==='object'?x.id:x)===id);return a?(typeof a==='object'?(Number(a.qty)||1):1):0;}
 function _setRegAddonQty(id,delta){
   S.regAddons=(S.regAddons||[]).map(x=>(x&&typeof x==='object')?x:{id:x,qty:1});
-  const it=(S.inventory||[]).find(x=>x.id===id);const max=it?(Number(it.qty)||0):99;
+  const it=(S.inventory||[]).find(x=>x.id===id);const _stk=it?(Number(it.qty)||0):0;
+  const max=it?(_stk>0?_stk:10):99; // sold-out items stay orderable (backorder), capped at 10 per booking
   let a=S.regAddons.find(x=>x.id===id);
-  if(!a){if(delta>0&&max>0)S.regAddons.push({id,qty:1});}
+  if(!a){if(delta>0)S.regAddons.push({id,qty:1});}
   else{a.qty=Math.min(max,Math.max(0,a.qty+delta));if(a.qty<=0)S.regAddons=S.regAddons.filter(x=>x.id!==id);}
   renderRegister();
 }
@@ -4096,7 +4097,7 @@ async function _addonStockQ(arr,sign){
   if(!norm.length||!sb)return;
   await Promise.all(norm.map(async({id,qty})=>{
     const it=(S.inventory||[]).find(x=>x.id===id);if(!it)return;
-    const q=Math.max(0,(Number(it.qty)||0)+sign*qty);it.qty=q;
+    const q=(Number(it.qty)||0)+sign*qty;it.qty=q; // may go negative: backordered add-ons (sold-out but booked) show as negative stock owed to bookings, and cancel/undo stays symmetric
     try{await sb.from('inventory').update({qty:q,updated_at:new Date().toISOString()}).eq('id',id);}catch(e){}
   }));
 }
