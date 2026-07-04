@@ -5867,7 +5867,9 @@ async function cancelBooking(id,reason){
   toast(t('toastBookingCancelled'));
   pushUndo(`${t('undoCancelBooking')} #${savedQNum} ${entry.name}`,async()=>{
     await sb.from('queue_entries').update({status:isWaitlist?'waitlist':'waiting',queue_num:_restoreNum(entry.sessionId,savedQNum,id)}).eq('id',id);
-    await loadData();renderMyRides();renderStaffQueue();
+    await loadData();
+    if(!isWaitlist)await _consumeAddonsOnEnter(entry); // the restore brings the booking back, so re-reserve the add-ons that were restocked on cancel
+    renderMyRides();renderStaffQueue();
   });
   renderMyRides();
 }
@@ -5898,7 +5900,9 @@ async function staffCancelEntry(id){
         toast(`Booking #${savedQNum} cancelled.`);
         pushUndo(`${t('undoStaffCancel')} #${savedQNum} ${entry.name}`,async()=>{
           await sb.from('queue_entries').update({status:'waiting',queue_num:_restoreNum(entry.sessionId,savedQNum,id)}).eq('id',id);
-          await loadData();renderMyRides();renderStaffQueue();
+          await loadData();
+          await _consumeAddonsOnEnter(entry); // the restore brings the booking back, so re-reserve the add-ons that were restocked on cancel
+          renderMyRides();renderStaffQueue();
         });
       }else{
         const calls=[sb.from('queue_entries').update({status:'cancelled',assigned_bike_id:null}).eq('id',id)];
@@ -5914,7 +5918,9 @@ async function staffCancelEntry(id){
           const calls2=[sb.from('queue_entries').update({status:savedStatus,assigned_bike_id:assignedVal,queue_num:_restoreNum(entry.sessionId,entry.queueNum,id)}).eq('id',id)];
           bikeIds.forEach(bid=>calls2.push(sb.from('bikes').update({status:'in-use'}).eq('id',bid)));
           await Promise.all(calls2);
-          await loadData();renderStaffQueue();
+          await loadData();
+          await _consumeAddonsOnEnter(entry); // the restore brings the booking back, so re-reserve the add-ons that were restocked on cancel
+          renderStaffQueue();
         });
       }
       renderMyRides();renderStaffQueue();
@@ -6736,13 +6742,18 @@ async function doRemove(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
   const prevStatus=entry.status;
   const savedQNum=entry.queueNum;
+  const restocks=prevStatus==='waiting'||prevStatus==='active'; // pre-ride removal returns add-ons; done = delivered, noshow/cancelled already restocked
   addHistLog(t('histRemoved'),entry,async()=>{
     await sb.from('queue_entries').update({status:prevStatus==='done'?'done':'waiting',queue_num:_restoreNum(entry.sessionId,savedQNum,id)}).eq('id',id);
-    await loadData();renderStaffQueue();renderHistory();
+    await loadData();
+    if(restocks)await _consumeAddonsOnEnter(entry); // the restore brings the booking back, so re-reserve what the removal restocked
+    renderStaffQueue();renderHistory();
   });
   await sb.from('queue_entries').update({status:'removed'}).eq('id',id);
   if(prevStatus==='waiting')await _shiftDownAfter(entry.sessionId,savedQNum); // close the number gap
-  await loadData();toast(t('toastRiderRemoved'));
+  await loadData();
+  if(restocks)await _restockAddonsOnExit(entry);
+  toast(t('toastRiderRemoved'));
   renderStaffQueue();renderHistory();
 }
 
@@ -6750,12 +6761,17 @@ async function doRestoreEntry(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
   const originalStatus=entry.status;
   const restoreStatus=entry.assignedBikeId?'done':'waiting';
+  const consumes=restoreStatus==='waiting'; // back to the queue = its add-ons must be reserved again (they were restocked when it exited)
   addHistLog(t('histRestored'),entry,async()=>{
     await sb.from('queue_entries').update({status:originalStatus}).eq('id',id);
-    await loadData();renderHistory();
+    await loadData();
+    if(consumes)await _restockAddonsOnExit(entry); // undoing the restore sends it back out, so return the add-ons again
+    renderHistory();
   });
   await sb.from('queue_entries').update({status:restoreStatus,queue_num:_restoreNum(entry.sessionId,entry.queueNum,id)}).eq('id',id);
-  await loadData();toast(t('restoreEntryBtn')||'Restored');
+  await loadData();
+  if(consumes)await _consumeAddonsOnEnter(entry);
+  toast(t('restoreEntryBtn')||'Restored');
   renderHistory();
 }
 
