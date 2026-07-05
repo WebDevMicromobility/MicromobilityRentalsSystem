@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubSupabase, unlockStaff } from './helpers/supabase';
+import { stubSupabase, unlockStaff, loginCustomer } from './helpers/supabase';
 
 // Phase-0 money paths: the flows where a silent regression costs real money.
 // All Supabase traffic is stubbed (see helpers/supabase.ts) — no production data.
@@ -12,21 +12,18 @@ const openSession = {
 test.describe('booking flow', () => {
   test('select session → rider details → confirm → ticket shown', async ({ page }) => {
     await stubSupabase(page, { sessions: [openSession] });
+    // A remembered login boots straight into the Reserve tab (no account → the
+    // hero opens the auth modal instead, and booking requires an account anyway).
+    await loginCustomer(page);
     await page.goto('/');
-    // Enter through the landing hero like a real customer (forcing view state with
-    // showView() races the boot sequence on slow CI runners and gets flipped back).
-    await page.waitForFunction('S.sessions && S.sessions.length > 0');
-    await page.locator('.landing-hero-card').click();
 
-    // Step 1 — pick the open session
+    // Step 1 — pick the open session (the click auto-waits for the card to render)
     await page.locator('.sess-card').first().click();
     await page.locator('button', { hasText: 'Continue' }).first().click();
 
     // Step 2 — rider details (height drives size, type is required)
     await page.fill('#reg-height-0', '175');
     await page.locator('[data-type-slot="0"][data-type="Hybrid"]').click();
-    // Booking requires an account; inject a logged-in customer like a real session
-    await page.evaluate(`S.loggedIn = { id: 'c1', name: 'Spec Rider', email: 'spec@example.com', phone: '0500000001' };`);
     await page.locator('button', { hasText: 'Review booking' }).click();
 
     // Step 3 — confirm; the stub echoes the insert back as success

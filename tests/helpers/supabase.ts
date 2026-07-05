@@ -53,3 +53,9 @@ function cors() {
 export async function unlockStaff(page: Page) {
   await page.addInitScript(() => localStorage.setItem('cq_staff', '1'));
 }
+
+// Signs a customer in locally, exactly like a remembered login session does.
+export async function loginCustomer(page: Page, cust: Record<string, unknown> = {}) {
+  const c = { id: 'c1', name: 'Spec Rider', email: 'spec@example.com', phone: '0500000001', ...cust };
+  await page.addInitScript((session) => localStorage.setItem('cq_session', session), JSON.stringify(c));
+}
