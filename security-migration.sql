@@ -53,19 +53,20 @@ create or replace function customer_login(p_identifier text, p_pwd text)
 returns table(
   id text, name text, email text, phone text, height int, type_preference text,
   created_at text, birth_date text, country text, city text, photo text, session_token text
-) language plpgsql security definer set search_path = public as $$
+) language plpgsql security definer set search_path = public, extensions as $$
 declare r customers%rowtype; tok text;
 begin
+  -- Columns qualified with customers.*: bare email/phone would be ambiguous
+  -- against this function's RETURNS TABLE(... email, phone ...) output names.
   select * into r from customers
-   where lower(email) = lower(p_identifier)
-      or regexp_replace(phone,'\D','','g') = regexp_replace(p_identifier,'\D','','g')
+   where lower(customers.email) = lower(p_identifier)
+      or regexp_replace(customers.phone,'\D','','g') = regexp_replace(p_identifier,'\D','','g')
    limit 1;
   if not found then return; end if;
   if not _cust_pwd_ok(r.password_hash, p_pwd) then return; end if;
 
   tok := encode(gen_random_bytes(24), 'hex');
-  update customers set session_token = tok where id = r.id;
-
+  update customers set session_token = tok where customers.id = r.id; -- qualified: id is also a RETURNS TABLE output name
   return query select r.id, r.name, r.email, r.phone, r.height, r.type_preference,
     r.created_at, r.birth_date, r.country, r.city, r.photo, tok;
 end $$;
@@ -75,7 +76,7 @@ create or replace function customer_signup(
   p_id text, p_name text, p_email text, p_phone text, p_pwd_hash text,
   p_height int, p_type_preference text, p_gender text
 ) returns table(id text, session_token text)
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare tok text;
 begin
   if exists(select 1 from customers
@@ -92,7 +93,7 @@ end $$;
 
 -- Signup duplicate check (boolean only, never any PII).
 create or replace function customer_exists(p_email text, p_phone text)
-returns boolean language sql security definer set search_path = public as $$
+returns boolean language sql security definer set search_path = public, extensions as $$
   select exists(select 1 from customers
     where (coalesce(p_email,'')<>'' and lower(email)=lower(p_email))
        or (coalesce(p_phone,'')<>'' and phone=p_phone));
@@ -100,7 +101,7 @@ $$;
 
 -- Authorize a self-write by matching (id, token). Returns true if the token is valid.
 create or replace function _cust_token_ok(p_id text, p_token text)
-returns boolean language sql stable security definer set search_path = public as $$
+returns boolean language sql stable security definer set search_path = public, extensions as $$
   select exists(select 1 from customers where id=p_id and session_token=p_token and p_token is not null);
 $$;
 
@@ -108,7 +109,7 @@ $$;
 create or replace function customer_update_profile(
   p_id text, p_token text, p_name text, p_email text, p_phone text,
   p_height int, p_type_preference text, p_birth_date text, p_country text, p_city text
-) returns boolean language plpgsql security definer set search_path = public as $$
+) returns boolean language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not _cust_token_ok(p_id,p_token) then return false; end if;
   update customers set
@@ -121,7 +122,7 @@ end $$;
 
 -- PHOTO set/clear (self).
 create or replace function customer_set_photo(p_id text, p_token text, p_photo text)
-returns boolean language plpgsql security definer set search_path = public as $$
+returns boolean language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not _cust_token_ok(p_id,p_token) then return false; end if;
   update customers set photo=p_photo where id=p_id;
@@ -130,7 +131,7 @@ end $$;
 
 -- PASSWORD CHANGE (self, while logged in): requires current token.
 create or replace function customer_change_password(p_id text, p_token text, p_new_hash text)
-returns boolean language plpgsql security definer set search_path = public as $$
+returns boolean language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not _cust_token_ok(p_id,p_token) then return false; end if;
   update customers set password_hash=p_new_hash, session_token=encode(gen_random_bytes(24),'hex') where id=p_id;
@@ -142,23 +143,23 @@ create or replace function customer_reset(p_email text, p_phone text, p_new_hash
 returns table(
   id text, name text, email text, phone text, height int, type_preference text,
   created_at text, birth_date text, country text, city text, photo text, session_token text
-) language plpgsql security definer set search_path = public as $$
+) language plpgsql security definer set search_path = public, extensions as $$
 declare r customers%rowtype; tok text;
 begin
-  select * into r from customers where lower(email)=lower(p_email) limit 1;
+  select * into r from customers where lower(customers.email)=lower(p_email) limit 1; -- qualified: avoids ambiguity with the RETURNS TABLE email column
   if not found then return; end if;
   if r.password_hash = 'oauth:google' then return; end if;             -- google accounts can't reset here
   if regexp_replace(coalesce(r.phone,''),'\D','','g')
      not like '%'||regexp_replace(coalesce(p_phone,''),'\D','','g') then return; end if;  -- phone must match
   tok := encode(gen_random_bytes(24),'hex');
-  update customers set password_hash=p_new_hash, session_token=tok where id=r.id;
+  update customers set password_hash=p_new_hash, session_token=tok where customers.id=r.id; -- qualified: id is also a RETURNS TABLE output name
   return query select r.id, r.name, r.email, r.phone, r.height, r.type_preference,
     r.created_at, r.birth_date, r.country, r.city, r.photo, tok;
 end $$;
 
 -- A customer's own bookings (My Rides) without exposing anyone else's rows.
 create or replace function my_bookings(p_id text, p_token text)
-returns setof queue_entries language plpgsql security definer set search_path = public as $$
+returns setof queue_entries language plpgsql security definer set search_path = public, extensions as $$
 begin
   if not _cust_token_ok(p_id,p_token) then return; end if;
   return query select * from queue_entries where customer_id = p_id;
@@ -184,7 +185,7 @@ create or replace function customer_oauth_login(p_email text)
 returns table(
   id text, name text, email text, phone text, height int, type_preference text,
   created_at text, birth_date text, country text, city text, photo text, session_token text
-) language plpgsql security definer set search_path = public as $$
+) language plpgsql security definer set search_path = public, extensions as $$
 declare r customers%rowtype; tok text;
 begin
   if auth.uid() is null or lower(coalesce(auth.jwt()->>'email','')) <> lower(p_email) then return; end if;
@@ -200,7 +201,7 @@ create or replace function customer_oauth_signup(
   p_id text, p_name text, p_email text, p_phone text,
   p_height int, p_type_preference text, p_gender text, p_photo text
 ) returns table(id text, session_token text)
-language plpgsql security definer set search_path = public as $$
+language plpgsql security definer set search_path = public, extensions as $$
 declare tok text;
 begin
   if auth.uid() is null or lower(coalesce(auth.jwt()->>'email','')) <> lower(p_email) then
@@ -251,7 +252,7 @@ create policy "staff read self" on staff for select using (auth.uid() = user_id)
 
 -- True when the current request is an authenticated staff member.
 create or replace function is_staff()
-returns boolean language sql stable security definer set search_path = public as $$
+returns boolean language sql stable security definer set search_path = public, extensions as $$
   select exists(select 1 from staff where user_id = auth.uid());
 $$;
 
