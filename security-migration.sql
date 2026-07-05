@@ -164,14 +164,63 @@ begin
   return query select * from queue_entries where customer_id = p_id;
 end $$;
 
-grant execute on function customer_login(text,text)                              to anon;
-grant execute on function customer_signup(text,text,text,text,text,int,text,text) to anon;
-grant execute on function customer_exists(text,text)                             to anon;
-grant execute on function customer_update_profile(text,text,text,text,text,int,text,text,text,text) to anon;
-grant execute on function customer_set_photo(text,text,text)                     to anon;
-grant execute on function customer_change_password(text,text,text)               to anon;
-grant execute on function customer_reset(text,text,text)                         to anon;
-grant execute on function my_bookings(text,text)                                 to anon;
+-- Grants include `authenticated`: a customer signed in with Google carries a
+-- Supabase Auth session, so their requests run as authenticated, not anon.
+grant execute on function customer_login(text,text)                              to anon, authenticated;
+grant execute on function customer_signup(text,text,text,text,text,int,text,text) to anon, authenticated;
+grant execute on function customer_exists(text,text)                             to anon, authenticated;
+grant execute on function customer_update_profile(text,text,text,text,text,int,text,text,text,text) to anon, authenticated;
+grant execute on function customer_set_photo(text,text,text)                     to anon, authenticated;
+grant execute on function customer_change_password(text,text,text)               to anon, authenticated;
+grant execute on function customer_reset(text,text,text)                         to anon, authenticated;
+grant execute on function my_bookings(text,text)                                 to anon, authenticated;
+
+-- ── Google sign-in (the app finds/creates the customer row by the Google email).
+-- With the customers table locked these need RPCs too. Both verify that the
+-- CALLER's Supabase Auth session (created by the Google OAuth redirect) carries
+-- the same email — so knowing someone's address is not enough to hijack a row.
+
+create or replace function customer_oauth_login(p_email text)
+returns table(
+  id text, name text, email text, phone text, height int, type_preference text,
+  created_at text, birth_date text, country text, city text, photo text, session_token text
+) language plpgsql security definer set search_path = public as $$
+declare r customers%rowtype; tok text;
+begin
+  if auth.uid() is null or lower(coalesce(auth.jwt()->>'email','')) <> lower(p_email) then return; end if;
+  select * into r from customers where lower(customers.email) = lower(p_email) limit 1;
+  if not found then return; end if;
+  tok := encode(gen_random_bytes(24),'hex');
+  update customers set session_token = tok where customers.id = r.id;
+  return query select r.id, r.name, r.email, r.phone, r.height, r.type_preference,
+    r.created_at, r.birth_date, r.country, r.city, r.photo, tok;
+end $$;
+
+create or replace function customer_oauth_signup(
+  p_id text, p_name text, p_email text, p_phone text,
+  p_height int, p_type_preference text, p_gender text, p_photo text
+) returns table(id text, session_token text)
+language plpgsql security definer set search_path = public as $$
+declare tok text;
+begin
+  if auth.uid() is null or lower(coalesce(auth.jwt()->>'email','')) <> lower(p_email) then
+    raise exception 'NOT_AUTHORIZED';
+  end if;
+  if exists(select 1 from customers
+            where (coalesce(p_email,'')<>'' and lower(customers.email)=lower(p_email))
+               or (coalesce(p_phone,'')<>'' and customers.phone=p_phone)) then
+    raise exception 'DUPLICATE' using errcode = 'unique_violation';
+  end if;
+  tok := encode(gen_random_bytes(24),'hex');
+  insert into customers(id,name,email,phone,password_hash,created_at,height,type_preference,gender,photo,session_token)
+  values(p_id,p_name,p_email,p_phone,'oauth:google',to_char(now() at time zone 'utc','YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+         p_height,p_type_preference,p_gender,p_photo,tok);
+  return query select p_id, tok;
+end $$;
+
+-- Google flows only ever run with a real Auth session → authenticated only.
+grant execute on function customer_oauth_login(text)                                to authenticated;
+grant execute on function customer_oauth_signup(text,text,text,text,int,text,text,text) to authenticated;
 
 -- ✅ CHECKPOINT 1: set SECURE_AUTH=true in index.html on staging and confirm
 --    signup, login, profile edit, photo, password change, reset, My Rides work.
@@ -241,11 +290,18 @@ create policy "staff full"    on customers for all using (is_staff()) with check
 
 -- ---- queue_entries -------------------------------------------------------
 drop policy if exists "public access" on queue_entries;
--- Anon may INSERT a booking and UPDATE/cancel a row they hold the customer token
--- for is handled via RPC; for simplicity here anon may INSERT only, staff full.
--- (Customer reads happen through my_bookings(); availability through queue_public.)
-create policy "anon insert booking" on queue_entries for insert with check (true);
-create policy "staff full"          on queue_entries for all using (is_staff()) with check (is_staff());
+-- SELECT is the PII leak, so SELECT is what gets locked: availability reads go
+-- through queue_public (no PII) and a customer's own rows through my_bookings().
+-- INSERT stays public (booking). UPDATE/DELETE stay public because the app's
+-- booking machinery legitimately writes from the customer side (cancel + queue
+-- renumbering, modify, post-ride ratings, insert-failure rollback): every such
+-- write targets rows by their random uid() primary key, which can no longer be
+-- enumerated once SELECT is locked. Tightening writes to token-checked RPCs is
+-- the Section 5 follow-up.
+create policy "public insert booking" on queue_entries for insert with check (true);
+create policy "public update by id"   on queue_entries for update using (true) with check (true);
+create policy "public delete by id"   on queue_entries for delete using (true);
+create policy "staff full"            on queue_entries for all using (is_staff()) with check (is_staff());
 
 -- ---- the rest stay public (no PII): bikes, sessions, inventory, promo_codes
 -- They already have "public access"; leave them. (Tighten writes later if desired.)
@@ -275,5 +331,8 @@ create policy "staff full"          on queue_entries for all using (is_staff()) 
 -- create policy "public access" on queue_entries for all using (true) with check (true);
 -- drop policy if exists "staff full" on customers;
 -- drop policy if exists "staff full" on queue_entries;
--- drop policy if exists "anon insert booking" on queue_entries;
--- -- and set SECURE_AUTH=false in index.html to return to direct-query auth.
+-- drop policy if exists "public insert booking" on queue_entries;
+-- drop policy if exists "public update by id"   on queue_entries;
+-- drop policy if exists "public delete by id"   on queue_entries;
+-- -- and set SECURE_AUTH=false in index.html (or localStorage cq_secure_auth='0')
+-- -- to return to direct-query auth.

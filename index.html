@@ -495,6 +495,7 @@ en:{
   toastStatusChanged:'Status updated:',
   errNotEnoughSpots:'Not enough spots available.',
   errPinWrong:'Incorrect PIN. Try again.',
+  staffAuthTitle:'Staff sign-in',staffAuthHint:'Sign in with your staff account to unlock the panel',staffAuthEmailPh:'Staff email',staffAuthPwdPh:'Password',staffAuthBtn:'Sign in',errStaffNotAuthorized:'This account is not on the staff list.',
   errInvalidCredentials:'Incorrect credentials. Please try again.',
   openEmailApp:'Open in Email App',
   receiptTitle:'Ride Receipt',receiptDear:'Dear',
@@ -843,6 +844,7 @@ ar:{
   toastStatusChanged:'تم تحديث الحالة:',
   errNotEnoughSpots:'لا توجد مقاعد كافية.',
   errPinWrong:'رمز PIN غير صحيح. حاول مجدداً.',
+  staffAuthTitle:'تسجيل دخول الموظفين',staffAuthHint:'سجّل الدخول بحساب الموظف لفتح اللوحة',staffAuthEmailPh:'بريد الموظف',staffAuthPwdPh:'كلمة المرور',staffAuthBtn:'تسجيل الدخول',errStaffNotAuthorized:'هذا الحساب ليس ضمن قائمة الموظفين.',
   errInvalidCredentials:'بيانات الدخول غير صحيحة. حاول مجدداً.',
   openEmailApp:'فتح في تطبيق البريد',
   receiptTitle:'إيصال الرحلة',receiptDear:'عزيزي',
@@ -943,6 +945,31 @@ function setStaffRole(role){
   if(S.view==='staff')setStaffTab(S.staffTab);
 }
 function _getPinLock(){try{return{until:parseInt(localStorage.getItem('cq_pin_until')||'0'),lockouts:parseInt(localStorage.getItem('cq_pin_lockouts')||'0'),attempts:parseInt(localStorage.getItem('cq_pin_attempts')||'0')};}catch(e){return{until:0,lockouts:0,attempts:0};}}
+// ── Staff Supabase Auth (SECURE_AUTH): the DB trusts the Auth session, not the client-side PIN ──
+async function staffAuthSignIn(email,password){
+  const{data,error}=await sb.auth.signInWithPassword({email,password});
+  if(error||!data||!data.user)return{ok:false,msg:(error&&error.message)||t('errConnection')};
+  let row=null;
+  try{const r=await sb.from('staff').select('role').eq('user_id',data.user.id).maybeSingle();row=r.data;}catch(e){}
+  if(!row){try{await sb.auth.signOut();}catch(e){}return{ok:false,msg:t('errStaffNotAuthorized')};}
+  S._staffAuthed=true;setStaffRole(row.role==='frontdesk'?'frontdesk':'admin');
+  return{ok:true};
+}
+async function staffAuthSignOut(){S._staffAuthed=false;try{await sb.auth.signOut();}catch(e){}}
+// On boot: an unlocked staff device must still hold a live Auth session that maps
+// to a staff row, or the unlock flag is dropped and the PIN gate returns.
+async function staffAuthRestore(){
+  if(!SECURE_AUTH||!sb||localStorage.getItem('cq_staff')!=='1')return;
+  try{
+    const{data}=await sb.auth.getSession();
+    const uid=data&&data.session&&data.session.user&&data.session.user.id;
+    if(!uid)throw 0;
+    const{data:row}=await sb.from('staff').select('role').eq('user_id',uid).maybeSingle();
+    if(!row)throw 0;
+    S._staffAuthed=true;setStaffRole(row.role==='frontdesk'?'frontdesk':'admin');
+  }catch(e){try{localStorage.removeItem('cq_staff');}catch(_){}S._staffAuthed=false;}
+}
+async function lockStaff(){try{localStorage.removeItem('cq_staff');}catch(e){}if(SECURE_AUTH)await staffAuthSignOut();window.location.href='./';}
 function _clearPinLock(){try{localStorage.removeItem('cq_pin_until');localStorage.removeItem('cq_pin_lockouts');localStorage.removeItem('cq_pin_attempts');}catch(e){}}
 function _fmtLock(ms){const s=Math.ceil(ms/1000);if(s<60)return`${s}s`;const m=Math.floor(s/60),r=s%60;if(m<60)return r?`${m}m ${r}s`:`${m}m`;const h=Math.floor(m/60),rm=m%60;return rm?`${h}h ${rm}m`:`${h}h`;}
 
@@ -1292,7 +1319,10 @@ let sb;try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);}catch(e){
 //         customers table can be locked down (see security-migration.sql +
 //         SECURITY-RUNBOOK.md). Flip to true ONLY after running Sections 1–2 of
 //         the migration on the matching Supabase project. Default false is safe.
-const SECURE_AUTH = false;
+// localStorage 'cq_secure_auth' ('1'/'0') overrides the default below, so staging
+// and tests can exercise secure mode without editing code. Flip the default to
+// true at the production cutover (Phase 5 of the runbook).
+const SECURE_AUTH=(()=>{try{const v=localStorage.getItem('cq_secure_auth');if(v==='1')return true;if(v==='0')return false;}catch(e){}return false;})();
 
 
 const getQueue=()=>S.queue||[];
@@ -1340,7 +1370,31 @@ function entryToDB(e){
     walk_in:e.walkIn||false,customer_id:e.customerId||null};
 }
 
-let _bootDone=false; 
+// ── Queue fetch, one door for both loaders ──────────────────────────────────
+// Open mode (or an authed staff session): the full queue_entries table.
+// Secure mode as a customer: the table's SELECT is locked, so availability comes
+// from the no-PII queue_public view and the customer's own rows (full fields,
+// needed for My Rides tickets) from the token-checked my_bookings() RPC.
+async function _queueFetch(windowed){
+  const wantSecure=SECURE_AUTH&&!S._staffAuthed;
+  if(!wantSecure){
+    let sel=sb.from('queue_entries').select('*');
+    if(windowed)sel=sel.gte('session_date',_qWindowCut());
+    return sel.order('session_id').order('queue_num');
+  }
+  let pubSel=sb.from('queue_public').select('*');
+  if(windowed)pubSel=pubSel.gte('session_date',_qWindowCut());
+  const cust=S.loggedIn||getSession();
+  const [pub,mine]=await Promise.all([
+    pubSel.order('session_id').order('queue_num'),
+    (cust&&cust.session_token)?sb.rpc('my_bookings',{p_id:cust.id,p_token:cust.session_token}):Promise.resolve({data:[]}),
+  ]);
+  const mineRows=(mine&&!mine.error&&mine.data)||[];
+  const mineIds=new Set(mineRows.map(r=>r.id));
+  return{data:[...mineRows,...((pub&&pub.data)||[]).filter(r=>!mineIds.has(r.id))],error:pub&&pub.error};
+}
+
+let _bootDone=false;
 async function loadData(showLoader=false){
   if(!sb){S.dataLoaded=true;return;}
   if(showLoader){const ls=document.getElementById('loading-screen');if(ls)ls.style.display='flex';}
@@ -1351,7 +1405,7 @@ async function loadData(showLoader=false){
   let q,b,ses;
   try{
     [q,b,ses]=await Promise.all([
-      sb.from('queue_entries').select('*').gte('session_date',_qWindowCut()).order('session_id').order('queue_num'),
+      _queueFetch(true),
       sb.from('bikes').select('*'),
       sb.from('sessions').select('*').order('session_date'),
     ]);
@@ -2091,6 +2145,18 @@ async function handleGoogleReturn(){
   const gname=meta.full_name||meta.name||'';
   const gphoto=meta.avatar_url||meta.picture||'';
   if(!email)return false;
+  if(SECURE_AUTH){
+    // Locked table: the RPC verifies the caller's Google Auth session carries this email.
+    let cust=null;
+    try{const{data}=await sb.rpc('customer_oauth_login',{p_email:email});cust=(data&&data[0])||null;}catch(e){}
+    if(cust){
+      if(!cust.photo&&gphoto){try{await sb.rpc('customer_set_photo',{p_id:cust.id,p_token:cust.session_token,p_photo:gphoto});cust={...cust,photo:gphoto};}catch(e){}}
+      S.rememberMe=true;S.loggedIn=cust;setSession(cust);
+      return 'loggedin';
+    }
+    S._pendingGoogle={email,name:gname,photo:gphoto};
+    return 'complete';
+  }
   let cust=null;
   try{const{data}=await sb.from('customers').select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city,photo').eq('email',email).maybeSingle();cust=data;}catch(e){}
   if(cust){
@@ -2121,6 +2187,20 @@ async function doCompleteGoogle(){
   if(isNaN(heightRaw)||heightRaw<100||heightRaw>250){authErr(t('errValidHeightCm'));return;}
   const fullPhone=cc+phone;
   try{
+    if(SECURE_AUTH){
+      try{const{data:ex}=await sb.rpc('customer_exists',{p_email:'',p_phone:fullPhone});if(ex===true){authErr(t('errPhoneExists'));return;}}catch(e){}
+      const newId=uid();
+      const{data,error}=await sb.rpc('customer_oauth_signup',{p_id:newId,p_name:name,p_email:g.email||'',p_phone:fullPhone,p_height:heightRaw,p_type_preference:S.signupTypePref||'Any',p_gender:S.signupGender,p_photo:g.photo||null});
+      if(error){authErr(/DUPLICATE|23505/i.test((error.message||'')+(error.code||''))?t('errPhoneExists'):t('errConnection'));return;}
+      const tok=(data&&data[0]&&data[0].session_token)||null;
+      const safe={id:newId,name,email:g.email||'',phone:fullPhone,height:heightRaw,type_preference:S.signupTypePref||'Any',created_at:new Date().toISOString(),photo:g.photo||null,session_token:tok};
+      S.rememberMe=true;S.loggedIn=safe;setSession(safe);S._pendingGoogle=null;
+      await loadData();
+      closeAuthModal();goCustomer('register');
+      logAction(t('logAcctCreatedGoogle')+name);
+      toast(`${name}! ${t('toastAccountCreated')}`);
+      return;
+    }
     {const{data:ex}=await sb.from('customers').select('id').eq('phone',fullPhone).maybeSingle();if(ex){authErr(t('errPhoneExists'));return;}}
     const customer={id:uid(),name,email:g.email||'',phone:fullPhone,password_hash:'oauth:google',created_at:new Date().toISOString(),height:heightRaw,type_preference:S.signupTypePref||'Any',gender:S.signupGender,photo:g.photo||null};
     const{error}=await sb.from('customers').insert(customer);
@@ -2405,7 +2485,7 @@ function renderTopbarRight(){
       ${last?`<button class="topbar-btn undo-btn" onclick="doUndo()" title="${esc(last.label)}" style="animation:undoPulse 2s ease-in-out infinite">&#x21B6; Undo</button>`:''}
       <button class="topbar-btn" onclick="openHelp()" title="${t('helpBtn')}" aria-label="${t('helpBtn')}">?</button>
       ${isAdmin()?`<button class="topbar-btn" onclick="exportAllData()" title="${t('exportBackupBtn')}" aria-label="${t('exportBackupBtn')}">⤓</button>`:''}
-      <button class="topbar-btn danger" onclick="localStorage.removeItem('cq_staff');window.location.href='/'">${t('lockBtn')}</button>`;
+      <button class="topbar-btn danger" onclick="lockStaff()">${t('lockBtn')}</button>`;
   } else {
     el.innerHTML='';
   }
@@ -2419,6 +2499,24 @@ function openPinModal(upgrade){
 }
 
 function renderPinModal(){
+  // Secure-mode stage 2: PIN accepted, now the staff Auth account signs in.
+  if(S._pinStage==='auth'){
+    const modal=document.getElementById('pin-modal');
+    modal.style.display='flex';
+    modal.innerHTML=`<div class="pin-backdrop" onclick="if(event.target===this)closePinModal()">
+      <div class="pin-box" id="pin-box">
+        <div class="pin-title">${t('staffAuthTitle')}</div>
+        <div style="font-size:12px;color:var(--muted);font-weight:600;margin:-4px 0 14px">${t('staffAuthHint')}</div>
+        <input id="staff-auth-email" type="email" autocomplete="username" placeholder="${t('staffAuthEmailPh')}" style="width:100%;margin-bottom:8px">
+        <input id="staff-auth-pwd" type="password" autocomplete="current-password" placeholder="${t('staffAuthPwdPh')}" style="width:100%;margin-bottom:10px" onkeydown="if(event.key==='Enter')_staffAuthSubmit()">
+        <div id="staff-auth-err" style="color:var(--red);font-size:12px;font-weight:700;min-height:16px;margin-bottom:6px"></div>
+        <button class="btn-primary" style="width:100%" onclick="_staffAuthSubmit()">${t('staffAuthBtn')}</button>
+        <button class="pin-cancel" onclick="closePinModal()">${t('cancelBtn')}</button>
+      </div>
+    </div>`;
+    setTimeout(()=>document.getElementById('staff-auth-email')?.focus(),50);
+    return;
+  }
   const {until,lockouts,attempts}=_getPinLock();
   const now=Date.now();
   const isLocked=until>now;
@@ -2460,6 +2558,20 @@ function renderPinModal(){
   </div>`;
 }
 
+async function _staffAuthSubmit(){
+  const email=(document.getElementById('staff-auth-email')?.value||'').trim();
+  const pwd=document.getElementById('staff-auth-pwd')?.value||'';
+  const err=m=>{const el=document.getElementById('staff-auth-err');if(el)el.textContent=m;};
+  if(!email||!pwd){err(t('errEmailOrPhone'));return;}
+  const btn=document.querySelector('#pin-modal .btn-primary');if(btn)btn.disabled=true;
+  const res=await staffAuthSignIn(email,pwd);
+  if(btn)btn.disabled=false;
+  if(!res.ok){err(res.msg||t('errInvalidCredentials'));return;}
+  const wasUpgrade=S._pinUpgrade;S._pinUpgrade=false;S._pinStage=null;
+  closePinModal();
+  if(wasUpgrade&&S.view==='staff'){logAction(t('logSwitchedAdmin'));}
+  else{goStaff();logAction(t('logStaffUnlocked'));toast(t('toastStaffPanel'));}
+}
 async function pinPress(d){
   const {until,lockouts,attempts}=_getPinLock();
   if(until>Date.now())return;
@@ -2471,6 +2583,9 @@ async function pinPress(d){
     if(pinOK){
       _clearPinLock();
       if(S.pinCountdownInterval){clearInterval(S.pinCountdownInterval);S.pinCountdownInterval=null;}
+      // Secure mode: the PIN alone no longer unlocks anything — the database only
+      // answers to a staff Auth session, so ask for the account after the PIN.
+      if(SECURE_AUTH&&!S._staffAuthed){S.pinDigits='';S._pinStage='auth';renderPinModal();return;}
       const wasUpgrade=S._pinUpgrade;S._pinUpgrade=false;
       closePinModal();
       if(wasUpgrade&&S.view==='staff'){
@@ -2515,12 +2630,17 @@ function pinDel(){
 function closePinModal(){
   if(S.pinCountdownInterval){clearInterval(S.pinCountdownInterval);S.pinCountdownInterval=null;}
   document.getElementById('pin-modal').style.display='none';
-  S.pinDigits='';S.pinError=false;
+  S.pinDigits='';S.pinError=false;S._pinStage=null;
 }
 
 
 document.addEventListener('keydown',e=>{
-  if(document.getElementById('pin-modal').style.display==='flex'){
+  // Only drive the numeric keypad; ignore keys during the secure-mode staff
+  // sign-in stage (which reuses #pin-modal for an email/password form) and
+  // whenever focus is in a text field, so typing a password never feeds the PIN.
+  if(document.getElementById('pin-modal').style.display==='flex'&&S._pinStage!=='auth'){
+    const tag=(e.target&&e.target.tagName)||'';
+    if(tag==='INPUT'||tag==='TEXTAREA'){if(e.key==='Escape')closePinModal();return;}
     if(e.key>='0'&&e.key<='9')pinPress(e.key);
     else if(e.key==='Backspace')pinDel();
     else if(e.key==='Escape')closePinModal();
@@ -11061,7 +11181,8 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   const ls=document.getElementById('loading-screen');
   if(ls){ls.style.opacity='0';setTimeout(()=>{ls.style.display='none';},400);}
   S.loggedIn=getSession();
-  
+  await staffAuthRestore(); // secure mode: drop a stale staff unlock before the view decision below reads it
+
   try{const cl=localStorage.getItem('cq_cancellations');if(cl)S.cancellationLog=JSON.parse(cl);}catch(e){}
   try{const fl=localStorage.getItem('cq_full_log');if(fl)S.fullLog=JSON.parse(fl);}catch(e){}
   
@@ -11137,7 +11258,7 @@ async function loadDataLight(){
   if(!sb)return;
   let q,ses,cs,bk;
   try{[q,ses,cs,bk]=await Promise.all([
-    sb.from('queue_entries').select('*').gte('session_date',_qWindowCut()).order('session_id').order('queue_num'),
+    _queueFetch(true),
     sb.from('sessions').select('*').order('session_date'),
     sb.from('cashier_sales').select('*'),
     sb.from('bikes').select('id,status'), // status-only (no photos) so availability stays fresh on the poll without a heavy payload

@@ -6,7 +6,9 @@
 
 **The two moving parts**
 1. `security-migration.sql` — run in the Supabase SQL editor, section by section.
-2. `const SECURE_AUTH` in `index.html` — a flag (default `false`). When `true`, the app talks to the new RPCs instead of querying tables directly. The customer-side wiring is already in the code behind this flag.
+2. `const SECURE_AUTH` in `index.html` — a flag (default `false`). When `true`, the app talks to the new RPCs and the `queue_public` view instead of querying tables directly. **All wiring is now in the code** behind this flag: customer signup/login/profile/photo/reset, Google sign-in (`customer_oauth_login`/`customer_oauth_signup`), the customer's own bookings via `my_bookings()`, availability via `queue_public`, and staff sign-in via Supabase Auth (`staffAuthSignIn`, replacing the PIN as the DB gate — PIN stays as a first step).
+
+**Enabling the flag without editing code:** set `localStorage.setItem('cq_secure_auth','1')` in the browser console (or `'0'` to force off). This is how to run secure mode on staging and in tests; the `tests/secure.spec.ts` suite covers login-via-RPC, the `queue_public`+`my_bookings` merge, the stale-unlock→PIN fallback, and staff Auth sign-in. Flip the source default to `true` only at the production cutover (Phase 5).
 
 > ⛔ **Golden rule:** do the whole thing on a **staging Supabase project** first (clone of prod). A wrong RLS policy locks out every login. Never run Section 4 on production until staging passes every checkpoint.
 
@@ -28,24 +30,9 @@
 1. Dashboard → **Authentication → Users → Add user**: create one email/password login per staff member.
 2. Copy each new user's **UUID**.
 3. Run **Section 2**, then run the `insert into staff(...)` statement with those UUIDs (and each person's role: `admin` or `frontdesk`).
-4. Wire staff sign-in in the app — paste this near the existing PIN logic and call it when staff unlock. (Apply now, on staging.)
+4. **Already wired.** With `SECURE_AUTH` on, entering the correct PIN advances to a staff email/password form (`_staffAuthSubmit` → `staffAuthSignIn`), which signs in via Supabase Auth and reads the row's role from the `staff` table. On boot, `staffAuthRestore()` drops a stale `cq_staff` unlock if there is no live Auth session mapping to a staff row (so a copied localStorage flag can't get in). The Lock button (`lockStaff()`) signs the Auth session out. Nothing to paste.
 
-```js
-// Staff sign-in via Supabase Auth (replaces trusting the client-side PIN for DB access).
-async function staffAuthSignIn(email, password){
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if (error) { toast(error.message, 'error'); return false; }
-  // pull role from the staff table for UI gating
-  const { data: row } = await sb.from('staff').select('role').eq('user_id', data.user.id).maybeSingle();
-  setStaffRole(row?.role === 'frontdesk' ? 'frontdesk' : 'admin');
-  return true;
-}
-async function staffAuthSignOut(){ try{ await sb.auth.signOut(); }catch(e){} }
-```
-
-> Replace the PIN modal's success path with a tiny email+password form that calls `staffAuthSignIn`. Keep `isAdmin()` reading `S.staffRole`, which now comes from the `staff` table. The PIN can stay as a *second* factor if you like, but DB access must come from the Auth session.
-
-5. Verify: a signed-in staff user can still load the Queue/Sessions/Bikes/Customers tabs (these read `customers`/`queue_entries` directly — still allowed because the tables aren't locked yet).
+5. Verify on staging: a staff member enters the PIN, then signs in with the Auth account created above, and can load Queue/Sessions/Bikes tabs. An unlocked device with no Auth session must fall back to the PIN gate on reload.
 
 ## Phase 3 — Public availability view
 1. Run **Section 3** (creates `queue_public`).
