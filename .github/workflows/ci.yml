@@ -46,9 +46,16 @@ jobs:
       - if: steps.secrets.outputs.present == 'true'
         uses: actions/checkout@v4
       - if: steps.secrets.outputs.present == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - if: steps.secrets.outputs.present == 'true'
+        run: npm ci && npm run build
+      - if: steps.secrets.outputs.present == 'true'
         name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy . --project-name=micromobilityrentals --branch=main
+          command: pages deploy dist --project-name=micromobilityrentals --branch=main
