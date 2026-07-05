@@ -1,0 +1,54 @@
+# CI: run the Playwright suite on every push and PR.
+#
+# Deploy gating: Cloudflare Pages currently auto-deploys main via its Git
+# integration, so this workflow starts as an alarm, not a gate. To make tests
+# actually BLOCK deploys:
+#   1. Cloudflare dashboard → Workers & Pages → micromobilityrentals →
+#      Settings → Builds & deployments → disable automatic production deploys.
+#   2. Create an API token (Cloudflare dashboard → My Profile → API Tokens →
+#      "Edit Cloudflare Workers" template works) and add two GitHub repo
+#      secrets: CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.
+# The deploy job below detects the secrets and takes over automatically.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm test
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - id: secrets
+        name: Check for Cloudflare credentials
+        run: echo "present=${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}" >> "$GITHUB_OUTPUT"
+      - if: steps.secrets.outputs.present != 'true'
+        name: Skip (no Cloudflare token yet — Pages Git integration is deploying)
+        run: echo "CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set; skipping gated deploy."
+      - if: steps.secrets.outputs.present == 'true'
+        uses: actions/checkout@v4
+      - if: steps.secrets.outputs.present == 'true'
+        name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy . --project-name=micromobilityrentals --branch=main
