@@ -15,9 +15,9 @@ Goal: evolve the current single-file app into a modern, modular, tested codebase
 
 - [x] Playwright scaffold, Supabase network stubbed
 - [x] Landing, i18n/RTL, PIN gate, staff panel, QR scan check-in specs
-- [ ] Booking flow spec (fixture session → reserve → ticket shown)
-- [ ] POS spec (record sale → receipt → refund restores stock)
-- [ ] Close-out and analytics totals spec (pure-logic assertions)
+- [x] Booking flow spec (fixture session → reserve → ticket shown)
+- [x] POS spec (record sale → void/refund restores stock)
+- [x] Close-out totals spec (pure-logic assertions on _salesTotals/_cashCardCash)
 - [ ] Offline snapshot spec (kill network route → cached data still renders)
 
 Rule: **before migrating a module in Phase 2, its behavior must be covered here first.**
