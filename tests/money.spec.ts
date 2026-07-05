@@ -13,9 +13,10 @@ test.describe('booking flow', () => {
   test('select session → rider details → confirm → ticket shown', async ({ page }) => {
     await stubSupabase(page, { sessions: [openSession] });
     await page.goto('/');
-    // wait for the stubbed session fetch before rendering, or a slow runner renders "no sessions"
+    // Enter through the landing hero like a real customer (forcing view state with
+    // showView() races the boot sequence on slow CI runners and gets flipped back).
     await page.waitForFunction('S.sessions && S.sessions.length > 0');
-    await page.evaluate(`showView('customer'); setCustTab('register'); renderRegister();`);
+    await page.locator('.landing-hero-card').click();
 
     // Step 1 — pick the open session
     await page.locator('.sess-card').first().click();
