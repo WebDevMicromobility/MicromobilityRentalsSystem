@@ -13,6 +13,8 @@ test.describe('booking flow', () => {
   test('select session → rider details → confirm → ticket shown', async ({ page }) => {
     await stubSupabase(page, { sessions: [openSession] });
     await page.goto('/');
+    // wait for the stubbed session fetch before rendering, or a slow runner renders "no sessions"
+    await page.waitForFunction('S.sessions && S.sessions.length > 0');
     await page.evaluate(`showView('customer'); setCustTab('register'); renderRegister();`);
 
     // Step 1 — pick the open session
