@@ -46,6 +46,19 @@ test.describe('nutrition library', () => {
     expect(out.sodium).toMatchObject({ a: '180', u: 'mg', nrv: '8' });
   });
 
+  test('VOSS water resolves its zero-calorie low-mineral label', async ({ page }) => {
+    const out = await page.evaluate(() => {
+      const it = { id: 'v1', name: 'VOSS Water 250ml', brand: 'Voss' };
+      // @ts-expect-error app globals
+      const n = _itemNutri(it);
+      return { kcal: n.kcal, serving: n.serving, microCount: n.micros.length, ca: n.micros.find((m: { n: string }) => m.n === 'Calcium') };
+    });
+    expect(out.kcal).toBe(0);
+    expect(out.serving).toContain('250');
+    expect(out.microCount).toBe(4);
+    expect(out.ca).toMatchObject({ u: 'mg' });
+  });
+
   test('a saved nutrition object still wins over the library', async ({ page }) => {
     const kcal = await page.evaluate(() =>
       // @ts-expect-error app globals

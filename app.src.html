@@ -9141,6 +9141,7 @@ function _libNutri(it){
     if(p)return p.nu;
   }
   if(/humantra/.test(hay))return(typeof HUMANTRA_NU!=='undefined'?HUMANTRA_NU:null); // Humantra electrolyte sticks share one label across all flavours
+  if(/voss/.test(hay))return(typeof VOSS_NU!=='undefined'?VOSS_NU:null); // VOSS artesian still water
   return null;
 }
 // Humantra hydration multi-electrolyte stick, transcribed from the official label (per 1 stick / 3.6 g). Same profile for every flavour.
@@ -9156,6 +9157,13 @@ const HUMANTRA_NU={serving:'1 stick (3.6 g)',kcal:5,fat_g:0,satfat_g:0,carbs_g:'
   {n:'Vitamin C',a:'100',u:'mg',nrv:'111'},
   {n:'Vitamin B12',a:'100',u:'µg',nrv:'4167'}
 ],ingredients:'Citric acid, natural flavours, rebaudioside A, silica, fruit powder, and monk fruit extract.'};
+// VOSS artesian still water, per 250 ml. Very low mineral content (low TDS); trace-mineral amounts are typical ranges.
+const VOSS_NU={serving:'250 ml bottle',kcal:0,fat_g:0,satfat_g:0,carbs_g:0,sugar_g:0,fibre_g:0,protein_g:0,micros:[
+  {n:'Sodium',a:'0.9–3.5',u:'mg',nrv:''},
+  {n:'Calcium',a:'2.5–2.8',u:'mg',nrv:''},
+  {n:'Magnesium',a:'0.6',u:'mg',nrv:''},
+  {n:'Chloride',a:'3.5–4',u:'mg',nrv:''}
+],ingredients:'Artesian spring water. pH ~6.4 · very low total dissolved solids (TDS).'};
 function _hasNutri(it){const n=_itemNutri(it);return!!(n&&Object.keys(n).length);}
 function _invNutriJson(){
   const src=S._invNutri||{};const nu={};
