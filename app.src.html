@@ -9142,6 +9142,10 @@ function _libNutri(it){
   }
   if(/humantra/.test(hay))return(typeof HUMANTRA_NU!=='undefined'?HUMANTRA_NU:null); // Humantra electrolyte sticks share one label across all flavours
   if(/voss/.test(hay))return(typeof VOSS_NU!=='undefined'?VOSS_NU:null); // VOSS artesian still water
+  if(/barebells/.test(hay)){ // Barebells protein bars differ by flavour — match the specific one
+    const p=(typeof BAREBELLS_PRESETS!=='undefined'?BAREBELLS_PRESETS:[]).find(x=>hay.includes(x.k.toLowerCase()));
+    if(p)return p.nu;
+  }
   return null;
 }
 // Humantra hydration multi-electrolyte stick, transcribed from the official label (per 1 stick / 3.6 g). Same profile for every flavour.
@@ -9164,6 +9168,14 @@ const VOSS_NU={serving:'250 ml bottle',kcal:0,fat_g:0,satfat_g:0,carbs_g:0,sugar
   {n:'Magnesium',a:'0.6',u:'mg',nrv:''},
   {n:'Chloride',a:'3.5–4',u:'mg',nrv:''}
 ],ingredients:'Artesian spring water. pH ~6.4 · very low total dissolved solids (TDS).'};
+// Barebells protein bars, per 55 g bar. Keyed by flavour so only the matching bar picks up its label.
+const BAREBELLS_PRESETS=[
+ {k:'Caramel Choco',nu:{serving:'1 bar (55 g)',kcal:200,fat_g:9,satfat_g:4,carbs_g:24,sugar_g:2,fibre_g:5,protein_g:16,sodium_mg:190,micros:[
+   {n:'Sugar Alcohols',a:'10',u:'g',nrv:''},
+   {n:'Added Sugars',a:'0',u:'g',nrv:''},
+   {n:'Cholesterol',a:'15',u:'mg',nrv:''}
+ ]}}
+];
 function _hasNutri(it){const n=_itemNutri(it);return!!(n&&Object.keys(n).length);}
 function _invNutriJson(){
   const src=S._invNutri||{};const nu={};

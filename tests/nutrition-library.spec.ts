@@ -59,6 +59,20 @@ test.describe('nutrition library', () => {
     expect(out.ca).toMatchObject({ u: 'mg' });
   });
 
+  test('the Caramel Choco Barebells bar resolves its label, other flavours do not', async ({ page }) => {
+    const out = await page.evaluate(() => {
+      // @ts-expect-error app globals
+      const caramel = _itemNutri({ id: 'b1', name: 'Caramel Choco Protein Bar', brand: 'Barebells' });
+      // @ts-expect-error app globals
+      const other = _itemNutri({ id: 'b2', name: 'Cookies & Cream Protein Bar', brand: 'Barebells' });
+      return { kcal: caramel && caramel.kcal, protein: caramel && caramel.protein_g, sodium: caramel && caramel.sodium_mg, other };
+    });
+    expect(out.kcal).toBe(200);
+    expect(out.protein).toBe(16);
+    expect(out.sodium).toBe(190);
+    expect(out.other).toBeNull(); // an unlisted Barebells flavour gets no guessed label
+  });
+
   test('a saved nutrition object still wins over the library', async ({ page }) => {
     const kcal = await page.evaluate(() =>
       // @ts-expect-error app globals
