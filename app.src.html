@@ -11455,6 +11455,15 @@ const ILLUS_HISTORY=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none"
 const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" stroke="var(--muted)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><circle cx="18" cy="50" r="14"/><circle cx="54" cy="50" r="14"/><path d="M18 50L30 24 40 36 50 24"/><path d="M54 50L50 24"/><path d="M30 24L26 16h10"/><circle cx="36" cy="18" r="7"/><path d="M24 62Q24 54 36 54Q48 54 48 62"/></svg>`;
 
 
+// Re-render whatever view is currently active (used after a background data refresh).
+function _refreshView(){
+  if(S.view==='staff'){renderStaffQueue();renderSessions();renderBikes();
+    const tb=S.staffTab;
+    if(tb==='history')renderHistory();else if(tb==='analytics')renderAnalytics();
+    else if(tb==='community'&&typeof renderCommunity==='function')renderCommunity();else if(tb==='cashier')renderCashier();
+  }else if(S.view==='customer'){renderRegister();renderMyRides();if(S.custTab==='account')renderAccount();}
+  else if(S.view==='landing')renderLandingAvail();
+}
 (async()=>{
   await _sbReady; // wait for the deferred supabase-js before any data call
   // Restore the customer session + staff Auth BEFORE the first data load. loadData
@@ -11464,22 +11473,19 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   // as "undefined" until a later reload. (staffAuthRestore is a no-op on non-staff devices.)
   S.loggedIn=getSession();
   try{await staffAuthRestore();}catch(e){}
-  try{
-    await Promise.race([loadData(),new Promise(r=>setTimeout(r,8000))]);
-  }catch(e){
-    console.warn('Could not reach backend:',e.message);
-  }
-  if(!_lastLoadOk){try{_cacheRestore();}catch(e){}} // network down/slow: show last-known data instead of an empty screen
+  // Stale-while-revalidate: paint the last-known data from the local snapshot IMMEDIATELY
+  // so the app never blocks on the network to show content, then refresh in the
+  // background and re-render. This is what makes it feel fast on every visit.
+  try{if(!S.dataLoaded)_cacheRestore();}catch(e){}
   _bootDone=true;_bootReadyAt=Date.now();
-  // Widen to the full 12-month window shortly after first paint, so History/Analytics/My Rides see everything without slowing boot
-  setTimeout(async()=>{
-    if(S._fullWindow)return;S._fullWindow=true;
-    try{await loadDataLight();}catch(_){return;}
-    if(S.view==='staff'){const tb=S.staffTab;
-      if(tb==='queue')renderStaffQueue();else if(tb==='history')renderHistory();else if(tb==='analytics')renderAnalytics();
-      else if(tb==='community')renderCommunity();else if(tb==='cashier')renderCashier();
-    }else if(S.view==='customer')renderMyRides();
-  },3000);
+  (async()=>{ // background refresh (does not block first paint / view selection below)
+    try{await Promise.race([loadData(),new Promise(r=>setTimeout(r,8000))]);}
+    catch(e){console.warn('Could not reach backend:',e&&e.message);}
+    if(!_lastLoadOk){try{_cacheRestore();}catch(e){}}
+    try{_refreshView();}catch(e){}
+    // Widen to the full 12-month window once the first data is in.
+    if(!S._fullWindow){S._fullWindow=true;setTimeout(async()=>{try{await loadDataLight();}catch(_){return;}try{_refreshView();}catch(e){}},1200);}
+  })();
   applyThemeIcon();
   try{const savedLang=localStorage.getItem('cq_lang');setLang(savedLang==='ar'?'ar':'en');}catch(e){setLang('en');}
   const ls=document.getElementById('loading-screen');
