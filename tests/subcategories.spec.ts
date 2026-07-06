@@ -75,7 +75,7 @@ test.describe('protein sub-categories', () => {
     expect(res.hasField).toBe(true);
     expect(res.leaf).toBe('ProteinMuffins');
     expect(res.parent).toBe('ProteinSnacks');
-    expect(res.label).toBe('Muffins');
+    expect(res.label).toBe('Protein Muffins');
 
     // A custom multi-word type round-trips through the encode/decode helpers and still nests.
     const custom = await page.evaluate(() => ({
@@ -90,5 +90,20 @@ test.describe('protein sub-categories', () => {
       startInvEdit('ck1'); return { cat: S._invCat, sub: S._invSubtype };
     });
     expect(edit).toEqual({ cat: 'ProteinSnacks', sub: 'Cookies' });
+  });
+
+  test('the inventory list nests protein sub-types under a Protein Snacks umbrella, prefixed', async ({ page }) => {
+    const html = await page.evaluate(() => {
+      // @ts-expect-error app globals
+      S.invSection = 'supplements'; S.invSort = 'cat'; S.invSearch = ''; renderInventory();
+      return document.getElementById('tab-inventory')!.innerHTML;
+    });
+    // Umbrella heading present, and sub-headings carry the "Protein" prefix
+    expect(html).toContain('Protein Snacks');
+    expect(html).toContain('Protein Cookies');
+    expect(html).toContain('Protein Gummies');
+    expect(html).toContain('Protein Muffins');
+    // Umbrella comes before its sub-sections
+    expect(html.indexOf('Protein Snacks')).toBeLessThan(html.indexOf('Protein Cookies'));
   });
 });
