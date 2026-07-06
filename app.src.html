@@ -2237,6 +2237,21 @@ function fmtPhoneInput(el){
   else if(d.length>3)out=d.slice(0,3)+' '+d.slice(3);
   el.value=out;
 }
+// Compose a clean E.164 phone from whatever the customer typed + the selected country
+// code, WITHOUT doubling the code. Handles +966…, 966…, 00966…, 0562…, 562… → +966562….
+function _normPhone(raw,cc){
+  cc=cc||'+966';
+  const ccd=cc.replace(/\D/g,''); // e.g. "966"
+  let s=String(raw==null?'':raw).trim().replace(/[\s()\-]/g,'');
+  if(!s)return '';
+  if(s[0]==='+')return '+'+s.slice(1).replace(/\D/g,'');       // explicit + — trust it
+  s=s.replace(/\D/g,'');
+  if(!s)return '';
+  if(s.slice(0,2)==='00')return '+'+s.slice(2);                // 00 international prefix
+  if(ccd&&s.indexOf(ccd)===0&&s.length>=ccd.length+6)return '+'+s; // already includes the country code
+  if(s[0]==='0')return cc+s.slice(1);                          // strip national trunk 0
+  return cc+s;                                                 // bare local number
+}
 
 async function doSignup(){
   const name=(document.getElementById('a-name')?.value||'').trim();
@@ -2256,7 +2271,7 @@ async function doSignup(){
   if(await _pwnedCount(pwd)>0){authErr(t('errPwnedPassword'));S._authBusy=false;return;}
   const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
   if(isNaN(heightRaw)||heightRaw<100||heightRaw>250){authErr(t('errValidHeightCm'));S._authBusy=false;return;}
-  const fullPhone=phone?(cc+phone):'';
+  const fullPhone=phone?_normPhone(phone,cc):'';
   try{
     if(SECURE_AUTH){
       const height=isNaN(heightRaw)?null:heightRaw;
@@ -2356,7 +2371,7 @@ async function doCompleteGoogle(){
   if(!phone){authErr(t('errPhoneRequired'));return;}
   const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
   if(isNaN(heightRaw)||heightRaw<100||heightRaw>250){authErr(t('errValidHeightCm'));return;}
-  const fullPhone=cc+phone;
+  const fullPhone=_normPhone(phone,cc);
   try{
     if(SECURE_AUTH){
       try{const{data:ex}=await sb.rpc('customer_exists',{p_email:'',p_phone:fullPhone});if(ex===true){authErr(t('errPhoneExists'));return;}}catch(e){}
@@ -4144,7 +4159,7 @@ async function saveAccount(){
   if(!name){setErr(t('errAccountName'));return;}
   if(email&&!/^\S+@\S+\.\S+$/.test(email)){setErr(t('errValidEmail'));return;}
   setErr('');
-  const fullPhone=phone?(cc+phone):'';
+  const fullPhone=phone?_normPhone(phone,cc):'';
   const height=(!isNaN(heightRaw)&&heightRaw>=100&&heightRaw<=250)?heightRaw:null;
   const birth_date=(document.getElementById('acc-birth')?.value||'')||null;
   const country=(document.getElementById('acc-country')?.value||'')||null;
