@@ -1772,17 +1772,33 @@ async function _ownEntryUpdate(entryId,patch){
   }
   return await sb.from('queue_entries').update(patch).eq('id',entryId);
 }
+// Pure: given the queue, plan the renumber of WAITING rows after a cancelled number.
+// Walks upward from the freed slot but SKIPS numbers still held by live non-waiting
+// rows (done/active/waitlist), because those sit in the same partial unique index —
+// a waiting row shifted onto a completed booking's number is what caused the
+// "duplicate key … session_qnum_uniq" crash. Returns [{id, to}] in apply order.
+function _shiftPlan(queue,sessionId,fromNum){
+  const q=(queue||[]).filter(e=>e.sessionId===sessionId);
+  const blocked=new Set(q.filter(e=>!['cancelled','removed','noshow','waiting'].includes(e.status)).map(e=>e.queueNum));
+  const behind=q.filter(e=>e.status==='waiting'&&e.queueNum>fromNum).sort((a,b)=>a.queueNum-b.queueNum);
+  const plan=[];let target=fromNum;
+  for(const e of behind){
+    while(blocked.has(target))target++;
+    if(target<e.queueNum){plan.push({id:e.id,to:target});target++;}
+    else target=e.queueNum+1; // no free slot below it; leave in place, keep the queue tight
+  }
+  return plan;
+}
 async function _shiftDownAfter(sessionId,fromNum){
   if(_asCustomer()){
     const c=S.loggedIn||getSession();
     if(c&&c.session_token)await sb.rpc('customer_shiftdown',{p_id:c.id,p_token:c.session_token,p_session_id:sessionId,p_from_num:fromNum});
     return; // the RPC renumbers server-side; loadData() refreshes the local copy
   }
-  const behind=getQueue().filter(e=>e.sessionId===sessionId&&e.status==='waiting'&&e.queueNum>fromNum).sort((a,b)=>a.queueNum-b.queueNum);
-  for(const e of behind){
-    const{error}=await sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id);
+  for(const p of _shiftPlan(getQueue(),sessionId,fromNum)){
+    const{error}=await sb.from('queue_entries').update({queue_num:p.to}).eq('id',p.id);
     if(error){_writeErr({error},'renumber');break;}
-    e.queueNum=e.queueNum-1;
+    const e=getQueue().find(x=>x.id===p.id);if(e)e.queueNum=p.to;
   }
 }
 // Number to restore an undone booking to: its old number if still free among live rows, else a fresh one

@@ -242,12 +242,32 @@ end $$;
 
 -- Close the queue-number gap a customer's cancellation leaves (shifts the riders
 -- behind it down one). Touches other rows, so it is gated by a valid customer token.
+-- Renumbers WAITING rows into the freed slots but hops over numbers still held by
+-- live non-waiting rows (done/active/waitlist). A blind `queue_num - 1` collides with
+-- a completed booking's number and trips the partial unique index
+-- (queue_entries_session_qnum_uniq) → "duplicate key" error on cancel.
 create or replace function customer_shiftdown(p_id text, p_token text, p_session_id text, p_from_num int)
 returns boolean language plpgsql security definer set search_path = public, extensions as $$
+declare r record; target int := p_from_num;
 begin
   if not _cust_token_ok(p_id, p_token) then return false; end if;
-  update queue_entries set queue_num = queue_num - 1
-   where session_id = p_session_id and status = 'waiting' and queue_num > p_from_num;
+  for r in
+    select id, queue_num from queue_entries
+     where session_id = p_session_id and status = 'waiting' and queue_num > p_from_num
+     order by queue_num
+  loop
+    while exists (
+      select 1 from queue_entries
+       where session_id = p_session_id and queue_num = target
+         and status not in ('cancelled','removed','noshow','waiting')
+    ) loop target := target + 1; end loop;
+    if target < r.queue_num then
+      update queue_entries set queue_num = target where id = r.id;
+      target := target + 1;
+    else
+      target := r.queue_num + 1;
+    end if;
+  end loop;
   return true;
 end $$;
 
