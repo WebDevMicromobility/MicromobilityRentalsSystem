@@ -21,3 +21,16 @@ test('change-password modal rejects weak and mismatched passwords', async ({ pag
   await page.locator('#staff-pwd-modal .btn-primary').click();
   await expect(page.locator('#staff-pwd-err')).toHaveText('Passwords do not match.');
 });
+
+test('mandatory (first-time) change modal has no cancel and cannot be dismissed', async ({ page }) => {
+  await stubSupabase(page);
+  await page.addInitScript(() => localStorage.setItem('cq_secure_auth', '1'));
+  await page.goto('/');
+  await page.evaluate(`S._staffAuthed = true; openStaffPwdModal(true);`);
+  await expect(page.locator('#staff-pwd-modal')).toBeVisible();
+  // no cancel button in mandatory mode
+  await expect(page.locator('#staff-pwd-modal .pin-cancel')).toHaveCount(0);
+  // clicking the backdrop does not close it
+  await page.locator('#staff-pwd-modal').click({ position: { x: 5, y: 5 } });
+  await expect(page.locator('#staff-pwd-modal')).toBeVisible();
+});

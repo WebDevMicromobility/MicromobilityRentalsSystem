@@ -524,7 +524,7 @@ en:{
   errNotEnoughSpots:'Not enough spots available.',
   errPinWrong:'Incorrect PIN. Try again.',
   staffAuthTitle:'Staff sign-in',staffAuthHint:'Sign in with your staff account to unlock the panel',staffAuthEmailPh:'Email or phone number',staffAuthPwdPh:'Password',staffAuthBtn:'Sign in',errStaffNotAuthorized:'This account is not on the staff list.',
-  staffPwdTitle:'Change my password',staffPwdHint:'Set a new password for your staff account.',staffPwdDone:'Password updated ✓',staffPwdLog:'Changed own staff password',
+  staffPwdTitle:'Change my password',staffPwdHint:'Set a new password for your staff account.',staffPwdMustHint:'Welcome! For security, set your own password before using the panel.',staffPwdDone:'Password updated ✓',staffPwdLog:'Changed own staff password',
   errInvalidCredentials:'Incorrect credentials. Please try again.',
   errLoginLocked:'Too many failed attempts. Please wait about 15 minutes and try again, or reset your password.',
   openEmailApp:'Open in Email App',
@@ -878,7 +878,7 @@ ar:{
   errNotEnoughSpots:'لا توجد مقاعد كافية.',
   errPinWrong:'رمز PIN غير صحيح. حاول مجدداً.',
   staffAuthTitle:'تسجيل دخول الموظفين',staffAuthHint:'سجّل الدخول بحساب الموظف لفتح اللوحة',staffAuthEmailPh:'البريد الإلكتروني أو رقم الهاتف',staffAuthPwdPh:'كلمة المرور',staffAuthBtn:'تسجيل الدخول',errStaffNotAuthorized:'هذا الحساب ليس ضمن قائمة الموظفين.',
-  staffPwdTitle:'تغيير كلمة المرور',staffPwdHint:'عيّن كلمة مرور جديدة لحساب الموظف.',staffPwdDone:'تم تحديث كلمة المرور ✓',staffPwdLog:'غيّر كلمة مرور حسابه',
+  staffPwdTitle:'تغيير كلمة المرور',staffPwdHint:'عيّن كلمة مرور جديدة لحساب الموظف.',staffPwdMustHint:'مرحباً! للأمان، عيّن كلمة المرور الخاصة بك قبل استخدام اللوحة.',staffPwdDone:'تم تحديث كلمة المرور ✓',staffPwdLog:'غيّر كلمة مرور حسابه',
   errInvalidCredentials:'بيانات الدخول غير صحيحة. حاول مجدداً.',
   errLoginLocked:'محاولات كثيرة فاشلة. انتظر حوالي ١٥ دقيقة ثم حاول مجدداً، أو أعد تعيين كلمة المرور.',
   openEmailApp:'فتح في تطبيق البريد',
@@ -1016,9 +1016,9 @@ async function staffAuthSignIn(identifier,password){
   const{data,error}=await sb.auth.signInWithPassword({email,password});
   if(error||!data||!data.user)return{ok:false,msg:(error&&error.message)||t('errConnection')};
   let row=null;
-  try{const r=await sb.from('staff').select('role').eq('user_id',data.user.id).maybeSingle();row=r.data;}catch(e){}
+  try{const r=await sb.from('staff').select('*').eq('user_id',data.user.id).maybeSingle();row=r.data;}catch(e){}
   if(!row){try{await sb.auth.signOut();}catch(e){}return{ok:false,msg:t('errStaffNotAuthorized')};}
-  S._staffAuthed=true;setStaffRole(row.role==='frontdesk'?'frontdesk':'admin');
+  S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;setStaffRole(row.role==='frontdesk'?'frontdesk':'admin');
   return{ok:true};
 }
 async function staffAuthSignOut(){S._staffAuthed=false;try{await sb.auth.signOut();}catch(e){}}
@@ -1030,9 +1030,9 @@ async function staffAuthRestore(){
     const{data}=await sb.auth.getSession();
     const uid=data&&data.session&&data.session.user&&data.session.user.id;
     if(!uid)throw 0;
-    const{data:row}=await sb.from('staff').select('role').eq('user_id',uid).maybeSingle();
+    const{data:row}=await sb.from('staff').select('*').eq('user_id',uid).maybeSingle();
     if(!row)throw 0;
-    S._staffAuthed=true;setStaffRole(row.role==='frontdesk'?'frontdesk':'admin');
+    S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;setStaffRole(row.role==='frontdesk'?'frontdesk':'admin');
   }catch(e){try{localStorage.removeItem('cq_staff');}catch(_){}S._staffAuthed=false;}
 }
 async function lockStaff(){try{localStorage.removeItem('cq_staff');}catch(e){}if(SECURE_AUTH)await staffAuthSignOut();window.location.href='./';}
@@ -2542,6 +2542,9 @@ function goStaff(){
   renderBikes();
   renderHistory();
   _pushNav();
+  // First-time staff (temp password from the admin) must set their own before using the
+  // panel — the modal is blocking and re-appears on every entry until they change it.
+  if(S._staffAuthed&&S._mustChangePwd)openStaffPwdModal(true);
 }
 function _autoSelectSession(){
   
@@ -2665,21 +2668,22 @@ function renderTopbarRight(){
 
 // Self-service: a signed-in staff member sets their own Supabase Auth password.
 // updateUser works because they're already authenticated — no admin/SQL/email needed.
-function openStaffPwdModal(){
+function openStaffPwdModal(mandatory){
   if(!(SECURE_AUTH&&S._staffAuthed)){toast(t('errConnection'),'error');return;}
+  S._pwdMandatory=!!mandatory; // first-time forced change: no cancel, can't dismiss
   let m=document.getElementById('staff-pwd-modal');
   if(!m){m=document.createElement('div');m.id='staff-pwd-modal';document.body.appendChild(m);}
   m.style.cssText='position:fixed;inset:0;z-index:9600;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.6)';
   m.innerHTML=`<div class="pin-box" onclick="event.stopPropagation()">
       <div class="pin-title">${t('staffPwdTitle')}</div>
-      <div style="font-size:12px;color:var(--muted);font-weight:600;margin:-4px 0 14px">${t('authPasswordHint')}</div>
+      <div style="font-size:12px;color:var(--muted);font-weight:600;margin:-4px 0 14px">${mandatory?t('staffPwdMustHint'):t('authPasswordHint')}</div>
       <input id="staff-newpwd" type="password" autocomplete="new-password" placeholder="${t('authPassword')}" style="width:100%;margin-bottom:8px">
       <input id="staff-newpwd2" type="password" autocomplete="new-password" placeholder="${t('authConfirmPassword')}" style="width:100%;margin-bottom:10px" onkeydown="if(event.key==='Enter')_staffPwdSubmit()">
       <div id="staff-pwd-err" style="color:var(--red);font-size:12px;font-weight:700;min-height:16px;margin-bottom:6px"></div>
       <button class="btn-primary" style="width:100%" onclick="_staffPwdSubmit()">${t('saveBtn')}</button>
-      <button class="pin-cancel" onclick="document.getElementById('staff-pwd-modal').remove()">${t('cancelBtn')}</button>
+      ${mandatory?'':`<button class="pin-cancel" onclick="document.getElementById('staff-pwd-modal').remove()">${t('cancelBtn')}</button>`}
     </div>`;
-  m.onclick=e=>{if(e.target===m)m.remove();};
+  if(!mandatory)m.onclick=e=>{if(e.target===m)m.remove();}; // mandatory: backdrop click does nothing
   setTimeout(()=>document.getElementById('staff-newpwd')?.focus(),50);
 }
 async function _staffPwdSubmit(){
@@ -2694,6 +2698,8 @@ async function _staffPwdSubmit(){
     const{error}=await sb.auth.updateUser({password:p1});
     if(error){err(error.message||t('errConnection'));if(btn)btn.disabled=false;return;}
   }catch(e){err(t('errConnection'));if(btn)btn.disabled=false;return;}
+  try{await sb.rpc('staff_mark_pwd_changed');}catch(e){} // clear the must-change flag (no-op until the migration is run)
+  S._mustChangePwd=false;S._pwdMandatory=false;
   document.getElementById('staff-pwd-modal')?.remove();
   toast(t('staffPwdDone'));
   try{logAction(t('staffPwdLog'));}catch(e){}
