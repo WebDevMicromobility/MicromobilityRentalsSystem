@@ -1486,6 +1486,16 @@ async function _pwnedCount(pwd){
     return hit?(parseInt(hit.split(':')[1])||0):0;
   }catch(e){return 0;}
 }
+// Fire-and-forget booking-confirmation email via the /api/booking-confirm Pages
+// Function (no-op until Brevo keys are set server-side). Only in secure mode, where
+// the customer holds a session token to prove ownership.
+function _sendBookingEmail(entry){
+  try{
+    const c=S.loggedIn||getSession();
+    if(!c||!c.session_token||!entry||!entry.email)return;
+    fetch('/api/booking-confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({customerId:c.id,token:c.session_token,bookingId:entry.id})}).catch(()=>{});
+  }catch(e){}
+}
 // Share a booking confirmation to WhatsApp (opens WhatsApp with the ticket pre-filled).
 function _shareTicketWA(idx){
   const tkt=(S.lastTickets||[])[idx];if(!tkt)return;
@@ -3354,6 +3364,7 @@ async function submitReg(){
     if(S.promoApplied&&S.promoApplied.code){const _pc=String(S.promoApplied.code);try{await Promise.all(entries.map(e=>_ownEntryUpdate(e.id,{promo_code:_pc})));}catch(e){}}
 
     await loadData();
+    _sendBookingEmail(entries[0]); // confirmation email (no-op unless Brevo is configured server-side)
     S.lastTickets=entries.map(e=>getQueue().find(q=>q.id===e.id)||e);
     S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
     S.regQty=1;S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regRiderNames=[];S._alreadyBookedSession=null;S.regStep=1;S.promoApplied=null;S._promoMsg='';S.regAddons=[];
