@@ -1533,7 +1533,10 @@ async function loadData(showLoader=false){
   try{const _v=_voidedIds();if(_v.length)S.cashSales=(S.cashSales||[]).filter(r=>_v.indexOf(r.id)<0);}catch(e){} // never resurrect a voided sale
   _outboxFlush();
   try{const _tm=localStorage.getItem('cq_team');if(_tm!==null){S.teamMembers=JSON.parse(_tm)||[];}else{S.teamMembers=[...new Set((S.cashSales||[]).map(r=>r.team_name).filter(Boolean))].sort();localStorage.setItem('cq_team',JSON.stringify(S.teamMembers));}}catch(e){}
-  _lastLoadOk=true;_cacheSave();
+  _lastLoadOk=true;
+  // Don't snapshot a PII-free (queue_public) load on a staff device — restoring it later
+  // would show the staff panel with no names/phones. Only cache full loads.
+  if(!(SECURE_AUTH&&!S._staffAuthed&&(typeof localStorage!=='undefined'&&localStorage.getItem('cq_staff')==='1')))_cacheSave();
 }
 let _bootReadyAt=0;
 let _lastLoadOk=false;
@@ -4579,9 +4582,11 @@ async function _addonPickerStep(addonId,delta){
 function customerNoShows(e){
   if(!e)return 0;
   const q=getQueue();
-  return e.customerId
-    ?q.filter(x=>x.customerId===e.customerId&&x.status==='noshow').length
-    :q.filter(x=>!x.customerId&&x.status==='noshow'&&x.name===e.name&&(x.phone||'')===(e.phone||'')).length;
+  if(e.customerId)return q.filter(x=>x.customerId===e.customerId&&x.status==='noshow').length;
+  // No account: identify by name+phone. If both are missing (e.g. PII-free data), we can't
+  // tell riders apart — don't group them (that once made every anonymous row count as one).
+  if(!(e.name||'').trim()&&!(e.phone||'').trim())return 0;
+  return q.filter(x=>!x.customerId&&x.status==='noshow'&&x.name===e.name&&(x.phone||'')===(e.phone||'')).length;
 }
 const ICON_PENCIL='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 // Shared monochrome action-icon set (inherits currentColor), unifies button visuals now that emoji are gone.
@@ -11506,6 +11511,14 @@ function _refreshView(){
     catch(e){console.warn('Could not reach backend:',e&&e.message);}
     if(!_lastLoadOk){try{_cacheRestore();}catch(e){}}
     try{_refreshView();}catch(e){}
+    // Self-heal: if this is a staff device but the Auth session wasn't established at boot
+    // (e.g. supabase-js loaded after the _sbReady timeout, so staffAuthRestore was skipped),
+    // the load above read the PII-free queue_public. Retry the auth now that sb exists and,
+    // if it succeeds, reload the full queue_entries (names/phones) and re-render.
+    if(localStorage.getItem('cq_staff')==='1'&&!S._staffAuthed&&typeof sb!=='undefined'&&sb){
+      try{await staffAuthRestore();}catch(e){}
+      if(S._staffAuthed){try{await loadData();}catch(e){}try{_refreshView();}catch(e){}}
+    }
     // Widen to the full 12-month window once the first data is in. (Tests can disable
     // this background refresh via window.__noWiden so it can't clobber state they set up.)
     if(!S._fullWindow&&!(typeof window!=='undefined'&&window.__noWiden)){S._fullWindow=true;setTimeout(async()=>{try{await loadDataLight();}catch(_){return;}try{_refreshView();}catch(e){}},1200);}
