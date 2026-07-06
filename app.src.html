@@ -1003,6 +1003,7 @@ function _staffPhoneE164(raw){
 const STAFF_PHONE_MAP={
   '+966562989838':'malik-naj@hotmail.com',
   '+966562847777':'salemb@micromobility.sa',
+  '+966566668818':'mohammad.alhosni@micromobility.sa',
 };
 // Resolve a login identifier to the account email: email as-is, phone via the map.
 function _staffLoginEmail(identifier){
@@ -4374,7 +4375,7 @@ function selectAllNewSessAll(){
 function _sessAddonGroups(items,selIds,toggleFn){
   const cats=[...new Set(items.map(it=>it.category||'Other'))].sort((a,b)=>_invCatLabel(a).localeCompare(_invCatLabel(b)));
   const card=it=>{const sel=(selIds||[]).includes(it.id);const sub=`${it.brand?esc(it.brand):''}${(it.brand&&it.price!=null&&Number(it.price)>0)?' · ':''}${(it.price!=null&&Number(it.price)>0)?'SAR '+Number(it.price):''}`;
-    return`<button type="button" onclick="${toggleFn}('${it.id}')" title="${esc(it.name)}" style="display:flex;align-items:center;gap:8px;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(3,255,137,.08)':'var(--s2)'};border-radius:10px;padding:6px 11px 6px 6px;cursor:pointer;font-family:inherit;text-align:start">${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="" style="width:34px;height:34px;border-radius:7px;object-fit:contain;background:var(--photo-bg);flex-shrink:0">`:`<div style="width:34px;height:34px;border-radius:7px;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:11px;font-weight:800">${esc((it.name||'?').charAt(0))}</div>`}<div style="min-width:0"><div style="font-size:12px;font-weight:800;color:${sel?'var(--green)':'var(--text)'};white-space:nowrap">${esc(it.name)}</div>${sub?`<div style="font-size:10px;color:var(--muted);white-space:nowrap">${sub}</div>`:''}</div></button>`;};
+    return`<button type="button" onclick="${toggleFn}('${it.id}')" title="${esc(it.name)}" style="display:flex;align-items:center;gap:8px;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(3,255,137,.08)':'var(--s2)'};border-radius:10px;padding:6px 11px 6px 6px;cursor:pointer;font-family:inherit;text-align:start">${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="" style="width:34px;height:34px;border-radius:7px;object-fit:contain;background:var(--photo-bg);flex-shrink:0">`:`<div style="width:34px;height:34px;border-radius:7px;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:11px;font-weight:800">${_catIcon(it.category)||esc((it.name||'?').charAt(0))}</div>`}<div style="min-width:0"><div style="font-size:12px;font-weight:800;color:${sel?'var(--green)':'var(--text)'};white-space:nowrap">${esc(it.name)}</div>${sub?`<div style="font-size:10px;color:var(--muted);white-space:nowrap">${sub}</div>`:''}</div></button>`;};
   const _saWhich=toggleFn.indexOf('Edit')>=0?'edit':'new';
   const _saAll=items.length>0&&items.every(it=>(selIds||[]).includes(it.id));
   const _saBtn=items.length>1?`<button type="button" class="btn-sm btn-muted" style="font-size:11px;margin-bottom:10px" onclick="_sessAddonSelectAll('${_saWhich}')">${_saAll?t('nsClear'):t('nsSelectAll')}</button>`:'';
@@ -9171,6 +9172,11 @@ function _invResolveCat(){
 }
 const CUSTOM_CAT_AR={'Drinks':'مشروبات','Protein Cookies':'كوكيز بروتين'}; // Arabic display names for user-created categories (stored values stay English)
 function _invCatLabel(c){const b={Helmet:t('catHelmet'),Accessory:t('catAccessory'),ProteinSnacks:t('catProteinSnacks'),ProteinGummies:t('catProteinGummies'),ElectrolyteSachets:t('catElectrolyteSachets'),EnergyGels:t('catEnergyGels'),SparePart:t('catSparePart'),Apparel:t('catApparel'),Other:t('catOther')}[c];if(b)return b;return S&&S.lang==='ar'?(CUSTOM_CAT_AR[c]||c):c;}
+// Built-in clip-art (inline SVG) shown for a category's items that have no photo.
+const _CAT_ICON_SVG={
+  Helmet:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" style="width:56%;height:56%;opacity:.55"><path d="M3.5 13.5a8.5 8.5 0 0 1 17 0"/><path d="M3.5 13.5h17v1.6a2.4 2.4 0 0 1-2.4 2.4H10.5a7 7 0 0 1-7-4z"/><path d="M8.2 13.2a7.5 7.5 0 0 1 2-4.9M12.3 13.2a8 8 0 0 1 1-5.1M16.2 13.2a7 7 0 0 1 1.7-4.2"/></svg>',
+};
+function _catIcon(cat){return _CAT_ICON_SVG[cat]||'';}
 // Sentinel guard: the picker uses '__pending__'/'__add__' while typing; never let those (or a stray 'pending') become a real flavour
 function _badFlav(v){const s=String(v||'').trim().toLowerCase();return s===''||s==='__pending__'||s==='__add__'||s==='pending';}
 let _flavCleaned=false;
@@ -9998,7 +10004,7 @@ function renderInventory(){
     const stTxt=state==='out'?t('invOutStock'):state==='low'?t('invLowStock'):t('invInStock');
     const borderClr=state==='out'?'rgba(224,64,64,.4)':state==='low'?'rgba(224,136,40,.45)':'rgba(3,255,137,.3)';
     return`<div class="bike-grid-card" style="border-color:${borderClr};display:flex;flex-direction:column;gap:8px">
-      ${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="" style="width:100%;aspect-ratio:1/1;border-radius:10px;object-fit:contain;background:var(--photo-bg);border:1px solid var(--border)">`:`<div style="width:100%;aspect-ratio:1/1;border-radius:10px;background:var(--s3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:30px;opacity:.5"></div>`}
+      ${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="" style="width:100%;aspect-ratio:1/1;border-radius:10px;object-fit:contain;background:var(--photo-bg);border:1px solid var(--border)">`:`<div style="width:100%;aspect-ratio:1/1;border-radius:10px;background:var(--s3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:30px;opacity:.5">${_catIcon(it.category)}</div>`}
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px">
         <div style="min-width:0"><div style="font-weight:900;font-size:13px;line-height:1.3">${esc(it.name)}</div>${it.brand?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">${esc(it.brand)}</div>`:''}${it.volume_ml?`<div style="font-size:11px;color:var(--muted-l);font-weight:600;margin-top:1px">${it.volume_ml} ml</div>`:''}${it.price!=null&&Number(it.price)>0?`<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:1px">SAR ${Number(it.price)}</div>`:''}</div>
         <span style="font-size:10px;font-weight:800;color:${stClr};white-space:nowrap;flex-shrink:0">${stTxt}</span>
@@ -10062,33 +10068,34 @@ function renderInventory(){
       <button class="btn-sm btn-green" onclick="applyStockTake()" ${_stD.length?'':'disabled'}>${t('stApplyBtn').replace('{0}',_stD.length)}</button>
     </div>`:''}`;
   const _invHadFocus=document.activeElement&&document.activeElement.id==='inv-search';
+  // Reorder suggestions render INSIDE the section they belong to (scoped to that
+  // section's low-stock items), not as one banner above every section.
+  const _sold=_itemSoldUnits();
+  const reorderCard=list=>{
+    const ro=(list||[]).filter(i=>{const q=Number(i.qty)||0,lo=Number(i.low_threshold)||0;return q<=0||(lo>0&&q<=lo);})
+      .map(i=>{const q=Number(i.qty)||0,lo=Number(i.low_threshold)||0,s=_sold[i.id]||0;const need=Math.max(1,Math.ceil(Math.max(lo*2,s,4)-q));return{i,q,s,need};})
+      .sort((a,b)=>b.s-a.s||a.q-b.q);
+    if(!ro.length)return'';
+    return`<div class="card" style="margin-bottom:14px;padding:14px 16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="font-weight:800;font-size:14px">${t('reorderTitle')}</div>
+        <button class="btn-sm btn-muted" onclick="_shareReorderList()" style="font-size:12px;white-space:nowrap">↗ ${t('reorderShareBtn')}</button>
+      </div>
+      ${ro.map(({i,q,s,need})=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border)">
+        ${_itemThumb(i.id,32)}
+        <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${esc(i.name)}</div>
+          <div style="font-size:11px;color:var(--muted)"><span style="color:${q<=0?'var(--red)':'var(--orange)'};font-weight:700">${q<=0?t('invOutStock'):t('invLowStock')}</span> · ${t('invQty')}: ${q}${s>0?` · ${s} ${t('reorderSold')}`:''}</div></div>
+        <div style="text-align:end;flex-shrink:0"><div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:800;letter-spacing:.4px">${t('reorderSuggest')}</div><div style="font-weight:900;color:var(--green);font-size:17px">+${need}</div></div>
+      </div>`).join('')}
+    </div>`;
+  };
   let content;
-  if(sec==='supplements')content=secHead(' '+t('invSecSupplements'),true,true)+addForm+ctlBar+invBody(suppItems);
-  else if(sec==='equipment')content=secHead(' '+t('invSecEquipment'),true,true)+addForm+ctlBar+invBody(equipItems);
+  if(sec==='supplements')content=secHead(' '+t('invSecSupplements'),true,true)+addForm+ctlBar+reorderCard(suppItems)+invBody(suppItems);
+  else if(sec==='equipment')content=secHead(' '+t('invSecEquipment'),true,true)+addForm+ctlBar+reorderCard(equipItems)+invBody(equipItems);
   else content=`<div id="tab-bikes"></div>`; // full Bikes management UI renders here
   el.innerHTML=`
     <div class="page-title">${t('invTitle')}</div>
     <div class="page-sub">${t('invSub')}</div>
-    ${lowItems.length?`<div class="next-up-banner" style="background:rgba(224,136,40,.08);border-color:rgba(224,136,40,.3);margin-top:14px"><div style="font-weight:800;color:var(--orange)"> ${t('invLowAlert').replace('{0}',lowItems.length)}</div></div>`:''}
-    ${(()=>{
-      const sold=_itemSoldUnits();
-      const ro=items.filter(i=>{const q=Number(i.qty)||0,lo=Number(i.low_threshold)||0;return q<=0||(lo>0&&q<=lo);})
-        .map(i=>{const q=Number(i.qty)||0,lo=Number(i.low_threshold)||0,s=sold[i.id]||0;const need=Math.max(1,Math.ceil(Math.max(lo*2,s,4)-q));return{i,q,s,need};})
-        .sort((a,b)=>b.s-a.s||a.q-b.q);
-      if(!ro.length)return'';
-      return`<div class="card" style="margin-top:14px;padding:14px 16px">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px">
-          <div style="font-weight:800;font-size:14px">${t('reorderTitle')}</div>
-          <button class="btn-sm btn-muted" onclick="_shareReorderList()" style="font-size:12px;white-space:nowrap">↗ ${t('reorderShareBtn')}</button>
-        </div>
-        ${ro.map(({i,q,s,need})=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border)">
-          ${_itemThumb(i.id,32)}
-          <div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px">${esc(i.name)}</div>
-            <div style="font-size:11px;color:var(--muted)"><span style="color:${q<=0?'var(--red)':'var(--orange)'};font-weight:700">${q<=0?t('invOutStock'):t('invLowStock')}</span> · ${t('invQty')}: ${q}${s>0?` · ${s} ${t('reorderSold')}`:''}</div></div>
-          <div style="text-align:end;flex-shrink:0"><div style="font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:800;letter-spacing:.4px">${t('reorderSuggest')}</div><div style="font-weight:900;color:var(--green);font-size:17px">+${need}</div></div>
-        </div>`).join('')}
-      </div>`;
-    })()}
     <div class="inv-layout">
       <div class="inv-sidebar">
         ${navbtn('bikes',' '+t('invSecBikes'))}
