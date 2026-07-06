@@ -1604,7 +1604,16 @@ function bookingRef(e){
 function getSession(){
   try{
     const r=localStorage.getItem('cq_session')||sessionStorage.getItem('cq_session');
-    return r?JSON.parse(r):null;
+    if(!r)return null;
+    const c=JSON.parse(r);
+    // Post-cutover: a session remembered from before SECURE_AUTH has no session_token
+    // and can't drive the RPCs (My Rides / self-cancel), so drop it and let the
+    // customer log in fresh. Google users are re-tokened by handleGoogleReturn on boot.
+    if(SECURE_AUTH&&c&&!c.session_token){
+      try{localStorage.removeItem('cq_session');sessionStorage.removeItem('cq_session');}catch(e){}
+      return null;
+    }
+    return c;
   }catch{return null;}
 }
 function setSession(c){
