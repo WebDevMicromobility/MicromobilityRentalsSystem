@@ -15,7 +15,7 @@ import { resolve } from 'node:path';
 
 const RUNTIME_ASSETS = [
   'styles.css', 'manifest.json', 'logo.png', 'brand.png', 'hero.png',
-  'icon-192.png', 'icon-512.png', '_redirects',
+  'icon-192.png', 'icon-512.png', '_redirects', '_headers',
 ];
 
 function copyRuntimeAssets(): Plugin {
