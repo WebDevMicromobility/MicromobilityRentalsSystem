@@ -2065,7 +2065,7 @@ async function doResetPassword(){
   try{
     if(SECURE_AUTH){
       const ph=(S.forgotCc||'')+(S.forgotPhoneRaw||'');
-      const{data,error}=await sb.rpc('customer_reset',{p_email:S.forgotEmail,p_phone:ph,p_new_hash:await makePwdHash(pwd)});
+      const{data,error}=await sb.rpc('customer_reset',{p_email:S.forgotEmail,p_phone:ph,p_new_pwd:pwd});
       const customer=(data&&data[0])||null;
       if(error||!customer){authErr(t('errResetNoMatch'));return;}
       S.loggedIn=customer;setSession(customer);S.forgotStep=1;S.forgotEmail='';S.forgotVerified=null;S.authMode='login';
@@ -2121,7 +2121,7 @@ async function doSignup(){
       const newId=uid();
       const{data,error}=await sb.rpc('customer_signup',{
         p_id:newId,p_name:name,p_email:email,p_phone:fullPhone,
-        p_pwd_hash:await makePwdHash(pwd),p_height:height,
+        p_pwd:pwd,p_height:height,
         p_type_preference:S.signupTypePref||'Any',p_gender:S.signupGender});
       if(error){authErr((error.code==='23505'||/DUPLICATE/i.test(error.message||''))?t('errEmailExists'):t('errConnection'));return;}
       const tok=(data&&data[0]&&data[0].session_token)||null;
