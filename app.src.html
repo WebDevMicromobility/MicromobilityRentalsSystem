@@ -11506,8 +11506,9 @@ function _refreshView(){
     catch(e){console.warn('Could not reach backend:',e&&e.message);}
     if(!_lastLoadOk){try{_cacheRestore();}catch(e){}}
     try{_refreshView();}catch(e){}
-    // Widen to the full 12-month window once the first data is in.
-    if(!S._fullWindow){S._fullWindow=true;setTimeout(async()=>{try{await loadDataLight();}catch(_){return;}try{_refreshView();}catch(e){}},1200);}
+    // Widen to the full 12-month window once the first data is in. (Tests can disable
+    // this background refresh via window.__noWiden so it can't clobber state they set up.)
+    if(!S._fullWindow&&!(typeof window!=='undefined'&&window.__noWiden)){S._fullWindow=true;setTimeout(async()=>{try{await loadDataLight();}catch(_){return;}try{_refreshView();}catch(e){}},1200);}
   })();
   applyThemeIcon();
   try{const savedLang=localStorage.getItem('cq_lang');setLang(savedLang==='ar'?'ar':'en');}catch(e){setLang('en');}

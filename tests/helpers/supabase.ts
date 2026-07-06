@@ -12,6 +12,8 @@ export async function stubSupabase(page: Page, fixtures: Fixtures = {}) {
   // SECURE_AUTH defaults ON in production; pin open mode for the stubbed suite
   // unless a spec explicitly opts into secure mode after this (secureOn sets '1').
   await page.addInitScript(() => localStorage.setItem('cq_secure_auth', '0'));
+  // Disable the boot's background "widen" refresh so it can't overwrite state a test sets.
+  await page.addInitScript(() => { (window as unknown as { __noWiden?: boolean }).__noWiden = true; });
   await page.route('**://*.supabase.co/**', async (route) => {
     const req = route.request();
     const url = new URL(req.url());

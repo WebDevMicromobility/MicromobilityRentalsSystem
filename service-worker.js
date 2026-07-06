@@ -1,5 +1,5 @@
 
-const CACHE = 'mmcq-v90';
+const CACHE = 'mmcq-v91';
 const SHELL = [
   './',
   './index.html',
@@ -29,13 +29,20 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
 
   
+  // The page shell: serve the cached index.html INSTANTLY (no network wait), and refresh
+  // it in the background for next time (stale-while-revalidate). A new deploy therefore
+  // applies on the next load rather than blocking this one. First-ever visit (nothing
+  // cached) falls back to the network.
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put('./index.html', copy));
-        return res;
-      }).catch(() => caches.match('./index.html'))
+      caches.match('./index.html').then((cached) => {
+        const network = fetch(req).then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put('./index.html', copy));
+          return res;
+        }).catch(() => cached);
+        return cached || network;
+      })
     );
     return;
   }
