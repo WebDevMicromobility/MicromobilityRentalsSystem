@@ -56,9 +56,12 @@ test('customer reads merge queue_public with my_bookings and skip the locked tab
   expect(await page.evaluate(`S.queue.filter(e => e.name).length`)).toBe(1); // only own row carries a name
 
   // My Rides renders the own booking from the RPC row (tab switch via app fn:
-  // the top tab-nav is desktop-only, mobile uses the bottom nav)
-  await page.evaluate(`setCustTab('myrides')`);
-  await expect(page.locator('#tab-myrides')).toContainText('#3');
+  // the top tab-nav is desktop-only, mobile uses the bottom nav). Re-render on
+  // each poll so a one-off render before data settles doesn't flake under load.
+  await expect(async () => {
+    await page.evaluate(`setCustTab('myrides'); if (typeof renderMyRides === 'function') renderMyRides();`);
+    await expect(page.locator('#tab-myrides')).toContainText('#3', { timeout: 1000 });
+  }).toPass({ timeout: 8000 });
 });
 
 test('a stale staff unlock without an Auth session falls back to the PIN gate', async ({ page }) => {
@@ -70,6 +73,46 @@ test('a stale staff unlock without an Auth session falls back to the PIN gate', 
   await expect(page.locator('.landing-hero-card')).toBeVisible(); // landed on the public page, not the staff panel
   expect(await page.evaluate(`localStorage.getItem('cq_staff')`)).toBeNull();
   expect(await page.evaluate(`S._staffAuthed === true`)).toBe(false);
+});
+
+test('customer writes route through the token RPCs when the table is locked', async ({ page }) => {
+  await stubSupabase(page, {
+    sessions: [openSession],
+    'rpc:customer_booking_update': true,
+    'rpc:customer_shiftdown': true,
+  });
+  await secureOn(page);
+  await loginCustomer(page, { id: 'c9', name: 'Secure Rider', session_token: 'tok123' });
+  await page.goto('/');
+
+  const rpcCalls: string[] = [];
+  page.on('request', (r) => {
+    const m = r.url().match(/\/rest\/v1\/(rpc\/[a-z_]+|queue_entries)/);
+    if (m && ['PATCH', 'POST'].includes(r.method())) rpcCalls.push(`${r.method()} ${m[1]}`);
+  });
+
+  // an own-row update (cancel) must go to the RPC, not a direct table PATCH
+  const res = await page.evaluate(`_ownEntryUpdate('q-mine', { status: 'cancelled', assigned_bike_id: null })`);
+  expect(res).toEqual({ error: null });
+  await page.evaluate(`_shiftDownAfter('s1', 3)`);
+
+  expect(rpcCalls.some((c) => c.includes('rpc/customer_booking_update'))).toBe(true);
+  expect(rpcCalls.some((c) => c.includes('rpc/customer_shiftdown'))).toBe(true);
+  expect(rpcCalls.some((c) => c.includes('queue_entries'))).toBe(false); // never touched the locked table directly
+});
+
+test('staff/open mode still writes queue_entries directly (no RPC)', async ({ page }) => {
+  await stubSupabase(page, { sessions: [openSession] }); // secure mode OFF
+  await page.goto('/');
+  const seen: string[] = [];
+  page.on('request', (r) => {
+    const m = r.url().match(/\/rest\/v1\/(rpc\/customer_booking_update|queue_entries)/);
+    if (m && r.method() === 'PATCH') seen.push(m[1]);
+  });
+  const res = await page.evaluate(`_ownEntryUpdate('q1', { status: 'cancelled' })`);
+  expect(res).not.toBeNull();
+  expect(seen.some((c) => c === 'queue_entries')).toBe(true);
+  expect(seen.some((c) => c.includes('rpc/'))).toBe(false);
 });
 
 test('after the PIN, staff sign in with a Supabase Auth account', async ({ page }) => {

@@ -1685,7 +1685,25 @@ function spotsLeft(sid){
 function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid&&e.status!=='cancelled'&&e.status!=='removed').map(e=>e.queueNum||0);return nums.length?nums.reduce((a,b)=>Math.max(a,b),0)+1:1;} // cancelled/removed numbers are recycled (the partial unique index exempts those rows); noshow numbers stay reserved because the rider can come back
 // Close the gap a cancelled/removed booking leaves: shift every waiting rider behind it down one.
 // Sequential and ascending so the partial unique (session_id,queue_num) index never sees two LIVE rows share a number mid-shift.
+// True when we're acting as a signed-in customer against a locked DB: queue_entries
+// writes must then go through the token-checked RPCs (staff/open mode write directly).
+function _asCustomer(){return SECURE_AUTH&&!S._staffAuthed;}
+// One door for a customer's own queue_entries write (patch keyed by DB column names).
+async function _ownEntryUpdate(entryId,patch){
+  if(_asCustomer()){
+    const c=S.loggedIn||getSession();
+    if(!c||!c.session_token)return{error:{message:t('errConnection')}};
+    const{data,error}=await sb.rpc('customer_booking_update',{p_id:c.id,p_token:c.session_token,p_entry_id:entryId,p_patch:patch});
+    return(error||data!==true)?{error:error||{message:'denied'}}:{error:null};
+  }
+  return await sb.from('queue_entries').update(patch).eq('id',entryId);
+}
 async function _shiftDownAfter(sessionId,fromNum){
+  if(_asCustomer()){
+    const c=S.loggedIn||getSession();
+    if(c&&c.session_token)await sb.rpc('customer_shiftdown',{p_id:c.id,p_token:c.session_token,p_session_id:sessionId,p_from_num:fromNum});
+    return; // the RPC renumbers server-side; loadData() refreshes the local copy
+  }
   const behind=getQueue().filter(e=>e.sessionId===sessionId&&e.status==='waiting'&&e.queueNum>fromNum).sort((a,b)=>a.queueNum-b.queueNum);
   for(const e of behind){
     const{error}=await sb.from('queue_entries').update({queue_num:e.queueNum-1}).eq('id',e.id);
@@ -3324,16 +3342,14 @@ async function submitModifyBooking(){
     const entry=existing[i];
     const newType=S.regBikeTypes[i];
     if(entry.typePreference!==newType){
-      calls.push(sb.from('queue_entries').update({
-        type_preference:newType,price:priceForType(newType)
-      }).eq('id',entry.id));
+      calls.push(_ownEntryUpdate(entry.id,{type_preference:newType,price:priceForType(newType)}));
     }
   }
 
-  
+
   if(newQty<existing.length){
     const toRemove=existing.slice(newQty);
-    toRemove.forEach(e=>calls.push(sb.from('queue_entries').update({status:'cancelled'}).eq('id',e.id)));
+    toRemove.forEach(e=>calls.push(_ownEntryUpdate(e.id,{status:'cancelled'})));
   }
 
   
@@ -3708,7 +3724,7 @@ async function submitRating(){
     toast(t('rateRequiredScore'),'warning');
     return;
   }
-  const{error}=await sb.from('queue_entries').update({rating_bike:S._rateBike||null,rating_exp:S._rateExp||null,feedback:note||null}).eq('id',id);
+  const{error}=await _ownEntryUpdate(id,{rating_bike:S._rateBike||null,rating_exp:S._rateExp||null,feedback:note||null});
   if(error){toast(error.message||t('errConnection'),'error');return;}
   const e=getQueue().find(x=>x.id===id);if(e){e.ratingBike=S._rateBike||null;e.ratingExp=S._rateExp||null;e.feedback=note||null;}
   closeRateModal();toast(t('rateThanks'));renderMyRides();
@@ -5968,7 +5984,7 @@ async function cancelBooking(id,reason){
   const isWaitlist=entry.status==='waitlist';
   const savedQNum=entry.queueNum;
   const bikeIds=getAssignedBikeIds(entry);
-  await sb.from('queue_entries').update({status:'cancelled',assigned_bike_id:null}).eq('id',id);
+  await _ownEntryUpdate(id,{status:'cancelled',assigned_bike_id:null});
   if(bikeIds.length)await Promise.all(bikeIds.map(bid=>sb.from('bikes').update({status:'available'}).eq('id',bid)));
   if(!isWaitlist)await _shiftDownAfter(entry.sessionId,savedQNum); // close the number gap
 
@@ -5986,7 +6002,7 @@ async function cancelBooking(id,reason){
   if(!isWaitlist)await _restockAddonsOnExit(entry); // waitlist bookings never reserved stock, so nothing to restock
   toast(t('toastBookingCancelled'));
   pushUndo(`${t('undoCancelBooking')} #${savedQNum} ${entry.name}`,async()=>{
-    await sb.from('queue_entries').update({status:isWaitlist?'waitlist':'waiting',queue_num:_restoreNum(entry.sessionId,savedQNum,id)}).eq('id',id);
+    await _ownEntryUpdate(id,{status:isWaitlist?'waitlist':'waiting',queue_num:_restoreNum(entry.sessionId,savedQNum,id)});
     await loadData();
     if(!isWaitlist)await _consumeAddonsOnEnter(entry); // the restore brings the booking back, so re-reserve the add-ons that were restocked on cancel
     renderMyRides();renderStaffQueue();
