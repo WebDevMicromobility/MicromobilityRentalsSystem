@@ -137,7 +137,7 @@ test('staff/open mode still writes queue_entries directly (no RPC)', async ({ pa
   expect(seen.some((c) => c.includes('rpc/'))).toBe(false);
 });
 
-test('after the PIN, staff sign in with a Supabase Auth account', async ({ page }) => {
+test('staff sign in with a Supabase Auth account (no 4-digit PIN)', async ({ page }) => {
   await stubSupabase(page, {
     sessions: [openSession],
     staff: [{ user_id: 'u-staff-1', role: 'admin' }],
@@ -150,9 +150,8 @@ test('after the PIN, staff sign in with a Supabase Auth account', async ({ page 
   await secureOn(page);
   await page.goto('/?staff');
 
-  // PIN pad shows first; jump to the auth stage the PIN success path enters
-  await expect(page.locator('.pin-title')).toHaveText('Staff Access');
-  await page.evaluate(`S._pinStage='auth'; renderPinModal();`);
+  // Secure mode goes straight to the staff Auth login — no 4-digit PIN stage.
+  await expect(page.locator('#staff-auth-email')).toBeVisible();
   // Set values directly: Playwright's mobile-emulation fill mis-targets adjacent
   // email+password inputs (a real soft keyboard doesn't); we're testing submit.
   await page.evaluate(`

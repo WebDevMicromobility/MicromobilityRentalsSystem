@@ -2635,6 +2635,10 @@ function renderTopbarRight(){
 
 function openPinModal(upgrade){
   S.pinDigits='';S.pinError=false;S._pinUpgrade=!!upgrade;
+  // Secure mode (production): the 4-digit PIN is client-side only and adds nothing over
+  // the staff Auth login (the database only answers to a real staff session), so skip it
+  // and go straight to email/password. Open mode keeps the PIN as its sole gate.
+  S._pinStage=SECURE_AUTH?'auth':null;
   renderPinModal();
 }
 
