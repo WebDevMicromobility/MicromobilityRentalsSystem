@@ -930,6 +930,9 @@ function setLang(lang){
   const rl=document.getElementById('bnav-reserve-lbl');if(rl)rl.textContent=t('tabReserve');
   const ml=document.getElementById('bnav-myrides-lbl');if(ml)ml.textContent=t('tabMyRides');
   const al=document.getElementById('bnav-account-lbl');if(al)al.textContent=t('tabAccount');
+  // Tab-label localization is non-critical chrome; guard it so a failure here can
+  // never abort render() before the actual view content is drawn (blank-page insurance).
+  try{
   document.querySelectorAll('#customer-tab-nav .tab-btn').forEach(b=>{
     if(b.dataset.ctab==='register')b.textContent=t('tabReserve');
     if(b.dataset.ctab==='myrides')b.textContent=t('tabMyRides');
@@ -944,6 +947,7 @@ function setLang(lang){
     if(b.dataset.stab==='inventory'){const _lo=(S.inventory||[]).filter(it=>{const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;return q<=0||(lo>0&&q<=lo);}).length;b.innerHTML=esc(t('tabInventory'))+(_lo?` <span class="tab-badge" title="${esc(t('invLowAlert').replace('{0}',_lo))}" aria-label="${esc(t('invLowAlert').replace('{0}',_lo))}">${_lo}</span>`:'');}
     if(b.dataset.stab==='community')b.textContent=t('tabCommunity');
   });
+  }catch(e){try{_logError('tab-label render: '+((e&&e.message)||e),'render');}catch(_){}}
   renderTopbarRight();
   if(S.view==='customer'){renderRegister();renderMyRides();if(S.custTab==='account')renderAccount();}
   else if(S.view==='staff'){renderStaffQueue();renderSessions();renderBikes();renderHistory();if(S.staffTab==='analytics')renderAnalytics();if(S.staffTab==='cashier')renderCashier();}
