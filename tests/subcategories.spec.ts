@@ -106,4 +106,22 @@ test.describe('protein sub-categories', () => {
     // Umbrella comes before its sub-sections
     expect(html.indexOf('Protein Snacks')).toBeLessThan(html.indexOf('Protein Cookies'));
   });
+
+  test('a price of 0 shows as Free; editing a free item pre-checks the Free toggle', async ({ page }) => {
+    const out = await page.evaluate(() => {
+      // @ts-expect-error app globals
+      const free = _priceLabel(0), paid = _priceLabel(5), none = _priceLabel(null);
+      // @ts-expect-error app globals
+      S.inventory = [...(S.inventory || []), { id: 'freebie', name: 'Water sample', category: 'Drinks', qty: 3, price: 0 }];
+      // @ts-expect-error app globals
+      startInvEdit('freebie');
+      // @ts-expect-error app globals
+      return { free, paid, none, invFree: S._invFree, invPrice: S._invPrice };
+    });
+    expect(out.free).toBe('Free');
+    expect(out.paid).toBe('SAR 5');
+    expect(out.none).toBe('');
+    expect(out.invFree).toBe(true); // the Free toggle turns on when editing a 0-priced item
+    expect(out.invPrice).toBe(''); // and the numeric price box is left blank
+  });
 });
