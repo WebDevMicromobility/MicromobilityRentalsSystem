@@ -9,6 +9,9 @@ export type Fixtures = Record<string, unknown>;
 // writes are echoed back as if they succeeded. RPCs answer with the fixture
 // under 'rpc:<name>'; Auth password sign-in answers with 'auth:token'.
 export async function stubSupabase(page: Page, fixtures: Fixtures = {}) {
+  // SECURE_AUTH defaults ON in production; pin open mode for the stubbed suite
+  // unless a spec explicitly opts into secure mode after this (secureOn sets '1').
+  await page.addInitScript(() => localStorage.setItem('cq_secure_auth', '0'));
   await page.route('**://*.supabase.co/**', async (route) => {
     const req = route.request();
     const url = new URL(req.url());
