@@ -497,6 +497,7 @@ en:{
   errPinWrong:'Incorrect PIN. Try again.',
   staffAuthTitle:'Staff sign-in',staffAuthHint:'Sign in with your staff account to unlock the panel',staffAuthEmailPh:'Staff email',staffAuthPwdPh:'Password',staffAuthBtn:'Sign in',errStaffNotAuthorized:'This account is not on the staff list.',
   errInvalidCredentials:'Incorrect credentials. Please try again.',
+  errLoginLocked:'Too many failed attempts. Please wait about 15 minutes and try again, or reset your password.',
   openEmailApp:'Open in Email App',
   receiptTitle:'Ride Receipt',receiptDear:'Dear',
   receiptThankYou:'Thank you for riding with us at the Jeddah Corniche Circuit!',
@@ -846,6 +847,7 @@ ar:{
   errPinWrong:'رمز PIN غير صحيح. حاول مجدداً.',
   staffAuthTitle:'تسجيل دخول الموظفين',staffAuthHint:'سجّل الدخول بحساب الموظف لفتح اللوحة',staffAuthEmailPh:'بريد الموظف',staffAuthPwdPh:'كلمة المرور',staffAuthBtn:'تسجيل الدخول',errStaffNotAuthorized:'هذا الحساب ليس ضمن قائمة الموظفين.',
   errInvalidCredentials:'بيانات الدخول غير صحيحة. حاول مجدداً.',
+  errLoginLocked:'محاولات كثيرة فاشلة. انتظر حوالي ١٥ دقيقة ثم حاول مجدداً، أو أعد تعيين كلمة المرور.',
   openEmailApp:'فتح في تطبيق البريد',
   receiptTitle:'إيصال الرحلة',receiptDear:'عزيزي',
   receiptThankYou:'شكراً لركوبك معنا في حلبة كورنيش جدة!',
@@ -2251,8 +2253,9 @@ async function doLogin(){
   try{
     if(SECURE_AUTH){
       const{data,error}=await sb.rpc('customer_login',{p_identifier:identifier,p_pwd:pwd});
+      if(error){authErr(/LOCKED/.test((error.message||'')+(error.hint||''))?t('errLoginLocked'):t('errInvalidCredentials'));return;}
       const customer=(data&&data[0])||null;
-      if(error||!customer){authErr(t('errInvalidCredentials'));return;}
+      if(!customer){authErr(t('errInvalidCredentials'));return;}
       S.loggedIn=customer;setSession(customer);
       await loadData();
       closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();

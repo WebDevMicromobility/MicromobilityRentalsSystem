@@ -111,10 +111,16 @@ test('customer add-on stock change routes through the RPC, not a direct inventor
     const m = r.url().match(/\/rest\/v1\/(rpc\/customer_addon_stock|inventory)/);
     if (m && ['PATCH', 'POST'].includes(r.method())) calls.push(m[1]);
   });
-  await page.evaluate(`S.inventory = [{ id: 'inv1', name: 'Gel', qty: 5 }]; _addonStockQ([{ id: 'inv1', qty: 2 }], -1)`);
+  await page.waitForFunction('S.dataLoaded === true'); // let boot's loadData settle so it can't reset S.inventory mid-test
+  // set + adjust + read in one shot so a background refresh can't race the assertion
+  const qty = await page.evaluate(`(async () => {
+    S.inventory = [{ id: 'inv1', name: 'Gel', qty: 5 }];
+    await _addonStockQ([{ id: 'inv1', qty: 2 }], -1);
+    return (S.inventory.find(x => x.id === 'inv1') || {}).qty;
+  })()`);
   await expect.poll(() => calls.some((c) => c.includes('rpc/customer_addon_stock'))).toBe(true);
   expect(calls.some((c) => c === 'inventory')).toBe(false);
-  expect(await page.evaluate(`S.inventory[0].qty`)).toBe(3); // local copy updated
+  expect(qty).toBe(3); // local copy updated via the RPC path
 });
 
 test('staff/open mode still writes queue_entries directly (no RPC)', async ({ page }) => {
