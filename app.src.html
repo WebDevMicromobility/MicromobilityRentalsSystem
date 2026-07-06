@@ -1339,12 +1339,24 @@ const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 // during parse. _sbReady resolves once it's loaded and the client is created; every
 // parse-time consumer (boot, realtime, schema probe, outbox) waits on it.
 let sb;
-const _sbReady=new Promise(res=>{(function w(){
-  if(window.supabase&&window.supabase.createClient){
-    try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);}catch(e){console.error('Supabase init failed:',e.message);}
-    res();
-  }else setTimeout(w,15);
-})();});
+// Resolves once supabase-js has loaded and the client is built. Critically, it ALSO
+// resolves after a hard timeout: if the CDN is blocked/slow (ad-blocker, extension,
+// flaky network) supabase-js may never arrive, and without this cap `await _sbReady`
+// in boot would hang forever — leaving the app on a blank header/footer with no view.
+// On timeout sb stays undefined and boot continues in degraded/offline mode (cached
+// data + landing), which is far better than an infinite blank.
+const _sbReady=new Promise(res=>{
+  const _t0=Date.now();
+  (function w(){
+    if(window.supabase&&window.supabase.createClient){
+      try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);}catch(e){console.error('Supabase init failed:',e.message);}
+      res();
+    }else if(Date.now()-_t0>7000){
+      try{console.error('supabase-js did not load within 7s — continuing without it (offline/degraded mode).');}catch(e){}
+      res();
+    }else setTimeout(w,15);
+  })();
+});
 
 // ── Security mode ────────────────────────────────────────────────────────────
 // false = legacy direct-table auth (current behaviour, unchanged).
@@ -11357,6 +11369,9 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
     if(target==='customer'&&!S.loggedIn)target=null;
     if(!target)target=S.loggedIn?'customer':(staffOK?'staff':'landing');
   }
+  // A view MUST end up active or the page is a blank header/footer. If the chosen
+  // view's render throws, fall back to the landing so the user always sees something.
+  try{
   if(target==='staff'){
     goStaff();
     const stab=(nav&&nav.stab)||sessionStorage.getItem('cq_nav_stab');
@@ -11372,6 +11387,10 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   } else {
     showView('landing');
     renderLandingAvail();
+  }
+  }catch(e){
+    try{_logError('boot view render: '+((e&&e.message)||e),'boot');}catch(_){}
+    try{showView('landing');renderLandingAvail();}catch(_){try{showView('landing');}catch(__){}}
   }
   _navRestoring=false;
   _saveNav();
