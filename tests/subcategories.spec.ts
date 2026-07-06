@@ -107,6 +107,27 @@ test.describe('protein sub-categories', () => {
     expect(html.indexOf('Protein Snacks')).toBeLessThan(html.indexOf('Protein Cookies'));
   });
 
+  test('the sales picker splits categories into Supplements & Beverages and Equipment', async ({ page }) => {
+    const out = await page.evaluate(() => {
+      S.inventory = [
+        { id: 'p1', name: 'Bar', brand: 'Barebells', category: 'ProteinBars', qty: 3, price: 5 },
+        { id: 'e1', name: 'Hydrate', category: 'ElectrolyteSachets', qty: 3, price: 5 },
+        { id: 'h1', name: 'Helmet', category: 'Helmet', qty: 3, price: 20 },
+        { id: 'a1', name: 'Lock', category: 'Accessory', qty: 3, price: 15 },
+      ];
+      // @ts-expect-error app globals
+      S._ctPickCat = ''; renderCashier();
+      // textContent decodes HTML entities so we can match the "&" in "Supplements & Beverages"
+      return document.getElementById('tab-cashier')!.textContent || '';
+    });
+    for (const s of ['All items', 'Supplements & Beverages', 'Equipment', 'Protein Snacks', 'Electrolytes', 'Helmet', 'Accessory'])
+      expect(out, `missing "${s}"`).toContain(s);
+    // Supplements section (with its Protein Snacks card) comes before Equipment (with Helmet)
+    expect(out.indexOf('Supplements & Beverages')).toBeLessThan(out.indexOf('Protein Snacks'));
+    expect(out.indexOf('Protein Snacks')).toBeLessThan(out.indexOf('Equipment'));
+    expect(out.indexOf('Equipment')).toBeLessThan(out.indexOf('Helmet'));
+  });
+
   test('a price of 0 shows as Free; editing a free item pre-checks the Free toggle', async ({ page }) => {
     const out = await page.evaluate(() => {
       // @ts-expect-error app globals

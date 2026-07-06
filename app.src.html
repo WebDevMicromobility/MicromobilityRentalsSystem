@@ -9910,17 +9910,21 @@ function renderCashier(){
     const _catItems=invItems.filter(it=>(it.category||'Other')===S._ctPickCat);
     _ctItemPicker=`${_ctBack(parent?'__grp__'+parent:'',_invCatLabel(S._ctPickCat))}${_ctGrid(_catItems.map(_ctItemBtn).join('')+_ctCustomBtn)}`;
   }else{
-    // Top level: standalone categories plus one card per parent group present in the data.
+    // Top level: an "All items" card, then category cards split into Supplements & Beverages
+    // and Equipment (same classification the inventory uses), each parent group as one card.
     const seen=new Set(),entries=[];
     _ctCats.forEach(cat=>{
       const g=_catGroup(cat);
-      if(g){if(seen.has(g))return;seen.add(g);entries.push({key:'__grp__'+g,art:g,label:_invCatLabel(g),n:invItems.filter(it=>_catGroup(it.category||'Other')===g).length});}
-      else entries.push({key:cat,art:cat,label:_invCatLabel(cat),n:invItems.filter(it=>(it.category||'Other')===cat).length});
+      if(g){if(seen.has(g))return;seen.add(g);entries.push({key:'__grp__'+g,cat:g,label:_invCatLabel(g),n:invItems.filter(it=>_catGroup(it.category||'Other')===g).length});}
+      else entries.push({key:cat,cat:cat,label:_invCatLabel(cat),n:invItems.filter(it=>(it.category||'Other')===cat).length});
     });
     entries.sort((a,b)=>a.label.localeCompare(b.label));
-    const _cards=entries.map(e=>_ctCatCard(e.key,e.art,e.label,e.n)).join('');
+    const _flatGrid=inner=>`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;padding:2px">${inner}</div>`;
+    const _secHead=lbl=>`<div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:14px 0 6px 2px">${esc(lbl)}</div>`;
+    const _secOf=list=>list.map(e=>_ctCatCard(e.key,e.cat,e.label,e.n)).join('');
+    const supp=entries.filter(e=>_isSuppCat(e.cat)),equip=entries.filter(e=>!_isSuppCat(e.cat));
     const _allCard=invItems.length?`<button type="button" data-cat="__all__" onclick="_ctSet('_ctPickCat',this.dataset.cat)" style="text-align:start;border:1.5px solid var(--border);background:var(--s2);border-radius:10px;padding:0;overflow:hidden;cursor:pointer;font-family:inherit"><div style="width:100%;height:62px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--green);font-size:20px;font-weight:900">★</div><div style="padding:5px 7px"><div style="font-weight:700;font-size:11px;color:var(--text)">${t('cashAllItems')}</div><div style="font-size:11px;color:var(--muted);font-weight:700">${invItems.length} ${t('cashItemsWord')}</div></div></button>`:'';
-    _ctItemPicker=_ctGrid(_allCard+_cards+_ctCustomBtn);
+    _ctItemPicker=`<div style="max-height:248px;overflow-y:auto;margin-top:4px">${_flatGrid(_allCard)}${supp.length?_secHead(t('invSecSupplements'))+_flatGrid(_secOf(supp)):''}${equip.length?_secHead(t('invSecEquipment'))+_flatGrid(_secOf(equip)):''}${_flatGrid(_ctCustomBtn)}</div>`;
   }
   const _lbl='font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px';
   const payBtn=(val,label)=>`<button onclick="_ctSet('_ctPay','${val}')" style="flex:1;padding:9px;border-radius:9px;border:1.5px solid ${S._ctPay===val?'var(--green)':'var(--border)'};background:${S._ctPay===val?'rgba(3,255,137,.12)':'transparent'};color:${S._ctPay===val?'var(--green)':'var(--muted)'};font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">${label}</button>`;
