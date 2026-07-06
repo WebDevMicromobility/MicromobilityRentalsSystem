@@ -11474,7 +11474,7 @@ let _errToastAt=0;
 function _logError(msg,src){
   msg=String(msg||'error').slice(0,500);src=String(src||'');
   try{const a=JSON.parse(localStorage.getItem('cq_errors')||'[]');a.push({t:new Date().toISOString(),msg,src});while(a.length>50)a.shift();localStorage.setItem('cq_errors',JSON.stringify(a));}catch(e){}
-  try{console.error('[mm]',msg,src);}catch(e){}
+  try{console.error(msg,src);}catch(e){}
   try{if(typeof sb!=='undefined'&&sb)sb.from('error_log').insert({at:new Date().toISOString(),msg,src,ua:(navigator.userAgent||'').slice(0,200)}).then(()=>{},()=>{});}catch(e){}
   const now=Date.now();if(now-_errToastAt>15000){_errToastAt=now;try{toast(t('errSomethingWrong'),'error');}catch(e){}}
 }
