@@ -73,6 +73,20 @@ test.describe('nutrition library', () => {
     expect(out.other).toBeNull(); // an unlisted Barebells flavour gets no guessed label
   });
 
+  test('each listed Barebells flavour resolves its own numbers', async ({ page }) => {
+    const out = await page.evaluate(() => {
+      // @ts-expect-error app globals
+      const salted = _itemNutri({ id: 'b3', name: 'Salted Peanut Caramel Soft Protein Bar', brand: 'Barebells' });
+      // @ts-expect-error app globals
+      const caramel = _itemNutri({ id: 'b4', name: 'Caramel Choco Bar', brand: 'Barebells' });
+      return { saltedKcal: salted.kcal, saltedFat: salted.fat_g, saltedNa: salted.sodium_mg, caramelKcal: caramel.kcal };
+    });
+    expect(out.saltedKcal).toBe(210);
+    expect(out.saltedFat).toBe(11);
+    expect(out.saltedNa).toBe(220);
+    expect(out.caramelKcal).toBe(200); // the two flavours don't collide
+  });
+
   test('a saved nutrition object still wins over the library', async ({ page }) => {
     const kcal = await page.evaluate(() =>
       // @ts-expect-error app globals
