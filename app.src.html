@@ -1926,7 +1926,7 @@ const typeBadge=ty=>`<span class="type-badge ${TYPE_CLS[ty]||'type-any'}">${bike
 const STATUS_CLS={waiting:'badge-waiting',waitlist:'badge-waiting',active:'badge-active',done:'badge-done',noshow:'badge-noshow',cancelled:'badge-noshow',removed:'badge-noshow'};
 const STATUS_KEY={waiting:'statusWaiting',waitlist:'statusWaitlist',active:'statusActive',done:'statusDone',noshow:'statusNoshow',cancelled:'statusCancelled',removed:'removedLabel'};
 const statusBadge=s=>`<span class="status-badge ${STATUS_CLS[s]||'badge-done'}">${t(STATUS_KEY[s]||'statusDone')}</span>`;
-function esc(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function esc(s){return s==null?'':String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function fmtPhone(p){
   if(!p)return'';
   const match=COUNTRY_CODES.find(([code])=>p.startsWith(code));
@@ -11388,6 +11388,13 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
 
 (async()=>{
   await _sbReady; // wait for the deferred supabase-js before any data call
+  // Restore the customer session + staff Auth BEFORE the first data load. loadData
+  // picks its source from S._staffAuthed / S.loggedIn: an authed staff member reads the
+  // full queue_entries (names, phones, emails), while others read the PII-free
+  // queue_public view. Loading first meant the first render showed every booking detail
+  // as "undefined" until a later reload. (staffAuthRestore is a no-op on non-staff devices.)
+  S.loggedIn=getSession();
+  try{await staffAuthRestore();}catch(e){}
   try{
     await Promise.race([loadData(),new Promise(r=>setTimeout(r,8000))]);
   }catch(e){
@@ -11408,8 +11415,7 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   try{const savedLang=localStorage.getItem('cq_lang');setLang(savedLang==='ar'?'ar':'en');}catch(e){setLang('en');}
   const ls=document.getElementById('loading-screen');
   if(ls){ls.style.opacity='0';setTimeout(()=>{ls.style.display='none';},400);}
-  S.loggedIn=getSession();
-  await staffAuthRestore(); // secure mode: drop a stale staff unlock before the view decision below reads it
+  // (session + staff auth already restored above, before the first loadData)
 
   try{const cl=localStorage.getItem('cq_cancellations');if(cl)S.cancellationLog=JSON.parse(cl);}catch(e){}
   try{const fl=localStorage.getItem('cq_full_log');if(fl)S.fullLog=JSON.parse(fl);}catch(e){}
