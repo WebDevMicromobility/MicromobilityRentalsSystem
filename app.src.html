@@ -1007,13 +1007,19 @@ const STAFF_PHONE_MAP={
   '+966565834444':'ahmadb@micromobility.sa',
 };
 // Resolve a login identifier to the account email: email as-is, phone via the map.
-function _staffLoginEmail(identifier){
+// Checks the built-in STAFF_PHONE_MAP first, then a DB-backed staff_phones table (via
+// the staff_email_for_phone RPC) so new staff phones can be added with pure SQL — no
+// code change needed. Async because of the DB lookup.
+async function _staffLoginEmail(identifier){
   const id=String(identifier||'').trim();
   if(id.includes('@'))return id.toLowerCase();
-  return STAFF_PHONE_MAP[_staffPhoneE164(id)]||null;
+  const e164=_staffPhoneE164(id);
+  if(STAFF_PHONE_MAP[e164])return STAFF_PHONE_MAP[e164];
+  try{const{data}=await sb.rpc('staff_email_for_phone',{p_phone:e164});if(data&&typeof data==='string')return data.toLowerCase();}catch(e){}
+  return null;
 }
 async function staffAuthSignIn(identifier,password){
-  const email=_staffLoginEmail(identifier);
+  const email=await _staffLoginEmail(identifier);
   if(!email)return{ok:false,msg:t('errInvalidCredentials')}; // phone not registered to a staff account
   const{data,error}=await sb.auth.signInWithPassword({email,password});
   if(error||!data||!data.user)return{ok:false,msg:(error&&error.message)||t('errConnection')};
