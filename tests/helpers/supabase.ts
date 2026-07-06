@@ -85,3 +85,14 @@ export async function loginCustomer(page: Page, cust: Record<string, unknown> = 
   const c = { id: 'c1', name: 'Spec Rider', email: 'spec@example.com', phone: '0500000001', ...cust };
   await page.addInitScript((session) => localStorage.setItem('cq_session', session), JSON.stringify(c));
 }
+
+// Wait until the app is ready: the Supabase client (sb) is built AND the first data load
+// (or cache restore) has completed. Boot now paints from cache first and loads data in
+// the background, so tests that read sb/state right after goto must wait for this.
+export async function waitForSb(page: Page) {
+  await page.waitForFunction(
+    'typeof sb !== "undefined" && !!sb && typeof S !== "undefined" && !!S.dataLoaded',
+    undefined,
+    { timeout: 10000 },
+  );
+}

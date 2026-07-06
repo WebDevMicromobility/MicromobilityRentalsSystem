@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubSupabase, unlockStaff, loginCustomer } from './helpers/supabase';
+import { stubSupabase, unlockStaff, loginCustomer, waitForSb } from './helpers/supabase';
 
 // SECURE_AUTH mode (SECURITY-RUNBOOK.md): the app talks to token-checked RPCs
 // and the no-PII queue_public view instead of the locked tables. The flag is
@@ -26,6 +26,7 @@ test('customer login goes through the customer_login RPC', async ({ page }) => {
   });
   await secureOn(page);
   await page.goto('/');
+  await waitForSb(page);
   await page.locator('.landing-hero-card').click(); // not logged in → auth modal opens
   await page.fill('#a-identifier', 'secure@example.com');
   await page.fill('#a-pwd', 'Passw0rdX');
@@ -50,6 +51,7 @@ test('customer reads merge queue_public with my_bookings and skip the locked tab
   await secureOn(page);
   await loginCustomer(page, { id: 'c9', name: 'Secure Rider', email: 'secure@example.com', session_token: 'tok123' });
   await page.goto('/');
+  await waitForSb(page);
 
   // availability sees all three bookings (two public + own), PII-free for the others
   await expect.poll(() => page.evaluate(`S.queue.length`)).toBe(3);
@@ -69,6 +71,7 @@ test('a stale staff unlock without an Auth session falls back to the PIN gate', 
   await secureOn(page);
   await unlockStaff(page); // cq_staff=1 but no Supabase Auth session exists
   await page.goto('/');
+  await waitForSb(page);
 
   await expect(page.locator('.landing-hero-card')).toBeVisible(); // landed on the public page, not the staff panel
   expect(await page.evaluate(`localStorage.getItem('cq_staff')`)).toBeNull();
@@ -84,6 +87,7 @@ test('customer writes route through the token RPCs when the table is locked', as
   await secureOn(page);
   await loginCustomer(page, { id: 'c9', name: 'Secure Rider', session_token: 'tok123' });
   await page.goto('/');
+  await waitForSb(page);
 
   const rpcCalls: string[] = [];
   page.on('request', (r) => {
@@ -106,6 +110,7 @@ test('customer add-on stock change routes through the RPC, not a direct inventor
   await secureOn(page);
   await loginCustomer(page, { id: 'c9', name: 'Secure Rider', session_token: 'tok123' });
   await page.goto('/');
+  await waitForSb(page);
   const calls: string[] = [];
   page.on('request', (r) => {
     const m = r.url().match(/\/rest\/v1\/(rpc\/customer_addon_stock|inventory)/);
@@ -126,6 +131,7 @@ test('customer add-on stock change routes through the RPC, not a direct inventor
 test('staff/open mode still writes queue_entries directly (no RPC)', async ({ page }) => {
   await stubSupabase(page, { sessions: [openSession] }); // secure mode OFF
   await page.goto('/');
+  await waitForSb(page);
   const seen: string[] = [];
   page.on('request', (r) => {
     const m = r.url().match(/\/rest\/v1\/(rpc\/customer_booking_update|queue_entries)/);

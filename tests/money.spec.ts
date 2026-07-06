@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubSupabase, unlockStaff, loginCustomer } from './helpers/supabase';
+import { stubSupabase, unlockStaff, loginCustomer, waitForSb } from './helpers/supabase';
 
 // Phase-0 money paths: the flows where a silent regression costs real money.
 // All Supabase traffic is stubbed (see helpers/supabase.ts) — no production data.
@@ -16,6 +16,7 @@ test.describe('booking flow', () => {
     // hero opens the auth modal instead, and booking requires an account anyway).
     await loginCustomer(page);
     await page.goto('/');
+    await waitForSb(page);
 
     // Step 1 — pick the open session (the click auto-waits for the card to render)
     await page.locator('.sess-card').first().click();
@@ -52,6 +53,7 @@ test.describe('point of sale', () => {
     await stubSupabase(page, fixtures);
     await unlockStaff(page);
     await page.goto('/');
+    await waitForSb(page);
     await expect(page.locator('#staff-tab-nav')).toBeVisible();
     await page.waitForFunction('S.inventory && S.inventory.length > 0');
   });
@@ -88,6 +90,7 @@ test.describe('close-out totals (pure logic)', () => {
     await stubSupabase(page);
     await unlockStaff(page);
     await page.goto('/');
+    await waitForSb(page);
     await expect(page.locator('#staff-tab-nav')).toBeVisible();
   });
 

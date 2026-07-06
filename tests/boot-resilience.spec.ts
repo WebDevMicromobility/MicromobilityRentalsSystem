@@ -5,9 +5,9 @@ import { stubSupabase } from './helpers/supabase';
 // blocked/slow network), boot must NOT hang forever on a blank header/footer. The
 // _sbReady timeout lets boot continue in degraded mode and a view always activates.
 
-test('boot still shows the app when the supabase-js CDN is blocked', async ({ page }) => {
+test('boot still shows the app when supabase-js fails to load', async ({ page }) => {
   await stubSupabase(page);
-  await page.route('**cdn.jsdelivr.net/npm/@supabase/**', (r) => r.abort());
+  await page.route('**/vendor/supabase-js-*.js', (r) => r.abort()); // self-hosted lib blocked
   await page.goto('/');
 
   // A view must eventually become active (waits past the _sbReady timeout).

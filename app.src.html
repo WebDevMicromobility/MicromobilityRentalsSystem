@@ -21,10 +21,8 @@
   <meta name="twitter:title" content="MicroMobility Rentals — Jeddah Corniche">
   <meta name="twitter:description" content="Book a bicycle rental at the Jeddah Corniche Circuit. Reserve your bike, pick a session, and skip the queue.">
   <meta name="twitter:image" content="/hero.webp">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://amyqxovbnlreassrqihr.supabase.co">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;900&family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="./fonts/fonts.css?v=1" rel="stylesheet">
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -206,7 +204,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 <!-- Self-hosted (byte-identical to the jsdelivr CDN builds; SRI kept). Serving from our
      own origin means ad-blockers / privacy extensions / CDN outages can't break boot. -->
 <script defer src="./vendor/supabase-js-2.110.0.min.js" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil"></script>
-<script defer src="./vendor/qrcode-generator-1.4.4.js" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k"></script>
+<!-- qrcode-generator is loaded on demand (only when a QR/ticket renders) — see _loadQrcode() -->
 <script>
 
 const LANG={
@@ -1717,11 +1715,36 @@ const QR=(function(){
   return {encode:encode,svg:svg};
 })();
 
+// qrcode-generator (the vendor lib behind QR) is loaded on demand — it's only needed
+// when a QR renders (booking tickets), not at boot, so it stays out of the initial load.
+let _qrcodeP=null;
+function _loadQrcode(){
+  if(window.qrcode)return Promise.resolve();
+  if(!_qrcodeP)_qrcodeP=new Promise(res=>{
+    const s=document.createElement('script');
+    s.src='./vendor/qrcode-generator-1.4.4.js';
+    s.integrity='sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k';
+    s.onload=()=>res();s.onerror=()=>{_qrcodeP=null;res();};
+    document.head.appendChild(s);
+  });
+  return _qrcodeP;
+}
+function _qrBox(payload,px){
+  return `<div style="background:#fff;padding:8px;border-radius:12px;display:inline-block;line-height:0;border:2px solid rgba(3,255,137,.55);box-shadow:0 0 14px rgba(3,255,137,.22)">${QR.svg(payload,{size:px-16,margin:4,logo:false})}</div>`;
+}
+// Fill any QR placeholders left by ticketQR once the library is available.
+function _fillLazyQR(){
+  if(!window.qrcode)return;
+  document.querySelectorAll('.qr-lazy').forEach(el=>{
+    try{el.outerHTML=_qrBox(el.getAttribute('data-qr')||'',Number(el.getAttribute('data-px'))||112);}catch(e){}
+  });
+}
 function ticketQR(payload,px){
   px=px||112;
-  try{
-    return `<div style="background:#fff;padding:8px;border-radius:12px;display:inline-block;line-height:0;border:2px solid rgba(3,255,137,.55);box-shadow:0 0 14px rgba(3,255,137,.22)">${QR.svg(payload,{size:px-16,margin:4,logo:false})}</div>`;
-  }catch(e){return '';}
+  if(window.qrcode){try{return _qrBox(payload,px);}catch(e){return '';}}
+  // Library not loaded yet: emit a placeholder and fill it in once it loads.
+  _loadQrcode().then(_fillLazyQR);
+  return `<span class="qr-lazy" data-qr="${esc(String(payload))}" data-px="${px}" style="display:inline-block;width:${px}px;height:${px}px"></span>`;
 }
 
 function bookingRef(e){
@@ -7002,7 +7025,7 @@ function printCloseout(){
   const reconDelta=r2(grandCollected-(grandCard+grandCash));
   const row=(label,val,color)=>`<div style="display:flex;justify-content:space-between;padding:4px 0"><span>${label}</span><strong${color?` style="color:${color}"`:''}>SAR ${val}</strong></div>`;
   const catRows=st.cats.map(c=>`<tr><td>${esc(_invCatLabel(c.cat))}</td><td style="text-align:center">${c.qty}</td><td style="text-align:end">SAR ${c.value}</td></tr>`).join('');
-  const html=`<!DOCTYPE html><html lang="${ar?'ar':'en'}" dir="${ar?'rtl':'ltr'}"><head><meta charset="UTF-8"><title>${t('closeoutTitle')}</title>${ar?'<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">':''}
+  const html=`<!DOCTYPE html><html lang="${ar?'ar':'en'}" dir="${ar?'rtl':'ltr'}"><head><meta charset="UTF-8"><title>${t('closeoutTitle')}</title>${ar?'<link href="/fonts/fonts.css" rel="stylesheet">':''}
     <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:${ar?"'Cairo',":''}system-ui,sans-serif;color:#111;padding:24px 28px;max-width:520px;margin:0 auto;font-size:13px}h1{font-size:20px;font-weight:900}.meta{color:#666;font-size:12px;margin-bottom:18px}h2{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:#444;margin:18px 0 6px;border-bottom:1px solid #ddd;padding-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:4px}th{padding:4px 6px;border-bottom:2px solid #222;font-size:11px;text-transform:uppercase}td{padding:4px 6px;border-bottom:1px solid #eee;text-align:start}.grand{margin-top:14px;border-top:2px solid #222;padding-top:10px;font-size:15px}@media print{button{display:none}}</style></head><body>
     <h1>${t('closeoutTitle')}</h1>
     <div class="meta">${dayLabel(sel.day)} ${shortDate(date)} &middot; ${new Date().toLocaleString(ar?'ar-u-ca-gregory-nu-latn':'en-SA',{timeZone:KSA_TZ})}</div>
@@ -7065,7 +7088,7 @@ function printSessionReport(){
   }).join('');
   const html=`<!DOCTYPE html><html lang="${ar?'ar':'en'}" dir="${ar?'rtl':'ltr'}"><head><meta charset="UTF-8">
     <title>${t('printReportTitle')}</title>
-    ${ar?'<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">':''}
+    ${ar?'<link href="/fonts/fonts.css" rel="stylesheet">':''}
     <style>
       *{box-sizing:border-box;margin:0;padding:0;}
       body{font-family:${ar?"'Cairo',":''}system-ui,sans-serif;padding:28px 32px;color:#111;font-size:13px;}
@@ -9640,7 +9663,7 @@ function _ctPrintReceipt(rows,cust,at){
   const total=Math.round(rows.reduce((s,r)=>s+(Number(r.qty)||0)*(Number(r.price)||0),0)*100)/100;
   const sess=allSessions().find(s=>s.id===rows[0].session_id);
   const body=rows.map(r=>`<tr><td>${esc(r.name)}</td><td style="text-align:center">${r.qty}</td><td style="text-align:end">SAR ${Math.round((Number(r.qty)||0)*(Number(r.price)||0)*100)/100}</td></tr>`).join('');
-  const html=`<!DOCTYPE html><html lang="${ar?'ar':'en'}" dir="${ar?'rtl':'ltr'}"><head><meta charset="UTF-8"><title>${t('cashReceiptWord')}</title>${ar?'<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap" rel="stylesheet">':''}<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:${ar?"'Cairo',":''}system-ui,sans-serif;color:#111;padding:18px;max-width:320px;margin:0 auto;font-size:13px}h1{font-size:18px;font-weight:900;text-align:center}.sub{text-align:center;color:#666;font-size:11px;margin-bottom:10px;line-height:1.5}table{width:100%;border-collapse:collapse;margin-top:6px}td{padding:5px 4px;border-bottom:1px dashed #ccc;text-align:start}.tot{display:flex;justify-content:space-between;font-weight:900;font-size:15px;margin-top:10px;border-top:2px solid #222;padding-top:8px}@media print{button{display:none}}</style></head><body>
+  const html=`<!DOCTYPE html><html lang="${ar?'ar':'en'}" dir="${ar?'rtl':'ltr'}"><head><meta charset="UTF-8"><title>${t('cashReceiptWord')}</title>${ar?'<link href="/fonts/fonts.css" rel="stylesheet">':''}<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:${ar?"'Cairo',":''}system-ui,sans-serif;color:#111;padding:18px;max-width:320px;margin:0 auto;font-size:13px}h1{font-size:18px;font-weight:900;text-align:center}.sub{text-align:center;color:#666;font-size:11px;margin-bottom:10px;line-height:1.5}table{width:100%;border-collapse:collapse;margin-top:6px}td{padding:5px 4px;border-bottom:1px dashed #ccc;text-align:start}.tot{display:flex;justify-content:space-between;font-weight:900;font-size:15px;margin-top:10px;border-top:2px solid #222;padding-top:8px}@media print{button{display:none}}</style></head><body>
     <img src="${logoUrl}" alt="MicroMobility" style="height:44px;display:block;margin:0 auto 4px;object-fit:contain"><h1 style="font-size:15px">MicroMobility Rentals</h1>
     <div class="sub">${t('cashReceiptWord')} &middot; ${new Date(at).toLocaleString(ar?'ar-u-ca-gregory-nu-latn':'en-SA',{timeZone:KSA_TZ})}${cust?`<br>${esc(cust)}`:''}${sess?`<br>${dayLabel(sess.day)} ${shortDate(sess.session_date||sess.id)}`:''}</div>
     <table><tbody>${body}</tbody></table>
