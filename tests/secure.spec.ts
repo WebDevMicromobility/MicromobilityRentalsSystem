@@ -101,6 +101,22 @@ test('customer writes route through the token RPCs when the table is locked', as
   expect(rpcCalls.some((c) => c.includes('queue_entries'))).toBe(false); // never touched the locked table directly
 });
 
+test('customer add-on stock change routes through the RPC, not a direct inventory write', async ({ page }) => {
+  await stubSupabase(page, { sessions: [openSession], 'rpc:customer_addon_stock': true });
+  await secureOn(page);
+  await loginCustomer(page, { id: 'c9', name: 'Secure Rider', session_token: 'tok123' });
+  await page.goto('/');
+  const calls: string[] = [];
+  page.on('request', (r) => {
+    const m = r.url().match(/\/rest\/v1\/(rpc\/customer_addon_stock|inventory)/);
+    if (m && ['PATCH', 'POST'].includes(r.method())) calls.push(m[1]);
+  });
+  await page.evaluate(`S.inventory = [{ id: 'inv1', name: 'Gel', qty: 5 }]; _addonStockQ([{ id: 'inv1', qty: 2 }], -1)`);
+  await expect.poll(() => calls.some((c) => c.includes('rpc/customer_addon_stock'))).toBe(true);
+  expect(calls.some((c) => c === 'inventory')).toBe(false);
+  expect(await page.evaluate(`S.inventory[0].qty`)).toBe(3); // local copy updated
+});
+
 test('staff/open mode still writes queue_entries directly (no RPC)', async ({ page }) => {
   await stubSupabase(page, { sessions: [openSession] }); // secure mode OFF
   await page.goto('/');

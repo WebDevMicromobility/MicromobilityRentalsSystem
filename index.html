@@ -4240,10 +4240,18 @@ async function _addonStock(ids,delta){
 async function _addonStockQ(arr,sign){
   const norm=(arr||[]).map(a=>(a&&typeof a==='object')?{id:a.id,qty:Math.max(1,Number(a.qty)||1)}:{id:a,qty:1}).filter(a=>a.id);
   if(!norm.length||!sb)return;
+  // Update the local copy first so the UI reflects the change immediately.
+  norm.forEach(({id,qty})=>{const it=(S.inventory||[]).find(x=>x.id===id);if(it)it.qty=(Number(it.qty)||0)+sign*qty;}); // may go negative: backordered add-ons owed to bookings; cancel/undo stays symmetric
+  if(_asCustomer()){
+    // Inventory writes are staff-only after Section 6; a customer's add-on stock
+    // change (book/cancel) goes through the token-checked RPC instead.
+    const c=S.loggedIn||getSession();
+    if(c&&c.session_token){try{await sb.rpc('customer_addon_stock',{p_id:c.id,p_token:c.session_token,p_items:norm.map(({id,qty})=>({id,delta:sign*qty}))});}catch(e){}}
+    return;
+  }
   await Promise.all(norm.map(async({id,qty})=>{
     const it=(S.inventory||[]).find(x=>x.id===id);if(!it)return;
-    const q=(Number(it.qty)||0)+sign*qty;it.qty=q; // may go negative: backordered add-ons (sold-out but booked) show as negative stock owed to bookings, and cancel/undo stays symmetric
-    try{await sb.from('inventory').update({qty:q,updated_at:new Date().toISOString()}).eq('id',id);}catch(e){}
+    try{await sb.from('inventory').update({qty:it.qty,updated_at:new Date().toISOString()}).eq('id',id);}catch(e){}
   }));
 }
 // Restock a booking's add-ons once, only when its LAST active rider exits (cancel/no-show), so multi-rider bookings don't over-restock.
