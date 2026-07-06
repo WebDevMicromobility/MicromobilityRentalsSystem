@@ -1347,15 +1347,22 @@ let sb;
 // On timeout sb stays undefined and boot continues in degraded/offline mode (cached
 // data + landing), which is far better than an infinite blank.
 const _sbReady=new Promise(res=>{
-  const _t0=Date.now();
+  const _t0=Date.now();let _resolved=false;
   (function w(){
+    if(sb)return; // client already built
     if(window.supabase&&window.supabase.createClient){
       try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);}catch(e){console.error('Supabase init failed:',e.message);}
+      if(!_resolved){_resolved=true;res();}
+      return;
+    }
+    if(!_resolved&&Date.now()-_t0>7000){
+      // Unblock boot in degraded mode, but KEEP polling: if the library arrives late
+      // (slow network), sb still gets built so the app reconnects on its own.
+      _resolved=true;
+      try{console.error('supabase-js did not load within 7s — continuing without it for now.');}catch(e){}
       res();
-    }else if(Date.now()-_t0>7000){
-      try{console.error('supabase-js did not load within 7s — continuing without it (offline/degraded mode).');}catch(e){}
-      res();
-    }else setTimeout(w,15);
+    }
+    if(Date.now()-_t0<60000)setTimeout(w,15); // give up polling after 60s if it never loads
   })();
 });
 
@@ -3647,7 +3654,7 @@ function downloadBookingICS(sessionId){
     'UID:'+sessionId+'-'+Date.now()+'@micromobility','DTSTAMP:'+stamp,
     'DTSTART:'+date+'T'+st,'DTEND:'+date+'T'+en,
     'SUMMARY:'+esc2('MicroMobility Ride - '+(dayLabel(sess.day)||'')),
-    'LOCATION:'+esc2('Jeddah Corniche Circuit'),
+    'LOCATION:'+esc2(({'JCC':'Jeddah Corniche Circuit','Sharafeyah Branch':'Sharafeyah, Jeddah'})[sess.location]||sess.location||'Jeddah Corniche Circuit'),
     'DESCRIPTION:'+esc2('Your MicroMobility bike rental booking. Arrive 10 minutes early and show your ticket at the desk.'),
     'BEGIN:VALARM','TRIGGER:-PT2H','ACTION:DISPLAY','DESCRIPTION:MicroMobility ride reminder','END:VALARM',
     'END:VEVENT','END:VCALENDAR'];
@@ -5987,6 +5994,7 @@ function pushUndo(label,fn){
   S.undoStack.push({label,fn});
   if(S.undoStack.length>20)S.undoStack.shift();
   showUndoBar(label,async()=>{
+    if(logEntry.undone)return; // already reversed (e.g. via the logs view) — never run the reversal twice
     S.undoStack=S.undoStack.filter(i=>i.label!==label||i.fn!==fn);
     logEntry.undone=true;
     await fn();
@@ -6304,11 +6312,13 @@ function confirmLogUndo(logId){
     confirmLabel:t('confirmUndoYes'),
     confirmClass:'btn-orange',
     onConfirm:async()=>{
+      item.undone=true; // claim synchronously so the 5s undo bar can't also fire the same reversal
+      const bar=document.getElementById('undo-bar-el');if(bar)bar.remove();
       try{
         await item.fn();
-        item.undone=true;
         toast(t('toastActionUndone')+item.label);
       }catch(e){
+        item.undone=false; // reversal failed — allow a retry
         toast(t('toastUndoFailedData'),'error');
       }
       renderLogs();renderStaffQueue();
