@@ -3622,8 +3622,9 @@ function renderBookingTicket(entries,opts){
         <span style="font-weight:900;font-size:18px;color:var(--green)">SAR ${Math.round((total+g.reduce((s,e)=>s+addonsCost(entryAddons(e)),0))*100)/100}</span>
       </div>
     </div>
-    <div style="padding:0 18px 16px">
-      <button class="btn-secondary" style="width:100%;font-size:12px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="downloadBookingICS('${primary.sessionId}')" aria-label="${t('addToCalendarBtn')}"> ${t('addToCalendarBtn')}</button>
+    <div style="padding:0 18px 16px;display:flex;gap:8px">
+      <button class="btn-secondary" style="flex:1;font-size:12px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="downloadBookingICS('${primary.sessionId}')" aria-label="${t('addToCalendarBtn')}"> ${t('addToCalendarBtn')}</button>
+      ${(sess&&sess.location)?`<a href="${esc(_mapUrl(sess.location))}" target="_blank" rel="noopener" class="btn-secondary" style="flex:1;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none" aria-label="${t('ticketDirections')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${t('ticketDirections')}</a>`:''}
     </div>
     ${actionsHtml}
   </div>`;
