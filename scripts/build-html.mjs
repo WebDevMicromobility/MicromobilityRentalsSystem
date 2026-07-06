@@ -45,6 +45,7 @@ const out = await minify(src, {
   removeAttributeQuotes: false,
 });
 
-const banner = '<!-- Generated from app.src.html — do not edit directly; run: npm run build:html -->\n';
-await writeFile(new URL('../index.html', import.meta.url), banner + out);
-console.log(`built index.html: ${src.length} -> ${(banner + out).length} bytes`);
+// No build/tooling banner in the shipped file — index.html is public (View Source),
+// so the "edit app.src.html, not index.html" rule lives in AGENTS.md / CLAUDE.md instead.
+await writeFile(new URL('../index.html', import.meta.url), out);
+console.log(`built index.html: ${src.length} -> ${out.length} bytes`);

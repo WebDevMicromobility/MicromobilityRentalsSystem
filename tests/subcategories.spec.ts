@@ -111,11 +111,9 @@ test.describe('protein sub-categories', () => {
     const out = await page.evaluate(() => {
       // @ts-expect-error app globals
       const free = _priceLabel(0), paid = _priceLabel(5), none = _priceLabel(null);
-      // @ts-expect-error app globals
       S.inventory = [...(S.inventory || []), { id: 'freebie', name: 'Water sample', category: 'Drinks', qty: 3, price: 0 }];
       // @ts-expect-error app globals
       startInvEdit('freebie');
-      // @ts-expect-error app globals
       return { free, paid, none, invFree: S._invFree, invPrice: S._invPrice };
     });
     expect(out.free).toBe('Free');
