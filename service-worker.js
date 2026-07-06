@@ -1,5 +1,5 @@
 
-const CACHE = 'mmcq-v87';
+const CACHE = 'mmcq-v88';
 const SHELL = [
   './',
   './index.html',
@@ -41,6 +41,8 @@ self.addEventListener('fetch', (e) => {
   }
 
   
+  // Same-origin (incl. the self-hosted vendor/ libraries): cache-first, then network.
+  // Vendor filenames are version-pinned, so a cached copy is never stale.
   if (url.origin === self.location.origin) {
     e.respondWith(
       caches.match(req).then((hit) => hit || fetch(req).then((res) => {
@@ -51,16 +53,4 @@ self.addEventListener('fetch', (e) => {
     );
     return;
   }
-  
-  if (url.hostname === 'cdn.jsdelivr.net') {
-    e.respondWith(
-      caches.match(req).then((hit) => hit || fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(req, copy));
-        return res;
-      }).catch(() => hit))
-    );
-    return;
-  }
-  
 });

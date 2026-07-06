@@ -18,8 +18,9 @@ const FILES = [
   '_headers', '_redirects',
   'brand.png', 'hero.webp', 'icon-192.png', 'icon-512.png', 'logo.png',
 ];
-// Directories copied recursively (functions/ MUST be inside dist for Pages Functions).
-const DIRS = ['functions', 'staff'];
+// Directories copied recursively (functions/ MUST be inside dist for Pages Functions;
+// vendor/ holds the self-hosted supabase-js / qrcode / jsQR libraries).
+const DIRS = ['functions', 'staff', 'vendor'];
 
 const exists = async (p) => { try { await access(p); return true; } catch { return false; } };
 

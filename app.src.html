@@ -23,7 +23,6 @@
   <meta name="twitter:image" content="/hero.webp">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="preconnect" href="https://amyqxovbnlreassrqihr.supabase.co">
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;900&family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="logo.png">
@@ -193,8 +192,10 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 
 <div id="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
 
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k" crossorigin="anonymous"></script>
+<!-- Self-hosted (byte-identical to the jsdelivr CDN builds; SRI kept). Serving from our
+     own origin means ad-blockers / privacy extensions / CDN outages can't break boot. -->
+<script defer src="./vendor/supabase-js-2.110.0.min.js" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil"></script>
+<script defer src="./vendor/qrcode-generator-1.4.4.js" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k"></script>
 <script>
 
 const LANG={
@@ -7066,8 +7067,8 @@ function _loadJsQR(){
   if(window.jsQR)return Promise.resolve(window.jsQR);
   if(!_jsqrPromise)_jsqrPromise=new Promise((res,rej)=>{
     const s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
-    s.integrity='sha384-b5Ya4Bq3qCyz39m2ISh+4DxjAIljdeFwK/BsXLuj9gugaNwAcj/ia15fxNZL9Nlx';s.crossOrigin='anonymous';
+    s.src='./vendor/jsqr-1.4.0.js'; // self-hosted (see vendor/), same bytes + SRI as the CDN build
+    s.integrity='sha384-b5Ya4Bq3qCyz39m2ISh+4DxjAIljdeFwK/BsXLuj9gugaNwAcj/ia15fxNZL9Nlx';
     s.onload=()=>res(window.jsQR);
     s.onerror=()=>{_jsqrPromise=null;rej(new Error('jsQR load failed'));};
     document.head.appendChild(s);
