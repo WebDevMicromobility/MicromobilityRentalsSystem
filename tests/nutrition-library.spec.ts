@@ -76,7 +76,7 @@ test.describe('nutrition library', () => {
   test('each listed Barebells flavour resolves its own numbers', async ({ page }) => {
     const out = await page.evaluate(() => {
       // @ts-expect-error app globals
-      const salted = _itemNutri({ id: 'b3', name: 'Salted Peanut Caramel Soft Protein Bar', brand: 'Barebells' });
+      const salted = _itemNutri({ id: 'b3', name: 'Salted Caramel Protein Bar', brand: 'Barebells' });
       // @ts-expect-error app globals
       const caramel = _itemNutri({ id: 'b4', name: 'Caramel Choco Bar', brand: 'Barebells' });
       return { saltedKcal: salted.kcal, saltedFat: salted.fat_g, saltedNa: salted.sodium_mg, caramelKcal: caramel.kcal };
@@ -211,6 +211,30 @@ test.describe('nutrition library', () => {
     expect(out.carbs).toBe(23);
     expect(out.sugar).toBe(3);
     expect(out.serving).toContain('40');
+  });
+
+  test('the corner macro badge shows protein for snacks and carbs for gels', async ({ page }) => {
+    const out = await page.evaluate(() => {
+      // @ts-expect-error app globals
+      const bar = _macroBadge({ category: 'ProteinCookies', name: 'Caramel Choco Protein Bar', brand: 'Barebells' }, 38);
+      // @ts-expect-error app globals
+      const gel = _macroBadge({ category: 'EnergyGels', name: 'SiS GO Isotonic Energy Gel Orange', brand: 'SiS' }, 38);
+      // @ts-expect-error app globals
+      const drink = _macroBadge({ category: 'Drinks', name: 'VOSS Water', brand: 'Voss' }, 38);
+      // @ts-expect-error app globals
+      const noFacts = _macroBadge({ category: 'ProteinBars', name: 'Mystery Bar', brand: 'Nobody' }, 38);
+      return { bar, gel, drink, noFacts };
+    });
+    // protein snack → its protein grams, in green on a black circle
+    expect(out.bar).toContain('16g');
+    expect(out.bar).toContain('border-radius:50%');
+    expect(out.bar).toContain('var(--green)');
+    expect(out.bar).toContain('background:#000');
+    // energy gel → its carb grams
+    expect(out.gel).toContain('22g');
+    // neither category, or no nutrition facts → no badge
+    expect(out.drink).toBe('');
+    expect(out.noFacts).toBe('');
   });
 
   test('a saved nutrition object still wins over the library', async ({ page }) => {

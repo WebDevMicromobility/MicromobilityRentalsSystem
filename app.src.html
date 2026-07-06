@@ -3255,7 +3255,8 @@ function renderRegister(){
     ${isModifyMode?'':(()=>{
       const items=sessionAddonItems(selSess);
       if(!items.length)return'';
-      const _aCard=it=>{const qn=_regAddonQty(it.id);const stock=Number(it.qty)||0;const cap=stock>0?stock:10;return`<div style="border:1.5px solid ${qn>0?'var(--green)':'var(--border)'};border-radius:14px;overflow:hidden;background:var(--s1)">
+      const _aCard=it=>{const qn=_regAddonQty(it.id);const stock=Number(it.qty)||0;const cap=stock>0?stock:10;return`<div style="position:relative;border:1.5px solid ${qn>0?'var(--green)':'var(--border)'};border-radius:14px;overflow:hidden;background:var(--s1)">
+            ${_macroBadge(it,38)}
             ${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="${esc(it.name)}" style="width:100%;height:132px;object-fit:contain;background:var(--photo-bg);display:block">`:`<div style="width:100%;height:132px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:12px;text-align:center;padding:8px">${esc(it.name)}</div>`}
             <div style="padding:11px 12px">
               <div style="font-weight:800;font-size:14px;line-height:1.2">${esc(it.name)}</div>
@@ -9194,7 +9195,7 @@ const BAREBELLS_PRESETS=[
    {n:'Added Sugars',a:'0',u:'g',nrv:''},
    {n:'Cholesterol',a:'15',u:'mg',nrv:''}
  ]}},
- {k:'Salted Peanut Caramel',nu:{serving:'1 bar (55 g)',kcal:210,fat_g:11,satfat_g:4.5,carbs_g:16,sugar_g:2,fibre_g:5,protein_g:16,sodium_mg:220,micros:[
+ {k:'Salted Caramel',nu:{serving:'1 bar (55 g)',kcal:210,fat_g:11,satfat_g:4.5,carbs_g:16,sugar_g:2,fibre_g:5,protein_g:16,sodium_mg:220,micros:[
    {n:'Sugar Alcohols',a:'9',u:'g',nrv:''},
    {n:'Added Sugars',a:'0',u:'g',nrv:''}
  ]}}
@@ -9261,6 +9262,16 @@ const HIGH5_PRESETS=[
  {k:'Orange',nu:{serving:'40 g sachet',kcal:91,fat_g:0,satfat_g:0,carbs_g:23,sugar_g:3,protein_g:0,salt_g:'<0.05',caffeine_mg:0,ingredients:'Easily digestible carbohydrate gel. Vegan. Standard (caffeine-free) variant.'}}
 ];
 function _hasNutri(it){const n=_itemNutri(it);return!!(n&&Object.keys(n).length);}
+// Corner badge for a product card: grams of protein for a protein snack, grams of carbs for an energy gel (from the nutrition facts). '' when the item is neither or has no facts.
+function _macroBadge(it,size){
+  if(!it)return '';
+  const cat=it.category||'';let g=null;
+  if(cat==='ProteinSnacks'||_catParent(cat)==='ProteinSnacks'){const nu=_itemNutri(it);g=nu&&nu.protein_g;}
+  else if(cat==='EnergyGels'){const nu=_itemNutri(it);g=nu&&nu.carbs_g;}
+  if(g==null||g==='')return '';
+  const ar=S&&S.lang==='ar',d=size||36,fs=Math.round(d*.31);
+  return`<span title="${esc(String(g))}g" style="position:absolute;top:6px;${ar?'left':'right'}:6px;z-index:2;width:${d}px;height:${d}px;border-radius:50%;background:#000;color:var(--green);font-size:${fs}px;font-weight:900;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 1px 5px rgba(0,0,0,.45)">${esc(String(g))}g</span>`;
+}
 function _invNutriJson(){
   const src=S._invNutri||{};const nu={};
   ['serving','ingredients'].forEach(k=>{const v=(src[k]==null?'':String(src[k])).trim();if(v)nu[k]=v;});
