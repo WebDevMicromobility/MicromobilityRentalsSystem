@@ -1,5 +1,5 @@
 
-const CACHE = 'mmcq-v92';
+const CACHE = 'mmcq-v93';
 const IMG_CACHE = 'mmcq-img'; // Supabase Storage photos; persists across app versions (content-addressed)
 const SHELL = [
   './',
@@ -29,7 +29,17 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return; 
   const url = new URL(req.url);
 
-  
+  // Auth callbacks (Google OAuth PKCE "?code=", magic-link / recovery, "?error=") come back
+  // as a navigation to our origin carrying auth params. Safari refuses a service-worker
+  // response that has redirect history for a navigation ("Response served by service worker
+  // has redirections"), which breaks Google sign-in. Don't intercept these — let the browser
+  // navigate natively so supabase-js can read the params.
+  if (req.mode === 'navigate' &&
+      /[?&](code|state|error|error_description|error_code|access_token|refresh_token|provider_token|token_hash)=/.test(url.search)) {
+    return;
+  }
+
+
   // The page shell: serve the cached index.html INSTANTLY (no network wait), and refresh
   // it in the background for next time (stale-while-revalidate). A new deploy therefore
   // applies on the next load rather than blocking this one. First-ever visit (nothing
@@ -38,9 +48,14 @@ self.addEventListener('fetch', (e) => {
     e.respondWith(
       caches.match('./index.html').then((cached) => {
         const network = fetch(req).then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put('./index.html', copy));
-          return res;
+          // A redirected response can't back a navigation in Safari; only cache/return clean ones.
+          if (res && res.ok && !res.redirected) {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put('./index.html', copy));
+          }
+          return res && res.redirected
+            ? new Response(res.body, { status: res.status, statusText: res.statusText, headers: res.headers })
+            : res;
         }).catch(() => cached);
         return cached || network;
       })
