@@ -2599,7 +2599,7 @@ function renderTopbarRight(){
     if(cust){
       const initials=cust.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
       const avatar=cust.photo
-        ?`<img src="${esc(cust.photo)}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:1px solid rgba(3,255,137,.4)">`
+        ?`<img loading="lazy" decoding="async" src="${esc(cust.photo)}" alt="" style="width:32px;height:32px;border-radius:50%;object-fit:cover;border:1px solid rgba(3,255,137,.4)">`
         :`<div style="width:32px;height:32px;border-radius:50%;background:rgba(3,255,137,.2);border:1px solid rgba(3,255,137,.4);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--green)">${esc(initials)}</div>`;
       el.innerHTML=`
         <div style="display:flex;align-items:center;gap:10px">
@@ -3078,7 +3078,7 @@ function renderRegister(){
   }).join('');
   // Chosen add-ons summary shown before confirming
   const _raItems=addonLineItems(S.regAddons||[]);
-  const reviewAddons=_raItems.length?`<div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 0">${t('addonsLabel')} (${_raItems.reduce((s,a)=>s+(a.qty||0),0)})</div>${_raItems.map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">${a.photo?`<img src="${esc(a.photo)}" alt="" style="width:30px;height:30px;border-radius:7px;object-fit:contain;background:var(--photo-bg);flex-shrink:0">`:''}<div style="flex:1;min-width:0"><span style="font-weight:800;font-size:14px">${esc(a.name)}</span>${a.qty>1?` <span style="color:var(--muted);font-weight:700">×${a.qty}</span>`:''}${a.brand?`<div style="font-size:11px;color:var(--muted)">${esc(a.brand)}</div>`:''}</div><div style="font-weight:800;font-size:13px;color:var(--green);white-space:nowrap">SAR ${a.lineTotal}</div></div>`).join('')}`:'';
+  const reviewAddons=_raItems.length?`<div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 0">${t('addonsLabel')} (${_raItems.reduce((s,a)=>s+(a.qty||0),0)})</div>${_raItems.map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">${a.photo?`<img loading="lazy" decoding="async" src="${esc(a.photo)}" alt="" style="width:30px;height:30px;border-radius:7px;object-fit:contain;background:var(--photo-bg);flex-shrink:0">`:''}<div style="flex:1;min-width:0"><span style="font-weight:800;font-size:14px">${esc(a.name)}</span>${a.qty>1?` <span style="color:var(--muted);font-weight:700">×${a.qty}</span>`:''}${a.brand?`<div style="font-size:11px;color:var(--muted)">${esc(a.brand)}</div>`:''}</div><div style="font-weight:800;font-size:13px;color:var(--green);white-space:nowrap">SAR ${a.lineTotal}</div></div>`).join('')}`:'';
   const alreadyHere=S._alreadyBookedSession===S.selSession&&S.selSession;
   const alreadyBanner=alreadyHere?`
     <div id="already-booked-banner" style="margin-top:16px;background:rgba(224,136,40,.08);border:1.5px solid rgba(224,136,40,.35);border-radius:14px;padding:16px 18px">
@@ -3131,7 +3131,7 @@ function renderRegister(){
       const items=sessionAddonItems(selSess);
       if(!items.length)return'';
       const _aCard=it=>{const qn=_regAddonQty(it.id);const stock=Number(it.qty)||0;const cap=stock>0?stock:10;return`<div style="border:1.5px solid ${qn>0?'var(--green)':'var(--border)'};border-radius:14px;overflow:hidden;background:var(--s1)">
-            ${it.photo?`<img src="${esc(it.photo)}" alt="${esc(it.name)}" style="width:100%;height:132px;object-fit:contain;background:var(--photo-bg);display:block">`:`<div style="width:100%;height:132px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:12px;text-align:center;padding:8px">${esc(it.name)}</div>`}
+            ${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="${esc(it.name)}" style="width:100%;height:132px;object-fit:contain;background:var(--photo-bg);display:block">`:`<div style="width:100%;height:132px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:12px;text-align:center;padding:8px">${esc(it.name)}</div>`}
             <div style="padding:11px 12px">
               <div style="font-weight:800;font-size:14px;line-height:1.2">${esc(it.name)}</div>
               ${it.brand?`<div style="font-size:11px;color:var(--muted);margin-top:1px">${esc(it.brand)}</div>`:''}
@@ -3630,7 +3630,7 @@ function renderBookingTicket(entries,opts){
               ${canEdit?`<button type="button" onclick="showAddonPicker('${e.id}')" style="background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);font-family:inherit;font-size:11px;font-weight:800;padding:4px 10px;border-radius:8px;cursor:pointer">+ ${t('addonAddBtn')}</button>`:''}
             </div>
             ${ad.length?ad.map(a=>`<div style="display:flex;align-items:center;gap:8px;margin-top:6px">
-              ${a.photo?`<img src="${esc(a.photo)}" alt="" style="width:30px;height:30px;border-radius:7px;object-fit:contain;background:var(--photo-bg);flex-shrink:0">`:''}
+              ${a.photo?`<img loading="lazy" decoding="async" src="${esc(a.photo)}" alt="" style="width:30px;height:30px;border-radius:7px;object-fit:contain;background:var(--photo-bg);flex-shrink:0">`:''}
               <span style="flex:1;min-width:0;font-size:13px;font-weight:700">${esc(a.name)}${a.qty>1?` <span style="color:var(--muted)">×${a.qty}</span>`:''}</span>
               <bdi style="font-weight:800;font-size:13px">SAR ${a.lineTotal}</bdi>
             </div>`).join(''):`<div style="font-size:12px;color:var(--muted);margin-top:4px">—</div>`}
@@ -3749,7 +3749,7 @@ function printRideReceipt(ids){
   const grandTotal=Math.round((total+addonTotal)*100)/100;
   const addonsHtml=addonItems.length?`<div style="font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:#666;font-weight:800;margin:14px 0 4px">${t('addonsLabel')}</div>
     <table><tbody>${addonItems.map(a=>`<tr>
-      <td><div style="display:flex;align-items:center;gap:8px">${a.photo?`<img src="${esc(a.photo)}" alt="" style="width:30px;height:30px;border-radius:6px;object-fit:contain;background:var(--photo-bg)">`:''}<span>${esc(a.name)}${a.brand?` · ${esc(a.brand)}`:''}</span></div></td>
+      <td><div style="display:flex;align-items:center;gap:8px">${a.photo?`<img loading="lazy" decoding="async" src="${esc(a.photo)}" alt="" style="width:30px;height:30px;border-radius:6px;object-fit:contain;background:var(--photo-bg)">`:''}<span>${esc(a.name)}${a.brand?` · ${esc(a.brand)}`:''}</span></div></td>
       <td style="text-align:center;white-space:nowrap">×${a.qty}</td>
       <td style="text-align:${ar?'left':'right'};white-space:nowrap">SAR ${a.lineTotal}</td>
     </tr>`).join('')}</tbody></table>`:'';
@@ -3980,7 +3980,7 @@ function renderAccount(){
       <div class="form-title">${t('profileInfo')}</div>
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
         ${cust.photo
-          ?`<img id="acc-photo-img" src="${esc(cust.photo)}" alt="" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid rgba(3,255,137,.4);flex-shrink:0">`
+          ?`<img id="acc-photo-img" loading="lazy" decoding="async" src="${esc(cust.photo)}" alt="" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:2px solid rgba(3,255,137,.4);flex-shrink:0">`
           :`<div id="acc-photo-img" style="width:72px;height:72px;border-radius:50%;background:rgba(3,255,137,.16);border:2px solid rgba(3,255,137,.4);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:var(--green);flex-shrink:0">${esc(cust.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase())}</div>`}
         <div style="display:flex;flex-direction:column;gap:6px">
           <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${t('profilePhotoLabel')}</div>
@@ -4109,7 +4109,7 @@ function _photoOut(c,cb){
       if(!blob){cb(dataUrl);return;}
       try{
         const path='p/'+uid()+'.jpg';
-        const{error}=await sb.storage.from('photos').upload(path,blob,{contentType:'image/jpeg',upsert:true});
+        const{error}=await sb.storage.from('photos').upload(path,blob,{contentType:'image/jpeg',upsert:true,cacheControl:'31536000'}); // 1-year cache: photos are content-addressed by uid, so they never change
         if(error){cb(dataUrl);return;}
         const{data}=sb.storage.from('photos').getPublicUrl(path);
         cb((data&&data.publicUrl)?data.publicUrl:dataUrl);
@@ -4284,7 +4284,7 @@ function selectAllNewSessAll(){
 function _sessAddonGroups(items,selIds,toggleFn){
   const cats=[...new Set(items.map(it=>it.category||'Other'))].sort((a,b)=>_invCatLabel(a).localeCompare(_invCatLabel(b)));
   const card=it=>{const sel=(selIds||[]).includes(it.id);const sub=`${it.brand?esc(it.brand):''}${(it.brand&&it.price!=null&&Number(it.price)>0)?' · ':''}${(it.price!=null&&Number(it.price)>0)?'SAR '+Number(it.price):''}`;
-    return`<button type="button" onclick="${toggleFn}('${it.id}')" title="${esc(it.name)}" style="display:flex;align-items:center;gap:8px;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(3,255,137,.08)':'var(--s2)'};border-radius:10px;padding:6px 11px 6px 6px;cursor:pointer;font-family:inherit;text-align:start">${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:34px;height:34px;border-radius:7px;object-fit:contain;background:var(--photo-bg);flex-shrink:0">`:`<div style="width:34px;height:34px;border-radius:7px;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:11px;font-weight:800">${esc((it.name||'?').charAt(0))}</div>`}<div style="min-width:0"><div style="font-size:12px;font-weight:800;color:${sel?'var(--green)':'var(--text)'};white-space:nowrap">${esc(it.name)}</div>${sub?`<div style="font-size:10px;color:var(--muted);white-space:nowrap">${sub}</div>`:''}</div></button>`;};
+    return`<button type="button" onclick="${toggleFn}('${it.id}')" title="${esc(it.name)}" style="display:flex;align-items:center;gap:8px;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(3,255,137,.08)':'var(--s2)'};border-radius:10px;padding:6px 11px 6px 6px;cursor:pointer;font-family:inherit;text-align:start">${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="" style="width:34px;height:34px;border-radius:7px;object-fit:contain;background:var(--photo-bg);flex-shrink:0">`:`<div style="width:34px;height:34px;border-radius:7px;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:11px;font-weight:800">${esc((it.name||'?').charAt(0))}</div>`}<div style="min-width:0"><div style="font-size:12px;font-weight:800;color:${sel?'var(--green)':'var(--text)'};white-space:nowrap">${esc(it.name)}</div>${sub?`<div style="font-size:10px;color:var(--muted);white-space:nowrap">${sub}</div>`:''}</div></button>`;};
   const _saWhich=toggleFn.indexOf('Edit')>=0?'edit':'new';
   const _saAll=items.length>0&&items.every(it=>(selIds||[]).includes(it.id));
   const _saBtn=items.length>1?`<button type="button" class="btn-sm btn-muted" style="font-size:11px;margin-bottom:10px" onclick="_sessAddonSelectAll('${_saWhich}')">${_saAll?t('nsClear'):t('nsSelectAll')}</button>`:'';
@@ -4418,7 +4418,7 @@ function renderAddonPicker(){
     <div style="font-size:12px;color:var(--muted);margin-bottom:14px">#${e.queueNum} ${esc(e.name)}</div>
     ${items.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px">
       ${items.map(it=>{const qn=_q(it.id);const stock=Number(it.qty)||0;const out=stock<=0;const low=stock>0&&stock<=5;return`<div style="border:1.5px solid ${qn>0?'var(--green)':'var(--border)'};border-radius:14px;overflow:hidden;background:var(--s1);${out&&qn<=0?'opacity:.55':''}">
-        ${it.photo?`<img src="${esc(it.photo)}" alt="${esc(it.name)}" style="width:100%;height:120px;object-fit:contain;background:var(--photo-bg);display:block">`:`<div style="width:100%;height:120px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:12px;text-align:center;padding:8px">${esc(it.name)}</div>`}
+        ${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="${esc(it.name)}" style="width:100%;height:120px;object-fit:contain;background:var(--photo-bg);display:block">`:`<div style="width:100%;height:120px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:12px;text-align:center;padding:8px">${esc(it.name)}</div>`}
         <div style="padding:10px 12px">
           <div style="font-weight:800;font-size:14px;line-height:1.2">${esc(it.name)}</div>
           ${stock<=10?`<div style="margin-top:4px;font-size:11px;font-weight:800;color:${out?'#e5484d':low?'var(--orange)':'var(--muted)'}">${out?t('outOfStock'):stock+' '+t('stockLeft')}</div>`:''}
@@ -7779,7 +7779,7 @@ function renderBikes(){
     <div class="form-group" style="margin-bottom:16px">
       <label>${t('profilePhotoLabel')}</label>
       <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
-        ${S._bkPhoto?`<img src="${esc(S._bkPhoto)}" alt="" style="width:54px;height:54px;border-radius:10px;object-fit:cover;border:1px solid var(--border)">`:''}
+        ${S._bkPhoto?`<img loading="lazy" decoding="async" src="${esc(S._bkPhoto)}" alt="" style="width:54px;height:54px;border-radius:10px;object-fit:cover;border:1px solid var(--border)">`:''}
         <label class="btn-secondary" style="font-size:12px;padding:8px 14px;cursor:pointer;margin:0">${t('uploadPhotoBtn')}<input type="file" accept="image/*" style="display:none" onchange="pickImage(this,u=>{S._bkPhoto=u;renderBikes();},480)"></label>
         ${S._bkPhoto?`<button class="btn-secondary" style="font-size:12px;padding:8px 12px" onclick="S._bkPhoto='';renderBikes()">${t('removePhotoBtn')}</button>`:''}
       </div>
@@ -7828,7 +7828,7 @@ function renderBikes(){
     const rowBg=orphaned?'background:rgba(224,136,40,.06);':b.status==='in-use'?'background:rgba(74,168,248,.025);':isRetired?'background:rgba(224,64,64,.025);opacity:.75;':'';
     return`<tr style="border-left:3px solid ${rowBorderClr};${rowBg}${sel?'background:rgba(3,255,137,.07);':''}">
       <td style="text-align:center"><input type="checkbox" aria-label="${esc(b.name)}" ${sel?'checked':''} onclick="_bkToggleSel('${b.id}')"></td>
-      <td><div style="display:flex;align-items:center;gap:10px">${b.photo?`<img src="${esc(b.photo)}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}<button type="button" onclick="openBikeProfile('${b.id}')" title="${esc(b.name)}" style="background:none;border:none;padding:0;cursor:pointer;text-align:start;font:inherit;color:var(--text)"><span class="rider-name" style="text-decoration:underline;text-decoration-color:rgba(255,255,255,.2);text-underline-offset:2px">${esc(b.name)}</span></button></div></td>
+      <td><div style="display:flex;align-items:center;gap:10px">${b.photo?`<img loading="lazy" decoding="async" src="${esc(b.photo)}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}<button type="button" onclick="openBikeProfile('${b.id}')" title="${esc(b.name)}" style="background:none;border:none;padding:0;cursor:pointer;text-align:start;font:inherit;color:var(--text)"><span class="rider-name" style="text-decoration:underline;text-decoration-color:rgba(255,255,255,.2);text-underline-offset:2px">${esc(b.name)}</span></button></div></td>
       <td style="font-weight:700;font-size:13px">${b.brand?esc(b.brand):`<span style="color:var(--muted)">—</span>`}</td>
       <td style="font-weight:700;font-size:13px">${b.model?esc(b.model):`<span style="color:var(--muted)">—</span>`}</td>
       <td style="font-weight:700;font-size:13px">${b.groupset?esc(b.groupset):`<span style="color:var(--muted)">—</span>`}</td>
@@ -7875,7 +7875,7 @@ function renderBikes(){
       const dots=colors.map(c=>`<span style="width:11px;height:11px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);display:inline-block;flex-shrink:0"></span>`).join('');
       const el=b.status==='in-use'&&user?rideElapsed(user.id):null;
       return`<div class="bike-grid-card" style="border-color:${borderClr};${bgStyle}">
-        ${b.photo?`<img src="${esc(b.photo)}" alt="" style="width:100%;height:110px;border-radius:10px;object-fit:cover;border:1px solid var(--border);margin-bottom:8px">`:''}
+        ${b.photo?`<img loading="lazy" decoding="async" src="${esc(b.photo)}" alt="" style="width:100%;height:110px;border-radius:10px;object-fit:cover;border:1px solid var(--border);margin-bottom:8px">`:''}
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:6px">
           <button type="button" onclick="openBikeProfile('${b.id}')" style="background:none;border:none;padding:0;cursor:pointer;text-align:start;font-weight:900;font-size:13px;line-height:1.3;color:var(--text)"><span style="text-decoration:underline;text-decoration-color:rgba(255,255,255,.2);text-underline-offset:2px">${esc(b.name)}</span></button>
           <div style="display:flex;gap:3px;flex-shrink:0">${dots}</div>
@@ -8018,7 +8018,7 @@ function renderBikes(){
           <th>${t('bikeNameLabel')}</th><th>${t('bikeBrand')}</th><th>${t('bikeModel')}</th>
           <th>${t('bikeTypeLabel')}</th><th>${t('frameSizeLabel')}</th><th>${t('lifespanLabel')}</th><th>${t('colStatus')}</th><th>${t('colManageBike')}</th>
         </tr></thead><tbody>${retiredBikes.map(b=>`<tr style="opacity:.7">
-          <td><div style="display:flex;align-items:center;gap:10px">${b.photo?`<img src="${esc(b.photo)}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}<div class="rider-name">${esc(b.name)}</div></div></td>
+          <td><div style="display:flex;align-items:center;gap:10px">${b.photo?`<img loading="lazy" decoding="async" src="${esc(b.photo)}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}<div class="rider-name">${esc(b.name)}</div></div></td>
           <td style="font-weight:700;font-size:13px">${b.brand?esc(b.brand):`<span style="color:var(--muted)">—</span>`}</td>
           <td style="font-weight:700;font-size:13px">${b.model?esc(b.model):`<span style="color:var(--muted)">—</span>`}</td>
           <td>${typeBadge(b.type)}</td>
@@ -8442,7 +8442,7 @@ function openBikeProfile(id){
     <div class="modal-box" role="dialog" aria-modal="true" style="max-width:600px">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px">
         <div style="display:flex;align-items:center;gap:12px;min-width:0">
-          ${bike.photo?`<img src="${esc(bike.photo)}" alt="" style="width:48px;height:48px;border-radius:10px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}
+          ${bike.photo?`<img loading="lazy" decoding="async" src="${esc(bike.photo)}" alt="" style="width:48px;height:48px;border-radius:10px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}
           <div style="min-width:0"><div class="modal-title" style="margin-bottom:0">${esc(bike.name)}</div>
             <div style="font-size:12px;color:var(--muted)">${typeLabel(bike.type)} · ${esc(bike.size||'')}${bike.location?' · '+esc(bike.location):''}</div></div>
         </div>
@@ -9219,7 +9219,7 @@ function renderTeamManager(){
 }
 // Product image helpers (inventory items carry an optional data-URL photo)
 function _itemPhoto(id){const it=id&&(S.inventory||[]).find(x=>x.id===id);return(it&&it.photo)?it.photo:'';}
-function _itemThumb(id,size){const p=_itemPhoto(id);return p?`<img src="${esc(p)}" alt="" style="width:${size}px;height:${size}px;border-radius:6px;object-fit:contain;flex-shrink:0">`:'';}
+function _itemThumb(id,size){const p=_itemPhoto(id);return p?`<img loading="lazy" decoding="async" src="${esc(p)}" alt="" style="width:${size}px;height:${size}px;border-radius:6px;object-fit:contain;flex-shrink:0">`:'';}
 // Units sold per inventory item (cashier sales + rental add-ons) -> drives top-seller ordering
 function _itemSalesCount(){const c={};(S.cashSales||[]).forEach(r=>{if(r.item_id&&r.pay!=='refunded')c[r.item_id]=(c[r.item_id]||0)+(Number(r.qty)||0);});getQueue().forEach(e=>entryPurchases(e).forEach(p=>{if(p.id)c[p.id]=(c[p.id]||0)+(Number(p.qty)||0);}));return c;}
 function showCashierModal(id){
@@ -9628,7 +9628,7 @@ function renderCashier(){
   const _tgl='padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0;min-width:46px';
   const _inp='padding:9px 11px;border-radius:9px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-family:inherit;font-size:13px;width:100%';
   // Category-first item picker for Sales: pick a category, then see the items inside it
-  const _ctItemBtn=it=>{const sel=S._ctItem===it.id;const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;const lowB=(q<=0||(lo>0&&q<=lo));return`<button type="button" onclick="_ctSet('_ctItem','${it.id}')" title="${esc(it.name)}" style="position:relative;text-align:start;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(3,255,137,.08)':'var(--s2)'};border-radius:10px;padding:0;overflow:hidden;cursor:pointer;font-family:inherit">${lowB?`<span title="${q<=0?t('invOutStock'):t('invLowStock')}" style="position:absolute;top:4px;${ar?'left':'right'}:4px;z-index:1;background:${q<=0?'var(--red)':'var(--orange)'};color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:6px;line-height:1.5">${q}</span>`:''}${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:100%;height:62px;object-fit:contain;background:var(--photo-bg);display:block">`:`<div style="width:100%;height:62px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:10px;text-align:center;padding:4px">${esc(_invCatLabel(it.category))}</div>`}<div style="padding:5px 7px"><div style="font-weight:700;font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.name)}</div><div style="font-size:11px;color:var(--green);font-weight:700">${it.price!=null?`SAR ${it.price}`:'—'}</div></div></button>`;};
+  const _ctItemBtn=it=>{const sel=S._ctItem===it.id;const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;const lowB=(q<=0||(lo>0&&q<=lo));return`<button type="button" onclick="_ctSet('_ctItem','${it.id}')" title="${esc(it.name)}" style="position:relative;text-align:start;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(3,255,137,.08)':'var(--s2)'};border-radius:10px;padding:0;overflow:hidden;cursor:pointer;font-family:inherit">${lowB?`<span title="${q<=0?t('invOutStock'):t('invLowStock')}" style="position:absolute;top:4px;${ar?'left':'right'}:4px;z-index:1;background:${q<=0?'var(--red)':'var(--orange)'};color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:6px;line-height:1.5">${q}</span>`:''}${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="" style="width:100%;height:62px;object-fit:contain;background:var(--photo-bg);display:block">`:`<div style="width:100%;height:62px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:10px;text-align:center;padding:4px">${esc(_invCatLabel(it.category))}</div>`}<div style="padding:5px 7px"><div style="font-weight:700;font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.name)}</div><div style="font-size:11px;color:var(--green);font-weight:700">${it.price!=null?`SAR ${it.price}`:'—'}</div></div></button>`;};
   const _ctCustomBtn=`<button type="button" onclick="_ctSet('_ctItem','__custom__')" style="border:1.5px dashed ${isCustom?'var(--green)':'var(--border)'};background:${isCustom?'rgba(3,255,137,.08)':'transparent'};border-radius:10px;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:96px;color:${isCustom?'var(--green)':'var(--muted)'}"><span style="font-size:20px;line-height:1">+</span><span style="font-size:10px;font-weight:700;text-align:center;padding:0 4px">${t('cashCustomOpt')}</span></button>`;
   const _ctGrid=inner=>`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;max-height:248px;overflow-y:auto;margin-top:4px;padding:2px">${inner}</div>`;
   const _ctCats=[...new Set(invItems.map(it=>it.category||'Other'))].sort((a,b)=>_invCatLabel(a).localeCompare(_invCatLabel(b)));
@@ -9874,7 +9874,7 @@ function renderInventory(){
     <div class="form-row">
       <div class="form-group"><label>${t('profilePhotoLabel')}</label>
         <div style="display:flex;align-items:center;gap:10px">
-          ${S._invPhoto?`<img src="${esc(S._invPhoto)}" alt="" style="width:48px;height:48px;border-radius:8px;object-fit:contain;border:1px solid var(--border)">`:''}
+          ${S._invPhoto?`<img loading="lazy" decoding="async" src="${esc(S._invPhoto)}" alt="" style="width:48px;height:48px;border-radius:8px;object-fit:contain;border:1px solid var(--border)">`:''}
           <label class="btn-secondary" style="font-size:12px;padding:7px 14px;cursor:pointer;margin:0">${t('uploadPhotoBtn')}<input type="file" accept="image/*" style="display:none" onchange="pickImage(this,u=>{S._invPhoto=u;renderInventory();},400,true)"></label>
           ${S._invPhoto?`<button class="btn-secondary" style="font-size:12px;padding:7px 12px" onclick="S._invPhoto='';renderInventory()">${t('removePhotoBtn')}</button>`:''}
         </div>
@@ -9914,7 +9914,7 @@ function renderInventory(){
     const stTxt=state==='out'?t('invOutStock'):state==='low'?t('invLowStock'):t('invInStock');
     return`<tr>
       <td><div style="display:flex;align-items:center;gap:10px">
-        ${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:contain;border:1px solid var(--border);flex-shrink:0">`:''}
+        ${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="" style="width:38px;height:38px;border-radius:8px;object-fit:contain;border:1px solid var(--border);flex-shrink:0">`:''}
         <div><div class="rider-name">${esc(it.name)}</div>${it.volume_ml?`<div style="font-size:11px;color:var(--muted-l);font-weight:600;margin-top:1px">${it.volume_ml} ml</div>`:''}${it.price!=null&&Number(it.price)>0?`<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:1px">SAR ${Number(it.price)}</div>`:''}</div>
       </div></td>
       <td style="font-size:13px;font-weight:600">${it.brand?esc(it.brand):'<span style="color:var(--muted)">—</span>'}</td>
@@ -9942,7 +9942,7 @@ function renderInventory(){
     const stTxt=state==='out'?t('invOutStock'):state==='low'?t('invLowStock'):t('invInStock');
     const borderClr=state==='out'?'rgba(224,64,64,.4)':state==='low'?'rgba(224,136,40,.45)':'rgba(3,255,137,.3)';
     return`<div class="bike-grid-card" style="border-color:${borderClr};display:flex;flex-direction:column;gap:8px">
-      ${it.photo?`<img src="${esc(it.photo)}" alt="" style="width:100%;aspect-ratio:1/1;border-radius:10px;object-fit:contain;background:var(--photo-bg);border:1px solid var(--border)">`:`<div style="width:100%;aspect-ratio:1/1;border-radius:10px;background:var(--s3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:30px;opacity:.5"></div>`}
+      ${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="" style="width:100%;aspect-ratio:1/1;border-radius:10px;object-fit:contain;background:var(--photo-bg);border:1px solid var(--border)">`:`<div style="width:100%;aspect-ratio:1/1;border-radius:10px;background:var(--s3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:30px;opacity:.5"></div>`}
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px">
         <div style="min-width:0"><div style="font-weight:900;font-size:13px;line-height:1.3">${esc(it.name)}</div>${it.brand?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">${esc(it.brand)}</div>`:''}${it.volume_ml?`<div style="font-size:11px;color:var(--muted-l);font-weight:600;margin-top:1px">${it.volume_ml} ml</div>`:''}${it.price!=null&&Number(it.price)>0?`<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:1px">SAR ${Number(it.price)}</div>`:''}</div>
         <span style="font-size:10px;font-weight:800;color:${stClr};white-space:nowrap;flex-shrink:0">${stTxt}</span>
