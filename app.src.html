@@ -181,7 +181,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 
 <div id="toast-container" role="status" aria-live="polite" aria-atomic="false"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.0" integrity="sha384-DjOvX/sJLsmbMrw4wTvf6l3kiGBjdxyOO6X2MTFwOOXGkjN/mE08BoDzrpaaIjil" crossorigin="anonymous"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" integrity="sha384-8FWZA6BGMXhsfO+BLtrJK0We6gg5o1JyO8xQm6peWDEUs17ACA5ziE/NIAkl9z2k" crossorigin="anonymous"></script>
 <script>
 
@@ -1317,7 +1317,16 @@ const S={
 
 const SUPABASE_URL  = 'https://amyqxovbnlreassrqihr.supabase.co';
 const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFteXF4b3ZibmxyZWFzc3JxaWhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwOTk0NzUsImV4cCI6MjA5ODY3NTQ3NX0.NzlLzOqZfTqx2TyeyNeqXwDPfvcPV2q4DHqPrlS8Tjk';
-let sb;try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);}catch(e){console.error('Supabase init failed:',e.message);}
+// supabase-js is loaded with `defer` (non-render-blocking), so it isn't available
+// during parse. _sbReady resolves once it's loaded and the client is created; every
+// parse-time consumer (boot, realtime, schema probe, outbox) waits on it.
+let sb;
+const _sbReady=new Promise(res=>{(function w(){
+  if(window.supabase&&window.supabase.createClient){
+    try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);}catch(e){console.error('Supabase init failed:',e.message);}
+    res();
+  }else setTimeout(w,15);
+})();});
 
 // ── Security mode ────────────────────────────────────────────────────────────
 // false = legacy direct-table auth (current behaviour, unchanged).
@@ -11232,6 +11241,7 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
 
 
 (async()=>{
+  await _sbReady; // wait for the deferred supabase-js before any data call
   try{
     await Promise.race([loadData(),new Promise(r=>setTimeout(r,8000))]);
   }catch(e){
@@ -11405,7 +11415,7 @@ function setupRealtime(){
       });
   }catch(e){console.warn('Realtime init failed:',e);}
 }
-try{setupRealtime();}catch(e){}
+_sbReady.then(()=>{try{setupRealtime();}catch(e){}});
 // Probe once whether the optional queue_entries.card_amount column exists. If not, the rental Split option is hidden
 // (it would otherwise silently down-categorize a split as cash). Default assumes present until proven missing.
 async function _probeSchema(){
@@ -11419,7 +11429,7 @@ async function _probeSchema(){
     if(error){const m=((error.code||error.message)||'')+'';if(m.includes('42703')||/customer_id/i.test(m)||/does not exist/i.test(m))S.hasCsCust=false;}
   }catch(_){}
 }
-try{_probeSchema();}catch(e){}
+_sbReady.then(()=>{try{_probeSchema();}catch(e){}});
 
 // ── Staff keyboard shortcuts ──
 document.addEventListener('keydown',e=>{
@@ -11499,8 +11509,7 @@ try{window.addEventListener('offline',()=>{S._rtConnected=false;_updateConnUI();
     dist=0;
   },{passive:true});
 })();
-try{_outboxFlush();}catch(e){}
-try{_bookOutboxFlush();}catch(e){}
+_sbReady.then(()=>{try{_outboxFlush();}catch(e){}try{_bookOutboxFlush();}catch(e){}});
 // Background retry: flushes only fire on enqueue/online/load, so a queue that didn't drain (page opened offline, transient blip) would otherwise show "pending sync" forever. Retry every 15s while anything is pending; _outboxFlush no-ops when busy/offline/sb-missing.
 try{setInterval(()=>{if(_outboxCount()||_bookOutboxCount()){_outboxFlush();_bookOutboxFlush();}},15000);}catch(e){}
 // ── Global error capture: keep the last 50 errors locally, surface a throttled toast, log to a tolerant table ──
