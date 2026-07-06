@@ -35,6 +35,7 @@ test.describe('protein sub-categories', () => {
     await unlockStaff(page);
     await page.goto('/');
     await waitForSb(page);
+    await page.waitForFunction('S.inventory && S.inventory.length > 0');
   });
 
   test('the three protein subs collapse into one parent card that drills down', async ({ page }) => {
@@ -57,5 +58,37 @@ test.describe('protein sub-categories', () => {
     // Drill into a sub-category: its item is listed.
     await pickerCards(page, 'ProteinCookies');
     await expect(page.locator('#tab-cashier')).toContainText('Choc Cookie');
+  });
+
+  test('the inventory Type dropdown maps a protein snack to its Protein<Type> leaf', async ({ page }) => {
+    // Add form in Supplements with Protein Snacks selected → the Type dropdown appears,
+    // and picking a type resolves to the leaf category the sales picker nests.
+    const res = await page.evaluate(() => {
+      // @ts-expect-error app globals
+      S.invSection = 'supplements'; toggleAddInv(); S._invCat = 'ProteinSnacks'; S._invSubtype = 'Muffins'; renderInventory();
+      return {
+        hasField: !!document.getElementById('inv-subtype'),
+        // @ts-expect-error app globals
+        leaf: _invResolveCat(), parent: _catParent('ProteinMuffins'), label: _invCatLabel('ProteinMuffins'),
+      };
+    });
+    expect(res.hasField).toBe(true);
+    expect(res.leaf).toBe('ProteinMuffins');
+    expect(res.parent).toBe('ProteinSnacks');
+    expect(res.label).toBe('Muffins');
+
+    // A custom multi-word type round-trips through the encode/decode helpers and still nests.
+    const custom = await page.evaluate(() => ({
+      // @ts-expect-error app globals
+      leaf: _proteinLeaf('Energy Balls'), back: _leafSubtype('ProteinEnergyBalls'), grp: _catGroup('ProteinEnergyBalls'),
+    }));
+    expect(custom).toEqual({ leaf: 'ProteinEnergyBalls', back: 'Energy Balls', grp: 'ProteinSnacks' });
+
+    // Editing a leaf-tagged item shows Protein Snacks + its Type again.
+    const edit = await page.evaluate(() => {
+      // @ts-expect-error app globals
+      startInvEdit('ck1'); return { cat: S._invCat, sub: S._invSubtype };
+    });
+    expect(edit).toEqual({ cat: 'ProteinSnacks', sub: 'Cookies' });
   });
 });
