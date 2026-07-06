@@ -983,7 +983,8 @@ function setStaffRole(role){
 }
 function _getPinLock(){try{return{until:parseInt(localStorage.getItem('cq_pin_until')||'0'),lockouts:parseInt(localStorage.getItem('cq_pin_lockouts')||'0'),attempts:parseInt(localStorage.getItem('cq_pin_attempts')||'0')};}catch(e){return{until:0,lockouts:0,attempts:0};}}
 // ── Staff Supabase Auth (SECURE_AUTH): the DB trusts the Auth session, not the client-side PIN ──
-// Normalize a raw phone entry to E.164 (defaults to Saudi +966) for Supabase phone auth.
+// Normalize any phone entry to one canonical form (Saudi +966 default) so every format
+// a staffer might type — 0562989838, 562989838, 966…, 00966…, +966… — maps to one key.
 function _staffPhoneE164(raw){
   let s=String(raw||'').replace(/[\s()\-]/g,'');
   if(s[0]==='+')return s;
@@ -994,11 +995,23 @@ function _staffPhoneE164(raw){
   if(s.length===9&&s[0]==='5')return '+966'+s;
   return '+'+s;
 }
-async function staffAuthSignIn(identifier,password){
+// Staff phone → account email. Lets staff sign in by phone WITHOUT Supabase's (paid,
+// Twilio-backed) phone provider: we resolve the phone to the email, then do the normal
+// email+password sign-in. Add one line per staff phone (canonical form auto-handles all
+// the formats above). The email must be an existing staff Auth account.
+const STAFF_PHONE_MAP={
+  '+966562989838':'malik-naj@hotmail.com',
+};
+// Resolve a login identifier to the account email: email as-is, phone via the map.
+function _staffLoginEmail(identifier){
   const id=String(identifier||'').trim();
-  // Supabase signInWithPassword accepts email OR phone; route by whether it looks like an email.
-  const creds=id.includes('@')?{email:id.toLowerCase()}:{phone:_staffPhoneE164(id)};
-  const{data,error}=await sb.auth.signInWithPassword({...creds,password});
+  if(id.includes('@'))return id.toLowerCase();
+  return STAFF_PHONE_MAP[_staffPhoneE164(id)]||null;
+}
+async function staffAuthSignIn(identifier,password){
+  const email=_staffLoginEmail(identifier);
+  if(!email)return{ok:false,msg:t('errInvalidCredentials')}; // phone not registered to a staff account
+  const{data,error}=await sb.auth.signInWithPassword({email,password});
   if(error||!data||!data.user)return{ok:false,msg:(error&&error.message)||t('errConnection')};
   let row=null;
   try{const r=await sb.from('staff').select('role').eq('user_id',data.user.id).maybeSingle();row=r.data;}catch(e){}

@@ -19,3 +19,15 @@ test('_staffPhoneE164 normalizes Saudi phone formats to E.164', async ({ page })
     expect(await page.evaluate(`_staffPhoneE164(${JSON.stringify(input)})`)).toBe(expected);
   }
 });
+
+test('_staffLoginEmail resolves every phone format (and email) to the account email', async ({ page }) => {
+  await stubSupabase(page);
+  await page.goto('/');
+  // All of these map to the same staff account email.
+  for (const p of ['0562989838', '562989838', '966562989838', '00966562989838', '+966562989838', '+966 56 298 9838']) {
+    expect(await page.evaluate(`_staffLoginEmail(${JSON.stringify(p)})`)).toBe('malik-naj@hotmail.com');
+  }
+  // Email passes through (lowercased); unknown phone resolves to null.
+  expect(await page.evaluate(`_staffLoginEmail('Malik-Naj@Hotmail.com')`)).toBe('malik-naj@hotmail.com');
+  expect(await page.evaluate(`_staffLoginEmail('0500000000')`)).toBe(null);
+});
