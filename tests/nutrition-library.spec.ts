@@ -87,6 +87,132 @@ test.describe('nutrition library', () => {
     expect(out.caramelKcal).toBe(200); // the two flavours don't collide
   });
 
+  test('Quest cookies resolve per flavour, and Double Choco does not collide with Choco Chip', async ({ page }) => {
+    const out = await page.evaluate(() => {
+      // @ts-expect-error app globals
+      const chip = _itemNutri({ id: 'q1', name: 'Quest Choco Chip Cookies', brand: 'Quest' });
+      // @ts-expect-error app globals
+      const dbl = _itemNutri({ id: 'q2', name: 'Quest Double Choco Chips Cookies', brand: 'Quest' });
+      // @ts-expect-error app globals
+      const blue = _itemNutri({ id: 'q3', name: 'Quest Bake Shop Blueberry Muffins', brand: 'Quest' });
+      // @ts-expect-error app globals
+      const ccMuffin = _itemNutri({ id: 'q4', name: 'Quest Chocolate Chip Protein Muffins', brand: 'Quest' });
+      return {
+        chipKcal: chip.kcal, chipFib: chip.fibre_g, dblKcal: dbl.kcal, dblFib: dbl.fibre_g, dblNa: dbl.sodium_mg,
+        blueKcal: blue.kcal, blueProt: blue.protein_g,
+        muffinKcal: ccMuffin.kcal, muffinFat: ccMuffin.fat_g, muffinServing: ccMuffin.serving,
+      };
+    });
+    expect(out.chipKcal).toBe(240);
+    expect(out.chipFib).toBe(9);
+    expect(out.dblKcal).toBe(220); // NOT 240 — the double-choco item must not fall back to the plain choco chip preset
+    expect(out.dblFib).toBe(11);
+    expect(out.dblNa).toBe(190);
+    expect(out.blueKcal).toBe(200);
+    expect(out.blueProt).toBe(10);
+    // The "Chocolate Chip" muffin must not collide with the "Choco Chip" cookie (240 kcal / has sodium)
+    expect(out.muffinKcal).toBe(200);
+    expect(out.muffinFat).toBe(12);
+    expect(out.muffinServing).toContain('muffin');
+  });
+
+  test('Spada sparkling water resolves a zero-calorie label', async ({ page }) => {
+    const out = await page.evaluate(() => {
+      // @ts-expect-error app globals
+      const n = _itemNutri({ id: 's1', name: 'Spada Sparkling Water', brand: 'Spada' });
+      return { kcal: n.kcal, sugar: n.sugar_g, sodium: n.sodium_mg, serving: n.serving };
+    });
+    expect(out.kcal).toBe(0);
+    expect(out.sugar).toBe(0);
+    expect(out.sodium).toBe(10);
+    expect(out.serving).toContain('250');
+  });
+
+  test('FreeLife gummies resolve per flavour (Kids vs Pineapple protein)', async ({ page }) => {
+    const out = await page.evaluate(() => {
+      // @ts-expect-error app globals
+      const cola = _itemNutri({ id: 'f1', name: 'FreeLife Kids Cola Gummies', brand: 'FreeLife' });
+      // @ts-expect-error app globals
+      const berry = _itemNutri({ id: 'f2', name: 'Freelife Kids Mixed Berry Gummies', brand: 'Freelife' });
+      // @ts-expect-error app globals
+      const pine = _itemNutri({ id: 'f3', name: 'FreeLife Pineapple Protein Gummies', brand: 'FreeLife' });
+      // @ts-expect-error app globals
+      const sour = _itemNutri({ id: 'f4', name: 'FreeLife Sour Mixed Fruit Kids Gummies', brand: 'FreeLife' });
+      // @ts-expect-error app globals
+      const straw = _itemNutri({ id: 'f5', name: 'Freelife Strawberry Protein Gummies', brand: 'FreeLife' });
+      // @ts-expect-error app globals
+      const melon = _itemNutri({ id: 'f6', name: 'FreeLife Watermelon Protein Gummies', brand: 'FreeLife' });
+      return {
+        colaKcal: cola.kcal, colaProt: cola.protein_g,
+        berryKcal: berry.kcal, berrySugar: berry.sugar_g,
+        pineKcal: pine.kcal, pineProt: pine.protein_g, pineSugar: pine.sugar_g, pineCarbs: pine.carbs_g,
+        sourKcal: sour.kcal, sourProt: sour.protein_g,
+        strawKcal: straw.kcal, strawProt: straw.protein_g,
+        melonKcal: melon.kcal, melonProt: melon.protein_g, melonSugar: melon.sugar_g,
+      };
+    });
+    expect(out.colaKcal).toBe(120);
+    expect(out.colaProt).toBe(12);
+    expect(out.berryKcal).toBe(120);
+    expect(out.berrySugar).toBe(10);
+    expect(out.pineKcal).toBe(98); // the protein line has its own macros, not the Kids gummies'
+    expect(out.pineProt).toBe(20);
+    expect(out.pineSugar).toBe(0);
+    expect(out.pineCarbs).toBe('4.5–5');
+    expect(out.sourKcal).toBe(120); // Sour Mixed Fruit is a Kids flavour, not the Mixed Berry one
+    expect(out.sourProt).toBe(12);
+    expect(out.strawKcal).toBe(98); // Strawberry / Watermelon share the protein-line macros
+    expect(out.strawProt).toBe(20);
+    expect(out.melonKcal).toBe(98);
+    expect(out.melonProt).toBe(20);
+    expect(out.melonSugar).toBe(0);
+  });
+
+  test('SiS gels resolve by line, and both Beta Fuel flavours share one profile', async ({ page }) => {
+    const out = await page.evaluate(() => {
+      // @ts-expect-error app globals
+      const go = _itemNutri({ id: 'g1', name: 'SiS GO Isotonic Energy Gel Blackcurrant', brand: 'SiS' });
+      // @ts-expect-error app globals
+      const neutral = _itemNutri({ id: 'g2', name: 'SiS Beta Fuel Gel Neutral', brand: 'Science in Sport' });
+      // @ts-expect-error app globals
+      const orange = _itemNutri({ id: 'g3', name: 'SiS Orange Beta Fuel Energy Gel', brand: 'SiS' });
+      // @ts-expect-error app globals
+      const goOrange = _itemNutri({ id: 'g4', name: 'SiS GO Isotonic Energy Gel Orange', brand: 'SiS' });
+      // @ts-expect-error app globals
+      const slBeta = _itemNutri({ id: 'g5', name: 'SiS Beta Fuel Strawberry & Lime Gel', brand: 'SiS' });
+      // 'sis' must be a whole word, not a substring of e.g. 'basis'
+      // @ts-expect-error app globals
+      const notSis = _itemNutri({ id: 'x1', name: 'Basis bar', brand: 'Acme' });
+      return {
+        goKcal: go.kcal, goCarbs: go.carbs_g, neutralKcal: neutral.kcal,
+        orangeKcal: orange.kcal, orangeCarbs: orange.carbs_g,
+        goOrangeKcal: goOrange.kcal, goOrangeCarbs: goOrange.carbs_g,
+        slBetaKcal: slBeta.kcal, notSis,
+      };
+    });
+    expect(out.goKcal).toBe(87);
+    expect(out.goCarbs).toBe(22);
+    expect(out.neutralKcal).toBe(158);
+    expect(out.orangeKcal).toBe(158); // Orange Beta Fuel matches the Beta Fuel preset, not a GO Orange one
+    expect(out.orangeCarbs).toBe(40);
+    expect(out.goOrangeKcal).toBe(87); // GO Isotonic Orange is the 87 kcal gel, distinct from Orange Beta Fuel
+    expect(out.goOrangeCarbs).toBe(22);
+    expect(out.slBetaKcal).toBe(158); // Strawberry & Lime Beta Fuel shares the Beta Fuel profile
+    expect(out.notSis).toBeNull();
+  });
+
+  test('HIGH5 Orange gel resolves its own label, distinct from SiS', async ({ page }) => {
+    const out = await page.evaluate(() => {
+      // @ts-expect-error app globals
+      const h = _itemNutri({ id: 'hi1', name: 'HIGH5 Orange Energy Gel', brand: 'HIGH5' });
+      return { kcal: h.kcal, carbs: h.carbs_g, sugar: h.sugar_g, serving: h.serving };
+    });
+    expect(out.kcal).toBe(91);
+    expect(out.carbs).toBe(23);
+    expect(out.sugar).toBe(3);
+    expect(out.serving).toContain('40');
+  });
+
   test('a saved nutrition object still wins over the library', async ({ page }) => {
     const kcal = await page.evaluate(() =>
       // @ts-expect-error app globals

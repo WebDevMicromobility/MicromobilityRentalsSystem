@@ -9142,8 +9142,25 @@ function _libNutri(it){
   }
   if(/humantra/.test(hay))return(typeof HUMANTRA_NU!=='undefined'?HUMANTRA_NU:null); // Humantra electrolyte sticks share one label across all flavours
   if(/voss/.test(hay))return(typeof VOSS_NU!=='undefined'?VOSS_NU:null); // VOSS artesian still water
+  if(/spada/.test(hay))return(typeof SPADA_NU!=='undefined'?SPADA_NU:null); // Spada zero-calorie sparkling water (same nutrition across options)
   if(/barebells/.test(hay)){ // Barebells protein bars differ by flavour — match the specific one
     const p=(typeof BAREBELLS_PRESETS!=='undefined'?BAREBELLS_PRESETS:[]).find(x=>hay.includes(x.k.toLowerCase()));
+    if(p)return p.nu;
+  }
+  if(/quest/.test(hay)){ // Quest cookies/bars differ by flavour — match the specific one
+    const p=(typeof QUEST_PRESETS!=='undefined'?QUEST_PRESETS:[]).find(x=>hay.includes(x.k.toLowerCase()));
+    if(p)return p.nu;
+  }
+  if(/free\s*life/.test(hay)){ // FreeLife Kids gummies share macros; presets carry the per-flavour ingredients
+    const p=(typeof FREELIFE_PRESETS!=='undefined'?FREELIFE_PRESETS:[]).find(x=>hay.includes(x.k.toLowerCase()));
+    if(p)return p.nu;
+  }
+  if(/\bsis\b|science\s*in\s*sport/.test(hay)){ // SiS GO energy gels — match the specific flavour
+    const p=(typeof SIS_PRESETS!=='undefined'?SIS_PRESETS:[]).find(x=>hay.includes(x.k.toLowerCase()));
+    if(p)return p.nu;
+  }
+  if(/high\s*5|high5/.test(hay)){ // HIGH5 energy gels — match the specific flavour
+    const p=(typeof HIGH5_PRESETS!=='undefined'?HIGH5_PRESETS:[]).find(x=>hay.includes(x.k.toLowerCase()));
     if(p)return p.nu;
   }
   return null;
@@ -9168,6 +9185,8 @@ const VOSS_NU={serving:'250 ml bottle',kcal:0,fat_g:0,satfat_g:0,carbs_g:0,sugar
   {n:'Magnesium',a:'0.6',u:'mg',nrv:''},
   {n:'Chloride',a:'3.5–4',u:'mg',nrv:''}
 ],ingredients:'Artesian spring water. pH ~6.4 · very low total dissolved solids (TDS).'};
+// Spada sparkling water (Saudi-made), per 250 ml can. Zero-calorie; same nutrition across options.
+const SPADA_NU={serving:'250 ml can',kcal:0,fat_g:0,satfat_g:0,carbs_g:0,sugar_g:0,fibre_g:0,protein_g:0,sodium_mg:10,ingredients:'Carbonated water (Signature / Plain Zero: no sugar, sweeteners or artificial colours).'};
 // Barebells protein bars, per 55 g bar. Keyed by flavour so only the matching bar picks up its label.
 const BAREBELLS_PRESETS=[
  {k:'Caramel Choco',nu:{serving:'1 bar (55 g)',kcal:200,fat_g:9,satfat_g:4,carbs_g:24,sugar_g:2,fibre_g:5,protein_g:16,sodium_mg:190,micros:[
@@ -9179,6 +9198,67 @@ const BAREBELLS_PRESETS=[
    {n:'Sugar Alcohols',a:'9',u:'g',nrv:''},
    {n:'Added Sugars',a:'0',u:'g',nrv:''}
  ]}}
+];
+// Quest protein cookies, per 59 g cookie. Keyed by flavour; list the more specific key first ("Double Choco Chips" contains "Choco Chip").
+const QUEST_PRESETS=[
+ {k:'Double Choco Chips',nu:{serving:'1 cookie (59 g)',kcal:220,fat_g:15,satfat_g:9,carbs_g:21,sugar_g:1,fibre_g:11,protein_g:15,sodium_mg:190,micros:[
+   {n:'Trans Fat',a:'0',u:'g',nrv:''},
+   {n:'Cholesterol',a:'35',u:'mg',nrv:'12'},
+   {n:'Added Sugars',a:'0',u:'g',nrv:'0'},
+   {n:'Sugar Alcohols',a:'7',u:'g',nrv:''},
+   {n:'Vitamin D',a:'0',u:'µg',nrv:'0'},
+   {n:'Calcium',a:'150',u:'mg',nrv:'10'},
+   {n:'Iron',a:'0.9',u:'mg',nrv:'6'},
+   {n:'Potassium',a:'180',u:'mg',nrv:'4'}
+ ],ingredients:'Protein blend (milk & whey protein isolate), polydextrose (prebiotic fibre), butter, erythritol, palm oil, cocoa (alkali-processed), unsweetened chocolate, cocoa butter. Contains milk & soy. No gluten-containing ingredients.'}},
+ {k:'Choco Chip',nu:{serving:'1 cookie (59 g)',kcal:240,fat_g:17,satfat_g:10,carbs_g:19,sugar_g:1,fibre_g:9,protein_g:15,sodium_mg:210,micros:[
+   {n:'Trans Fat',a:'0',u:'g',nrv:''},
+   {n:'Cholesterol',a:'35',u:'mg',nrv:'12'},
+   {n:'Added Sugars',a:'0',u:'g',nrv:'0'},
+   {n:'Sugar Alcohols',a:'8',u:'g',nrv:''},
+   {n:'Vitamin D',a:'0',u:'µg',nrv:'0'},
+   {n:'Calcium',a:'140',u:'mg',nrv:'10'},
+   {n:'Iron',a:'0.2',u:'mg',nrv:'2'},
+   {n:'Potassium',a:'70',u:'mg',nrv:'2'}
+ ],ingredients:'Protein blend (milk & whey protein isolate), butter, polydextrose (prebiotic fibre), erythritol, palm oil, unsweetened chocolate, cocoa butter. Contains milk & soy. No gluten-containing ingredients.'}},
+ {k:'Blueberry',nu:{serving:'1 muffin (57 g)',kcal:200,fat_g:11,carbs_g:24,sugar_g:2,fibre_g:10,protein_g:10,micros:[
+   {n:'Net Carbs',a:'3',u:'g',nrv:''}
+ ],ingredients:'Dairy protein (whey isolate, micellar casein), sweetened with erythritol & sucralose.'}},
+ {k:'Chocolate Chip',nu:{serving:'1 muffin (57 g)',kcal:200,fat_g:12,carbs_g:22,sugar_g:'<1',fibre_g:10,protein_g:10,micros:[
+   {n:'Sugar Alcohols',a:'10',u:'g',nrv:''},
+   {n:'Net Carbs',a:'2',u:'g',nrv:''}
+ ],ingredients:'Milk protein matrix (whey protein isolate, micellar casein, whey protein concentrate, calcium caseinate), water, polydextrose, canola oil, eggs, unsweetened chocolate. Sweetened with erythritol & sucralose. Sugar-free.'}}
+];
+// FreeLife Kids high-protein gummies, per 34 g bag. Same macros across flavours; ingredients differ.
+const FREELIFE_PRESETS=[
+ {k:'Cola',nu:{serving:'1 bag (34 g)',kcal:120,fat_g:0,satfat_g:0,carbs_g:18,sugar_g:10,fibre_g:0,protein_g:12,sodium_mg:42,micros:[
+   {n:'Added Sugars',a:'10',u:'g',nrv:''}
+ ],ingredients:'Sugar, halal beef collagen, halal beef gelatin, glycerine (humectant), citric acid (acidity regulator), cola flavour, natural colours, carnauba wax (glazing agent). Gluten-free; no artificial colours.'}},
+ {k:'Mixed Berry',nu:{serving:'1 bag (34 g)',kcal:120,fat_g:0,satfat_g:0,carbs_g:18,sugar_g:10,fibre_g:0,protein_g:12,sodium_mg:42,micros:[
+   {n:'Added Sugars',a:'10',u:'g',nrv:''}
+ ],ingredients:'Sugar, halal beef gelatin, halal beef collagen, glycerine (humectant), citric acid (acidity regulator), natural colours (carmine, vegetable juice), mixed berry flavour, carnauba wax (glazing agent). Gluten-free; no artificial colours.'}},
+ {k:'Pineapple',nu:{serving:'1 pouch (32 g)',kcal:98,fat_g:0,satfat_g:0,carbs_g:'4.5–5',sugar_g:0,fibre_g:0,protein_g:20,sodium_mg:12,micros:[
+   {n:'Cholesterol',a:'6',u:'mg',nrv:''}
+ ],ingredients:'Halal beef gelatin & collagen, water, citric acid (acidity regulator), vegetable glycerine & sucralose (sweeteners), potassium sorbate (preservative), natural pineapple flavour, carnauba wax. Halal-certified; SFDA-approved; no artificial colours.'}},
+ {k:'Sour Mixed Fruit',nu:{serving:'1 bag (34 g)',kcal:120,fat_g:0,satfat_g:0,carbs_g:18,sugar_g:10,fibre_g:0,protein_g:12,sodium_mg:42,micros:[
+   {n:'Added Sugars',a:'10',u:'g',nrv:''}
+ ],ingredients:'Halal beef collagen & gelatin, sugar, natural colours (carmine, chlorophyllin, curcumin), sour coating (malic / citric acid). Gluten-free; no artificial colours or preservatives.'}},
+ {k:'Strawberry',nu:{serving:'1 pouch (32 g)',kcal:98,fat_g:0,satfat_g:0,carbs_g:'4.5–5',sugar_g:0,fibre_g:0,protein_g:20,sodium_mg:12,micros:[
+   {n:'Cholesterol',a:'6',u:'mg',nrv:''}
+ ],ingredients:'Halal beef gelatin & collagen, gluten-free, sweetened with sucralose. Diabetic- & keto-friendly.'}},
+ {k:'Watermelon',nu:{serving:'1 pouch (32 g)',kcal:98,fat_g:0,satfat_g:0,carbs_g:'4.5–5',sugar_g:0,fibre_g:0,protein_g:20,sodium_mg:12,micros:[
+   {n:'Cholesterol',a:'6',u:'mg',nrv:''}
+ ],ingredients:'Halal beef gelatin & collagen, gluten-free, sweetened with sucralose. Halal-certified; zero sugar.'}}
+];
+// SiS (Science in Sport) energy gels, per 60 ml sachet. Keyed by product/flavour.
+const SIS_PRESETS=[
+ {k:'Blackcurrant',nu:{serving:'60 ml sachet',kcal:87,fat_g:0,satfat_g:0,carbs_g:22,sugar_g:0.6,protein_g:0,salt_g:0.01,caffeine_mg:0,ingredients:'Water, maltodextrin (from maize), natural flavouring, gelling agents (xanthan & gellan gum), acidity regulators (citric acid, sodium citrate), preservatives (sodium benzoate, potassium sorbate), sweeteners (acesulfame K, sucralose), sodium chloride. GO Isotonic — vegan, zero caffeine.'}},
+ {k:'Beta Fuel',nu:{serving:'60 ml sachet',kcal:158,fat_g:0,satfat_g:0,carbs_g:40,sugar_g:19,protein_g:0,salt_g:0.03,caffeine_mg:0,ingredients:'Dual-source carbohydrate (maltodextrin : fructose 1:0.8). Engineered for high-intensity endurance over 2 h (80–120 g carbs/hour).'}},
+ {k:'Orange',nu:{serving:'60 ml sachet',kcal:87,fat_g:0,satfat_g:0,carbs_g:22,sugar_g:0.6,protein_g:0,salt_g:0.01,caffeine_mg:0,ingredients:'Water, maltodextrin (33%), gelling agents (gellan & xanthan gum), natural orange flavouring, acidity regulators, sweetener (acesulfame K), preservatives. GO Isotonic — vegan, gluten-free, zero caffeine.'}}
+];
+// HIGH5 energy gels, per 40 g sachet. Keyed by flavour (standard, caffeine-free variant).
+const HIGH5_PRESETS=[
+ {k:'Orange',nu:{serving:'40 g sachet',kcal:91,fat_g:0,satfat_g:0,carbs_g:23,sugar_g:3,protein_g:0,salt_g:'<0.05',caffeine_mg:0,ingredients:'Easily digestible carbohydrate gel. Vegan. Standard (caffeine-free) variant.'}}
 ];
 function _hasNutri(it){const n=_itemNutri(it);return!!(n&&Object.keys(n).length);}
 function _invNutriJson(){
