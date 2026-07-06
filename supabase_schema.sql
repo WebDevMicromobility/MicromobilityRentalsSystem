@@ -223,36 +223,15 @@ create table if not exists inventory (
 -- alter table bikes     add column if not exists photo text;  -- bike photo (data URL)
 
 -- ── ROW LEVEL SECURITY ────────────────────────────────────────────────────────
--- SECURITY WARNING -------------------------------------------------------------
--- The policies below grant the public anon key full read/write on every table.
--- Because the anon key ships in the browser, ANYONE can currently read all
--- customer rows (names, emails, phones) and all queue entries. Passwords are now
--- stored as salted SHA-256 (see makePwdHash in index.html), but the PII is still
--- world-readable under these policies. This is acceptable only for a demo.
---
--- RECOMMENDED FREE HARDENING (Supabase free tier, no extra cost) -- do this when
--- you are ready to migrate auth; it changes how the client talks to the DB:
---   1. Move customer auth to Supabase Auth (auth.users) instead of the custom
---      customers.password_hash flow, OR keep custom auth but route login/signup
---      through a SECURITY DEFINER RPC (example below) so the table itself can be
---      locked down.
---   2. Replace the customers "public access" policy with:
---        - INSERT: allow (signup), but
---        - SELECT/UPDATE/DELETE: restrict to the row's own auth.uid()
---      so a visitor can never dump every customer.
---   3. Denormalized PII in queue_entries (name/email/phone) should be readable
---      only by staff; gate it behind a staff role / service-side function.
---
--- Example SECURITY DEFINER login RPC (lets you lock down SELECT on customers):
---   create or replace function customer_login(p_filter text, p_hash text)
---   returns table(id text, name text, email text, phone text)
---   language sql security definer set search_path = public as $$
---     select id, name, email, phone from customers
---     where (email = p_filter or phone = p_filter) and password_hash = p_hash
---     limit 1;
---   $$;
--- -----------------------------------------------------------------------------
--- Current (demo) policies: the anon key can read and write all tables.
+-- These are the INITIAL open policies used while a project is first set up. The
+-- production security model is the hardened one applied by security-migration.sql:
+--   • customer PII (customers, queue_entries) is not readable by the public anon
+--     key — all customer access goes through SECURITY DEFINER RPCs and a no-PII
+--     availability view; staff read via authenticated Supabase Auth sessions
+--   • writes to bikes/sessions/inventory/promo_codes are restricted to staff
+--   • passwords are bcrypt; customer login is rate-limited
+-- Run this file to create the tables, then run security-migration.sql to apply the
+-- production access-control model. Do not leave the open policies below in place.
 
 alter table customers    enable row level security;
 alter table bikes        enable row level security;
@@ -261,6 +240,7 @@ alter table queue_entries enable row level security;
 alter table inventory    enable row level security;
 alter table promo_codes  enable row level security;
 
+-- Initial open policies (replaced by security-migration.sql in production).
 create policy "public access" on customers     for all using (true) with check (true);
 create policy "public access" on bikes         for all using (true) with check (true);
 create policy "public access" on sessions      for all using (true) with check (true);

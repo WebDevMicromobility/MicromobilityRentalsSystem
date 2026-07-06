@@ -1,15 +1,14 @@
-# Rebuild Plan — Strangler Rewrite
+# Engineering Roadmap
 
-Goal: evolve the current single-file app into a modern, modular, tested codebase **without ever taking the site down**. The old app is the spec; the Playwright suite is the contract that proves each step didn't break it.
+Goal: evolve the application into a modular, fully-tested codebase **with no downtime**. Each step is guarded by the Playwright suite so a change can't regress existing behaviour.
 
 ## Current state (July 2026)
 
-- `index.html` — ~10.9k lines, all UI + logic + i18n (EN/AR) in one file, vanilla JS
-- `styles.css` + hand-versioned `service-worker.js` (cache bump needed in 3 places per release)
-- Supabase called directly from the browser (`customers`, `bikes`, `sessions`, `queue_entries`, `cashier_sales`, `promo_codes`, `inventory`)
-- `app.py` / `schema.sql` — dead Flask prototype, reference only
-- Deploy = push to `main`
-- Tests: `npm test` (Playwright, chromium desktop + mobile profiles). All Supabase traffic is stubbed in `tests/helpers/supabase.ts` — **tests never touch production data**.
+- `index.html` — UI, logic, and i18n (EN/AR) in a single vanilla-JS file
+- `styles.css` + a versioned `service-worker.js`
+- Supabase accessed from the browser (`customers`, `bikes`, `sessions`, `queue_entries`, `cashier_sales`, `promo_codes`, `inventory`); production access is locked down via `security-migration.sql`
+- Deploy = push to `main` (Cloudflare Pages)
+- Tests: `npm test` (Playwright, desktop + mobile profiles). All Supabase traffic is stubbed in `tests/helpers/supabase.ts` — **tests never touch production data**.
 
 ## Phase 0 — Safety net (DONE, keep growing it)
 
@@ -42,7 +41,6 @@ Suggested order (lowest coupling first):
 6. `src/staff/queue/` — bookings tab, check-in, scanner
 7. `src/staff/pos/` — sales, receipts, refunds, close-out
 8. `src/staff/inventory/`, `src/staff/analytics/`, the rest
-9. Delete `app.py`, `schema.sql` once nothing references them
 
 Each extraction: move code → type it → point index at the module → run suite → deploy.
 
@@ -52,8 +50,8 @@ Each extraction: move code → type it → point index at the module → run sui
 - Component framework only if/where DOM code is painful (Preact is the cheap option)
 - Per-module UX passes
 
-## Standing risks / rules
+## Standing rules
 
-- Never big-bang: every commit deployable, suite green
-- The security rollout (SECURE_AUTH / RLS lockdown, see SECURITY-RUNBOOK.md) is still pending and should land **before** more customer PII features
-- WebKit browser profile can be added to Playwright (`npx playwright install webkit`) for real iPhone coverage
+- Incremental only: every commit is deployable and the suite stays green
+- The customer-PII security model (SECURE_AUTH / RLS) is live in production; see SECURITY-RUNBOOK.md and security-migration.sql
+- A WebKit profile can be added to Playwright (`npx playwright install webkit`) for real iPhone coverage
