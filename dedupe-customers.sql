@@ -78,3 +78,17 @@ delete from customers where id in (select dup_id from _dupe_map);
 commit;   -- change to ROLLBACK; if the numbers above look wrong
 
 -- After COMMIT, re-run STEP 1 to confirm no email duplicates remain.
+
+
+-- ─────────────────────────────────────────────────────────────────────────
+-- STEP 3 — STOP it recurring: a real unique index on email.
+-- The customer_signup RPC only did a SELECT "if exists" check, which a burst of
+-- concurrent signups races past (all check before any commits → all insert). A
+-- unique index makes the database reject the 2nd..Nth insert atomically (error
+-- 23505), which the app already handles as "email already exists".
+-- Run ONCE, AFTER Step 2 merged the duplicates (it errors if any remain).
+-- (Multiple rows with NO email are still allowed — walk-ins without an email.)
+-- ─────────────────────────────────────────────────────────────────────────
+create unique index if not exists customers_email_lower_uniq
+  on customers (lower(trim(email)))
+  where coalesce(trim(email),'') <> '';

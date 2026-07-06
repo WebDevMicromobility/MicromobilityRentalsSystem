@@ -2252,9 +2252,10 @@ async function doSignup(){
   if(!phone){authErr(t('errPhoneRequired'));return;}
   if(pwd.length<8||!/[A-Z]/.test(pwd)||!/[0-9]/.test(pwd)){authErr(t('errPasswordLen'));return;}
   if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
-  if(await _pwnedCount(pwd)>0){authErr(t('errPwnedPassword'));return;}
+  if(S._authBusy)return;S._authBusy=true; // block double-submit / held-Enter key-repeat bursts that created duplicate accounts
+  if(await _pwnedCount(pwd)>0){authErr(t('errPwnedPassword'));S._authBusy=false;return;}
   const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
-  if(isNaN(heightRaw)||heightRaw<100||heightRaw>250){authErr(t('errValidHeightCm'));return;}
+  if(isNaN(heightRaw)||heightRaw<100||heightRaw>250){authErr(t('errValidHeightCm'));S._authBusy=false;return;}
   const fullPhone=phone?(cc+phone):'';
   try{
     if(SECURE_AUTH){
@@ -2289,6 +2290,7 @@ async function doSignup(){
     logAction(t('logAcctCreated')+name);
     toast(`${name}! ${t('toastAccountCreated')}`);
   }catch(e){authErr(t('errConnection'));}
+  finally{S._authBusy=false;}
 }
 
 
