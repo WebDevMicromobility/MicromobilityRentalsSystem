@@ -7,7 +7,7 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
   // service-worker.js is the legacy hand-written worker (replaced by the generated
   // one in dist builds); the root .mjs files are one-off migration tooling.
-  { ignores: ['node_modules/**', 'dist/**', 'test-results/**', '*.mjs', 'service-worker.js'] },
+  { ignores: ['node_modules/**', 'dist/**', 'test-results/**', '**/*.mjs', 'service-worker.js'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -15,5 +15,42 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
+  },
+  // Extracted app modules (src/js/*.js) run in the single global scope of the inline
+  // script after the build-time include, not as ES modules: they reference app globals
+  // and are invoked by name from onclick strings ESLint can't see. Lint them for real
+  // bugs but give them the browser + app globals and drop the unused-name noise.
+  {
+    files: ['src/js/**/*.js'],
+    languageOptions: {
+      globals: {
+        document: 'readonly', window: 'readonly', URL: 'readonly', Blob: 'readonly',
+        setTimeout: 'readonly', clearTimeout: 'readonly', fetch: 'readonly',
+        navigator: 'readonly', location: 'readonly', localStorage: 'readonly',
+        // app globals defined in the main inline script (see src/js/app-globals.d.ts)
+        S: 'readonly', parseSlots: 'readonly', allSessions: 'readonly', fmt12h: 'readonly',
+      },
+    },
+    rules: {
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-empty': ['error', { allowEmptyCatch: true }],
+    },
+  },
+  // Cloudflare Pages Functions run in the Workers runtime — give them its web globals.
+  {
+    files: ['functions/**/*.js'],
+    languageOptions: {
+      globals: {
+        fetch: 'readonly', Response: 'readonly', Request: 'readonly', URL: 'readonly',
+        console: 'readonly', crypto: 'readonly', caches: 'readonly',
+        TextEncoder: 'readonly', TextDecoder: 'readonly',
+      },
+    },
+  },
+  // Loose ambient declarations for app globals — `any` is intentional here.
+  {
+    files: ['**/*.d.ts'],
+    rules: { '@typescript-eslint/no-explicit-any': 'off' },
   },
 );

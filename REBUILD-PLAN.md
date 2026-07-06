@@ -17,7 +17,7 @@ Goal: evolve the application into a modular, fully-tested codebase **with no dow
 - [x] Booking flow spec (fixture session → reserve → ticket shown)
 - [x] POS spec (record sale → void/refund restores stock)
 - [x] Close-out totals spec (pure-logic assertions on _salesTotals/_cashCardCash)
-- [ ] Offline snapshot spec (kill network route → cached data still renders)
+- [x] Offline snapshot spec (kill network route → cached data still renders) — `tests/offline.spec.ts`
 
 Rule: **before migrating a module in Phase 2, its behavior must be covered here first.**
 
@@ -31,7 +31,16 @@ Rule: **before migrating a module in Phase 2, its behavior must be covered here 
 
 ## Phase 2 — Module-by-module extraction (one PR each, tests green after every step)
 
-Suggested order (lowest coupling first):
+**Mechanism (in use):** rather than waiting on the full Vite/ESM cutover, logic is
+extracted into `src/js/*.js` files and pulled back into the single global scope at build
+time via `<!--include:...-->` markers (see `scripts/build-html.mjs`). This keeps the
+onclick-by-name pattern working with zero runtime change, so extraction is safe and
+incremental today. Modules carry `// @ts-check` + JSDoc and are type-checked by
+`npm run lint` (globals declared in `src/js/app-globals.d.ts`).
+
+- [x] `src/js/ticket-calendar.js` — ticket directions + add-to-calendar (.ics) *(first module, proves the mechanism)*
+
+Suggested order for the rest (lowest coupling first):
 
 1. `src/i18n.ts` — the LANG tables + `t()` (pure data, easiest win)
 2. `src/lib/supabase.ts` — client + typed table helpers
