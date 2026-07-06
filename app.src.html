@@ -9568,7 +9568,7 @@ function renderCashierModal(){
       <div style="background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:13px;display:flex;flex-direction:column;gap:9px">
         <select onchange="_cashSet('_cashItem',this.value)" style="${_inp}">
           <option value="">${t('cashSelectItem')}</option>
-          ${invItems.map(it=>`<option value="${it.id}"${S._cashItem===it.id?' selected':''}>${esc(it.name)} (${esc(_invCatLabel(it.category))}${it.price!=null?`, SAR ${it.price}`:''})</option>`).join('')}
+          ${invItems.map(it=>`<option value="${it.id}"${S._cashItem===it.id?' selected':''}>${esc(it.name)} (${esc(_invCatLabel(it.category))}${_priceLabel(it.price)?`, ${_priceLabel(it.price)}`:''})</option>`).join('')}
           <option value="__custom__"${isCustom?' selected':''}>${t('cashCustomOpt')}</option>
         </select>
         ${isCustom?`<input type="text" value="${esc(S._cashName)}" oninput="S._cashName=this.value" placeholder="${t('cashNameLabel')}" style="${_inp}">
