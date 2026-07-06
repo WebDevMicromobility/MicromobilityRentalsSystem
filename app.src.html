@@ -11503,8 +11503,11 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
   const staffOK=localStorage.getItem('cq_staff')==='1';
   const nav=_loadNav();
   let target;
-  if(_isStaffUrl&&!staffOK){
-    target='pin';
+  if(_isStaffUrl){
+    // The staff link ALWAYS goes to staff — the panel if already unlocked, else the
+    // staff login. Never fall through to the customer/landing view (which happened when
+    // a previously-unlocked staffer's last view was the customer page).
+    target=staffOK?'staff':'pin';
   } else {
     target=nav&&nav.view;
     if(target==='staff'&&!staffOK)target=null;

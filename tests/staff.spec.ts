@@ -8,6 +8,18 @@ test('visiting ?staff without a PIN shows the locked PIN pad', async ({ page }) 
   await expect(page.locator('.pin-key').first()).toBeVisible();
 });
 
+test('the staff link always opens the staff panel, even after browsing as a customer', async ({ page }) => {
+  await stubSupabase(page);
+  // Previously-unlocked staffer whose last view was the customer page + a customer session.
+  await page.addInitScript(() => {
+    localStorage.setItem('cq_staff', '1');
+    localStorage.setItem('cq_session', JSON.stringify({ id: 'c1', name: 'Rider', email: 'r@x.com' }));
+    sessionStorage.setItem('cq_nav', JSON.stringify({ view: 'customer' }));
+  });
+  await page.goto('/?staff');
+  await expect(page.locator('#staff-tab-nav')).toBeVisible(); // staff panel, NOT the customer page
+});
+
 test('a wrong PIN is rejected with an error', async ({ page }) => {
   await stubSupabase(page);
   await page.goto('/?staff');
