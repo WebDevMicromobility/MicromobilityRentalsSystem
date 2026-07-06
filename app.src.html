@@ -496,7 +496,7 @@ en:{
   returnPayMsg:'This rider has not paid yet. The bike will be returned and payment will be marked as pending.',
   returnMarkPaidBtn:'Mark Paid & Return',
   returnPendingBtn:'Return - Pending Payment',
-  reopenBookingBtn:'Re-open',restoreBookingBtn:'Restore',toastBookingRestored:'Booking restored',logRestoredBooking:'Restored booking',
+  reopenBookingBtn:'Re-open',restoreBookingBtn:'Restore',toastBookingRestored:'Booking restored',logRestoredBooking:'Restored booking',restoreFullTitle:'Session is full',restoreFullBody:'This session is already at capacity. Restore this booking anyway?',
   payPendingWarning:'Unpaid',
   toastBikeUpdated:'Bike updated.',
   toastAddedToFleet:'added to fleet.',
@@ -849,7 +849,7 @@ ar:{
   returnPayMsg:'لم يدفع هذا الراكب بعد. سيتم إرجاع الدراجة وسيُسجَّل الدفع كمعلق.',
   returnMarkPaidBtn:'تسجيل الدفع وإعادة الدراجة',
   returnPendingBtn:'إرجاع الدراجة - دفع معلق',
-  reopenBookingBtn:'إعادة فتح',restoreBookingBtn:'استعادة',toastBookingRestored:'تمت استعادة الحجز',logRestoredBooking:'استعادة الحجز',
+  reopenBookingBtn:'إعادة فتح',restoreBookingBtn:'استعادة',toastBookingRestored:'تمت استعادة الحجز',logRestoredBooking:'استعادة الحجز',restoreFullTitle:'الجلسة ممتلئة',restoreFullBody:'هذه الجلسة ممتلئة بالفعل. هل تريد استعادة هذا الحجز على أي حال؟',
   payPendingWarning:'غير مدفوع',
   toastBikeUpdated:'تم تحديث الدراجة.',
   toastAddedToFleet:'أُضيفت للأسطول.',
@@ -6394,6 +6394,20 @@ async function doUndoNoShow(id){
 // number may now be held by a live row (the cancel shifted the queue down), so take a
 // fresh number if so, keeping the partial unique index satisfied.
 async function doRestoreCancelled(id){
+  const entry=getQueue().find(e=>e.id===id);if(!entry||entry.status!=='cancelled')return;
+  if(spotsLeft(entry.sessionId)<=0){ // session already at capacity — confirm before over-filling it
+    confirmDialog({
+      title:t('restoreFullTitle'),
+      body:t('restoreFullBody'),
+      confirmLabel:t('restoreBookingBtn'),
+      confirmClass:'btn-orange',
+      onConfirm:()=>_execRestoreCancelled(id),
+    });
+    return;
+  }
+  await _execRestoreCancelled(id);
+}
+async function _execRestoreCancelled(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry||entry.status!=='cancelled')return;
   const slotTaken=getQueue().some(e=>e.sessionId===entry.sessionId&&e.queueNum===entry.queueNum&&e.id!==id&&['waiting','active','done'].includes(e.status));
   const newQNum=slotTaken?nextQNum(entry.sessionId):entry.queueNum;
