@@ -1,1 +1,19 @@
-# No catch-all needed - staff/index.html handles /staff routing
+# Cloudflare Pages serves the whole repo root, so this is an ALLOWLIST: serve only
+# the app's public assets, and 404 everything else (source, SQL, docs, configs,
+# tests, dotfiles). First match wins; the catch-all at the bottom hides the rest.
+# If you add a new PUBLIC asset, allow it here above the catch-all.
+
+/                    /index.html          200
+/index.html          /index.html          200
+/styles.css          /styles.css          200
+/service-worker.js   /service-worker.js   200
+/manifest.json       /manifest.json       200
+/logo.png            /logo.png            200
+/brand.png           /brand.png           200
+/hero.png            /hero.png            200
+/icon-192.png        /icon-192.png        200
+/icon-512.png        /icon-512.png        200
+/staff/*             /staff/index.html    200
+
+# Everything not allowed above is hidden from the public.
+/*                   /404.html            404
