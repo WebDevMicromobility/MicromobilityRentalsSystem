@@ -183,7 +183,6 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 <div id="cashier-modal"    style="display:none"></div>
 <div id="receipt-edit-modal" style="display:none"></div>
 <div id="team-mgr-modal"   style="display:none"></div>
-<div id="help-modal"       style="display:none"></div>
 <div id="cancel-reason-modal" style="display:none"></div>
 <div id="factory-reset-modal" style="display:none"></div>
 <div id="walkin-modal" style="display:none"></div>
@@ -2673,9 +2672,7 @@ function renderTopbarRight(){
         ?`<button class="topbar-btn" onclick="setStaffRole('frontdesk')" title="${t('switchToFrontDesk')}">${t('switchToFrontDesk')}</button>`
         :`<button class="topbar-btn" onclick="openPinModal(true)" title="${t('switchToAdmin')}"> ${t('switchToAdmin')}</button>`}
       ${last?`<button class="topbar-btn undo-btn" onclick="doUndo()" title="${esc(last.label)}" style="animation:undoPulse 2s ease-in-out infinite">&#x21B6; Undo</button>`:''}
-      <button class="topbar-btn" onclick="openHelp()" title="${t('helpBtn')}" aria-label="${t('helpBtn')}">?</button>
       ${(SECURE_AUTH&&S._staffAuthed)?`<button class="topbar-btn" onclick="openStaffPwdModal()" title="${t('staffPwdTitle')}" aria-label="${t('staffPwdTitle')}">&#x1F511;</button>`:''}
-      ${isAdmin()?`<button class="topbar-btn" onclick="exportAllData()" title="${t('exportBackupBtn')}" aria-label="${t('exportBackupBtn')}">⤓</button>`:''}
       <button class="topbar-btn danger" onclick="lockStaff()">${t('lockBtn')}</button>`;
   } else {
     el.innerHTML='';
@@ -4548,18 +4545,6 @@ async function _addonPickerStep(addonId,delta){
 
 
 // One-click data backup (admin): downloads the whole dataset as JSON
-async function exportAllData(){
-  if(!isAdmin()){toast(t('adminOnlyMsg'),'error');return;}
-  let customers=[];
-  try{const{data}=await sb.from('customers').select('*');customers=data||[];}catch(e){}
-  const dump={exported_at:new Date().toISOString(),sessions:S.sessions||[],bikes:S.bikes||[],queue_entries:getQueue().map(entryToDB),inventory:S.inventory||[],promo_codes:S.promoCodes||[],customers};
-  const blob=new Blob([JSON.stringify(dump,null,2)],{type:'application/json'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download='micromobility-backup-'+todayStr()+'.json';
-  document.body.appendChild(a);a.click();document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(url),1500);
-  logAction(t('logExportedBackup'));toast(t('exportedToast'));
-}
 // Repeat no-show count for the rider behind an entry (by account, else name+phone)
 function customerNoShows(e){
   if(!e)return 0;
@@ -4600,28 +4585,6 @@ function cloneSession(id){
   renderSessions();
   setTimeout(()=>document.getElementById('sess-add-form')?.scrollIntoView({behavior:'smooth',block:'start'}),50);
 }
-function openHelp(){
-  const body=(t('helpBody')||'').split('\n').map(l=>`<div style="display:flex;gap:8px;padding:6px 0;font-size:13px;line-height:1.5"><span style="color:var(--green)">•</span><span>${esc(l)}</span></div>`).join('');
-  const kb=S.view==='staff'?(()=>{
-    const rows=[['/',t('kbSearch')],['N',t('kbCheckin')],['B',t('tabQueue')],['S',t('tabSessions')],['I',t('kbInventory')],['C',t('kbCommunity')],['A',t('tabAnalytics')],['H',t('tabHistory')],['L',t('tabLogs')],['R',t('kbRefresh')],['?',t('kbToggle')]];
-    return`<div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
-      <div style="font-weight:800;font-size:13px;margin-bottom:8px"> ${t('kbTitle')}</div>
-      ${rows.map(([k,d])=>`<div style="display:flex;align-items:center;gap:10px;padding:4px 0;font-size:13px">
-        <kbd style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;background:var(--s2);border:1px solid var(--border);border-bottom-width:2px;border-radius:6px;font-family:monospace;font-size:12px;font-weight:700;color:var(--text)">${k}</kbd>
-        <span>${esc(d)}</span></div>`).join('')}
-    </div>`;
-  })():'';
-  document.getElementById('help-modal').innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeHelp()">
-    <div class="modal-box" role="dialog" aria-modal="true" style="max-width:480px">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">
-        <div class="modal-title" style="margin-bottom:0">${t('helpTitle')}</div>
-        <button onclick="closeHelp()" aria-label="Close" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 2px">&times;</button>
-      </div>
-      ${body}${kb}
-    </div></div>`;
-  document.getElementById('help-modal').style.display='flex';
-}
-function closeHelp(){document.getElementById('help-modal').style.display='none';}
 // Check in the next waiting rider (keyboard shortcut N)
 function _kbCheckInNext(){
   const waiting=getQueue().filter(e=>e.status==='waiting'&&(S.sfSession==='all'||e.sessionId===S.sfSession))
@@ -11685,12 +11648,9 @@ _sbReady.then(()=>{try{_probeSchema();}catch(e){}});
 
 // ── Staff keyboard shortcuts ──
 document.addEventListener('keydown',e=>{
-  const helpOpen=()=>{const m=document.getElementById('help-modal');return m&&m.style.display==='flex';};
-  if(e.key==='Escape'&&helpOpen()){closeHelp();return;}
   const tag=(e.target&&e.target.tagName||'').toLowerCase();
   if(tag==='input'||tag==='textarea'||tag==='select'||(e.target&&e.target.isContentEditable))return;
   if(e.metaKey||e.ctrlKey||e.altKey)return;
-  if(e.key==='?'){e.preventDefault();helpOpen()?closeHelp():openHelp();return;}
   if(S.view!=='staff')return;
   // Don't hijack keys while a modal / PIN / auth overlay is open
   if(document.querySelector('.modal-backdrop,.pin-backdrop,.auth-backdrop'))return;
