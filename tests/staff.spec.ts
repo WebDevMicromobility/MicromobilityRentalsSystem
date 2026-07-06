@@ -46,8 +46,9 @@ test.describe('unlocked staff panel', () => {
     await expect(scanBtn).toBeVisible();
     await scanBtn.click();
     await expect(page.locator('#scan-modal .pin-title')).toHaveText('Scan booking QR');
-    // headless browser grants no camera: the modal must show a clear error, not break
-    await expect(page.locator('#scan-msg')).toContainText(/camera/i);
+    // headless browser grants no camera: the modal must show a clear error, not break.
+    // getUserMedia rejects asynchronously and can be slow under parallel load — give it room.
+    await expect(page.locator('#scan-msg')).toContainText(/camera/i, { timeout: 15000 });
     await page.locator('#scan-modal .pin-cancel').click();
     await expect(page.locator('#scan-modal')).toBeHidden();
   });

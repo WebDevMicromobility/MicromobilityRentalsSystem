@@ -4543,7 +4543,8 @@ function renderAddonPicker(){
     </div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:14px">#${e.queueNum} ${esc(e.name)}</div>
     ${items.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px">
-      ${items.map(it=>{const qn=_q(it.id);const stock=Number(it.qty)||0;const out=stock<=0;const low=stock>0&&stock<=5;return`<div style="border:1.5px solid ${qn>0?'var(--green)':'var(--border)'};border-radius:14px;overflow:hidden;background:var(--s1);${out&&qn<=0?'opacity:.55':''}">
+      ${items.map(it=>{const qn=_q(it.id);const stock=Number(it.qty)||0;const out=stock<=0;const low=stock>0&&stock<=5;return`<div style="position:relative;border:1.5px solid ${qn>0?'var(--green)':'var(--border)'};border-radius:14px;overflow:hidden;background:var(--s1);${out&&qn<=0?'opacity:.55':''}">
+        ${_macroBadge(it,38)}
         ${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="${esc(it.name)}" style="width:100%;height:120px;object-fit:contain;background:var(--photo-bg);display:block">`:`<div style="width:100%;height:120px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:12px;text-align:center;padding:8px">${esc(it.name)}</div>`}
         <div style="padding:10px 12px">
           <div style="font-weight:800;font-size:14px;line-height:1.2">${esc(it.name)}</div>
@@ -11705,7 +11706,7 @@ function _refreshView(){
     // (e.g. supabase-js loaded after the _sbReady timeout, so staffAuthRestore was skipped),
     // the load above read the PII-free queue_public. Retry the auth now that sb exists and,
     // if it succeeds, reload the full queue_entries (names/phones) and re-render.
-    if(localStorage.getItem('cq_staff')==='1'&&!S._staffAuthed&&typeof sb!=='undefined'&&sb){
+    if(localStorage.getItem('cq_staff')==='1'&&!S._staffAuthed&&typeof sb!=='undefined'&&sb&&!(typeof window!=='undefined'&&window.__noWiden)){
       try{await staffAuthRestore();}catch(e){}
       if(S._staffAuthed){try{await loadData();}catch(e){}try{_refreshView();}catch(e){}}
     }
@@ -11818,6 +11819,7 @@ async function loadDataLight(){
   _outboxFlush();
 }
 async function _autoRefresh(full){
+  if(typeof window!=='undefined'&&window.__noWiden)return; // tests pin state; no background reload may clobber it (poll / realtime / visibility)
   if(S.view!=='staff')return;
   try{
     await (full?loadData():loadDataLight());
@@ -11839,7 +11841,7 @@ async function _autoRefresh(full){
 }
 setInterval(()=>{if(!document.hidden)_updateConnUI();},5000);
 try{_updateConnUI();}catch(e){} // reflect connection state on boot (handles starting up already offline)
-setInterval(()=>{if(!document.hidden)_autoRefresh(false);},30000); // light poll, paused while the tab is hidden
+setInterval(()=>{if(!document.hidden)_autoRefresh(false);},30000); // light poll, paused while the tab is hidden (_autoRefresh itself no-ops under test)
 try{document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.view==='staff')_autoRefresh(true);});}catch(e){} // full catch-up when the booth screen comes back
 // ── Supabase Realtime: ONE channel pushes DB changes to the screen (debounced); the 30s poll is the fallback. ──
 // Routes by table: bikes/inventory changes trigger a full reload (new rows + photos); everything else uses the slim
@@ -11850,6 +11852,7 @@ function _rtApply(){
   _rtDebounce=setTimeout(async()=>{
     const full=_rtWantFull;_rtWantFull=false;
     if(document.hidden)return; // visibilitychange catches us up when the screen returns
+    if(typeof window!=='undefined'&&window.__noWiden)return; // tests pin state; realtime must not reload over it
     try{
       if(S.view==='staff'){await _autoRefresh(full);}
       else if(S.view==='customer'&&S.custTab==='myrides'){await(full?loadData():loadDataLight());_lastRefresh=Date.now();renderMyRides();renderLandingAvail();}

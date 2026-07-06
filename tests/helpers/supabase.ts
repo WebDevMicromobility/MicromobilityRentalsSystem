@@ -88,12 +88,15 @@ export async function loginCustomer(page: Page, cust: Record<string, unknown> = 
   await page.addInitScript((session) => localStorage.setItem('cq_session', session), JSON.stringify(c));
 }
 
-// Wait until the app is ready: the Supabase client (sb) is built AND the first data load
-// (or cache restore) has completed. Boot now paints from cache first and loads data in
-// the background, so tests that read sb/state right after goto must wait for this.
+// Wait until the app is ready: the Supabase client (sb) is built AND a data load has
+// FULLY completed. loadData() flips S.dataLoaded (first paint) before it fetches the
+// trailing cashier_sales, so waiting on dataLoaded alone lets a test inject state that the
+// late fetch then clobbers. _lastLoadOk is set only after the whole load finishes, so it's
+// the race-free signal. (Falls back to dataLoaded if _lastLoadOk isn't defined.)
 export async function waitForSb(page: Page) {
   await page.waitForFunction(
-    'typeof sb !== "undefined" && !!sb && typeof S !== "undefined" && !!S.dataLoaded',
+    'typeof sb !== "undefined" && !!sb && typeof S !== "undefined" && !!S.dataLoaded' +
+      ' && (typeof _lastLoadOk === "undefined" || _lastLoadOk === true)',
     undefined,
     { timeout: 10000 },
   );
