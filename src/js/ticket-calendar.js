@@ -6,10 +6,14 @@
 // Type-checked in isolation via `npm run lint` (tsc --noEmit, checkJs); app-provided
 // globals are declared in src/js/app-globals.d.ts.
 
-// Maps a branch name to a Google Maps search link (branches have no stored coords).
+// Maps a branch name to a Google Maps directions link. Exact booth pins (lat,lng from
+// the staff-provided Google Maps link) win; other branches fall back to a name search.
+/** @type {Record<string,string>} */
+const _BOOTH_PINS = { 'JCC': '21.624565,39.106812' }; // Corniche Circuit booth
 /** @param {string} loc @returns {string} */
 function _mapUrl(loc) {
-  const q = ({ 'JCC': 'Jeddah Corniche Circuit', 'Sharafeyah Branch': 'Sharafeyah, Jeddah' })[loc] || ((loc || 'Jeddah Corniche Circuit') + ', Jeddah');
+  const pin = _BOOTH_PINS[loc];
+  const q = pin || ({ 'Sharafeyah Branch': 'Sharafeyah, Jeddah' })[loc] || ((loc || 'Jeddah Corniche Circuit') + ', Jeddah');
   return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
 }
 

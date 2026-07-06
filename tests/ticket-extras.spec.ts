@@ -13,7 +13,7 @@ test.beforeEach(async ({ page }) => {
 test('_mapUrl builds Google Maps links for known branches and unknown locations', async ({ page }) => {
   const jcc = await page.evaluate(`_mapUrl('JCC')`);
   expect(jcc).toContain('google.com/maps/search/');
-  expect(jcc).toContain(encodeURIComponent('Jeddah Corniche Circuit'));
+  expect(jcc).toContain(encodeURIComponent('21.624565,39.106812')); // exact booth pin
 
   const shar = await page.evaluate(`_mapUrl('Sharafeyah Branch')`);
   expect(shar).toContain(encodeURIComponent('Sharafeyah, Jeddah'));
