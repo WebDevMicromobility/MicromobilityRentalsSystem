@@ -3290,12 +3290,12 @@ async function submitReg(){
     // Save selected add-ons on every entry (tolerant: a missing 'addons' column won't break the booking)
     if((S.regAddons||[]).length){
       const _aj=JSON.stringify(S.regAddons);
-      try{await sb.from('queue_entries').update({addons:_aj}).eq('id',entries[0].id);entries[0].addons=S.regAddons;}catch(e){} // add-ons attach to the account holder only (per-rider, not the whole booking)
+      try{await _ownEntryUpdate(entries[0].id,{addons:_aj});entries[0].addons=S.regAddons;}catch(e){} // add-ons attach to the account holder only (per-rider, not the whole booking)
       // Consume add-on stock once for the whole booking
       if(bookingStatus!=='waitlist')await _addonStockQ(S.regAddons,-1);
     }
     // Record the promo code used (tolerant) so redemptions can be reported
-    if(S.promoApplied&&S.promoApplied.code){const _pc=String(S.promoApplied.code);try{await Promise.all(entries.map(e=>sb.from('queue_entries').update({promo_code:_pc}).eq('id',e.id)));}catch(e){}}
+    if(S.promoApplied&&S.promoApplied.code){const _pc=String(S.promoApplied.code);try{await Promise.all(entries.map(e=>_ownEntryUpdate(e.id,{promo_code:_pc})));}catch(e){}}
 
     await loadData();
     S.lastTickets=entries.map(e=>getQueue().find(q=>q.id===e.id)||e);
