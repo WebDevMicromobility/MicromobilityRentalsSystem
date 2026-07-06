@@ -1,5 +1,6 @@
 
-const CACHE = 'mmcq-v91';
+const CACHE = 'mmcq-v92';
+const IMG_CACHE = 'mmcq-img'; // Supabase Storage photos; persists across app versions (content-addressed)
 const SHELL = [
   './',
   './index.html',
@@ -18,7 +19,7 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== IMG_CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -60,4 +61,26 @@ self.addEventListener('fetch', (e) => {
     );
     return;
   }
+
+  // Supabase Storage product/profile photos: cache-first in a separate, capped cache so
+  // they load instantly on repeat views instead of a ~1s fetch each time. Filenames are
+  // content-addressed (uid.jpg), so a cached copy is never stale.
+  if (url.hostname.endsWith('.supabase.co') && url.pathname.includes('/storage/')) {
+    e.respondWith(
+      caches.open(IMG_CACHE).then((c) =>
+        c.match(req).then((hit) => hit || fetch(req).then((res) => {
+          if (res && res.ok) { c.put(req, res.clone()); trimCache(IMG_CACHE, 120); }
+          return res;
+        }).catch(() => hit))
+      )
+    );
+    return;
+  }
 });
+
+// Keep the image cache from growing unbounded: drop the oldest entries past `max`.
+async function trimCache(name, max) {
+  const c = await caches.open(name);
+  const keys = await c.keys();
+  if (keys.length > max) for (let i = 0; i < keys.length - max; i++) await c.delete(keys[i]);
+}
