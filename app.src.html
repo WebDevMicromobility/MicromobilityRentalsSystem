@@ -9140,8 +9140,22 @@ function _libNutri(it){
     const p=(typeof VW_PRESETS!=='undefined'?VW_PRESETS:[]).find(x=>hay.includes(x.k.toLowerCase()));
     if(p)return p.nu;
   }
+  if(/humantra/.test(hay))return(typeof HUMANTRA_NU!=='undefined'?HUMANTRA_NU:null); // Humantra electrolyte sticks share one label across all flavours
   return null;
 }
+// Humantra hydration multi-electrolyte stick, transcribed from the official label (per 1 stick / 3.6 g). Same profile for every flavour.
+const HUMANTRA_NU={serving:'1 stick (3.6 g)',kcal:5,fat_g:0,satfat_g:0,carbs_g:'<1',sugar_g:0,fibre_g:0,protein_g:0,micros:[
+  {n:'Calcium',a:'500',u:'mg',nrv:'4'},
+  {n:'Phosphorus',a:'400',u:'mg',nrv:'3'},
+  {n:'Magnesium',a:'250',u:'mg',nrv:'6'},
+  {n:'Zinc',a:'2.5',u:'mg',nrv:'23'},
+  {n:'Chromium',a:'50',u:'µg',nrv:'143'},
+  {n:'Chloride',a:'260',u:'mg',nrv:'11'},
+  {n:'Sodium',a:'180',u:'mg',nrv:'8'},
+  {n:'Potassium',a:'210',u:'mg',nrv:'4'},
+  {n:'Vitamin C',a:'100',u:'mg',nrv:'111'},
+  {n:'Vitamin B12',a:'100',u:'µg',nrv:'4167'}
+],ingredients:'Citric acid, natural flavours, rebaudioside A, silica, fruit powder, and monk fruit extract.'};
 function _hasNutri(it){const n=_itemNutri(it);return!!(n&&Object.keys(n).length);}
 function _invNutriJson(){
   const src=S._invNutri||{};const nu={};
