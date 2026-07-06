@@ -523,7 +523,7 @@ en:{
   toastStatusChanged:'Status updated:',
   errNotEnoughSpots:'Not enough spots available.',
   errPinWrong:'Incorrect PIN. Try again.',
-  staffAuthTitle:'Staff sign-in',staffAuthHint:'Sign in with your staff account to unlock the panel',staffAuthEmailPh:'Staff email',staffAuthPwdPh:'Password',staffAuthBtn:'Sign in',errStaffNotAuthorized:'This account is not on the staff list.',
+  staffAuthTitle:'Staff sign-in',staffAuthHint:'Sign in with your staff account to unlock the panel',staffAuthEmailPh:'Email or phone number',staffAuthPwdPh:'Password',staffAuthBtn:'Sign in',errStaffNotAuthorized:'This account is not on the staff list.',
   errInvalidCredentials:'Incorrect credentials. Please try again.',
   errLoginLocked:'Too many failed attempts. Please wait about 15 minutes and try again, or reset your password.',
   openEmailApp:'Open in Email App',
@@ -876,7 +876,7 @@ ar:{
   toastStatusChanged:'تم تحديث الحالة:',
   errNotEnoughSpots:'لا توجد مقاعد كافية.',
   errPinWrong:'رمز PIN غير صحيح. حاول مجدداً.',
-  staffAuthTitle:'تسجيل دخول الموظفين',staffAuthHint:'سجّل الدخول بحساب الموظف لفتح اللوحة',staffAuthEmailPh:'بريد الموظف',staffAuthPwdPh:'كلمة المرور',staffAuthBtn:'تسجيل الدخول',errStaffNotAuthorized:'هذا الحساب ليس ضمن قائمة الموظفين.',
+  staffAuthTitle:'تسجيل دخول الموظفين',staffAuthHint:'سجّل الدخول بحساب الموظف لفتح اللوحة',staffAuthEmailPh:'البريد الإلكتروني أو رقم الهاتف',staffAuthPwdPh:'كلمة المرور',staffAuthBtn:'تسجيل الدخول',errStaffNotAuthorized:'هذا الحساب ليس ضمن قائمة الموظفين.',
   errInvalidCredentials:'بيانات الدخول غير صحيحة. حاول مجدداً.',
   errLoginLocked:'محاولات كثيرة فاشلة. انتظر حوالي ١٥ دقيقة ثم حاول مجدداً، أو أعد تعيين كلمة المرور.',
   openEmailApp:'فتح في تطبيق البريد',
@@ -983,8 +983,22 @@ function setStaffRole(role){
 }
 function _getPinLock(){try{return{until:parseInt(localStorage.getItem('cq_pin_until')||'0'),lockouts:parseInt(localStorage.getItem('cq_pin_lockouts')||'0'),attempts:parseInt(localStorage.getItem('cq_pin_attempts')||'0')};}catch(e){return{until:0,lockouts:0,attempts:0};}}
 // ── Staff Supabase Auth (SECURE_AUTH): the DB trusts the Auth session, not the client-side PIN ──
-async function staffAuthSignIn(email,password){
-  const{data,error}=await sb.auth.signInWithPassword({email,password});
+// Normalize a raw phone entry to E.164 (defaults to Saudi +966) for Supabase phone auth.
+function _staffPhoneE164(raw){
+  let s=String(raw||'').replace(/[\s()\-]/g,'');
+  if(s[0]==='+')return s;
+  if(s.slice(0,2)==='00')return '+'+s.slice(2).replace(/\D/g,'');
+  s=s.replace(/\D/g,'');
+  if(s.slice(0,3)==='966')return '+'+s;
+  if(s[0]==='0')return '+966'+s.slice(1);
+  if(s.length===9&&s[0]==='5')return '+966'+s;
+  return '+'+s;
+}
+async function staffAuthSignIn(identifier,password){
+  const id=String(identifier||'').trim();
+  // Supabase signInWithPassword accepts email OR phone; route by whether it looks like an email.
+  const creds=id.includes('@')?{email:id.toLowerCase()}:{phone:_staffPhoneE164(id)};
+  const{data,error}=await sb.auth.signInWithPassword({...creds,password});
   if(error||!data||!data.user)return{ok:false,msg:(error&&error.message)||t('errConnection')};
   let row=null;
   try{const r=await sb.from('staff').select('role').eq('user_id',data.user.id).maybeSingle();row=r.data;}catch(e){}
@@ -2651,7 +2665,7 @@ function renderPinModal(){
       <div class="pin-box" id="pin-box">
         <div class="pin-title">${t('staffAuthTitle')}</div>
         <div style="font-size:12px;color:var(--muted);font-weight:600;margin:-4px 0 14px">${t('staffAuthHint')}</div>
-        <input id="staff-auth-email" type="email" autocomplete="username" placeholder="${t('staffAuthEmailPh')}" style="width:100%;margin-bottom:8px">
+        <input id="staff-auth-email" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="${t('staffAuthEmailPh')}" style="width:100%;margin-bottom:8px">
         <input id="staff-auth-pwd" type="password" autocomplete="current-password" placeholder="${t('staffAuthPwdPh')}" style="width:100%;margin-bottom:10px" onkeydown="if(event.key==='Enter')_staffAuthSubmit()">
         <div id="staff-auth-err" style="color:var(--red);font-size:12px;font-weight:700;min-height:16px;margin-bottom:6px"></div>
         <button class="btn-primary" style="width:100%" onclick="_staffAuthSubmit()">${t('staffAuthBtn')}</button>
