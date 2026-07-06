@@ -16,11 +16,11 @@ const dist = join(root, 'dist');
 const FILES = [
   'index.html', 'styles.css', 'service-worker.js', 'manifest.json', '404.html',
   '_headers', '_redirects',
-  'brand.png', 'hero.webp', 'icon-192.png', 'icon-512.png', 'logo.png',
+  'brand.png', 'hero.webp', 'icon-192.png', 'icon-512.png', 'logo.png', 'apple-touch-icon.png',
 ];
 // Directories copied recursively (functions/ MUST be inside dist for Pages Functions;
-// vendor/ holds the self-hosted supabase-js / qrcode / jsQR libraries).
-const DIRS = ['functions', 'staff', 'vendor'];
+// vendor/ holds the self-hosted libraries; splash/ holds the iOS PWA launch screens).
+const DIRS = ['functions', 'staff', 'vendor', 'splash'];
 
 const exists = async (p) => { try { await access(p); return true; } catch { return false; } };
 

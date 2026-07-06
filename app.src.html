@@ -27,8 +27,20 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;900&family=Cairo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="./styles.css?v=84">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <!-- iOS PWA launch (splash) screens, per device -->
+  <link rel="apple-touch-startup-image" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./splash/iphone-640x1136.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./splash/iphone-750x1334.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="./splash/iphone-828x1792.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1125x2436.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1170x2532.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1179x2556.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1206x2622.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1242x2688.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
+  <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
+  <link rel="stylesheet" href="./styles.css?v=85">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th='light';localStorage.setItem('cq_theme','light');}if(_th==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}</script>
 </head>
 <body>
@@ -2021,13 +2033,13 @@ function renderAuthModal(){
     body=`
       ${googleBlock}
       <div class="auth-field"><label>${t('authIdentifier')}</label>
-        <input id="a-identifier" type="text" placeholder="${t('enterEmailOrPhone')}" autocomplete="username"></div>
+        <input id="a-identifier" type="text" autocapitalize="none" spellcheck="false" placeholder="${t('enterEmailOrPhone')}" autocomplete="username"></div>
       <div class="auth-field">
         <label style="display:flex;justify-content:space-between;align-items:center">
           <span>${t('authPassword')}</span>
           <button style="background:none;border:none;color:var(--green);font-size:11px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;padding:0" onclick="switchAuthMode('forgot')">${t('forgotPwLink')}</button>
         </label>
-        <input id="a-pwd" type="password" placeholder="${t('authPassword')}">
+        <input id="a-pwd" type="password" autocomplete="current-password" placeholder="${t('authPassword')}">
       </div>
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:16px;margin-top:4px;user-select:none" onclick="toggleRememberMe()">
         <div id="rm-box" style="width:20px;height:20px;border-radius:5px;border:2px solid ${S.rememberMe?'var(--green)':'rgba(255,255,255,.2)'};background:${S.rememberMe?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .18s">
@@ -2064,7 +2076,7 @@ function renderAuthModal(){
     </div>`;
     body=`
       ${googleBlock}
-      <div class="auth-field"><label>${t('authFullName')}</label><input id="a-name" type="text" placeholder="${t('authFullName')}"></div>
+      <div class="auth-field"><label>${t('authFullName')}</label><input id="a-name" type="text" autocapitalize="words" autocomplete="name" placeholder="${t('authFullName')}"></div>
       <div class="auth-field"><label>${t('genderLabel')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
         <div style="display:flex;gap:8px;margin-top:4px">
           <button id="sgn-male" type="button" class="toggle-btn${S.signupGender==='male'?' active':''}" style="${_genderBtnStyle('male',S.signupGender)}"
@@ -2074,16 +2086,16 @@ function renderAuthModal(){
         </div>
       </div>
       <div class="auth-field"><label>${t('authEmail')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
-        <input id="a-email" type="email" placeholder="${t('enterEmail')}"></div>
+        <input id="a-email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="${t('enterEmail')}"></div>
       <div class="auth-field"><label>${t('authPhone')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
         <div class="auth-cc-row">
           <select id="a-cc">${ccOpts}</select>
           <input id="a-phone" type="tel" inputmode="tel" autocomplete="tel" oninput="fmtPhoneInput(this)" placeholder="${t('enterPhone')}">
         </div></div>
-      <div class="auth-field"><label>${t('authPassword')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label><input id="a-pwd" type="password" placeholder="${t('authPasswordHint')}"></div>
-      <div class="auth-field"><label>${t('authConfirmPassword')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label><input id="a-pwd2" type="password" placeholder="${t('authConfirmPassword')}"></div>
+      <div class="auth-field"><label>${t('authPassword')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label><input id="a-pwd" type="password" autocomplete="new-password" placeholder="${t('authPasswordHint')}"></div>
+      <div class="auth-field"><label>${t('authConfirmPassword')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label><input id="a-pwd2" type="password" autocomplete="new-password" placeholder="${t('authConfirmPassword')}"></div>
       <div class="auth-field"><label>${t('heightLabel')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
-        <input id="a-height" type="number" placeholder="${t('heightPlaceholder')}" min="100" max="250"></div>
+        <input id="a-height" type="number" inputmode="numeric" placeholder="${t('heightPlaceholder')}" min="100" max="250"></div>
       <button class="btn-primary auth-submit" onclick="doSignup()">${t('authSignupBtn')}</button>`;
   }
 
@@ -2915,6 +2927,7 @@ function renderRegister(){
     const riderNameSection=S.regQty>1?`<div class="form-group" style="margin-bottom:14px">
       <label>${t('riderName')||'Rider\'s Full Name'}</label>
       <input type="text" id="reg-rider-name-${i}" placeholder="${t('riderNamePlaceholder')||'Enter rider\'s full name'}"
+        autocapitalize="words" autocomplete="name" enterkeyhint="done"
         value="${esc(S.regRiderNames[i]!==undefined?S.regRiderNames[i]:riderDefaultName)}"
         oninput="S.regRiderNames[${i}]=this.value">
     </div>`:'';

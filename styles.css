@@ -41,7 +41,7 @@
     :root[data-theme="light"] .topbar-btn,:root[data-theme="light"] .lang-toggle{background:rgba(0,0,0,.04);border-color:rgba(0,0,0,.14);}
     :root[data-theme="light"] input,:root[data-theme="light"] select,:root[data-theme="light"] textarea{background:#fbfbf6!important;border-color:rgba(0,0,0,.16)!important;color:var(--text)!important;}
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;-webkit-font-smoothing:antialiased;
+    body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;min-height:100dvh;font-size:14px;-webkit-font-smoothing:antialiased;
       background-image:radial-gradient(ellipse 80% 50% at 50% -10%, rgba(3,255,137,.05), transparent 60%);}
     :focus-visible{outline:2px solid var(--green);outline-offset:2px;}
     @media (prefers-reduced-motion: reduce){
@@ -90,6 +90,7 @@
     
     #landing-body{
       min-height:calc(100vh - 64px);
+      min-height:calc(100dvh - 64px);
       display:flex;flex-direction:column;align-items:center;
       justify-content:center;padding:40px 24px;
       background:transparent;
@@ -1386,7 +1387,7 @@
     /* ── Sessions two-pane (iPad/desktop list+detail) + master-detail (phone) ── */
     .sess-twopane{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:16px;align-items:start;}
     .sess-list-pane{min-width:0;}
-    .sess-list-scroll{display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 300px);overflow-y:auto;padding-right:2px;-webkit-overflow-scrolling:touch;}
+    .sess-list-scroll{display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 300px);max-height:calc(100dvh - 300px);overflow-y:auto;padding-right:2px;-webkit-overflow-scrolling:touch;}
     .sess-lc{display:block;width:100%;text-align:left;background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:12px 14px;cursor:pointer;font-family:'Space Grotesk',sans-serif;transition:border-color .15s,background .15s;}
     .sess-lc:hover{border-color:rgba(3,255,137,.35);background:var(--s2);}
     .sess-lc.selected{border-color:var(--green);background:rgba(3,255,137,.08);}
@@ -1595,3 +1596,23 @@
 
     /* Low-stock count badge on the Inventory staff tab */
     .tab-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--orange);color:#1a1200;font-size:10px;font-weight:900;line-height:1;vertical-align:middle;}
+
+    /* ── iPhone / iOS UI enhancements ─────────────────────────────────────── */
+    /* Prevent Safari's zoom-on-focus: any focusable control under 16px makes iOS
+       zoom in and shift the layout. 16px on touch widths stops it (!important to
+       beat inline font-sizes on some fields). */
+    @media (max-width: 767px) {
+      input, select, textarea { font-size: 16px !important; }
+    }
+    /* Installed PWA: the translucent status bar lets content sit under the notch /
+       Dynamic Island. Reserve that space at the top of the sticky header. */
+    @media all and (display-mode: standalone) {
+      #topbar { padding-top: env(safe-area-inset-top); height: calc(64px + env(safe-area-inset-top)); }
+    }
+    @media all and (display-mode: standalone) and (max-width: 767px) {
+      #topbar { height: calc(52px + env(safe-area-inset-top)); }
+    }
+    /* Comfortable tap targets for the customer's primary controls on phones. */
+    @media (max-width: 767px) {
+      .btn-primary, .btn-secondary { min-height: 46px; }
+    }
