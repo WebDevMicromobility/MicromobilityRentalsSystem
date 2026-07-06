@@ -6219,6 +6219,15 @@ function _logCatOf(lbl){
   return'other';
 }
 const _LOG_CATS=[['pay','logCatPay'],['book','logCatBook'],['bike','logCatBike'],['inv','logCatInv'],['auth','logCatAuth'],['other','logCatOther']];
+// Finds the still-reversible action (from this session's S.actionLog) that a displayed
+// log row corresponds to, matched by exact label + closest timestamp. Returns null for
+// text-only/past entries whose reversal function no longer exists (can't be undone).
+function _undoableFor(item){
+  if(!item)return null;
+  const cands=(S.actionLog||[]).filter(a=>a&&!a.undone&&typeof a.fn==='function'&&a.label===item.label);
+  if(!cands.length)return null;
+  return cands.reduce((best,a)=>Math.abs((a.timestamp||0)-(item.ts||0))<Math.abs((best.timestamp||0)-(item.ts||0))?a:best);
+}
 function renderLogs(){
   const el=document.getElementById('hist-log-host')||document.getElementById('tab-logs');if(!el)return;
   try{_loadDbLogs();}catch(_){}
@@ -6255,11 +6264,13 @@ function renderLogs(){
   list.slice(0,500).forEach(i=>{
     const dk=dayKey(i.ts||0);
     if(dk!==curDay){curDay=dk;out+=`<div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:16px 0 6px">${dk===todayK?t('logToday'):dk===yestK?t('logYesterday'):dk}</div>`;}
+    const _u=_undoableFor(i);
     out+=`<div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border)">
       <span style="color:var(--muted);font-size:11px;white-space:nowrap;flex-shrink:0;font-variant-numeric:tabular-nums">${fmtT(i.ts||0)}</span>
       ${catChip(_logCatOf(i.label))}
       <span style="flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(i.label)}</span>
       <span style="font-size:11px;font-weight:800;color:var(--green);white-space:nowrap;flex-shrink:0">${esc(i.by==='Staff'?t('byStaff'):i.by==='Guest'?t('byGuest'):(i.by||''))}</span>
+      ${_u?`<button class="btn-sm btn-muted" style="flex-shrink:0;font-size:11px;padding:3px 10px" onclick="confirmLogUndo('${_u.id}')">↩ ${t('undoBtn')}</button>`:''}
     </div>`;
   });
   const hadFocus=document.activeElement&&document.activeElement.id==='log-search';
