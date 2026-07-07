@@ -1571,6 +1571,10 @@ async function loadData(showLoader=false){
   try{const _v=_voidedIds();if(_v.length)S.cashSales=(S.cashSales||[]).filter(r=>_v.indexOf(r.id)<0);}catch(e){} // never resurrect a voided sale
   _outboxFlush();
   try{const _tm=localStorage.getItem('cq_team');if(_tm!==null){S.teamMembers=JSON.parse(_tm)||[];}else{S.teamMembers=[...new Set((S.cashSales||[]).map(r=>r.team_name).filter(Boolean))].sort();localStorage.setItem('cq_team',JSON.stringify(S.teamMembers));}}catch(e){}
+  // MM Team roster is shared across devices via the team_members table. When it exists it's the
+  // source of truth (plus any names already used in sales, which can never be lost). Falls back to
+  // this device's localStorage when the table hasn't been created yet.
+  try{const{data,error}=await sb.from('team_members').select('name');if(!error&&Array.isArray(data)){const used=(S.cashSales||[]).map(r=>r.team_name).filter(Boolean);S.teamMembers=[...new Set([...data.map(r=>r.name).filter(Boolean),...used])].sort();try{localStorage.setItem('cq_team',JSON.stringify(S.teamMembers));}catch(e){}}}catch(e){}
   _lastLoadOk=true;
   // Don't snapshot a PII-free (queue_public) load on a staff device — restoring it later
   // would show the staff panel with no names/phones. Only cache full loads.
@@ -9470,7 +9474,17 @@ function _cashPayBadge(pay,team){
 }
 // MM Team roster (editable, persisted in localStorage; seeded once from past sales in loadData)
 function teamNames(){return[...new Set((S.teamMembers||[]).filter(Boolean))].sort();}
-function _teamRosterSave(){try{localStorage.setItem('cq_team',JSON.stringify(S.teamMembers||[]));}catch(e){}}
+function _teamRosterSave(){try{localStorage.setItem('cq_team',JSON.stringify(S.teamMembers||[]));}catch(e){}_teamRosterSyncDB();}
+// Push the roster to the shared team_members table so every device sees the same names.
+async function _teamRosterSyncDB(){
+  if(!sb)return;
+  const names=[...new Set((S.teamMembers||[]).filter(Boolean))];
+  try{
+    if(names.length)await sb.from('team_members').upsert(names.map(n=>({name:n})),{onConflict:'name'});
+    const{data,error}=await sb.from('team_members').select('name'); // drop names removed from the roster
+    if(!error&&Array.isArray(data)){const remove=data.map(r=>r.name).filter(n=>n&&!names.includes(n));if(remove.length)await sb.from('team_members').delete().in('name',remove);}
+  }catch(e){/* table not created yet — localStorage still holds it on this device */}
+}
 function _teamRosterAdd(name){const n=(name||'').trim();if(!n)return'';if(!(S.teamMembers||[]).includes(n)){S.teamMembers=[...(S.teamMembers||[]),n];_teamRosterSave();}return n;}
 function _ctTeamCustom(){const n=_teamRosterAdd(prompt(t('teamCustomPrompt')));if(!n)return;S._ctTeam=n;renderCashier();}
 // Roster manager: rename / delete / add team members
