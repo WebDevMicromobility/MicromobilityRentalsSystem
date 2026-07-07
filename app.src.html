@@ -269,6 +269,7 @@ en:{
   anTrendsTitle:'Trends',anTrendsSub:'Recent sessions, oldest → newest',
   anLiveTitle:'Today',anLiveSub:"Live — today's sessions",anLiveRides:'Rides today',anLiveRev:'Revenue today',anLiveActive:'On bikes now',anLiveFill:'Booked / capacity',
   anMarginTitle:'Gross margin',anMarginSub:'Product revenue minus cost of goods, for items that have a cost set',anMargin:'Margin',anGrossProfit:'Gross profit',anCogs:'Cost of goods',
+  anWeatherTitle:'Weather & demand',anWeatherSub:'Rides vs daily-high temperature (Jeddah, Open-Meteo)',anWeatherWarmMore:'Warmer days bring more rides.',anWeatherWarmLess:'Cooler days bring more rides.',anWeatherFlat:'Weather has little effect on rides.',
   anPageSub:'Business performance · live data from all completed sessions.',
   anShowing:'Showing:',anAllTime:'All Time',anLast5:'Last 5 Sessions',anLast10:'Last 10 Sessions',anThisMonth:'This Month',anThisYear:'This Year',
   anCollected:'Collected',anTotal:'Total',anRiders:'Riders',anCapacity:'Capacity',
@@ -649,6 +650,7 @@ ar:{
   anTrendsTitle:'الاتجاهات',anTrendsSub:'الجلسات الأخيرة، من الأقدم إلى الأحدث',
   anLiveTitle:'اليوم',anLiveSub:'مباشر — جلسات اليوم',anLiveRides:'رحلات اليوم',anLiveRev:'إيراد اليوم',anLiveActive:'على الدراجات الآن',anLiveFill:'المحجوز / السعة',
   anMarginTitle:'هامش الربح',anMarginSub:'إيراد المنتجات ناقص تكلفة البضاعة، للعناصر التي لها تكلفة محددة',anMargin:'الهامش',anGrossProfit:'إجمالي الربح',anCogs:'تكلفة البضاعة',
+  anWeatherTitle:'الطقس والطلب',anWeatherSub:'الرحلات مقابل درجة الحرارة العظمى (جدة، Open-Meteo)',anWeatherWarmMore:'الأيام الأدفأ تجلب رحلات أكثر.',anWeatherWarmLess:'الأيام الأبرد تجلب رحلات أكثر.',anWeatherFlat:'للطقس تأثير ضئيل على الرحلات.',
   anPageSub:'لوحة أداء الأعمال · بيانات مباشرة من جميع الجلسات المكتملة.',
   anShowing:'عرض:',anAllTime:'كل الوقت',anLast5:'آخر 5 جلسات',anLast10:'آخر 10 جلسات',anThisMonth:'هذا الشهر',anThisYear:'هذه السنة',
   anCollected:'المحصّل',anTotal:'الإجمالي',anRiders:'الراكبون',anCapacity:'الطاقة',
@@ -10769,6 +10771,23 @@ function _anRFMSegment(recencyDays,freq){
   return'loyal';
 }
 function _waDigits(phone){return String(phone||'').replace(/\D/g,'');} // wa.me wants digits only (phones are stored E.164)
+// Pearson correlation between two equal-length numeric series.
+function _anCorrelation(xs,ys){const n=xs.length;if(n<2)return 0;const mx=xs.reduce((a,b)=>a+b,0)/n,my=ys.reduce((a,b)=>a+b,0)/n;let num=0,dx=0,dy=0;for(let i=0;i<n;i++){const a=xs[i]-mx,b=ys[i]-my;num+=a*b;dx+=a*a;dy+=b*b;}const den=Math.sqrt(dx*dy);return den?num/den:0;}
+// Fetch daily high temps for Jeddah (last ~92 days) from Open-Meteo (free, keyless); cache 24h; re-render when in.
+async function _anEnsureWeather(){
+  if(typeof S==='undefined'||S._anWeatherBusy||S._anWeatherDone)return;
+  if(typeof navigator!=='undefined'&&navigator.onLine===false)return;
+  if(typeof window!=='undefined'&&window.__noWiden)return; // tests: no external calls
+  S._anWeatherBusy=true;
+  try{
+    const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude=21.6246&longitude=39.1068&daily=temperature_2m_max&timezone=auto&past_days=92&forecast_days=1');
+    const j=await r.json();const days=(j&&j.daily&&j.daily.time)||[],temps=(j&&j.daily&&j.daily.temperature_2m_max)||[];
+    const w={};days.forEach((d,i)=>{if(temps[i]!=null)w[d]=temps[i];});
+    S.anWeather=w;S._anWeatherDone=true;try{localStorage.setItem('cq_weather',JSON.stringify({at:Date.now(),w}));}catch(e){}
+    if(S.view==='staff'&&S.staffTab==='analytics'&&typeof renderAnalytics==='function')renderAnalytics();
+  }catch(e){S._anWeatherDone=true;} // offline/blocked: weather card just stays hidden
+  finally{S._anWeatherBusy=false;}
+}
 // Market-basket: count unordered product pairs that appear on the same receipt.
 function _anBasketPairs(receipts){
   const pc={};
@@ -10838,6 +10857,8 @@ function _anExportCSV(){
 }
 function renderAnalytics(){
   if(S.anRevTarget==null){try{S.anRevTarget=Number(localStorage.getItem('cq_an_rev_target'))||0;}catch(e){S.anRevTarget=0;}}
+  if(S.anWeather==null){try{const _c=JSON.parse(localStorage.getItem('cq_weather')||'null');if(_c&&_c.w&&Date.now()-_c.at<86400000){S.anWeather=_c.w;S._anWeatherDone=true;}}catch(e){}}
+  try{_anEnsureWeather();}catch(e){}
   const allQ=getQueue();
   const allSess=allSessions();
   if(S.analyticsRange==='custom')S.analyticsRange='all'; // 'custom' (last-N) range was removed; fall back to All time
@@ -11367,9 +11388,19 @@ function renderAnalytics(){
     const costById={};(S.inventory||[]).forEach(i=>{if(i.cost!=null&&!isNaN(Number(i.cost)))costById[i.id]=Number(i.cost);});
     const mg=_anMargin(anSalesLines,costById);
     const marginCard=mg.haveCost?`<div class="chart-card"><div class="chart-card-title">${t('anMarginTitle')}</div><div class="chart-card-sub">${t('anMarginSub')}</div><div class="analytics-kpi-grid" style="margin-top:6px"><div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--green)">${mg.marginPct}%</div><div class="analytics-kpi-label">${t('anMargin')}</div></div><div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--green)"><bdi>SAR ${mg.profit}</bdi></div><div class="analytics-kpi-label">${t('anGrossProfit')}</div></div><div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--orange)"><bdi>SAR ${mg.cogs}</bdi></div><div class="analytics-kpi-label">${t('anCogs')}</div></div></div></div>`:'';
+    // Weather & demand: rides vs daily-high temperature (Open-Meteo)
+    const wx=S.anWeather||{};
+    const wrows=chron.map(sx=>({date:sx.session_date||sx.id,rides:done.filter(e=>e.sessionId===sx.id).length,temp:wx[sx.session_date]})).filter(r=>r.temp!=null);
+    let weatherCard='';
+    if(wrows.length>=3){
+      const corr=_anCorrelation(wrows.map(r=>r.temp),wrows.map(r=>r.rides));
+      const takeaway=corr>0.3?t('anWeatherWarmMore'):corr<-0.3?t('anWeatherWarmLess'):t('anWeatherFlat');
+      const rmax=Math.max(1,...wrows.map(r=>r.rides));
+      weatherCard=`<div class="chart-card"><div class="chart-card-title">${t('anWeatherTitle')}</div><div class="chart-card-sub">${t('anWeatherSub')}</div><div style="font-size:12px;margin:2px 0 8px"><b>${takeaway}</b> <span style="color:var(--muted)">· r=${corr.toFixed(2)}</span></div>${wrows.slice(-8).map(r=>`<div class="analytics-bar-row"><div class="analytics-bar-label" style="min-width:96px">${shortDate(r.date)} · ${Math.round(r.temp)}°</div><div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(r.rides/rmax*100)}%;background:var(--blue)"></div></div><div class="analytics-bar-value">${r.rides} 🚲</div></div>`).join('')}</div>`;
+    }
     return`<div class="an-anchor" data-anview="growth"></div>
     <div class="analytics-section-title">${t('anNavGrowth')}</div>
-    ${kpis}${targetCard}${trends}${marginCard}${funnel}${heatCard}${rfm}${basket}${retCard}${ltvCard}`;
+    ${kpis}${targetCard}${trends}${marginCard}${funnel}${heatCard}${rfm}${basket}${retCard}${ltvCard}${weatherCard}`;
   }
 
   // Rows behind the "Export CSV" button (per-session summary for the current range).

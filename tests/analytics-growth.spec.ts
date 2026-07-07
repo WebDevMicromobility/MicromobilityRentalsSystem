@@ -151,6 +151,20 @@ test.describe('analytics growth', () => {
     expect(out.noCost).toBe(false); // no cost mapped → card stays hidden
   });
 
+  test('Pearson correlation is +1 / -1 / ~0 for the classic cases', async ({ page }) => {
+    const out = await page.evaluate(() => ({
+      // @ts-expect-error app globals
+      up: _anCorrelation([1, 2, 3, 4], [2, 4, 6, 8]),
+      // @ts-expect-error app globals
+      down: _anCorrelation([1, 2, 3, 4], [8, 6, 4, 2]),
+      // @ts-expect-error app globals
+      flat: _anCorrelation([1, 2, 3, 4], [5, 5, 5, 5]),
+    }));
+    expect(out.up).toBeCloseTo(1, 5);
+    expect(out.down).toBeCloseTo(-1, 5);
+    expect(out.flat).toBe(0);
+  });
+
   test('sparkline builds an SVG polyline (and is empty for <2 points)', async ({ page }) => {
     const out = await page.evaluate(() => ({
       // @ts-expect-error app globals
