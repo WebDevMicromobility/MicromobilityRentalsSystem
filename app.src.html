@@ -265,6 +265,7 @@ en:{
   anBasketTitle:'Bought together',anBasketSub:'Products that share a receipt — good bundle candidates',anBasketNone:'Not enough multi-item receipts yet.',
   anRetCurveTitle:'Retention curve',anRetCurveSub:'Share of first-time riders who came back within…',anRetWindow:'{0} days',anRetElig:'{0} of {1} riders',
   anLtvTitle:'Lifetime value by cohort',anLtvSub:'Average total spend per rider, grouped by their first-ride month',anLtvCohort:'Cohort',anLtvRiders:'Riders',anLtvAvg:'Avg LTV',
+  anTargetTitle:'Monthly revenue target',anTargetSet:'Set target',anTargetNone:'Set a monthly revenue target to track your pace.',anTargetPrompt:'Monthly revenue target (SAR)?',anTargetProjEnd:'Projected month-end: SAR {0}',anTargetOnPace:'On pace ✓',anTargetBehind:'Behind pace',
   anPageSub:'Business performance · live data from all completed sessions.',
   anShowing:'Showing:',anAllTime:'All Time',anLast5:'Last 5 Sessions',anLast10:'Last 10 Sessions',anThisMonth:'This Month',anThisYear:'This Year',
   anCollected:'Collected',anTotal:'Total',anRiders:'Riders',anCapacity:'Capacity',
@@ -641,6 +642,7 @@ ar:{
   anBasketTitle:'تُشترى معاً',anBasketSub:'منتجات تشترك في نفس الفاتورة — مرشّحة للعروض المجمّعة',anBasketNone:'لا توجد فواتير متعددة العناصر بعد.',
   anRetCurveTitle:'منحنى الاحتفاظ',anRetCurveSub:'نسبة الركاب الجدد الذين عادوا خلال…',anRetWindow:'{0} يوم',anRetElig:'{0} من {1} راكب',
   anLtvTitle:'القيمة الدائمة حسب المجموعة',anLtvSub:'متوسط إجمالي الإنفاق لكل راكب، مجمّعاً حسب شهر أول رحلة',anLtvCohort:'المجموعة',anLtvRiders:'الركاب',anLtvAvg:'متوسط القيمة',
+  anTargetTitle:'هدف الإيراد الشهري',anTargetSet:'تعيين الهدف',anTargetNone:'عيّن هدف إيراد شهري لتتبّع وتيرتك.',anTargetPrompt:'هدف الإيراد الشهري (ريال)؟',anTargetProjEnd:'المتوقع نهاية الشهر: SAR {0}',anTargetOnPace:'ضمن الوتيرة ✓',anTargetBehind:'دون الوتيرة',
   anPageSub:'لوحة أداء الأعمال · بيانات مباشرة من جميع الجلسات المكتملة.',
   anShowing:'عرض:',anAllTime:'كل الوقت',anLast5:'آخر 5 جلسات',anLast10:'آخر 10 جلسات',anThisMonth:'هذا الشهر',anThisYear:'هذه السنة',
   anCollected:'المحصّل',anTotal:'الإجمالي',anRiders:'الراكبون',anCapacity:'الطاقة',
@@ -10784,6 +10786,14 @@ function _anLTVByCohort(entries){
   return Object.entries(mo).sort((a,b)=>a[0]<b[0]?1:-1).slice(0,6).map(([month,v])=>({month,customers:v.n,avgLtv:Math.round(v.spend/v.n)}));
 }
 function _anCsvCell(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+function _anSetTarget(){
+  const cur=(S&&S.anRevTarget)||0;
+  const v=prompt(t('anTargetPrompt'),cur||'');
+  if(v===null)return;
+  const n=Math.max(0,Math.round(Number(v)||0));
+  S.anRevTarget=n;try{localStorage.setItem('cq_an_rev_target',String(n));}catch(e){}
+  renderAnalytics();
+}
 function _anExportCSV(){
   const rows=(S&&S._anCsvRows)||[];
   if(!rows.length){toast(t('anCsvEmpty'));return;}
@@ -10797,6 +10807,7 @@ function _anExportCSV(){
   }catch(e){toast(t('errConnection'),'error');}
 }
 function renderAnalytics(){
+  if(S.anRevTarget==null){try{S.anRevTarget=Number(localStorage.getItem('cq_an_rev_target'))||0;}catch(e){S.anRevTarget=0;}}
   const allQ=getQueue();
   const allSess=allSessions();
   if(S.analyticsRange==='custom')S.analyticsRange='all'; // 'custom' (last-N) range was removed; fall back to All time
@@ -11278,6 +11289,9 @@ function renderAnalytics(){
       <div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--blue)">${fc.projRides}</div><div class="analytics-kpi-label">${t('anProjRides')}</div><div class="analytics-kpi-sub">${fc.rides} ${t('anForecastSoFar')}</div></div>
       <div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--blue)"><bdi>SAR ${fc.projRev}</bdi></div><div class="analytics-kpi-label">${t('anProjRev')}</div><div class="analytics-kpi-sub"><bdi>SAR ${fc.rev}</bdi> ${t('anForecastSoFar')}</div></div>
     </div><div style="font-size:11px;color:var(--muted);margin:-4px 0 4px 2px">${t('anForecastSub').replace('{0}',fc.elapsed).replace('{1}',fc.days)}</div>`;
+    // Monthly revenue target & pace
+    const tgt=S.anRevTarget||0;
+    const targetCard=`<div class="chart-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="min-width:0"><div class="chart-card-title">${t('anTargetTitle')}</div><div class="chart-card-sub">${tgt?`${t('anTargetProjEnd').replace('{0}',fc.projRev)} · ${fc.projRev>=tgt?`<b style="color:var(--green)">${t('anTargetOnPace')}</b>`:`<b style="color:var(--orange)">${t('anTargetBehind')}</b>`}`:t('anTargetNone')}</div></div><button class="btn-secondary" style="font-size:12px;padding:6px 12px;flex-shrink:0" onclick="_anSetTarget()">${t('anTargetSet')}</button></div>${tgt?`<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:4px"><span><bdi>SAR ${fc.rev}</bdi></span><span style="color:var(--muted)"><bdi>SAR ${tgt}</bdi></span></div><div style="height:16px;background:var(--s3);border-radius:8px;overflow:hidden"><div style="height:100%;width:${Math.min(100,Math.round(fc.rev/tgt*100))}%;background:${fc.rev>=tgt?'var(--green)':'var(--blue)'};border-radius:8px"></div></div></div>`:''}</div>`;
     // RFM segments (all-time recency/frequency/money)
     const cust={};
     allQ.filter(e=>e.status==='done'&&e.customerId).forEach(e=>{const id=e.customerId;const c=cust[id]||(cust[id]={rides:0,spend:0,last:0,name:'',phone:''});c.rides++;if(e.paid)c.spend+=(e.price??DEFAULT_PRICE);try{c.spend+=addonsCost(entryAddons(e));}catch(_){}const ts=new Date(e.checkedInAt||e.registeredAt||0).getTime();if(ts>=c.last){c.last=ts;if(e.name)c.name=e.name;if(e.phone)c.phone=e.phone;}});
@@ -11300,7 +11314,7 @@ function renderAnalytics(){
     const ltvCard=ltv.length?`<div class="chart-card"><div class="chart-card-title">${t('anLtvTitle')}</div><div class="chart-card-sub">${t('anLtvSub')}</div><div style="overflow-x:auto"><table class="analytics-trend-table" style="width:100%"><thead><tr><th>${t('anLtvCohort')}</th><th>${t('anLtvRiders')}</th><th>${t('anLtvAvg')}</th></tr></thead><tbody>${ltv.map(r=>`<tr><td>${r.month}</td><td>${r.customers}</td><td><bdi>SAR ${r.avgLtv}</bdi></td></tr>`).join('')}</tbody></table></div></div>`:'';
     return`<div class="an-anchor" data-anview="growth"></div>
     <div class="analytics-section-title">${t('anNavGrowth')}</div>
-    ${kpis}${funnel}${heatCard}${rfm}${basket}${retCard}${ltvCard}`;
+    ${kpis}${targetCard}${funnel}${heatCard}${rfm}${basket}${retCard}${ltvCard}`;
   }
 
   // Rows behind the "Export CSV" button (per-session summary for the current range).
