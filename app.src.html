@@ -1558,7 +1558,15 @@ async function loadData(showLoader=false){
   if(anyError&&!q.data&&!b.data&&!c.data&&!ses.data){S.dataLoaded=true;try{_applyBookOutbox();}catch(_){}_bookOutboxFlush();toast(t('toastConnStale'),'error');return;}
 
   if(_bootDone&&startToken<_bootReadyAt)return;
+  // On a staff device, remember rider details we've already loaded. If a later refresh comes back
+  // PII-free (the queue_public view, when the staff Auth session isn't active), keep the known
+  // names/phones instead of blanking every row to "—" mid-shift. (This device already had them;
+  // full details still reload once staff auth is (re)established — see the self-heal after boot.)
+  const _keepPII=(typeof localStorage!=='undefined'&&localStorage.getItem('cq_staff')==='1');
+  const _prevPII={};
+  if(_keepPII)(S.queue||[]).forEach(e=>{if(e&&e.id&&((e.name||'').trim()||(e.phone||'').trim()))_prevPII[e.id]=e;});
   S.queue=(q.data||[]).map(entryFromDB);
+  if(_keepPII)S.queue.forEach(e=>{const p=_prevPII[e.id];if(p&&!(e.name||'').trim()&&(p.name||'').trim()){e.name=p.name;if(!e.phone)e.phone=p.phone;if(!e.email)e.email=p.email;if(e.height==null)e.height=p.height;if(!e.size)e.size=p.size;}});
   try{_applyBookOutbox();}catch(_){}_bookOutboxFlush(); // surface + sync any bookings queued while offline
   S.bikes=b.data||[];
   S.customers=c.data||[];
