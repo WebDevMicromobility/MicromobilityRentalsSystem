@@ -39,19 +39,20 @@ test.describe('protein sub-categories', () => {
   });
 
   test('the three protein subs collapse into one parent card that drills down', async ({ page }) => {
-    // Top level: one Protein Snacks group card (3 items), Drinks stands alone, no raw sub cards.
-    const top = await pickerCards(page, '');
-    const cats = top.map((c) => c.cat);
-    expect(cats).toContain('__grp__ProteinSnacks');
-    expect(cats).toContain('Drinks');
-    expect(cats).not.toContain('ProteinCookies');
-    const grp = top.find((c) => c.cat === '__grp__ProteinSnacks')!;
+    // Top level shows departments, not raw categories.
+    const top = (await pickerCards(page, '')).map((c) => c.cat);
+    expect(top).toEqual(expect.arrayContaining(['__all__', '__sec__supp']));
+    expect(top).not.toContain('__grp__ProteinSnacks');
+
+    // Supplements & Beverages holds the single Protein Snacks group card (its 3 sub-types).
+    const supp = await pickerCards(page, '__sec__supp');
+    const grp = supp.find((c) => c.cat === '__grp__ProteinSnacks')!;
+    expect(grp, 'Protein Snacks group card').toBeTruthy();
     expect(grp.text).toContain('Protein Snacks');
     expect(grp.text).toContain('3 items');
 
-    // Drill into the group: the three sub-category cards, each with one item.
-    const subs = await pickerCards(page, '__grp__ProteinSnacks');
-    const subCats = subs.map((c) => c.cat);
+    // Drill into the group: the three sub-category cards.
+    const subCats = (await pickerCards(page, '__grp__ProteinSnacks')).map((c) => c.cat);
     expect(subCats).toEqual(expect.arrayContaining(['ProteinCookies', 'ProteinGummies', 'ProteinMuffins']));
     expect(subCats).not.toContain('__grp__ProteinSnacks');
 
@@ -107,25 +108,31 @@ test.describe('protein sub-categories', () => {
     expect(html.indexOf('Protein Snacks')).toBeLessThan(html.indexOf('Protein Cookies'));
   });
 
-  test('the sales picker splits categories into Supplements & Beverages and Equipment', async ({ page }) => {
-    const out = await page.evaluate(() => {
+  test('the sales picker drills through departments the way the Protein Snacks card does', async ({ page }) => {
+    await page.evaluate(() => {
       S.inventory = [
         { id: 'p1', name: 'Bar', brand: 'Barebells', category: 'ProteinBars', qty: 3, price: 5 },
         { id: 'e1', name: 'Hydrate', category: 'ElectrolyteSachets', qty: 3, price: 5 },
         { id: 'h1', name: 'Helmet', category: 'Helmet', qty: 3, price: 20 },
         { id: 'a1', name: 'Lock', category: 'Accessory', qty: 3, price: 15 },
       ];
-      // @ts-expect-error app globals
-      S._ctPickCat = ''; renderCashier();
-      // textContent decodes HTML entities so we can match the "&" in "Supplements & Beverages"
-      return document.getElementById('tab-cashier')!.textContent || '';
     });
-    for (const s of ['All items', 'Supplements & Beverages', 'Equipment', 'Protein Snacks', 'Electrolytes', 'Helmet', 'Accessory'])
-      expect(out, `missing "${s}"`).toContain(s);
-    // Supplements section (with its Protein Snacks card) comes before Equipment (with Helmet)
-    expect(out.indexOf('Supplements & Beverages')).toBeLessThan(out.indexOf('Protein Snacks'));
-    expect(out.indexOf('Protein Snacks')).toBeLessThan(out.indexOf('Equipment'));
-    expect(out.indexOf('Equipment')).toBeLessThan(out.indexOf('Helmet'));
+    // Top level: All items + two department cards; no raw category/group cards yet
+    const top = (await pickerCards(page, '')).map((c) => c.cat);
+    expect(top).toEqual(expect.arrayContaining(['__all__', '__sec__supp', '__sec__equip']));
+    expect(top).not.toContain('__grp__ProteinSnacks');
+    expect(top).not.toContain('Helmet');
+    // Tap Supplements & Beverages → its category cards (Protein Snacks group + Electrolytes), no equipment
+    const supp = (await pickerCards(page, '__sec__supp')).map((c) => c.cat);
+    expect(supp).toEqual(expect.arrayContaining(['__grp__ProteinSnacks', 'ElectrolyteSachets']));
+    expect(supp).not.toContain('Helmet');
+    // Tap Equipment → Helmet + Accessory, no supplements
+    const equip = (await pickerCards(page, '__sec__equip')).map((c) => c.cat);
+    expect(equip).toEqual(expect.arrayContaining(['Helmet', 'Accessory']));
+    expect(equip).not.toContain('__grp__ProteinSnacks');
+    // Protein Snacks still drills into its sub-categories
+    const subs = (await pickerCards(page, '__grp__ProteinSnacks')).map((c) => c.cat);
+    expect(subs).toContain('ProteinBars');
   });
 
   test('a price of 0 shows as Free; editing a free item pre-checks the Free toggle', async ({ page }) => {
