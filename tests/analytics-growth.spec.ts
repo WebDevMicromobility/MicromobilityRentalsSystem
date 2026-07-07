@@ -128,6 +128,18 @@ test.describe('analytics growth', () => {
     expect(csv.quote).toBe('"a,""b"""'); // CSV quoting/escaping is correct
   });
 
+  test('sparkline builds an SVG polyline (and is empty for <2 points)', async ({ page }) => {
+    const out = await page.evaluate(() => ({
+      // @ts-expect-error app globals
+      line: _anSparkline([1, 3, 2, 5, 4], 'var(--green)'),
+      // @ts-expect-error app globals
+      empty: _anSparkline([7]),
+    }));
+    expect(out.line).toContain('<svg');
+    expect(out.line).toContain('<polyline');
+    expect(out.empty).toBe('');
+  });
+
   test('the Growth view renders with no console errors', async ({ page }) => {
     const errs: string[] = [];
     page.on('pageerror', (e) => errs.push(String(e)));
