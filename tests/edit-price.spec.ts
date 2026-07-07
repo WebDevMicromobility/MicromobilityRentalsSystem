@@ -35,3 +35,27 @@ test('edit-price modal shows the rental+add-ons total and per-add-on steppers', 
   const wStock = await page.evaluate('(S.inventory.find(i=>i.id==="w1")||{}).qty');
   expect(wStock).toBe(11); // restocked on removal
 });
+
+test('the custom amount and discount act on the TOTAL (rental + add-ons)', async ({ page }) => {
+  await stubSupabase(page, {
+    sessions: [{ id: 's1', day: 'Friday', session_date: '2099-01-09', capacity: 12, status: 'open', created_at: 1 }],
+    inventory: [{ id: 'g1', name: 'Gel', category: 'EnergyGels', qty: 10, price: 8, low_threshold: 1 }],
+    queue_entries: [{ id: 'q1', name: 'Ahmed', session_id: 's1', session_day: 'Friday', session_date: '2099-01-09',
+      queue_num: 1, status: 'active', paid: false, price: 75, registered_at: '2099-01-09T10:00:00Z',
+      addons: JSON.stringify([{ id: 'g1', qty: 1 }]) }],
+  });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate('showEditPriceModal("q1")');
+
+  // Total = 75 + 8 = 83, and the custom field defaults to the TOTAL, not the rental.
+  const val = await page.evaluate('document.getElementById("ep-custom").value');
+  expect(String(val)).toBe('83');
+
+  // The custom save derives rental = total - add-ons (8), and the discount acts on the total:
+  // -10% of 83 = 74.7, minus 8 add-ons = 66.7 saved as the rental.
+  const html = await page.evaluate('document.getElementById("edit-price-modal").innerHTML') as string;
+  expect(html).toContain(').value)-8))');   // custom subtracts the add-on total
+  expect(html).toContain("'q1',66.7)");      // -10% discount computed off the total
+});

@@ -6692,18 +6692,18 @@ function showEditPriceModal(id){
         ${presetBtns}
       </div>
       <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:14px">
-        <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">${t('rentDiscountLabel')} <span style="font-weight:600;text-transform:none;letter-spacing:0">(SAR ${cur%1===0?cur:cur.toFixed(2)})</span></label>
+        <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">${t('rentDiscountLabel')} <span style="font-weight:600;text-transform:none;letter-spacing:0">(${t('reviewTotalLabel')} SAR ${_fmtSar(_grand)})</span></label>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${[10,15,20,25,50].map(p=>`<button style="flex:1;min-width:50px;padding:9px 4px;border-radius:10px;border:1.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03);color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:800;cursor:pointer" onclick="saveEditedPrice('${id}',${Math.round(cur*(1-p/100)*100)/100})">-${p}%</button>`).join('')}
+          ${[10,15,20,25,50].map(p=>`<button style="flex:1;min-width:50px;padding:9px 4px;border-radius:10px;border:1.5px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03);color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:800;cursor:pointer" onclick="saveEditedPrice('${id}',${Math.max(0,Math.round((_grand*(1-p/100)-_adTotal)*100)/100)})">-${p}%</button>`).join('')}
         </div>
       </div>
       <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:16px">
-        <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">${t('editPriceCustom')}</label>
+        <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">${t('editPriceCustom')}${_adTotal>0?` <span style="font-weight:600;text-transform:none;letter-spacing:0">(${t('reviewTotalLabel')})</span>`:''}</label>
         <div style="display:flex;gap:8px">
-          <input id="ep-custom" type="number" min="0" step="0.01" value="${cur}"
+          <input id="ep-custom" type="number" min="0" step="0.01" value="${_fmtSar(_grand)}"
             style="flex:1;background:#1a1a1a;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:10px 12px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;outline:none"
-            onkeydown="if(event.key==='Enter')saveEditedPrice('${id}',parseFloat(this.value))">
-          <button class="btn-primary" style="padding:10px 16px" onclick="saveEditedPrice('${id}',parseFloat(document.getElementById('ep-custom').value))">✓</button>
+            onkeydown="if(event.key==='Enter')saveEditedPrice('${id}',Math.max(0,parseFloat(this.value)-${_adTotal}))">
+          <button class="btn-primary" style="padding:10px 16px" onclick="saveEditedPrice('${id}',Math.max(0,parseFloat(document.getElementById('ep-custom').value)-${_adTotal}))">✓</button>
         </div>
       </div>
       <button style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:'Space Grotesk',sans-serif;width:100%" onclick="closeEditPriceModal()">${t('cancelBtn')}</button>
@@ -6723,7 +6723,8 @@ async function saveEditedPrice(id,newPrice){
     await sb.from('queue_entries').update({price:prevPrice}).eq('id',id);
     await loadData();renderStaffQueue();renderHistory();
   });
-  toast(`SAR ${newPrice.toFixed(2)}`);
+  const _tot=Math.round((newPrice+addonsCost(entryAddons(entry)))*100)/100; // confirm the full amount owed
+  toast(`SAR ${_tot%1===0?_tot:_tot.toFixed(2)}`);
 }
 
 
