@@ -252,7 +252,8 @@ en:{
   anNoData:'No completed rides yet. Data will appear here once sessions are done.',
   anRevenue:'Revenue',anRidership:'Ridership',anOperations:'Operations',anHighlights:'Highlights',
   anNavOverview:'Overview',anNavCustomers:'Customers',anVsPrev:'vs prev period',anNoPrev:'no prior period',
-  anNavGrowth:'Growth',anExportCsv:'Export CSV',
+  anNavGrowth:'Growth',anExportCsv:'Export CSV',anCsvEmpty:'Nothing to export in this range.',
+  anAnomalyTitle:'Trend alert',anAnomalyDown:'Latest session down {0}% vs your usual {1} riders — check timing, weather or run a promo.',anAnomalyUp:'Latest session up {0}% vs your usual {1} riders — ride the momentum.',
   anFunnelTitle:'Booking funnel',anFunnelSub:'Where riders drop off between booking and finishing',anFunnelBooked:'Booked',anFunnelCheckedIn:'Checked in',anFunnelCompleted:'Completed',
   anHeatTitle:'Demand heatmap',anHeatSub:'Rides by day & time of day — schedule sessions around the hot spots',
   anAttachTitle:'Retail attach',anAttachRate:'Attach rate',anAttachRateSub:'rides that added a product',anAddonRevRide:'Add-on SAR / ride',
@@ -624,7 +625,8 @@ ar:{
   anNoData:'لا توجد رحلات مكتملة بعد. ستظهر البيانات هنا عند اكتمال الجلسات.',
   anRevenue:'الإيرادات',anRidership:'الراكبون',anOperations:'العمليات',anHighlights:'أبرز المؤشرات',
   anNavOverview:'نظرة عامة',anNavCustomers:'العملاء',anVsPrev:'مقارنة بالفترة السابقة',anNoPrev:'لا توجد فترة سابقة',
-  anNavGrowth:'النمو',anExportCsv:'تصدير CSV',
+  anNavGrowth:'النمو',anExportCsv:'تصدير CSV',anCsvEmpty:'لا يوجد ما يُصدَّر في هذا النطاق.',
+  anAnomalyTitle:'تنبيه اتجاه',anAnomalyDown:'آخر جلسة أقل بـ {0}% من معدّلك المعتاد {1} راكب — راجع التوقيت أو الطقس أو أطلق عرضاً.',anAnomalyUp:'آخر جلسة أعلى بـ {0}% من معدّلك المعتاد {1} راكب — استثمر هذا الزخم.',
   anFunnelTitle:'مسار الحجز',anFunnelSub:'أين يتسرّب الركاب بين الحجز وإنهاء الرحلة',anFunnelBooked:'محجوز',anFunnelCheckedIn:'تم الحضور',anFunnelCompleted:'مكتمل',
   anHeatTitle:'خريطة الطلب الحرارية',anHeatSub:'الرحلات حسب اليوم ووقت اليوم — جدول الجلسات حول أوقات الذروة',
   anAttachTitle:'المبيعات المرافقة',anAttachRate:'نسبة الإرفاق',anAttachRateSub:'رحلات أضافت منتجاً',anAddonRevRide:'ريال إضافات / رحلة',
@@ -10750,6 +10752,19 @@ function _anRFMSegment(recencyDays,freq){
   return'loyal';
 }
 function _waDigits(phone){return String(phone||'').replace(/\D/g,'');} // wa.me wants digits only (phones are stored E.164)
+function _anCsvCell(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+function _anExportCSV(){
+  const rows=(S&&S._anCsvRows)||[];
+  if(!rows.length){toast(t('anCsvEmpty'));return;}
+  const head=Object.keys(rows[0]);
+  const csv=[head.join(','),...rows.map(r=>head.map(k=>_anCsvCell(r[k])).join(','))].join('\n');
+  try{
+    const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}); // BOM so Excel reads UTF-8 (Arabic) right
+    const url=URL.createObjectURL(blob),a=document.createElement('a');
+    a.href=url;a.download='micromobility-analytics-'+new Date().toISOString().slice(0,10)+'.csv';
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }catch(e){toast(t('errConnection'),'error');}
+}
 function renderAnalytics(){
   const allQ=getQueue();
   const allSess=allSessions();
@@ -11003,8 +11018,10 @@ function renderAnalytics(){
   if(topType&&topType!=='—') insights.push(insightCard('info','',t('anMostPopType'),t('anInsightTopType').replace('{0}',typeLabel(topType))));
   const retentionPct=uniqueCustIds.length>0?Math.round(repeatCustomers/uniqueCustIds.length*100):0;
   if(retentionPct>=30) insights.push(insightCard('purple','',t('anCustRetention'),t('anInsightRetention').replace('{0}',retentionPct)));
+  // Anomaly/trend alert: compare the latest session's ridership to the median of the prior ones.
+  (function(){const sd=sessionsWithDone.slice().sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));if(sd.length<4)return;const cnt=s=>done.filter(e=>e.sessionId===s.id).length;const last=cnt(sd[sd.length-1]);const prior=sd.slice(0,-1).map(cnt).sort((a,b)=>a-b);const med=prior[Math.floor(prior.length/2)]||0;if(med<=0)return;const dev=Math.round((last-med)/med*100);if(dev<=-40)insights.push(insightCard('alert','',t('anAnomalyTitle'),t('anAnomalyDown').replace('{0}',Math.abs(dev)).replace('{1}',med)));else if(dev>=50)insights.push(insightCard('good','',t('anAnomalyTitle'),t('anAnomalyUp').replace('{0}',dev).replace('{1}',med)));})();
 
-  
+
   function occGauge(pct){
     const r=44,cx=56,cy=56,sw=10;
     const arc=r*Math.PI; 
@@ -11245,8 +11262,10 @@ function renderAnalytics(){
     ${kpis}${funnel}${heatCard}${rfm}`;
   }
 
+  // Rows behind the "Export CSV" button (per-session summary for the current range).
+  S._anCsvRows=sessions.map(s=>{const sd=done.filter(e=>e.sessionId===s.id);const rev=sd.filter(e=>e.paid).reduce((a,e)=>a+(e.price??DEFAULT_PRICE),0);const cap=s.capacity||12;return{date:s.session_date||s.id,day:s.day||'',riders:sd.length,no_shows:noshow.filter(e=>e.sessionId===s.id).length,revenue_sar:Math.round(rev),occupancy_pct:cap?Math.round(sd.length/cap*100):0};});
   document.getElementById('tab-analytics').innerHTML=`
-    <div class="page-title">${t('tabAnalytics')}</div>
+    <div class="page-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>${t('tabAnalytics')}</span><button class="btn-secondary" style="font-size:12px;padding:6px 12px" onclick="_anExportCSV()">↓ ${t('anExportCsv')}</button></div>
     <div class="page-sub">${t('anPageSub')}</div>
     <div class="an-sticky">
       ${_rangeBar()}

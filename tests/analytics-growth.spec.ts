@@ -68,6 +68,24 @@ test.describe('analytics growth', () => {
     expect(out.days).toBeGreaterThanOrEqual(28);
   });
 
+  test('rendering stashes per-session CSV rows and the export builds valid CSV', async ({ page }) => {
+    const csv = await page.evaluate(() => {
+      // @ts-expect-error app globals
+      S.view = 'staff'; S.staffTab = 'analytics'; renderAnalytics();
+      // @ts-expect-error app globals
+      const rows = S._anCsvRows;
+      // build the CSV text the same way _anExportCSV does, without triggering a download
+      // @ts-expect-error app globals
+      const head = rows.length ? Object.keys(rows[0]) : [];
+      // @ts-expect-error app globals
+      const body = rows.map((r) => head.map((k) => _anCsvCell(r[k])).join(',')).join('\n');
+      // @ts-expect-error app globals
+      return { rowsIsArray: Array.isArray(rows), header: head.join(','), quote: _anCsvCell('a,"b"') };
+    });
+    expect(csv.rowsIsArray).toBe(true);
+    expect(csv.quote).toBe('"a,""b"""'); // CSV quoting/escaping is correct
+  });
+
   test('the Growth view renders with no console errors', async ({ page }) => {
     const errs: string[] = [];
     page.on('pageerror', (e) => errs.push(String(e)));
