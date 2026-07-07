@@ -35,9 +35,13 @@ const out = await minify(src, {
   removeComments: true, // HTML comments
   minifyCSS: true, // inline <style>
   minifyJS: {
-    // terser options: strip comments + whitespace only; preserve all names + logic
+    // terser options: strip comments + whitespace. compress stays OFF (its dead-code
+    // elimination would drop top-level functions that are only referenced by name inside
+    // onclick="fn()" strings). mangle is scoped to LOCAL variables only — toplevel:false
+    // preserves every global/function name the onclick-by-string pattern depends on, while
+    // shortening in-function locals to shrink the parse.
     compress: false,
-    mangle: false,
+    mangle: { toplevel: false },
     format: { comments: false },
   },
   // leave attribute quoting / structure alone to avoid any behavioural surprises
