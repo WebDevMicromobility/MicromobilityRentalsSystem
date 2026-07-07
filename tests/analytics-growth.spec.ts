@@ -128,6 +128,29 @@ test.describe('analytics growth', () => {
     expect(csv.quote).toBe('"a,""b"""'); // CSV quoting/escaping is correct
   });
 
+  test('gross margin nets revenue against mapped item costs', async ({ page }) => {
+    const out = await page.evaluate(() => {
+      const cost = { i1: 4, i2: 6 };
+      const lines = [
+        { item_id: 'i1', qty: 2, price: 10, pay: 'paid', cat: 'Drinks' }, // rev 20, cogs 8
+        { item_id: 'i2', qty: 1, price: 12, pay: 'paid', cat: 'Bars' },     // rev 12, cogs 6
+        { item_id: 'i1', qty: 1, price: 10, pay: 'refunded', cat: 'Drinks' }, // refunded → ignored
+        { item_id: null, qty: 1, price: -5, cat: '__discount__' },           // discount → ignored
+      ];
+      // @ts-expect-error app globals
+      const m = _anMargin(lines, cost);
+      // @ts-expect-error app globals
+      const none = _anMargin([{ item_id: 'x', qty: 1, price: 10, cat: 'Drinks' }], {});
+      return { m, noCost: none.haveCost };
+    });
+    expect(out.m.rev).toBe(32);
+    expect(out.m.cogs).toBe(14);
+    expect(out.m.profit).toBe(18);
+    expect(out.m.marginPct).toBe(56); // 18/32 ≈ 56%
+    expect(out.m.haveCost).toBe(true);
+    expect(out.noCost).toBe(false); // no cost mapped → card stays hidden
+  });
+
   test('sparkline builds an SVG polyline (and is empty for <2 points)', async ({ page }) => {
     const out = await page.evaluate(() => ({
       // @ts-expect-error app globals
