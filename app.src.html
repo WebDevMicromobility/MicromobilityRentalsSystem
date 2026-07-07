@@ -263,6 +263,8 @@ en:{
   anRfmChampionsD:'frequent & recent',anRfmLoyalD:'2+ rides, still active',anRfmNewD:'first ride, recent',anRfmAtRiskD:'slipping away — win them back',anRfmLostD:'no ride in 60+ days',
   anRfmNone:'No riders here yet.',anRfmMore:'+{0} more',anRfmMsg:"Hi {0}! It's MicroMobility 🚲 — hope to see you on a ride soon!",
   anBasketTitle:'Bought together',anBasketSub:'Products that share a receipt — good bundle candidates',anBasketNone:'Not enough multi-item receipts yet.',
+  anRetCurveTitle:'Retention curve',anRetCurveSub:'Share of first-time riders who came back within…',anRetWindow:'{0} days',anRetElig:'{0} of {1} riders',
+  anLtvTitle:'Lifetime value by cohort',anLtvSub:'Average total spend per rider, grouped by their first-ride month',anLtvCohort:'Cohort',anLtvRiders:'Riders',anLtvAvg:'Avg LTV',
   anPageSub:'Business performance · live data from all completed sessions.',
   anShowing:'Showing:',anAllTime:'All Time',anLast5:'Last 5 Sessions',anLast10:'Last 10 Sessions',anThisMonth:'This Month',anThisYear:'This Year',
   anCollected:'Collected',anTotal:'Total',anRiders:'Riders',anCapacity:'Capacity',
@@ -637,6 +639,8 @@ ar:{
   anRfmChampionsD:'متكررون وحديثون',anRfmLoyalD:'رحلتان أو أكثر، نشطون',anRfmNewD:'أول رحلة، حديثاً',anRfmAtRiskD:'يبتعدون — استعِدهم',anRfmLostD:'لا رحلة منذ 60+ يوماً',
   anRfmNone:'لا يوجد ركاب هنا بعد.',anRfmMore:'+{0} آخرون',anRfmMsg:'مرحباً {0}! نحن مايكروموبيليتي 🚲 — نتطلع لرؤيتك في رحلة قريباً!',
   anBasketTitle:'تُشترى معاً',anBasketSub:'منتجات تشترك في نفس الفاتورة — مرشّحة للعروض المجمّعة',anBasketNone:'لا توجد فواتير متعددة العناصر بعد.',
+  anRetCurveTitle:'منحنى الاحتفاظ',anRetCurveSub:'نسبة الركاب الجدد الذين عادوا خلال…',anRetWindow:'{0} يوم',anRetElig:'{0} من {1} راكب',
+  anLtvTitle:'القيمة الدائمة حسب المجموعة',anLtvSub:'متوسط إجمالي الإنفاق لكل راكب، مجمّعاً حسب شهر أول رحلة',anLtvCohort:'المجموعة',anLtvRiders:'الركاب',anLtvAvg:'متوسط القيمة',
   anPageSub:'لوحة أداء الأعمال · بيانات مباشرة من جميع الجلسات المكتملة.',
   anShowing:'عرض:',anAllTime:'كل الوقت',anLast5:'آخر 5 جلسات',anLast10:'آخر 10 جلسات',anThisMonth:'هذا الشهر',anThisYear:'هذه السنة',
   anCollected:'المحصّل',anTotal:'الإجمالي',anRiders:'الراكبون',anCapacity:'الطاقة',
@@ -10760,6 +10764,25 @@ function _anBasketPairs(receipts){
   (receipts||[]).forEach(items=>{const u=[...new Set(items)].filter(Boolean).sort();for(let i=0;i<u.length;i++)for(let j=i+1;j<u.length;j++){const k=u[i]+' + '+u[j];pc[k]=(pc[k]||0)+1;}});
   return Object.entries(pc).map(([pair,count])=>({pair,count})).sort((a,b)=>b.count-a.count).slice(0,8);
 }
+// Group completed rides by customer into {times:[ms…], spend} — shared by retention & LTV.
+function _anCustJourneys(entries){
+  const c={};
+  (entries||[]).forEach(e=>{if(!e.customerId)return;const ts=new Date(e.checkedInAt||e.registeredAt||0).getTime();if(!ts)return;const j=c[e.customerId]||(c[e.customerId]={times:[],spend:0});j.times.push(ts);if(e.paid)j.spend+=(e.price??DEFAULT_PRICE);try{j.spend+=addonsCost(entryAddons(e));}catch(_){}});
+  Object.values(c).forEach(j=>j.times.sort((a,b)=>a-b));
+  return c;
+}
+// Retention curve: of riders whose first ride is ≥N days old, the % who rode again within N days.
+function _anRetentionCurve(entries,nowMs){
+  nowMs=nowMs||Date.now();const j=_anCustJourneys(entries);const res={};
+  [7,30,90].forEach(w=>{const ms=w*86400000;let elig=0,ret=0;Object.values(j).forEach(({times})=>{const first=times[0];if(nowMs-first<ms)return;elig++;if(times.some(tt=>tt>first&&tt<=first+ms))ret++;});res[w]={eligible:elig,returned:ret,pct:elig?Math.round(ret/elig*100):0};});
+  return res;
+}
+// Lifetime value by first-ride month cohort: avg total spend per rider.
+function _anLTVByCohort(entries){
+  const j=_anCustJourneys(entries),mo={};
+  Object.values(j).forEach(({times,spend})=>{const d=new Date(times[0]);const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');(mo[key]=mo[key]||{n:0,spend:0}).n++;mo[key].spend+=spend;});
+  return Object.entries(mo).sort((a,b)=>a[0]<b[0]?1:-1).slice(0,6).map(([month,v])=>({month,customers:v.n,avgLtv:Math.round(v.spend/v.n)}));
+}
 function _anCsvCell(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
 function _anExportCSV(){
   const rows=(S&&S._anCsvRows)||[];
@@ -11269,9 +11292,15 @@ function renderAnalytics(){
     const rcpt={};(S.cashSales||[]).filter(r=>sessIds.has(r.session_id)&&r.pay!=='refunded'&&r.category!=='__cardmeta__'&&r.category!=='__discount__'&&(Number(r.qty)||0)>0).forEach(r=>{const k=r.receipt_id||r.id;(rcpt[k]=rcpt[k]||[]).push(r.name||'—');});
     const pairs=_anBasketPairs(Object.values(rcpt)),pmax=pairs.length?pairs[0].count:1;
     const basket=`<div class="chart-card"><div class="chart-card-title">${t('anBasketTitle')}</div><div class="chart-card-sub">${t('anBasketSub')}</div>${pairs.length?pairs.map(p=>`<div class="analytics-bar-row"><div class="analytics-bar-label" style="min-width:150px">${esc(p.pair)}</div><div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(p.count/pmax*100)}%;background:var(--blue)"></div></div><div class="analytics-bar-value">${p.count}×</div></div>`).join(''):`<div class="empty-state">${t('anBasketNone')}</div>`}</div>`;
+    // Retention curve (all-time first-ride cohorts)
+    const ret=_anRetentionCurve(allQ.filter(e=>e.status==='done'));
+    const retCard=`<div class="chart-card"><div class="chart-card-title">${t('anRetCurveTitle')}</div><div class="chart-card-sub">${t('anRetCurveSub')}</div>${[7,30,90].map(w=>{const r=ret[w];const col=r.pct>=40?'var(--green)':r.pct>=20?'var(--blue)':'var(--orange)';return`<div class="analytics-bar-row"><div class="analytics-bar-label" style="min-width:80px">${t('anRetWindow').replace('{0}',w)}</div><div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${r.pct}%;background:${col}"></div></div><div class="analytics-bar-value">${r.pct}% <span style="color:var(--muted);font-weight:600">· ${t('anRetElig').replace('{0}',r.returned).replace('{1}',r.eligible)}</span></div></div>`;}).join('')}</div>`;
+    // LTV by first-ride cohort
+    const ltv=_anLTVByCohort(allQ.filter(e=>e.status==='done'));
+    const ltvCard=ltv.length?`<div class="chart-card"><div class="chart-card-title">${t('anLtvTitle')}</div><div class="chart-card-sub">${t('anLtvSub')}</div><div style="overflow-x:auto"><table class="analytics-trend-table" style="width:100%"><thead><tr><th>${t('anLtvCohort')}</th><th>${t('anLtvRiders')}</th><th>${t('anLtvAvg')}</th></tr></thead><tbody>${ltv.map(r=>`<tr><td>${r.month}</td><td>${r.customers}</td><td><bdi>SAR ${r.avgLtv}</bdi></td></tr>`).join('')}</tbody></table></div></div>`:'';
     return`<div class="an-anchor" data-anview="growth"></div>
     <div class="analytics-section-title">${t('anNavGrowth')}</div>
-    ${kpis}${funnel}${heatCard}${rfm}${basket}`;
+    ${kpis}${funnel}${heatCard}${rfm}${basket}${retCard}${ltvCard}`;
   }
 
   // Rows behind the "Export CSV" button (per-session summary for the current range).

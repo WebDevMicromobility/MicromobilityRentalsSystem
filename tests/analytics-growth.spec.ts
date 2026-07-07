@@ -67,6 +67,31 @@ test.describe('analytics growth', () => {
     expect(pairs.every((p: { count: number }) => p.count >= 1)).toBe(true);
   });
 
+  test('retention curve and LTV-by-cohort compute from ride journeys', async ({ page }) => {
+    const out = await page.evaluate(() => {
+      const day = 86400000; const now = Date.now();
+      const ride = (cid: string, daysAgo: number, paid = true, price = 30) => ({
+        status: 'done', customerId: cid, paid, price,
+        checkedInAt: new Date(now - daysAgo * day).toISOString(),
+      });
+      const entries = [
+        ride('c1', 100), ride('c1', 96), // first ride 100d ago, returned within 7d → counts for 7/30/90
+        ride('c2', 100),                 // one ride only, never returned
+        ride('c3', 3),                   // too recent to be eligible for any window
+      ];
+      // @ts-expect-error app globals
+      return { ret: _anRetentionCurve(entries, now), ltv: _anLTVByCohort(entries) };
+    });
+    // c1 & c2 eligible for all windows (first ride 100d ago); only c1 returned
+    expect(out.ret['7'].eligible).toBe(2);
+    expect(out.ret['7'].returned).toBe(1);
+    expect(out.ret['7'].pct).toBe(50);
+    expect(out.ret['90'].eligible).toBe(2);
+    // LTV cohorts exist and carry average spend
+    expect(Array.isArray(out.ltv)).toBe(true);
+    expect(out.ltv.reduce((s: number, r: { customers: number }) => s + r.customers, 0)).toBe(3);
+  });
+
   test('the month forecast projects from pace so far', async ({ page }) => {
     const out = await page.evaluate(() => {
       const now = new Date();
