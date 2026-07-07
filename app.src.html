@@ -267,6 +267,7 @@ en:{
   anLtvTitle:'Lifetime value by cohort',anLtvSub:'Average total spend per rider, grouped by their first-ride month',anLtvCohort:'Cohort',anLtvRiders:'Riders',anLtvAvg:'Avg LTV',
   anTargetTitle:'Monthly revenue target',anTargetSet:'Set target',anTargetNone:'Set a monthly revenue target to track your pace.',anTargetPrompt:'Monthly revenue target (SAR)?',anTargetProjEnd:'Projected month-end: SAR {0}',anTargetOnPace:'On pace ✓',anTargetBehind:'Behind pace',
   anTrendsTitle:'Trends',anTrendsSub:'Recent sessions, oldest → newest',
+  anLiveTitle:'Today',anLiveSub:"Live — today's sessions",anLiveRides:'Rides today',anLiveRev:'Revenue today',anLiveActive:'On bikes now',anLiveFill:'Booked / capacity',
   anPageSub:'Business performance · live data from all completed sessions.',
   anShowing:'Showing:',anAllTime:'All Time',anLast5:'Last 5 Sessions',anLast10:'Last 10 Sessions',anThisMonth:'This Month',anThisYear:'This Year',
   anCollected:'Collected',anTotal:'Total',anRiders:'Riders',anCapacity:'Capacity',
@@ -645,6 +646,7 @@ ar:{
   anLtvTitle:'القيمة الدائمة حسب المجموعة',anLtvSub:'متوسط إجمالي الإنفاق لكل راكب، مجمّعاً حسب شهر أول رحلة',anLtvCohort:'المجموعة',anLtvRiders:'الركاب',anLtvAvg:'متوسط القيمة',
   anTargetTitle:'هدف الإيراد الشهري',anTargetSet:'تعيين الهدف',anTargetNone:'عيّن هدف إيراد شهري لتتبّع وتيرتك.',anTargetPrompt:'هدف الإيراد الشهري (ريال)؟',anTargetProjEnd:'المتوقع نهاية الشهر: SAR {0}',anTargetOnPace:'ضمن الوتيرة ✓',anTargetBehind:'دون الوتيرة',
   anTrendsTitle:'الاتجاهات',anTrendsSub:'الجلسات الأخيرة، من الأقدم إلى الأحدث',
+  anLiveTitle:'اليوم',anLiveSub:'مباشر — جلسات اليوم',anLiveRides:'رحلات اليوم',anLiveRev:'إيراد اليوم',anLiveActive:'على الدراجات الآن',anLiveFill:'المحجوز / السعة',
   anPageSub:'لوحة أداء الأعمال · بيانات مباشرة من جميع الجلسات المكتملة.',
   anShowing:'عرض:',anAllTime:'كل الوقت',anLast5:'آخر 5 جلسات',anLast10:'آخر 10 جلسات',anThisMonth:'هذا الشهر',anThisYear:'هذه السنة',
   anCollected:'المحصّل',anTotal:'الإجمالي',anRiders:'الراكبون',anCapacity:'الطاقة',
@@ -11278,6 +11280,20 @@ function renderAnalytics(){
     return`<span class="an-delta" style="color:${col}" title="${t('anVsPrev')}">${arrow} ${pct>0?'+':''}${pct}%</span>`;
   }
 
+  function liveBoard(){
+    const now=new Date(),ymd=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    const todaySess=allSess.filter(s=>(s.session_date||'')===ymd&&s.status!=='deleted');
+    if(!todaySess.length)return'';
+    const tIds=new Set(todaySess.map(s=>s.id));
+    const tq=allQ.filter(e=>tIds.has(e.sessionId));
+    const tDone=tq.filter(e=>e.status==='done');
+    const tActive=allQ.filter(e=>e.status==='active').length;
+    let rev=tDone.filter(e=>e.paid).reduce((a,e)=>a+(e.price??DEFAULT_PRICE),0);
+    tIds.forEach(sid=>{try{const cc=_cashCardCash(sid);rev+=cc.card+cc.cash;}catch(e){}});
+    const cap=todaySess.reduce((a,s)=>a+(s.capacity||12),0),booked=tq.filter(e=>e.status!=='cancelled').length;
+    const stat=(v,l,col)=>`<div style="flex:1;min-width:120px;text-align:center"><div style="font-size:30px;font-weight:900;color:${col};line-height:1"><bdi>${v}</bdi></div><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:5px">${l}</div></div>`;
+    return`<div class="chart-card" style="background:linear-gradient(180deg,rgba(3,255,137,.06),transparent)"><div class="chart-card-title">${t('anLiveTitle')}</div><div class="chart-card-sub">${t('anLiveSub')}</div><div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px">${stat(tDone.length,t('anLiveRides'),'var(--green)')}${stat('SAR '+Math.round(rev),t('anLiveRev'),'var(--green)')}${stat(tActive,t('anLiveActive'),'var(--blue)')}${stat(booked+'/'+cap,t('anLiveFill'),'var(--orange)')}</div></div>`;
+  }
   function growthSection(){
     const _JSDOW=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     // Funnel
@@ -11348,6 +11364,7 @@ function renderAnalytics(){
     </div>
 
     <div class="an-anchor" data-anview="overview"></div>
+    ${liveBoard()}
     ${bikeHealthSection()}
 
     <div class="analytics-section-title">${t('anInsights')}</div>
