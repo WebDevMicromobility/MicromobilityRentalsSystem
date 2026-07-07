@@ -2656,6 +2656,7 @@ function setCustTab(tab){
 }
 function setStaffTab(tab){
   if(tab==='sessions'){S.queueView='sessions';tab='queue';} // Sessions merged into the Bookings tab
+  if(!isAdmin()&&tab!=='cashier'&&tab!=='queue')tab='queue'; // Front Desk mode: only Sales & Bookings
   S.staffTab=tab;
   try{sessionStorage.setItem('cq_nav_stab',tab);}catch(e){}
   renderStaffTabs();
@@ -2687,7 +2688,11 @@ function renderCustomerTabs(){
 }
 
 function renderStaffTabs(){
+  // Front Desk mode is limited to Sales + Bookings; hide the rest and keep the active tab valid.
+  const _desk=!isAdmin();
+  if(_desk&&S.staffTab!=='cashier'&&S.staffTab!=='queue')S.staffTab='queue';
   document.querySelectorAll('#staff-tab-nav .tab-btn').forEach(b=>{
+    b.style.display=(_desk&&b.dataset.stab!=='cashier'&&b.dataset.stab!=='queue')?'none':'';
     b.classList.toggle('active',b.dataset.stab===S.staffTab);
   });
   document.getElementById('tab-queue')     .classList.toggle('active',S.staffTab==='queue');
