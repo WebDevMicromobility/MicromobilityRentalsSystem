@@ -83,8 +83,10 @@ export async function unlockStaff(page: Page) {
 }
 
 // Signs a customer in locally, exactly like a remembered login session does.
+// session_token is required: customer flows always use the token RPCs (CUST_RPC), and a
+// remembered session without a token is dropped at getSession() to force a fresh login.
 export async function loginCustomer(page: Page, cust: Record<string, unknown> = {}) {
-  const c = { id: 'c1', name: 'Spec Rider', email: 'spec@example.com', phone: '0500000001', ...cust };
+  const c = { id: 'c1', name: 'Spec Rider', email: 'spec@example.com', phone: '0500000001', session_token: 'tok-spec', ...cust };
   await page.addInitScript((session) => localStorage.setItem('cq_session', session), JSON.stringify(c));
 }
 
