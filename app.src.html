@@ -252,6 +252,15 @@ en:{
   anNoData:'No completed rides yet. Data will appear here once sessions are done.',
   anRevenue:'Revenue',anRidership:'Ridership',anOperations:'Operations',anHighlights:'Highlights',
   anNavOverview:'Overview',anNavCustomers:'Customers',anVsPrev:'vs prev period',anNoPrev:'no prior period',
+  anNavGrowth:'Growth',anExportCsv:'Export CSV',
+  anFunnelTitle:'Booking funnel',anFunnelSub:'Where riders drop off between booking and finishing',anFunnelBooked:'Booked',anFunnelCheckedIn:'Checked in',anFunnelCompleted:'Completed',
+  anHeatTitle:'Demand heatmap',anHeatSub:'Rides by day & time of day — schedule sessions around the hot spots',
+  anAttachTitle:'Retail attach',anAttachRate:'Attach rate',anAttachRateSub:'rides that added a product',anAddonRevRide:'Add-on SAR / ride',
+  anForecastTitle:'This-month forecast',anForecastSub:'Projected from the pace so far ({0} of {1} days)',anProjRides:'Projected rides',anProjRev:'Projected revenue',anForecastSoFar:'so far',
+  anRfmTitle:'Rider segments (RFM)',anRfmSub:'Recency · Frequency · Money — tap a rider to message them',
+  anRfmChampions:'Champions',anRfmLoyal:'Loyal',anRfmNew:'New',anRfmAtRisk:'At risk',anRfmLost:'Lost',
+  anRfmChampionsD:'frequent & recent',anRfmLoyalD:'2+ rides, still active',anRfmNewD:'first ride, recent',anRfmAtRiskD:'slipping away — win them back',anRfmLostD:'no ride in 60+ days',
+  anRfmNone:'No riders here yet.',anRfmMore:'+{0} more',anRfmMsg:"Hi {0}! It's MicroMobility 🚲 — hope to see you on a ride soon!",
   anPageSub:'Business performance · live data from all completed sessions.',
   anShowing:'Showing:',anAllTime:'All Time',anLast5:'Last 5 Sessions',anLast10:'Last 10 Sessions',anThisMonth:'This Month',anThisYear:'This Year',
   anCollected:'Collected',anTotal:'Total',anRiders:'Riders',anCapacity:'Capacity',
@@ -615,6 +624,15 @@ ar:{
   anNoData:'لا توجد رحلات مكتملة بعد. ستظهر البيانات هنا عند اكتمال الجلسات.',
   anRevenue:'الإيرادات',anRidership:'الراكبون',anOperations:'العمليات',anHighlights:'أبرز المؤشرات',
   anNavOverview:'نظرة عامة',anNavCustomers:'العملاء',anVsPrev:'مقارنة بالفترة السابقة',anNoPrev:'لا توجد فترة سابقة',
+  anNavGrowth:'النمو',anExportCsv:'تصدير CSV',
+  anFunnelTitle:'مسار الحجز',anFunnelSub:'أين يتسرّب الركاب بين الحجز وإنهاء الرحلة',anFunnelBooked:'محجوز',anFunnelCheckedIn:'تم الحضور',anFunnelCompleted:'مكتمل',
+  anHeatTitle:'خريطة الطلب الحرارية',anHeatSub:'الرحلات حسب اليوم ووقت اليوم — جدول الجلسات حول أوقات الذروة',
+  anAttachTitle:'المبيعات المرافقة',anAttachRate:'نسبة الإرفاق',anAttachRateSub:'رحلات أضافت منتجاً',anAddonRevRide:'ريال إضافات / رحلة',
+  anForecastTitle:'توقّع هذا الشهر',anForecastSub:'متوقّع من الوتيرة حتى الآن ({0} من {1} يوم)',anProjRides:'الرحلات المتوقعة',anProjRev:'الإيراد المتوقع',anForecastSoFar:'حتى الآن',
+  anRfmTitle:'شرائح الركاب (RFM)',anRfmSub:'الحداثة · التكرار · الإنفاق — اضغط على راكب لمراسلته',
+  anRfmChampions:'الأبطال',anRfmLoyal:'الأوفياء',anRfmNew:'جدد',anRfmAtRisk:'معرّضون للفقد',anRfmLost:'مفقودون',
+  anRfmChampionsD:'متكررون وحديثون',anRfmLoyalD:'رحلتان أو أكثر، نشطون',anRfmNewD:'أول رحلة، حديثاً',anRfmAtRiskD:'يبتعدون — استعِدهم',anRfmLostD:'لا رحلة منذ 60+ يوماً',
+  anRfmNone:'لا يوجد ركاب هنا بعد.',anRfmMore:'+{0} آخرون',anRfmMsg:'مرحباً {0}! نحن مايكروموبيليتي 🚲 — نتطلع لرؤيتك في رحلة قريباً!',
   anPageSub:'لوحة أداء الأعمال · بيانات مباشرة من جميع الجلسات المكتملة.',
   anShowing:'عرض:',anAllTime:'كل الوقت',anLast5:'آخر 5 جلسات',anLast10:'آخر 10 جلسات',anThisMonth:'هذا الشهر',anThisYear:'هذه السنة',
   anCollected:'المحصّل',anTotal:'الإجمالي',anRiders:'الراكبون',anCapacity:'الطاقة',
@@ -10693,6 +10711,45 @@ function bikeHealthSection(){
 
 // Theme-aware chart color: resolves a CSS variable so charts stay readable in light/hc themes
 function _thc(varName,fb){try{const v=getComputedStyle(document.documentElement).getPropertyValue(varName).trim();return v||fb;}catch(e){return fb;}}
+// ── Analytics "Growth" view: pure helpers (unit-tested in nutrition/analytics specs) ──
+function _anFunnelCounts(entries){
+  const booked=entries.length;
+  const checkedIn=entries.filter(e=>e.checkedInAt||e.status==='done'||e.status==='active').length;
+  const completed=entries.filter(e=>e.status==='done').length;
+  return{booked,checkedIn,completed};
+}
+// Demand grid: day-of-week (0=Sun) × 2-hour slot, from the ride time (check-in, else booking time).
+function _anHeatGrid(entries){
+  const grid={};let max=0;const hours=new Set();
+  entries.forEach(e=>{const ts=e.checkedInAt||e.registeredAt;if(!ts)return;const d=new Date(ts);if(isNaN(d.getTime()))return;const day=d.getDay(),hb=Math.floor(d.getHours()/2)*2;hours.add(hb);(grid[day]=grid[day]||{})[hb]=(grid[day][hb]||0)+1;if(grid[day][hb]>max)max=grid[day][hb];});
+  return{grid,max,hours:[...hours].sort((a,b)=>a-b)};
+}
+// Retail attach: share of rides that also bought a product add-on, and add-on revenue per ride.
+function _anAttachStats(entries){
+  let withAddon=0,addonRev=0;
+  entries.forEach(e=>{let ad=[];try{ad=entryAddons(e);}catch(_){}if(ad.length){withAddon++;try{addonRev+=addonsCost(ad);}catch(_){}}});
+  const n=entries.length;
+  return{attachPct:n?Math.round(withAddon/n*100):0,addonRevPerRide:n?Math.round(addonRev/n*10)/10:0,withAddon,addonRev:Math.round(addonRev)};
+}
+// Run-rate: project the current calendar month from the pace so far.
+function _anMonthForecast(allSess,allQ,now){
+  now=now||new Date();const y=now.getFullYear(),m=now.getMonth();const days=new Date(y,m+1,0).getDate();const elapsed=Math.min(days,Math.max(1,now.getDate()));
+  const ids=new Set((allSess||[]).filter(s=>{const d=new Date(s.session_date||s.id);return !isNaN(d.getTime())&&d.getFullYear()===y&&d.getMonth()===m;}).map(s=>s.id));
+  const md=(allQ||[]).filter(e=>ids.has(e.sessionId)&&e.status==='done');
+  const rides=md.length,rev=md.filter(e=>e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
+  const f=elapsed>0?days/elapsed:1;
+  return{rides,rev:Math.round(rev),projRides:Math.round(rides*f),projRev:Math.round(rev*f),elapsed,days};
+}
+// RFM bucket from recency (days since last ride) and frequency (ride count).
+function _anRFMSegment(recencyDays,freq){
+  if(freq>=3&&recencyDays<=14)return'champions';
+  if(freq>=2&&recencyDays<=30)return'loyal';
+  if(freq===1&&recencyDays<=21)return'newbie';
+  if(freq>=2&&recencyDays>30&&recencyDays<=60)return'atrisk';
+  if(recencyDays>60)return'lost';
+  return'loyal';
+}
+function _waDigits(phone){return String(phone||'').replace(/\D/g,'');} // wa.me wants digits only (phones are stored E.164)
 function renderAnalytics(){
   const allQ=getQueue();
   const allSess=allSessions();
@@ -11151,13 +11208,50 @@ function renderAnalytics(){
     return`<span class="an-delta" style="color:${col}" title="${t('anVsPrev')}">${arrow} ${pct>0?'+':''}${pct}%</span>`;
   }
 
+  function growthSection(){
+    const _JSDOW=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    // Funnel
+    const fn=_anFunnelCounts(queue),fmax=Math.max(1,fn.booked);
+    const frow=(lbl,v,prev)=>{const pct=Math.round(v/fmax*100),drop=prev!=null?prev-v:0;return`<div class="analytics-bar-row"><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:3px"><span>${lbl}</span><span>${v}${drop>0?` <span style="color:var(--muted);font-weight:600">−${drop}</span>`:''}</span></div><div style="height:15px;background:var(--s3);border-radius:8px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--green);border-radius:8px"></div></div></div>`;};
+    const funnel=`<div class="chart-card"><div class="chart-card-title">${t('anFunnelTitle')}</div><div class="chart-card-sub">${t('anFunnelSub')}</div>${frow(t('anFunnelBooked'),fn.booked,null)}${frow(t('anFunnelCheckedIn'),fn.checkedIn,fn.booked)}${frow(t('anFunnelCompleted'),fn.completed,fn.checkedIn)}<div style="font-size:12px;color:var(--muted);margin-top:8px">${t('anCompletionRate')}: <b style="color:var(--green)">${completionRate}%</b> · ${t('anNoShowRate')}: <b style="color:var(--orange)">${noShowRate}%</b></div></div>`;
+    // Heatmap (day × 2-hour slot)
+    const heat=_anHeatGrid(done);let heatCard='';
+    if(heat.hours.length){
+      const hLabel=h=>`${((h+11)%12)+1}${h<12?'a':'p'}`;
+      const dow=d=>(dayLabel(_JSDOW[d])||_JSDOW[d]).slice(0,3);
+      const cell=(d,h)=>{const v=(heat.grid[d]&&heat.grid[d][h])||0,a=heat.max?v/heat.max:0,bg=v?`rgba(3,255,137,${(0.15+a*0.75).toFixed(2)})`:'var(--s3)';return`<td style="padding:0"><div title="${v}" style="width:26px;height:22px;border-radius:4px;background:${bg};margin:2px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:${a>0.55?'#04150c':'var(--muted-l)'}">${v||''}</div></td>`;};
+      heatCard=`<div class="chart-card"><div class="chart-card-title">${t('anHeatTitle')}</div><div class="chart-card-sub">${t('anHeatSub')}</div><div style="overflow-x:auto"><table style="border-collapse:collapse"><thead><tr><th></th>${heat.hours.map(h=>`<th style="font-size:9px;font-weight:700;color:var(--muted);padding:2px">${hLabel(h)}</th>`).join('')}</tr></thead><tbody>${_JSDOW.map((_,d)=>heat.grid[d]?`<tr><td style="font-size:10px;font-weight:800;color:var(--muted);padding-inline-end:6px;white-space:nowrap">${dow(d)}</td>${heat.hours.map(h=>cell(d,h)).join('')}</tr>`:'').join('')}</tbody></table></div></div>`;
+    }
+    // Retail attach + this-month forecast
+    const at=_anAttachStats(done),fc=_anMonthForecast(allSess,allQ);
+    const kpis=`<div class="analytics-kpi-grid">
+      <div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--green)">${at.attachPct}%</div><div class="analytics-kpi-label">${t('anAttachRate')}</div><div class="analytics-kpi-sub">${at.withAddon} ${t('anAttachRateSub')}</div></div>
+      <div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--green)"><bdi>SAR ${at.addonRevPerRide}</bdi></div><div class="analytics-kpi-label">${t('anAddonRevRide')}</div></div>
+      <div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--blue)">${fc.projRides}</div><div class="analytics-kpi-label">${t('anProjRides')}</div><div class="analytics-kpi-sub">${fc.rides} ${t('anForecastSoFar')}</div></div>
+      <div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--blue)"><bdi>SAR ${fc.projRev}</bdi></div><div class="analytics-kpi-label">${t('anProjRev')}</div><div class="analytics-kpi-sub"><bdi>SAR ${fc.rev}</bdi> ${t('anForecastSoFar')}</div></div>
+    </div><div style="font-size:11px;color:var(--muted);margin:-4px 0 4px 2px">${t('anForecastSub').replace('{0}',fc.elapsed).replace('{1}',fc.days)}</div>`;
+    // RFM segments (all-time recency/frequency/money)
+    const cust={};
+    allQ.filter(e=>e.status==='done'&&e.customerId).forEach(e=>{const id=e.customerId;const c=cust[id]||(cust[id]={rides:0,spend:0,last:0,name:'',phone:''});c.rides++;if(e.paid)c.spend+=(e.price??DEFAULT_PRICE);try{c.spend+=addonsCost(entryAddons(e));}catch(_){}const ts=new Date(e.checkedInAt||e.registeredAt||0).getTime();if(ts>=c.last){c.last=ts;if(e.name)c.name=e.name;if(e.phone)c.phone=e.phone;}});
+    const nowMs=Date.now(),segs={champions:[],loyal:[],newbie:[],atrisk:[],lost:[]};
+    Object.keys(cust).forEach(id=>{const c=cust[id],rec=c.last?Math.round((nowMs-c.last)/86400000):9999;segs[_anRFMSegment(rec,c.rides)].push({...c,recencyDays:rec,spend:Math.round(c.spend)});});
+    Object.values(segs).forEach(a=>a.sort((x,y)=>y.spend-x.spend||x.recencyDays-y.recencyDays));
+    const cap=k=>k.charAt(0).toUpperCase()+k.slice(1);
+    const rfmChip=r=>{const ph=_waDigits(r.phone),lbl=`${esc(r.name||'—')} · ${r.rides}🚲 · SAR ${r.spend}`;return ph?`<a style="text-decoration:none;background:var(--s3);border:1px solid var(--border);color:var(--text);font-weight:700;font-size:11px;margin:2px;padding:4px 9px;border-radius:8px;display:inline-block" href="https://wa.me/${ph}?text=${encodeURIComponent(t('anRfmMsg').replace('{0}',(r.name||'').split(' ')[0]||''))}" target="_blank" rel="noopener">${lbl}</a>`:`<span style="background:var(--s3);border:1px solid var(--border);color:var(--muted);font-weight:700;font-size:11px;margin:2px;padding:4px 9px;border-radius:8px;display:inline-block">${lbl}</span>`;};
+    const segMeta=[['champions','var(--green)'],['loyal','var(--blue)'],['newbie','var(--green)'],['atrisk','var(--orange)'],['lost','var(--muted-l)']];
+    const rfm=`<div class="chart-card"><div class="chart-card-title">${t('anRfmTitle')}</div><div class="chart-card-sub">${t('anRfmSub')}</div>${segMeta.map(([k,col])=>{const list=segs[k];return`<div style="margin-top:10px"><div style="font-size:12px;font-weight:900;color:${col};text-transform:uppercase;letter-spacing:.4px">${t('anRfm'+cap(k))} <span style="color:var(--muted);font-weight:700">${list.length}</span> <span style="color:var(--muted);font-weight:600;text-transform:none">· ${t('anRfm'+cap(k)+'D')}</span></div><div style="display:flex;flex-wrap:wrap;margin-top:4px">${list.length?list.slice(0,10).map(rfmChip).join('')+(list.length>10?`<span style="font-size:11px;color:var(--muted);align-self:center;margin-inline-start:6px">${t('anRfmMore').replace('{0}',list.length-10)}</span>`:''):`<span style="font-size:11px;color:var(--muted)">${t('anRfmNone')}</span>`}</div></div>`;}).join('')}</div>`;
+    return`<div class="an-anchor" data-anview="growth"></div>
+    <div class="analytics-section-title">${t('anNavGrowth')}</div>
+    ${kpis}${funnel}${heatCard}${rfm}`;
+  }
+
   document.getElementById('tab-analytics').innerHTML=`
     <div class="page-title">${t('tabAnalytics')}</div>
     <div class="page-sub">${t('anPageSub')}</div>
     <div class="an-sticky">
       ${_rangeBar()}
       <div class="an-subnav">
-        ${[['overview',t('anNavOverview')],['revenue',t('anRevenue')],['ridership',t('anRidership')],['operations',t('anOperations')],['fleet',t('anFleetSection')],['customers',t('anNavCustomers')]].map(([v,l])=>`<button class="an-nav-btn${S.anView===v?' active':''}" data-anview="${v}" onclick="setAnView('${v}')">${l}</button>`).join('')}
+        ${[['overview',t('anNavOverview')],['revenue',t('anRevenue')],['ridership',t('anRidership')],['operations',t('anOperations')],['fleet',t('anFleetSection')],['customers',t('anNavCustomers')],['growth',t('anNavGrowth')]].map(([v,l])=>`<button class="an-nav-btn${S.anView===v?' active':''}" data-anview="${v}" onclick="setAnView('${v}')">${l}</button>`).join('')}
       </div>
     </div>
 
@@ -11647,7 +11741,8 @@ function renderAnalytics(){
         <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.min(100,Math.round(it.qty/mx*100))}%;background:var(--green)"></div></div>
         <div class="analytics-bar-value"><bdi>${it.qty}</bdi> · SAR ${Math.round(it.value*100)/100}</div>
       </div>`;}).join(''):`<div class="empty-state">${t('cashNoSalesSession')}</div>`}
-    </div>`;
+    </div>
+    ${growthSection()}`;
   _applyAnView(S.anView||'overview'); // show only the active sub-tab's sections
 }
 
