@@ -92,6 +92,28 @@ test.describe('analytics growth', () => {
     expect(out.ltv.reduce((s: number, r: { customers: number }) => s + r.customers, 0)).toBe(3);
   });
 
+  test('a group booking counts as one visit per customer, not one per rider', async ({ page }) => {
+    const out = await page.evaluate(() => {
+      const day = 86400000, now = Date.now();
+      const e = (sid: string, daysAgo: number, extra = 0) => ({
+        status: 'done', customerId: 'sara', paid: true, price: 30,
+        sessionId: sid, checkedInAt: new Date(now - daysAgo * day + extra).toISOString(),
+      });
+      // Sara books 5 riders for ONE session, then rides one more session herself later.
+      const entries = [e('s1', 40, 0), e('s1', 40, 60000), e('s1', 40, 120000), e('s1', 40, 180000), e('s1', 40, 240000), e('s2', 10)];
+      // @ts-expect-error app globals
+      const j = _anCustJourneys(entries);
+      // @ts-expect-error app globals
+      const ret = _anRetentionCurve(entries, now);
+      return { visits: j.sara.times.length, spend: j.sara.spend, ret30: ret['30'] };
+    });
+    expect(out.visits).toBe(2); // s1 (the whole group) + s2 = 2 visits, NOT 6
+    expect(out.spend).toBe(180); // all 6 rider-fees still count toward what she paid
+    // She rode s1 (40d ago) then s2 (10d ago) → returned within 30 days of her first visit
+    expect(out.ret30.eligible).toBe(1);
+    expect(out.ret30.returned).toBe(1);
+  });
+
   test('the month forecast projects from pace so far', async ({ page }) => {
     const out = await page.evaluate(() => {
       const now = new Date();

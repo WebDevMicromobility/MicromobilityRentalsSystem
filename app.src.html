@@ -10802,8 +10802,8 @@ function _anBasketPairs(receipts){
 // Group completed rides by customer into {times:[ms…], spend} — shared by retention & LTV.
 function _anCustJourneys(entries){
   const c={};
-  (entries||[]).forEach(e=>{if(!e.customerId)return;const ts=new Date(e.checkedInAt||e.registeredAt||0).getTime();if(!ts)return;const j=c[e.customerId]||(c[e.customerId]={times:[],spend:0});j.times.push(ts);if(e.paid)j.spend+=(e.price??DEFAULT_PRICE);try{j.spend+=addonsCost(entryAddons(e));}catch(_){}});
-  Object.values(c).forEach(j=>j.times.sort((a,b)=>a-b));
+  (entries||[]).forEach(e=>{if(!e.customerId)return;const ts=new Date(e.checkedInAt||e.registeredAt||0).getTime();if(!ts)return;const j=c[e.customerId]||(c[e.customerId]={_bySess:{},spend:0});const sid=e.sessionId||('t'+ts);if(j._bySess[sid]==null||ts<j._bySess[sid])j._bySess[sid]=ts;if(e.paid)j.spend+=(e.price??DEFAULT_PRICE);try{j.spend+=addonsCost(entryAddons(e));}catch(_){}});
+  Object.values(c).forEach(j=>{j.times=Object.values(j._bySess).sort((a,b)=>a-b);delete j._bySess;});
   return c;
 }
 // Retention curve: of riders whose first ride is ≥N days old, the % who rode again within N days.
@@ -10932,8 +10932,11 @@ function renderAnalytics(){
   
   const totalDone=done.length;
   const uniqueCustIds=[...new Set(done.filter(e=>e.customerId).map(e=>e.customerId))];
+  // Per-customer "rides" = distinct sessions attended (visits). A group booking creates one
+  // entry per rider, all under the account holder, so counting entries over-counts the booker;
+  // counting distinct sessions gives their real visit count.
   const custRideCounts={};
-  done.filter(e=>e.customerId).forEach(e=>{custRideCounts[e.customerId]=(custRideCounts[e.customerId]||0)+1;});
+  (()=>{const _cs={};done.filter(e=>e.customerId).forEach(e=>{(_cs[e.customerId]=_cs[e.customerId]||new Set()).add(e.sessionId);});Object.keys(_cs).forEach(id=>{custRideCounts[id]=_cs[id].size;});})();
   const repeatCustomers=Object.values(custRideCounts).filter(c=>c>=2).length;
   const repeatRideCount=Object.values(custRideCounts).filter(c=>c>=2).reduce((s,c)=>s+c,0);
   const totalAttempted=done.length+noshow.length;
@@ -11254,9 +11257,9 @@ function renderAnalytics(){
     .sort((a,b)=>b.last.localeCompare(a.last));
   // Top customers by spend (within range)
   const topCustomers=(()=>{const m={};done.filter(e=>e.customerId).forEach(e=>{
-    const c=m[e.customerId]||(m[e.customerId]={id:e.customerId,name:e.name,rides:0,spent:0,last:''});
-    c.rides++;c.spent+=(e.price??DEFAULT_PRICE);const d=e.sessionDate||'';if(d>=c.last){c.last=d;c.name=e.name||c.name;}});
-    return Object.values(m).sort((a,b)=>b.spent-a.spent).slice(0,10);})();
+    const c=m[e.customerId]||(m[e.customerId]={id:e.customerId,name:e.name,_s:new Set(),spent:0,last:''});
+    c._s.add(e.sessionId);c.spent+=(e.price??DEFAULT_PRICE);const d=e.sessionDate||'';if(d>=c.last){c.last=d;c.name=e.name||c.name;}});
+    return Object.values(m).map(c=>({id:c.id,name:c.name,rides:c._s.size,spent:c.spent,last:c.last})).sort((a,b)=>b.spent-a.spent).slice(0,10);})();
   const _custPhone=id=>{const c=custAll[id];return c&&c.phone?String(c.phone).replace(/\D/g,''):'';}; // phone comes from the rider's own booking entries (customers table is not bulk-fetched, by design)
   const _waReengage=id=>{const ph=_custPhone(id);if(!ph)return'';
     return`<a class="btn-sm btn-green" style="text-decoration:none" href="https://wa.me/${ph}?text=${encodeURIComponent(t('waMissYouMsg'))}" target="_blank" rel="noopener">WhatsApp</a>`;};
@@ -11371,9 +11374,9 @@ function renderAnalytics(){
     const targetCard=`<div class="chart-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="min-width:0"><div class="chart-card-title">${t('anTargetTitle')}</div><div class="chart-card-sub">${tgt?`${t('anTargetProjEnd').replace('{0}',fc.projRev)} · ${fc.projRev>=tgt?`<b style="color:var(--green)">${t('anTargetOnPace')}</b>`:`<b style="color:var(--orange)">${t('anTargetBehind')}</b>`}`:t('anTargetNone')}</div></div><button class="btn-secondary" style="font-size:12px;padding:6px 12px;flex-shrink:0" onclick="_anSetTarget()">${t('anTargetSet')}</button></div>${tgt?`<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:4px"><span><bdi>SAR ${fc.rev}</bdi></span><span style="color:var(--muted)"><bdi>SAR ${tgt}</bdi></span></div><div style="height:16px;background:var(--s3);border-radius:8px;overflow:hidden"><div style="height:100%;width:${Math.min(100,Math.round(fc.rev/tgt*100))}%;background:${fc.rev>=tgt?'var(--green)':'var(--blue)'};border-radius:8px"></div></div></div>`:''}</div>`;
     // RFM segments (all-time recency/frequency/money)
     const cust={};
-    allQ.filter(e=>e.status==='done'&&e.customerId).forEach(e=>{const id=e.customerId;const c=cust[id]||(cust[id]={rides:0,spend:0,last:0,name:'',phone:''});c.rides++;if(e.paid)c.spend+=(e.price??DEFAULT_PRICE);try{c.spend+=addonsCost(entryAddons(e));}catch(_){}const ts=new Date(e.checkedInAt||e.registeredAt||0).getTime();if(ts>=c.last){c.last=ts;if(e.name)c.name=e.name;if(e.phone)c.phone=e.phone;}});
+    allQ.filter(e=>e.status==='done'&&e.customerId).forEach(e=>{const id=e.customerId;const c=cust[id]||(cust[id]={sess:new Set(),spend:0,last:0,name:'',phone:''});c.sess.add(e.sessionId);if(e.paid)c.spend+=(e.price??DEFAULT_PRICE);try{c.spend+=addonsCost(entryAddons(e));}catch(_){}const ts=new Date(e.checkedInAt||e.registeredAt||0).getTime();if(ts>=c.last){c.last=ts;if(e.name)c.name=e.name;if(e.phone)c.phone=e.phone;}});
     const nowMs=Date.now(),segs={champions:[],loyal:[],newbie:[],atrisk:[],lost:[]};
-    Object.keys(cust).forEach(id=>{const c=cust[id],rec=c.last?Math.round((nowMs-c.last)/86400000):9999;segs[_anRFMSegment(rec,c.rides)].push({...c,recencyDays:rec,spend:Math.round(c.spend)});});
+    Object.keys(cust).forEach(id=>{const c=cust[id],rides=c.sess.size,rec=c.last?Math.round((nowMs-c.last)/86400000):9999;segs[_anRFMSegment(rec,rides)].push({id,name:c.name,phone:c.phone,rides,recencyDays:rec,spend:Math.round(c.spend)});});
     Object.values(segs).forEach(a=>a.sort((x,y)=>y.spend-x.spend||x.recencyDays-y.recencyDays));
     const cap=k=>k.charAt(0).toUpperCase()+k.slice(1);
     const rfmChip=r=>{const ph=_waDigits(r.phone),lbl=`${esc(r.name||'—')} · ${r.rides}🚲 · SAR ${r.spend}`;return ph?`<a style="text-decoration:none;background:var(--s3);border:1px solid var(--border);color:var(--text);font-weight:700;font-size:11px;margin:2px;padding:4px 9px;border-radius:8px;display:inline-block" href="https://wa.me/${ph}?text=${encodeURIComponent(t('anRfmMsg').replace('{0}',(r.name||'').split(' ')[0]||''))}" target="_blank" rel="noopener">${lbl}</a>`:`<span style="background:var(--s3);border:1px solid var(--border);color:var(--muted);font-weight:700;font-size:11px;margin:2px;padding:4px 9px;border-radius:8px;display:inline-block">${lbl}</span>`;};
