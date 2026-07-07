@@ -50,6 +50,23 @@ test.describe('analytics growth', () => {
     expect(out.wa).toBe('966561234567');
   });
 
+  test('market-basket counts product pairs sharing a receipt', async ({ page }) => {
+    const pairs = await page.evaluate(() => {
+      const receipts = [
+        ['Gel', 'Electrolyte', 'Water'],
+        ['Gel', 'Electrolyte'],
+        ['Gel', 'Bar'],
+        ['Water'], // single-item: no pairs
+      ];
+      // @ts-expect-error app globals
+      return _anBasketPairs(receipts);
+    });
+    const top = pairs.find((p: { pair: string }) => p.pair === 'Electrolyte + Gel');
+    expect(top).toBeTruthy();
+    expect(top.count).toBe(2); // Gel+Electrolyte appears on 2 receipts
+    expect(pairs.every((p: { count: number }) => p.count >= 1)).toBe(true);
+  });
+
   test('the month forecast projects from pace so far', async ({ page }) => {
     const out = await page.evaluate(() => {
       const now = new Date();

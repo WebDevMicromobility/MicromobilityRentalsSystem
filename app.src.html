@@ -262,6 +262,7 @@ en:{
   anRfmChampions:'Champions',anRfmLoyal:'Loyal',anRfmNew:'New',anRfmAtRisk:'At risk',anRfmLost:'Lost',
   anRfmChampionsD:'frequent & recent',anRfmLoyalD:'2+ rides, still active',anRfmNewD:'first ride, recent',anRfmAtRiskD:'slipping away — win them back',anRfmLostD:'no ride in 60+ days',
   anRfmNone:'No riders here yet.',anRfmMore:'+{0} more',anRfmMsg:"Hi {0}! It's MicroMobility 🚲 — hope to see you on a ride soon!",
+  anBasketTitle:'Bought together',anBasketSub:'Products that share a receipt — good bundle candidates',anBasketNone:'Not enough multi-item receipts yet.',
   anPageSub:'Business performance · live data from all completed sessions.',
   anShowing:'Showing:',anAllTime:'All Time',anLast5:'Last 5 Sessions',anLast10:'Last 10 Sessions',anThisMonth:'This Month',anThisYear:'This Year',
   anCollected:'Collected',anTotal:'Total',anRiders:'Riders',anCapacity:'Capacity',
@@ -635,6 +636,7 @@ ar:{
   anRfmChampions:'الأبطال',anRfmLoyal:'الأوفياء',anRfmNew:'جدد',anRfmAtRisk:'معرّضون للفقد',anRfmLost:'مفقودون',
   anRfmChampionsD:'متكررون وحديثون',anRfmLoyalD:'رحلتان أو أكثر، نشطون',anRfmNewD:'أول رحلة، حديثاً',anRfmAtRiskD:'يبتعدون — استعِدهم',anRfmLostD:'لا رحلة منذ 60+ يوماً',
   anRfmNone:'لا يوجد ركاب هنا بعد.',anRfmMore:'+{0} آخرون',anRfmMsg:'مرحباً {0}! نحن مايكروموبيليتي 🚲 — نتطلع لرؤيتك في رحلة قريباً!',
+  anBasketTitle:'تُشترى معاً',anBasketSub:'منتجات تشترك في نفس الفاتورة — مرشّحة للعروض المجمّعة',anBasketNone:'لا توجد فواتير متعددة العناصر بعد.',
   anPageSub:'لوحة أداء الأعمال · بيانات مباشرة من جميع الجلسات المكتملة.',
   anShowing:'عرض:',anAllTime:'كل الوقت',anLast5:'آخر 5 جلسات',anLast10:'آخر 10 جلسات',anThisMonth:'هذا الشهر',anThisYear:'هذه السنة',
   anCollected:'المحصّل',anTotal:'الإجمالي',anRiders:'الراكبون',anCapacity:'الطاقة',
@@ -10752,6 +10754,12 @@ function _anRFMSegment(recencyDays,freq){
   return'loyal';
 }
 function _waDigits(phone){return String(phone||'').replace(/\D/g,'');} // wa.me wants digits only (phones are stored E.164)
+// Market-basket: count unordered product pairs that appear on the same receipt.
+function _anBasketPairs(receipts){
+  const pc={};
+  (receipts||[]).forEach(items=>{const u=[...new Set(items)].filter(Boolean).sort();for(let i=0;i<u.length;i++)for(let j=i+1;j<u.length;j++){const k=u[i]+' + '+u[j];pc[k]=(pc[k]||0)+1;}});
+  return Object.entries(pc).map(([pair,count])=>({pair,count})).sort((a,b)=>b.count-a.count).slice(0,8);
+}
 function _anCsvCell(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
 function _anExportCSV(){
   const rows=(S&&S._anCsvRows)||[];
@@ -11257,9 +11265,13 @@ function renderAnalytics(){
     const rfmChip=r=>{const ph=_waDigits(r.phone),lbl=`${esc(r.name||'—')} · ${r.rides}🚲 · SAR ${r.spend}`;return ph?`<a style="text-decoration:none;background:var(--s3);border:1px solid var(--border);color:var(--text);font-weight:700;font-size:11px;margin:2px;padding:4px 9px;border-radius:8px;display:inline-block" href="https://wa.me/${ph}?text=${encodeURIComponent(t('anRfmMsg').replace('{0}',(r.name||'').split(' ')[0]||''))}" target="_blank" rel="noopener">${lbl}</a>`:`<span style="background:var(--s3);border:1px solid var(--border);color:var(--muted);font-weight:700;font-size:11px;margin:2px;padding:4px 9px;border-radius:8px;display:inline-block">${lbl}</span>`;};
     const segMeta=[['champions','var(--green)'],['loyal','var(--blue)'],['newbie','var(--green)'],['atrisk','var(--orange)'],['lost','var(--muted-l)']];
     const rfm=`<div class="chart-card"><div class="chart-card-title">${t('anRfmTitle')}</div><div class="chart-card-sub">${t('anRfmSub')}</div>${segMeta.map(([k,col])=>{const list=segs[k];return`<div style="margin-top:10px"><div style="font-size:12px;font-weight:900;color:${col};text-transform:uppercase;letter-spacing:.4px">${t('anRfm'+cap(k))} <span style="color:var(--muted);font-weight:700">${list.length}</span> <span style="color:var(--muted);font-weight:600;text-transform:none">· ${t('anRfm'+cap(k)+'D')}</span></div><div style="display:flex;flex-wrap:wrap;margin-top:4px">${list.length?list.slice(0,10).map(rfmChip).join('')+(list.length>10?`<span style="font-size:11px;color:var(--muted);align-self:center;margin-inline-start:6px">${t('anRfmMore').replace('{0}',list.length-10)}</span>`:''):`<span style="font-size:11px;color:var(--muted)">${t('anRfmNone')}</span>`}</div></div>`;}).join('')}</div>`;
+    // Market-basket: product pairs sharing a receipt (cashier sales in range)
+    const rcpt={};(S.cashSales||[]).filter(r=>sessIds.has(r.session_id)&&r.pay!=='refunded'&&r.category!=='__cardmeta__'&&r.category!=='__discount__'&&(Number(r.qty)||0)>0).forEach(r=>{const k=r.receipt_id||r.id;(rcpt[k]=rcpt[k]||[]).push(r.name||'—');});
+    const pairs=_anBasketPairs(Object.values(rcpt)),pmax=pairs.length?pairs[0].count:1;
+    const basket=`<div class="chart-card"><div class="chart-card-title">${t('anBasketTitle')}</div><div class="chart-card-sub">${t('anBasketSub')}</div>${pairs.length?pairs.map(p=>`<div class="analytics-bar-row"><div class="analytics-bar-label" style="min-width:150px">${esc(p.pair)}</div><div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(p.count/pmax*100)}%;background:var(--blue)"></div></div><div class="analytics-bar-value">${p.count}×</div></div>`).join(''):`<div class="empty-state">${t('anBasketNone')}</div>`}</div>`;
     return`<div class="an-anchor" data-anview="growth"></div>
     <div class="analytics-section-title">${t('anNavGrowth')}</div>
-    ${kpis}${funnel}${heatCard}${rfm}`;
+    ${kpis}${funnel}${heatCard}${rfm}${basket}`;
   }
 
   // Rows behind the "Export CSV" button (per-session summary for the current range).
