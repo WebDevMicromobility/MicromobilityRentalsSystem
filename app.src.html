@@ -1067,7 +1067,7 @@ async function staffAuthSignOut(){S._staffAuthed=false;try{await sb.auth.signOut
 // On boot: an unlocked staff device must still hold a live Auth session that maps
 // to a staff row, or the unlock flag is dropped and the PIN gate returns.
 async function staffAuthRestore(){
-  if(!SECURE_AUTH||!sb||localStorage.getItem('cq_staff')!=='1')return;
+  if(!sb||localStorage.getItem('cq_staff')!=='1')return;
   try{
     const{data}=await sb.auth.getSession();
     const uid=data&&data.session&&data.session.user&&data.session.user.id;
@@ -1075,9 +1075,14 @@ async function staffAuthRestore(){
     const{data:row}=await sb.from('staff').select('*').eq('user_id',uid).maybeSingle();
     if(!row)throw 0;
     S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;setStaffRole(row.role==='frontdesk'?'frontdesk':'admin');
-  }catch(e){try{localStorage.removeItem('cq_staff');}catch(_){}S._staffAuthed=false;}
+  }catch(e){
+    // Secure mode: no Auth session means no access — drop the unlock. Open mode: keep the
+    // local unlock (reads are public); only the _staffAuthed extras stay off.
+    if(SECURE_AUTH){try{localStorage.removeItem('cq_staff');}catch(_){}}
+    S._staffAuthed=false;
+  }
 }
-async function lockStaff(){try{localStorage.removeItem('cq_staff');}catch(e){}if(SECURE_AUTH)await staffAuthSignOut();window.location.href='./';}
+async function lockStaff(){try{localStorage.removeItem('cq_staff');}catch(e){}await staffAuthSignOut();window.location.href='./';}
 function _clearPinLock(){try{localStorage.removeItem('cq_pin_until');localStorage.removeItem('cq_pin_lockouts');localStorage.removeItem('cq_pin_attempts');}catch(e){}}
 function _fmtLock(ms){const s=Math.ceil(ms/1000);if(s<60)return`${s}s`;const m=Math.floor(s/60),r=s%60;if(m<60)return r?`${m}m ${r}s`:`${m}m`;const h=Math.floor(m/60),rm=m%60;return rm?`${h}h ${rm}m`:`${h}h`;}
 
@@ -1913,7 +1918,15 @@ function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid&&e.stat
 // Sequential and ascending so the partial unique (session_id,queue_num) index never sees two LIVE rows share a number mid-shift.
 // True when we're acting as a signed-in customer against a locked DB: queue_entries
 // writes must then go through the token-checked RPCs (staff/open mode write directly).
-function _asCustomer(){return SECURE_AUTH&&!S._staffAuthed;}
+function _asCustomer(){
+  // "Acting as a customer" = a signed-in customer (token) on a non-staff session. Independent of
+  // the SECURE_AUTH flag: the customers/inventory RLS is always on, so a customer's own writes
+  // must always ride the token RPCs. (Tying this to the flag silently dropped add-on stock
+  // consumption on customer bookings once the flag defaulted off.)
+  if(S._staffAuthed)return false;
+  const c=S.loggedIn||getSession();
+  return !!(c&&c.session_token);
+}
 // One door for a customer's own queue_entries write (patch keyed by DB column names).
 async function _ownEntryUpdate(entryId,patch){
   if(_asCustomer()){
@@ -2771,7 +2784,7 @@ function renderTopbarRight(){
         ?`<button class="topbar-btn" onclick="setStaffRole('frontdesk')" title="${t('switchToFrontDesk')}">${t('switchToFrontDesk')}</button>`
         :`<button class="topbar-btn" onclick="openPinModal(true)" title="${t('switchToAdmin')}"> ${t('switchToAdmin')}</button>`}
       ${last?`<button class="topbar-btn undo-btn" onclick="doUndo()" title="${esc(last.label)}" style="animation:undoPulse 2s ease-in-out infinite">&#x21B6; Undo</button>`:''}
-      ${(SECURE_AUTH&&S._staffAuthed)?`<button class="topbar-btn" onclick="openStaffPwdModal()" title="${t('staffPwdTitle')}" aria-label="${t('staffPwdTitle')}">&#x1F511;</button>`:''}
+      ${S._staffAuthed?`<button class="topbar-btn" onclick="openStaffPwdModal()" title="${t('staffPwdTitle')}" aria-label="${t('staffPwdTitle')}">&#x1F511;</button>`:''}
       <button class="topbar-btn danger" onclick="lockStaff()">${t('lockBtn')}</button>`;
   } else {
     el.innerHTML='';
@@ -2783,7 +2796,7 @@ function renderTopbarRight(){
 // Self-service: a signed-in staff member sets their own Supabase Auth password.
 // updateUser works because they're already authenticated — no admin/SQL/email needed.
 function openStaffPwdModal(mandatory){
-  if(!(SECURE_AUTH&&S._staffAuthed)){toast(t('errConnection'),'error');return;}
+  if(!S._staffAuthed){toast(t('errConnection'),'error');return;}
   S._pwdMandatory=!!mandatory; // first-time forced change: no cancel, can't dismiss
   let m=document.getElementById('staff-pwd-modal');
   if(!m){m=document.createElement('div');m.id='staff-pwd-modal';document.body.appendChild(m);}
@@ -2820,10 +2833,10 @@ async function _staffPwdSubmit(){
 }
 function openPinModal(upgrade){
   S.pinDigits='';S.pinError=false;S._pinUpgrade=!!upgrade;
-  // Secure mode (production): the 4-digit PIN is client-side only and adds nothing over
-  // the staff Auth login (the database only answers to a real staff session), so skip it
-  // and go straight to email/password. Open mode keeps the PIN as its sole gate.
-  S._pinStage=SECURE_AUTH?'auth':null;
+  // The staff gate is ALWAYS the email/password Auth login (the 4-digit PIN was removed;
+  // it must not resurface when the queue lockdown flag is off). A real Auth session is also
+  // what satisfies the DB's is_staff() write policies on inventory/sessions/bikes.
+  S._pinStage='auth';
   renderPinModal();
 }
 

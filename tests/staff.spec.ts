@@ -1,11 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { stubSupabase, unlockStaff } from './helpers/supabase';
 
-test('visiting ?staff without a PIN shows the locked PIN pad', async ({ page }) => {
+test('visiting ?staff locked shows the staff email/password gate (no PIN pad)', async ({ page }) => {
   await stubSupabase(page);
   await page.goto('/?staff');
-  await expect(page.locator('.pin-title')).toHaveText('Staff Access');
-  await expect(page.locator('.pin-key').first()).toBeVisible();
+  await expect(page.locator('#staff-auth-email')).toBeVisible();
+  await expect(page.locator('#staff-auth-pwd')).toBeVisible();
+  await expect(page.locator('.pin-key')).toHaveCount(0); // the 4-digit PIN must never resurface
 });
 
 test('the staff link always opens the staff panel, even after browsing as a customer', async ({ page }) => {
@@ -20,13 +21,13 @@ test('the staff link always opens the staff panel, even after browsing as a cust
   await expect(page.locator('#staff-tab-nav')).toBeVisible(); // staff panel, NOT the customer page
 });
 
-test('a wrong PIN is rejected with an error', async ({ page }) => {
-  await stubSupabase(page);
+test('wrong staff credentials are rejected with an error', async ({ page }) => {
+  await stubSupabase(page); // stub answers auth/token with invalid_grant by default
   await page.goto('/?staff');
-  for (const d of ['9', '9', '9', '9']) {
-    await page.locator('.pin-key', { hasText: d }).first().click();
-  }
-  await expect(page.locator('.pin-error')).not.toBeEmpty();
+  await page.fill('#staff-auth-email', 'nobody@example.com');
+  await page.fill('#staff-auth-pwd', 'wrong-password');
+  await page.locator('#pin-modal .btn-primary').click();
+  await expect(page.locator('#staff-auth-err')).not.toBeEmpty();
 });
 
 test.describe('unlocked staff panel', () => {
