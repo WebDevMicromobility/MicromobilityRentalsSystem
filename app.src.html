@@ -4571,7 +4571,7 @@ async function _consumeAddonsOnEnter(entry){
 }
 // ── Per-rider add-on editor: staff or the customer can add/remove add-ons for ONE specific rider ──
 function showAddonPicker(entryId){S._addonPickerEntry=entryId;renderAddonPicker();}
-function closeAddonPicker(){const m=document.getElementById('addon-picker-backdrop');if(m)m.remove();S._addonPickerEntry=null;}
+function closeAddonPicker(){const m=document.getElementById('addon-picker-backdrop');if(m)m.remove();S._addonPickerEntry=null;const _r=S._epReturnId;S._epReturnId=null;if(_r)showEditPriceModal(_r);} // return to the edit-price modal if we came from it
 function renderAddonPicker(){
   const id=S._addonPickerEntry;if(!id)return;
   const e=getQueue().find(x=>x.id===id);if(!e){closeAddonPicker();return;}
@@ -4611,20 +4611,33 @@ function renderAddonPicker(){
     <button class="btn-primary" style="width:100%;margin-top:12px" onclick="closeAddonPicker()">${t('cashDone')}</button>
   </div>`;
 }
-async function _addonPickerStep(addonId,delta){
-  const id=S._addonPickerEntry;const e=getQueue().find(x=>x.id===id);if(!e)return;
-  const it=(S.inventory||[]).find(x=>x.id===addonId);if(!it)return;
+// Core: add (+1) or remove (−1) one unit of an add-on on a booking; updates stock + DB. No render.
+async function _entryAddonMutate(id,addonId,delta){
+  const e=getQueue().find(x=>x.id===id);if(!e)return false;
+  const it=(S.inventory||[]).find(x=>x.id===addonId);if(!it)return false;
   const stock=Number(it.qty)||0;
   let cur=entryAddons(e);
   const a=cur.find(x=>x.id===addonId);
-  if(delta>0){if(stock<=0)return;if(a)a.qty+=1;else cur.push({id:addonId,qty:1});}
-  else{if(!a)return;a.qty-=1;if(a.qty<=0)cur=cur.filter(x=>x.id!==addonId);}
+  if(delta>0){if(stock<=0)return false;if(a)a.qty+=1;else cur.push({id:addonId,qty:1});}
+  else{if(!a)return false;a.qty-=1;if(a.qty<=0)cur=cur.filter(x=>x.id!==addonId);}
   e.addons=cur;                                            // live update so totals/views reflect immediately
   await _addonStockQ([{id:addonId,qty:1}],delta>0?-1:1);   // consume on +, restock on - (per rider)
   try{await sb.from('queue_entries').update({addons:JSON.stringify(cur)}).eq('id',id);}catch(err){} // tolerant: missing column won't break
+  return true;
+}
+async function _addonPickerStep(addonId,delta){
+  await _entryAddonMutate(S._addonPickerEntry,addonId,delta);
   renderAddonPicker();
   if(S.view==='staff')renderStaffQueue();else if(S.view==='customer')renderMyRides();
 }
+// Same, but driven from the Edit Payment Amount modal (re-renders that modal's totals).
+async function _epAddonStep(id,addonId,delta){
+  await _entryAddonMutate(id,addonId,delta);
+  showEditPriceModal(id);
+  if(S.view==='staff')renderStaffQueue();
+}
+// From the edit modal, open the full add-on catalog to add new products, then return to the modal.
+function _epOpenAddons(id){S._epReturnId=id;closeEditPriceModal();showAddonPicker(id);}
 
 
 // One-click data backup (admin): downloads the whole dataset as JSON
@@ -6649,11 +6662,33 @@ function showEditPriceModal(id){
       ${isCur?'<span style="font-size:11px">✓</span>':''}
     </button>`;
   }).join('');
+  // Add-on breakdown so the amount shown is the FULL total (rental + add-ons), with per-add-on
+  // steppers to adjust/remove each and a button to add more from the catalog.
+  const _ad=addonLineItems(entryAddons(entry));
+  const _adTotal=addonsCost(entryAddons(entry));
+  const _grand=Math.round((cur+_adTotal)*100)/100;
+  const _fmtSar=v=>v%1===0?v:v.toFixed(2);
+  const breakdown=`<div style="border:1px solid var(--border);border-radius:12px;padding:12px 12px 10px;margin-bottom:16px;background:var(--s1)">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;font-weight:900;font-size:16px;margin-bottom:8px"><span>${t('reviewTotalLabel')}</span><span style="color:var(--green)"><bdi>SAR ${_fmtSar(_grand)}</bdi></span></div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0;color:var(--muted)"><span>${t('reviewRentalLabel')}</span><span style="font-weight:700;color:var(--text)"><bdi>SAR ${_fmtSar(cur)}</bdi></span></div>
+    ${_ad.map(a=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px">
+      <span style="flex:1;min-width:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.name)}</span>
+      <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
+        <button onclick="_epAddonStep('${id}','${a.id}',-1)" aria-label="−" style="width:26px;height:26px;border-radius:7px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-size:16px;font-weight:800;cursor:pointer;line-height:1">−</button>
+        <span style="min-width:16px;text-align:center;font-weight:800">${a.qty}</span>
+        <button onclick="_epAddonStep('${id}','${a.id}',1)" aria-label="+" style="width:26px;height:26px;border-radius:7px;border:1px solid var(--green);background:rgba(3,255,137,.12);color:var(--green);font-size:16px;font-weight:800;cursor:pointer;line-height:1">+</button>
+      </div>
+      <span style="min-width:58px;text-align:end;font-weight:700;color:var(--green);flex-shrink:0"><bdi>SAR ${a.lineTotal}</bdi></span>
+    </div>`).join('')}
+    <button class="btn-secondary" style="width:100%;margin-top:9px;font-size:12px;padding:8px" onclick="_epOpenAddons('${id}')">+ ${t('addonAddBtn')}</button>
+  </div>`;
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeEditPriceModal()">
-    <div class="modal-box" role="dialog" aria-modal="true" style="max-width:360px">
+    <div class="modal-box" role="dialog" aria-modal="true" style="max-width:380px">
       <div class="modal-title">${t('editPriceTitle')}</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:16px">#${entry.queueNum} - ${esc(entry.name)}</div>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;max-height:280px;overflow-y:auto;padding-right:2px">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px">#${entry.queueNum} - ${esc(entry.name)}</div>
+      ${breakdown}
+      <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:8px">${t('reviewRentalLabel')}</label>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px;max-height:220px;overflow-y:auto;padding-right:2px">
         ${presetBtns}
       </div>
       <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:14px">
