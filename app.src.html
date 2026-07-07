@@ -4628,14 +4628,26 @@ async function _addonPickerStep(addonId,delta){
 
 // One-click data backup (admin): downloads the whole dataset as JSON
 // Repeat no-show count for the rider behind an entry (by account, else name+phone)
+// No-show tallies, built once per queue and cached (rebuilds when the queue array/length changes).
+// noShowFlag() is rendered for every booking row, so scanning the whole queue per call made the
+// Bookings tab O(n²) and slow to load; this map makes each lookup O(1).
+let _nsRef=null,_nsLen=-1,_nsById=null,_nsByNP=null;
+function _noShowCounts(){
+  const ql=S.queue||[];
+  if(_nsRef===S.queue&&_nsLen===ql.length&&_nsById)return{byId:_nsById,byNP:_nsByNP};
+  const byId={},byNP={};
+  ql.forEach(x=>{if(x.status!=='noshow')return;if(x.customerId){byId[x.customerId]=(byId[x.customerId]||0)+1;}else{const nm=(x.name||'').trim(),ph=(x.phone||'').trim();if(nm||ph)byNP[nm+' '+ph]=(byNP[nm+' '+ph]||0)+1;}});
+  _nsRef=S.queue;_nsLen=ql.length;_nsById=byId;_nsByNP=byNP;return{byId,byNP};
+}
 function customerNoShows(e){
   if(!e)return 0;
-  const q=getQueue();
-  if(e.customerId)return q.filter(x=>x.customerId===e.customerId&&x.status==='noshow').length;
+  const{byId,byNP}=_noShowCounts();
+  if(e.customerId)return byId[e.customerId]||0;
   // No account: identify by name+phone. If both are missing (e.g. PII-free data), we can't
   // tell riders apart — don't group them (that once made every anonymous row count as one).
-  if(!(e.name||'').trim()&&!(e.phone||'').trim())return 0;
-  return q.filter(x=>!x.customerId&&x.status==='noshow'&&x.name===e.name&&(x.phone||'')===(e.phone||'')).length;
+  const nm=(e.name||'').trim(),ph=(e.phone||'').trim();
+  if(!nm&&!ph)return 0;
+  return byNP[nm+' '+ph]||0;
 }
 const ICON_PENCIL='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 // Shared monochrome action-icon set (inherits currentColor), unifies button visuals now that emoji are gone.
@@ -5501,16 +5513,17 @@ function renderStaffQueue(){
 
   
   function buildQueueGroups(entries){
-    const groups=[],handled=new Set();
+    // O(n): index rows by customer+session in one pass instead of re-filtering the whole list
+    // per group (which was O(n²) on the flat Bookings view and slow with many bookings).
+    const byKey=new Map(),order=[];
     for(const e of entries){
-      if(handled.has(e.id))continue;
-      if(!e.customerId){groups.push([e]);handled.add(e.id);continue;}
-      const siblings=entries
-        .filter(x=>!handled.has(x.id)&&x.customerId===e.customerId&&x.sessionId===e.sessionId)
-        .sort((a,b)=>a.queueNum-b.queueNum);
-      siblings.forEach(x=>handled.add(x.id));
-      groups.push(siblings);
+      if(!e.customerId){order.push({solo:e});continue;}
+      const k=e.customerId+'|'+e.sessionId;
+      let g=byKey.get(k);
+      if(!g){g=[];byKey.set(k,g);order.push({key:k});}
+      g.push(e);
     }
+    const groups=order.map(o=>o.solo?[o.solo]:byKey.get(o.key).sort((a,b)=>a.queueNum-b.queueNum));
     return groups;
   }
 
@@ -5879,9 +5892,10 @@ function renderStaffQueue(){
     }).join('');
     if(!filtered.length)mobileCards=`<div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div>`;
   }else{
-    rows=buildQueueGroups(filtered).map(g=>renderGroupRow(g)).join('');
+    const _fg=buildQueueGroups(filtered); // build once, reuse for the table + the mobile cards
+    rows=_fg.map(g=>renderGroupRow(g)).join('');
     emptyRow=filtered.length===0?`<tr><td colspan="13"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`:'';
-    mobileCards=buildQueueGroups(filtered).map(g=>renderGroupCard(g)).join('');
+    mobileCards=_fg.map(g=>renderGroupCard(g)).join('');
     if(!filtered.length)mobileCards=`<div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div>`;
   }
   document.getElementById('tab-queue').innerHTML=_qvPills+_queueHeader+_sessSummaryBar+`
