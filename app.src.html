@@ -252,7 +252,7 @@ en:{
   anNoData:'No completed rides yet. Data will appear here once sessions are done.',
   anRevenue:'Revenue',anRidership:'Ridership',anOperations:'Operations',anHighlights:'Highlights',
   anNavOverview:'Overview',anNavCustomers:'Customers',anVsPrev:'vs prev period',anNoPrev:'no prior period',
-  anNavGrowth:'Growth',anExportCsv:'Export CSV',anCsvEmpty:'Nothing to export in this range.',
+  anNavGrowth:'Growth',anExportCsv:'Export CSV',anCsvEmpty:'Nothing to export in this range.',anDigestShare:'Share digest',
   anAnomalyTitle:'Trend alert',anAnomalyDown:'Latest session down {0}% vs your usual {1} riders — check timing, weather or run a promo.',anAnomalyUp:'Latest session up {0}% vs your usual {1} riders — ride the momentum.',
   anFunnelTitle:'Booking funnel',anFunnelSub:'Where riders drop off between booking and finishing',anFunnelBooked:'Booked',anFunnelCheckedIn:'Checked in',anFunnelCompleted:'Completed',
   anHeatTitle:'Demand heatmap',anHeatSub:'Rides by day & time of day — schedule sessions around the hot spots',
@@ -631,7 +631,7 @@ ar:{
   anNoData:'لا توجد رحلات مكتملة بعد. ستظهر البيانات هنا عند اكتمال الجلسات.',
   anRevenue:'الإيرادات',anRidership:'الراكبون',anOperations:'العمليات',anHighlights:'أبرز المؤشرات',
   anNavOverview:'نظرة عامة',anNavCustomers:'العملاء',anVsPrev:'مقارنة بالفترة السابقة',anNoPrev:'لا توجد فترة سابقة',
-  anNavGrowth:'النمو',anExportCsv:'تصدير CSV',anCsvEmpty:'لا يوجد ما يُصدَّر في هذا النطاق.',
+  anNavGrowth:'النمو',anExportCsv:'تصدير CSV',anCsvEmpty:'لا يوجد ما يُصدَّر في هذا النطاق.',anDigestShare:'مشاركة الملخص',
   anAnomalyTitle:'تنبيه اتجاه',anAnomalyDown:'آخر جلسة أقل بـ {0}% من معدّلك المعتاد {1} راكب — راجع التوقيت أو الطقس أو أطلق عرضاً.',anAnomalyUp:'آخر جلسة أعلى بـ {0}% من معدّلك المعتاد {1} راكب — استثمر هذا الزخم.',
   anFunnelTitle:'مسار الحجز',anFunnelSub:'أين يتسرّب الركاب بين الحجز وإنهاء الرحلة',anFunnelBooked:'محجوز',anFunnelCheckedIn:'تم الحضور',anFunnelCompleted:'مكتمل',
   anHeatTitle:'خريطة الطلب الحرارية',anHeatSub:'الرحلات حسب اليوم ووقت اليوم — جدول الجلسات حول أوقات الذروة',
@@ -10799,6 +10799,11 @@ function _anLTVByCohort(entries){
   return Object.entries(mo).sort((a,b)=>a[0]<b[0]?1:-1).slice(0,6).map(([month,v])=>({month,customers:v.n,avgLtv:Math.round(v.spend/v.n)}));
 }
 function _anCsvCell(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+function _anShareDigest(){
+  const txt=(S&&S._anDigestText)||'';
+  if(!txt){toast(t('anCsvEmpty'));return;}
+  try{window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');}catch(e){}
+}
 function _anSetTarget(){
   const cur=(S&&S.anRevTarget)||0;
   const v=prompt(t('anTargetPrompt'),cur||'');
@@ -11353,8 +11358,10 @@ function renderAnalytics(){
 
   // Rows behind the "Export CSV" button (per-session summary for the current range).
   S._anCsvRows=sessions.map(s=>{const sd=done.filter(e=>e.sessionId===s.id);const rev=sd.filter(e=>e.paid).reduce((a,e)=>a+(e.price??DEFAULT_PRICE),0);const cap=s.capacity||12;return{date:s.session_date||s.id,day:s.day||'',riders:sd.length,no_shows:noshow.filter(e=>e.sessionId===s.id).length,revenue_sar:Math.round(rev),occupancy_pct:cap?Math.round(sd.length/cap*100):0};});
+  // Text behind the "Share digest" button (WhatsApp-friendly summary of the current range).
+  S._anDigestText=`MicroMobility — ${t('tabAnalytics')}\n🚲 ${t('anTotalRides')}: ${done.length}\n💰 ${t('anRevCollected')}: SAR ${Math.round(revCollected)}${revPending>0?` (+SAR ${Math.round(revPending)} ${t('printPending').toLowerCase()})`:''}\n📊 ${t('anAvgOccupancy')}: ${avgOccupancy}%${anTopItems.length?`\n🏆 ${t('anTopSellers')}: ${anTopItems[0].name}`:''}${noshow.length?`\n⚠️ ${t('anNoShowRate')}: ${noShowRate}% (${noshow.length})`:''}`;
   document.getElementById('tab-analytics').innerHTML=`
-    <div class="page-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>${t('tabAnalytics')}</span><button class="btn-secondary" style="font-size:12px;padding:6px 12px" onclick="_anExportCSV()">↓ ${t('anExportCsv')}</button></div>
+    <div class="page-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>${t('tabAnalytics')}</span><span style="display:flex;gap:8px"><button class="btn-secondary" style="font-size:12px;padding:6px 12px" onclick="_anShareDigest()">↗ ${t('anDigestShare')}</button><button class="btn-secondary" style="font-size:12px;padding:6px 12px" onclick="_anExportCSV()">↓ ${t('anExportCsv')}</button></span></div>
     <div class="page-sub">${t('anPageSub')}</div>
     <div class="an-sticky">
       ${_rangeBar()}
