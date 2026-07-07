@@ -550,7 +550,7 @@ en:{
   receiptBtn:'Receipt',receiptPrintBtn:'Print / Save as PDF',receiptRefLabel:'Booking ref',receiptDateLabel:'Issued',receiptPaidLabel:'Payment',
   typeRoad:'Road',typeHybrid:'Hybrid',typeMountain:'Mountain',typeGravel:'Gravel',typeAny:'Any',
   
-  liveLabel:'Live',justNow:'just now',secondsAgo:'s ago',minutesAgo:'m ago',offlineLabel:'Offline',offlineBanner:'You are offline - changes are saved and will sync when the connection returns.',
+  liveLabel:'Live',updateReadyToast:'A new version is ready — refresh the page to update.',justNow:'just now',secondsAgo:'s ago',minutesAgo:'m ago',offlineLabel:'Offline',offlineBanner:'You are offline - changes are saved and will sync when the connection returns.',
   selectSessionPrompt:'Select a session above',selectSessionSub:'Click a session chip to view and manage its queue independently.',
   undoBtn:'↩ Undo',undoneMsg:'↩ Undone.',undoFailed:'Undo failed.',themeLight:'Sunlight mode',themeDark:'Night mode',
   fleetBadge:'Fleet',altBadge:'Alt',
@@ -921,7 +921,7 @@ ar:{
   receiptSeeYou:'نأمل رؤيتك في حلبة الكورنيش مجدداً!',
   receiptBtn:'الإيصال',receiptPrintBtn:'طباعة / حفظ PDF',receiptRefLabel:'رقم الحجز',receiptDateLabel:'تاريخ الإصدار',receiptPaidLabel:'الدفع',
   typeRoad:'طريق',typeHybrid:'هجين',typeMountain:'جبلي',typeGravel:'حصى',typeAny:'أي نوع',
-  liveLabel:'مباشر',justNow:'الآن',secondsAgo:'ث مضت',minutesAgo:'د مضت',offlineLabel:'غير متصل',offlineBanner:'أنت غير متصل - يتم حفظ التغييرات وستتم المزامنة عند عودة الاتصال.',
+  liveLabel:'مباشر',updateReadyToast:'يتوفر إصدار جديد — حدّث الصفحة للتحديث.',justNow:'الآن',secondsAgo:'ث مضت',minutesAgo:'د مضت',offlineLabel:'غير متصل',offlineBanner:'أنت غير متصل - يتم حفظ التغييرات وستتم المزامنة عند عودة الاتصال.',
   selectSessionPrompt:'اختر جلسة من الأعلى',selectSessionSub:'انقر على إحدى الجلسات لعرض طابورها وإدارته بشكل مستقل.',
   undoBtn:'↩ تراجع',undoneMsg:'↩ تم التراجع.',undoFailed:'فشل التراجع.',themeLight:'وضع النهار',themeDark:'الوضع الليلي',
   fleetBadge:'الأسطول',altBadge:'بديل',
@@ -12376,6 +12376,18 @@ try{document.addEventListener('keydown',function(e){
 
 if('serviceWorker' in navigator){
   window.addEventListener('load',()=>{navigator.serviceWorker.register('service-worker.js').catch(e=>console.warn('SW registration failed:',e));});
+  // Self-updating shell: the SW messages us when a NEW deploy replaced the cached index.html.
+  // If the page just opened and the user hasn't touched anything, reload silently so they run
+  // the fresh build (stale builds caused 'Connection error' signups after fixes shipped).
+  // Mid-session, don't yank the page away — show a toast instead.
+  const _swBootAt=Date.now();let _userTouched=false;
+  try{['pointerdown','keydown'].forEach(ev=>window.addEventListener(ev,()=>{_userTouched=true;},{once:true,passive:true}));}catch(e){}
+  try{navigator.serviceWorker.addEventListener('message',ev=>{
+    if(!ev.data||ev.data.type!=='shell-updated')return;
+    if(sessionStorage.getItem('cq_upd_reload')==='1')return; // at most one auto-reload per session (no loops)
+    if(Date.now()-_swBootAt<8000&&!_userTouched){try{sessionStorage.setItem('cq_upd_reload','1');}catch(e){}location.reload();return;}
+    try{toast(t('updateReadyToast'));}catch(e){}
+  });}catch(e){}
 }
 </script>
 </body>

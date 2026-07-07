@@ -1,5 +1,5 @@
 
-const CACHE = 'mmcq-v93';
+const CACHE = 'mmcq-v94';
 const IMG_CACHE = 'mmcq-img'; // Supabase Storage photos; persists across app versions (content-addressed)
 const SHELL = [
   './',
@@ -51,7 +51,14 @@ self.addEventListener('fetch', (e) => {
           // A redirected response can't back a navigation in Safari; only cache/return clean ones.
           if (res && res.ok && !res.redirected) {
             const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put('./index.html', copy));
+            // If the shell actually changed (new deploy), tell open pages so they can refresh
+            // themselves — otherwise a stale (possibly buggy) build keeps running for a full visit.
+            const newTag = res.headers.get('etag');
+            const oldTag = cached && cached.headers.get('etag');
+            const changed = !!cached && (!newTag || !oldTag || newTag !== oldTag);
+            caches.open(CACHE).then((c) => c.put('./index.html', copy)).then(() => {
+              if (changed) self.clients.matchAll({ type: 'window' }).then((cs) => cs.forEach((c) => c.postMessage({ type: 'shell-updated' })));
+            });
           }
           return res && res.redirected
             ? new Response(res.body, { status: res.status, statusText: res.statusText, headers: res.headers })
