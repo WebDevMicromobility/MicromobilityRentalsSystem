@@ -2142,7 +2142,7 @@ function renderAuthModal(){
         <div class="auth-field"><label>${t('authEmail')}</label>
           <input id="a-forgot-email" type="email" placeholder="${t('enterEmail')}" autocomplete="email" value="${esc(S.forgotEmail||'')}"></div>
         <div class="auth-field"><label>${t('authPhone')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
-          <div class="auth-cc-row"><select id="a-forgot-cc">${ccOpts}</select><input id="a-forgot-phone" type="tel" placeholder="${t('enterPhone')}"></div></div>
+          <div class="auth-cc-row"><select id="a-forgot-cc">${ccOpts}</select><input id="a-forgot-phone" type="tel" placeholder="${t('enterPhone')}" onkeydown="if(event.key==='Enter')doForgotVerify()"></div></div>
         <button class="btn-primary auth-submit" onclick="doForgotVerify()">${t('forgotVerifyBtn')}</button>
         <div style="text-align:center;margin-top:12px">
           <button style="background:none;border:none;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif" onclick="switchAuthMode('login')">&#8592; ${t('backToLogin')}</button>
@@ -2155,7 +2155,7 @@ function renderAuthModal(){
         <div class="auth-field"><label>${t('authPassword')}</label>
           <input id="a-reset-pwd" type="password" placeholder="${t('authPasswordHint')}"></div>
         <div class="auth-field"><label>${t('authConfirmPassword')}</label>
-          <input id="a-reset-pwd2" type="password" placeholder="${t('authConfirmPassword')}"></div>
+          <input id="a-reset-pwd2" type="password" placeholder="${t('authConfirmPassword')}" onkeydown="if(event.key==='Enter')doResetPassword()"></div>
         <button class="btn-primary auth-submit" onclick="doResetPassword()">${t('resetBtn')}</button>
         <div style="text-align:center;margin-top:12px">
           <button style="background:none;border:none;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif" onclick="S.forgotStep=1;S.forgotVerified=null;renderAuthModal()">&#8592; ${t('backToLogin')}</button>
@@ -2169,13 +2169,13 @@ function renderAuthModal(){
     body=`
       ${googleBlock}
       <div class="auth-field"><label>${t('authIdentifier')}</label>
-        <input id="a-identifier" type="text" autocapitalize="none" spellcheck="false" placeholder="${t('enterEmailOrPhone')}" autocomplete="username"></div>
+        <input id="a-identifier" type="text" autocapitalize="none" spellcheck="false" placeholder="${t('enterEmailOrPhone')}" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <div class="auth-field">
         <label style="display:flex;justify-content:space-between;align-items:center">
           <span>${t('authPassword')}</span>
           <button style="background:none;border:none;color:var(--green);font-size:11px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;padding:0" onclick="switchAuthMode('forgot')">${t('forgotPwLink')}</button>
         </label>
-        <input id="a-pwd" type="password" autocomplete="current-password" placeholder="${t('authPassword')}">
+        <input id="a-pwd" type="password" autocomplete="current-password" placeholder="${t('authPassword')}" onkeydown="if(event.key==='Enter')doLogin()">
       </div>
       <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:16px;margin-top:4px;user-select:none" onclick="toggleRememberMe()">
         <div id="rm-box" style="width:20px;height:20px;border-radius:5px;border:2px solid ${S.rememberMe?'var(--green)':'rgba(255,255,255,.2)'};background:${S.rememberMe?'var(--green)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .18s">
@@ -2198,7 +2198,7 @@ function renderAuthModal(){
         </div>
       </div>
       <div class="auth-field"><label>${t('heightLabel')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
-        <input id="a-height" type="number" placeholder="${t('heightPlaceholder')}" min="100" max="250"></div>
+        <input id="a-height" type="number" placeholder="${t('heightPlaceholder')}" min="100" max="250" onkeydown="if(event.key==='Enter')doCompleteGoogle()"></div>
       <div class="auth-field"><label>${t('authPhone')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
         <div class="auth-cc-row">
           <select id="a-cc">${ccOpts}</select>
@@ -2231,7 +2231,7 @@ function renderAuthModal(){
       <div class="auth-field"><label>${t('authPassword')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label><input id="a-pwd" type="password" autocomplete="new-password" placeholder="${t('authPasswordHint')}"></div>
       <div class="auth-field"><label>${t('authConfirmPassword')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label><input id="a-pwd2" type="password" autocomplete="new-password" placeholder="${t('authConfirmPassword')}"></div>
       <div class="auth-field"><label>${t('heightLabel')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
-        <input id="a-height" type="number" inputmode="numeric" placeholder="${t('heightPlaceholder')}" min="100" max="250"></div>
+        <input id="a-height" type="number" inputmode="numeric" placeholder="${t('heightPlaceholder')}" min="100" max="250" onkeydown="if(event.key==='Enter')doSignup()"></div>
       <button class="btn-primary auth-submit" onclick="doSignup()">${t('authSignupBtn')}</button>`;
   }
 
@@ -2244,7 +2244,7 @@ function renderAuthModal(){
       ${tabs}
       <div class="auth-err" id="auth-err"></div>
       ${body}
-      ${!isForgot?`<button class="btn-secondary" style="width:100%;margin-top:10px" onclick="closeAuthModal();goLanding()">${t('authCancel')}</button>`:''}
+      ${!isForgot?`<button class="btn-secondary" style="width:100%;margin-top:10px" onclick="${mode==='gcomplete'?'cancelGoogleComplete()':'closeAuthModal();goLanding()'}">${t('authCancel')}</button>`:''}
     </div>
   </div>`;
 }
@@ -2310,7 +2310,7 @@ async function doResetPassword(){
   if(await _pwnedCount(pwd)>0){authErr(t('errPwnedPassword'));return;}
   try{
     if(CUST_RPC){
-      const ph=(S.forgotCc||'')+(S.forgotPhoneRaw||'');
+      const ph=_normPhone(S.forgotPhoneRaw||'',S.forgotCc||'+966'); // cc+raw kept the trunk 0 ("+9660…") and could never match
       const{data,error}=await sb.rpc('customer_reset',{p_email:S.forgotEmail,p_phone:ph,p_new_pwd:pwd});
       const customer=(data&&data[0])||null;
       if(error||!customer){authErr(t('errResetNoMatch'));return;}
@@ -2373,7 +2373,7 @@ async function doSignup(){
   if(!phone){authErr(t('errPhoneRequired'));return;}
   if(pwd.length<8||!/[A-Z]/.test(pwd)||!/[0-9]/.test(pwd)){authErr(t('errPasswordLen'));return;}
   if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
-  if(S._authBusy)return;S._authBusy=true; // block double-submit / held-Enter key-repeat bursts that created duplicate accounts
+  if(S._authBusy)return;S._authBusy=true;_authBtnBusy(true); // block double-submit / held-Enter key-repeat bursts that created duplicate accounts
   if(await _pwnedCount(pwd)>0){authErr(t('errPwnedPassword'));S._authBusy=false;return;}
   const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
   if(isNaN(heightRaw)||heightRaw<100||heightRaw>250){authErr(t('errValidHeightCm'));S._authBusy=false;return;}
@@ -2411,7 +2411,7 @@ async function doSignup(){
     logAction(t('logAcctCreated')+name);
     toast(`${name}! ${t('toastAccountCreated')}`);
   }catch(e){authErr(t('errConnection'));}
-  finally{S._authBusy=false;}
+  finally{S._authBusy=false;_authBtnBusy(false);}
 }
 
 
@@ -2462,11 +2462,17 @@ async function handleGoogleReturn(){
   S._pendingGoogle={email,name:gname,photo:gphoto};
   return 'complete';
 }
+// Cancelling the complete-profile step must also drop the pending Google Auth session,
+// otherwise every future visit re-opens this modal.
+function cancelGoogleComplete(){S._pendingGoogle=null;try{if(sb&&sb.auth)sb.auth.signOut();}catch(e){}closeAuthModal();goLanding();}
 function openGoogleComplete(){
   S.authMode='gcomplete';S.signupGender=null;S.signupTypePref='Any';
   renderAuthModal();
   document.getElementById('auth-modal').style.display='flex';
 }
+// Disable the auth submit button while a request is in flight so slow networks don't
+// invite double-taps (which double-fired signup RPCs) and the user sees progress.
+function _authBtnBusy(busy){try{document.querySelectorAll('#auth-modal .auth-submit').forEach(b=>{b.disabled=busy;b.style.opacity=busy?'.6':'';});}catch(e){}}
 async function doCompleteGoogle(){
   const g=S._pendingGoogle||{};
   const name=(document.getElementById('a-name')?.value||g.name||'').trim();
@@ -2478,6 +2484,7 @@ async function doCompleteGoogle(){
   const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
   if(isNaN(heightRaw)||heightRaw<100||heightRaw>250){authErr(t('errValidHeightCm'));return;}
   const fullPhone=_normPhone(phone,cc);
+  if(S._authBusy)return;S._authBusy=true;_authBtnBusy(true);
   try{
     if(CUST_RPC){
       try{const{data:ex}=await sb.rpc('customer_exists',{p_email:'',p_phone:fullPhone});if(ex===true){authErr(t('errPhoneExists'));return;}}catch(e){}
@@ -2504,6 +2511,7 @@ async function doCompleteGoogle(){
     logAction(t('logAcctCreatedGoogle')+name);
     toast(`${name}! ${t('toastAccountCreated')}`);
   }catch(e){authErr(t('errConnection'));}
+  finally{S._authBusy=false;_authBtnBusy(false);}
 }
 
 async function doLogin(){
@@ -2512,9 +2520,13 @@ async function doLogin(){
   const pwd=(document.getElementById('a-pwd')?.value||'');
   if(!identifier){authErr(t('errEmailOrPhone'));return;}
   if(!pwd){authErr(t('errPasswordRequired'));return;}
+  if(S._authBusy)return;S._authBusy=true;_authBtnBusy(true);
   try{
     if(CUST_RPC){
-      const{data,error}=await sb.rpc('customer_login',{p_identifier:identifier,p_pwd:pwd});
+      // The DB matches phone digits EXACTLY, so "0508…" / "508…" must be normalized to the
+      // stored +966… form or phone login always fails with "invalid credentials".
+      const ident=identifier.includes('@')?identifier:(_normPhone(rawInput,'+966')||identifier);
+      const{data,error}=await sb.rpc('customer_login',{p_identifier:ident,p_pwd:pwd});
       if(error){authErr(/LOCKED/.test((error.message||'')+(error.hint||''))?t('errLoginLocked'):t('errInvalidCredentials'));return;}
       const customer=(data&&data[0])||null;
       if(!customer){authErr(t('errInvalidCredentials'));return;}
@@ -2554,6 +2566,7 @@ async function doLogin(){
     logAction(t('logLoggedIn')+customer.name);
     toast(`${t('toastWelcomeBack')}, ${customer.name}!`);
   }catch(e){authErr(t('errConnection'));}
+  finally{S._authBusy=false;_authBtnBusy(false);}
 }
 
 
