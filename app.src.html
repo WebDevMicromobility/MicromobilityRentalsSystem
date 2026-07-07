@@ -10630,23 +10630,29 @@ function renderCommunity(){
   el.innerHTML=`
     <div class="page-title">${t('commTitle')}</div>
     <div class="page-sub">${t('commSub')}</div>
-    <div style="max-width:640px;margin-top:14px">
+    <div style="margin-top:14px">
       ${commKpis}
-      ${spotlightHtml}
-      <div class="form-section">
-        <div class="form-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>${t('commLeaderboard')}</span>${list.length?`<button onclick="shareLeaderboard()" style="background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:800;padding:5px 12px;border-radius:8px;cursor:pointer">${t('commShareBtn')}</button>`:''}</div>
-        <div class="filter-row" style="margin-bottom:6px">${pill('lbScope','owner',t('lbScopeOwner'))}${pill('lbScope','rider',t('lbScopeRider'))}</div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:10px">${scope==='owner'?t('lbScopeOwnerSub'):t('lbScopeRiderSub')}</div>
-        ${branchRow}
-        <div class="filter-row" style="margin-bottom:6px">${pill('lbWindow','week',t('lbWindowWeek'))}${pill('lbWindow','month',t('lbWindowMonth'))}${pill('lbWindow','all',t('lbWindowAll'))}</div>
-        <div class="filter-row" style="margin-bottom:14px;align-items:center"><span style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;margin-right:2px">${t('lbRankByLabel')}</span>${metricPills.map(([v,l])=>pill('lbMetric',v,l)).join('')}</div>
-        ${searchBox}
-        ${lb}
-      </div>
-      ${milestoneHtml}
-      <div class="form-section" style="margin-top:14px">
-        <div class="form-title">${t('commEvents')}</div>
-        ${upcomingHtml}
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+        <div style="flex:2 1 360px;min-width:0">
+          ${spotlightHtml}
+          <div class="form-section" style="margin-top:0">
+            <div class="form-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>${t('commLeaderboard')}</span>${list.length?`<button onclick="shareLeaderboard()" style="background:rgba(3,255,137,.1);border:1px solid rgba(3,255,137,.25);color:var(--green);font-family:'Space Grotesk',sans-serif;font-size:11px;font-weight:800;padding:5px 12px;border-radius:8px;cursor:pointer">${t('commShareBtn')}</button>`:''}</div>
+            <div class="filter-row" style="margin-bottom:6px">${pill('lbScope','owner',t('lbScopeOwner'))}${pill('lbScope','rider',t('lbScopeRider'))}</div>
+            <div style="font-size:11px;color:var(--muted);margin-bottom:10px">${scope==='owner'?t('lbScopeOwnerSub'):t('lbScopeRiderSub')}</div>
+            ${branchRow}
+            <div class="filter-row" style="margin-bottom:6px">${pill('lbWindow','week',t('lbWindowWeek'))}${pill('lbWindow','month',t('lbWindowMonth'))}${pill('lbWindow','all',t('lbWindowAll'))}</div>
+            <div class="filter-row" style="margin-bottom:14px;align-items:center"><span style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;margin-right:2px">${t('lbRankByLabel')}</span>${metricPills.map(([v,l])=>pill('lbMetric',v,l)).join('')}</div>
+            ${searchBox}
+            ${lb}
+          </div>
+        </div>
+        <div style="flex:1 1 300px;min-width:0">
+          <div class="form-section" style="margin-top:0">
+            <div class="form-title">${t('commEvents')}</div>
+            ${upcomingHtml}
+          </div>
+          ${milestoneHtml}
+        </div>
       </div>
     </div>`;
   // Re-focus the search box after the full re-render so typing is not interrupted
