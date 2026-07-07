@@ -1593,7 +1593,13 @@ let _bootReadyAt=0;
 let _lastLoadOk=false;
 // Cold-start resilience: keep a local snapshot of the last good load (photos stripped to stay under quota).
 // On boot, if the network load brought nothing, render last-known data instead of an empty screen.
-function _cacheSave(){try{const strip=a=>(a||[]).map(x=>{const{photo,...r}=x;return r;});localStorage.setItem('cq_snapshot',JSON.stringify({q:S.queue,ses:S.sessions,bk:strip(S.bikes),inv:strip(S.inventory),cs:S.cashSales}));}catch(e){}}
+function _cacheSave(){try{
+  // Keep small Storage-URL photos in the snapshot so they show instantly from cache; only drop
+  // heavy base64 data: URIs (those would bloat localStorage). This is why add-on/inventory
+  // photos used to appear blank until the network reload finished.
+  const strip=a=>(a||[]).map(x=>{if(x&&typeof x.photo==='string'&&x.photo.indexOf('data:')===0){const{photo,...r}=x;return r;}return x;});
+  localStorage.setItem('cq_snapshot',JSON.stringify({q:S.queue,ses:S.sessions,bk:strip(S.bikes),inv:strip(S.inventory),cs:S.cashSales}));
+}catch(e){}}
 function _cacheRestore(){try{const s=JSON.parse(localStorage.getItem('cq_snapshot')||'null');if(s&&s.q){S.queue=s.q||[];S.sessions=s.ses||[];S.bikes=s.bk||[];S.inventory=s.inv||[];S.cashSales=s.cs||[];S.dataLoaded=true;}}catch(e){}}
 
 
@@ -12033,6 +12039,8 @@ function _refreshView(){
     else if(tb==='community'&&typeof renderCommunity==='function')renderCommunity();else if(tb==='cashier')renderCashier();
   }else if(S.view==='customer'){renderRegister();renderMyRides();if(S.custTab==='account')renderAccount();}
   else if(S.view==='landing')renderLandingAvail();
+  // Re-render the add-on picker if it's open, so photos/stock appear once fresh data lands.
+  try{if(S._addonPickerEntry&&typeof renderAddonPicker==='function')renderAddonPicker();}catch(e){}
 }
 (async()=>{
   await _sbReady; // wait for the deferred supabase-js before any data call
