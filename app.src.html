@@ -5547,8 +5547,14 @@ function renderStaffQueue(){
   const base=S.sfSession!=='all'
     ?queue.filter(e=>e.sessionId===S.sfSession&&e.status!=='removed'&&e.status!=='cancelled')
     :queue.filter(e=>e.status!=='removed'&&e.status!=='cancelled');
-  const total=base.length,nWait=base.filter(e=>e.status==='waiting').length,
-        nBike=base.filter(e=>e.status==='active').length,nDone=base.filter(e=>e.status==='done').length,
+  // "Expected"/"On Bike" are LIVE counts. When viewing ALL sessions, exclude past-dated sessions,
+  // or riders left stuck in 'waiting'/'active' on old sessions (never checked in / never returned)
+  // inflate them — e.g. showing "4 expected" when nothing is actually pending today. A specific
+  // session selection keeps its own raw counts.
+  const _liveOnly=S.sfSession==='all',_liveDay=todayStr();
+  const _isLive=e=>!_liveOnly||String(e.sessionDate||e.sessionId||'')>=_liveDay;
+  const total=base.length,nWait=base.filter(e=>e.status==='waiting'&&_isLive(e)).length,
+        nBike=base.filter(e=>e.status==='active'&&_isLive(e)).length,nDone=base.filter(e=>e.status==='done').length,
         nDonePaid=base.filter(e=>e.status==='done'&&e.paid).length;
   const nRiders=new Set(base.map(e=>e.customerId||e.id)).size;
   const nWaitingRiders=new Set(base.filter(e=>e.status==='waiting').map(e=>e.customerId||e.id)).size;
