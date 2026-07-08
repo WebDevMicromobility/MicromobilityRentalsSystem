@@ -23,6 +23,9 @@
   <meta name="twitter:image" content="/hero.webp">
   <link rel="preconnect" href="https://amyqxovbnlreassrqihr.supabase.co">
   <link rel="preload" as="script" href="./vendor/supabase-js-2.110.0.min.js"><!-- boot awaits this; fetch it at top priority right away -->
+  <!-- Preload the primary UI font weights (body + bold) so first paint has them, avoiding a text-swap flash -->
+  <link rel="preload" as="font" type="font/woff2" href="./fonts/SpaceGrotesk-400-latin.woff2" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" href="./fonts/SpaceGrotesk-700-latin.woff2" crossorigin>
   <link href="./fonts/fonts.css?v=1" rel="stylesheet">
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="manifest" href="manifest.json">
@@ -39,7 +42,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=87">
+  <link rel="stylesheet" href="./styles.css?v=88">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th='light';localStorage.setItem('cq_theme','light');}if(_th==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}</script>
 </head>
 <body>
@@ -2048,6 +2051,11 @@ const statusBadge=s=>`<span class="status-badge ${STATUS_CLS[s]||'badge-done'}">
 function esc(s){return s==null?'':String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 // Scroll behavior that honors the OS 'reduce motion' setting (CSS can't gate JS smooth scroll).
 function _sb(){try{return (window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)?'auto':'smooth';}catch(e){return 'smooth';}}
+// Debounced re-render: coalesce rapid state changes (typing in a search box, tapping a number
+// stepper) into ONE re-render after a short pause, instead of rebuilding a whole list per
+// keystroke. Native input keeps focus between keystrokes; the render restores focus on fire.
+const _debTimers={};
+function _debRender(key,fn,ms){if(_debTimers[key])clearTimeout(_debTimers[key]);_debTimers[key]=setTimeout(()=>{_debTimers[key]=null;try{fn();}catch(e){}},ms||160);}
 function fmtPhone(p){
   if(!p)return'';
   const match=COUNTRY_CODES.find(([code])=>p.startsWith(code));
@@ -4903,7 +4911,7 @@ function renderSessions(){
                 ${['XS','S','M','L'].map(sz=>`<td style="padding:5px 6px;text-align:center">
                   <input type="number" min="0" max="99" value="${S.newSessTypeSizes[ty]?.[sz]||0}"
                     style="width:46px;padding:5px 4px;background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:6px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;text-align:center"
-                    oninput="S.newSessTypeSizes['${ty}']['${sz}']=Math.max(0,parseInt(this.value)||0);renderSessions()">
+                    oninput="S.newSessTypeSizes['${ty}']['${sz}']=Math.max(0,parseInt(this.value)||0);_debRender('sess',renderSessions)">
                 </td>`).join('')}
                 <td style="padding:8px 10px;text-align:center;font-weight:900;font-size:15px;color:${rowTot>0?'var(--green)':'var(--muted)'}">${rowTot}</td>
               </tr>`;
@@ -5016,7 +5024,7 @@ function renderSessions(){
                 ${['XS','S','M','L'].map(sz=>`<td style="padding:5px 6px;text-align:center">
                   <input type="number" min="0" max="99" value="${S.editSessTypeSizes[ty]?.[sz]||0}"
                     style="width:46px;padding:5px 4px;background:#1a1a1a;border:1px solid rgba(255,255,255,.1);border-radius:6px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;text-align:center"
-                    oninput="S.editSessTypeSizes['${ty}']['${sz}']=Math.max(0,parseInt(this.value)||0);renderSessions()">
+                    oninput="S.editSessTypeSizes['${ty}']['${sz}']=Math.max(0,parseInt(this.value)||0);_debRender('sess',renderSessions)">
                 </td>`).join('')}
                 <td style="padding:8px 10px;text-align:center;font-weight:900;font-size:15px;color:${rowTot>0?'var(--green)':'var(--muted)'}">${rowTot}</td>
               </tr>`;
@@ -5532,6 +5540,7 @@ async function saveWalkin(){
   renderStaffQueue();
 }
 function renderStaffQueue(){
+  {const _sy=window.scrollY;requestAnimationFrame(()=>{if(Math.abs(window.scrollY-_sy)>1)window.scrollTo(0,_sy);});} // keep scroll position across the in-place rebuild
   if(!S.dataLoaded){const _el=document.getElementById('tab-queue');if(_el)_el.innerHTML=skeletonList(7);return;}
   const _qvPills=`<div class="filter-row" style="margin-bottom:12px">
     <button class="filter-pill${(S.queueView||'bookings')==='bookings'?' active':''}" onclick="S.queueView='bookings';renderStaffQueue()">${t('tabQueue')}</button>
@@ -6145,10 +6154,7 @@ function setSfSort(col){
 }
 function setSfSearch(v){
   S.sfSearch=v;
-  renderStaffQueue();
-  
-  const inp=document.getElementById('sf-search-input');
-  if(inp){inp.focus();const l=v.length;inp.setSelectionRange(l,l);}
+  _debRender('sfSearch',()=>{renderStaffQueue();const inp=document.getElementById('sf-search-input');if(inp){inp.focus();const l=(S.sfSearch||'').length;inp.setSelectionRange(l,l);}});
 }
 function setSfPay(v){S.sfPay=v;renderStaffQueue();}
 function setSfSize(v){S.sfSize=v;renderStaffQueue();}
@@ -6552,7 +6558,7 @@ function renderLogs(){
   const filterBar=`
     <div class="filter-row" style="margin-bottom:8px">${catPill('all',t('filterAll'))}${_LOG_CATS.map(([v,k])=>catPill(v,t(k))).join('')}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
-      <input id="log-search" type="text" value="${esc(S._logSearch||'')}" placeholder="${esc(t('logsSearchPh'))}" oninput="S._logSearch=this.value;renderLogs()" style="flex:1;min-width:170px;background:#1a1a1a;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:8px 12px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;outline:none">
+      <input id="log-search" type="text" value="${esc(S._logSearch||'')}" placeholder="${esc(t('logsSearchPh'))}" oninput="S._logSearch=this.value;_debRender('log',renderLogs)" style="flex:1;min-width:170px;background:#1a1a1a;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:8px 12px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;outline:none">
       ${ops.length>1?`<select class="filter-select" onchange="S._logOp=this.value;renderLogs()"><option value="all"${(S._logOp||'all')==='all'?' selected':''}>${t('filterAll')}</option>${ops.map(o=>`<option value="${esc(o)}"${S._logOp===o?' selected':''}>${esc(o)}</option>`).join('')}</select>`:''}
       <button class="btn-secondary" onclick="exportLogsCSV()" style="white-space:nowrap">${t('logsExportBtn')}</button>
     </div>`;
@@ -7686,7 +7692,7 @@ function renderModal(){
     <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--muted);pointer-events:none"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
     <input id="modal-search-input" type="text" value="${esc(S.modalSearch)}"
       placeholder="${t('searchLabel')||'Search bikes...'}"
-      oninput="S.modalSearch=this.value;renderModal();document.getElementById('modal-search-input')?.focus()"
+      oninput="S.modalSearch=this.value;_debRender('modal',()=>{renderModal();const i=document.getElementById('modal-search-input');if(i){i.focus();const l=(S.modalSearch||'').length;i.setSelectionRange&&i.setSelectionRange(l,l);}})"
       style="width:100%;padding:9px 12px 9px 34px;background:var(--s3);border:1px solid rgba(255,255,255,.1);border-radius:10px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;outline:none;transition:border-color .15s"
       onfocus="this.style.borderColor='rgba(3,255,137,.4)'" onblur="this.style.borderColor='rgba(255,255,255,.1)'">
     ${S.modalSearch?`<button onclick="S.modalSearch='';renderModal()" aria-label="Clear search" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:2px" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&times;</button>`:''}
@@ -8501,7 +8507,7 @@ function toggleAddBike(){_resetBikeForm();S._bkNumber=String(_nextBikeNumber());
 function cancelBikeForm(){_resetBikeForm();renderBikes();}
 function setBkFilter(v){S.bkTypeFilter=v;renderBikes();}
 function setBkSort(v){S.bkSort=v;renderBikes();}
-function setBkSearch(v){S.bkSearch=v;renderBikes();const inp=document.getElementById('bk-search-input');if(inp){inp.focus();const l=v.length;inp.setSelectionRange(l,l);}}
+function setBkSearch(v){S.bkSearch=v;_debRender('bkSearch',()=>{renderBikes();const inp=document.getElementById('bk-search-input');if(inp){inp.focus();const l=(S.bkSearch||'').length;inp.setSelectionRange(l,l);}});}
 function _todayISO(){return new Date().toLocaleDateString('en-CA');}
 function _bikeLifespan(b){
   const s=b.in_service_date||'',e=b.retired_date||'';
@@ -10381,6 +10387,7 @@ function _shareReorderList(){
   try{window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');}catch(e){}
 }
 function renderInventory(){
+  {const _sy=window.scrollY;requestAnimationFrame(()=>{if(Math.abs(window.scrollY-_sy)>1)window.scrollTo(0,_sy);});} // keep scroll position across the in-place rebuild
   const el=document.getElementById('tab-inventory');if(!el)return;
   try{_sanitizeFlavours();}catch(e){}
   const items=[...(S.inventory||[])].sort((a,b)=>(a.category||'').localeCompare(b.category||'')||(a.name||'').localeCompare(b.name||''));
@@ -10553,7 +10560,7 @@ function renderInventory(){
   const invBody=list=>{const fl=_invSorted(list.filter(_invMatch));if(!fl.length)return`<div class="empty-state" style="margin-top:10px">${t('invNoItems')}</div>`;return ((S.invSort||'cat')==='cat'&&!_invQ)?invGroupedByCat(fl):invItems(fl);};
   const _stD=_stockTakeDiffs();
   const ctlBar=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0 2px">
-      <input id="inv-search" type="text" value="${esc(S.invSearch||'')}" placeholder="${esc(t('invSearchPh'))}" oninput="S.invSearch=this.value;renderInventory()" style="flex:1;min-width:160px;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:8px 12px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;outline:none">
+      <input id="inv-search" type="text" value="${esc(S.invSearch||'')}" placeholder="${esc(t('invSearchPh'))}" oninput="S.invSearch=this.value;_debRender('inv',renderInventory)" style="flex:1;min-width:160px;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:8px 12px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;outline:none">
       <select class="filter-select" onchange="S.invSort=this.value;renderInventory()">${[['cat',t('invSortCat')],['name',t('sortName')],['stock',t('invSortStock')],['sales',t('invSortSales')]].map(([v,l])=>`<option value="${v}"${(S.invSort||'cat')===v?' selected':''}>${l}</option>`).join('')}</select>
       <button class="btn-secondary" onclick="toggleStockTake()" style="white-space:nowrap;${S.invCount?'border-color:var(--green);color:var(--green)':''}">${S.invCount?t('stCancelBtn'):t('stStartBtn')}</button>
     </div>
@@ -10773,7 +10780,7 @@ function renderCommunity(){
   const lb=_q
     ?(()=>{const shown=list.map((m,i)=>({m,i})).filter(o=>(o.m.name||'').toLowerCase().includes(_q));return shown.length?shown.map(o=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border)">${rowInner(o.m,o.i)}</div>`).join(''):`<div class="empty-state">${t('commNoMatch')}</div>`;})()
     :(list.length?(podium+rest):`<div class="empty-state">${t('commNoLeaders')}</div>`);
-  const searchBox=list.length>=6?`<div style="margin-bottom:12px"><input id="lb-search" type="text" value="${esc(S.lbSearch||'')}" placeholder="${esc(t('commSearchPh'))}" oninput="S.lbSearch=this.value;renderCommunity()" onfocus="S._lbSearchFocused=true" onblur="S._lbSearchFocused=false" style="width:100%;box-sizing:border-box;background:#1a1a1a;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:9px 12px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;outline:none"></div>`:'';
+  const searchBox=list.length>=6?`<div style="margin-bottom:12px"><input id="lb-search" type="text" value="${esc(S.lbSearch||'')}" placeholder="${esc(t('commSearchPh'))}" oninput="S.lbSearch=this.value;_debRender('lb',renderCommunity)" onfocus="S._lbSearchFocused=true" onblur="S._lbSearchFocused=false" style="width:100%;box-sizing:border-box;background:#1a1a1a;border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:9px 12px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:600;outline:none"></div>`:'';
   // Stash top-10 (first names only, no PII) for the Share button
   S._lbShareTxt=list.length?`${t('commLeaderboard')} · ${({week:t('lbWindowWeek'),month:t('lbWindowMonth'),all:t('lbWindowAll')}[win]||'')}\n`+list.slice(0,10).map((m,i)=>`${i+1}. ${(m.name||'?').split(/\s+/)[0]} - ${fmtVal(m)}`).join('\n'):'';
   const pill=(stateKey,val,label)=>`<button class="filter-pill${S[stateKey]===val?' active':''}" onclick="setLb('${stateKey}','${val}')">${label}</button>`;
