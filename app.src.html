@@ -5552,7 +5552,10 @@ function renderStaffQueue(){
   // inflate them — e.g. showing "4 expected" when nothing is actually pending today. A specific
   // session selection keeps its own raw counts.
   const _liveOnly=S.sfSession==='all',_liveDay=todayStr();
-  const _isLive=e=>!_liveOnly||String(e.sessionDate||e.sessionId||'')>=_liveDay;
+  // Upper bound (~1 year out) so an absurd far-future date — e.g. stray test data dated 2099 —
+  // can never inflate the live Expected/On Bike counts.
+  const _capDay=new Date(Date.now()+366*864e5).toLocaleDateString('en-CA',{timeZone:KSA_TZ});
+  const _isLive=e=>{if(!_liveOnly)return true;const d=String(e.sessionDate||e.sessionId||'').slice(0,10);return d>=_liveDay&&d<=_capDay;};
   const total=base.length,nWait=base.filter(e=>e.status==='waiting'&&_isLive(e)).length,
         nBike=base.filter(e=>e.status==='active'&&_isLive(e)).length,nDone=base.filter(e=>e.status==='done').length,
         nDonePaid=base.filter(e=>e.status==='done'&&e.paid).length;
