@@ -3601,7 +3601,13 @@ async function submitReg(){
     if(S.promoApplied){
       const base=entries.reduce((s,e)=>s+(e.price||0),0);
       const disc=_promoDiscount(base);
-      if(base>0&&disc>0){const f=(base-disc)/base;entries.forEach(e=>{e.price=Math.max(0,Math.round((e.price||0)*f*100)/100);});}
+      if(base>0&&disc>0){
+        const f=(base-disc)/base,target=Math.round((base-disc)*100)/100;
+        entries.forEach(e=>{e.price=Math.max(0,Math.round((e.price||0)*f*100)/100);});
+        // per-rider rounding can drift a halala or two off the promised total — the last rider absorbs it
+        const sum=Math.round(entries.reduce((s2,e)=>s2+e.price,0)*100)/100,drift=Math.round((target-sum)*100)/100;
+        if(drift!==0&&entries.length)entries[entries.length-1].price=Math.max(0,Math.round((entries[entries.length-1].price+drift)*100)/100);
+      }
     }
     const _offline=(typeof navigator!=='undefined'&&navigator.onLine===false);
     let _queued=false;
@@ -5349,13 +5355,16 @@ async function addSession(){
   // Build one session per week (same weekday/time/config), skipping dates that already exist
   const base=new Date(date+'T00:00:00');
   const _iso=dt=>`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
+  const sessLocation=(document.getElementById('ns-location')?.value||S.newSessLocation||(S.bkLocations&&S.bkLocations[0])||'').trim();
+  // id = date + branch slug: the plain-date id made the SECOND branch's session on the same
+  // date collide (23505) and silently report "date exists". Same date+branch still skips.
+  const _locSlug=sessLocation?'-'+sessLocation.toLowerCase().replace(/[^a-z0-9]+/g,'').slice(0,10):'';
   const rows=[];
   for(let i=0;i<weeks;i++){
     const dt=new Date(base);dt.setDate(base.getDate()+i*7);const ds=_iso(dt);
-    rows.push({id:ds,day:dayNames[dt.getDay()],session_date:ds,capacity:total,status:'closed',
+    rows.push({id:ds+_locSlug,day:dayNames[dt.getDay()],session_date:ds,capacity:total,status:'closed',
       bike_slots:JSON.stringify(slots),created_at:new Date().toISOString()});
   }
-  const sessLocation=(document.getElementById('ns-location')?.value||S.newSessLocation||(S.bkLocations&&S.bkLocations[0])||'').trim();
   try{
     let created=0,skipped=0,otherErr=null;const createdIds=[];
     for(const row of rows){
