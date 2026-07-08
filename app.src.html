@@ -4063,11 +4063,13 @@ function closeRateModal(){
   if(S._rateForced&&S._rateId){const e=getQueue().find(x=>x.id===S._rateId);if(e&&!(e.ratingExp||e.ratingBike)){S._rateSnoozed=S._rateSnoozed||new Set();S._rateSnoozed.add(S._rateId);}}
   S._rateForced=false;
 }
-// Force post-ride rating: the primary id of the customer's oldest unrated ride completed in today's session (or null).
+// Force post-ride rating only for a genuinely COMPLETED ride = bike physically returned
+// (checked_out_at stamped by _execReturn) AND paid. A payment toggle while the bike is still
+// out (status 'active') never qualifies. Scoped to today's session, oldest unrated first.
 function _pendingRatingId(){
   const cust=S.loggedIn;if(!cust)return null;
   const today=todayStr();
-  const done=getQueue().filter(e=>e.customerId===cust.id&&e.status==='done'&&e.paid&&(e.sessionDate||e.sessionId)===today);
+  const done=getQueue().filter(e=>e.customerId===cust.id&&e.status==='done'&&!!e.checkedOutAt&&e.paid&&(e.sessionDate||e.sessionId)===today);
   const map={};done.forEach(e=>{(map[e.sessionId]=map[e.sessionId]||[]).push(e);});
   const groups=Object.values(map).map(g=>g.slice().sort((a,b)=>(a.queueNum||0)-(b.queueNum||0)));
   const snz=S._rateSnoozed||new Set();

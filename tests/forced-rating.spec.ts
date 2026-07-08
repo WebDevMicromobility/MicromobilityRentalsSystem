@@ -11,7 +11,7 @@ test('a completed unrated ride forces a non-dismissible rating prompt', async ({
   await stubSupabase(page, {
     sessions: [{ id: 's1', day: 'Friday', session_date: today, capacity: 12, status: 'open', created_at: 1 }],
     queue_entries: [{ id: 'q1', name: 'Spec Rider', customer_id: 'c1', session_id: 's1', session_day: 'Friday',
-      session_date: today, queue_num: 1, status: 'done', paid: true, price: 30, registered_at: today + 'T10:00:00Z' }],
+      session_date: today, queue_num: 1, status: 'done', paid: true, price: 30, checked_out_at: today + 'T11:00:00Z', registered_at: today + 'T10:00:00Z' }],
     'rpc:customer_booking_update': true, // customer rating write succeeds
   });
   await loginCustomer(page, { id: 'c1' });
@@ -44,11 +44,25 @@ test('a rated ride does not force the prompt', async ({ page }) => {
   await stubSupabase(page, {
     sessions: [{ id: 's1', day: 'Friday', session_date: today, capacity: 12, status: 'open', created_at: 1 }],
     queue_entries: [{ id: 'q1', name: 'Spec Rider', customer_id: 'c1', session_id: 's1', session_day: 'Friday',
-      session_date: today, queue_num: 1, status: 'done', paid: true, price: 30, rating_exp: 9, registered_at: today + 'T10:00:00Z' }],
+      session_date: today, queue_num: 1, status: 'done', paid: true, price: 30, rating_exp: 9, checked_out_at: today + 'T11:00:00Z', registered_at: today + 'T10:00:00Z' }],
   });
   await loginCustomer(page, { id: 'c1' });
   await page.goto('/');
   await waitForSb(page);
   await page.evaluate(`S.view='customer'; setCustTab('myrides')`);
   expect(await disp(page)).not.toBe('flex'); // already rated → no forced prompt
+});
+
+test('a PAID but not-yet-returned (active) ride does NOT force the prompt', async ({ page }) => {
+  await stubSupabase(page, {
+    sessions: [{ id: 's1', day: 'Friday', session_date: today, capacity: 12, status: 'open', created_at: 1 }],
+    // paid while still on the bike: active, no checkout stamp — must NOT trigger
+    queue_entries: [{ id: 'q1', name: 'Spec Rider', customer_id: 'c1', session_id: 's1', session_day: 'Friday',
+      session_date: today, queue_num: 1, status: 'active', paid: true, price: 30, registered_at: today + 'T10:00:00Z' }],
+  });
+  await loginCustomer(page, { id: 'c1' });
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`S.view='customer'; setCustTab('myrides')`);
+  expect(await disp(page)).not.toBe('flex'); // not returned yet → no forced rating
 });
