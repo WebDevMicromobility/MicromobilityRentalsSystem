@@ -9882,9 +9882,23 @@ let _bookBusy=false;
 async function _bookOutboxFlush(){
   if(_bookBusy||!sb||(typeof navigator!=='undefined'&&navigator.onLine===false))return;
   _bookBusy=true;
-  const snap=_bookOutbox();const done=[];
-  for(const row of snap){try{const res=await sb.from('queue_entries').upsert(row);if(!(res&&res.error))done.push(row.id);}catch(_){}}
-  const cur=_bookOutbox().filter(r=>done.indexOf(r.id)<0);_bookOutboxSave(cur);
+  const snap=_bookOutbox();const done=[];const renum={};
+  for(const row of snap){
+    try{
+      let res=await sb.from('queue_entries').upsert(row);
+      // queue_num collides with a booking made on another device while offline: the partial unique
+      // index rejects it and it would otherwise retry forever. Take a fresh number and re-upsert
+      // (one bump per flush; a further collision resolves on the next flush as data loads).
+      if(res&&res.error&&/23505|duplicate|unique/i.test((res.error.code||'')+' '+(res.error.message||''))){
+        const fresh=nextQNum(row.session_id);
+        if(fresh&&fresh!==row.queue_num){renum[row.id]=fresh;row.queue_num=fresh;res=await sb.from('queue_entries').upsert(row);}
+      }
+      if(!(res&&res.error))done.push(row.id);
+    }catch(_){}
+  }
+  // Persist any queue-number bump onto the surviving outbox rows AND the live queue copy.
+  const cur=_bookOutbox().map(r=>renum[r.id]?{...r,queue_num:renum[r.id]}:r).filter(r=>done.indexOf(r.id)<0);_bookOutboxSave(cur);
+  Object.keys(renum).forEach(id=>{const e=(S.queue||[]).find(x=>x.id===id);if(e)e.queueNum=renum[id];});
   _bookBusy=false;
 }
 // Commit the whole cart as one receipt (shared receipt_id), decrement stock, then print it
