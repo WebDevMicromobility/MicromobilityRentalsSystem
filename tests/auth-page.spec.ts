@@ -8,7 +8,6 @@ const customer = { id: 'c9', name: 'Test User', email: 'x@y.com', phone: '+96650
 
 async function boot(page: import('@playwright/test').Page, fixtures = {}) {
   await stubSupabase(page, fixtures);
-  await page.route(/pwnedpasswords\.com/, (r) => r.fulfill({ status: 200, body: '' })); // never hit the real breach API in tests
   await page.goto('/');
   await waitForSb(page);
   await page.evaluate('openAuthModal()');

@@ -465,7 +465,7 @@ en:{
   errPasswordRequired:'Please enter your password.',
   errValidEmail:'Please enter a valid email address.',
   errPasswordLen:'Password must be at least 8 characters and include an uppercase letter and a number.',
-  errPwnedPassword:'This password has appeared in a known data breach. Please choose a different one.',
+  
   ticketAddCal:'Add to Calendar',ticketDirections:'Get Directions',ticketLocation:'Location',
   errPasswordMatch:'Passwords do not match.',
   errEmailExists:'An account with this email already exists.',
@@ -838,7 +838,7 @@ ar:{
   errPasswordRequired:'الرجاء إدخال كلمة المرور.',
   errValidEmail:'الرجاء إدخال بريد إلكتروني صحيح.',
   errPasswordLen:'يجب أن تكون كلمة المرور 8 أحرف على الأقل وتحتوي على حرف كبير ورقم.',
-  errPwnedPassword:'ظهرت كلمة المرور هذه في تسريب بيانات معروف. يرجى اختيار كلمة مرور مختلفة.',
+  
   ticketAddCal:'أضف إلى التقويم',ticketDirections:'الاتجاهات',ticketLocation:'الموقع',
   errPasswordMatch:'كلمتا المرور غير متطابقتين.',
   errEmailExists:'يوجد حساب بهذا البريد الإلكتروني مسبقاً.',
@@ -1623,22 +1623,6 @@ function _cryptoOK(){return typeof crypto!=='undefined'&&crypto.subtle;}
 function genSalt(){const a=new Uint8Array(8);if(typeof crypto!=='undefined'&&crypto.getRandomValues)crypto.getRandomValues(a);else for(let i=0;i<8;i++)a[i]=Math.floor(Math.random()*256);return _hex(a.buffer);}
 async function sha256Hex(str){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));return _hex(buf);}
 async function makePwdHash(pwd){if(!_cryptoOK())return hashPwd(pwd);const salt=genSalt();return 'sha256:'+salt+':'+(await sha256Hex(salt+':'+pwd));}
-// Breached-password check via HaveIBeenPwned k-anonymity: SHA-1 the password, send
-// ONLY the first 5 hash chars, match the returned suffixes locally (the password
-// never leaves the device). Returns the breach count, or 0. Fails open (returns 0)
-// if crypto/network is unavailable, so it never blocks signup on an outage.
-async function _pwnedCount(pwd){
-  try{
-    if(!(window.crypto&&crypto.subtle))return 0;
-    const buf=await crypto.subtle.digest('SHA-1',new TextEncoder().encode(pwd));
-    const hash=[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('').toUpperCase();
-    const res=await fetch('https://api.pwnedpasswords.com/range/'+hash.slice(0,5),{headers:{'Add-Padding':'true'}});
-    if(!res.ok)return 0;
-    const suffix=hash.slice(5);
-    const hit=(await res.text()).split('\n').find(l=>l.split(':')[0]===suffix);
-    return hit?(parseInt(hit.split(':')[1])||0):0;
-  }catch(e){return 0;}
-}
 // Fire-and-forget booking-confirmation email via the /api/booking-confirm Pages
 // Function (no-op until Brevo keys are set server-side). Only in secure mode, where
 // the customer holds a session token to prove ownership.
@@ -2314,7 +2298,6 @@ async function doResetPassword(){
   const pwd2=(document.getElementById('a-reset-pwd2')?.value||'');
   if(pwd.length<8||!/[A-Z]/.test(pwd)||!/[0-9]/.test(pwd)){authErr(t('errPasswordLen'));return;}
   if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
-  if(await _pwnedCount(pwd)>0){authErr(t('errPwnedPassword'));return;}
   try{
     if(CUST_RPC){
       const ph=_normPhone(S.forgotPhoneRaw||'',S.forgotCc||'+966'); // cc+raw kept the trunk 0 ("+9660…") and could never match
@@ -2400,7 +2383,6 @@ async function doSignup(){
   if(pwd.length<8||!/[A-Z]/.test(pwd)||!/[0-9]/.test(pwd)){authErr(t('errPasswordLen'));return;}
   if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
   if(S._authBusy)return;S._authBusy=true;_authBtnBusy(true); // block double-submit / held-Enter key-repeat bursts that created duplicate accounts
-  if(await _pwnedCount(pwd)>0){authErr(t('errPwnedPassword'));S._authBusy=false;return;}
   const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
   if(isNaN(heightRaw)||heightRaw<100||heightRaw>250){authErr(t('errValidHeightCm'));S._authBusy=false;return;}
   const fullPhone=phone?_normPhone(phone,cc):'';
@@ -2874,7 +2856,6 @@ async function _staffPwdSubmit(){
   if(p1!==p2)return err(t('errPasswordMatch'));
   const btn=document.querySelector('#staff-pwd-modal .btn-primary');if(btn)btn.disabled=true;
   try{
-    if(await _pwnedCount(p1)>0){err(t('errPwnedPassword'));if(btn)btn.disabled=false;return;}
     const{error}=await sb.auth.updateUser({password:p1});
     if(error){err(error.message||t('errConnection'));if(btn)btn.disabled=false;return;}
   }catch(e){err(t('errConnection'));if(btn)btn.disabled=false;return;}
