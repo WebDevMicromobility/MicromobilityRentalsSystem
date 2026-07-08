@@ -1825,7 +1825,7 @@ function bookingRef(e){
 function getSession(){
   try{
     const r=localStorage.getItem('cq_session')||sessionStorage.getItem('cq_session');
-    if(!r)return null;
+    if(!r)return (S&&S._sessionVolatile)||null; // storage blocked/empty: fall back to the in-memory session
     const c=JSON.parse(r);
     // Post-cutover: a session remembered from before SECURE_AUTH has no session_token
     // and can't drive the RPCs (My Rides / self-cancel), so drop it and let the
@@ -1835,7 +1835,7 @@ function getSession(){
       return null;
     }
     return c;
-  }catch{return null;}
+  }catch{return (S&&S._sessionVolatile)||null;}
 }
 function setSession(c){
   // Storage can THROW (Safari "Block All Cookies", old private mode, quota). The customer
@@ -1849,9 +1849,10 @@ function setSession(c){
     sessionStorage.setItem('cq_session',JSON.stringify(c));
     localStorage.removeItem('cq_session');
   }
-  }catch(e){try{_logError('setSession storage blocked: '+(e&&e.name||''),'auth',true);}catch(_){}}
+  S._sessionVolatile=null; // storage write worked — no volatile copy needed
+  }catch(e){S._sessionVolatile=c;try{_logError('setSession storage blocked: '+(e&&e.name||''),'auth',true);}catch(_){}}
 }
-function clearSession(){
+function clearSession(){if(S)S._sessionVolatile=null;
   localStorage.removeItem('cq_session');
   sessionStorage.removeItem('cq_session');
 }
@@ -2287,7 +2288,7 @@ function _phoneMatches(stored,cc,phoneRaw){
   return [p,ccd+p].some(c=>s===c||s.endsWith(c)||c.endsWith(s));
 }
 async function doForgotVerify(){
-  const email=(document.getElementById('a-forgot-email')?.value||'').trim().toLowerCase();
+  const email=_cleanIdent(document.getElementById('a-forgot-email')?.value||'').toLowerCase();
   const cc=document.getElementById('a-forgot-cc')?.value||'+966';
   const phoneRaw=(document.getElementById('a-forgot-phone')?.value||'').trim();
   if(!email||!/^\S+@\S+\.\S+$/.test(email)){authErr(t('errValidEmail'));return;}
@@ -2323,7 +2324,7 @@ async function doResetPassword(){
       if(error||!customer){authErr(t('errResetNoMatch'));return;}
       S.rememberMe=true;S.loggedIn=customer;setSession(customer);S.forgotStep=1;S.forgotEmail='';S.forgotVerified=null;S.authMode='login';
       await loadData();
-      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
+      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('register'); // don't strand them on the landing page after signing in
       logAction(t('logPwdResetSelf')+(customer.email||''));
       toast(t('toastPwReset'));return;
     }
@@ -2335,7 +2336,7 @@ async function doResetPassword(){
     if(error)throw error;
     S.loggedIn=customer;setSession(customer);S.forgotStep=1;S.forgotEmail='';S.forgotVerified=null;S.authMode='login';
     await loadData();
-    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
+    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('register'); // don't strand them on the landing page after signing in
     logAction(t('logPwdResetSelf')+(customer.email||''));
     toast(t('toastPwReset'));
   }catch(e){authErr(t('errConnection'));}
@@ -2350,6 +2351,11 @@ function _authFail(where,error){
 // Arabic-Indic (٠-٩) and Eastern (۰-۹) numerals → ASCII digits. Saudi customers on Arabic
 // keyboards type these; regex \D treated them as junk, so their phone number was silently
 // deleted as they typed.
+// Invisible characters (RTL/LTR marks U+200E-F, zero-width U+200B-D, bidi embeds, NBSP)
+// ride along with Arabic-keyboard input and survive trim(). One inside an email at signup
+// makes every future login "invalid credentials" — the stored address LOOKS identical but
+// never string-matches again. Strip them from identity fields.
+function _cleanIdent(v){return String(v==null?'':v).replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF\u00A0]/g,'').trim();}
 function _asciiDigits(v){return String(v==null?'':v).replace(/[٠-٩]/g,c=>String.fromCharCode(c.charCodeAt(0)-1584)).replace(/[۰-۹]/g,c=>String.fromCharCode(c.charCodeAt(0)-1728));}
 // Live phone mask: groups digits as "5XX XXX XXXX" while typing (display only; saved value is stripped to digits)
 function fmtPhoneInput(el){
@@ -2380,8 +2386,8 @@ function _normPhone(raw,cc){
 }
 
 async function doSignup(){
-  const name=(document.getElementById('a-name')?.value||'').trim();
-  const email=(document.getElementById('a-email')?.value||'').trim().toLowerCase();
+  const name=_cleanIdent(document.getElementById('a-name')?.value||'');
+  const email=_cleanIdent(document.getElementById('a-email')?.value||'').toLowerCase();
   const cc=document.getElementById('a-cc')?.value||'+966';
   const phone=(document.getElementById('a-phone')?.value||'').replace(/\D/g,'');
   const pwd=(document.getElementById('a-pwd')?.value||'');
@@ -2420,7 +2426,7 @@ async function doSignup(){
       S.rememberMe=true; // a brand-new account shouldn't evaporate when the browser closes (matches the Google flow)
       S.loggedIn=safeCustomer;setSession(safeCustomer);
       await loadData();
-      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
+      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('register'); // don't strand them on the landing page after signing in
       logAction(t('logAcctCreated')+name);
       toast(`${name}! ${t('toastAccountCreated')}`);
       return;
@@ -2436,7 +2442,7 @@ async function doSignup(){
     await loadData();
     const safeCustomer={id:customer.id,name,email,phone:fullPhone,height,type_preference,created_at:customer.created_at};
     S.loggedIn=safeCustomer;setSession(safeCustomer);
-    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
+    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('register'); // don't strand them on the landing page after signing in
     logAction(t('logAcctCreated')+name);
     toast(`${name}! ${t('toastAccountCreated')}`);
   }catch(e){_authFail('exception',e);}
@@ -2509,7 +2515,7 @@ function openGoogleComplete(){
 function _authBtnBusy(busy){try{document.querySelectorAll('#auth-modal .auth-submit').forEach(b=>{b.disabled=busy;b.style.opacity=busy?'.6':'';});}catch(e){}}
 async function doCompleteGoogle(){
   const g=S._pendingGoogle||{};
-  const name=(document.getElementById('a-name')?.value||g.name||'').trim();
+  const name=_cleanIdent(document.getElementById('a-name')?.value||g.name||'');
   const cc=document.getElementById('a-cc')?.value||'+966';
   const phone=(document.getElementById('a-phone')?.value||'').replace(/\D/g,'');
   if(!name||name.trim().split(/\s+/).length<2){authErr(t('errEnterName'));return;}
@@ -2549,7 +2555,7 @@ async function doCompleteGoogle(){
 }
 
 async function doLogin(){
-  const rawInput=(document.getElementById('a-identifier')?.value||'').trim();
+  const rawInput=_cleanIdent(document.getElementById('a-identifier')?.value||'');
   const identifier=rawInput.toLowerCase();
   const pwd=(document.getElementById('a-pwd')?.value||'');
   if(!identifier){authErr(t('errEmailOrPhone'));return;}
@@ -2566,7 +2572,7 @@ async function doLogin(){
       if(!customer){authErr(t('errInvalidCredentials'));return;}
       S.loggedIn=customer;setSession(customer);
       await loadData();
-      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
+      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('register'); // don't strand them on the landing page after signing in
       logAction(t('logLoggedIn')+customer.name);
       toast(`${t('toastWelcomeBack')}, ${customer.name}!`);
       return;
@@ -2596,7 +2602,7 @@ async function doLogin(){
     delete customer.password_hash;
     S.loggedIn=customer;setSession(customer);
     await loadData();
-    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
+    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('register'); // don't strand them on the landing page after signing in
     logAction(t('logLoggedIn')+customer.name);
     toast(`${t('toastWelcomeBack')}, ${customer.name}!`);
   }catch(e){_authFail('exception',e);}

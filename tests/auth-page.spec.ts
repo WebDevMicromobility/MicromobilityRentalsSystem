@@ -304,3 +304,41 @@ test.describe('round 3: storage, Arabic keyboards, paste, error visibility', () 
     expect(vis).toBe(true);
   });
 });
+
+test.describe('round 4: invisible characters & post-login flow', () => {
+  test('an invisible RTL mark in the email is stripped before login and signup', async ({ page }) => {
+    await boot(page);
+    const loginCalls = await captureRpc(page, 'customer_login', [customer]);
+    await page.evaluate(`document.getElementById('a-identifier').value='\u200F x@y.com\u200F '`);
+    await page.fill('#a-pwd', 'Zq8xTselah');
+    await page.evaluate('doLogin()');
+    await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
+    expect(loginCalls[0].p_identifier).toBe('x@y.com'); // was "x@y.com\u200F" → invalid credentials forever
+  });
+
+  test('email login lands the customer in the booking view, not back on the landing page', async ({ page }) => {
+    await boot(page, { 'rpc:customer_login': [customer] });
+    expect(await page.evaluate('S.view')).toBe('landing');
+    await page.fill('#a-identifier', 'x@y.com');
+    await page.fill('#a-pwd', 'Zq8xTselah');
+    await page.evaluate('doLogin()');
+    await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
+    expect(await page.evaluate('S.view')).toBe('customer'); // Google flow already did this; email flows stranded users
+  });
+
+  test('signup with a bidi-marked email stores the clean address', async ({ page }) => {
+    await boot(page);
+    const calls = await captureRpc(page, 'customer_signup', [{ session_token: 't' }]);
+    await page.evaluate('switchAuthMode("signup")');
+    await page.fill('#a-name', 'Faisal Babalghoum');
+    await page.evaluate('setSignupGender("male")');
+    await page.evaluate(`document.getElementById('a-email').value='Faisal\u200F@Example.com\u200E'`);
+    await page.fill('#a-phone', '0508566560');
+    await page.fill('#a-pwd', 'Zq8xTselah');
+    await page.fill('#a-pwd2', 'Zq8xTselah');
+    await page.fill('#a-height', '175');
+    await page.evaluate('doSignup()');
+    await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
+    expect(calls[0].p_email).toBe('faisal@example.com');
+  });
+});
