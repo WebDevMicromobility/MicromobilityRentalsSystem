@@ -7890,10 +7890,17 @@ async function confirmAssign(){
   if(toFree.length)await Promise.all(toFree.map(id=>sb.from('bikes').update({status:'available'}).eq('id',id))).catch(()=>{});
 
   let assignedVal;
+  const _relClaimed=()=>Promise.all(claimed.map(id=>sb.from('bikes').update({status:'available'}).eq('id',id))).catch(()=>{});
   if(S.modalBikes.length===1){
     assignedVal=S.modalBikes[0];
-    const _ar=await sb.from('queue_entries').update({status:'active',assigned_bike_id:assignedVal,...priceUpdate}).eq('id',riderId);
-    if(_writeErr(_ar,'check-in')){await loadData();closeModal();return;} // surface a failed check-in instead of silently closing
+    // Fresh check-in (waiting->active) is guarded on status: if another device already checked
+    // this rider in, our update hits 0 rows — release the bike we claimed so it isn't left
+    // in-use assigned to nobody (orphaned).
+    let _q=sb.from('queue_entries').update({status:'active',assigned_bike_id:assignedVal,...priceUpdate}).eq('id',riderId);
+    if(!isReassign)_q=_q.eq('status','waiting');
+    const _ar=await _q.select('id');
+    if(_writeErr(_ar,'check-in')){await _relClaimed();await loadData();closeModal();return;} // surface a failed check-in instead of silently closing
+    if(!isReassign&&!(_ar.data&&_ar.data.length>0)){await _relClaimed();toast(`${selected[0].name}: ${t('errBikeUnavailable')}`,'error');await loadData();renderModal();return;} // lost the check-in race
   }else{
     
     const jsonVal=JSON.stringify(S.modalBikes);
