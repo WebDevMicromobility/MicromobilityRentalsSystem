@@ -192,3 +192,69 @@ test('the auth modal renders every mode in Arabic with zero console errors', asy
   `);
   expect(errs, errs.join('\n')).toEqual([]);
 });
+
+test.describe('in-app browsers (Instagram/WhatsApp webviews)', () => {
+  test.use({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Instagram 300.0.0.0' });
+
+  test('the Google button is replaced with guidance (Google blocks these webviews)', async ({ page }) => {
+    await boot(page);
+    await expect(page.locator('#auth-modal .btn-google')).toHaveCount(0);
+    await expect(page.locator('#auth-modal')).toContainText(/Open in browser|الفتح في المتصفح/);
+    // email signup stays fully available
+    await page.evaluate('switchAuthMode("signup")');
+    await expect(page.locator('#a-email')).toBeVisible();
+  });
+});
+
+test.describe('remaining hardening', () => {
+  test('a stray trunk zero after the country code is dropped (+9660… → +966…)', async ({ page }) => {
+    await boot(page);
+    expect(await page.evaluate(`_normPhone('+9660508727012','+966')`)).toBe('+966508727012');
+    expect(await page.evaluate(`_normPhone('+966508727012','+966')`)).toBe('+966508727012'); // untouched
+  });
+
+  test('signing up with a TAKEN PHONE says phone-exists, before any signup call', async ({ page }) => {
+    await boot(page);
+    const signupCalls = await captureRpc(page, 'customer_signup', [{ session_token: 't' }]);
+    await page.route(/\/rest\/v1\/rpc\/customer_exists/, async (route) => {
+      const body = route.request().postDataJSON() as { p_phone?: string };
+      await route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(!!body.p_phone) }); // taken only when checking phone
+    });
+    await page.evaluate('switchAuthMode("signup")');
+    await page.fill('#a-name', 'Faisal Babalghoum');
+    await page.evaluate('setSignupGender("male")');
+    await page.fill('#a-email', 'new@example.com');
+    await page.fill('#a-phone', '0508566560');
+    await page.fill('#a-pwd', 'Zq8xTselah');
+    await page.fill('#a-pwd2', 'Zq8xTselah');
+    await page.fill('#a-height', '175');
+    await page.evaluate('doSignup()');
+    const err = await page.locator('#auth-err').textContent();
+    expect(err).toMatch(/phone|هاتف|جوال/i);
+    expect(signupCalls.length).toBe(0);
+  });
+
+  test('a successful email signup turns rememberMe on (survives browser close)', async ({ page }) => {
+    await boot(page);
+    await captureRpc(page, 'customer_signup', [{ session_token: 'tok-new' }]);
+    await page.evaluate('switchAuthMode("signup")');
+    await page.fill('#a-name', 'Faisal Babalghoum');
+    await page.evaluate('setSignupGender("male")');
+    await page.fill('#a-email', 'new@example.com');
+    await page.fill('#a-phone', '0508566560');
+    await page.fill('#a-pwd', 'Zq8xTselah');
+    await page.fill('#a-pwd2', 'Zq8xTselah');
+    await page.fill('#a-height', '175');
+    await page.evaluate('doSignup()');
+    await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
+    expect(await page.evaluate('S.rememberMe')).toBe(true);
+    expect(await page.evaluate(`(localStorage.getItem('cq_session')||'').includes('tok-new')`)).toBe(true);
+  });
+
+  test('an offline auth failure says offline, not a generic connection error', async ({ page }) => {
+    await boot(page);
+    await page.evaluate(`Object.defineProperty(navigator,'onLine',{get:()=>false});_authFail('probe',{message:'x'})`);
+    const err = await page.locator('#auth-err').textContent();
+    expect(err).toMatch(/offline|غير متصل/i);
+  });
+});

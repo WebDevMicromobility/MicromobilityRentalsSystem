@@ -232,7 +232,7 @@ en:{
   forgotVerifyBtn:'Verify Identity',verifying:'Verifying...',
   forgotVerifiedMsg:'Identity verified for',
   errResetNoMatch:'That email and phone number do not match an account.',
-  errGoogleNoPw:'This account uses Google sign-in. Use the Google button to log in.',
+  errGoogleNoPw:'This account uses Google sign-in. Use the Google button to log in.',errNoInternet:'You appear to be offline — check your connection and try again.',iabGoogleBlocked:'Google sign-in is blocked inside this app\'s browser (Instagram/WhatsApp). Tap ⋯ and choose "Open in browser", or sign up with email below.',
   toastPwReset:'Password reset successfully!',
   errAccountNotFound:'No account found with that email.',
   staffResetTool:'Reset Customer Password',staffResetDesc:'Set a new password for a customer who is locked out.',
@@ -613,7 +613,7 @@ ar:{
   forgotVerifyBtn:'تحقق من الهوية',verifying:'جارٍ التحقق...',
   forgotVerifiedMsg:'تم التحقق من الهوية لـ',
   errResetNoMatch:'البريد الإلكتروني ورقم الهاتف لا يطابقان أي حساب.',
-  errGoogleNoPw:'هذا الحساب يستخدم تسجيل دخول Google. استخدم زر Google لتسجيل الدخول.',
+  errGoogleNoPw:'هذا الحساب يستخدم تسجيل دخول Google. استخدم زر Google لتسجيل الدخول.',errNoInternet:'يبدو أنك غير متصل بالإنترنت — تحقق من الاتصال وحاول مجدداً.',iabGoogleBlocked:'تسجيل الدخول عبر Google محظور داخل متصفح هذا التطبيق (إنستغرام/واتساب). اضغط ⋯ واختر "الفتح في المتصفح"، أو أنشئ حساباً بالبريد أدناه.',
   toastPwReset:'تم إعادة تعيين كلمة المرور بنجاح!',
   errAccountNotFound:'لا يوجد حساب بهذا البريد الإلكتروني.',
   staffResetTool:'إعادة تعيين كلمة مرور العميل',staffResetDesc:'عيّن كلمة مرور جديدة لعميل لا يستطيع الدخول.',
@@ -2124,7 +2124,9 @@ function renderAuthModal(){
   const ccOpts=COUNTRY_CODES.map(([code,iso])=>`<option value="${code}"${code==='+966'?' selected':''}>${code}</option>`).join('');
   const logoSrc='brand.png';
   let title=t('authWelcome'),subtitle=t('authSub'),tabs='',body='';
-  const googleBlock=`
+  const googleBlock=_isInAppBrowser()?`
+    <div style="background:rgba(224,136,40,.08);border:1px solid rgba(224,136,40,.35);border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;line-height:1.6;color:var(--text)">${t('iabGoogleBlocked')}</div>
+    <div class="auth-or">${t('authOr')}</div>`:`
     <button type="button" class="btn-google" onclick="signInGoogle()">
       <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72A5.4 5.4 0 0 1 3.68 9c0-.6.1-1.18.29-1.72V4.95H.96A9 9 0 0 0 0 9c0 1.45.35 2.82.96 4.05l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A9 9 0 0 0 9 0 9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
       ${t('continueGoogle')}
@@ -2313,8 +2315,9 @@ async function doResetPassword(){
       const ph=_normPhone(S.forgotPhoneRaw||'',S.forgotCc||'+966'); // cc+raw kept the trunk 0 ("+9660…") and could never match
       const{data,error}=await sb.rpc('customer_reset',{p_email:S.forgotEmail,p_phone:ph,p_new_pwd:pwd});
       const customer=(data&&data[0])||null;
+      if(error&&!/LOCKED/.test((error.message||''))){_authFail('reset',error);return;}
       if(error||!customer){authErr(t('errResetNoMatch'));return;}
-      S.loggedIn=customer;setSession(customer);S.forgotStep=1;S.forgotEmail='';S.forgotVerified=null;S.authMode='login';
+      S.rememberMe=true;S.loggedIn=customer;setSession(customer);S.forgotStep=1;S.forgotEmail='';S.forgotVerified=null;S.authMode='login';
       await loadData();
       closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
       logAction(t('logPwdResetSelf')+(customer.email||''));
@@ -2334,6 +2337,12 @@ async function doResetPassword(){
   }catch(e){authErr(t('errConnection'));}
 }
 function authErr(msg){const el=document.getElementById('auth-err');if(el)el.textContent=msg;}
+// Server/connection failure in an auth flow: offline gets an honest message instead of the
+// generic one, and the failure is logged to error_log (code/message only — never credentials).
+function _authFail(where,error){
+  try{_logError('auth:'+where+' '+(((error&&(error.code||''))+' '+((error&&error.message)||'')).trim()||'fail'),'auth',true);}catch(e){}
+  authErr(navigator.onLine===false?t('errNoInternet'):t('errConnection'));
+}
 // Live phone mask: groups digits as "5XX XXX XXXX" while typing (display only; saved value is stripped to digits)
 function fmtPhoneInput(el){
   if(!el)return;
@@ -2350,7 +2359,7 @@ function _normPhone(raw,cc){
   const ccd=cc.replace(/\D/g,''); // e.g. "966"
   let s=String(raw==null?'':raw).trim().replace(/[\s()\-]/g,'');
   if(!s)return '';
-  if(s[0]==='+')return '+'+s.slice(1).replace(/\D/g,'');       // explicit + — trust it
+  if(s[0]==='+'){let d=s.slice(1).replace(/\D/g,'');if(ccd&&d.indexOf(ccd+'0')===0)d=ccd+d.slice(ccd.length+1);return '+'+d;} // explicit +, but drop a stray trunk 0 after the country code ("+9660…")
   s=s.replace(/\D/g,'');
   if(!s)return '';
   if(s.slice(0,2)==='00')return '+'+s.slice(2);                // 00 international prefix
@@ -2380,15 +2389,24 @@ async function doSignup(){
   const fullPhone=phone?_normPhone(phone,cc):'';
   try{
     if(CUST_RPC){
+      // Pre-check email and phone separately so the error says WHICH one is taken
+      // (the signup RPC's DUPLICATE covers both and used to always read "email exists").
+      try{
+        const{data:exE}=await sb.rpc('customer_exists',{p_email:email,p_phone:''});
+        if(exE===true){authErr(t('errEmailExists'));return;}
+        const{data:exP}=await sb.rpc('customer_exists',{p_email:'',p_phone:fullPhone});
+        if(exP===true){authErr(t('errPhoneExists'));return;}
+      }catch(e){}
       const height=isNaN(heightRaw)?null:heightRaw;
       const newId=uid();
       const{data,error}=await sb.rpc('customer_signup',{
         p_id:newId,p_name:name,p_email:email,p_phone:fullPhone,
         p_pwd:pwd,p_height:height,
         p_type_preference:S.signupTypePref||'Any',p_gender:S.signupGender});
-      if(error){authErr((error.code==='23505'||/DUPLICATE/i.test(error.message||''))?t('errEmailExists'):t('errConnection'));return;}
+      if(error){if(error.code==='23505'||/DUPLICATE/i.test(error.message||''))authErr(t('errEmailExists'));else _authFail('signup',error);return;}
       const tok=(data&&data[0]&&data[0].session_token)||null;
       const safeCustomer={id:newId,name,email,phone:fullPhone,height,type_preference:S.signupTypePref||'Any',created_at:new Date().toISOString(),session_token:tok};
+      S.rememberMe=true; // a brand-new account shouldn't evaporate when the browser closes (matches the Google flow)
       S.loggedIn=safeCustomer;setSession(safeCustomer);
       await loadData();
       closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
@@ -2410,12 +2428,17 @@ async function doSignup(){
     closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
     logAction(t('logAcctCreated')+name);
     toast(`${name}! ${t('toastAccountCreated')}`);
-  }catch(e){authErr(t('errConnection'));}
+  }catch(e){_authFail('exception',e);}
   finally{S._authBusy=false;_authBtnBusy(false);}
 }
 
 
+// Instagram / Facebook / WhatsApp / TikTok in-app browsers are blocked by Google OAuth
+// ("disallowed_useragent"). Their bio link opens exactly these, so detect them and steer
+// the customer to email signup or the real browser instead of a dead Google button.
+function _isInAppBrowser(){const ua=navigator.userAgent||'';return /Instagram|FBAN|FBAV|FB_IAB|FBIOS|WhatsApp|Snapchat|TikTok|musical_ly|Line\/|MicroMessenger|Twitter|LinkedInApp/i.test(ua);}
 async function signInGoogle(){
+  if(_isInAppBrowser()){authErr(t('iabGoogleBlocked'));return;}
   if(!sb||!sb.auth){authErr(t('errConnection'));return;}
   try{
     const{error}=await sb.auth.signInWithOAuth({
@@ -2490,7 +2513,7 @@ async function doCompleteGoogle(){
       try{const{data:ex}=await sb.rpc('customer_exists',{p_email:'',p_phone:fullPhone});if(ex===true){authErr(t('errPhoneExists'));return;}}catch(e){}
       const newId=uid();
       const{data,error}=await sb.rpc('customer_oauth_signup',{p_id:newId,p_name:name,p_email:g.email||'',p_phone:fullPhone,p_height:heightRaw,p_type_preference:S.signupTypePref||'Any',p_gender:S.signupGender,p_photo:g.photo||null});
-      if(error){authErr(/DUPLICATE|23505/i.test((error.message||'')+(error.code||''))?t('errPhoneExists'):t('errConnection'));return;}
+      if(error){if(/DUPLICATE|23505/i.test((error.message||'')+(error.code||'')))authErr(t('errPhoneExists'));else _authFail('gcomplete',error);return;}
       const tok=(data&&data[0]&&data[0].session_token)||null;
       const safe={id:newId,name,email:g.email||'',phone:fullPhone,height:heightRaw,type_preference:S.signupTypePref||'Any',created_at:new Date().toISOString(),photo:g.photo||null,session_token:tok};
       S.rememberMe=true;S.loggedIn=safe;setSession(safe);S._pendingGoogle=null;
@@ -2510,7 +2533,7 @@ async function doCompleteGoogle(){
     closeAuthModal();goCustomer('register');
     logAction(t('logAcctCreatedGoogle')+name);
     toast(`${name}! ${t('toastAccountCreated')}`);
-  }catch(e){authErr(t('errConnection'));}
+  }catch(e){_authFail('exception',e);}
   finally{S._authBusy=false;_authBtnBusy(false);}
 }
 
@@ -2527,7 +2550,7 @@ async function doLogin(){
       // stored +966… form or phone login always fails with "invalid credentials".
       const ident=identifier.includes('@')?identifier:(_normPhone(rawInput,'+966')||identifier);
       const{data,error}=await sb.rpc('customer_login',{p_identifier:ident,p_pwd:pwd});
-      if(error){authErr(/LOCKED/.test((error.message||'')+(error.hint||''))?t('errLoginLocked'):t('errInvalidCredentials'));return;}
+      if(error){if(/LOCKED/.test((error.message||'')+(error.hint||'')))authErr(t('errLoginLocked'));else if(/PGRST|Failed to fetch|network/i.test((error.code||'')+(error.message||'')))_authFail('login',error);else authErr(t('errInvalidCredentials'));return;}
       const customer=(data&&data[0])||null;
       if(!customer){authErr(t('errInvalidCredentials'));return;}
       S.loggedIn=customer;setSession(customer);
@@ -2565,7 +2588,7 @@ async function doLogin(){
     closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();
     logAction(t('logLoggedIn')+customer.name);
     toast(`${t('toastWelcomeBack')}, ${customer.name}!`);
-  }catch(e){authErr(t('errConnection'));}
+  }catch(e){_authFail('exception',e);}
   finally{S._authBusy=false;_authBtnBusy(false);}
 }
 
@@ -12368,13 +12391,14 @@ try{setInterval(()=>{if(_outboxCount()||_bookOutboxCount()){_outboxFlush();_book
 // ── Global error capture: keep the last 50 errors locally, surface a throttled toast, log to a tolerant table ──
 let _errToastAt=0;
 let _errPingAt=0;
-function _logError(msg,src){
+function _logError(msg,src,silent){
   msg=String(msg||'error').slice(0,500);src=String(src||'');
   try{const a=JSON.parse(localStorage.getItem('cq_errors')||'[]');a.push({t:new Date().toISOString(),msg,src});while(a.length>50)a.shift();localStorage.setItem('cq_errors',JSON.stringify(a));}catch(e){}
   try{console.error(msg,src);}catch(e){}
   try{if(typeof sb!=='undefined'&&sb)sb.from('error_log').insert({at:new Date().toISOString(),msg,src,ua:(navigator.userAgent||'').slice(0,200)}).then(()=>{},()=>{});}catch(e){}
   // Proactive alert ping (no-op unless the DISCORD_WEBHOOK env var is set on the Pages project). Heavily throttled.
   try{const now2=Date.now();if(navigator.onLine!==false&&now2-_errPingAt>120000){_errPingAt=now2;fetch('/api/log-error',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({msg,src,ua:(navigator.userAgent||'').slice(0,160)})}).then(()=>{},()=>{});}}catch(e){}
+  if(silent)return; // telemetry-only callers (auth failures) already show their own message
   const now=Date.now();if(now-_errToastAt>15000){_errToastAt=now;try{toast(t('errSomethingWrong'),'error');}catch(e){}}
 }
 try{window.addEventListener('error',e=>{_logError((e&&e.message)||(e&&e.error&&e.error.message)||'error',((e&&e.filename)||'')+':'+((e&&e.lineno)||''));});}catch(e){}
