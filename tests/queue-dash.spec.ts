@@ -30,3 +30,17 @@ test('queue dashboard boxes show counts and drive the status filter', async ({ p
   expect(await page.evaluate('S.sfStatus')).toBe('waiting');
   await expect(page.locator('.q-dash button').nth(1)).toHaveAttribute('aria-pressed', 'true'); // active box highlighted
 });
+
+test('editing a bike with no colors array does not crash (latent bug found by chaos)', async ({ page }) => {
+  const errs: string[] = [];
+  page.on('pageerror', (e) => errs.push(String(e)));
+  await stubSupabase(page, {
+    bikes: [{ id: 'b1', name: 'B1', size: 'M', type: 'Hybrid', status: 'available', rental_price: 57.5 }], // no colors/color_names
+  });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`startEdit('b1')`);
+  expect(errs, errs.join('\n')).toEqual([]);
+  expect(await page.evaluate('Array.isArray(S.addBikeColorNames) && S.addBikeColorNames.length')).toBe(1);
+});

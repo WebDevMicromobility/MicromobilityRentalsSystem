@@ -8559,7 +8559,7 @@ function startEdit(id){
   const bike=getBikes().find(b=>b.id===id);if(!bike)return;
   S.editBikeId=id;S.showAddBike=false;S.addBikeType=bike.type;S.addBikeSize=bike.size;
   S.addBikeColors=bike.colors&&bike.colors.length?[...bike.colors]:['#6ee89a'];
-  S.addBikeColorNames=bike.color_names&&bike.color_names.length?[...bike.color_names]:bike.colors.map(()=>'');
+  S.addBikeColorNames=bike.color_names&&bike.color_names.length?[...bike.color_names]:S.addBikeColors.map(()=>''); // map the DEFAULTED colors — bike.colors may be undefined (legacy/imported bike) and would crash
   S._bkName=bike.name;S._bkNameCustom=bike.name!==genBikeName(bike.type,bike.frame_type,bike.bike_number,bike.size);S._bkBrand=bike.brand||'';S._bkModel=bike.model||'';
   S._bkGroupset=bike.groupset||'';S._bkSpeeds=bike.speeds!=null?String(bike.speeds):'';S._bkRentalPrice=bike.rental_price!=null?String(bike.rental_price):'';
   S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;
