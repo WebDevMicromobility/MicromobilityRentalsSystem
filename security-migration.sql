@@ -223,6 +223,16 @@ begin
   if not _cust_token_ok(p_id, p_token) then return false; end if;
   if not exists(select 1 from queue_entries where id = p_entry_id and customer_id = p_id) then return false; end if;
   if (p_patch ? 'status') and (p_patch->>'status') not in ('cancelled','waiting','waitlist') then return false; end if;
+  -- Value bounds: the client sends these legitimately (type-change reprice, self-restore,
+  -- post-ride ratings), but a handcrafted call must not set absurd values on the row.
+  if (p_patch ? 'price') and ((p_patch->>'price')::numeric < 0 or (p_patch->>'price')::numeric > 1000) then return false; end if;
+  if (p_patch ? 'queue_num') and ((p_patch->>'queue_num')::int < 1 or (p_patch->>'queue_num')::int > 9999) then return false; end if;
+  if (p_patch ? 'rating_bike') and nullif(p_patch->>'rating_bike','') is not null
+     and ((p_patch->>'rating_bike')::int < 1 or (p_patch->>'rating_bike')::int > 10) then return false; end if;
+  if (p_patch ? 'rating_exp') and nullif(p_patch->>'rating_exp','') is not null
+     and ((p_patch->>'rating_exp')::int < 1 or (p_patch->>'rating_exp')::int > 10) then return false; end if;
+  if (p_patch ? 'height') and nullif(p_patch->>'height','') is not null
+     and ((p_patch->>'height')::int < 100 or (p_patch->>'height')::int > 250) then return false; end if;
   update queue_entries q set
     type_preference  = coalesce(p_patch->>'type_preference', q.type_preference),
     price            = coalesce((p_patch->>'price')::numeric, q.price),
