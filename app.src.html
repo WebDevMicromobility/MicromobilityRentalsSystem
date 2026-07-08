@@ -1838,7 +1838,10 @@ function getSession(){
   }catch{return null;}
 }
 function setSession(c){
-  
+  // Storage can THROW (Safari "Block All Cookies", old private mode, quota). The customer
+  // has already authenticated — never let a storage error surface as "Connection error";
+  // the in-memory S.loggedIn keeps this visit working, they just won't be remembered.
+  try{
   if(S&&S.rememberMe){
     localStorage.setItem('cq_session',JSON.stringify(c));
     sessionStorage.removeItem('cq_session');
@@ -1846,6 +1849,7 @@ function setSession(c){
     sessionStorage.setItem('cq_session',JSON.stringify(c));
     localStorage.removeItem('cq_session');
   }
+  }catch(e){try{_logError('setSession storage blocked: '+(e&&e.name||''),'auth',true);}catch(_){}}
 }
 function clearSession(){
   localStorage.removeItem('cq_session');
@@ -2336,17 +2340,24 @@ async function doResetPassword(){
     toast(t('toastPwReset'));
   }catch(e){authErr(t('errConnection'));}
 }
-function authErr(msg){const el=document.getElementById('auth-err');if(el)el.textContent=msg;}
+function authErr(msg){const el=document.getElementById('auth-err');if(el){el.textContent=msg;if(msg){try{el.scrollIntoView({block:'center',behavior:'smooth'});}catch(e){}}}}
 // Server/connection failure in an auth flow: offline gets an honest message instead of the
 // generic one, and the failure is logged to error_log (code/message only — never credentials).
 function _authFail(where,error){
   try{_logError('auth:'+where+' '+(((error&&(error.code||''))+' '+((error&&error.message)||'')).trim()||'fail'),'auth',true);}catch(e){}
   authErr(navigator.onLine===false?t('errNoInternet'):t('errConnection'));
 }
+// Arabic-Indic (٠-٩) and Eastern (۰-۹) numerals → ASCII digits. Saudi customers on Arabic
+// keyboards type these; regex \D treated them as junk, so their phone number was silently
+// deleted as they typed.
+function _asciiDigits(v){return String(v==null?'':v).replace(/[٠-٩]/g,c=>String.fromCharCode(c.charCodeAt(0)-1584)).replace(/[۰-۹]/g,c=>String.fromCharCode(c.charCodeAt(0)-1728));}
 // Live phone mask: groups digits as "5XX XXX XXXX" while typing (display only; saved value is stripped to digits)
 function fmtPhoneInput(el){
   if(!el)return;
-  const d=el.value.replace(/\D/g,'').slice(0,10);
+  let d=_asciiDigits(el.value).replace(/\D/g,'');
+  if(d.slice(0,2)==='00')d=d.slice(2);                 // pasted 00966…
+  if(d.indexOf('966')===0&&d.length>=11)d='0'+d.slice(3); // pasted +966… → local 05…, keeping ALL digits (slicing first corrupted the number)
+  d=d.slice(0,10);
   let out=d;
   if(d.length>6)out=d.slice(0,3)+' '+d.slice(3,6)+' '+d.slice(6);
   else if(d.length>3)out=d.slice(0,3)+' '+d.slice(3);
@@ -2357,7 +2368,7 @@ function fmtPhoneInput(el){
 function _normPhone(raw,cc){
   cc=cc||'+966';
   const ccd=cc.replace(/\D/g,''); // e.g. "966"
-  let s=String(raw==null?'':raw).trim().replace(/[\s()\-]/g,'');
+  let s=_asciiDigits(String(raw==null?'':raw)).trim().replace(/[\s()\-]/g,'');
   if(!s)return '';
   if(s[0]==='+'){let d=s.slice(1).replace(/\D/g,'');if(ccd&&d.indexOf(ccd+'0')===0)d=ccd+d.slice(ccd.length+1);return '+'+d;} // explicit +, but drop a stray trunk 0 after the country code ("+9660…")
   s=s.replace(/\D/g,'');

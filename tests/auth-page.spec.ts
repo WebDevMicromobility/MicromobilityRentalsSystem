@@ -258,3 +258,49 @@ test.describe('remaining hardening', () => {
     expect(err).toMatch(/offline|غير متصل/i);
   });
 });
+
+test.describe('round 3: storage, Arabic keyboards, paste, error visibility', () => {
+  test('login still completes when storage is blocked (Safari Block-All-Cookies)', async ({ page }) => {
+    await boot(page, { 'rpc:customer_login': [customer] });
+    await page.evaluate(`Storage.prototype.setItem=function(){throw new DOMException('denied','SecurityError');}`);
+    await page.fill('#a-identifier', 'x@y.com');
+    await page.fill('#a-pwd', 'Zq8xTselah');
+    await page.evaluate('doLogin()');
+    await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
+    expect(await page.evaluate('S.loggedIn && S.loggedIn.session_token')).toBe('tok9'); // in-memory session survives
+  });
+
+  test('Arabic-Indic digits are accepted in the phone mask and normalizer', async ({ page }) => {
+    await boot(page);
+    const out = await page.evaluate(`(()=>{
+      const el=document.createElement('input');el.value='٠٥٠٨٧٢٧٠١٢';fmtPhoneInput(el);
+      return { masked: el.value, norm: _normPhone('٠٥٠٨٧٢٧٠١٢','+966'), eastern: _normPhone('۰۵۰۸۷۲۷۰۱۲','+966') };
+    })()`);
+    expect(out.masked).toBe('050 872 7012'); // was silently wiped as the user typed
+    expect(out.norm).toBe('+966508727012');
+    expect(out.eastern).toBe('+966508727012');
+  });
+
+  test('pasting a full international number keeps every digit (no corrupt truncation)', async ({ page }) => {
+    await boot(page);
+    const out = await page.evaluate(`(()=>{
+      const el=document.createElement('input');
+      el.value='+966 508 727 012'; fmtPhoneInput(el); const a=el.value;
+      el.value='00966508727012'; fmtPhoneInput(el); const b=el.value;
+      return { a, b, norm: _normPhone(a.replace(/\\D/g,''),'+966') };
+    })()`);
+    expect(out.a).toBe('050 872 7012'); // was "966 508 7270" — a corrupt number
+    expect(out.b).toBe('050 872 7012');
+    expect(out.norm).toBe('+966508727012');
+  });
+
+  test('the error message scrolls into view when set', async ({ page }) => {
+    await boot(page);
+    await page.evaluate('doLogin()'); // triggers a validation error
+    const vis = await page.evaluate(`(()=>{
+      const r=document.getElementById('auth-err').getBoundingClientRect();
+      return r.top>=0 && r.bottom<=window.innerHeight && document.getElementById('auth-err').textContent.length>0;
+    })()`);
+    expect(vis).toBe(true);
+  });
+});
