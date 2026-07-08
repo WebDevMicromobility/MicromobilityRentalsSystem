@@ -552,7 +552,7 @@ en:{
   
   liveLabel:'Live',updateReadyToast:'A new version is ready — refresh the page to update.',justNow:'just now',secondsAgo:'s ago',minutesAgo:'m ago',offlineLabel:'Offline',offlineBanner:'You are offline - changes are saved and will sync when the connection returns.',
   selectSessionPrompt:'Select a session above',selectSessionSub:'Click a session chip to view and manage its queue independently.',
-  undoBtn:'↩ Undo',undoneMsg:'↩ Undone.',undoFailed:'Undo failed.',themeLight:'Sunlight mode',themeDark:'Night mode',
+  undoBtn:'↩ Undo',undoneMsg:'↩ Undone.',undoFailed:'Undo failed.',errStorageFull:'Device storage is full — free some space; unsynced sales/bookings may not be saved.',themeLight:'Sunlight mode',themeDark:'Night mode',
   fleetBadge:'Fleet',altBadge:'Alt',
   showOtherTypes:'↓ Show other types',hideOtherTypes:'↑ Hide other types',available2:'available',
   noOtherTypes:'No other types available either.',
@@ -923,7 +923,7 @@ ar:{
   typeRoad:'طريق',typeHybrid:'هجين',typeMountain:'جبلي',typeGravel:'حصى',typeAny:'أي نوع',
   liveLabel:'مباشر',updateReadyToast:'يتوفر إصدار جديد — حدّث الصفحة للتحديث.',justNow:'الآن',secondsAgo:'ث مضت',minutesAgo:'د مضت',offlineLabel:'غير متصل',offlineBanner:'أنت غير متصل - يتم حفظ التغييرات وستتم المزامنة عند عودة الاتصال.',
   selectSessionPrompt:'اختر جلسة من الأعلى',selectSessionSub:'انقر على إحدى الجلسات لعرض طابورها وإدارته بشكل مستقل.',
-  undoBtn:'↩ تراجع',undoneMsg:'↩ تم التراجع.',undoFailed:'فشل التراجع.',themeLight:'وضع النهار',themeDark:'الوضع الليلي',
+  undoBtn:'↩ تراجع',undoneMsg:'↩ تم التراجع.',undoFailed:'فشل التراجع.',errStorageFull:'ذاكرة الجهاز ممتلئة — أفرغ بعض المساحة؛ قد لا تُحفظ المبيعات/الحجوزات غير المتزامنة.',themeLight:'وضع النهار',themeDark:'الوضع الليلي',
   fleetBadge:'الأسطول',altBadge:'بديل',
   showOtherTypes:'↓ عرض أنواع أخرى',hideOtherTypes:'↑ إخفاء الأنواع الأخرى',available2:'متاح',
   noOtherTypes:'لا توجد أنواع أخرى متاحة.',
@@ -9848,8 +9848,21 @@ function _ctCartRemove(i){S._ctCart=(S._ctCart||[]).filter((_,idx)=>idx!==i);ren
 // Voided sale ids (kept locally so a voided purchase can never reappear, even if the DB DELETE was blocked/no-op)
 function _voidedIds(){try{return JSON.parse(localStorage.getItem('cq_sales_voided')||'[]');}catch(_){return[];}}
 function _voidedAdd(id){try{const v=_voidedIds();if(v.indexOf(id)<0){v.push(id);localStorage.setItem('cq_sales_voided',JSON.stringify(v));}}catch(_){}}
+// Persist data we MUST NOT lose (queued offline sales/bookings). If the quota is full, the
+// snapshot cache is disposable — drop it and retry. Only then, if it still fails, surface the
+// error rather than silently losing a sale/booking (the old save just swallowed the exception).
+function _lsSetCritical(key,val){
+  try{localStorage.setItem(key,val);return true;}catch(e){
+    try{localStorage.removeItem('cq_snapshot');}catch(_){}
+    try{localStorage.setItem(key,val);return true;}catch(e2){
+      try{_logError('localStorage quota exceeded saving '+key,'storage');}catch(_){}
+      try{toast(t('errStorageFull'),'error');}catch(_){}
+      return false;
+    }
+  }
+}
 function _outbox(){try{const o=JSON.parse(localStorage.getItem('cq_sales_outbox')||'[]');let ch=false;o.forEach(op=>{if(!op.oid){op.oid=uid();ch=true;}});if(ch)_outboxSave(o);return o;}catch(_){return[];}}
-function _outboxSave(o){try{localStorage.setItem('cq_sales_outbox',JSON.stringify(o));}catch(_){}}
+function _outboxSave(o){_lsSetCritical('cq_sales_outbox',JSON.stringify(o));}
 function _outboxCount(){return _outbox().length;}
 function _outboxEnqueue(kind,id,data){const o=_outbox();o.push({oid:uid(),kind,id,data:data||null});_outboxSave(o);_outboxFlush();}
 let _outboxBusy=false;
@@ -9889,7 +9902,7 @@ function _salesUpsert(row){const i=(S.cashSales||[]).findIndex(r=>r.id===row.id)
 function _salesDelete(id){_voidedAdd(id);S.cashSales=(S.cashSales||[]).filter(r=>r.id!==id);_outboxEnqueue('delete',id,null);}
 // ── Offline-safe bookings: queue queue_entries inserts locally and sync when the connection returns ──
 function _bookOutbox(){try{return JSON.parse(localStorage.getItem('cq_book_outbox')||'[]');}catch(_){return[];}}
-function _bookOutboxSave(o){try{localStorage.setItem('cq_book_outbox',JSON.stringify(o));}catch(_){}}
+function _bookOutboxSave(o){_lsSetCritical('cq_book_outbox',JSON.stringify(o));}
 function _bookOutboxAdd(row){const o=_bookOutbox();o.push(row);_bookOutboxSave(o);}
 function _bookOutboxCount(){return _bookOutbox().length;}
 function _applyBookOutbox(){const bo=_bookOutbox();if(!bo.length)return;const have=new Set((S.queue||[]).map(e=>e.id));bo.forEach(db=>{if(!have.has(db.id)){try{S.queue.push(entryFromDB(db));}catch(_){}}});}
