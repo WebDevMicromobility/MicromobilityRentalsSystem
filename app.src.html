@@ -4612,6 +4612,13 @@ async function _addonStock(ids,delta){
     try{await sb.from('inventory').update({qty:q,updated_at:new Date().toISOString()}).eq('id',id);}catch(e){}
   }));
 }
+// Apply stock deltas from a set of receipt/cart lines, SUMMED per unique item so each inventory
+// row takes exactly one absolute write. Two lines of the same item would otherwise fire concurrent
+// absolute-value writes that can land out of order (over-sell on decrement, under-restock on refund).
+async function _addonStockBatch(lines,sign){
+  const agg={};(lines||[]).forEach(l=>{if(l&&l.item_id)agg[l.item_id]=(agg[l.item_id]||0)+(Number(l.qty)||1)*sign;});
+  await Promise.all(Object.keys(agg).map(id=>_addonStock([id],agg[id])));
+}
 // Qty-aware stock adjustment for a booking's add-ons [{id,qty}] (sign -1 consume, +1 restock)
 async function _addonStockQ(arr,sign){
   const norm=(arr||[]).map(a=>(a&&typeof a==='object')?{id:a.id,qty:Math.max(1,Number(a.qty)||1)}:{id:a,qty:1}).filter(a=>a.id);
@@ -9929,7 +9936,7 @@ async function _ctRecord(){
   if(cardSAR>0)rows.push({id:uid(),receipt_id:rid,session_id:sessId,customer_name:cust,item_id:null,name:t('cashCard'),category:'__cardmeta__',qty:0,price:cardSAR,pay:'paid',team_name:null,created_at:at});
   if(S._ctCustId&&S.hasCsCust!==false)rows.forEach(r=>{r.customer_id=S._ctCustId;}); // link the receipt to the chosen account (column optional; boot detect clears the flag if missing)
   rows.forEach(r=>_salesUpsert(r)); // local + queued for offline-safe sync
-  await Promise.all(rows.filter(r=>r.item_id).map(r=>_addonStock([r.item_id],-r.qty))); // decrement stock for stocked items
+  await _addonStockBatch(rows,-1); // decrement stock for stocked items (summed per item — no concurrent-write race)
   logAction(`${t('cashierTitle')}: ${t('cashReceiptWord')} ×${S._ctCart.length}${cust?` (${cust})`:''}`);
   S._ctCart=[];S._ctDisc='';S._ctCard='';
   toast(t('cashReceiptRecorded'));
@@ -9938,7 +9945,7 @@ async function _ctRecord(){
 async function _ctVoidReceipt(key){
   const rows=(S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key);if(!rows.length)return;
   rows.forEach(r=>_salesDelete(r.id)); // local + queued
-  await Promise.all(rows.filter(r=>r.item_id&&r.pay!=='refunded').map(r=>_addonStock([r.item_id],Number(r.qty)||1))); // restock (refunded items were already restocked)
+  await _addonStockBatch(rows.filter(r=>r.pay!=='refunded'),1); // restock (refunded items were already restocked)
   toast(t('cashVoidedToast'));renderCashier();
 }
 // Refund: keep the receipt in the ledger as an audit record (pay='refunded'), restock items
@@ -9946,11 +9953,7 @@ async function _ctRefundReceipt(key){
   const rows=(S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key&&r.pay!=='refunded'&&r.category!=='__cardmeta__');if(!rows.length)return;
   confirmDialog({title:t('cashRefund'),body:t('cashRefundConfirm'),confirmLabel:t('cashRefund'),confirmClass:'btn-orange',onConfirm:async()=>{
     (S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key).forEach(r=>{r.pay='refunded';_salesUpsert({...r});});
-    // Restock by UNIQUE item (summed qty): _addonStock writes an absolute qty, so two lines of
-    // the same item would otherwise fire concurrent writes that can land out of order and
-    // under-restock the DB. One write per item avoids the race.
-    const _restock={};rows.forEach(r=>{if(r.item_id)_restock[r.item_id]=(_restock[r.item_id]||0)+(Number(r.qty)||1);});
-    await Promise.all(Object.keys(_restock).map(id=>_addonStock([id],_restock[id])));
+    await _addonStockBatch(rows,1); // restock refunded items (summed per item — no concurrent-write race)
     toast(t('cashRefundedToast'));renderCashier();
   }});
 }

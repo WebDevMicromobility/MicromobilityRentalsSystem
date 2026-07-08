@@ -36,3 +36,30 @@ test('refund restocks the summed quantity per item in one write', async ({ page 
   expect(result.writes[0]).toBe(8);       // 5 + (1+2) restocked
   expect(result.mem).toBe(8);
 });
+
+test('a sale with the same item on two lines decrements once by the summed qty', async ({ page }) => {
+  await stubSupabase(page, {
+    sessions: [{ id: 's1', day: 'Friday', session_date: '2099-01-09', capacity: 12, status: 'open', created_at: 1 }],
+    inventory: [{ id: 'gel', name: 'Gel', category: 'EnergyGels', qty: 10, price: 8, low_threshold: 1 }],
+  });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  const result = await page.evaluate(`(async()=>{
+    const writes=[];
+    const realFrom=sb.from.bind(sb);
+    sb.from=(t)=>{ const q=realFrom(t); if(t==='inventory'){ const u=q.update.bind(q); q.update=(patch)=>{ writes.push(patch.qty); return u(patch); }; } return q; };
+    S._ctSession='s1'; S._ctCust='';
+    S._ctCart=[
+      {item_id:'gel',name:'Gel',cat:'EnergyGels',qty:1,price:8,pay:'paid'},
+      {item_id:'gel',name:'Gel',cat:'EnergyGels',qty:3,price:8,pay:'paid'},
+    ];
+    window.open=()=>({document:{write:()=>{},close:()=>{}},focus:()=>{},print:()=>{}}); // swallow the print popup
+    await _ctRecord();
+    await new Promise(r=>setTimeout(r,50));
+    return { writes, mem:(S.inventory.find(i=>i.id==='gel')||{}).qty };
+  })()`) as { writes: number[]; mem: number };
+  expect(result.writes.length).toBe(1);  // one write, not two racing decrements
+  expect(result.writes[0]).toBe(6);      // 10 - (1+3)
+  expect(result.mem).toBe(6);
+});
