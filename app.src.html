@@ -1832,8 +1832,7 @@ function setSession(c){
   }catch(e){S._sessionVolatile=c;try{_logError('setSession storage blocked: '+(e&&e.name||''),'auth',true);}catch(_){}}
 }
 function clearSession(){if(S)S._sessionVolatile=null;
-  localStorage.removeItem('cq_session');
-  sessionStorage.removeItem('cq_session');
+  try{localStorage.removeItem('cq_session');sessionStorage.removeItem('cq_session');}catch(e){} // storage can throw (blocked cookies) — logout must still complete
 }
 const DEFAULT_PRICE=57.5;
 
@@ -7825,7 +7824,10 @@ async function confirmAssign(){
   const prevPrice=rider?rider.price:null;
   
   const priceUpdate={};
-  if(rider&&selected.length>0){
+  // Reprice from the assigned bike(s) — EXCEPT for an on-the-house booking (paid, price 0):
+  // overwriting its 0 with the bike price made it silently display as a normal paid ride.
+  const _onHouse=rider&&rider.paid&&(rider.price??DEFAULT_PRICE)===0;
+  if(rider&&selected.length>0&&!_onHouse){
     priceUpdate.price=selected.reduce((s,b)=>s+priceForBike(b),0);
   }
   const isReassign=rider&&rider.status==='active';
@@ -9885,7 +9887,7 @@ async function _ctRecord(){
   const sessId=S._ctSession;if(!sessId){toast(t('errSelectSession'),'error');return;}
   if(!(S._ctCart||[]).length){toast(t('cashCartEmpty'),'error');return;}
   const rid=uid(),cust=(S._ctCust||'').trim()||null,at=new Date().toISOString();
-  const rows=S._ctCart.map(l=>({id:uid(),receipt_id:rid,session_id:sessId,customer_name:cust,item_id:l.item_id||null,name:l.name,category:l.cat,qty:l.qty,price:l.price,pay:l.pay,team_name:l.team||null,created_at:at}));
+  const rows=S._ctCart.map(l=>({id:uid(),receipt_id:rid,session_id:sessId,customer_name:l.pay==='team'?null:cust,item_id:l.item_id||null,name:l.name,category:l.cat,qty:l.qty,price:l.price,pay:l.pay,team_name:l.team||null,created_at:at})); // MM Team lines belong to the team member, not a customer
   // Per-receipt discount as a negative 'paid' line (no schema change needed)
   const cartTotal=S._ctCart.reduce((s,l)=>s+l.qty*l.price,0);
   const discSAR=_ctDiscountSAR(cartTotal);
