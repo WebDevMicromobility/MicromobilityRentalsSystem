@@ -6270,8 +6270,16 @@ function pushUndo(label,fn){
 async function doUndo(){
   const item=S.undoStack.pop();
   if(!item)return;
+  // The undo BAR and the logs view both reverse via the same logEntry, guarded by .undone.
+  // The topbar button ran the raw fn without setting that flag, so the bar/logs could reverse
+  // the SAME action a second time (double restock / double renumber). Mark it undone and drop
+  // the bar so no other entry point can re-run it.
+  const logEntry=(S.actionLog||[]).find(l=>l.fn===item.fn&&!l.undone);
+  if(logEntry&&logEntry.undone)return;
   try{
     await item.fn();
+    if(logEntry)logEntry.undone=true;
+    const bar=document.getElementById('undo-bar-el');if(bar){try{clearInterval(_undoBarTimer);}catch(_){}bar.remove();}
     toast(t('undoneMsg'));
   }catch(e){
     S.undoStack.push(item);
