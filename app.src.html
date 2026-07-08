@@ -1510,7 +1510,7 @@ function entryToDB(e){
     assigned_bike_id:e.assignedBikeId||null,session_id:e.sessionId,
     session_day:e.sessionDay,session_date:e.sessionDate,
     queue_num:e.queueNum,status:e.status,registered_at:e.registeredAt,
-    walk_in:e.walkIn||false,customer_id:e.customerId||null};
+    walk_in:e.walkIn||false,customer_id:e.customerId||null,promo_code:e.promoCode||null};
 }
 
 // ── Queue fetch, one door for both loaders ──────────────────────────────────
@@ -3616,6 +3616,7 @@ async function submitReg(){
         const sum=Math.round(entries.reduce((s2,e)=>s2+e.price,0)*100)/100,drift=Math.round((target-sum)*100)/100;
         if(drift!==0&&entries.length)entries[entries.length-1].price=Math.max(0,Math.round((entries[entries.length-1].price+drift)*100)/100);
       }
+      if(S.promoApplied.code)entries.forEach(e=>{e.promoCode=String(S.promoApplied.code);}); // carry the code at insert so the price trigger allows the discount
     }
     const _offline=(typeof navigator!=='undefined'&&navigator.onLine===false);
     let _queued=false;
