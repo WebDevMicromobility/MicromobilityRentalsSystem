@@ -2726,6 +2726,7 @@ function setCustTab(tab){
   else if(tab==='register')renderRegister();
   else if(tab==='account')renderAccount();
   _pushNav();
+  try{_forceRatingPrompt();}catch(e){} // a pending post-ride rating is mandatory on any customer tab
 }
 function setStaffTab(tab){
   if(tab==='sessions'){S.queueView='sessions';tab='queue';} // Sessions merged into the Bookings tab
@@ -4086,7 +4087,7 @@ function renderRateModal(){
   const _re=getQueue().find(x=>x.id===S._rateId);
   const _rs=_re?allSessions().find(s=>s.id===_re.sessionId):null;
   const _rmeta=_re?`${_rs&&_rs.day?dayLabel(_rs.day)+' · ':''}${shortDate(_re.sessionDate||_re.sessionId)}${_rs&&_rs.location?' · '+esc(_rs.location):''}`:'';
-  document.getElementById('rate-modal').innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeRateModal()">
+  document.getElementById('rate-modal').innerHTML=`<div class="modal-backdrop" onclick="${S._rateForced?'':'if(event.target===this)closeRateModal()'}">
     <div class="modal-box" role="dialog" aria-modal="true" style="max-width:440px">
       <div class="modal-title">${t('rateTitle')}</div>
       ${_rmeta?`<div style="font-size:12px;color:var(--green);font-weight:700;margin-top:4px">${_rmeta}</div>`:''}
@@ -4104,8 +4105,8 @@ function renderRateModal(){
         <textarea id="rate-note" rows="3" oninput="S._rateNote=this.value" style="width:100%;background:var(--s3);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text);font-family:'Space Grotesk',sans-serif;resize:vertical">${esc(S._rateNote||'')}</textarea>
       </div>
       <div class="modal-footer">
-        <button class="btn-secondary" onclick="closeRateModal()">${S._rateForced?t('rateLaterBtn'):t('cancelBtn')}</button>
-        <button class="btn-primary" onclick="submitRating()">${t('rateSubmitBtn')}</button>
+        ${S._rateForced?'':`<button class="btn-secondary" onclick="closeRateModal()">${t('cancelBtn')}</button>`}
+        <button class="btn-primary" style="${S._rateForced?'width:100%':''}" onclick="submitRating()">${t('rateSubmitBtn')}</button>
       </div>
     </div>
   </div>`;
@@ -4114,7 +4115,7 @@ async function submitRating(){
   const id=S._rateId;if(!id)return;
   const note=(document.getElementById('rate-note')?.value||S._rateNote||'').trim();
   S._rateNote=note;
-  if(S._rateForced&&!(S._rateBike>0||S._rateExp>0)){ // forced prompt: a score is required
+  if(S._rateForced&&!(S._rateExp>0)){ // forced prompt: the experience rating is mandatory
     toast(t('rateRequiredScore'),'warning');
     return;
   }
