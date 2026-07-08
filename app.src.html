@@ -6556,7 +6556,7 @@ function exportLogsCSV(){
   const list=S._logExport||[];if(!list.length){toast(t('logsEmpty'),'warning');return;}
   const fmt=ts=>new Date(ts).toLocaleString('en-GB',{timeZone:KSA_TZ,hour12:false});
   const rows=[[t('logsColTime'),t('logsColBy'),t('logsColAction')],...list.map(i=>[fmt(i.ts||0),i.by||'',i.label||''])];
-  const csv=rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const csv=rows.map(r=>r.map(_csvCell).join(',')).join('\n');
   const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='action_log.csv';a.click();URL.revokeObjectURL(url);
 }
@@ -7171,7 +7171,7 @@ function exportSessionExcel(){
     ...sessPurch.cats.map(c=>[_invCatLabel(c.cat),c.qty,c.value]),
     [t('repTotal'),sessPurch.units,sessPurch.value],
     [t('printCollected'),'',sessPurch.collected],[t('printPending'),'',sessPurch.pending],...(sessPurch.team>0?[[t('payTeam'),'',sessPurch.team]]:[])]:[];
-  const csv=[headers,...rows,...summary,...cashRows].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const csv=[headers,...rows,...summary,...cashRows].map(r=>r.map(_csvCell).join(',')).join('\n');
   const filename=`report_${dayLabel(sess.day)}_${sess.session_date||sess.id}.csv`;
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
@@ -8675,7 +8675,7 @@ async function bkBulkPrice(){
 function bkBulkExport(){
   const picked=_bkSelectedBikes();if(!picked.length)return;
   const cols=['bike_number','name','type','size','brand','model','groupset','speeds','rental_price','location','status','in_service_date','retired_date'];
-  const csvCell=v=>{const s=(v==null?'':String(v));return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;};
+  const csvCell=_csvCell;
   const rows=[cols.join(',')].concat(picked.map(b=>cols.map(c=>csvCell(b[c])).join(',')));
   const blob=new Blob(['﻿'+rows.join('\n')],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
@@ -9141,10 +9141,10 @@ function exportHistoryCSV(){
       e.price??DEFAULT_PRICE,
       e.paid?t('repYes'):t('repNo'),
       reportStatusLabel(e.status)
-    ].map(v=>'"'+String(v).replace(/"/g,'""')+'"');
+    ].map(_csvCell);
   });
   if(!rows.length){toast(t('noHistory'),'warning');return;}
-  const csv=[headers.map(h=>'"'+h+'"').join(','),...rows.map(r=>r.join(','))].join('\n');
+  const csv=[headers.map(_csvCell).join(','),...rows.map(r=>r.join(','))].join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;a.download=filename;a.click();
@@ -10984,7 +10984,11 @@ function _anLTVByCohort(entries){
   Object.values(j).forEach(({times,spend})=>{const d=new Date(times[0]);const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');(mo[key]=mo[key]||{n:0,spend:0}).n++;mo[key].spend+=spend;});
   return Object.entries(mo).sort((a,b)=>a[0]<b[0]?1:-1).slice(0,6).map(([month,v])=>({month,customers:v.n,avgLtv:Math.round(v.spend/v.n)}));
 }
-function _anCsvCell(v){v=String(v==null?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;}
+// One CSV cell escaper for every export. Neutralizes spreadsheet formula injection (a cell
+// beginning with = + - @ or a tab/CR is run as a formula by Excel/Sheets — a customer named
+// '=HYPERLINK(...)' would execute on the staffer's machine), then quotes if needed.
+function _csvCell(v){let s=(v==null?'':String(v));if(/^[=+\-@\t\r]/.test(s))s="'"+s;return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+const _anCsvCell=_csvCell; // back-compat alias
 function _anShareDigest(){
   const txt=(S&&S._anDigestText)||'';
   if(!txt){toast(t('anCsvEmpty'));return;}
