@@ -2102,6 +2102,10 @@ function closeAuthModal(){document.getElementById('auth-modal').style.display='n
 
 function renderAuthModal(){
   const mode=S.authMode;
+  // Same-mode re-renders (language/theme switches call render() while the modal is open)
+  // must not wipe what the customer already typed. Mode switches still start clean.
+  const _KEEP=['a-identifier','a-pwd','a-name','a-email','a-phone','a-pwd2','a-height','a-cc','a-forgot-email','a-forgot-phone','a-forgot-cc','a-reset-pwd','a-reset-pwd2'];
+  const _snap={};if(S._authRenderMode===mode)_KEEP.forEach(id=>{const el=document.getElementById(id);if(el&&el.value)_snap[id]=el.value;});
   const isLogin=mode==='login';
   const isForgot=mode==='forgot';
   const ccOpts=COUNTRY_CODES.map(([code,iso])=>`<option value="${code}"${code==='+966'?' selected':''}>${code}</option>`).join('');
@@ -2232,6 +2236,8 @@ function renderAuthModal(){
       ${!isForgot?`<button class="btn-secondary" style="width:100%;margin-top:10px" onclick="${mode==='gcomplete'?'cancelGoogleComplete()':'closeAuthModal();goLanding()'}">${t('authCancel')}</button>`:''}
     </div>
   </div>`;
+  Object.keys(_snap).forEach(id=>{const el=document.getElementById(id);if(el&&!el.value)el.value=_snap[id];});
+  S._authRenderMode=mode;
 }
 
 function switchAuthMode(mode){S.authMode=mode;if(mode!=='forgot'){S.forgotStep=1;S.forgotEmail='';S.forgotVerified=null;}if(mode==='signup')S.signupGender=null;renderAuthModal();}
@@ -3556,9 +3562,11 @@ async function submitReg(){
   const heights=[];
   for(let i=0;i<qty;i++)heights.push(parseInt(S.regBikeHeights[i]));
 
-  // A full session is joinable, but as a waitlist booking (promoted later if a spot opens)
+  // A full session is joinable, but as a waitlist booking (promoted later if a spot opens).
+  // Decide by ACTUAL remaining spots too, not just the manually-set 'full' status — capacity
+  // could be reached without staff marking it, and a group needs qty spots, not one.
   const sess0=allSessions().find(s=>s.id===S.selSession);
-  const bookingStatus=(sess0&&sess0.status==='full')?'waitlist':'waiting';
+  const bookingStatus=(sess0&&sess0.status==='full')||spotsLeft(S.selSession)<qty?'waitlist':'waiting';
 
   const email=cust.email||'',phone=cust.phone||'';
   
