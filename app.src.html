@@ -1022,14 +1022,9 @@ function _getPinLock(){try{return{until:parseInt(localStorage.getItem('cq_pin_un
 // Normalize any phone entry to one canonical form (Saudi +966 default) so every format
 // a staffer might type — 0562989838, 562989838, 966…, 00966…, +966… — maps to one key.
 function _staffPhoneE164(raw){
-  let s=String(raw||'').replace(/[\s()\-]/g,'');
-  if(s[0]==='+')return s;
-  if(s.slice(0,2)==='00')return '+'+s.slice(2).replace(/\D/g,'');
-  s=s.replace(/\D/g,'');
-  if(s.slice(0,3)==='966')return '+'+s;
-  if(s[0]==='0')return '+966'+s.slice(1);
-  if(s.length===9&&s[0]==='5')return '+966'+s;
-  return '+'+s;
+  // Delegate to the hardened customer normalizer: Arabic-Indic digits, "+9660…" trunk zeros,
+  // 00966/966/05/bare — the staff login previously missed the first two.
+  return _normPhone(raw,'+966')||'';
 }
 // Staff phone → account email. Lets staff sign in by phone WITHOUT Supabase's (paid,
 // Twilio-backed) phone provider: we resolve the phone to the email, then do the normal
@@ -1056,7 +1051,7 @@ async function staffAuthSignIn(identifier,password){
   const email=await _staffLoginEmail(identifier);
   if(!email)return{ok:false,msg:t('errInvalidCredentials')}; // phone not registered to a staff account
   const{data,error}=await sb.auth.signInWithPassword({email,password});
-  if(error||!data||!data.user)return{ok:false,msg:(error&&error.message)||t('errConnection')};
+  if(error||!data||!data.user)return{ok:false,msg:(error&&/invalid/i.test(error.message||''))?t('errInvalidCredentials'):((error&&error.message)||t('errConnection'))};
   let row=null;
   try{const r=await sb.from('staff').select('*').eq('user_id',data.user.id).maybeSingle();row=r.data;}catch(e){}
   if(!row){try{await sb.auth.signOut();}catch(e){}return{ok:false,msg:t('errStaffNotAuthorized')};}
@@ -1401,7 +1396,7 @@ const S={
   
   authMode:'login',   
   forgotEmail:'',forgotStep:1,forgotVerified:null,
-  rememberMe:false,  
+  rememberMe:true, // default ON: session-only storage evaporates on iOS, logging customers out on every app switch
   cancellationLog:[],  
   _flashId:null,_flashColor:'green',
   signupTypePref:'Any',signupGender:null,_pendingGoogle:null,

@@ -341,3 +341,31 @@ test.describe('round 4: invisible characters & post-login flow', () => {
     expect(calls[0].p_email).toBe('faisal@example.com');
   });
 });
+
+test.describe('round 5: staff phone formats & remember-me default', () => {
+  test('staff phone login accepts every format incl. Arabic numerals', async ({ page }) => {
+    await boot(page);
+    const out = await page.evaluate(`({
+      local: _staffPhoneE164('0562847777'),
+      arabic: _staffPhoneE164('٠٥٦٢٨٤٧٧٧٧'),
+      intlZero: _staffPhoneE164('+966 0562847777'),
+      zeros: _staffPhoneE164('00966562847777'),
+      bare: _staffPhoneE164('562847777'),
+    })`);
+    expect(out.local).toBe('+966562847777');
+    expect(out.arabic).toBe('+966562847777'); // was '+' + empty — Arabic keyboards couldn't staff-login by phone
+    expect(out.intlZero).toBe('+966562847777'); // was '+9660…'
+    expect(out.zeros).toBe('+966562847777');
+    expect(out.bare).toBe('+966562847777');
+  });
+
+  test('remember-me defaults ON so logins persist across app restarts', async ({ page }) => {
+    await boot(page, { 'rpc:customer_login': [customer] });
+    expect(await page.evaluate('S.rememberMe')).toBe(true); // checkbox pre-checked
+    await page.fill('#a-identifier', 'x@y.com');
+    await page.fill('#a-pwd', 'Zq8xTselah');
+    await page.evaluate('doLogin()');
+    await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
+    expect(await page.evaluate(`(localStorage.getItem('cq_session')||'').includes('tok9')`)).toBe(true); // localStorage, not session-only
+  });
+});
