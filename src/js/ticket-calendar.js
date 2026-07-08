@@ -1,7 +1,7 @@
 // @ts-check
 // Ticket "extras": directions link + add-to-calendar (.ics) for a booking ticket.
 // First module extracted under the build-time include mechanism (see scripts/build-html.mjs
-// and REBUILD-PLAN.md). It runs in the app's global scope — functions declared here are
+//). It runs in the app's global scope — functions declared here are
 // global exactly as if they were still inline, so onclick="_ticketCal(i)" keeps working.
 // Type-checked in isolation via `npm run lint` (tsc --noEmit, checkJs); app-provided
 // globals are declared in src/js/app-globals.d.ts.

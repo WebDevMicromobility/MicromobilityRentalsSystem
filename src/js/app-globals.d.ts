@@ -1,7 +1,7 @@
 // Ambient declarations for the app globals that extracted modules reference.
 // These live in the main inline script (app.src.html); modules are concatenated into
 // that same scope at build time, so to `tsc` they are globals. Typed loosely for now —
-// tighten as more of the app is extracted and properly typed (see REBUILD-PLAN.md).
+// tighten as more of the app is extracted and properly typed.
 
 /** Global app state object. */
 declare const S: any;

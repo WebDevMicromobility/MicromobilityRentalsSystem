@@ -3,7 +3,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { copyFileSync, mkdirSync, cpSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-// Phase 1 of REBUILD-PLAN.md: index.html is the Vite entry. The app's JS is
+// Phase 1: index.html is the Vite entry. The app's JS is
 // still one inline classic script (extracted module-by-module in Phase 2), so
 // Vite passes it through untouched; the win today is `npm run build` producing
 // a dist/ with a generated, auto-versioned service worker — no more manual

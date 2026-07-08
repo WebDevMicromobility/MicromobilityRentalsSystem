@@ -10,7 +10,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 // importing) keeps the app's single global scope intact, so the onclick="fn()"
 // name-by-string pattern in the templates keeps working — no runtime change, files
 // just become editable in isolation. Extraction stays incremental and test-guarded
-// (see REBUILD-PLAN.md). Only the built index.html is ever served, so the markers
+//. Only the built index.html is ever served, so the markers
 // never reach a browser.
 async function resolveIncludes(text) {
   const RE = /<!--\s*include:\s*([^\s]+?)\s*-->/g;
