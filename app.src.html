@@ -39,7 +39,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=86">
+  <link rel="stylesheet" href="./styles.css?v=87">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th='light';localStorage.setItem('cq_theme','light');}if(_th==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}</script>
 </head>
 <body>
@@ -322,7 +322,7 @@ en:{
   riderDetails:'Rider Details',fullName:'Full Name',emailAddr:'Email Address',
   phoneNum:'Phone Number',heightLabel:'Height',heightHint:'- frame size auto-selected',
   bikeTypePref:'Bike Type Preference',numBikes:'Number of Bikes',joinQueue:'Join Queue',stepConfirm:'Confirmation',
-  regStep1Title:'Choose your session',regStep1Msg:'Pick the day you would like to ride.',
+  regProg1:'Session',regProg2:'Riders',regProg3:'Confirm',regStep1Title:'Choose your session',regStep1Msg:'Pick the day you would like to ride.',
   regStep2Title:'Rider details',regStep2Msg:'Tell us who is riding and their bike preference.',
   regStep3Title:'Review & confirm',regStep3Msg:'Check everything below, then confirm your booking.',
   regBackBtn:'Back',regContinueBtn:'Continue',regReviewBtn:'Review booking',regConfirmBtn:'Confirm booking',regBookAnotherBtn:'Book another ride',
@@ -703,7 +703,7 @@ ar:{
   riderDetails:'بيانات الراكب',fullName:'الاسم الكامل',emailAddr:'البريد الإلكتروني',
   phoneNum:'رقم الهاتف',heightLabel:'الطول',heightHint:'- يتم اختيار المقاس تلقائياً',
   bikeTypePref:'تفضيل نوع الدراجة',numBikes:'عدد الدراجات',joinQueue:'انضم للطابور',stepConfirm:'تأكيد',
-  regStep1Title:'اختر جلستك',regStep1Msg:'اختر اليوم الذي ترغب بالركوب فيه.',
+  regProg1:'الجلسة',regProg2:'الركّاب',regProg3:'التأكيد',regStep1Title:'اختر جلستك',regStep1Msg:'اختر اليوم الذي ترغب بالركوب فيه.',
   regStep2Title:'بيانات الراكب',regStep2Msg:'أخبرنا من سيركب وتفضيل الدراجة.',
   regStep3Title:'المراجعة والتأكيد',regStep3Msg:'تحقق من التفاصيل أدناه ثم أكّد حجزك.',
   regBackBtn:'رجوع',regContinueBtn:'متابعة',regReviewBtn:'مراجعة الحجز',regConfirmBtn:'تأكيد الحجز',regBookAnotherBtn:'حجز رحلة أخرى',
@@ -3267,7 +3267,12 @@ function renderRegister(){
     <div class="reg-step-connector ${curStep>2?'done':''}"></div>
     ${regStep(3,t('stepConfirm'))}
   </div>`;
+  // Progress stepper: ①Session ②Riders ③Confirm, current step highlighted, passed steps ticked.
+  // Orients the customer and cuts mid-flow drop-off. RTL-aware (the connector fills from the start).
+  const _stepLabels=[t('regProg1'),t('regProg2'),t('regProg3')];
+  const stepper=cur=>{const c=Math.min(Math.max(Number(cur)||1,1),3);return `<div class="reg-stepper" role="group" aria-label="${c} / 3" style="display:flex;align-items:center;gap:6px;margin-bottom:16px">${_stepLabels.map((lbl,i)=>{const n=i+1,done=n<c,on=n===c;const circ=`<span aria-current="${on?'step':'false'}" style="width:24px;height:24px;flex-shrink:0;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;transition:none;${done||on?'background:var(--green);color:#04150c':'background:var(--s3);color:var(--muted);border:1px solid var(--border)'}">${done?'✓':n}</span>`;const label=on?`<span style="font-size:12px;font-weight:800;color:var(--green);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px">${lbl}</span>`:'';return `<div style="display:flex;align-items:center;gap:7px;flex:0 1 auto;min-width:0">${circ}${label}</div>${n<3?`<span aria-hidden="true" style="flex:1 1 auto;min-width:10px;height:2px;border-radius:2px;background:${n<c?'var(--green)':'var(--border)'}"></span>`:''}`;}).join('')}</div>`;};
   const stepHeader=(title,msg)=>`<div style="margin-bottom:18px">
+    ${stepper(S.regStep)}
     <div class="page-title" style="margin-bottom:4px">${title}</div>
     <div class="page-sub" style="margin-bottom:0">${msg}</div>
   </div>`;
@@ -3282,7 +3287,7 @@ function renderRegister(){
     <div class="session-picker-wrap" id="session-picker-wrap">
       <div class="session-cards-grid">${sessCards}</div>
     </div>
-    ${available.length?`<button class="btn-primary" style="width:100%;margin-top:22px;${S.selSession?'':'opacity:.4;cursor:not-allowed'}" ${S.selSession?'':'disabled'} onclick="regNextFromSession()">${t('regContinueBtn')}</button>`:''}`;
+    ${available.length?`<div class="mm-reg-foot"><button class="btn-primary" style="width:100%;${S.selSession?'':'opacity:.4;cursor:not-allowed'}" ${S.selSession?'':'disabled'} onclick="regNextFromSession()">${t('regContinueBtn')}</button></div>`:''}`;
 
   
   const panel2=`
@@ -3294,7 +3299,7 @@ function renderRegister(){
       ${bikeSections}
       <div id="price-preview-wrap" style="margin-top:16px">${pricePreview}</div>
     </div>
-    <div style="display:flex;gap:10px;margin-top:16px">
+    <div class="mm-reg-foot" style="display:flex;gap:10px;margin-top:16px">
       <button class="btn-secondary" onclick="regGoStep(1)">${t('regBackBtn')}</button>
       <button class="btn-primary" style="flex:1" onclick="regNextToReview()">${t('regReviewBtn')}</button>
     </div>`;
@@ -3329,7 +3334,7 @@ function renderRegister(){
       <button class="btn-primary" style="width:100%" onclick="S._alreadyBookedSession=null;S.modifyEntryId=null;S.regStep=2;renderRegister()"> ${t('modifyExistingBtn')}</button>
     </div>`:'';
   const confirmBtns=alreadyHere?'':`
-    <div style="display:flex;gap:10px;margin-top:16px">
+    <div class="mm-reg-foot" style="display:flex;gap:10px;margin-top:16px">
       <button class="btn-secondary" onclick="regGoStep(2)" ${S.regSubmitting?'disabled':''}>${t('regBackBtn')}</button>
       <button class="btn-primary" style="flex:1" onclick="${isModifyMode?'submitModifyBooking()':'submitReg()'}" ${S.regSubmitting?'disabled':''}>${S.regSubmitting?' ...':(isModifyMode?t('modifyBookingBtn'):t('regConfirmBtn'))}</button>
     </div>`;
