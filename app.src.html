@@ -5596,14 +5596,6 @@ function renderStaffQueue(){
   const qPayOpts=['all','paid','pending'].map(p=>{
     const l={all:t('filterAll'),paid:t('paidLabel'),pending:t('pendingLabel')}[p];
     return`<option value="${p}"${S.sfPay===p?' selected':''}>${l}</option>`;}).join('');
-  // Dashboard boxes above the filter: live per-status counts (scoped to the chosen session) that
-  // double as one-tap status filters. Tapping a box sets S.sfStatus, so the boxes and the status
-  // dropdown stay in sync; the active one is highlighted.
-  const _dcScope=e=>(S.sfSession==='all'||e.sessionId===S.sfSession);
-  const _dc={waiting:0,active:0,done:0,noshow:0};let _dcAll=0;
-  getQueue().forEach(e=>{if(!_dcScope(e))return;if(_dc[e.status]!=null)_dc[e.status]++;if(['waiting','active','done','noshow'].includes(e.status))_dcAll++;});
-  const _dashBox=(st,label,val,color)=>{const on=S.sfStatus===st;return`<button type="button" onclick="setSfStatus('${st}')" aria-pressed="${on}" style="flex:1;min-width:72px;text-align:start;background:${on?'rgba(3,255,137,.10)':'var(--s1)'};border:1.5px solid ${on?'var(--green)':'var(--border)'};border-radius:12px;padding:9px 12px;cursor:pointer;font-family:inherit"><div style="font-size:22px;font-weight:900;line-height:1;color:${color}">${val}</div><div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:4px">${label}</div></button>`;};
-  const dashBoxes=`<div class="q-dash" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">${_dashBox('all',t('filterAll'),_dcAll,'var(--text)')}${_dashBox('waiting',t('filterWaiting'),_dc.waiting,'var(--orange)')}${_dashBox('active',t('filterOnBike'),_dc.active,'var(--blue)')}${_dashBox('done',t('filterDone'),_dc.done,'var(--green)')}${_dashBox('noshow',t('filterNoshow'),_dc.noshow,'var(--red)')}</div>`;
   const livePosMap={};
   const allWaiting=getQueue().filter(e=>e.status==='waiting').sort((a,b)=>a.sessionId.localeCompare(b.sessionId)||a.queueNum-b.queueNum);
   const sessPosCounter={};
@@ -6038,7 +6030,6 @@ function renderStaffQueue(){
         </div>`).join('')}
       </div>`;
     })()}
-    ${dashBoxes}
     <div class="filter-bar">
       <div class="filter-row">
         <span class="filter-label">${t('colSession')}:</span>
