@@ -2275,7 +2275,7 @@ async function doForgotVerify(){
   const email=_cleanIdent(document.getElementById('a-forgot-email')?.value||'').toLowerCase();
   const cc=document.getElementById('a-forgot-cc')?.value||'+966';
   const phoneRaw=(document.getElementById('a-forgot-phone')?.value||'').trim();
-  if(!email||!/^\S+@\S+\.\S+$/.test(email)){authErr(t('errValidEmail'));return;}
+  if(!email||!/^[^\s<>"'()]+@[^\s<>"'()]+\.[^\s<>"'()]+$/.test(email)){authErr(t('errValidEmail'));return;}
   if(!phoneRaw){authErr(t('errPhoneRequired'));return;}
   if(CUST_RPC){
     // Can't pre-read the locked table; capture inputs and let customer_reset() validate at step 2.
@@ -2378,7 +2378,7 @@ async function doSignup(){
   if(!name||name.trim().split(/\s+/).length<2){authErr(t('errEnterName'));return;}
   if(!S.signupGender){authErr(t('errSelectGender'));return;}
   if(!email){authErr(t('errEmailRequired'));return;}
-  if(!/^\S+@\S+\.\S+$/.test(email)){authErr(t('errValidEmail'));return;}
+  if(!/^[^\s<>"'()]+@[^\s<>"'()]+\.[^\s<>"'()]+$/.test(email)){authErr(t('errValidEmail'));return;}
   if(!phone){authErr(t('errPhoneRequired'));return;}
   if(pwd.length<8||!/[A-Z]/.test(pwd)||!/[0-9]/.test(pwd)){authErr(t('errPasswordLen'));return;}
   if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
@@ -4309,7 +4309,7 @@ async function saveAccount(){
   const errEl=document.getElementById('acc-err');
   const setErr=msg=>{if(errEl)errEl.textContent=msg;};
   if(!name){setErr(t('errAccountName'));return;}
-  if(email&&!/^\S+@\S+\.\S+$/.test(email)){setErr(t('errValidEmail'));return;}
+  if(email&&!/^[^\s<>"'()]+@[^\s<>"'()]+\.[^\s<>"'()]+$/.test(email)){setErr(t('errValidEmail'));return;}
   setErr('');
   const fullPhone=phone?_normPhone(phone,cc):'';
   const height=(!isNaN(heightRaw)&&heightRaw>=100&&heightRaw<=250)?heightRaw:null;
@@ -6132,7 +6132,7 @@ async function staffResetPassword(){
   const pw=(document.getElementById('staff-reset-pw')?.value||'');
   const el=document.getElementById('staff-reset-result');if(!el)return;
   const err=m=>{el.innerHTML=`<div style="color:var(--red);font-size:13px;font-weight:700">${m}</div>`;};
-  if(!email||!/^\S+@\S+\.\S+$/.test(email))return err(t('errValidEmail'));
+  if(!email||!/^[^\s<>"'()]+@[^\s<>"'()]+\.[^\s<>"'()]+$/.test(email))return err(t('errValidEmail'));
   if(pw.length<8||!/[A-Z]/.test(pw)||!/[0-9]/.test(pw))return err(t('errPasswordLen'));
   const{data:cust}=await sb.from('customers').select('id,name').eq('email',email).maybeSingle();
   if(!cust)return err(t('errAccountNotFound'));
@@ -7260,9 +7260,9 @@ function printSessionReport(){
       <td>${qNums}</td>
       <td>${esc(lead.name)}</td>
       <td>${types}</td>
-      <td>${allBikes}</td>
-      <td>${phone?`<a href="tel:${phone}">${phone}</a>`:''}</td>
-      <td>${email?`<a href="mailto:${email}">${email}</a>`:''}</td>
+      <td>${esc(allBikes)}</td>
+      <td>${phone?`<a href="tel:${esc(phone)}">${esc(phone)}</a>`:''}</td>
+      <td>${email?`<a href="mailto:${esc(email)}">${esc(email)}</a>`:''}</td>
       <td>SAR ${paidPrice}</td>
       <td>${reportStatusLabel(topStatus)}</td>
     </tr>`;
