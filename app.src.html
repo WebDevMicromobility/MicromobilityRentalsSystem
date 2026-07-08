@@ -6632,7 +6632,9 @@ async function doNoShow(id){
   S._flashId=id;S._flashColor='orange';setTimeout(()=>{S._flashId=null;},800);
   pushUndo(`${t('undoNoShow')} #${savedQNum} ${entry.name}`,async()=>{
     await sb.from('queue_entries').update({status:'waiting',queue_num:savedQNum}).eq('id',id);
-    await loadData();renderStaffQueue();
+    await loadData();
+    await _consumeAddonsOnEnter(entry); // undo brings the rider back — re-reserve the add-ons restocked on no-show (was leaking stock)
+    renderStaffQueue();
   });
   renderStaffQueue();
 }
@@ -6658,7 +6660,9 @@ async function doUndoNoShow(id){
   toast(t('toastUndoNoShow'));
   pushUndo(`${t('undoUndoNoShow')} #${oldQNum} ${entry.name}`,async()=>{
     await sb.from('queue_entries').update({status:'noshow',queue_num:oldQNum}).eq('id',id);
-    await loadData();renderStaffQueue();
+    await loadData();
+    await _restockAddonsOnExit(entry); // re-no-showing returns the add-ons to stock (mirror of the consume above)
+    renderStaffQueue();
   });
   renderStaffQueue();
 }
