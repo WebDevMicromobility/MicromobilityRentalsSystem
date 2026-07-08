@@ -9551,7 +9551,7 @@ function _salesTotals(lines){
     const q=Number(p.qty)||0;
     if(p.cat==='__cardmeta__'||q===0)return; // payment-split metadata, not a real line
     const v=q*(Number(p.price)||0),cat=p.cat||'Other';
-    if(p.pay==='refunded'){refunded+=Math.abs(v);return;} // refunded sales reversed out of active totals
+    if(p.pay==='refunded'){refunded+=v;return;} // refunded sales reversed out (a discount line is negative and must REDUCE the refunded amount, not inflate it)
     if(cat==='__discount__'){discount+=-v;value+=v;if(p.pay==='paid')collected+=v;else pending+=v;return;} // discount: reduce, not a category
     byCat[cat]=byCat[cat]||{cat,qty:0,value:0};byCat[cat].qty+=q;byCat[cat].value+=v;units+=q;value+=v;
     if(p.pay==='paid')collected+=v;else if(p.pay==='house')free+=v;else if(p.pay==='team')team+=v;else pending+=v;
@@ -9576,7 +9576,7 @@ function _cashCardCash(sessId){
 function _itemSoldUnits(){
   const m={};
   (S.cashSales||[]).forEach(r=>{if(r.item_id&&r.pay!=='refunded'&&r.category!=='__cardmeta__'&&r.category!=='__discount__')m[r.item_id]=(m[r.item_id]||0)+(Number(r.qty)||0);});
-  getQueue().forEach(e=>{entryPurchases(e).forEach(p=>{if(p.id)m[p.id]=(m[p.id]||0)+(Number(p.qty)||0);});entryAddons(e).forEach(a=>{if(a.id)m[a.id]=(m[a.id]||0)+(Number(a.qty)||0);});});
+  getQueue().forEach(e=>{entryPurchases(e).forEach(p=>{if(p.id)m[p.id]=(m[p.id]||0)+(Number(p.qty)||0);});if(!['cancelled','removed','noshow'].includes(e.status))entryAddons(e).forEach(a=>{if(a.id)m[a.id]=(m[a.id]||0)+(Number(a.qty)||0);});}); // exited bookings' add-ons were restocked — they aren't sold units
   return m;
 }
 function _cashPayBadge(pay,team){

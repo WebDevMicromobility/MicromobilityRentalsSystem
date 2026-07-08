@@ -75,3 +75,34 @@ test('MM Team sale lines carry no customer name (paid lines keep it)', async ({ 
   expect(team.team_name).toBe('Salem');
   expect(paid.customer_name).toBe('Walk-up Wally'); // normal lines keep the customer
 });
+
+test('a refunded receipt with a discount reports the NET amount refunded', async ({ page }) => {
+  await stubSupabase(page, fixtures);
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  const out = await page.evaluate(`_salesTotals([
+    { name:'Gel',  cat:'EnergyGels',   qty:2, price:10, pay:'refunded' },
+    { name:'Disc', cat:'__discount__', qty:1, price:-5, pay:'refunded' },
+    { name:'Gel',  cat:'EnergyGels',   qty:1, price:10, pay:'paid' },
+  ])`);
+  expect(out.refunded).toBe(15); // 20 - 5 discount — Math.abs used to report 25
+  expect(out.collected).toBe(10); // the live line is untouched
+});
+
+test('cancelled/no-show bookings do not count their add-ons as sold units', async ({ page }) => {
+  await stubSupabase(page, fixtures);
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  const out = await page.evaluate(`(()=>{
+    S.queue=[
+      {id:'a',sessionId:'s1',status:'done',     addons:[{id:'i1',qty:2}]},
+      {id:'b',sessionId:'s1',status:'waiting',  addons:[{id:'i1',qty:1}]},
+      {id:'c',sessionId:'s1',status:'cancelled',addons:[{id:'i1',qty:5}]},
+      {id:'d',sessionId:'s1',status:'noshow',   addons:[{id:'i1',qty:4}]},
+    ];
+    return _itemSoldUnits();
+  })()`);
+  expect(out.i1).toBe(3); // done 2 + waiting 1; the restocked 9 from cancelled/noshow no longer inflate reorders
+});
