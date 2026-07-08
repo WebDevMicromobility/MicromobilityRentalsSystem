@@ -9946,7 +9946,11 @@ async function _ctRefundReceipt(key){
   const rows=(S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key&&r.pay!=='refunded'&&r.category!=='__cardmeta__');if(!rows.length)return;
   confirmDialog({title:t('cashRefund'),body:t('cashRefundConfirm'),confirmLabel:t('cashRefund'),confirmClass:'btn-orange',onConfirm:async()=>{
     (S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key).forEach(r=>{r.pay='refunded';_salesUpsert({...r});});
-    await Promise.all(rows.filter(r=>r.item_id).map(r=>_addonStock([r.item_id],Number(r.qty)||1))); // restock refunded items
+    // Restock by UNIQUE item (summed qty): _addonStock writes an absolute qty, so two lines of
+    // the same item would otherwise fire concurrent writes that can land out of order and
+    // under-restock the DB. One write per item avoids the race.
+    const _restock={};rows.forEach(r=>{if(r.item_id)_restock[r.item_id]=(_restock[r.item_id]||0)+(Number(r.qty)||1);});
+    await Promise.all(Object.keys(_restock).map(id=>_addonStock([id],_restock[id])));
     toast(t('cashRefundedToast'));renderCashier();
   }});
 }
