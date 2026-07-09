@@ -65,3 +65,21 @@ test('the height+bike CSV export builds without error', async ({ page }) => {
   expect(await page.evaluate('window.__csvName')).toBe('heights_bike_types.csv');
   expect(errs, errs.join('\n')).toEqual([]);
 });
+
+test('report data includes a per-session height summary and ranges', async ({ page }) => {
+  await stubSupabase(page, fixtures);
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`setStaffTab('analytics')`);
+  const d = await page.evaluate(`(()=>{const x=_anHeightBikeData().find(r=>r.sess.session_date==='2099-01-09'); return { summary:x.hSummary, ranges:x.hRanges };})()`) as { summary: { count: number; avg: number; min: number; max: number }; ranges: Array<[string, number]> };
+  // session A had 185 and 158
+  expect(d.summary.count).toBe(2);
+  expect(d.summary.min).toBe(158);
+  expect(d.summary.max).toBe(185);
+  expect(d.summary.avg).toBe(172); // round((185+158)/2)=172 (171.5 -> 172)
+  // ranges: one <160, one 180+
+  const byLabel = Object.fromEntries(d.ranges);
+  expect(byLabel['<160']).toBe(1);
+  expect(byLabel['180+']).toBe(1);
+});
