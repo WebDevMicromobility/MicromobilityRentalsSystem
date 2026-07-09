@@ -83,3 +83,26 @@ test('report data includes a per-session height summary and ranges', async ({ pa
   expect(byLabel['<160']).toBe(1);
   expect(byLabel['180+']).toBe(1);
 });
+
+test('report shows the ASSIGNED bike type, never "Any"', async ({ page }) => {
+  await stubSupabase(page, {
+    sessions: [{ id: 's1', day: 'Friday', session_date: '2099-01-09', capacity: 12, status: 'open', created_at: 1 }],
+    bikes: [{ id: 'r1', name: 'Road 1', size: 'M', type: 'Road', status: 'available', rental_price: 75 }],
+    queue_entries: [
+      // chose "Any", got assigned a Road bike -> should show Road, not Any
+      { id: 'a1', name: 'Any Rider', height: 175, type_preference: 'Any', session_id: 's1', session_day: 'Friday', session_date: '2099-01-09', queue_num: 1, status: 'done', paid: true, price: 75, assigned_bike_id: 'r1', registered_at: '2099-01-09T10:00:00Z' },
+      // chose "Any", waiting, no bike -> should show a dash, not Any
+      { id: 'a2', name: 'Waiting Any', height: 168, type_preference: 'Any', session_id: 's1', session_day: 'Friday', session_date: '2099-01-09', queue_num: 2, status: 'waiting', paid: false, price: 57.5, registered_at: '2099-01-09T10:01:00Z' },
+    ],
+  });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`setStaffTab('analytics')`);
+  const people = await page.evaluate(`_anHeightBikeData()[0].people.map(p=>({name:p.name,type:p.type}))`) as Array<{ name: string; type: string }>;
+  const assigned = people.find((p) => p.name === 'Any Rider')!;
+  const noBike = people.find((p) => p.name === 'Waiting Any')!;
+  expect(assigned.type).toBe('Road');   // shows the assigned bike, not "Any"
+  expect(noBike.type).toBe('—');        // no bike + "Any" preference -> dash, never "Any"
+  expect(people.some((p) => p.type === 'Any')).toBe(false);
+});
