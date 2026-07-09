@@ -106,3 +106,29 @@ test('report shows the ASSIGNED bike type, never "Any"', async ({ page }) => {
   expect(noBike.type).toBe('—');        // no bike + "Any" preference -> dash, never "Any"
   expect(people.some((p) => p.type === 'Any')).toBe(false);
 });
+
+test('bike-type total matches the rider/height count (all riders, not just checked-in)', async ({ page }) => {
+  await stubSupabase(page, {
+    sessions: [{ id: 's1', day: 'Friday', session_date: '2099-01-09', capacity: 12, status: 'open', created_at: 1 }],
+    bikes: [{ id: 'r1', name: 'Road 1', size: 'M', type: 'Road', status: 'available', rental_price: 75 }],
+    queue_entries: [
+      { id: 'p1', name: 'Done Road', height: 180, type_preference: 'Road', session_id: 's1', session_day: 'Friday', session_date: '2099-01-09', queue_num: 1, status: 'done', paid: true, price: 75, assigned_bike_id: 'r1', registered_at: '2099-01-09T10:00:00Z' },
+      // waiting rider (not checked in) — previously missing from bike-type counts
+      { id: 'p2', name: 'Waiting Hybrid', height: 165, type_preference: 'Hybrid', session_id: 's1', session_day: 'Friday', session_date: '2099-01-09', queue_num: 2, status: 'waiting', paid: false, price: 57.5, registered_at: '2099-01-09T10:01:00Z' },
+      // no-show with a specific preference
+      { id: 'p3', name: 'Noshow Mtn', height: 190, type_preference: 'Mountain', session_id: 's1', session_day: 'Friday', session_date: '2099-01-09', queue_num: 3, status: 'noshow', paid: false, price: 57.5, registered_at: '2099-01-09T10:02:00Z' },
+    ],
+  });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`setStaffTab('analytics')`);
+  const d = await page.evaluate(`_anHeightBikeData()[0]`) as { people: unknown[]; typeCounts: { Road: number; Hybrid: number; Mountain: number }; other: number; rented: number };
+  const typeTotal = d.typeCounts.Road + d.typeCounts.Hybrid + d.typeCounts.Mountain + d.other;
+  expect(d.people.length).toBe(3);        // all 3 riders with heights
+  expect(typeTotal).toBe(3);              // bike types total the SAME 3 (was 1 before)
+  expect(d.rented).toBe(3);
+  expect(d.typeCounts.Road).toBe(1);      // done -> assigned Road
+  expect(d.typeCounts.Hybrid).toBe(1);    // waiting -> booked Hybrid
+  expect(d.typeCounts.Mountain).toBe(1);  // noshow -> booked Mountain
+});

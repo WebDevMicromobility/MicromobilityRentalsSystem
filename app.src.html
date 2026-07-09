@@ -11098,8 +11098,10 @@ function _anHeightBikeData(){
   return sess.map(s=>{
     const riders=getQueue().filter(e=>e.sessionId===s.id&&e.status!=='cancelled'&&e.status!=='removed');
     const people=riders.filter(r=>r.height!=null&&String(r.height).trim()!=='').map(r=>{const bk=getAssignedBikes(r);const _tp=(r.typePreference&&r.typePreference!=='Any')?r.typePreference:'—';return{name:r.name||'—',height:r.height,type:bk.length?bk[0].type:_tp};}).sort((a,b)=>(Number(a.height)||0)-(Number(b.height)||0));
+    // Count EVERY rider (same set as the heights list), by the bike they were assigned — or, if not
+    // yet assigned, their booked type. So the type total always equals the rider/height count.
     const typeCounts={Road:0,Hybrid:0,Mountain:0};let other=0;
-    riders.filter(r=>r.status==='done'||r.status==='active').forEach(r=>{const bks=getAssignedBikes(r);if(bks.length)bks.forEach(b=>{if(typeCounts[b.type]!=null)typeCounts[b.type]++;else other++;});else{const tp=r.typePreference;if(typeCounts[tp]!=null)typeCounts[tp]++;else other++;}});
+    people.forEach(p=>{if(typeCounts[p.type]!=null)typeCounts[p.type]++;else other++;});
     const _hs=people.map(x=>Number(x.height)).filter(h=>h>=100&&h<=250);
     const hSummary={count:_hs.length,avg:_hs.length?Math.round(_hs.reduce((a,b)=>a+b,0)/_hs.length):0,min:_hs.length?Math.min(..._hs):0,max:_hs.length?Math.max(..._hs):0};
     const hRanges=[['<160',0],['160-169',0],['170-179',0],['180+',0]];
