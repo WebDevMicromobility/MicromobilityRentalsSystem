@@ -256,7 +256,7 @@ en:{
   anNoData:'No completed rides yet. Data will appear here once sessions are done.',
   anRevenue:'Revenue',anRidership:'Ridership',anOperations:'Operations',anHighlights:'Highlights',
   anNavOverview:'Overview',anNavCustomers:'Customers',anVsPrev:'vs prev period',anNoPrev:'no prior period',
-  anNavGrowth:'Growth',anExportCsv:'Export CSV',anCsvEmpty:'Nothing to export in this range.',anDigestShare:'Share digest',
+  anNavGrowth:'Growth',anExportCsv:'Export CSV',anSessionLabel:'Session',anSessionAll:'All sessions',anHeightReport:'Height & Bike report',anHeightTitle:'Rider Heights',anHeightSub:'Height distribution of riders in range',anHeightAvg:'avg',anHeightReportSub:'Per session: rider heights + bikes rented by type',repHeightCol:'Height (cm)',repBikesRented:'Bikes rented by type',repRiderHeights:'Rider heights',repNoHeight:'No heights recorded',anCsvEmpty:'Nothing to export in this range.',anDigestShare:'Share digest',
   anAnomalyTitle:'Trend alert',anAnomalyDown:'Latest session down {0}% vs your usual {1} riders — check timing, weather or run a promo.',anAnomalyUp:'Latest session up {0}% vs your usual {1} riders — ride the momentum.',
   anFunnelTitle:'Booking funnel',anFunnelSub:'Where riders drop off between booking and finishing',anFunnelBooked:'Booked',anFunnelCheckedIn:'Checked in',anFunnelCompleted:'Completed',
   anHeatTitle:'Demand heatmap',anHeatSub:'Rides by day & time of day — schedule sessions around the hot spots',
@@ -637,7 +637,7 @@ ar:{
   anNoData:'لا توجد رحلات مكتملة بعد. ستظهر البيانات هنا عند اكتمال الجلسات.',
   anRevenue:'الإيرادات',anRidership:'الراكبون',anOperations:'العمليات',anHighlights:'أبرز المؤشرات',
   anNavOverview:'نظرة عامة',anNavCustomers:'العملاء',anVsPrev:'مقارنة بالفترة السابقة',anNoPrev:'لا توجد فترة سابقة',
-  anNavGrowth:'النمو',anExportCsv:'تصدير CSV',anCsvEmpty:'لا يوجد ما يُصدَّر في هذا النطاق.',anDigestShare:'مشاركة الملخص',
+  anNavGrowth:'النمو',anExportCsv:'تصدير CSV',anSessionLabel:'الجلسة',anSessionAll:'كل الجلسات',anHeightReport:'تقرير الأطوال والدراجات',anHeightTitle:'أطوال الركّاب',anHeightSub:'توزيع أطوال الركّاب في النطاق',anHeightAvg:'المتوسط',anHeightReportSub:'لكل جلسة: أطوال الركّاب + الدراجات المؤجّرة حسب النوع',repHeightCol:'الطول (سم)',repBikesRented:'الدراجات المؤجّرة حسب النوع',repRiderHeights:'أطوال الركّاب',repNoHeight:'لا توجد أطوال مسجّلة',anCsvEmpty:'لا يوجد ما يُصدَّر في هذا النطاق.',anDigestShare:'مشاركة الملخص',
   anAnomalyTitle:'تنبيه اتجاه',anAnomalyDown:'آخر جلسة أقل بـ {0}% من معدّلك المعتاد {1} راكب — راجع التوقيت أو الطقس أو أطلق عرضاً.',anAnomalyUp:'آخر جلسة أعلى بـ {0}% من معدّلك المعتاد {1} راكب — استثمر هذا الزخم.',
   anFunnelTitle:'مسار الحجز',anFunnelSub:'أين يتسرّب الركاب بين الحجز وإنهاء الرحلة',anFunnelBooked:'محجوز',anFunnelCheckedIn:'تم الحضور',anFunnelCompleted:'مكتمل',
   anHeatTitle:'خريطة الطلب الحرارية',anHeatSub:'الرحلات حسب اليوم ووقت اليوم — جدول الجلسات حول أوقات الذروة',
@@ -1392,7 +1392,7 @@ const S={
   
   sessSort:'date',sessSortDir:-1,sessStatusFilter:'all',showDeletedSess:false,sessShowAll:false,
   
-  analyticsRange:'all', analyticsTrendSort:'date', analyticsTrendDir:-1, analyticsCustomN:20, anView:'overview',
+  analyticsRange:'all', anSession:'all', analyticsTrendSort:'date', analyticsTrendDir:-1, analyticsCustomN:20, anView:'overview',
   analyticsDateFrom:'', analyticsDateTo:'',
   
   modalRider:null,modalBikes:[],modalShowAll:false,modalShowAddBike:false,modalAddBikeName:'',modalAddBikeType:null,modalAddBikeSize:'M',modalAddBikeFrame:'',modalAddBikeLocation:'',modalAddBikeNumber:'',modalSearch:'',modalSort:'default',modalSortDir:1,modalFilterSize:'all',modalFilterBrand:'all',modalFilterModel:'all',modalPriceEdit:false,
@@ -11086,6 +11086,51 @@ function _anSetTarget(){
   S.anRevTarget=n;try{localStorage.setItem('cq_an_rev_target',String(n));}catch(e){}
   renderAnalytics();
 }
+// ── Height & bike-type report: per session, the riders' heights + count of each bike type rented.
+// Respects the current analytics range and the chosen session filter.
+function _anHeightBikeData(){
+  let sess=[...allSessions()].sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+  const R=S.analyticsRange;
+  if(R==='month'){const mo=new Date();mo.setDate(1);mo.setHours(0,0,0,0);sess=sess.filter(s=>new Date(s.session_date||s.id)>=mo);}
+  else if(R==='year'){const yr=new Date().getFullYear();sess=sess.filter(s=>new Date(s.session_date||s.id).getFullYear()===yr);}
+  else if(R==='daterange'){if(S.analyticsDateFrom)sess=sess.filter(s=>(s.session_date||'')>=S.analyticsDateFrom);if(S.analyticsDateTo)sess=sess.filter(s=>(s.session_date||'')<=S.analyticsDateTo);}
+  if(S.anSession&&S.anSession!=='all')sess=sess.filter(s=>s.id===S.anSession);
+  return sess.map(s=>{
+    const riders=getQueue().filter(e=>e.sessionId===s.id&&e.status!=='cancelled'&&e.status!=='removed');
+    const people=riders.filter(r=>r.height!=null&&String(r.height).trim()!=='').map(r=>{const bk=getAssignedBikes(r);return{name:r.name||'—',height:r.height,type:bk.length?bk[0].type:(r.typePreference||'—')};}).sort((a,b)=>(Number(a.height)||0)-(Number(b.height)||0));
+    const typeCounts={Road:0,Hybrid:0,Mountain:0};let other=0;
+    riders.filter(r=>r.status==='done'||r.status==='active').forEach(r=>{const bks=getAssignedBikes(r);if(bks.length)bks.forEach(b=>{if(typeCounts[b.type]!=null)typeCounts[b.type]++;else other++;});else{const tp=r.typePreference;if(typeCounts[tp]!=null)typeCounts[tp]++;else other++;}});
+    return{sess:s,people,typeCounts,other,rented:typeCounts.Road+typeCounts.Hybrid+typeCounts.Mountain+other};
+  });
+}
+function _anHeightRangeLabel(){const m={all:t('anAllTime'),month:t('anThisMonth'),year:t('anThisYear')||'This Year',daterange:t('anDateRange')||'Date Range'}[S.analyticsRange]||'';let s='';if(S.anSession&&S.anSession!=='all'){const ss=allSessions().find(x=>x.id===S.anSession);if(ss)s=' · '+dayLabel(ss.day)+' '+shortDate(ss.session_date||ss.id);}return m+s;}
+function printHeightBikeReport(){
+  const data=_anHeightBikeData();
+  if(!data.length){toast(t('anCsvEmpty'));return;}
+  const ar=S.lang==='ar';const logoUrl=new URL('logo.png',location.href).href;
+  const blocks=data.map(d=>{
+    const title=`${dayLabel(d.sess.day)} · ${shortDate(d.sess.session_date||d.sess.id)}${d.sess.location?' · '+esc(d.sess.location):''}`;
+    const hRows=d.people.length?d.people.map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(String(p.height))}</td><td>${esc(typeLabel(p.type)||p.type)}</td></tr>`).join(''):`<tr><td colspan="3" style="color:#888">${t('repNoHeight')}</td></tr>`;
+    const tc=d.typeCounts;const tRows=[['Road',tc.Road],['Hybrid',tc.Hybrid],['Mountain',tc.Mountain]].concat(d.other?[['Other',d.other]]:[]).map(([ty,n])=>`<tr><td>${esc(typeLabel(ty)||ty)}</td><td style="text-align:end;font-weight:800">${n}</td></tr>`).join('');
+    return`<section style="margin-bottom:26px;break-inside:avoid"><h2 style="font-size:15px;font-weight:800;margin:0 0 8px;border-bottom:2px solid #222;padding-bottom:5px">${title}</h2><div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start"><div style="flex:2 1 300px"><h3 style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#666;margin:0 0 5px">${t('repRiderHeights')} (${d.people.length})</h3><table><thead><tr><th>${t('nameLabel')}</th><th>${t('repHeightCol')}</th><th>${t('colBike')}</th></tr></thead><tbody>${hRows}</tbody></table></div><div style="flex:1 1 190px"><h3 style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#666;margin:0 0 5px">${t('repBikesRented')} (${d.rented})</h3><table><tbody>${tRows}</tbody></table></div></div></section>`;
+  }).join('');
+  const html=`<!DOCTYPE html><html lang="${ar?'ar':'en'}" dir="${ar?'rtl':'ltr'}"><head><meta charset="UTF-8"><title>${t('anHeightReport')}</title>${ar?'<link href="/fonts/fonts.css" rel="stylesheet">':''}<style>*{box-sizing:border-box}body{font-family:${ar?"'Cairo',":''}system-ui,sans-serif;color:#111;padding:24px;max-width:900px;margin:0 auto}h1{font-size:20px;margin:0 0 2px}.sub{color:#666;font-size:12px;margin-bottom:18px}table{width:100%;border-collapse:collapse}th{border-bottom:2px solid #222;padding:5px 7px;text-align:${ar?'right':'left'};font-size:10px;text-transform:uppercase;letter-spacing:.4px}td{border-bottom:1px solid #e5e7eb;padding:5px 7px;font-size:12px;text-align:${ar?'right':'left'}}@media print{button{display:none}}</style></head><body><img src="${logoUrl}" alt="" style="height:34px"><h1>${t('anHeightReport')}</h1><div class="sub">${esc(_anHeightRangeLabel())} · ${new Date().toLocaleString(ar?'ar-u-ca-gregory-nu-latn':'en-SA',{timeZone:KSA_TZ})}</div>${blocks}<br><button onclick="window.print()" style="padding:8px 20px;background:#111;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:700">${t('repPrintNow')}</button></body></html>`;
+  const w=window.open('','_blank','width=920,height=820');if(!w)return;w.document.write(html);w.document.close();w.focus();setTimeout(()=>{try{w.print();}catch(e){}},400);
+}
+function exportHeightBikeCsv(){
+  const data=_anHeightBikeData();if(!data.length){toast(t('anCsvEmpty'));return;}
+  const rows=[];
+  data.forEach(d=>{
+    rows.push([dayLabel(d.sess.day)+' '+shortDate(d.sess.session_date||d.sess.id)+(d.sess.location?' - '+d.sess.location:'')]);
+    rows.push([t('repRiderHeights'),t('repHeightCol'),t('colBike')]);
+    if(d.people.length)d.people.forEach(p=>rows.push([p.name,p.height,typeLabel(p.type)||p.type]));else rows.push([t('repNoHeight')]);
+    rows.push([t('repBikesRented')]);
+    [['Road',d.typeCounts.Road],['Hybrid',d.typeCounts.Hybrid],['Mountain',d.typeCounts.Mountain]].concat(d.other?[['Other',d.other]]:[]).forEach(([ty,n])=>rows.push([typeLabel(ty)||ty,n]));
+    rows.push([]);
+  });
+  const csv=rows.map(r=>r.map(_csvCell).join(',')).join('\n');
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='heights_bike_types.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+}
 function _anExportCSV(){
   const rows=(S&&S._anCsvRows)||[];
   if(!rows.length){toast(t('anCsvEmpty'));return;}
@@ -11118,6 +11163,8 @@ function renderAnalytics(){
     if(S.analyticsDateFrom) sessCandidates=sessCandidates.filter(s=>(s.session_date||'')>=S.analyticsDateFrom);
     if(S.analyticsDateTo)   sessCandidates=sessCandidates.filter(s=>(s.session_date||'')<=S.analyticsDateTo);
   }
+  const _anRangeSessions=[...sessCandidates]; // range-filtered list (for the session dropdown)
+  if(S.anSession&&S.anSession!=='all')sessCandidates=sessCandidates.filter(s=>s.id===S.anSession); // optional single-session focus
   const sessIds=new Set(sessCandidates.map(s=>s.id));
   const queue=allQ.filter(e=>sessIds.has(e.sessionId));
   const sessions=sessCandidates;
@@ -11127,6 +11174,13 @@ function renderAnalytics(){
   const anSalesLines=[...sessIds].reduce((acc,sid)=>acc.concat(_cashSessionLines(sid)),[]);
   const anSales=_salesTotals(anSalesLines);
   const anTopItems=(()=>{const c={};anSalesLines.filter(l=>l.cat!=='__discount__'&&l.cat!=='__cardmeta__'&&l.pay!=='refunded'&&(Number(l.qty)||0)>0).forEach(l=>{const k=l.name||'—';if(!c[k])c[k]={name:k,qty:0,value:0};c[k].qty+=(Number(l.qty)||0);c[k].value+=(Number(l.qty)||0)*(Number(l.price)||0);});return Object.values(c).sort((a,b)=>b.qty-a.qty||b.value-a.value).slice(0,8);})();
+  // Rider height distribution for the dashboard (riders in range with a valid height)
+  const _htVals=queue.filter(e=>e.status!=='cancelled'&&e.status!=='removed').map(e=>Number(e.height)).filter(h=>h>=100&&h<=250);
+  const _htAvg=_htVals.length?Math.round(_htVals.reduce((a,b)=>a+b,0)/_htVals.length):0;
+  const _htBk=[['<160',0],['160-169',0],['170-179',0],['180+',0]];
+  _htVals.forEach(h=>{if(h<160)_htBk[0][1]++;else if(h<170)_htBk[1][1]++;else if(h<180)_htBk[2][1]++;else _htBk[3][1]++;});
+  const _htMax=Math.max(1,..._htBk.map(b=>b[1]));
+  const heightCard=`<div class="chart-card"><div class="chart-card-title">${t('anHeightTitle')}</div><div class="chart-card-sub">${t('anHeightSub')}</div><div style="display:flex;gap:8px;align-items:baseline;margin:4px 0 8px"><span style="font-size:22px;font-weight:900;color:var(--green)">${_htAvg||'\u2014'}${_htAvg?' cm':''}</span><span style="font-size:12px;color:var(--muted)">${t('anHeightAvg')} \u00b7 ${_htVals.length} ${t('anRiders').toLowerCase()}</span></div>${_htBk.map(([l,n])=>`<div class="analytics-bar-row"><div class="analytics-bar-label" style="min-width:66px">${l} cm</div><div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(n/_htMax*100)}%;background:var(--blue)"></div></div><div class="analytics-bar-value">${n}</div></div>`).join('')}</div>`;
 
   function _rangeBar(){
     const _sh=sessions.filter(s=>queue.some(e=>e.sessionId===s.id&&e.status==='done')).length;
@@ -11147,6 +11201,11 @@ function renderAnalytics(){
           style="background:#1a1a1a;border:1px solid rgba(255,255,255,.15);border-radius:8px;color:var(--text);font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;padding:4px 8px;cursor:pointer"
           onchange="S.analyticsDateTo=this.value;renderAnalytics()">
       `:''}
+      <span style="font-size:12px;font-weight:700;color:var(--muted);margin-left:8px">${t('anSessionLabel')}:</span>
+      <select class="filter-select" onchange="S.anSession=this.value;renderAnalytics()">
+        <option value="all"${(S.anSession==='all'||!S.anSession)?' selected':''}>${t('anSessionAll')}</option>
+        ${_anRangeSessions.slice().reverse().map(s=>`<option value="${s.id}"${S.anSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${s.location?' · '+esc(s.location):''}</option>`).join('')}
+      </select>
       <span class="result-count" style="margin-left:4px">${_sh} ${t('anSessionsHeld').toLowerCase()} · ${_td} ${t('anRidesLabel')}</span>
     </div>`;
   }
@@ -11654,7 +11713,7 @@ function renderAnalytics(){
   // Text behind the "Share digest" button (WhatsApp-friendly summary of the current range).
   S._anDigestText=`MicroMobility — ${t('tabAnalytics')}\n🚲 ${t('anTotalRides')}: ${done.length}\n💰 ${t('anRevCollected')}: SAR ${Math.round(revCollected)}${revPending>0?` (+SAR ${Math.round(revPending)} ${t('printPending').toLowerCase()})`:''}\n📊 ${t('anAvgOccupancy')}: ${avgOccupancy}%${anTopItems.length?`\n🏆 ${t('anTopSellers')}: ${anTopItems[0].name}`:''}${noshow.length?`\n⚠️ ${t('anNoShowRate')}: ${noShowRate}% (${noshow.length})`:''}`;
   document.getElementById('tab-analytics').innerHTML=`
-    <div class="page-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>${t('tabAnalytics')}</span><span style="display:flex;gap:8px"><button class="btn-secondary" style="font-size:12px;padding:6px 12px" onclick="_anShareDigest()">↗ ${t('anDigestShare')}</button><button class="btn-secondary" style="font-size:12px;padding:6px 12px" onclick="_anExportCSV()">↓ ${t('anExportCsv')}</button></span></div>
+    <div class="page-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><span>${t('tabAnalytics')}</span><span style="display:flex;gap:8px"><button class="btn-secondary" style="font-size:12px;padding:6px 12px" onclick="_anShareDigest()">↗ ${t('anDigestShare')}</button><button class="btn-secondary" style="font-size:12px;padding:6px 12px" onclick="_anExportCSV()">↓ ${t('anExportCsv')}</button><button class="btn-secondary" style="font-size:12px;padding:6px 12px" onclick="printHeightBikeReport()" title="${t('anHeightReportSub')}">🖨 ${t('anHeightReport')}</button><button class="btn-secondary" style="font-size:12px;padding:6px 12px" onclick="exportHeightBikeCsv()">↓ ${t('anHeightReport')} CSV</button></span></div>
     <div class="page-sub">${t('anPageSub')}</div>
     <div class="an-sticky">
       ${_rangeBar()}
@@ -11750,6 +11809,7 @@ function renderAnalytics(){
       </div>
     </div>
     <div class="chart-grid-wide">
+      ${heightCard}
       <div class="chart-card">
         <div class="chart-card-title">${t('anChartRidersPerSession')}</div>
         <div class="chart-card-sub">${t('anChartRidersSub')}</div>
