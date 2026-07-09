@@ -101,9 +101,8 @@ test('report shows the ASSIGNED bike type, never "Any"', async ({ page }) => {
   await page.evaluate(`setStaffTab('analytics')`);
   const people = await page.evaluate(`_anHeightBikeData()[0].people.map(p=>({name:p.name,type:p.type}))`) as Array<{ name: string; type: string }>;
   const assigned = people.find((p) => p.name === 'Any Rider')!;
-  const noBike = people.find((p) => p.name === 'Waiting Any')!;
-  expect(assigned.type).toBe('Road');   // shows the assigned bike, not "Any"
-  expect(noBike.type).toBe('—');        // no bike + "Any" preference -> dash, never "Any"
+  expect(assigned.type).toBe('Road');   // chose "Any", got a Road bike -> shows Road, not "Any"
+  expect(people.some((p) => p.name === 'Waiting Any')).toBe(false); // waiting rider excluded (not checked in)
   expect(people.some((p) => p.type === 'Any')).toBe(false);
 });
 
@@ -125,10 +124,9 @@ test('bike-type total matches the rider/height count (all riders, not just check
   await page.evaluate(`setStaffTab('analytics')`);
   const d = await page.evaluate(`_anHeightBikeData()[0]`) as { people: unknown[]; typeCounts: { Road: number; Hybrid: number; Mountain: number }; other: number; rented: number };
   const typeTotal = d.typeCounts.Road + d.typeCounts.Hybrid + d.typeCounts.Mountain + d.other;
-  expect(d.people.length).toBe(3);        // all 3 riders with heights
-  expect(typeTotal).toBe(3);              // bike types total the SAME 3 (was 1 before)
-  expect(d.rented).toBe(3);
+  // only the checked-in/completed rider counts; waiting + no-show are excluded from BOTH sections
+  expect(d.people.length).toBe(1);        // just the 'done' rider has a height here
+  expect(typeTotal).toBe(1);              // and bike types total the same 1
+  expect(d.people.length).toBe(typeTotal);
   expect(d.typeCounts.Road).toBe(1);      // done -> assigned Road
-  expect(d.typeCounts.Hybrid).toBe(1);    // waiting -> booked Hybrid
-  expect(d.typeCounts.Mountain).toBe(1);  // noshow -> booked Mountain
 });
