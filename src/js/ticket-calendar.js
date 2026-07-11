@@ -26,6 +26,27 @@ function _icsEsc(s) { return String(s).replace(/([,;\\])/g, '\\$1').replace(/\r?
 /** UTC timestamp for DTSTAMP. @param {Date} [d] @returns {string} */
 function _icsStamp(d) { d = d || new Date(); const p = (/** @type {number} */ n) => String(n).padStart(2, '0'); return d.getUTCFullYear() + p(d.getUTCMonth() + 1) + p(d.getUTCDate()) + 'T' + p(d.getUTCHours()) + p(d.getUTCMinutes()) + p(d.getUTCSeconds()) + 'Z'; }
 
+// v2 design: Google Calendar template URL for the ticket's "Add to calendar" ghost button.
+// (The .ics download in _ticketCal below stays available and is what the tests exercise.)
+/** @param {number} idx @returns {string} */
+function _gcalUrl(idx) {
+  try {
+    const tkt = (S.lastTickets || [])[idx]; if (!tkt) return '';
+    const sess = allSessions().find((/** @type {any} */ s) => s.id === tkt.sessionId);
+    const m = String(_sessRawTime(sess)).match(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/);
+    const d = String(tkt.sessionDate || '').replace(/-/g, '');
+    if (d.length !== 8) return '';
+    const sh = (m ? m[1] : '9').padStart(2, '0'), sm = m ? m[2] : '00', eh = (m ? m[3] : '11').padStart(2, '0'), em = m ? m[4] : '00';
+    const loc = ((sess && sess.location) === 'JCC' ? 'Jeddah Corniche Circuit' : (sess && sess.location) || 'Jeddah Corniche Circuit') + ', Gate A';
+    const e = encodeURIComponent;
+    return 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+      + '&text=' + e('MicroMobility Rental #' + tkt.queueNum)
+      + '&dates=' + e(d + 'T' + sh + sm + '00/' + d + 'T' + eh + em + '00')
+      + '&location=' + e(loc)
+      + '&details=' + e('Your bicycle rental at the Jeddah Corniche Circuit. Booking #' + tkt.queueNum);
+  } catch (e) { return ''; }
+}
+
 // Downloads an .ics event so the rider can add the session to their calendar (one tap on iOS/Android).
 /** @param {number} idx */
 function _ticketCal(idx) {
