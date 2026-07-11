@@ -24,9 +24,9 @@
   <link rel="preconnect" href="https://amyqxovbnlreassrqihr.supabase.co">
   <link rel="preload" as="script" href="./vendor/supabase-js-2.110.0.min.js"><!-- boot awaits this; fetch it at top priority right away -->
   <!-- Preload the primary UI font weights (body + bold) so first paint has them, avoiding a text-swap flash -->
-  <link rel="preload" as="font" type="font/woff2" href="./fonts/SpaceGrotesk-400-latin.woff2" crossorigin>
-  <link rel="preload" as="font" type="font/woff2" href="./fonts/SpaceGrotesk-700-latin.woff2" crossorigin>
-  <link href="./fonts/fonts.css?v=1" rel="stylesheet">
+  <link rel="preload" as="font" type="font/woff2" href="./fonts/Quicksand-500-latin.woff2" crossorigin>
+  <link rel="preload" as="font" type="font/woff2" href="./fonts/Quicksand-700-latin.woff2" crossorigin>
+  <link href="./fonts/fonts.css?v=2" rel="stylesheet">
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -42,8 +42,8 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=88">
-<script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th='light';localStorage.setItem('cq_theme','light');}if(_th==='light')document.documentElement.setAttribute('data-theme','light');}catch(e){}</script>
+  <link rel="stylesheet" href="./styles.css?v=89">
+<script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'||_th==='light'){_th=null;localStorage.removeItem('cq_theme');}if(_th==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
 <div id="loading-screen">
@@ -2786,16 +2786,16 @@ function renderStaffTabs(){
 }
 
 function toggleTheme(){
-  const cur=document.documentElement.getAttribute('data-theme')||'dark';
-  const next=cur==='dark'?'light':'dark';
-  if(next==='dark'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('cq_theme');}catch(e){}}
+  const cur=document.documentElement.getAttribute('data-theme')||'light';
+  const next=cur==='light'?'dark':'light';
+  if(next==='light'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('cq_theme');}catch(e){}}
   else{document.documentElement.setAttribute('data-theme',next);try{localStorage.setItem('cq_theme',next);}catch(e){}}
   applyThemeIcon();
 }
 function applyThemeIcon(){
   const b=document.getElementById('theme-toggle-btn');if(!b)return;
-  const cur=document.documentElement.getAttribute('data-theme')||'dark';
-  const next=cur==='dark'?'light':'dark';
+  const cur=document.documentElement.getAttribute('data-theme')||'light';
+  const next=cur==='light'?'dark':'light';
   const lbl=next==='light'?t('themeLight'):t('themeDark');
   b.innerHTML=next==='dark'?ICON_MOON:ICON_SUN;b.title=lbl;b.setAttribute('aria-label',lbl);
 }
