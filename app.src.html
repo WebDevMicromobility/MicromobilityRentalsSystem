@@ -3206,6 +3206,10 @@ function renderRegister(){
   const hasRange=S.regBikeTypes.slice(0,S.regQty).some(ty=>ty==='Any');
   const totalDisplay=hasRange?(totalMin===totalMax?`SAR ${totalMin}`:`SAR ${totalMin} - ${totalMax}`):`SAR ${totalMin.toFixed(2).replace(/\.00$/,'')}`;
   const addonTotal=addonsCost(S.regAddons);
+  const _promoAf=(S.promoApplied&&!isModifyMode)?Math.max(0,Math.round((totalMin-_promoDiscount(totalMin))*100)/100):null;
+  const grandTotalStr=_promoAf!=null
+    ?`SAR ${Math.round((_promoAf+addonTotal)*100)/100}`
+    :(hasRange?(()=>{const lo=Math.round((totalMin+addonTotal)*100)/100,hi=Math.round((totalMax+addonTotal)*100)/100;return lo===hi?`SAR ${lo}`:`SAR ${lo} - ${hi}`;})():`SAR ${Math.round((totalMin+addonTotal)*100)/100}`);
   const breakdown=S.regQty>1
     ?S.regBikeTypes.slice(0,S.regQty).map((ty,i)=>`${t('bike')} ${i+1}: ${priceDisplay(ty)}`).join(' &nbsp;&middot;&nbsp; ')
     :t('pricePerBike');
@@ -3214,7 +3218,14 @@ function renderRegister(){
     <div class="price-preview-total">${totalDisplay}</div>
   </div>`:'';
 
-  
+  const selSess=allSessions().find(s=>s.id===S.selSession);
+  const summaryPanel=selSess?`<div class="reg-summary-panel">
+    <div class="reg-summary-row"><span>${t('colSession')}</span><span>${dayLabel(selSess.day)} &middot; ${shortDate(selSess.session_date||selSess.id)}</span></div>
+    <div class="reg-summary-row"><span>${t('numBikes')}</span><span>${S.regQty}</span></div>
+    <div class="reg-summary-total"><span>${t('reviewTotalLabel')}</span><span>${grandTotalStr}</span></div>
+  </div>`:'';
+
+
   function renderOneTicket(tkt,idx,total){
     const qrHtml=ticketQR(bookingRef(tkt),150);
     const _sess=allSessions().find(s=>s.id===tkt.sessionId);
@@ -3269,20 +3280,6 @@ function renderRegister(){
   
   if(!S.selSession&&!hasTickets&&S.regStep>1)S.regStep=1;
   const curStep=hasTickets?4:(S.regStep||1);
-  function regStep(n,label){
-    const cls=curStep>n?'done':curStep===n?'active':'';
-    return`<div class="reg-step ${cls}">
-      <div class="reg-step-circle">${curStep>n?'✓':n}</div>
-      <div class="reg-step-label">${label}</div>
-    </div>`;
-  }
-  const stepBar=`<div class="reg-steps">
-    ${regStep(1,t('colSession'))}
-    <div class="reg-step-connector ${curStep>1?'done':''}"></div>
-    ${regStep(2,t('riderDetails'))}
-    <div class="reg-step-connector ${curStep>2?'done':''}"></div>
-    ${regStep(3,t('stepConfirm'))}
-  </div>`;
   // Progress stepper: ①Session ②Riders ③Confirm, current step highlighted, passed steps ticked.
   // Orients the customer and cuts mid-flow drop-off. RTL-aware (the connector fills from the start).
   const _stepLabels=[t('regProg1'),t('regProg2'),t('regProg3')];
@@ -3320,8 +3317,7 @@ function renderRegister(){
       <button class="btn-primary" style="flex:1" onclick="regNextToReview()">${t('regReviewBtn')}</button>
     </div>`;
 
-  
-  const selSess=allSessions().find(s=>s.id===S.selSession);
+
   const reviewRiders=Array.from({length:S.regQty},(_,i)=>{
     const nm=(S.regRiderNames[i]!==undefined&&String(S.regRiderNames[i]).trim())?String(S.regRiderNames[i]).trim():(i===0&&cust?cust.name:'');
     const ty=S.regBikeTypes[i]||'Any';
@@ -3420,11 +3416,8 @@ function renderRegister(){
     })()}
     ${detailsCard}
     <div class="form-section" style="margin-top:16px">${(()=>{
-      const _af=(S.promoApplied&&!isModifyMode)?Math.max(0,Math.round((totalMin-_promoDiscount(totalMin))*100)/100):null;
-      const rentalStr=_af!=null?`SAR ${_af}`:totalDisplay;
-      const grandStr=_af!=null
-        ?`SAR ${Math.round((_af+addonTotal)*100)/100}`
-        :(hasRange?(()=>{const lo=Math.round((totalMin+addonTotal)*100)/100,hi=Math.round((totalMax+addonTotal)*100)/100;return lo===hi?`SAR ${lo}`:`SAR ${lo} - ${hi}`;})():`SAR ${Math.round((totalMin+addonTotal)*100)/100}`);
+      const rentalStr=_promoAf!=null?`SAR ${_promoAf}`:totalDisplay;
+      const grandStr=grandTotalStr;
       return`${addonTotal>0?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span style="color:var(--muted)">${t('reviewRentalLabel')}</span><span style="font-weight:700">${rentalStr}</span></div>
       <div style="display:flex;justify-content:space-between;font-size:13px;padding:3px 0"><span style="color:var(--muted)">${t('addonsLabel')}</span><span style="font-weight:700">SAR ${addonTotal}</span></div>`:''}
       <div style="display:flex;align-items:center;justify-content:space-between;${addonTotal>0?'border-top:1px solid var(--border);margin-top:6px;padding-top:8px':''}">
@@ -3444,7 +3437,10 @@ function renderRegister(){
     <button class="btn-primary" style="width:100%;margin-top:18px" onclick="regBookAnother()">${t('regBookAnotherBtn')}</button>`:'';
 
   const body=hasTickets?panelDone:curStep===1?panel1:curStep===2?panel2:panel3;
-  document.getElementById('tab-register').innerHTML=`${stepBar}${body}`;
+  const showSummary=!hasTickets&&curStep>1&&summaryPanel;
+  document.getElementById('tab-register').innerHTML=showSummary
+    ?`<div class="reg-grid"><div class="reg-grid-main">${body}</div><div class="reg-grid-side">${summaryPanel}</div></div>`
+    :body;
 }
 
 function regGoStep(n){S.regStep=n;renderRegister();try{window.scrollTo({top:0,behavior:_sb()});}catch(e){}}
