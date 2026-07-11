@@ -2664,7 +2664,7 @@ function renderLandingAvail(){
   const strip=document.getElementById('land-avail-strip');if(!strip)return;
   const open=openSessions();
   if(!open.length){
-    strip.innerHTML=`<div class="landing-avail-chip no-sessions"><span class="landing-avail-dot" style="background:var(--muted)"></span>${t('noSessions')}</div>`;
+    strip.innerHTML=`<div class="landing-avail-chip no-sessions" style="flex-direction:row;align-items:center">${t('noSessions')}</div>`;
     return;
   }
   strip.innerHTML=open.map(s=>{
@@ -3262,20 +3262,6 @@ function renderRegister(){
   
   if(!S.selSession&&!hasTickets&&S.regStep>1)S.regStep=1;
   const curStep=hasTickets?4:(S.regStep||1);
-  function regStep(n,label){
-    const cls=curStep>n?'done':curStep===n?'active':'';
-    return`<div class="reg-step ${cls}">
-      <div class="reg-step-circle">${curStep>n?'✓':n}</div>
-      <div class="reg-step-label">${label}</div>
-    </div>`;
-  }
-  const stepBar=`<div class="reg-steps">
-    ${regStep(1,t('colSession'))}
-    <div class="reg-step-connector ${curStep>1?'done':''}"></div>
-    ${regStep(2,t('riderDetails'))}
-    <div class="reg-step-connector ${curStep>2?'done':''}"></div>
-    ${regStep(3,t('stepConfirm'))}
-  </div>`;
   // Progress stepper: ①Session ②Riders ③Confirm, current step highlighted, passed steps ticked.
   // Orients the customer and cuts mid-flow drop-off. RTL-aware (the connector fills from the start).
   const _stepLabels=[t('regProg1'),t('regProg2'),t('regProg3')];
@@ -3430,14 +3416,16 @@ function renderRegister(){
 
   
   const panelDone=hasTickets?`
-    <div style="text-align:center;margin-bottom:18px">
-      <div class="page-title" style="margin-bottom:4px">${t('toastRegistered')}</div>
-    </div>
-    ${tickets.map((tkt,i)=>renderOneTicket(tkt,i,tickets.length)).join('')}
-    <button class="btn-primary" style="width:100%;margin-top:18px" onclick="regBookAnother()">${t('regBookAnotherBtn')}</button>`:'';
+    <div style="max-width:640px;margin:0 auto">
+      <div style="text-align:center;margin-bottom:18px">
+        <div class="page-title" style="margin-bottom:4px">${t('toastRegistered')}</div>
+      </div>
+      ${tickets.map((tkt,i)=>renderOneTicket(tkt,i,tickets.length)).join('')}
+      <button class="btn-primary" style="width:100%;margin-top:18px" onclick="regBookAnother()">${t('regBookAnotherBtn')}</button>
+    </div>`:'';
 
   const body=hasTickets?panelDone:curStep===1?panel1:curStep===2?panel2:panel3;
-  document.getElementById('tab-register').innerHTML=`${stepBar}${body}`;
+  document.getElementById('tab-register').innerHTML=body;
 }
 
 function regGoStep(n){S.regStep=n;renderRegister();try{window.scrollTo({top:0,behavior:_sb()});}catch(e){}}
@@ -4222,7 +4210,7 @@ function renderAccount(){
       const nextTxt=next?t('ridesToNext').replace('{0}',next[0]-rides).replace('{1}',t(next[1])):'';
       const fields=[cust.name,cust.email,cust.phone,cust.height,cust.birth_date,cust.country,cust.city,cust.photo,(cust.type_preference&&cust.type_preference!=='Any')];
       const pct=Math.round(fields.filter(Boolean).length/fields.length*100);
-      return`<div class="form-section" style="max-width:560px;margin-bottom:16px;display:flex;flex-direction:column;gap:14px">
+      return`<div class="form-section" style="max-width:760px;margin:0 auto 16px;display:flex;flex-direction:column;gap:14px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
           <div>
             <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${t('rideTierLabel')}</div>
@@ -4240,7 +4228,7 @@ function renderAccount(){
         </div>
       </div>`;
     })()}
-    <div class="form-section" style="max-width:560px">
+    <div class="form-section" style="max-width:760px;margin:0 auto">
       <div class="form-title">${t('profileInfo')}</div>
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:20px">
         ${cust.photo
@@ -8224,6 +8212,21 @@ function renderBikes(){
 
   function renderTypeSection(ty,color){
     if(S.bkTypeFilter!=='all'&&S.bkTypeFilter!==ty) return '';
+    // A type with zero bikes ever added gets a compact one-line prompt instead of a full
+    // empty header+table, so a fresh fleet doesn't force scrolling past several blank tables.
+    if(!bkSearch&&S.bkStatus==='all'&&S.bkSize==='all'&&!bikes.some(b=>b.type===ty)){
+      return`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid var(--border);margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:4px;height:20px;border-radius:3px;background:${color};flex-shrink:0"></div>
+          <div style="font-size:14px;font-weight:800">${typeLabel(ty)}</div>
+          <div style="font-size:12px;color:var(--muted)">${t('noBikes')}</div>
+        </div>
+        <button class="btn-secondary" style="font-size:12px;padding:6px 12px"
+          onclick="S.showAddBike=true;S.addBikeType='${ty}';S.editBikeId=null;S.addBikeSize='M';S.addBikeColors=['#03ff89'];S.addBikeColorNames=[''];S._bkName='';S._bkFrame='';S._bkLocationAdd=false;S._bkLocation=S.bkLocations[0]||'JCC';S._bkNumber=String(_nextBikeNumber());renderBikes();_scrollToBikeForm()">
+          + ${typeLabel(ty)}
+        </button>
+      </div>`;
+    }
     let typeBikes=bikes.filter(b=>b.type===ty);
     // Status-aware: 'all' hides retired+maintenance; a specific status (incl. maintenance/retired) shows only that
     if(S.bkStatus==='all') typeBikes=typeBikes.filter(b=>b.status!=='retired'&&b.status!=='maintenance');
@@ -12071,15 +12074,9 @@ function renderAnalytics(){
           <div class="hl-label">${t('anRevPAS')}</div>
           <div class="hl-value" style="color:var(--green)">${sarBoth(revPAS,2)}</div>
         </div>
-        <div class="hl-item">
+        <div class="hl-item" style="margin-bottom:0">
           <div class="hl-label">${t('anRevPerCust')}</div>
           <div class="hl-value" style="color:var(--green)">${sarBoth(revPerCustomer,2)}</div>
-        </div>
-        <div class="hl-item" style="margin-bottom:0">
-          <div class="hl-label">${t('anCollectionRate')}</div>
-          <div class="hl-value" style="color:${collectionRate>=60?'var(--green)':'var(--red)'}">${collectionRate}%
-            <span style="font-size:13px;color:var(--muted);font-weight:600;margin-left:6px">${sarBoth(revCollected)} / ${sarBoth(revTotal)}</span>
-          </div>
         </div>
       </div>
     </div>
