@@ -26,7 +26,7 @@
   <!-- Preload the primary UI font weights (body + bold) so first paint has them, avoiding a text-swap flash -->
   <link rel="preload" as="font" type="font/woff2" href="./fonts/Quicksand-500-latin.woff2" crossorigin>
   <link rel="preload" as="font" type="font/woff2" href="./fonts/Quicksand-700-latin.woff2" crossorigin>
-  <link href="./fonts/fonts.css?v=2" rel="stylesheet">
+  <link href="./fonts/fonts.css?v=3" rel="stylesheet">
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -42,7 +42,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=90">
+  <link rel="stylesheet" href="./styles.css?v=91">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'||_th==='light'){_th=null;localStorage.removeItem('cq_theme');}if(_th==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
@@ -58,7 +58,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 
 <header id="topbar">
   <button type="button" class="topbar-logo" onclick="goLanding()" style="cursor:pointer;background:none;border:none;padding:0" aria-label="MicroMobility home">
-    <img src="logo.png" alt="MicroMobility">
+    <img id="topbar-logo-img" src="logo-dark.png" alt="MicroMobility">
   </button>
   <div style="display:flex;align-items:center;gap:10px">
     <button class="lang-toggle" id="lang-btn" onclick="setLang(S.lang==='en'?'ar':'en')" title="Switch language" aria-label="Switch language">العربية</button>
@@ -2819,8 +2819,11 @@ function toggleTheme(){
   applyThemeIcon();
 }
 function applyThemeIcon(){
-  const b=document.getElementById('theme-toggle-btn');if(!b)return;
   const cur=document.documentElement.getAttribute('data-theme')||'light';
+  // Dark-ink wordmark on light theme; the original (white wordmark) art on dark.
+  const lg=document.getElementById('topbar-logo-img');
+  if(lg){const want=cur==='dark'?'logo.png':'logo-dark.png';if(!lg.src.endsWith(want))lg.src=want;}
+  const b=document.getElementById('theme-toggle-btn');if(!b)return;
   const next=cur==='light'?'dark':'light';
   const lbl=next==='light'?t('themeLight'):t('themeDark');
   b.innerHTML=next==='dark'?ICON_MOON:ICON_SUN;b.title=lbl;b.setAttribute('aria-label',lbl);
@@ -3878,12 +3881,12 @@ function renderBookingTicket(entries,opts){
   const rated=!!(primary.ratingExp||primary.ratingBike);
   const rateBtn=(opts.bookAgain&&!rated)?`<button class="btn-sm btn-green" style="flex:1" onclick="openRateModal('${primary.id}')">★ ${t('rateRideBtn')}</button>`:'';
   const actionsHtml=canEdit?`<div style="display:flex;gap:8px;padding:14px 18px 16px;flex-wrap:wrap">
-      <button class="btn-sm btn-blue" style="flex:1;min-width:88px" onclick="S.lastTickets=[];S.selSession='${primary.sessionId}';S.regStep=2;setCustTab('register')">${t('editBtn')}</button>
+      <button class="btn-sm btn-green" style="flex:1;min-width:88px" onclick="S.lastTickets=[];S.selSession='${primary.sessionId}';S.regStep=2;setCustTab('register')">${t('editBtn')}</button>
       <button class="btn-sm btn-secondary" style="flex:1;min-width:88px" onclick="showRescheduleModal('${primary.sessionId}')">${ICON_RESCHEDULE} ${t('rescheduleBtn')}</button>
       <button class="btn-sm btn-red" style="flex:1;min-width:88px" onclick="showCancelReasonModal('${primary.id}')">${t('cancelBooking')}</button>
     </div>`:(opts.bookAgain?`<div style="display:flex;gap:8px;padding:14px 18px 16px;flex-wrap:wrap">
       ${rateBtn}
-      <button class="btn-sm btn-blue" style="flex:1;min-width:110px" onclick="bookAgain('${_ids}')">↻ ${t('bookAgainBtn')}</button>
+      <button class="btn-sm btn-green" style="flex:1;min-width:110px" onclick="bookAgain('${_ids}')">↻ ${t('bookAgainBtn')}</button>
     </div>`:'');
   const numFont=numDisplay.length<=4?'72px':numDisplay.length<=9?'40px':'24px';
   return`<div class="ticket-card" style="margin-top:0">
@@ -5146,7 +5149,7 @@ function renderSessions(){
     if(isOpen){
       statusBadgeHtml=`<span class="badge-open">${t('statusOpen')}</span>`;
       actionBtns=`
-        <button class="btn-sm btn-orange" onclick="toggleSession('${s.id}','full')">${t('markFullBtn')}</button>
+        <button class="btn-sm btn-muted" onclick="toggleSession('${s.id}','full')">${t('markFullBtn')}</button>
         <button class="btn-sm btn-red" onclick="toggleSession('${s.id}','closed')">${t('closeBtn')}</button>`;
     }else if(isFull){
       statusBadgeHtml=`<span class="badge-full">${t('statusFull')}</span>`;
@@ -5168,7 +5171,7 @@ function renderSessions(){
       <td data-label="${t('colStatus')}">${statusBadgeHtml}</td>
       <td class="cell-actions">
         <div class="actions-cell">
-          <button class="btn-sm btn-blue" onclick="startEditSession('${s.id}')">${t('editBtn2')}</button>
+          <button class="btn-sm btn-green" onclick="startEditSession('${s.id}')">${t('editBtn2')}</button>
           <button class="btn-sm btn-muted" onclick="cloneSession('${s.id}')">${t('cloneSessBtn')}</button>
           ${actionBtns}
           ${isAdmin()?`<button class="btn-sm btn-red" onclick="deleteSession('${s.id}')" ${booked>0?`disabled title="${t('hasBookingsTitle')}"`:''}>${t('deleteBtn')}</button>`:''}
@@ -5183,7 +5186,7 @@ function renderSessions(){
     const cap=s.capacity||12;const left=Math.max(0,cap-booked);
     const slots=parseSlots(s.bike_slots);const fleetInfo=slots?slotsLabel(slots):'';
     let badge,actions;
-    if(s.status==='open'){badge=`<span class="badge-open">${t('statusOpen')}</span>`;actions=`<button class="btn-sm btn-orange" onclick="event.stopPropagation();toggleSession('${s.id}','full')">${t('markFullBtn')}</button><button class="btn-sm btn-red" onclick="event.stopPropagation();toggleSession('${s.id}','closed')">${t('closeBtn')}</button>`;}
+    if(s.status==='open'){badge=`<span class="badge-open">${t('statusOpen')}</span>`;actions=`<button class="btn-sm btn-muted" onclick="event.stopPropagation();toggleSession('${s.id}','full')">${t('markFullBtn')}</button><button class="btn-sm btn-red" onclick="event.stopPropagation();toggleSession('${s.id}','closed')">${t('closeBtn')}</button>`;}
     else if(s.status==='full'){badge=`<span class="badge-full">${t('statusFull')}</span>`;actions=`<button class="btn-sm btn-green" onclick="event.stopPropagation();toggleSession('${s.id}','open')">${t('reopenBtn')}</button><button class="btn-sm btn-red" onclick="event.stopPropagation();toggleSession('${s.id}','closed')">${t('closeBtn')}</button>`;}
     else{badge=`<span class="badge-closed">${t('statusClosed')}</span>`;actions=`<button class="btn-sm btn-green" onclick="event.stopPropagation();toggleSession('${s.id}','open')">${t('openBtn')}</button>`;}
     return{booked,cap,left,fleetInfo,badge,actions};
@@ -5205,7 +5208,7 @@ function renderSessions(){
     return`<button class="sess-back-btn" onclick="selectSessionDetail(null)">‹ ${t('sessBackList')}</button>
       <div class="sess-detail-head"><div style="min-width:0"><div class="sess-detail-date">${shortDate(_selSess.session_date||_selSess.id)}</div><div class="sess-detail-day">${dayLabel(_selSess.day)||''} · ${sessionTime(_selSess)}${_selSess.location?` · ${esc(_selSess.location)}`:''}</div></div>${d.badge}</div>
       <div class="sess-detail-stats"><div><div class="sess-ds-num">${d.booked}/${d.cap}</div><div class="sess-ds-lbl">${t('colBookings')}</div></div><div><div class="sess-ds-num">${d.left}</div><div class="sess-ds-lbl">${t('spotsLeft')}</div></div>${d.fleetInfo?`<div class="sess-ds-fleet"><div class="sess-ds-fleetval">${d.fleetInfo}</div><div class="sess-ds-lbl">${t('bikeFleetComp')}</div></div>`:''}</div>
-      <div class="sess-detail-actions"><button class="btn-sm btn-blue" onclick="startEditSession('${_selSess.id}')">${t('editBtn2')}</button><button class="btn-sm btn-muted" onclick="cloneSession('${_selSess.id}')">${t('cloneSessBtn')}</button>${d.actions}${isAdmin()?`<button class="btn-sm btn-red" onclick="deleteSession('${_selSess.id}')" ${d.booked>0?`disabled title="${t('hasBookingsTitle')}"`:''}>${t('deleteBtn')}</button>`:''}</div>
+      <div class="sess-detail-actions"><button class="btn-sm btn-green" onclick="startEditSession('${_selSess.id}')">${t('editBtn2')}</button><button class="btn-sm btn-muted" onclick="cloneSession('${_selSess.id}')">${t('cloneSessBtn')}</button>${d.actions}${isAdmin()?`<button class="btn-sm btn-red" onclick="deleteSession('${_selSess.id}')" ${d.booked>0?`disabled title="${t('hasBookingsTitle')}"`:''}>${t('deleteBtn')}</button>`:''}</div>
       <div class="sess-detail-rtitle">${t('sessRidersTitle')} <span style="color:var(--muted)">(${riders.length})</span></div>
       <div class="sess-detail-riders">${rr}</div>`;
   })():`<div class="sess-detail-empty">${emptyIllustration(ILLUS_CALENDAR,t('sessSelectMsg'))}</div>`;
@@ -5241,7 +5244,7 @@ function renderSessions(){
       if(!deleted.length)return'';
       return`<div style="margin-top:28px">
         <button onclick="S.showDeletedSess=!S.showDeletedSess;renderSessions()"
-          style="display:flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;font-family:'Quicksand',sans-serif;font-size:13px;font-weight:800;color:var(--muted);padding:0;margin-bottom:12px">
+          style="display:flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;font-family:'Quicksand',sans-serif;font-size:13px;font-weight:700;color:var(--muted);padding:0;margin-bottom:12px">
           <span style="font-size:16px">${S.showDeletedSess?'▾':'▸'}</span>
           ${t('sessDeletedGroup')} (${deleted.length})
         </button>
@@ -5720,8 +5723,8 @@ function renderStaffQueue(){
   function _entryActions(e){
     if(e.status==='waitlist')return`<button class="btn-sm btn-green" onclick="promoteWaitlist('${e.id}')">${ICON_PROMOTE} ${t('promoteBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
     if(e.status==='waiting')return`${_bulkChk(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
-    if(e.status==='active')return`${_bulkChk(e)}<button class="btn-sm btn-blue" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-orange" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="showCashierModal('${e.id}')">${t('cashierAddBtn')}</button><button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
-    if(e.status==='done')return`<button class="btn-sm btn-blue" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
+    if(e.status==='active')return`${_bulkChk(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="showCashierModal('${e.id}')">${t('cashierAddBtn')}</button><button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
+    if(e.status==='done')return`<button class="btn-sm btn-green" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
     if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
     if(e.status==='cancelled')return`<button class="btn-sm btn-green" onclick="doRestoreCancelled('${e.id}')">${t('restoreBookingBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
     return`<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
@@ -6145,7 +6148,7 @@ function renderStaffQueue(){
       return`<div style="position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:350;display:flex;align-items:center;gap:10px;background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:10px 14px;box-shadow:0 10px 40px rgba(0,0,0,.5)">
         <span style="font-size:13px;font-weight:800;color:var(--green);white-space:nowrap">${sel.length} ${t('bulkSelectedLabel')}</span>
         <button class="btn-sm btn-green" onclick="bulkSfPaid()">✓ ${t('bulkPaidBtn')}</button>
-        ${anyWaiting?`<button class="btn-sm btn-blue" onclick="bulkSfCheckin()">${t('bulkCheckinBtn')}</button>`:''}
+        ${anyWaiting?`<button class="btn-sm btn-green" onclick="bulkSfCheckin()">${t('bulkCheckinBtn')}</button>`:''}
         <button class="btn-sm btn-muted" onclick="clearSfSelect()">${t('bulkClearSel')}</button>
       </div>`;
     })()}`;
@@ -6657,7 +6660,7 @@ function confirmLogUndo(logId){
     title:t('confirmUndoTitle'),
     body:`<strong>${esc(item.label)}</strong><br><span style="color:var(--muted);font-size:12px">This will reverse the action. Some operations may not be fully reversible if data has changed since.</span>`,
     confirmLabel:t('confirmUndoYes'),
-    confirmClass:'btn-orange',
+    confirmClass:'btn-muted',
     onConfirm:async()=>{
       item.undone=true; // claim synchronously so the 5s undo bar can't also fire the same reversal
       const bar=document.getElementById('undo-bar-el');if(bar)bar.remove();
@@ -6751,7 +6754,7 @@ async function doRestoreCancelled(id){
       title:t('restoreFullTitle'),
       body:t('restoreFullBody'),
       confirmLabel:t('restoreBookingBtn'),
-      confirmClass:'btn-orange',
+      confirmClass:'btn-muted',
       onConfirm:()=>_execRestoreCancelled(id),
     });
     return;
@@ -6805,7 +6808,7 @@ function showReturnPayModal(id){
       <div style="display:flex;flex-direction:column;gap:10px">
         <button class="btn-secondary" style="width:100%" onclick="showCashierModal('${id}')">${t('cashierAddBtn')}</button>
         <button class="btn-primary" style="width:100%" onclick="closeReturnPayModal();_execReturn('${id}',true)">✓ ${t('returnMarkPaidBtn')}</button>
-        <button style="width:100%;padding:10px 16px;border-radius:12px;background:rgba(var(--warn-rgb),.12);border:1.5px solid rgba(var(--warn-rgb),.4);color:#e08828;font-family:'Quicksand',sans-serif;font-size:13px;font-weight:800;cursor:pointer" onclick="closeReturnPayModal();_execReturn('${id}',false)"> ${t('returnPendingBtn')}</button>
+        <button style="width:100%;padding:10px 16px;border-radius:12px;background:rgba(var(--warn-rgb),.12);border:1.5px solid rgba(var(--warn-rgb),.4);color:#e08828;font-family:'Quicksand',sans-serif;font-size:13px;font-weight:700;cursor:pointer" onclick="closeReturnPayModal();_execReturn('${id}',false)"> ${t('returnPendingBtn')}</button>
         <button style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:'Quicksand',sans-serif" onclick="closeReturnPayModal()">${t('cancelBtn')}</button>
       </div>
     </div>
@@ -6826,7 +6829,7 @@ function showEditPriceModal(id){
   const presetBtns=uniquePrices.map(p=>{
     const isCur=cur===p;
     const lbl=PRICE_LABELS[p]||'';
-    return`<button style="padding:11px 16px;border-radius:12px;border:1.5px solid ${isCur?'var(--green)':'rgba(var(--tint-rgb),.12)'};background:${isCur?'rgba(var(--green-rgb),.08)':'rgba(var(--tint-rgb),.03)'};color:${isCur?'var(--green)':'var(--text)'};font-family:'Quicksand',sans-serif;font-size:14px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:space-between;width:100%"
+    return`<button style="padding:11px 16px;border-radius:12px;border:1.5px solid ${isCur?'var(--green)':'rgba(var(--tint-rgb),.12)'};background:${isCur?'rgba(var(--green-rgb),.08)':'rgba(var(--tint-rgb),.03)'};color:${isCur?'var(--green)':'var(--text)'};font-family:'Quicksand',sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:space-between;width:100%"
       onclick="saveEditedPrice('${id}',${p})">
       <span>SAR ${p%1===0?p:p.toFixed(2)}${lbl?`<span style="font-size:11px;font-weight:600;color:var(--muted);margin-left:8px">${lbl}</span>`:''}</span>
       ${isCur?'<span style="font-size:11px">✓</span>':''}
@@ -6864,7 +6867,7 @@ function showEditPriceModal(id){
       <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:14px">
         <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">${t('rentDiscountLabel')} <span style="font-weight:600;text-transform:none;letter-spacing:0">(${t('reviewTotalLabel')} SAR ${_fmtSar(_grand)})</span></label>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${[10,15,20,25,50].map(p=>`<button style="flex:1;min-width:50px;padding:9px 4px;border-radius:10px;border:1.5px solid rgba(var(--tint-rgb),.12);background:rgba(var(--tint-rgb),.03);color:var(--text);font-family:'Quicksand',sans-serif;font-size:13px;font-weight:800;cursor:pointer" onclick="saveEditedPrice('${id}',${Math.max(0,Math.round((_grand*(1-p/100)-_adTotal)*100)/100)})">-${p}%</button>`).join('')}
+          ${[10,15,20,25,50].map(p=>`<button style="flex:1;min-width:50px;padding:9px 4px;border-radius:10px;border:1.5px solid rgba(var(--tint-rgb),.12);background:rgba(var(--tint-rgb),.03);color:var(--text);font-family:'Quicksand',sans-serif;font-size:13px;font-weight:700;cursor:pointer" onclick="saveEditedPrice('${id}',${Math.max(0,Math.round((_grand*(1-p/100)-_adTotal)*100)/100)})">-${p}%</button>`).join('')}
         </div>
       </div>
       <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:16px">
@@ -6914,7 +6917,7 @@ function showEditQNumModal(entryId){
       <div style="margin-bottom:20px">
         <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:8px">${t('eqnNewNum')}</label>
         <input id="qnum-inp" type="number" min="1" step="1" value="${entry.queueNum}"
-          style="width:100%;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.15);border-radius:10px;padding:12px 14px;font-size:20px;font-weight:900;color:var(--green);font-family:'Quicksand',sans-serif;outline:none;text-align:center"
+          style="width:100%;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.15);border-radius:10px;padding:12px 14px;font-size:20px;font-weight:700;color:var(--green);font-family:'Quicksand',sans-serif;outline:none;text-align:center"
           onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='rgba(var(--tint-rgb),.15)'"
           onkeydown="if(event.key==='Enter')saveEditedQNum('${entryId}')">
       </div>
@@ -6977,7 +6980,7 @@ async function fixDuplicateQNums(){
     title:t('fixDupTitle'),
     body:t('fixDupBody').replace('{0}',toFix.length),
     confirmLabel:t('fixDupConfirm'),
-    confirmClass:'btn-orange',
+    confirmClass:'btn-muted',
     onConfirm:async()=>{
       let ok=0;
       for(const f of toFix){ // sequential: each new number is above the session max, so a unique index never sees a collision
@@ -7022,13 +7025,13 @@ function showFactoryReset(){
       <div style="margin-bottom:16px">
         <div style="font-size:12px;font-weight:700;color:var(--muted-l);margin-bottom:8px">${t('frTypeBefore')} <strong style="color:var(--red)">RESET</strong> ${t('frTypeAfter')}</div>
         <input id="rst-confirm-input" type="text" placeholder="RESET" autocomplete="off"
-          style="width:100%;background:var(--s3);border:1.5px solid rgba(var(--red-rgb),.4);border-radius:8px;color:var(--text);font-family:'Quicksand',sans-serif;font-size:16px;font-weight:900;padding:10px 14px;text-align:center;letter-spacing:4px;outline:none"
+          style="width:100%;background:var(--s3);border:1.5px solid rgba(var(--red-rgb),.4);border-radius:8px;color:var(--text);font-family:'Quicksand',sans-serif;font-size:16px;font-weight:700;padding:10px 14px;text-align:center;letter-spacing:4px;outline:none"
           oninput="document.getElementById('rst-go-btn').disabled=this.value!=='RESET'">
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn-secondary" style="flex:1" onclick="closeFactoryReset()">${t('cancelBtn')}</button>
         <button id="rst-go-btn" disabled
-          style="flex:2;padding:12px;border-radius:10px;border:none;background:var(--red);color:#fff;font-family:'Quicksand',sans-serif;font-size:14px;font-weight:900;cursor:pointer;opacity:.4;transition:opacity .2s"
+          style="flex:2;padding:12px;border-radius:10px;border:none;background:var(--red);color:#fff;font-family:'Quicksand',sans-serif;font-size:14px;font-weight:700;cursor:pointer;opacity:.4;transition:opacity .2s"
           onmouseenter="if(!this.disabled)this.style.opacity='1'" onmouseleave="if(!this.disabled)this.style.opacity='.85'"
           onclick="execFactoryReset()">${t('frDeleteBtn')}</button>
       </div>
@@ -7175,7 +7178,7 @@ function closeConfirm(){const m=document.getElementById('confirm-modal');if(m){m
 
 function confirmNoShow(id){
   const e=getQueue().find(x=>x.id===id);if(!e)return;
-  confirmDialog({title:t('confirmNoShowTitle'),body:`#${e.queueNum} - ${esc(e.name)}`,confirmLabel:t('noShowBtn'),confirmClass:'btn-orange',onConfirm:()=>doNoShow(id)});
+  confirmDialog({title:t('confirmNoShowTitle'),body:`#${e.queueNum} - ${esc(e.name)}`,confirmLabel:t('noShowBtn'),confirmClass:'btn-muted',onConfirm:()=>doNoShow(id)});
 }
 function confirmRemove(id){
   const e=getQueue().find(x=>x.id===id);if(!e)return;
@@ -7209,7 +7212,7 @@ function showPrintReportOptions(){
       <div style="font-size:13px;color:var(--muted);margin-bottom:20px">${t('expChoose')}</div>
       <div style="display:flex;flex-direction:column;gap:10px">
         <button class="btn-primary" style="width:100%;padding:13px 16px;font-size:14px" onclick="_closePrintOpts();printSessionReport()">${ICON_PRINT} ${t('expPdf')}</button>
-        <button style="width:100%;padding:13px 16px;border-radius:12px;border:1.5px solid rgba(var(--tint-rgb),.15);background:rgba(var(--tint-rgb),.05);color:var(--text);font-family:'Quicksand',sans-serif;font-size:14px;font-weight:800;cursor:pointer" onclick="_closePrintOpts();exportSessionExcel()">${ICON_EXPORT} ${t('expExcel')}</button>
+        <button style="width:100%;padding:13px 16px;border-radius:12px;border:1.5px solid rgba(var(--tint-rgb),.15);background:rgba(var(--tint-rgb),.05);color:var(--text);font-family:'Quicksand',sans-serif;font-size:14px;font-weight:700;cursor:pointer" onclick="_closePrintOpts();exportSessionExcel()">${ICON_EXPORT} ${t('expExcel')}</button>
         <button style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:'Quicksand',sans-serif" onclick="_closePrintOpts()">${t('cancelBtn')}</button>
       </div>
     </div>
@@ -7751,7 +7754,7 @@ function renderModal(){
   const anyFilterActive=S.modalFilterSize!=='all'||S.modalFilterBrand!=='all'||S.modalFilterModel!=='all'||S.modalSort!=='default';
   const filterBar=`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px;padding:8px 10px;background:rgba(var(--tint-rgb),.02);border:1px solid rgba(var(--tint-rgb),.06);border-radius:10px">
     <span style="font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0">${t('mfSize')}</span>
-    ${['all','XS','S','M','L'].map(sz=>`<button onclick="S.modalFilterSize='${sz}';renderModal()" style="padding:3px 9px;border-radius:7px;border:1.5px solid ${S.modalFilterSize===sz?'rgba(var(--green-rgb),.6)':'rgba(var(--tint-rgb),.1)'};background:${S.modalFilterSize===sz?'rgba(var(--green-rgb),.12)':'transparent'};color:${S.modalFilterSize===sz?'var(--green)':'var(--muted-l)'};font-family:'Quicksand',sans-serif;font-size:11px;font-weight:800;cursor:pointer">${sz==='all'?'All':sz}</button>`).join('')}
+    ${['all','XS','S','M','L'].map(sz=>`<button onclick="S.modalFilterSize='${sz}';renderModal()" style="padding:3px 9px;border-radius:7px;border:1.5px solid ${S.modalFilterSize===sz?'rgba(var(--green-rgb),.6)':'rgba(var(--tint-rgb),.1)'};background:${S.modalFilterSize===sz?'rgba(var(--green-rgb),.12)':'transparent'};color:${S.modalFilterSize===sz?'var(--green)':'var(--muted-l)'};font-family:'Quicksand',sans-serif;font-size:11px;font-weight:700;cursor:pointer">${sz==='all'?'All':sz}</button>`).join('')}
     <span style="font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;margin-left:4px">${t('mfBrand')}</span>
     <select style="${selStyle}" onchange="S.modalFilterBrand=this.value;S.modalFilterModel='all';renderModal()">
       <option value="all"${S.modalFilterBrand==='all'?' selected':''}>${t('filterAll')}</option>
@@ -7762,7 +7765,7 @@ function renderModal(){
       <option value="all"${S.modalFilterModel==='all'?' selected':''}>${t('filterAll')}</option>
       ${brandModels.map(m=>`<option value="${esc(m)}"${S.modalFilterModel===m?' selected':''}>${esc(m)}</option>`).join('')}
     </select>`:''}
-    ${anyFilterActive?`<button onclick="S.modalSort='default';S.modalSortDir=1;S.modalFilterSize='all';S.modalFilterBrand='all';S.modalFilterModel='all';renderModal()" style="margin-left:auto;padding:3px 10px;border-radius:7px;border:1px solid rgba(255,100,100,.3);background:rgba(255,100,100,.06);color:var(--red);font-family:'Quicksand',sans-serif;font-size:11px;font-weight:800;cursor:pointer">${t('resetFiltersBtn')}</button>`:''}
+    ${anyFilterActive?`<button onclick="S.modalSort='default';S.modalSortDir=1;S.modalFilterSize='all';S.modalFilterBrand='all';S.modalFilterModel='all';renderModal()" style="margin-left:auto;padding:3px 10px;border-radius:7px;border:1px solid rgba(255,100,100,.3);background:rgba(255,100,100,.06);color:var(--red);font-family:'Quicksand',sans-serif;font-size:11px;font-weight:700;cursor:pointer">${t('resetFiltersBtn')}</button>`:''}
   </div>`;
   const noResults=(!prefBikes.length&&!otherBikes.length)&&(mq||S.modalFilterSize!=='all'||S.modalFilterBrand!=='all'||S.modalFilterModel!=='all')?`<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:13px;font-weight:700">${t('noResultsLabel')||'No bikes match your search.'}</div>`:'';
   const cards=`${searchBar}${filterBar}${prefSection}${noResults}${otherToggle}`;
@@ -7846,7 +7849,7 @@ function renderModal(){
 
   const addBikeToggle=`<div style="margin-top:12px">
     <button onclick="S.modalShowAddBike=!S.modalShowAddBike;renderModal()"
-      style="width:100%;padding:9px;border-radius:10px;border:1.5px dashed rgba(var(--tint-rgb),.15);background:rgba(var(--tint-rgb),.02);cursor:pointer;font-family:'Quicksand',sans-serif;font-size:12px;font-weight:800;color:var(--muted);transition:all .2s"
+      style="width:100%;padding:9px;border-radius:10px;border:1.5px dashed rgba(var(--tint-rgb),.15);background:rgba(var(--tint-rgb),.02);cursor:pointer;font-family:'Quicksand',sans-serif;font-size:12px;font-weight:700;color:var(--muted);transition:all .2s"
       onmouseover="this.style.borderColor='rgba(var(--green-rgb),.35)';this.style.color='var(--green)'"
       onmouseout="this.style.borderColor='rgba(var(--tint-rgb),.15)';this.style.color='var(--muted)'">
       + ${t('addBikeToFleetBtn')}
@@ -8216,9 +8219,9 @@ function renderBikes(){
       </td>
       <td>${riderCell}</td>
       <td><div class="actions-cell">
-        <button class="btn-sm btn-blue" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
-        ${b.status==='available'?`<button class="btn-sm btn-orange" onclick="setMaintenance('${b.id}')">${t('maintBtn')}</button>`:''}
-        ${orphaned?`<button class="btn-sm btn-orange" onclick="releaseBike('${b.id}')">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-${isRetired?'green':'muted'}" onclick="${isMaint?`setMaintenance('${b.id}')`:`toggleRetire('${b.id}')`}">${isRetired?t('restoreBtn'):t('retireBtn')}</button>`}
+        <button class="btn-sm btn-green" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
+        ${b.status==='available'?`<button class="btn-sm btn-muted" onclick="setMaintenance('${b.id}')">${t('maintBtn')}</button>`:''}
+        ${orphaned?`<button class="btn-sm btn-muted" onclick="releaseBike('${b.id}')">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-${isRetired?'green':'muted'}" onclick="${isMaint?`setMaintenance('${b.id}')`:`toggleRetire('${b.id}')`}">${isRetired?t('restoreBtn'):t('retireBtn')}</button>`}
         <button class="btn-sm btn-red" ${b.status!=='in-use'&&!isRetired?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
       </div></td>
     </tr>`;
@@ -8263,10 +8266,10 @@ function renderBikes(){
         ${user?`<div style="font-size:11px;font-weight:700;color:var(--green)">#${user.queueNum} ${esc(user.name)}</div>`:orphaned?`<div style="font-size:11px;font-weight:700;color:#e08828">${t('noRiderAssigned')}</div>`:''}
         <div style="display:flex;flex-direction:column;gap:4px;margin-top:10px">
           <div style="display:flex;gap:4px">
-            <button class="btn-sm btn-blue" style="flex:1" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
+            <button class="btn-sm btn-green" style="flex:1" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
             <button class="btn-sm btn-red" style="flex:1" ${b.status!=='in-use'&&!isRetiredG?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
           </div>
-          ${orphaned?`<button class="btn-sm btn-orange" style="width:100%;justify-content:center;text-align:center" onclick="releaseBike('${b.id}')">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-${isRetiredG?'green':'muted'}" style="width:100%;justify-content:center;text-align:center" onclick="toggleRetire('${b.id}')">${isRetiredG?t('restoreBtn'):t('retireBtn')}</button>`}
+          ${orphaned?`<button class="btn-sm btn-muted" style="width:100%;justify-content:center;text-align:center" onclick="releaseBike('${b.id}')">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-${isRetiredG?'green':'muted'}" style="width:100%;justify-content:center;text-align:center" onclick="toggleRetire('${b.id}')">${isRetiredG?t('restoreBtn'):t('retireBtn')}</button>`}
         </div>
       </div>`;
     }).join('')}</div>`;
@@ -8395,7 +8398,7 @@ function renderBikes(){
               <div style="font-size:11px;font-weight:700;color:var(--muted-l)">${_bikeLifespan(b)}</div>
             </div>
             <div style="display:flex;gap:4px">
-              <button class="btn-sm btn-blue" style="flex:1" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
+              <button class="btn-sm btn-green" style="flex:1" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
               <button class="btn-sm btn-green" style="flex:1" onclick="toggleRetire('${b.id}')">${t('restoreBtn')}</button>
             </div>
           </div>`;
@@ -8412,7 +8415,7 @@ function renderBikes(){
           <td style="font-weight:700;font-size:12px;color:var(--muted-l);white-space:nowrap">${_bikeLifespan(b)}</td>
           <td><span style="color:var(--muted);font-weight:700;font-size:12px">${t('retiredLabel')}</span></td>
           <td><div class="actions-cell">
-            <button class="btn-sm btn-blue" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
+            <button class="btn-sm btn-green" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
             <button class="btn-sm btn-green" onclick="toggleRetire('${b.id}')">${t('restoreBtn')}</button>
           </div></td>
         </tr>`).join('')}</tbody></table></div>`}
@@ -8423,15 +8426,15 @@ function renderBikes(){
   if(_selIds.length!==(S.bkSelected||[]).length)S.bkSelected=_selIds; // drop stale ids
   const bulkBar=_selIds.length?`<div class="bk-bulk-bar">
       <span class="bk-bulk-count">${t('bkSelectedN').replace('{0}',_selIds.length)}</span>
-      <button class="btn-sm btn-orange" onclick="bkBulkMaintenance()">${t('bkBulkMaint')}</button>
+      <button class="btn-sm btn-muted" onclick="bkBulkMaintenance()">${t('bkBulkMaint')}</button>
       <button class="btn-sm btn-muted" onclick="bkBulkRetire()">${t('bkBulkRetire')}</button>
       <span class="bk-bulk-group">
         <select id="bk-bulk-loc" class="filter-select" style="height:32px;min-width:120px">${S.bkLocations.map(l=>`<option value="${esc(l)}">${esc(l)}</option>`).join('')}</select>
-        <button class="btn-sm btn-blue" onclick="bkBulkLocation()">${t('bkBulkMove')}</button>
+        <button class="btn-sm btn-green" onclick="bkBulkLocation()">${t('bkBulkMove')}</button>
       </span>
       ${isAdmin()?`<span class="bk-bulk-group">
         <input id="bk-bulk-price" type="number" min="0" step="0.5" placeholder="${t('bkBulkPricePh')}" class="filter-select" style="height:32px;width:84px">
-        <button class="btn-sm btn-blue" onclick="bkBulkPrice()">${t('bkBulkSetPrice')}</button>
+        <button class="btn-sm btn-green" onclick="bkBulkPrice()">${t('bkBulkSetPrice')}</button>
       </span>`:''}
       <button class="btn-sm btn-green" onclick="bkBulkExport()">${t('bkBulkExport')}</button>
       <button class="btn-sm btn-muted" onclick="bkClearSel()">✕ ${t('clearWord')}</button>
@@ -8755,7 +8758,7 @@ async function bkBulkMaintenance(){
   const picked=_bkSelectedBikes();
   const eligible=picked.filter(b=>b.status!=='in-use'&&b.status!=='maintenance');
   if(!eligible.length){toast(t('bkBulkNoneEligible'),'error');return;}
-  confirmDialog({title:t('bkBulkMaint'),body:t('bkBulkMaintConfirm').replace('{0}',eligible.length),confirmLabel:t('bkBulkMaint'),confirmClass:'btn-orange',onConfirm:async()=>{
+  confirmDialog({title:t('bkBulkMaint'),body:t('bkBulkMaintConfirm').replace('{0}',eligible.length),confirmLabel:t('bkBulkMaint'),confirmClass:'btn-muted',onConfirm:async()=>{
     const prev=eligible.map(b=>({id:b.id,status:b.status,retired_date:b.retired_date||null}));
     await Promise.all(eligible.map(b=>sb.from('bikes').update({status:'maintenance',retired_date:_todayISO()}).eq('id',b.id)));
     await loadData();S.bkSelected=[];
@@ -9109,7 +9112,7 @@ function renderHistory(){
         ${e.status==='removed'
           ?`<button class="btn-sm btn-green" onclick="doRestoreEntry('${e.id}')">${t('restoreEntryBtn')||'Restore'}</button>`
           :`<div style="display:flex;gap:5px;flex-wrap:nowrap;align-items:center">
-              ${hasEmail&&e.status==='done'?`<button class="btn-sm btn-blue" onclick="showReceipt('${e.id}')">${t('sendReceipt')}</button>`:''}
+              ${hasEmail&&e.status==='done'?`<button class="btn-sm btn-green" onclick="showReceipt('${e.id}')">${t('sendReceipt')}</button>`:''}
               <button class="btn-sm btn-muted" onclick="confirmHistRemove('${e.id}')">${t('removeBtn')}</button>
             </div>`}
       </div></td>
@@ -9139,7 +9142,7 @@ function renderHistory(){
             <span style="font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">#${l.queueNum} ${esc(l.name)}</span>
             <span style="color:var(--muted);font-size:11px;white-space:nowrap">${l.session}</span>
             ${l.undoFn&&!l.undone
-              ?`<button onclick="undoHistLog('${l.id}')" style="flex-shrink:0;padding:3px 8px;border-radius:6px;border:1px solid rgba(var(--green-rgb),.3);background:rgba(var(--green-rgb),.08);color:var(--green);font-family:'Quicksand',sans-serif;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap">↩ ${t('undoBtn')||'Undo'}</button>`
+              ?`<button onclick="undoHistLog('${l.id}')" style="flex-shrink:0;padding:3px 8px;border-radius:6px;border:1px solid rgba(var(--green-rgb),.3);background:rgba(var(--green-rgb),.08);color:var(--green);font-family:'Quicksand',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">↩ ${t('undoBtn')||'Undo'}</button>`
               :l.undone?`<span style="font-size:10px;color:var(--muted)">${t('undoneTag')}</span>`:''}
           </div>`).join('')}
     </div>`:''}
@@ -10073,7 +10076,7 @@ async function _ctVoidReceipt(key){
 // Refund: keep the receipt in the ledger as an audit record (pay='refunded'), restock items
 async function _ctRefundReceipt(key){
   const rows=(S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key&&r.pay!=='refunded'&&r.category!=='__cardmeta__');if(!rows.length)return;
-  confirmDialog({title:t('cashRefund'),body:t('cashRefundConfirm'),confirmLabel:t('cashRefund'),confirmClass:'btn-orange',onConfirm:async()=>{
+  confirmDialog({title:t('cashRefund'),body:t('cashRefundConfirm'),confirmLabel:t('cashRefund'),confirmClass:'btn-muted',onConfirm:async()=>{
     (S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key).forEach(r=>{r.pay='refunded';_salesUpsert({...r});});
     await _addonStockBatch(rows,1); // restock refunded items (summed per item — no concurrent-write race)
     toast(t('cashRefundedToast'));renderCashier();
@@ -10280,7 +10283,7 @@ function renderCashier(){
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
         <div style="font-size:11px;color:var(--muted)">${esc(rc.cust||t('cashWalkup'))}${rc.at?` · ${new Date(rc.at).toLocaleTimeString(ar?'ar':'en-GB',{hour:'2-digit',minute:'2-digit'})}`:''}${refunded?` · <span style="color:var(--orange);font-weight:800">${t('cashRefunded')}</span>`:''}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-          ${refunded?'':`${disp.some(l=>l.pay==='pending')?`<button class="btn-sm btn-green" onclick="_ctMarkReceiptPaid('${rc.key}')">${t('cashMarkPaid')}</button>`:''}<button class="btn-sm btn-muted" onclick="showReceiptEdit('${rc.key}')">${t('cashEditBtn')}</button><button class="btn-sm btn-muted" onclick="_ctReprint('${rc.key}')">${t('repPrintNow')}</button><button class="btn-sm btn-muted" onclick="_ctShareReceipt('${rc.key}')">${t('cashShare')}</button><button class="btn-sm btn-orange" onclick="_ctRefundReceipt('${rc.key}')">${t('cashRefund')}</button>`}
+          ${refunded?'':`${disp.some(l=>l.pay==='pending')?`<button class="btn-sm btn-green" onclick="_ctMarkReceiptPaid('${rc.key}')">${t('cashMarkPaid')}</button>`:''}<button class="btn-sm btn-muted" onclick="showReceiptEdit('${rc.key}')">${t('cashEditBtn')}</button><button class="btn-sm btn-muted" onclick="_ctReprint('${rc.key}')">${t('repPrintNow')}</button><button class="btn-sm btn-muted" onclick="_ctShareReceipt('${rc.key}')">${t('cashShare')}</button><button class="btn-sm btn-muted" onclick="_ctRefundReceipt('${rc.key}')">${t('cashRefund')}</button>`}
           <button class="btn-sm btn-muted" onclick="_ctVoidReceipt('${rc.key}')" aria-label="${t('cashVoid')}">${t('cashVoid')}</button>
         </div>
       </div>
@@ -10292,7 +10295,7 @@ function renderCashier(){
       ${_itemThumb(p.id,28)}<div style="flex:1;min-width:120px"><div style="font-weight:700;font-size:13px">${esc(p.name)}${Number(p.qty)>1?` <span style="color:var(--muted)">×${p.qty}</span>`:''}</div>
       <div style="font-size:11px;color:var(--muted)">${esc(_invCatLabel(p.cat))} · ${_cashPayBadge(p.pay,p.team)} · ${esc(p.who)} <span style="opacity:.65">(${t('cashRentalTag')})</span></div></div>
       <bdi style="font-weight:800;white-space:nowrap">SAR ${Math.round((Number(p.qty)||0)*(Number(p.price)||0)*100)/100}</bdi>
-      <div style="display:flex;gap:6px"><button class="btn-sm btn-muted" onclick="showCashierModal('${p.entryId}')">${t('cashEditBtn')}</button><button class="btn-sm btn-orange" onclick="_rentalSaleDelete('${p.entryId}',${p.pidx})">${t('cashVoid')}</button></div>
+      <div style="display:flex;gap:6px"><button class="btn-sm btn-muted" onclick="showCashierModal('${p.entryId}')">${t('cashEditBtn')}</button><button class="btn-sm btn-muted" onclick="_rentalSaleDelete('${p.entryId}',${p.pidx})">${t('cashVoid')}</button></div>
     </div>`).join('');
   const ledger=(receipts.length||rentalLines.length)?`${receiptCards}${rentalRows}`:`<div class="empty-state" style="padding:24px">${t('cashNoSalesSession')}</div>`;
   const catRows=tot.cats.map(c=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span style="color:var(--muted)">${esc(_invCatLabel(c.cat))} <span style="opacity:.6">×${c.qty}</span></span><span style="font-weight:700"><bdi>SAR ${c.value}</bdi></span></div>`).join('');
@@ -10528,7 +10531,7 @@ function renderInventory(){
       <button class="btn-secondary" onclick="cancelInvForm()">${t('cancelBtn')}</button>
     </div>
   </div>`:'';
-  const stInput=(it,qty)=>{const v=(S.invCounts||{})[it.id];const diff=v!==undefined&&v!==''&&Math.max(0,parseInt(v)||0)!==qty;return`<input type="number" min="0" inputmode="numeric" value="${v!=null?esc(String(v)):''}" placeholder="${qty}" oninput="S.invCounts['${it.id}']=this.value" onchange="renderInventory()" style="width:84px;text-align:center;font-weight:800;background:${diff?'rgba(var(--warn-rgb),.15)':'var(--s2)'};border:1.5px solid ${diff?'var(--orange)':'var(--border)'};border-radius:9px;padding:7px 6px;color:var(--text);font-family:'Quicksand',sans-serif;font-size:14px;outline:none">`;};
+  const stInput=(it,qty)=>{const v=(S.invCounts||{})[it.id];const diff=v!==undefined&&v!==''&&Math.max(0,parseInt(v)||0)!==qty;return`<input type="number" min="0" inputmode="numeric" value="${v!=null?esc(String(v)):''}" placeholder="${qty}" oninput="S.invCounts['${it.id}']=this.value" onchange="renderInventory()" style="width:84px;text-align:center;font-weight:700;background:${diff?'rgba(var(--warn-rgb),.15)':'var(--s2)'};border:1.5px solid ${diff?'var(--orange)':'var(--border)'};border-radius:9px;padding:7px 6px;color:var(--text);font-family:'Quicksand',sans-serif;font-size:14px;outline:none">`;};
   const invRow=it=>{
     const qty=Number(it.qty)||0,low=Number(it.low_threshold)||0;
     const state=qty<=0?'out':qty<=low?'low':'in';
@@ -10549,7 +10552,7 @@ function renderInventory(){
       <td><span style="color:${stClr};font-weight:800;font-size:12px">${stTxt}</span></td>
       <td><div class="actions-cell">
         ${_hasNutri(it)?`<button class="btn-sm btn-muted" onclick="showNutrition('${it.id}')">${t('nuButton')}</button>`:''}
-        <button class="btn-sm btn-blue" onclick="startInvEdit('${it.id}')">${t('editBtn')}</button>
+        <button class="btn-sm btn-green" onclick="startInvEdit('${it.id}')">${t('editBtn')}</button>
         ${isAdmin()?`<button class="btn-sm btn-red" onclick="delInvItem('${it.id}')">${t('deleteBtn')}</button>`:''}
       </div></td>
     </tr>`;
@@ -10576,7 +10579,7 @@ function renderInventory(){
       </div>
       ${_hasNutri(it)?`<button class="btn-sm btn-muted" style="width:100%" onclick="showNutrition('${it.id}')">${t('nuButton')}</button>`:''}
       <div style="display:flex;gap:4px">
-        <button class="btn-sm btn-blue" style="flex:1" onclick="startInvEdit('${it.id}')">${t('editBtn')}</button>
+        <button class="btn-sm btn-green" style="flex:1" onclick="startInvEdit('${it.id}')">${t('editBtn')}</button>
         ${isAdmin()?`<button class="btn-sm btn-red" style="flex:1" onclick="delInvItem('${it.id}')">${t('deleteBtn')}</button>`:''}
       </div>
     </div>`;
@@ -10929,7 +10932,7 @@ function renderCommunity(){
         <div style="flex:2 1 360px;min-width:0">
           ${spotlightHtml}
           <div class="form-section" style="margin-top:0">
-            <div class="form-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>${t('commLeaderboard')}</span>${list.length?`<button onclick="shareLeaderboard()" style="background:rgba(var(--green-rgb),.1);border:1px solid rgba(var(--green-rgb),.25);color:var(--green);font-family:'Quicksand',sans-serif;font-size:11px;font-weight:800;padding:5px 12px;border-radius:8px;cursor:pointer">${t('commShareBtn')}</button>`:''}</div>
+            <div class="form-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><span>${t('commLeaderboard')}</span>${list.length?`<button onclick="shareLeaderboard()" style="background:rgba(var(--green-rgb),.1);border:1px solid rgba(var(--green-rgb),.25);color:var(--green);font-family:'Quicksand',sans-serif;font-size:11px;font-weight:700;padding:5px 12px;border-radius:8px;cursor:pointer">${t('commShareBtn')}</button>`:''}</div>
             <div class="filter-row" style="margin-bottom:6px">${pill('lbScope','owner',t('lbScopeOwner'))}${pill('lbScope','rider',t('lbScopeRider'))}</div>
             <div style="font-size:11px;color:var(--muted);margin-bottom:10px">${scope==='owner'?t('lbScopeOwnerSub'):t('lbScopeRiderSub')}</div>
             ${branchRow}
@@ -12431,7 +12434,7 @@ function _updateConnBanner(){
   let b=document.getElementById('conn-banner');
   if(!_isOffline()){if(b)b.remove();return;}
   if(!b){b=document.createElement('div');b.id='conn-banner';b.setAttribute('role','status');
-    b.style.cssText="position:fixed;top:0;left:0;right:0;z-index:99999;text-align:center;font-family:'Quicksand',sans-serif;font-size:12px;font-weight:800;letter-spacing:.3px;padding:6px 10px;background:#b91c1c;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.4)";
+    b.style.cssText="position:fixed;top:0;left:0;right:0;z-index:99999;text-align:center;font-family:'Quicksand',sans-serif;font-size:12px;font-weight:700;letter-spacing:.3px;padding:6px 10px;background:#b91c1c;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.4)";
     document.body.appendChild(b);}
   b.textContent=t('offlineBanner');
 }

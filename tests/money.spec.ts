@@ -78,7 +78,7 @@ test.describe('point of sale', () => {
       _ctRefundReceipt('r1');
     `);
     // the refund asks for confirmation first
-    await page.locator('#confirm-modal .btn-orange').click();
+    await page.locator('#confirm-modal .btn-muted').click();
 
     await expect.poll(() => page.evaluate(`S.cashSales[0].pay`)).toBe('refunded');
     expect(await page.evaluate(`S.inventory.find(i => i.id === 'i1').qty`)).toBe(7); // 5 + 2 restocked
