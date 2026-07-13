@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#03ff89">
+  <meta name="theme-color" content="#0b0d0c">
   <title>MicroMobility Rentals — Bicycle Rentals at the Jeddah Corniche</title>
   <meta name="description" content="Book a bicycle rental at the Jeddah Corniche Circuit. Reserve your bike, pick a session, and skip the queue with MicroMobility.">
   <meta property="og:type" content="website">
@@ -42,8 +42,8 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=93">
-<script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'||_th==='light'){_th=null;localStorage.removeItem('cq_theme');}if(_th==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+  <link rel="stylesheet" href="./styles.css?v=94">
+<script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
 <div id="loading-screen">
@@ -2815,10 +2815,12 @@ function renderStaffTabs(){
 }
 
 function toggleTheme(){
+  // Dark is the default: it needs no stored preference. Light is the explicit opt-in, so
+  // only light is persisted — clearing the key must fall back to dark, not light.
   const cur=document.documentElement.getAttribute('data-theme')||'light';
   const next=cur==='light'?'dark':'light';
-  if(next==='light'){document.documentElement.removeAttribute('data-theme');try{localStorage.removeItem('cq_theme');}catch(e){}}
-  else{document.documentElement.setAttribute('data-theme',next);try{localStorage.setItem('cq_theme',next);}catch(e){}}
+  if(next==='dark'){document.documentElement.setAttribute('data-theme','dark');try{localStorage.removeItem('cq_theme');}catch(e){}}
+  else{document.documentElement.removeAttribute('data-theme');try{localStorage.setItem('cq_theme','light');}catch(e){}}
   applyThemeIcon();
 }
 function applyThemeIcon(){
