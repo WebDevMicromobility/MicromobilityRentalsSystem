@@ -1,13 +1,15 @@
 :root {
-      /* Light is the default theme (editorial, hairline-rule aesthetic). Dark is the opt-in toggle below. */
-      --bg:#ffffff; --s1:#fafbfa; --s2:#eef1ef; --s3:#e4e7e2;
+      /* Light theme. Not built on pure white: the page is a soft gray-green base and
+         cards/panels are true white on top, so surfaces separate and glare drops
+         (standard light-mode elevation practice - GitHub/Material do the same). */
+      --bg:#f2f4f2; --s1:#ffffff; --s2:#e7ebe8; --s3:#eef1ef;
       --green:#12cf72; --green-h:#0fba65; --green-d:#0a9e57;
       --red:#a33b2e; --orange:#8a5c14; --blue:#2f63ad; --purple:#7a46c2;
-      --text:#101312; --muted:#5f6560; --muted-l:#9aa09a; --border:rgba(16,19,18,.12);
+      --text:#101312; --muted:#525853; --muted-l:#787f79; --border:rgba(16,19,18,.15);
       color-scheme:light;
       --accent2:rgba(10,158,87,.36); --warn:rgba(16,19,18,.38);
       --photo-bg:#ffffff; /* product photos are shot on white */
-      --line2:rgba(16,19,18,.3); --acink:#0a2a1a; --acsoft:rgba(18,207,114,.1);
+      --line2:rgba(16,19,18,.35); --acink:#0a2a1a; --acsoft:rgba(18,207,114,.1);
       --foot:#101312; --footink:#eef1ee; --footmut:#a0a6a0;
       /* rgb-triple helpers so tinted overlays (badges, hovers, borders) stay theme-correct */
       --green-rgb:18,207,114; --tint-rgb:16,19,18; --red-rgb:163,59,46; --warn-rgb:138,92,20; --purple-rgb:122,70,194; --blue-rgb:47,99,173;
@@ -15,7 +17,7 @@
       --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px;
       --r-xs:6px; --r-sm:8px; --r-md:10px; --r-lg:12px; --r-xl:14px; --r-pill:999px;
       --fs-xs:12px; --fs-sm:13px; --fs-base:14px; --fs-md:16px; --fs-lg:20px; --fs-xl:26px; --fs-2xl:34px;
-      --sh-1:0 1px 2px rgba(16,19,18,.05); --sh-2:0 3px 10px rgba(16,19,18,.07); --sh-3:0 10px 30px rgba(16,19,18,.12);
+      --sh-1:0 1px 2px rgba(16,19,18,.06); --sh-2:0 3px 10px rgba(16,19,18,.09); --sh-3:0 10px 30px rgba(16,19,18,.15);
       --ease:cubic-bezier(.2,.8,.2,1); --dur:.18s;
     }
     /* Dark theme - toggled via [data-theme="dark"] on <html> */
@@ -36,6 +38,10 @@
        photo replaces it (see design handoff item 5). Topbar uses logo-dark.png instead. */
     .landing-hero-card img{background:#0c0e0c;}
     :root[data-theme="dark"] .landing-hero-card img{background:none;}
+    /* Light theme: topbar + ticket read as elevated white surfaces above the gray page
+       (they use var(--bg) generically, which is now the page gray). Dark is untouched. */
+    :root:not([data-theme="dark"]) #topbar{background:var(--s1);}
+    :root:not([data-theme="dark"]) .ticket-card{background:var(--s1);}
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:'Albert Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;min-height:100dvh;font-size:14px;-webkit-font-smoothing:antialiased;
       background-image:radial-gradient(ellipse 80% 50% at 50% -10%, rgba(var(--green-rgb),.05), transparent 60%);}
@@ -138,7 +144,7 @@
     .landing-avail-row{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;
       padding:16px 4px;border:none;border-bottom:1px solid var(--border);background:none;
       font-family:'Albert Sans',sans-serif;color:var(--text);cursor:pointer;transition:background .15s;text-align:left;}
-    .landing-avail-row:hover{background:var(--s1);}
+    .landing-avail-row:hover{background:var(--s2);}
     .landing-avail-row.full{opacity:.45;cursor:not-allowed;}
     .landing-avail-info{display:flex;align-items:center;gap:12px;min-width:0;}
     .landing-avail-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:var(--green);}
@@ -316,7 +322,7 @@
     .acc-set-row{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;
       padding:16px 4px;border:none;border-bottom:1px solid var(--border);background:none;
       font-family:'Albert Sans',sans-serif;font-size:14px;font-weight:600;color:var(--text);cursor:pointer;text-align:left;transition:background .15s;}
-    .acc-set-row:hover{background:var(--s1);}
+    .acc-set-row:hover{background:var(--s2);}
     .acc-set-val{font-size:13px;color:var(--muted);font-weight:600;}
     html[dir="rtl"] .acc-set-row{text-align:right;}
 
@@ -629,7 +635,7 @@
     .sess-card{width:100%;background:none;border:none;border-bottom:1px solid var(--border);border-radius:0;
       padding:16px 4px;cursor:pointer;transition:background .15s;box-shadow:none;
       display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;font-family:'Albert Sans',sans-serif;color:var(--text);}
-    .sess-card:hover:not(.sess-full){background:var(--s1);}
+    .sess-card:hover:not(.sess-full){background:var(--s2);}
     .sess-card.sess-selected{background:var(--acsoft);}
     .sess-card.sess-full{opacity:.6;}
     .sess-card-left{display:flex;align-items:center;gap:12px;min-width:0;}
