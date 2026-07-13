@@ -336,7 +336,7 @@ en:{
   regStep3Title:'Review & confirm',regStep3Msg:'Check everything below, then confirm your booking.',
   regBackBtn:'Back',regContinueBtn:'Continue',regReviewBtn:'Review booking',regConfirmBtn:'Confirm booking',regBookAnotherBtn:'Book another ride',
   reviewSessionLabel:'Session',reviewRidersLabel:'Riders',reviewTotalLabel:'Total',reviewRentalLabel:'Rental',bookedByLabel:'Booked by',
-  promoLabel:'Promo code',promoApplyBtn:'Apply',promoInvalidMsg:'Invalid or inactive code',promoAppliedMsg:'{0} applied',promoRemoveBtn:'Remove',promoDiscountLabel:'Discount',
+  promoLabel:'Promo code',promoApplyBtn:'Apply',promoInvalidMsg:'Invalid or inactive code',promoAppliedMsg:'{0} applied',promoRemoveBtn:'Remove',promoDiscountLabel:'Discount',promoAppliesLabel:'Applies to',promoAllTypes:'All bike types',promoTypeOnlyMsg:'This code applies only to {0} bookings.',
   promoMgrTitle:'Promo Codes',promoCodeLabel:'Code',promoKindLabel:'Type',promoValueLabel:'Value',promoPercentOpt:'Percent (%)',promoFlatOpt:'Flat (SAR)',promoActiveLabel:'Active',promoInactiveLabel:'Inactive',promoAddBtn:'+ Add code',promoNoCodes:'No promo codes yet.',promoSavedToast:'Promo code saved',
   myCurrentRides:'Current & upcoming',myPastRides:'Past rides',noPastRides:'No completed rides yet.',noCurrentRides:'No upcoming bookings. Reserve a ride to get started.',
   bookAgainBtn:'Book again',bookUsualBtn:'Book my usual',bookUsualToast:'Pre-filled your usual booking - just confirm.',rateRideBtn:'Rate your ride',rateBikeLabel:'Bike',rateExpLabel:'Experience',rateNoteLabel:'Comments (optional)',rateReasonLabel:'What could be better?',rateReasonHint:'You rated below 10 - please tell us why.',rateReasonRequired:'Please tell us what could be better before submitting.',rateLaterBtn:'Later',rateForcedHint:'Please rate your ride to help us improve.',rateRequiredScore:'Please give a rating before submitting.',rateSubmitBtn:'Submit rating',rateThanks:'Thanks for the feedback!',ratedLabel:'Rated',rateTitle:'How was your ride?',waRateMsg:'Thanks for riding with MicroMobility! How was your ride? Rate it here:\n\nشكراً لركوبك مع مايكروموبيليتي! كيف كانت رحلتك؟ قيّمها هنا:',
@@ -720,7 +720,7 @@ ar:{
   regStep3Title:'المراجعة والتأكيد',regStep3Msg:'تحقق من التفاصيل أدناه ثم أكّد حجزك.',
   regBackBtn:'رجوع',regContinueBtn:'متابعة',regReviewBtn:'مراجعة الحجز',regConfirmBtn:'تأكيد الحجز',regBookAnotherBtn:'حجز رحلة أخرى',
   reviewSessionLabel:'الجلسة',reviewRidersLabel:'الركّاب',reviewTotalLabel:'الإجمالي',reviewRentalLabel:'الإيجار',bookedByLabel:'حجز بواسطة',
-  promoLabel:'رمز الخصم',promoApplyBtn:'تطبيق',promoInvalidMsg:'رمز غير صالح أو غير مفعّل',promoAppliedMsg:'تم تطبيق {0}',promoRemoveBtn:'إزالة',promoDiscountLabel:'الخصم',
+  promoLabel:'رمز الخصم',promoApplyBtn:'تطبيق',promoInvalidMsg:'رمز غير صالح أو غير مفعّل',promoAppliedMsg:'تم تطبيق {0}',promoRemoveBtn:'إزالة',promoDiscountLabel:'الخصم',promoAppliesLabel:'يسري على',promoAllTypes:'جميع أنواع الدراجات',promoTypeOnlyMsg:'هذا الرمز يسري فقط على حجوزات {0}.',
   promoMgrTitle:'رموز الخصم',promoCodeLabel:'الرمز',promoKindLabel:'النوع',promoValueLabel:'القيمة',promoPercentOpt:'نسبة (%)',promoFlatOpt:'مبلغ ثابت (ريال)',promoActiveLabel:'مفعّل',promoInactiveLabel:'غير مفعّل',promoAddBtn:'+ إضافة رمز',promoNoCodes:'لا توجد رموز خصم بعد.',promoSavedToast:'تم حفظ رمز الخصم',
   myCurrentRides:'الحالية والقادمة',myPastRides:'الرحلات السابقة',noPastRides:'لا توجد رحلات مكتملة بعد.',noCurrentRides:'لا حجوزات قادمة. احجز رحلة للبدء.',
   bookAgainBtn:'احجز مجدداً',bookUsualBtn:'احجز المعتاد',bookUsualToast:'تم تجهيز حجزك المعتاد - أكّد فقط.',rateRideBtn:'قيّم رحلتك',rateBikeLabel:'الدراجة',rateExpLabel:'التجربة',rateNoteLabel:'ملاحظات (اختياري)',rateReasonLabel:'ما الذي يمكن تحسينه؟',rateReasonHint:'قيّمت أقل من 10 - يرجى إخبارنا بالسبب.',rateReasonRequired:'يرجى إخبارنا بما يمكن تحسينه قبل الإرسال.',rateLaterBtn:'لاحقاً',rateForcedHint:'يرجى تقييم رحلتك لمساعدتنا على التحسين.',rateRequiredScore:'يرجى إعطاء تقييم قبل الإرسال.',rateSubmitBtn:'إرسال التقييم',rateThanks:'شكراً لتقييمك!',ratedLabel:'تم التقييم',rateTitle:'كيف كانت رحلتك؟',waRateMsg:'Thanks for riding with MicroMobility! How was your ride? Rate it here:\n\nشكراً لركوبك مع مايكروموبيليتي! كيف كانت رحلتك؟ قيّمها هنا:',
@@ -3504,6 +3504,17 @@ function regBookAnother(){
 // Promo codes: discount on the booking total
 function _promoDiscount(total){
   const p=S.promoApplied;if(!p)return 0;
+  if(p.applies_to){
+    // Type-restricted code: discount each matching bike in the booking, nothing else.
+    let d=0;
+    S.regBikeTypes.slice(0,S.regQty).forEach(ty=>{
+      if(ty===p.applies_to){
+        const base=priceForType(ty);
+        d+=p.kind==='flat'?Math.min(Number(p.value),base):base*(Number(p.value)/100);
+      }
+    });
+    return Math.min(total,Math.max(0,Math.round(d*100)/100));
+  }
   const d=p.kind==='flat'?Number(p.value):total*(Number(p.value)/100);
   return Math.min(total,Math.max(0,Math.round(d*100)/100));
 }
@@ -3512,7 +3523,10 @@ function applyPromoCode(){
   if(!v){S.promoApplied=null;S._promoMsg='';renderRegister();return;}
   const match=(S.promoCodes||[]).find(c=>c.active&&String(c.code).toLowerCase()===v.toLowerCase());
   if(!match){S.promoApplied=null;S._promoMsg=t('promoInvalidMsg');renderRegister();return;}
-  S.promoApplied={code:match.code,kind:match.kind,value:match.value};
+  if(match.applies_to&&!S.regBikeTypes.slice(0,S.regQty).includes(match.applies_to)){
+    S.promoApplied=null;S._promoMsg=t('promoTypeOnlyMsg').replace('{0}',typeLabel(match.applies_to));renderRegister();return;
+  }
+  S.promoApplied={code:match.code,kind:match.kind,value:match.value,applies_to:match.applies_to||null};
   S._promoMsg='';renderRegister();
 }
 function removePromo(){S.promoApplied=null;S._promoMsg='';renderRegister();}
@@ -3673,16 +3687,28 @@ async function submitReg(){
       queueNum:baseQNum+i,status:bookingStatus,registeredAt:new Date().toISOString(),walkIn:false,
       customerId:cust.id,price:priceForType(S.regBikeTypes[i])
     }));
-    // Apply promo discount proportionally across the entries' prices
+    // Apply promo discount across the entries' prices
     if(S.promoApplied){
-      const base=entries.reduce((s,e)=>s+(e.price||0),0);
-      const disc=_promoDiscount(base);
-      if(base>0&&disc>0){
-        const f=(base-disc)/base,target=Math.round((base-disc)*100)/100;
-        entries.forEach(e=>{e.price=Math.max(0,Math.round((e.price||0)*f*100)/100);});
-        // per-rider rounding can drift a halala or two off the promised total — the last rider absorbs it
-        const sum=Math.round(entries.reduce((s2,e)=>s2+e.price,0)*100)/100,drift=Math.round((target-sum)*100)/100;
-        if(drift!==0&&entries.length)entries[entries.length-1].price=Math.max(0,Math.round((entries[entries.length-1].price+drift)*100)/100);
+      const p=S.promoApplied;
+      if(p.applies_to){
+        // Type-restricted code (e.g. MMTEAM on Road Carbon): discount lands exactly on the
+        // matching bikes, per bike — other riders in the group keep their full price.
+        entries.forEach(e=>{
+          if(e.typePreference===p.applies_to){
+            const d=p.kind==='flat'?Math.min(Number(p.value),e.price||0):(e.price||0)*(Number(p.value)/100);
+            e.price=Math.max(0,Math.round(((e.price||0)-d)*100)/100);
+          }
+        });
+      }else{
+        const base=entries.reduce((s,e)=>s+(e.price||0),0);
+        const disc=_promoDiscount(base);
+        if(base>0&&disc>0){
+          const f=(base-disc)/base,target=Math.round((base-disc)*100)/100;
+          entries.forEach(e=>{e.price=Math.max(0,Math.round((e.price||0)*f*100)/100);});
+          // per-rider rounding can drift a halala or two off the promised total — the last rider absorbs it
+          const sum=Math.round(entries.reduce((s2,e)=>s2+e.price,0)*100)/100,drift=Math.round((target-sum)*100)/100;
+          if(drift!==0&&entries.length)entries[entries.length-1].price=Math.max(0,Math.round((entries[entries.length-1].price+drift)*100)/100);
+        }
       }
       if(S.promoApplied.code)entries.forEach(e=>{e.promoCode=String(S.promoApplied.code);}); // carry the code at insert so the price trigger allows the discount
     }
@@ -5304,7 +5330,7 @@ function renderPromoManager(){
   const codes=[...(S.promoCodes||[])].sort((a,b)=>String(a.code).localeCompare(String(b.code)));
   const rows=codes.length?codes.map(c=>`<tr${c.active?'':' style="opacity:.5"'}>
     <td data-label="${t('promoCodeLabel')}" style="font-weight:900;font-family:monospace">${esc(c.code)}</td>
-    <td data-label="${t('promoValueLabel')}">${c.kind==='flat'?`SAR ${c.value}`:`${c.value}%`}</td>
+    <td data-label="${t('promoValueLabel')}">${c.kind==='flat'?`SAR ${c.value}`:`${c.value}%`}${c.applies_to?` · ${typeLabel(c.applies_to)}`:''}</td>
     <td data-label="${t('promoActiveLabel')}"><button class="btn-sm ${c.active?'btn-green':'btn-muted'}" onclick="togglePromoActive('${c.id}')">${c.active?t('promoActiveLabel'):t('promoInactiveLabel')}</button></td>
     <td class="cell-actions"><button class="btn-sm btn-red" onclick="delPromo('${c.id}')">${t('deleteBtn')}</button></td>
   </tr>`).join(''):`<tr><td colspan="4" style="padding:16px;text-align:center;color:var(--muted)">${t('promoNoCodes')}</td></tr>`;
@@ -5315,6 +5341,10 @@ function renderPromoManager(){
         <div class="form-group"><label>${t('promoCodeLabel')}</label><input id="pc-code" value="${esc(S._pcCode)}" oninput="S._pcCode=this.value" placeholder="SUMMER10" style="text-transform:uppercase"></div>
         <div class="form-group"><label>${t('promoKindLabel')}</label><select id="pc-kind" onchange="S._pcKind=this.value"><option value="percent"${S._pcKind==='percent'?' selected':''}>${t('promoPercentOpt')}</option><option value="flat"${S._pcKind==='flat'?' selected':''}>${t('promoFlatOpt')}</option></select></div>
         <div class="form-group"><label>${t('promoValueLabel')}</label><input id="pc-value" type="number" min="0" step="0.5" value="${esc(S._pcValue)}" oninput="S._pcValue=this.value"></div>
+        <div class="form-group"><label>${t('promoAppliesLabel')}</label><select id="pc-type" onchange="S._pcType=this.value">
+          <option value=""${!S._pcType?' selected':''}>${t('promoAllTypes')}</option>
+          ${CUST_TYPES.filter(ty=>ty!=='Any').map(ty=>`<option value="${ty}"${S._pcType===ty?' selected':''}>${typeLabel(ty)}</option>`).join('')}
+        </select></div>
       </div>
       <button class="btn-primary" onclick="addPromo()">${t('promoAddBtn')}</button>
     </div>
@@ -5328,9 +5358,17 @@ async function addPromo(){
   const value=parseFloat(document.getElementById('pc-value')?.value||S._pcValue||'')||0;
   if(!code||value<=0){toast(t('promoInvalidMsg'),'error');return;}
   const row={id:uid(),code,kind:S._pcKind||'percent',value,active:true,created_at:new Date().toISOString()};
-  const{error}=await sb.from('promo_codes').insert(row);
+  if(S._pcType)row.applies_to=S._pcType;
+  let{error}=await sb.from('promo_codes').insert(row);
+  // Tolerant column: a DB that predates the applies_to migration rejects the key — retry
+  // without it so the code still saves (unrestricted), and tell the operator why.
+  if(error&&row.applies_to&&/applies_to/i.test(error.message||'')){
+    delete row.applies_to;
+    ({error}=await sb.from('promo_codes').insert(row));
+    if(!error)toast('applies_to column missing - run add-roadcarbon-mmteam.sql; code saved without a type restriction','warning');
+  }
   if(error){toast(error.message,'error');return;}
-  S._pcCode='';S._pcValue='';await loadData();toast(t('promoSavedToast'));renderSessions();
+  S._pcCode='';S._pcValue='';S._pcType='';await loadData();toast(t('promoSavedToast'));renderSessions();
 }
 async function togglePromoActive(id){
   const c=(S.promoCodes||[]).find(x=>x.id===id);if(!c)return;
