@@ -192,6 +192,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 <div id="cancel-reason-modal" style="display:none"></div>
 <div id="factory-reset-modal" style="display:none"></div>
 <div id="walkin-modal" style="display:none"></div>
+<div id="booking-edit-modal" style="display:none"></div>
 <div id="print-opts-modal"   style="display:none"></div>
 <div id="qnum-edit-modal"    style="display:none"></div>
 <div id="reschedule-modal"   style="display:none"></div>
@@ -357,6 +358,7 @@ en:{
   walkinTitle:'Walk-in Registration',walkinName:'Full Name',walkinPhone:'Phone Number',
   walkinSession:'Session',walkinSize:'Frame Size',walkinType:'Bike Type Preference',
   addWalkinBtn:'Add Walk-in',cancelBtn:'Cancel',
+  editBookingBtn:'Edit',editBookingTitle:'Edit Booking',editBookingSub:'Change the rider details or move the booking, the same fields the customer can edit.',undoEditBooking:'Edit booking',saveChangesBtn:'Save Changes',
   checkInBtn:'Check In',returnBikeBtn:'Return Bike',removeBtn:'Remove',noShowBtn:'No-Show',customerShowedBtn:'Customer Showed',undoCheckinBtn:'Undo Check-in',toastUndoCheckin:'Check-in reversed - rider moved back to waiting.',
   footerCopy:'© 2026 MicroMobility. All Rights Reserved',sessDeletedGroup:'Deleted Sessions',histLogBtn:'Log',
   anPayTitle:'Payments',anCashCollected:'Cash collected',anCardCollected:'Card collected',anCardShare:'card share',anDiscountsGiven:'Discounts given',
@@ -740,6 +742,7 @@ ar:{
   walkinTitle:'تسجيل زيارة مباشرة',walkinName:'الاسم الكامل',walkinPhone:'رقم الهاتف',
   walkinSession:'الجلسة',walkinSize:'مقاس الإطار',walkinType:'تفضيل نوع الدراجة',
   addWalkinBtn:'إضافة زيارة',cancelBtn:'إلغاء',
+  editBookingBtn:'تعديل',editBookingTitle:'تعديل الحجز',editBookingSub:'عدّل بيانات الراكب أو انقل الحجز، نفس الحقول التي يمكن للعميل تعديلها.',undoEditBooking:'تعديل الحجز',saveChangesBtn:'حفظ التغييرات',
   checkInBtn:'تسجيل الدخول',returnBikeBtn:'إرجاع الدراجة',removeBtn:'حذف',noShowBtn:'لم يحضر',customerShowedBtn:'العميل حضر',undoCheckinBtn:'تراجع عن تسجيل الدخول',toastUndoCheckin:'تم التراجع عن تسجيل الدخول - الراكب عاد إلى قائمة الانتظار.',
   footerCopy:'© 2026 مايكروموبيليتي. جميع الحقوق محفوظة',sessDeletedGroup:'الجلسات المحذوفة',histLogBtn:'السجل',
   anPayTitle:'المدفوعات',anCashCollected:'المحصّل نقداً',anCardCollected:'المحصّل بالبطاقة',anCardShare:'نسبة البطاقة',anDiscountsGiven:'الخصومات الممنوحة',
@@ -5597,6 +5600,94 @@ async function saveWalkin(){
   S._flashId=entry.id;S._flashColor='green';setTimeout(()=>{S._flashId=null;},800);
   renderStaffQueue();
 }
+
+// ── Staff booking editor: edit an entry's rider details / move it, the same fields the
+// customer's own modify-booking flow covers (name, phone, height, type, session). ──
+function showBookingEditModal(entryId){
+  const e=getQueue().find(x=>x.id===entryId);if(!e)return;
+  if(!['waiting','waitlist','active'].includes(e.status)){toast(t('errCancelWaiting'),'error');return;}
+  S._beId=entryId;
+  S._beType=S._beType&&S._beRender===entryId?S._beType:(e.typePreference||'Any');
+  S._beRender=entryId;
+  const keep=id=>{const el=document.getElementById(id);return el!=null&&el.value!==''?el.value:null;};
+  const _n=keep('be-name')??e.name??'',_p=keep('be-phone')??e.phone??'',_h=keep('be-height')??(e.height?String(e.height):''),_s=keep('be-sess')??e.sessionId;
+  const tyBtn=ty=>`<button type="button" onclick="S._beType='${ty}';showBookingEditModal('${entryId}')" style="flex:1;padding:9px;border-radius:9px;border:1.5px solid ${S._beType===ty?'var(--green)':'var(--border)'};background:${S._beType===ty?'rgba(var(--green-rgb),.12)':'transparent'};color:${S._beType===ty?'var(--green)':'var(--muted)'};font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">${typeLabel(ty)}</button>`;
+  // Session move only before check-in; capacity-checked like the customer reschedule.
+  const today=_todayISO();
+  const canMove=e.status!=='active';
+  const sessOpts=allSessions()
+    .filter(s=>s.id===e.sessionId||(s.status==='open'&&(s.session_date||s.id)>=today))
+    .sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id))
+    .map(s=>{
+      const cap=s.capacity||12;
+      const taken=getQueue().filter(x=>x.sessionId===s.id&&(x.status==='waiting'||x.status==='active')).length;
+      const full=s.id!==e.sessionId&&cap-taken<1;
+      return`<option value="${s.id}"${_s===s.id?' selected':''}${full?' disabled':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)} · ${sessionTime(s)}${full?` (${t('statusFull')})`:''}</option>`;
+    }).join('');
+  const m=document.getElementById('booking-edit-modal');
+  m.style.display='flex';
+  m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeBookingEditModal()">
+    <div class="modal-box" role="dialog" aria-modal="true" style="max-width:420px">
+      <div class="modal-title">${t('editBookingTitle')} · #${e.queueNum}</div>
+      <div class="modal-sub">${t('editBookingSub')}</div>
+      <div class="form-group" style="margin:14px 0 10px"><label>${t('nameLabel')} *</label><input id="be-name" type="text" value="${esc(_n)}" maxlength="60"></div>
+      <div style="display:flex;gap:10px">
+        <div class="form-group" style="flex:1;margin-bottom:10px"><label>${t('authPhone')}</label><input id="be-phone" type="tel" value="${esc(_p)}" placeholder="05…"></div>
+        <div class="form-group" style="width:110px;margin-bottom:10px"><label>${t('colHeight')} (${t('cmUnit')})</label><input id="be-height" type="number" min="80" max="230" value="${esc(_h)}"></div>
+      </div>
+      <div class="form-group" style="margin-bottom:10px"><label>${t('bikeTypeLabel')}</label>
+        <div style="display:flex;gap:6px">${['Any','Road','Hybrid','Mountain'].map(tyBtn).join('')}</div></div>
+      ${canMove?`<div class="form-group" style="margin-bottom:14px"><label>${t('colSession')}</label>
+        <select id="be-sess">${sessOpts}</select></div>`:''}
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeBookingEditModal()">${t('cancelBtn')}</button>
+        <button class="btn-primary" onclick="saveBookingEdit()">${t('saveChangesBtn')}</button>
+      </div>
+    </div></div>`;
+}
+function closeBookingEditModal(){const m=document.getElementById('booking-edit-modal');if(m){m.style.display='none';m.innerHTML='';}S._beId=null;S._beRender=null;S._beType=null;}
+async function saveBookingEdit(){
+  const e=getQueue().find(x=>x.id===S._beId);if(!e){closeBookingEditModal();return;}
+  const name=(document.getElementById('be-name')?.value||'').trim();
+  if(!name){const i=document.getElementById('be-name');if(i){i.style.borderColor='var(--red)';i.focus();}return;}
+  const phone=(document.getElementById('be-phone')?.value||'').trim();
+  const height=parseInt(document.getElementById('be-height')?.value)||null;
+  const ty=S._beType||e.typePreference||'Any';
+  const toSessionId=document.getElementById('be-sess')?.value||e.sessionId;
+  const prev={name:e.name,phone:e.phone||'',height:e.height||null,size:e.size||'',type_preference:e.typePreference,price:e.price??DEFAULT_PRICE,
+    session_id:e.sessionId,session_day:e.sessionDay,session_date:e.sessionDate,queue_num:e.queueNum,status:e.status};
+  const patch={name,phone,height,size:height?heightToSize(height):(e.size||'')};
+  if(ty!==e.typePreference){
+    patch.type_preference=ty;
+    // Reprice on type change like the customer flow, but never stomp a manual/promo price:
+    // only when unpaid and still on the old type's default.
+    if(!e.paid&&(e.price??DEFAULT_PRICE)===priceForType(e.typePreference||'Any'))patch.price=priceForType(ty);
+  }
+  const moving=toSessionId!==e.sessionId;
+  if(moving){
+    const newSess=allSessions().find(s=>s.id===toSessionId);if(!newSess)return;
+    const cap=newSess.capacity||12;
+    const taken=getQueue().filter(x=>x.sessionId===toSessionId&&(x.status==='waiting'||x.status==='active')).length;
+    if(cap-taken<1){toast(t('rescheduleFull'),'error');return;}
+    patch.session_id=toSessionId;patch.session_day=newSess.day;patch.session_date=newSess.session_date||toSessionId;
+    patch.queue_num=nextQNum(toSessionId); // fresh number in the target session; the old number's gap stays (numbers are never shifted)
+    if(e.status==='waitlist')patch.status='waiting';
+  }
+  const res=await sb.from('queue_entries').update(patch).eq('id',e.id);
+  if(_writeErr(res,'edit booking'))return;
+  if(moving&&e.status==='waitlist')await _addonStockQ(entryAddons(e),-1); // waitlist -> confirmed: reserve the add-ons, like the customer reschedule
+  const id=e.id;
+  pushUndo(`${t('undoEditBooking')} #${prev.queue_num} ${prev.name}`,async()=>{
+    await sb.from('queue_entries').update(prev).eq('id',id);
+    await loadDataLight();renderStaffQueue();
+  });
+  closeBookingEditModal();
+  logAction(`${t('editBookingTitle')}: #${prev.queue_num} ${prev.name}${moving?` → ${shortDate(patch.session_date)}`:''}`);
+  await loadDataLight();
+  toast(t('toastBookingUpdated'));
+  S._flashId=id;S._flashColor='green';setTimeout(()=>{S._flashId=null;},800);
+  renderStaffQueue();
+}
 function renderStaffQueue(){
   {const _sy=window.scrollY;requestAnimationFrame(()=>{if(Math.abs(window.scrollY-_sy)>1)window.scrollTo(0,_sy);});} // keep scroll position across the in-place rebuild
   if(!S.dataLoaded){const _el=document.getElementById('tab-queue');if(_el)_el.innerHTML=skeletonList(7);return;}
@@ -5726,9 +5817,10 @@ function renderStaffQueue(){
     return`<button class="btn-sm btn-muted" title="${t('moveUpLabel')}" aria-label="${t('moveUpLabel')}" style="padding:5px 8px" onclick="moveQueueEntry('${e.id}',-1)">▲</button><button class="btn-sm btn-muted" title="${t('moveDownLabel')}" aria-label="${t('moveDownLabel')}" style="padding:5px 8px" onclick="moveQueueEntry('${e.id}',1)">▼</button>`;
   }
   function _entryActions(e){
-    if(e.status==='waitlist')return`<button class="btn-sm btn-green" onclick="promoteWaitlist('${e.id}')">${ICON_PROMOTE} ${t('promoteBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
-    if(e.status==='waiting')return`${_bulkChk(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
-    if(e.status==='active')return`${_bulkChk(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="showCashierModal('${e.id}')">${t('cashierAddBtn')}</button><button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
+    const _editBtn=`<button class="btn-sm btn-muted" onclick="showBookingEditModal('${e.id}')" title="${t('editBookingTitle')}">${ICON_PENCIL} ${t('editBookingBtn')}</button>`;
+    if(e.status==='waitlist')return`<button class="btn-sm btn-green" onclick="promoteWaitlist('${e.id}')">${ICON_PROMOTE} ${t('promoteBtn')}</button>${_editBtn}<button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
+    if(e.status==='waiting')return`${_bulkChk(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button>${_editBtn}<button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
+    if(e.status==='active')return`${_bulkChk(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="showCashierModal('${e.id}')">${t('cashierAddBtn')}</button>${_editBtn}<button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
     if(e.status==='done')return`<button class="btn-sm btn-green" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
     if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
     if(e.status==='cancelled')return`<button class="btn-sm btn-green" onclick="doRestoreCancelled('${e.id}')">${t('restoreBookingBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
