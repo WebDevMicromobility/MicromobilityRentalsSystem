@@ -42,7 +42,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=110">
+  <link rel="stylesheet" href="./styles.css?v=111">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
@@ -2055,6 +2055,20 @@ function typeLabel(ty){const m={Road:t('typeRoad'),Hybrid:t('typeHybrid'),Mounta
 const CUST_TYPES=['Any','Road','Hybrid','Mountain','Road Carbon'];
 // Single venue: tickets link straight to the circuit pin (locations/branches removed from the UI).
 const DIRECTIONS_URL='https://maps.app.goo.gl/zJLjmiaJgfJDKQwY7';
+// Product photo lightbox: tap an add-on thumbnail to see it big (closes on tap, Esc or the x)
+function _photoZoom(img){
+  if(!img||!img.src)return;
+  const old=document.getElementById('photo-lightbox');if(old)old.remove();
+  const el=document.createElement('div');
+  el.id='photo-lightbox';el.className='photo-lightbox';el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');el.setAttribute('aria-label',img.alt||'');
+  el.innerHTML=`<button class="photo-lightbox-close" aria-label="${esc(t('cancelBtn'))}">&#x2715;</button><img src="${esc(img.src)}" alt="${esc(img.alt||'')}">${img.alt?`<div class="photo-lightbox-cap">${esc(img.alt)}</div>`:''}`;
+  const close=()=>{el.remove();document.removeEventListener('keydown',onKey);};
+  const onKey=e=>{if(e.key==='Escape')close();};
+  el.addEventListener('click',close);
+  document.addEventListener('keydown',onKey);
+  document.body.appendChild(el);
+  el.querySelector('.photo-lightbox-close').focus();
+}
 
 const FRAME_TYPES=['Steel','Aluminum','Carbon','Titanium'];
 const _BIKE_TYPE_CODE={Road:'R',Hybrid:'H',Mountain:'M',Gravel:'G'};
@@ -3404,7 +3418,7 @@ function renderRegister(){
   }).join('');
   // Chosen add-ons summary shown before confirming
   const _raItems=addonLineItems(S.regAddons||[]);
-  const reviewAddons=_raItems.length?`<div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 0">${t('addonsLabel')} (${_raItems.reduce((s,a)=>s+(a.qty||0),0)})</div>${_raItems.map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">${a.photo?`<img loading="lazy" decoding="async" src="${esc(a.photo)}" alt="${esc(a.name)}" class="addon-thumb addon-thumb-sm">`:''}<div style="flex:1;min-width:0"><span style="font-weight:800;font-size:14px">${esc(a.name)}</span>${a.qty>1?` <span style="color:var(--muted);font-weight:700">×${a.qty}</span>`:''}${a.brand?`<div style="font-size:11px;color:var(--muted)">${esc(a.brand)}</div>`:''}</div><div style="font-weight:800;font-size:13px;color:var(--green);white-space:nowrap">SAR ${a.lineTotal}</div></div>`).join('')}`:'';
+  const reviewAddons=_raItems.length?`<div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 0">${t('addonsLabel')} (${_raItems.reduce((s,a)=>s+(a.qty||0),0)})</div>${_raItems.map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">${a.photo?`<img loading="lazy" decoding="async" src="${esc(a.photo)}" alt="${esc(a.name)}" class="addon-thumb addon-thumb-sm" role="button" tabindex="0" aria-label="${esc(a.name)}" onclick="_photoZoom(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_photoZoom(this);}">`:''}<div style="flex:1;min-width:0"><span style="font-weight:800;font-size:14px">${esc(a.name)}</span>${a.qty>1?` <span style="color:var(--muted);font-weight:700">×${a.qty}</span>`:''}${a.brand?`<div style="font-size:11px;color:var(--muted)">${esc(a.brand)}</div>`:''}</div><div style="font-weight:800;font-size:13px;color:var(--green);white-space:nowrap">SAR ${a.lineTotal}</div></div>`).join('')}`:'';
   const alreadyHere=S._alreadyBookedSession===S.selSession&&S.selSession;
   const alreadyBanner=alreadyHere?`
     <div id="already-booked-banner" style="margin-top:16px;background:rgba(var(--warn-rgb),.08);border:1.5px solid rgba(var(--warn-rgb),.35);border-radius:7px;padding:16px 18px">
@@ -3461,7 +3475,7 @@ function renderRegister(){
       // supports multi-qty + stock caps, which the prototype's plain checkboxes don't).
       const _aCard=it=>{const qn=_regAddonQty(it.id);const stock=Number(it.qty)||0;const cap=stock>0?stock:10;const sel=qn>0;return`<div class="addon-row${sel?' sel':''}">
             <button type="button" class="addon-check${sel?' on':''}" onclick="_setRegAddonQty('${it.id}',${sel?-qn:1})" aria-pressed="${sel}" aria-label="${esc(it.name)}">${sel?'✓':''}</button>
-            ${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="${esc(it.name)}" class="addon-thumb">`:''}
+            ${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="${esc(it.name)}" class="addon-thumb" role="button" tabindex="0" aria-label="${esc(it.name)}" onclick="_photoZoom(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_photoZoom(this);}">`:''}
             <div style="flex:1;min-width:0">
               <div style="font-weight:600;font-size:14px;line-height:1.25">${esc(it.name)}${it.brand?` <span style="font-size:11.5px;color:var(--muted);font-weight:600">· ${esc(it.brand)}</span>`:''}</div>
               ${_hasNutri(it)?`<button type="button" onclick="showNutrition('${it.id}')" style="margin-top:2px;background:none;border:none;padding:0;color:var(--green-d);font-family:inherit;font-size:11px;font-weight:700;text-decoration:underline;text-underline-offset:2px;cursor:pointer">${t('nuButton')}</button>`:''}
@@ -4009,7 +4023,7 @@ function renderBookingTicket(entries,opts){
               ${canEdit?`<button type="button" onclick="showAddonPicker('${e.id}')" style="background:rgba(var(--green-rgb),.1);border:1px solid rgba(var(--green-rgb),.25);color:var(--green);font-family:inherit;font-size:11px;font-weight:800;padding:6px 11px;min-height:24px;border-radius:3px;cursor:pointer">+ ${t('addonAddBtn')}</button>`:''}
             </div>
             ${ad.length?ad.map(a=>`<div style="display:flex;align-items:center;gap:8px;margin-top:6px">
-              ${a.photo?`<img loading="lazy" decoding="async" src="${esc(a.photo)}" alt="${esc(a.name)}" class="addon-thumb addon-thumb-sm">`:''}
+              ${a.photo?`<img loading="lazy" decoding="async" src="${esc(a.photo)}" alt="${esc(a.name)}" class="addon-thumb addon-thumb-sm" role="button" tabindex="0" aria-label="${esc(a.name)}" onclick="_photoZoom(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_photoZoom(this);}">`:''}
               <span style="flex:1;min-width:0;font-size:13px;font-weight:700">${esc(a.name)}${a.qty>1?` <span style="color:var(--muted)">×${a.qty}</span>`:''}</span>
               <bdi style="font-weight:800;font-size:13px">SAR ${a.lineTotal}</bdi>
             </div>`).join(''):`<div style="font-size:12px;color:var(--muted);margin-top:4px">—</div>`}
