@@ -819,7 +819,10 @@
     .queue-table{width:100%;border-collapse:collapse;background:var(--s1);}
     @media(min-width:1024px){
       .queue-table-desktop-wrap{overflow:visible;}
-      .queue-table th{position:sticky;top:64px;z-index:5;background:var(--s1);}
+      /* sticky header ONLY inside the queue's overflow:visible wrapper - inside any
+         overflow:auto .table-wrapper (bikes/inventory/sessions) sticky would pin the
+         header 64px down INSIDE the box, on top of the first rows */
+      .queue-table-desktop-wrap .queue-table th{position:sticky;top:64px;z-index:5;background:var(--s1);}
     }
     .queue-table th{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;text-align:left;padding:12px 16px;border-bottom:1px solid var(--line2);white-space:nowrap;background:none;}
     .queue-table td{padding:14px 16px;border-bottom:1px solid rgba(var(--tint-rgb),.04);vertical-align:top;}
@@ -1877,5 +1880,5 @@
        winning the cascade, letting row text and the filter bar scroll straight
        through the stuck header strip */
     @media(min-width:1024px){
-      .queue-table th{background:var(--s1);box-shadow:0 1px 0 var(--line2);}
+      .queue-table-desktop-wrap .queue-table th{background:var(--s1);box-shadow:0 1px 0 var(--line2);}
     }
