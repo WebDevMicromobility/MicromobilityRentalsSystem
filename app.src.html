@@ -137,6 +137,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <button class="tab-btn"        data-stab="community" onclick="setStaffTab('community')">Community</button>
     <button class="tab-btn"        data-stab="analytics" onclick="setStaffTab('analytics')">Analytics</button>
     <button class="tab-btn"        data-stab="history"   onclick="setStaffTab('history')">History</button>
+    <button class="tab-btn"        data-stab="notes"     onclick="setStaffTab('notes')">Notes</button>
   </nav>
   <div class="view-main">
     <div id="tab-queue"     class="tab-panel active"></div>
@@ -145,6 +146,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <div id="tab-community"  class="tab-panel"></div>
     <div id="tab-analytics"  class="tab-panel"></div>
     <div id="tab-history"   class="tab-panel"></div>
+    <div id="tab-notes"     class="tab-panel"></div>
   </div>
 </div>
 
@@ -231,6 +233,12 @@ en:{
   navReserve:'Reserve',sessAllFull:'All sessions are fully booked right now. Check back soon or follow us for new dates.',
   staffAccess:'Staff Access',customerBadge:'Customer',staffBadge:'Staff Panel',
   lockBtn:'Lock',homeBtn:'Home',logOut:'Log Out',
+  tabNotes:'Notes',notesTitle:'Customer Notes',notesSub:'Private staff notes - customers never see these.',
+  noteCustomerLabel:'Customer',noteCustomerPh:'Type or pick a name…',notePhonePh:'Phone (optional)',
+  noteTextLabel:'Note',noteTextPh:'e.g. Prefers a low saddle, paid deposit in cash…',noteAddBtn:'Add note',
+  noteSearchPh:'Search notes by name, phone or text…',notesEmpty:'No notes yet. Add the first one above.',
+  noteDeleteBtn:'Delete',noteSavedToast:'Note saved',noteDeletedToast:'Note deleted',undoDeleteNote:'Delete note',
+  errNoteRequired:'Write a note first.',errNoteCustomer:'Who is this note about?',
   roleAdmin:'Admin',roleFrontDesk:'Front Desk',switchToFrontDesk:'Front Desk mode',switchToAdmin:'Admin',adminOnlyMsg:'Admin only.',
   authWelcome:'Welcome to MicroMobility',authSub:'Sign in or create an account to track your rides.',
   authLogin:'Log In',authSignup:'Sign Up',authLoginBtn:'Log In',authSignupBtn:'Create Account',genderLabel:'Gender',genderMale:'Male',genderFemale:'Female',errSelectGender:'Please select your gender.',
@@ -627,6 +635,12 @@ ar:{
   navReserve:'احجز',sessAllFull:'جميع الجلسات محجوزة بالكامل حالياً. تحقق لاحقاً أو تابعنا لمعرفة المواعيد الجديدة.',
   staffAccess:'دخول الموظفين',customerBadge:'عميل',staffBadge:'لوحة الموظفين',
   lockBtn:'قفل',homeBtn:'الرئيسية',logOut:'تسجيل الخروج',
+  tabNotes:'ملاحظات',notesTitle:'ملاحظات العملاء',notesSub:'ملاحظات خاصة بالموظفين - لا يراها العملاء أبداً.',
+  noteCustomerLabel:'العميل',noteCustomerPh:'اكتب أو اختر اسماً…',notePhonePh:'الجوال (اختياري)',
+  noteTextLabel:'الملاحظة',noteTextPh:'مثال: يفضّل مقعداً منخفضاً، دفع العربون نقداً…',noteAddBtn:'إضافة ملاحظة',
+  noteSearchPh:'ابحث بالاسم أو الجوال أو النص…',notesEmpty:'لا توجد ملاحظات بعد. أضف الأولى أعلاه.',
+  noteDeleteBtn:'حذف',noteSavedToast:'تم حفظ الملاحظة',noteDeletedToast:'تم حذف الملاحظة',undoDeleteNote:'حذف ملاحظة',
+  errNoteRequired:'اكتب الملاحظة أولاً.',errNoteCustomer:'عن مَن هذه الملاحظة؟',
   roleAdmin:'مدير',roleFrontDesk:'موظف استقبال',switchToFrontDesk:'وضع الاستقبال',switchToAdmin:'مدير',adminOnlyMsg:'للمدير فقط.',
   authWelcome:'مرحباً بك في مايكرو موبيليتي',authSub:'سجل دخولك أو أنشئ حساباً لتتبع رحلاتك.',
   authLogin:'تسجيل الدخول',authSignup:'إنشاء حساب',authLoginBtn:'تسجيل الدخول',authSignupBtn:'إنشاء الحساب',genderLabel:'الجنس',genderMale:'ذكر',genderFemale:'أنثى',errSelectGender:'الرجاء اختيار جنسك.',
@@ -1042,6 +1056,7 @@ function setLang(lang){
     if(b.dataset.stab==='cashier')b.textContent=t('tabCashier');
     if(b.dataset.stab==='inventory'){const _lo=(S.inventory||[]).filter(it=>{const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;return q<=0||(lo>0&&q<=lo);}).length;b.innerHTML=esc(t('tabInventory'))+(_lo?` <span class="tab-badge" title="${esc(t('invLowAlert').replace('{0}',_lo))}" aria-label="${esc(t('invLowAlert').replace('{0}',_lo))}">${_lo}</span>`:'');}
     if(b.dataset.stab==='community')b.textContent=t('tabCommunity');
+    if(b.dataset.stab==='notes')b.textContent=t('tabNotes');
   });
   }catch(e){try{_logError('tab-label render: '+((e&&e.message)||e),'render');}catch(_){}}
   renderTopbarRight();
@@ -1383,7 +1398,7 @@ const S={
   custTab:'register',
   staffTab:'queue',
   staffRole:(()=>{try{return localStorage.getItem('cq_role')==='frontdesk'?'frontdesk':'admin';}catch(e){return'admin';}})(),
-  custBranch:'all',newSessLocation:'',newSessRepeat:'1',sessBranchFilter:'all',newSessAddons:[],editSessAddons:[],regAddons:[],
+  custBranch:'all',newSessLocation:'',custNotes:[],_noteSearch:'',_noteName:'',_notePhone:'',_noteCustId:null,newSessRepeat:'1',sessBranchFilter:'all',newSessAddons:[],editSessAddons:[],regAddons:[],
   promoCodes:[],promoApplied:null,_promoMsg:'',
   _pcCode:'',_pcKind:'percent',_pcValue:'',
   inventory:[],showAddInv:false,editInvId:null,_invName:'',_invCat:'Helmet',_invQty:'',_invLow:'',_invPrice:'',_invFree:false,_invCost:'',_invPhoto:'',invSection:'bikes',
@@ -1625,6 +1640,7 @@ async function loadData(showLoader=false){
   S.dataLoaded=true; // first successful load - render real content instead of skeletons
   // Inventory + promo codes are optional/error-tolerant (tables may not exist until migration is run)
   try{const inv=await sb.from('inventory').select('*');if(!inv.error)S.inventory=inv.data||[];}catch(e){}
+  try{const cn=await sb.from('customer_notes').select('*');if(!cn.error)S.custNotes=cn.data||[];}catch(e){} // tolerant: table may not exist until add-customer-notes.sql runs
   try{const pc=await sb.from('promo_codes').select('*');if(!pc.error)S.promoCodes=pc.data||[];}catch(e){}
   try{const cs=await sb.from('cashier_sales').select('*');if(!cs.error)S.cashSales=cs.data||[];}catch(e){}
   try{_outbox().forEach(op=>{if(op.kind==='delete')S.cashSales=(S.cashSales||[]).filter(r=>r.id!==op.id);else{const i=(S.cashSales||[]).findIndex(r=>r.id===op.id);if(i>=0)S.cashSales[i]=op.data;else S.cashSales.push(op.data);}});}catch(e){} // keep unsynced offline sales visible
@@ -2886,6 +2902,7 @@ function setStaffTab(tab){
   else if(tab==='inventory')renderInventory();
   else if(tab==='cashier')renderCashier();
   else if(tab==='community')renderCommunity();
+  else if(tab==='notes')renderNotes();
   _pushNav();
 }
 
@@ -2921,6 +2938,100 @@ function renderStaffTabs(){
   document.getElementById('tab-community') .classList.toggle('active',S.staffTab==='community');
   document.getElementById('tab-history')   .classList.toggle('active',S.staffTab==='history');
   document.getElementById('tab-analytics') .classList.toggle('active',S.staffTab==='analytics');
+  document.getElementById('tab-notes')     .classList.toggle('active',S.staffTab==='notes');
+}
+
+// ── Staff Notes: private text notes on customers (customer_notes table, staff-only RLS) ──
+function _noteCustomers(){
+  // Every customer the staff has seen: registered accounts (via bookings) + walk-in names.
+  const seen={},out=[];
+  getQueue().forEach(e=>{
+    const key=e.customerId||((e.name||'')+'|'+(e.phone||''));
+    if(!key||seen[key])return;seen[key]=1;
+    out.push({id:e.customerId||null,name:e.name||'',phone:e.phone||''});
+  });
+  return out.sort((a,b)=>a.name.localeCompare(b.name));
+}
+function _notePickCust(){
+  const name=(document.getElementById('note-name')?.value||'').trim();
+  const m=_noteCustomers().find(c=>c.name.toLowerCase()===name.toLowerCase());
+  const ph=document.getElementById('note-phone');
+  if(m&&ph&&!ph.value)ph.value=m.phone||'';
+  S._noteCustId=m?m.id:null;
+}
+async function addCustomerNote(){
+  const name=(document.getElementById('note-name')?.value||'').trim();
+  const phone=(document.getElementById('note-phone')?.value||'').trim();
+  const text=(document.getElementById('note-text')?.value||'').trim();
+  if(!name){const i=document.getElementById('note-name');if(i){_fieldErr(i,t('errNoteCustomer'));i.focus();}return;}
+  if(!text){const i=document.getElementById('note-text');if(i){_fieldErr(i,t('errNoteRequired'));i.focus();}return;}
+  _notePickCust();
+  const row={id:uid(),customer_id:S._noteCustId||null,customer_name:name,phone:phone||null,note:text,author:_opName()||null,created_at:new Date().toISOString()};
+  const res=await sb.from('customer_notes').insert(row);
+  if(_writeErr(res,'note'))return;
+  S.custNotes=[row,...(S.custNotes||[])];
+  logAction(`${t('noteAddBtn')}: ${name}`);
+  toast(t('noteSavedToast'));
+  S._noteName='';S._notePhone='';S._noteCustId=null;
+  renderNotes();
+}
+async function deleteCustomerNote(id){
+  const n=(S.custNotes||[]).find(x=>x.id===id);if(!n)return;
+  const res=await sb.from('customer_notes').delete().eq('id',id);
+  if(_writeErr(res,'delete note'))return;
+  S.custNotes=(S.custNotes||[]).filter(x=>x.id!==id);
+  pushUndo(`${t('undoDeleteNote')} · ${n.customer_name}`,async()=>{
+    await sb.from('customer_notes').insert(n);
+    S.custNotes=[n,...(S.custNotes||[])];
+    if(S.staffTab==='notes')renderNotes();
+  });
+  toast(t('noteDeletedToast'));
+  renderNotes();
+}
+function renderNotes(){
+  const el=document.getElementById('tab-notes');if(!el)return;
+  const q=(S._noteSearch||'').toLowerCase();
+  const notes=(S.custNotes||[])
+    .filter(n=>!q||(n.customer_name||'').toLowerCase().includes(q)||(n.phone||'').includes(q)||(n.note||'').toLowerCase().includes(q))
+    .sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+  const ar=S.lang==='ar';
+  const custOpts=_noteCustomers().map(c=>`<option value="${esc(c.name)}">`).join('');
+  el.innerHTML=`
+    <div class="page-title">${t('notesTitle')}</div>
+    <div class="page-sub">${t('notesSub')}</div>
+    <div class="form-section" style="max-width:680px;margin-top:14px">
+      <div class="form-row">
+        <div class="form-group"><label>${t('noteCustomerLabel')} *</label>
+          <input id="note-name" type="text" list="note-cust-list" value="${esc(S._noteName||'')}" placeholder="${t('noteCustomerPh')}" maxlength="60" oninput="S._noteName=this.value" onchange="_notePickCust()">
+          <datalist id="note-cust-list">${custOpts}</datalist>
+        </div>
+        <div class="form-group"><label>${t('authPhone')}</label>
+          <input id="note-phone" type="tel" inputmode="tel" value="${esc(S._notePhone||'')}" placeholder="${t('notePhonePh')}" oninput="S._notePhone=this.value">
+        </div>
+      </div>
+      <div class="form-group"><label>${t('noteTextLabel')} *</label>
+        <textarea id="note-text" rows="3" maxlength="500" placeholder="${t('noteTextPh')}" style="width:100%;resize:vertical;padding:10px 12px;border-radius:4px;border:1px solid var(--border);background:var(--in-bg);color:var(--text);font-family:inherit;font-size:14px"></textarea>
+      </div>
+      <button class="btn-primary" onclick="addCustomerNote()">+ ${t('noteAddBtn')}</button>
+    </div>
+    <div style="max-width:680px;margin-top:22px">
+      <input class="search-input" style="width:100%" type="text" value="${esc(S._noteSearch||'')}" placeholder="${t('noteSearchPh')}" oninput="S._noteSearch=this.value;_debRender('notes',renderNotes)">
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
+        ${notes.length?notes.map(n=>`
+          <div class="q-card" style="margin:0">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+              <div style="display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap">
+                <span style="font-weight:800;font-size:14px">${esc(n.customer_name)}</span>
+                ${n.phone?`<span style="font-size:11px;color:var(--muted);direction:ltr;unicode-bidi:isolate">${esc(n.phone)}</span>`:''}
+              </div>
+              <button class="btn-sm btn-muted" onclick="deleteCustomerNote('${esc(n.id)}')">${t('noteDeleteBtn')}</button>
+            </div>
+            <div style="margin-top:7px;font-size:13.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word">${esc(n.note)}</div>
+            <div style="margin-top:8px;font-size:11px;color:var(--muted)">${n.created_at?new Date(n.created_at).toLocaleString(ar?'ar-u-ca-gregory-nu-latn':'en-GB',{timeZone:KSA_TZ,day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''}${n.author?` · ${esc(n.author)}`:''}</div>
+          </div>`).join('')
+        :`<div class="empty-state">${t('notesEmpty')}</div>`}
+      </div>
+    </div>`;
 }
 
 function toggleTheme(){

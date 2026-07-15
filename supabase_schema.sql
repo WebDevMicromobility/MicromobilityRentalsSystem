@@ -247,3 +247,14 @@ create policy "public access" on sessions      for all using (true) with check (
 create policy "public access" on queue_entries for all using (true) with check (true);
 create policy "public access" on inventory     for all using (true) with check (true);
 create policy "public access" on promo_codes   for all using (true) with check (true);
+
+-- Staff notes on customers (Notes tab) - see add-customer-notes.sql for the RLS policy
+create table if not exists customer_notes (
+  id            text primary key,
+  customer_id   text,
+  customer_name text not null,
+  phone         text,
+  note          text not null,
+  author        text,
+  created_at    timestamptz not null default now()
+);
