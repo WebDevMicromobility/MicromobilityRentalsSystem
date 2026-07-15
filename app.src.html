@@ -45,7 +45,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=117">
+  <link rel="stylesheet" href="./styles.css?v=118">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
@@ -414,6 +414,17 @@ en:{
   accountTitle:'Account Settings',accountSub:'Update your profile information and preferences.',
   saveAccountBtn:'Save Changes',accountSaved:'Profile updated successfully.',
   statTotalRides:'Total Rides',statTotalSpent:'Total Spent',statMemberSince:'Member Since',statFavType:'Favourite Type',
+  statStreak:'Week Streak',statNextRide:'Next Ride',mrBookNext:'Book your next ride',mrToday:'Today!',mrTomorrow:'Tomorrow',mrInDays:'in {0} days',
+  mrBadgesTitle:'Badges',mrShareBtn:'Share my season',mrShareText:'My season at the Jeddah Corniche Circuit 🚴',memberCardTitle:'Member card',
+  bdFirstLap:'First Lap',bdFirstLapD:'Completed your first circuit ride',
+  bdRegular:'Grid Regular',bdRegularD:'5 rides on the grid',
+  bdPodium:'Podium Pace',bdPodiumD:'10 rides strong',
+  bdFrontRow:'Front Row',bdFrontRowD:'Held booking #1 in a session',
+  bdCarbon:'Carbon Club',bdCarbonD:'Rode the Road Carbon',
+  bdStreak:'Hot Streak',bdStreakD:'Rode 3 weeks in a row',
+  bdSquad:'Squad Captain',bdSquadD:'Booked for 3+ riders at once',
+  bdFuel:'Fuel Stop',bdFuelD:'Added extras to a booking',
+  bd25:'Corniche 25',bd25D:'25 rides on the corniche',
   undoBarMsg:'Action undone in',undoSeconds:'s',
   changeInAccount:'Change in Account',
   heightOptional:'(optional - auto-selects your bike size)',
@@ -800,6 +811,17 @@ ar:{
   accountTitle:'إعدادات الحساب',accountSub:'تحديث معلومات ملفك الشخصي.',
   saveAccountBtn:'حفظ التغييرات',accountSaved:'تم تحديث الملف الشخصي.',
   statTotalRides:'مجموع الرحلات',statTotalSpent:'إجمالي الإنفاق',statMemberSince:'عضو منذ',statFavType:'النوع المفضل',
+  statStreak:'أسابيع متتالية',statNextRide:'الرحلة القادمة',mrBookNext:'احجز رحلتك القادمة',mrToday:'اليوم!',mrTomorrow:'غداً',mrInDays:'بعد {0} أيام',
+  mrBadgesTitle:'الأوسمة',mrShareBtn:'شارك موسمي',mrShareText:'موسمي في حلبة كورنيش جدة 🚴',memberCardTitle:'بطاقة العضوية',
+  bdFirstLap:'اللفة الأولى',bdFirstLapD:'أكملت أول رحلة لك في الحلبة',
+  bdRegular:'منتظم الحلبة',bdRegularD:'٥ رحلات في الحلبة',
+  bdPodium:'إيقاع المنصة',bdPodiumD:'١٠ رحلات',
+  bdFrontRow:'الصف الأول',bdFrontRowD:'حصلت على الحجز رقم ١ في جلسة',
+  bdCarbon:'نادي الكربون',bdCarbonD:'ركبت درّاجة الرود كاربون',
+  bdStreak:'حماس متواصل',bdStreakD:'ركبت ٣ أسابيع متتالية',
+  bdSquad:'قائد المجموعة',bdSquadD:'حجزت لـ٣ رُكّاب أو أكثر دفعة واحدة',
+  bdFuel:'محطة تزوّد',bdFuelD:'أضفت إضافات إلى حجزك',
+  bd25:'كورنيش ٢٥',bd25D:'٢٥ رحلة على الكورنيش',
   undoBarMsg:'تم التراجع خلال',undoSeconds:'ث',
   changeInAccount:'تغيير في الحساب',
   heightOptional:'(اختياري - يحدد مقاس الدراجة تلقائياً)',
@@ -4293,6 +4315,108 @@ async function submitRating(){
   closeRateModal();toast(t('rateThanks'));renderMyRides();
 }
 
+// ── My Rides rider profile: tier, streak, badges, member card, share card ──
+function _mrTier(rides){
+  const tiers=[[0,'tierNewcomer'],[3,'tierRegular'],[10,'tierPro'],[25,'tierElite'],[50,'tierLegend']];
+  let ti=0;for(let i=0;i<tiers.length;i++){if(rides>=tiers[i][0])ti=i;}
+  const nx=tiers[ti+1];
+  return{name:t(tiers[ti][1]),next:nx?{need:nx[0]-rides,name:t(nx[1]),from:tiers[ti][0],to:nx[0]}:null};
+}
+function _mrWeekStart(d){const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-x.getDay());return x.getTime();}
+// Consecutive ridden weeks, counted back from this week (or last week, so a streak never
+// "breaks" mid-week - positive framing only, no loss pressure).
+function _mrStreak(completed){
+  const weeks=new Set(completed.map(e=>{const ds=(e.sessionDate||'').slice(0,10);return ds?_mrWeekStart(new Date(ds+'T00:00:00')):null;}).filter(Boolean));
+  if(!weeks.size)return 0;
+  const WEEK=7*864e5,now=_mrWeekStart(new Date());
+  let w=weeks.has(now)?now:(weeks.has(now-WEEK)?now-WEEK:null);
+  if(w==null)return 0;
+  let n=0;while(weeks.has(w)){n++;w-=WEEK;}
+  return n;
+}
+function _mrBadges(all,completed){
+  const rides=completed.length;
+  const anyP1=all.some(e=>e.queueNum===1&&e.status!=='cancelled'&&e.status!=='removed');
+  const carbon=all.some(e=>(e.typePreference==='Road Carbon')&&(e.status==='done'||e.status==='active'));
+  const bySess={};all.forEach(e=>{if(e.status!=='cancelled'&&e.status!=='removed')bySess[e.sessionId]=(bySess[e.sessionId]||0)+1;});
+  const squadMax=Object.values(bySess).reduce((m,v)=>Math.max(m,v),0);
+  const fuel=all.some(e=>entryAddons(e).length);
+  const streak=_mrStreak(completed);
+  return[
+    {i:'🏁',k:'bdFirstLap',d:'bdFirstLapD',on:rides>=1,p:rides+'/1'},
+    {i:'🛞',k:'bdRegular',d:'bdRegularD',on:rides>=5,p:Math.min(rides,5)+'/5'},
+    {i:'⚡',k:'bdPodium',d:'bdPodiumD',on:rides>=10,p:Math.min(rides,10)+'/10'},
+    {i:'🥇',k:'bdFrontRow',d:'bdFrontRowD',on:anyP1},
+    {i:'🖤',k:'bdCarbon',d:'bdCarbonD',on:carbon},
+    {i:'🔥',k:'bdStreak',d:'bdStreakD',on:streak>=3,p:Math.min(streak,3)+'/3'},
+    {i:'👥',k:'bdSquad',d:'bdSquadD',on:squadMax>=3},
+    {i:'🧃',k:'bdFuel',d:'bdFuelD',on:fuel},
+    {i:'🌊',k:'bd25',d:'bd25D',on:rides>=25,p:Math.min(rides,25)+'/25'},
+  ];
+}
+function _mrBadgesRow(all,completed){
+  const B=_mrBadges(all,completed);
+  return`<div class="analytics-section-title" style="margin-top:22px">${t('mrBadgesTitle')}</div>
+  <div class="mr-badges">${B.map(b=>`<div class="mr-badge${b.on?'':' locked'}" title="${esc(t(b.d))}" aria-label="${esc(t(b.k))}: ${esc(t(b.d))}${b.on?'':' (locked)'}">
+    <span class="mr-badge-ic" aria-hidden="true">${b.i}</span>
+    <span class="mr-badge-nm">${t(b.k)}</span>
+    ${b.on?'':`<span class="mr-badge-p">${b.p||'🔒'}</span>`}
+  </div>`).join('')}</div>`;
+}
+function _mrMemberCard(cust,completed){
+  const ar=S.lang==='ar';
+  const since=cust.created_at?new Date(cust.created_at).toLocaleDateString(ar?'ar-u-ca-gregory-nu-latn':'en-GB',{month:'short',year:'numeric'}):'—';
+  const tier=_mrTier(completed.length);
+  return`<div class="mr-cardrow">
+    <div class="member-card">
+      <div class="member-card-head"><span class="member-card-brand">MICRO<i>MOBILITY</i></span><span class="member-card-tier">${tier.name}</span></div>
+      <div class="member-card-name">${esc(cust.name||'')}</div>
+      <div class="member-card-foot">
+        <div><div class="member-card-lbl">${t('statMemberSince')}</div><div class="member-card-val">${since}</div></div>
+        ${ticketQR('MM-MEMBER:'+cust.id,72)}
+      </div>
+    </div>
+    <button type="button" class="btn-secondary mr-share" onclick="_mrShareCard()">${t('mrShareBtn')}</button>
+  </div>`;
+}
+// Season share card: canvas -> PNG -> native share sheet (WhatsApp/Instagram), download fallback.
+async function _mrShareCard(){
+  const cust=S.loggedIn;if(!cust)return;
+  const completed=getQueue().filter(e=>e.customerId===cust.id&&e.status==='done'&&e.paid);
+  const tier=_mrTier(completed.length),streak=_mrStreak(completed);
+  try{await Promise.all([document.fonts.load('italic 800 90px "Barlow Condensed"'),document.fonts.load('700 40px "Chakra Petch"')]);}catch(e){}
+  const c=document.createElement('canvas');c.width=1080;c.height=1080;const x=c.getContext('2d');
+  x.fillStyle='#08090b';x.fillRect(0,0,1080,1080);
+  x.fillStyle='rgba(255,255,255,.04)';x.font='italic 800 330px "Barlow Condensed",sans-serif';x.fillText('JCC',560,360);
+  x.fillStyle='#00e585';x.fillRect(0,1062,1080,18);
+  x.fillStyle='#f2f5f2';x.font='italic 800 66px "Barlow Condensed",sans-serif';x.fillText('MICROMOBILITY RENTALS',64,124);
+  x.fillStyle='#8b939b';x.font='700 26px "Chakra Petch",sans-serif';x.fillText('JEDDAH CORNICHE CIRCUIT',66,168);
+  x.fillStyle='#00e585';x.font='italic 800 92px "Barlow Condensed",sans-serif';x.fillText(String(cust.name||'').toUpperCase().slice(0,20),64,340);
+  const stats=[
+    [String(completed.length),t('statTotalRides')],
+    [tier.name,t('rideTierLabel')],
+    [String(streak),t('statStreak')],
+    [cust.created_at?String(new Date(cust.created_at).getFullYear()):'—',t('statMemberSince')],
+  ];
+  stats.forEach((st,i)=>{
+    const cx=64+(i%2)*520, cy=520+Math.floor(i/2)*240;
+    x.fillStyle='#00e585';x.font='700 110px "Chakra Petch","Barlow Condensed",sans-serif';
+    const v=st[0].length>8?st[0].slice(0,10):st[0];
+    x.font=(v.length>4?'700 72px':'700 110px')+' "Chakra Petch","Barlow Condensed",sans-serif';
+    x.fillText(v,cx,cy);
+    x.fillStyle='#8b939b';x.font='700 26px "Chakra Petch",sans-serif';
+    x.fillText(st[1].toUpperCase(),cx+4,cy+44);
+  });
+  x.fillStyle='#8b939b';x.font='700 26px "Chakra Petch",sans-serif';x.fillText('micromobilityrentals.pages.dev',66,1016);
+  const blob=await new Promise(r=>c.toBlob(r,'image/png'));
+  if(!blob)return;
+  const file=new File([blob],'my-season.png',{type:'image/png'});
+  try{
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'MicroMobility',text:t('mrShareText')});return;}
+  }catch(e){if(e&&e.name==='AbortError')return;}
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='my-season.png';
+  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1200);
+}
 function renderMyRides(){
   const cust=S.loggedIn;
   if(!cust){document.getElementById('tab-myrides').innerHTML='';return;}
@@ -4336,14 +4460,31 @@ function renderMyRides(){
     <div class="page-title">${t('myRidesTitle')}</div>
     <div class="page-sub">${t('myRidesSub')}</div>
     <div class="rides-stat-row">${(()=>{
-      const _typeCount={};completed.forEach(e=>{_typeCount[resolvedType(e)]=(_typeCount[resolvedType(e)]||0)+1;});
-      const _favType=Object.keys(_typeCount).sort((a,b)=>_typeCount[b]-_typeCount[a])[0]||'—';
-      const _memberSince=cust.created_at?new Date(cust.created_at).toLocaleDateString('en-GB',{month:'short',year:'numeric'}):'—';
+      const rides=completed.length;
+      const tier=_mrTier(rides);
+      const streak=_mrStreak(completed);
+      // soonest upcoming booking (currentGroups is sorted newest-first)
+      const nextGroup=currentGroups.length?currentGroups[currentGroups.length-1]:null;
+      let nextTxt='';
+      if(nextGroup){
+        const nd=Math.max(0,Math.round((new Date((nextGroup[0].sessionDate||'').slice(0,10)+'T00:00:00')-new Date(_todayISO()+'T00:00:00'))/864e5));
+        nextTxt=nd===0?t('mrToday'):nd===1?t('mrTomorrow'):t('mrInDays').replace('{0}',nd);
+      }
+      const prog=tier.next?Math.max(4,Math.min(100,Math.round((rides-tier.next.from)/(tier.next.to-tier.next.from)*100))):100;
       return`
-      <div class="rides-stat-card"><div class="rides-stat-num" style="color:var(--green)">${completed.length}</div><div class="rides-stat-label">${t('statTotalRides')}</div></div>
-      <div class="rides-stat-card"><div class="rides-stat-num" style="color:var(--muted-l);font-size:18px">${_memberSince}</div><div class="rides-stat-label">${t('statMemberSince')}</div></div>
-      <div class="rides-stat-card"><div class="rides-stat-num" style="font-size:16px;padding-top:4px">${_favType!=='—'?typeBadge(_favType):t('anNoData2')}</div><div class="rides-stat-label">${t('statFavType')}</div></div>`;
+      <div class="rides-stat-card"><div class="rides-stat-num" style="color:var(--green)">${rides}</div><div class="rides-stat-label">${t('statTotalRides')}</div></div>
+      <div class="rides-stat-card">
+        <div class="rides-stat-num" style="font-size:18px;color:var(--green)">${tier.name}</div>
+        <div class="mr-tierbar"><i style="width:${prog}%"></i></div>
+        <div class="rides-stat-label">${tier.next?t('ridesToNext').replace('{0}',tier.next.need).replace('{1}',tier.next.name):t('rideTierLabel')}</div>
+      </div>
+      <div class="rides-stat-card"><div class="rides-stat-num"${streak>=2?' style="color:var(--green)"':''}>${streak>=2?'🔥 ':''}${streak}</div><div class="rides-stat-label">${t('statStreak')}</div></div>
+      ${nextGroup
+        ?`<div class="rides-stat-card"><div class="rides-stat-num" style="font-size:17px">${dayLabel(nextGroup[0].sessionDay)||shortDate(nextGroup[0].sessionDate)}</div><div style="font-size:12px;font-weight:800;color:var(--green);margin-top:2px">${nextTxt}</div><div class="rides-stat-label">${t('statNextRide')}</div></div>`
+        :`<div class="rides-stat-card" style="display:flex;align-items:center;justify-content:center"><button type="button" class="btn-primary" style="font-size:12px;padding:10px 12px" onclick="setCustTab('register')">${t('mrBookNext')}</button></div>`}`;
     })()}</div>
+    ${_mrBadgesRow(allEntries,completed)}
+    ${_mrMemberCard(cust,completed)}
     <div class="analytics-section-title" style="margin-top:24px">${t('myCurrentRides')}</div>
     <div class="myrides-grid">${currentCards}</div>
     <div class="analytics-section-title" style="margin-top:30px">${t('myPastRides')}</div>
