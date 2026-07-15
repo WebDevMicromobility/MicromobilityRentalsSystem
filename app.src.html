@@ -2137,7 +2137,8 @@ function renderAuthModal(){
   const isLogin=mode==='login';
   const isForgot=mode==='forgot';
   const ccOpts=COUNTRY_CODES.map(([code,iso])=>`<option value="${code}"${code==='+966'?' selected':''}>${code}</option>`).join('');
-  const logoSrc='brand.png';
+  // Same theme-aware pick as the topbar (dark shows logo.png, light shows logo-dark.png)
+  const logoSrc=document.documentElement.getAttribute('data-theme')==='dark'?'logo.png':'logo-dark.png';
   let title=t('authWelcome'),subtitle=t('authSub'),tabs='',body='';
   const googleBlock=_isInAppBrowser()?`
     <div style="background:rgba(var(--warn-rgb),.08);border:1px solid rgba(var(--warn-rgb),.35);border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;line-height:1.6;color:var(--text)">${t('iabGoogleBlocked')}</div>
