@@ -1907,3 +1907,21 @@
     .role-seg button.on{background:rgba(var(--green-rgb),.14);color:var(--green);cursor:default;}
     .role-seg button:not(.on):hover{background:rgba(var(--tint-rgb),.06);color:var(--text);}
     html[lang="ar"] .role-seg button{font-family:'IBM Plex Sans Arabic',sans-serif;text-transform:none;font-size:13px;}
+
+    /* ── Phone UX pass ── */
+    /* 1. iOS zooms the page into any focused field rendered under 16px - keep every
+       input at 16px on phones so forms never trigger the jump (beats inline styles). */
+    @media(max-width:767px){
+      input,select,textarea,.filter-select{font-size:16px!important;}
+    }
+    /* 3. Native-feeling press feedback: buttons compress slightly under the finger */
+    @media (prefers-reduced-motion: no-preference){
+      button:not(:disabled):active{transform:scale(.97);}
+    }
+    /* 6. Roomier action buttons on small phones - Check In / No-Show sit close together */
+    @media(max-width:400px){
+      .actions-cell{gap:8px;}
+    }
+    /* 2. While the on-screen keyboard is up, sticky footer bars unstick so they never
+       hover over the focused field (set via the visualViewport listener). */
+    html.kb-open .mm-reg-foot,html.kb-open .mm-cart-foot{position:static;}

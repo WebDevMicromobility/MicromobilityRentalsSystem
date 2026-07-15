@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="google" content="notranslate">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -45,7 +45,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=113">
+  <link rel="stylesheet" href="./styles.css?v=114">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
@@ -2058,6 +2058,28 @@ function typeLabel(ty){const m={Road:t('typeRoad'),Hybrid:t('typeHybrid'),Mounta
 const CUST_TYPES=['Any','Road','Hybrid','Mountain','Road Carbon'];
 // Single venue: tickets link straight to the circuit pin (locations/branches removed from the UI).
 const DIRECTIONS_URL='https://maps.app.goo.gl/zJLjmiaJgfJDKQwY7';
+// Haptic tap on key confirmations. iOS Safari has no Vibration API; since 17.4 a hidden
+// checkbox[switch] label click fires the Taptic Engine (patched on some newer builds -
+// this silently does nothing there). Android uses navigator.vibrate.
+function haptic(){
+  try{if(navigator.vibrate){navigator.vibrate(10);return;}}catch(e){}
+  try{
+    const l=document.createElement('label');l.style.cssText='position:fixed;left:-999px;top:-999px';
+    const i=document.createElement('input');i.type='checkbox';i.setAttribute('switch','');
+    l.appendChild(i);document.body.appendChild(l);l.click();
+    requestAnimationFrame(()=>l.remove());
+  }catch(e){}
+}
+// While the on-screen keyboard is open (visual viewport shrinks by >150px), unstick the
+// sticky footer bars so they never float over the field being typed in (iOS Safari quirk).
+if(window.visualViewport){
+  let _kbBase=window.visualViewport.height;
+  window.visualViewport.addEventListener('resize',()=>{
+    const vv=window.visualViewport;
+    _kbBase=Math.max(_kbBase,vv.height);
+    document.documentElement.classList.toggle('kb-open',_kbBase-vv.height>150);
+  });
+}
 // Product photo lightbox: tap an add-on thumbnail to see it big (closes on tap, Esc or the x)
 function _photoZoom(img){
   if(!img||!img.src)return;
@@ -3841,6 +3863,7 @@ async function submitReg(){
     const _qn=entries.map(e=>e.queueNum);
     const numStr=qty>1?`#${_qn[0]} – #${_qn[_qn.length-1]}`:`#${_qn[0]}`;
     logAction(`${bookingStatus==='waitlist'?t('logWaitlistedWord'):t('logBookedWord')} ${numStr} (${(S.loggedIn&&S.loggedIn.name)||'rider'})`);
+    haptic();
     toast(bookingStatus==='waitlist'?`${t('toastWaitlisted')} ${numStr}`:`${t('toastRegistered')} ${numStr}`);
     renderRegister();renderMyRides();
     showBoothPopup();
@@ -6153,7 +6176,9 @@ function renderStaffQueue(){
       const assignedBikes=getAssignedBikes(e);
       const bikeInfo=assignedBikes.length?assignedBikes.map(b=>b.name).join(', '):'';
       const isHouse=e.paid&&(e.price??DEFAULT_PRICE)===0;
-      const payTag=isHouse?`<span style="font-size:12px"></span>`:e.paid?`<span style="font-size:12px;font-weight:800;color:var(--green)">✓</span>`:`<span style="font-size:12px;font-weight:800;color:var(--muted)"></span>`;
+      // Same tappable payment control the desktop table has: shows the state, opens the
+      // Pending / Paid (cash·card·split) / On-the-house menu.
+      const payBtn=`<button class="pay-toggle ${isHouse?'house':e.paid?'paid':'pending'}" style="font-size:10px;padding:5px 9px;min-height:26px" onclick="event.stopPropagation();showPayMenu('${e.id}',event)">${isHouse?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`;
       const indent=n>1?'padding-left:22px':'';
       return`<div style="padding:6px 0;${i>0?'border-top:1px solid rgba(var(--tint-rgb),.05)':''}">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -6162,10 +6187,10 @@ function renderStaffQueue(){
             <span style="font-weight:800;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px">${esc(e.name)}</span>
             ${e.height?`<span style="font-size:11px;font-weight:800;color:var(--green);flex-shrink:0"><bdi>${e.height} ${t('cmUnit')}</bdi></span>`:''}
           </div>
-          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${statusBadge(e.status)}${payTag}</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${statusBadge(e.status)}${payBtn}</div>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px;${indent}">
-          ${typeLabel(e.typePreference)}${bikeInfo?` &middot; <span style="color:var(--muted-l)">${esc(bikeInfo)}</span>`:''}
+          ${typeLabel(e.typePreference)}${bikeInfo?` &middot; <span style="color:var(--muted-l)">${esc(bikeInfo)}</span>`:''} &middot; <bdi style="font-weight:800;color:var(--text)">SAR ${e.price??DEFAULT_PRICE}</bdi>
         </div>
       </div>`;
     }).join('');
@@ -6524,6 +6549,7 @@ async function togglePayment(id,mode){
   entry.paid=newPaid;entry.price=newPrice;entry.pay_method=newMethod;entry.card_amount=null; // cash/card/house/pending clear any prior split
   renderStaffQueue();renderHistory();
   const stateLabel=newPaid&&newPrice===0?' '+t('onTheHouseLabel'):newPaid?'✓ '+t('paidLabel'):t('pendingLabel');
+  haptic();
   toast(stateLabel,newPaid?'':'warning');
   const _pr=await sb.from('queue_entries').update({paid:newPaid,price:newPrice}).eq('id',id);
   if(_writeErr(_pr,'payment')){await loadDataLight();renderStaffQueue();renderHistory();return;} // surface failure and revert the optimistic toggle
@@ -8291,6 +8317,7 @@ async function confirmAssign(){
       await loadData();renderStaffQueue();
     });
   }else{
+    haptic();
     toast(`${bikeNames} ${t('toastAssignedChecked')}`);
     try{localStorage.setItem('cq_ct_'+riderId,Date.now());}catch(e){}
     pushUndo(`${t('undoCheckin')} #${qn} ${rName}`,async()=>{
