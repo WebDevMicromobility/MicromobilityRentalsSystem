@@ -42,7 +42,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=98">
+  <link rel="stylesheet" href="./styles.css?v=99">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
@@ -1380,7 +1380,7 @@ const S={
   regBikeTypes:[],   
   
   showResetTool:false,sfStatus:'all',sfSession:'all',analyticsVAT:'inclusive',
-  sfSort:'queue',sfSortDir:1,sfSearch:'',sfPay:'all',sfSize:'all',queueDensity:'compact',
+  sfSort:'queue',sfSortDir:1,sfSearch:'',sfPay:'all',sfSize:'all',queueDensity:(()=>{try{return localStorage.getItem('cq_density')||'compact'}catch(e){return'compact'}})(),
   sfSelected:[],
   undoStack:[],
   actionLog:[],
@@ -2862,7 +2862,7 @@ function renderTopbarRight(){
     } else {
       el.innerHTML=`
         <span class="view-badge customer">${t('customerBadge')}</span>
-        <button class="topbar-btn" onclick="goLanding()">&#x2190; ${t('homeBtn')}</button>`;
+        <button class="topbar-btn" onclick="goLanding()"><span class="mirror-rtl">&#x2190;</span> ${t('homeBtn')}</button>`;
     }
   } else if(S.view==='landing'||!S.view){
     // v2: the green Reserve button is the single booking entry point in the top bar.
@@ -5745,6 +5745,8 @@ async function saveBookingEdit(){
   S._flashId=id;S._flashColor='green';setTimeout(()=>{S._flashId=null;},800);
   renderStaffQueue();
 }
+// Density preference persists across sessions (operational dashboards best practice).
+function setQueueDensity(d){S.queueDensity=d;try{localStorage.setItem('cq_density',d);}catch(e){}renderStaffQueue();}
 function renderStaffQueue(){
   {const _sy=window.scrollY;requestAnimationFrame(()=>{if(Math.abs(window.scrollY-_sy)>1)window.scrollTo(0,_sy);});} // keep scroll position across the in-place rebuild
   if(!S.dataLoaded){const _el=document.getElementById('tab-queue');if(_el)_el.innerHTML=skeletonList(7);return;}
@@ -6124,8 +6126,8 @@ function renderStaffQueue(){
         <button class="btn-sm btn-green" onclick="showWalkinModal()" style="white-space:nowrap">${t('addWalkin')}</button>
         ${S.sfSession!=='all'?`<button onclick="showPrintReportOptions()" style="background:rgba(var(--tint-rgb),.05);border:1px solid rgba(var(--tint-rgb),.1);border-radius:8px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);font-family:'Albert Sans',sans-serif;transition:all .18s;line-height:1" onmouseover="this.style.borderColor='rgba(var(--green-rgb),.35)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='rgba(var(--tint-rgb),.1)';this.style.color='var(--muted)'">${ICON_PRINT} ${t('printReportBtn')}</button>`:''}
         <div class="density-toggle">
-          <button class="density-btn${S.queueDensity==='comfortable'?' active':''}" onclick="S.queueDensity='comfortable';renderStaffQueue()" title="${t('comfortableTip')}">⊡</button>
-          <button class="density-btn${S.queueDensity==='compact'?' active':''}" onclick="S.queueDensity='compact';renderStaffQueue()" title="${t('compactTip')}">⊟</button>
+          <button class="density-btn${S.queueDensity==='comfortable'?' active':''}" onclick="setQueueDensity('comfortable')" title="${t('comfortableTip')}">⊡</button>
+          <button class="density-btn${S.queueDensity==='compact'?' active':''}" onclick="setQueueDensity('compact')" title="${t('compactTip')}">⊟</button>
         </div>
         <button onclick="toggleResetTool()" title="${t('staffResetTool')}" style="background:rgba(var(--tint-rgb),.05);border:1px solid rgba(var(--tint-rgb),.1);border-radius:8px;padding:6px 9px;cursor:pointer;font-size:15px;line-height:1;transition:all .18s" onmouseover="this.style.borderColor='rgba(var(--green-rgb),.35)'" onmouseout="this.style.borderColor='rgba(var(--tint-rgb),.1)'"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="8" cy="15" r="5"/><path d="M11.5 11.5 21 2"/><path d="M17 6l3 3"/></svg></button>
       </div>
