@@ -3548,7 +3548,6 @@ function renderRegister(){
     const sessTime=sessionTime(_sess);
     const label=total>1?`${t('bike')} ${idx+1} / ${total}`:'';
     const frame=tkt.height?heightToSize(Number(tkt.height)):typeLabel(tkt.typePreference||'Any');
-    const gcal=_gcalUrl(idx);
     return`<div class="ticket-card" style="${idx>0?'margin-top:16px':''}">
       ${label?`<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;padding:14px 24px 0;text-align:center">${label}</div>`:''}
       <div class="ticket-top">
@@ -3563,12 +3562,10 @@ function renderRegister(){
         <div class="ticket-col"><div class="ticket-label">${t('frameSizeLabel')}</div><div class="ticket-value">${esc(String(frame))}</div></div>
       </div>
       <div style="padding:0 24px 18px;display:flex;gap:8px">
-        ${gcal
-          ?`<a href="${esc(gcal)}" target="_blank" rel="noopener" class="btn-secondary" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;text-decoration:none" aria-label="${t('ticketAddCal')}${t('opensNewTab')}">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-            ${t('ticketAddCal')}
-          </a>`
-          :`<button type="button" onclick="_ticketCal(${idx})" class="btn-secondary" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px" aria-label="${t('ticketAddCal')}">${t('ticketAddCal')}</button>`}
+        <button type="button" onclick="_ticketCal(${idx})" class="btn-secondary" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px" aria-label="${t('ticketAddCal')}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          ${t('ticketAddCal')}
+        </button>
         <a href="${DIRECTIONS_URL}" target="_blank" rel="noopener" class="btn-secondary" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;text-decoration:none" aria-label="${t('ticketDirections')}${t('opensNewTab')}">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
           ${t('ticketDirections')}
