@@ -3529,10 +3529,9 @@ function renderRegister(){
     </div>`:'';
 
   const body=hasTickets?panelDone:curStep===1?panel1:curStep===2?panel2:panel3;
-  const showSummary=!hasTickets&&curStep>1&&summaryPanel;
-  document.getElementById('tab-register').innerHTML=showSummary
-    ?`<div class="reg-grid"><div class="reg-grid-main">${body}</div><div class="reg-grid-side">${summaryPanel}</div></div>`
-    :body;
+  // Summary side card removed: the sticky footer bar already shows the running total on
+  // every step, and the confirm step repeats the full session/riders/total review anyway.
+  document.getElementById('tab-register').innerHTML=body;
 }
 
 function regGoStep(n){S.regStep=n;renderRegister();try{window.scrollTo({top:0,behavior:_sb()});}catch(e){}}
