@@ -1616,7 +1616,13 @@ async function loadData(showLoader=false){
       sb.from('sessions').select('*').order('session_date'),
     ]);
   }catch(e){q={data:null,error:e};b={data:null,error:e};ses={data:null,error:e};}
-  const c={data:[],error:null};
+  // Customers are fetched ONLY on staff devices - the Sales tab's saved-customer picker
+  // needs them; visitors never download the customer list. Tolerant: RLS may deny the
+  // read until the staff Auth session is established (the post-auth self-heal reloads).
+  let c={data:[],error:null};
+  if(typeof localStorage!=='undefined'&&localStorage.getItem('cq_staff')==='1'){
+    try{const r=await sb.from('customers').select('id,name,email,phone,created_at');if(!r.error&&r.data)c=r;}catch(e){}
+  }
   if(q.error)console.error('loadData queue error:',q.error.message);
   if(b.error)console.error('loadData bikes error:',b.error.message);
   if(c.error)console.error('loadData customers error:',c.error.message);
@@ -4787,6 +4793,24 @@ function renderAccount(){
       <div id="acc-err" style="color:var(--red);font-size:13px;font-weight:700;min-height:18px;margin-bottom:10px;margin-top:14px"></div>
       <button class="btn-primary" onclick="saveAccount()">${t('saveAccountBtn')}</button>
     </div>
+    ${(()=>{
+      // Purchases the desk recorded against this account (Sales tab, linked receipts)
+      const purch=(S.cashSales||[]).filter(r=>r.customer_id===cust.id&&r.pay!=='refunded'&&r.category!=='__cardmeta__')
+        .sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
+      if(!purch.length)return'';
+      const ptot=Math.round(purch.reduce((sm,r)=>sm+(Number(r.qty)||0)*(Number(r.price)||0),0)*100)/100;
+      const ar=S.lang==='ar';
+      return`<div class="form-section" style="max-width:640px;margin:16px auto 0">
+        <div class="form-title" style="margin-bottom:12px">${t('custPurchTitle')} · <bdi style="color:var(--green)">SAR ${ptot}</bdi></div>
+        <div style="max-height:260px;overflow-y:auto">
+          ${purch.map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+            <div style="flex:1;min-width:0;font-weight:700;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name||'')}${Number(r.qty)>1?` <span style="color:var(--muted)">×${r.qty}</span>`:''}</div>
+            <span style="font-size:11px;color:var(--muted);white-space:nowrap">${r.created_at?new Date(r.created_at).toLocaleDateString(ar?'ar-u-ca-gregory-nu-latn':'en-GB',{day:'numeric',month:'short',year:'numeric'}):''}</span>
+            <bdi style="font-weight:800;font-size:13px;white-space:nowrap">SAR ${Math.round((Number(r.qty)||0)*(Number(r.price)||0)*100)/100}</bdi>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    })()}
     ${(()=>{
       // v2: settings as hairline rows below the profile card (Language / Appearance / Sign out)
       const curTheme=document.documentElement.getAttribute('data-theme')||'light';
@@ -10484,11 +10508,14 @@ function renderCashierModal(){
 // ── Standalone Cashier tab: a full point-of-sale for a session (walk-up + counter sales) ──
 // Customer account suggestions for the sale form: match by name, phone, or email; picking links the sale to the account.
 // Typing without picking keeps the old behavior (a free-text walk-up name).
-function _ctCustSuggest(){
+function _ctCustSuggest(focus){
   const box=document.getElementById('ct-cust-sug');if(!box)return;
   const q=(S._ctCust||'').trim().toLowerCase();
-  if(q.length<2){box.innerHTML='';return;}
-  const hits=(S.customers||[]).filter(c=>(c.name||'').toLowerCase().includes(q)||(c.phone||'').includes(q)||(c.email||'').toLowerCase().includes(q)).slice(0,6);
+  if(q.length<2&&!focus){box.innerHTML='';return;}
+  // On focus with nothing typed: offer the most recent saved customers right away
+  const hits=(q.length<2
+    ?(S.customers||[]).slice().sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0))
+    :(S.customers||[]).filter(c=>(c.name||'').toLowerCase().includes(q)||(c.phone||'').includes(q)||(c.email||'').toLowerCase().includes(q))).slice(0,6);
   box.innerHTML=hits.length?`<div style="background:var(--s1);border:1px solid var(--border);border-radius:4px;box-shadow:var(--sh-2);overflow:hidden;margin-top:4px">${hits.map(c=>`<button type="button" onclick="_ctCustPick('${c.id}')" style="display:block;width:100%;text-align:start;background:none;border:none;border-bottom:1px solid var(--border);padding:8px 11px;cursor:pointer;font-family:inherit;color:var(--text)"><div style="font-weight:800;font-size:13px">${esc(c.name||'')}</div><div style="font-size:11px;color:var(--muted)">${esc([c.phone,c.email].filter(Boolean).join(' · '))}</div></button>`).join('')}</div>`:'';
 }
 function _ctCustPick(id){
@@ -10895,7 +10922,7 @@ function renderCashier(){
         <div style="display:flex;flex-direction:column;gap:10px">
           <div><label style="${_lbl}">${t('cashCustomerLabel')}</label>
             <div style="position:relative">
-              <input type="text" value="${esc(S._ctCust)}" oninput="S._ctCust=this.value;S._ctCustId='';_ctCustSuggest()" placeholder="${t('cashCustomerPh')}" style="${_inp}" autocomplete="off">
+              <input type="text" value="${esc(S._ctCust)}" oninput="S._ctCust=this.value;S._ctCustId='';_ctCustSuggest()" onfocus="_ctCustSuggest(true)" placeholder="${t('cashCustomerPh')}" style="${_inp}" autocomplete="off">
               <div id="ct-cust-sug" style="position:absolute;top:100%;left:0;right:0;z-index:40"></div>
             </div>
             ${S._ctCustId?`<div style="display:inline-flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;font-weight:800;color:var(--green);background:rgba(var(--green-rgb),.1);border:1px solid rgba(var(--green-rgb),.3);border-radius:3px;padding:3px 9px">✓ ${t('cashAcctLinked')}<button onclick="S._ctCustId='';S._ctCust='';renderCashier()" aria-label="×" style="background:none;border:none;color:var(--green);cursor:pointer;font-size:13px;line-height:1;padding:0">×</button></div>`:''}</div>
