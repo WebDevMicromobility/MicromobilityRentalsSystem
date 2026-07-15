@@ -2053,6 +2053,8 @@ const TYPE_CLS={Road:'type-road',Hybrid:'type-hybrid',Mountain:'type-mountain',G
 function typeLabel(ty){const m={Road:t('typeRoad'),Hybrid:t('typeHybrid'),Mountain:t('typeMountain'),Gravel:t('typeGravel'),Any:t('typeAny'),'Road Carbon':t('typeRoadCarbon')};return m[ty]||ty||t('typeAny');} // null/legacy rows read as 'Any', never the literal 'undefined'
 // The type choices a customer can book (also used by the staff walk-in / edit-booking forms).
 const CUST_TYPES=['Any','Road','Hybrid','Mountain','Road Carbon'];
+// Single venue: tickets link straight to the circuit pin (locations/branches removed from the UI).
+const DIRECTIONS_URL='https://maps.app.goo.gl/zJLjmiaJgfJDKQwY7';
 
 const FRAME_TYPES=['Steel','Aluminum','Carbon','Titanium'];
 const _BIKE_TYPE_CODE={Road:'R',Hybrid:'H',Mountain:'M',Gravel:'G'};
@@ -3336,6 +3338,10 @@ function renderRegister(){
             ${t('ticketAddCal')}
           </a>`
           :`<button type="button" onclick="_ticketCal(${idx})" class="btn-secondary" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px" aria-label="${t('ticketAddCal')}">${t('ticketAddCal')}</button>`}
+        <a href="${DIRECTIONS_URL}" target="_blank" rel="noopener" class="btn-secondary" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;text-decoration:none" aria-label="${t('ticketDirections')}">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          ${t('ticketDirections')}
+        </a>
       </div>
     </div>`;
   }
@@ -4017,6 +4023,7 @@ function renderBookingTicket(entries,opts){
     </div>
     <div style="padding:0 18px 16px;display:flex;gap:8px">
       <button class="btn-secondary" style="flex:1;font-size:12px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="downloadBookingICS('${primary.sessionId}')" aria-label="${t('addToCalendarBtn')}"> ${t('addToCalendarBtn')}</button>
+      <a href="${DIRECTIONS_URL}" target="_blank" rel="noopener" class="btn-secondary" style="flex:1;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none" aria-label="${t('ticketDirections')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${t('ticketDirections')}</a>
     </div>
     ${actionsHtml}
   </div>`;
