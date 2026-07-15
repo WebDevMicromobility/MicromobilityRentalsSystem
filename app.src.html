@@ -45,7 +45,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=121">
+  <link rel="stylesheet" href="./styles.css?v=122">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
@@ -1690,9 +1690,16 @@ function hashPwd(s){
 
 function _hex(buf){return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 function _cryptoOK(){return typeof crypto!=='undefined'&&crypto.subtle;}
-function genSalt(){const a=new Uint8Array(8);if(typeof crypto!=='undefined'&&crypto.getRandomValues)crypto.getRandomValues(a);else for(let i=0;i<8;i++)a[i]=Math.floor(Math.random()*256);return _hex(a.buffer);}
+function genSalt(n){n=n||8;const a=new Uint8Array(n);if(typeof crypto!=='undefined'&&crypto.getRandomValues)crypto.getRandomValues(a);else for(let i=0;i<n;i++)a[i]=Math.floor(Math.random()*256);return _hex(a.buffer);}
 async function sha256Hex(str){const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));return _hex(buf);}
-async function makePwdHash(pwd){if(!_cryptoOK())return hashPwd(pwd);const salt=genSalt();return 'sha256:'+salt+':'+(await sha256Hex(salt+':'+pwd));}
+const PWD_ITER=210000; // OWASP 2023 PBKDF2-HMAC-SHA256 recommendation
+async function _pbkdf2Hex(pwd,saltHex,iter){
+  const salt=new Uint8Array((saltHex.match(/../g)||[]).map(h=>parseInt(h,16)));
+  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(pwd),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',salt,iterations:iter,hash:'SHA-256'},key,256);
+  return _hex(bits);
+}
+async function makePwdHash(pwd){if(!_cryptoOK())return hashPwd(pwd);const salt=genSalt(16);return 'pbkdf2:'+PWD_ITER+':'+salt+':'+(await _pbkdf2Hex(pwd,salt,PWD_ITER));}
 // Fire-and-forget booking-confirmation email via the /api/booking-confirm Pages
 // Function (no-op until Brevo keys are set server-side). Only in secure mode, where
 // the customer holds a session token to prove ownership.
@@ -1707,9 +1714,10 @@ function _sendBookingEmail(entry){
 <!--include:src/js/ticket-calendar.js-->
 async function verifyPwd(pwd,stored){
   if(!stored)return false;
-  if(stored.indexOf('sha256:')===0){if(!_cryptoOK())return false;const p=stored.split(':');return (await sha256Hex(p[1]+':'+pwd))===p[2];}
+  if(stored.indexOf('pbkdf2:')===0){if(!_cryptoOK())return false;const p=stored.split(':');return (await _pbkdf2Hex(pwd,p[2],parseInt(p[1])||PWD_ITER))===p[3];}
+  if(stored.indexOf('sha256:')===0){if(!_cryptoOK())return false;const p=stored.split(':');return (await sha256Hex(p[1]+':'+pwd))===p[2];} // legacy: transparently re-hashed to pbkdf2 on next login
   if(stored==='oauth:google')return false;
-  return hashPwd(pwd)===stored; 
+  return hashPwd(pwd)===stored;
 }
 
 const QR=(function(){
@@ -2747,7 +2755,7 @@ async function doLogin(){
     for(const row of (rows||[])){if(await verifyPwd(pwd,row.password_hash)){customer=row;break;}}
     if(!customer){authErr(t('errInvalidCredentials'));return;}
     
-    if(String(customer.password_hash||'').indexOf('sha256:')!==0&&customer.password_hash!=='oauth:google'){
+    if(String(customer.password_hash||'').indexOf('pbkdf2:')!==0&&customer.password_hash!=='oauth:google'){
       try{const up=await makePwdHash(pwd);await sb.from('customers').update({password_hash:up}).eq('id',customer.id);}catch(e){}
     }
     delete customer.password_hash;
