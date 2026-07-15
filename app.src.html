@@ -42,7 +42,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=100">
+  <link rel="stylesheet" href="./styles.css?v=101">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
@@ -473,7 +473,7 @@ en:{
   errEmailOrPhone:'Please enter at least an email or phone number.',
   errEmailRequired:'Please enter your email address.',errPhoneRequired:'Please enter your phone number.',
   errPasswordRequired:'Please enter your password.',
-  errValidEmail:'Please enter a valid email address.',
+  errValidEmail:'Please enter a valid email address.',errValidPhone:'Please enter a valid phone number (at least 8 digits).',errFieldRequired:'This field is required.',
   errPasswordLen:'Password must be at least 8 characters and include an uppercase letter and a number.',
   
   ticketAddCal:'Add to Calendar',ticketDirections:'Get Directions',ticketLocation:'Location',ticketScanGate:'Scan at Gate A',
@@ -849,7 +849,7 @@ ar:{
   errEmailOrPhone:'الرجاء إدخال بريد إلكتروني أو رقم هاتف على الأقل.',
   errEmailRequired:'الرجاء إدخال بريدك الإلكتروني.',errPhoneRequired:'الرجاء إدخال رقم هاتفك.',
   errPasswordRequired:'الرجاء إدخال كلمة المرور.',
-  errValidEmail:'الرجاء إدخال بريد إلكتروني صحيح.',
+  errValidEmail:'الرجاء إدخال بريد إلكتروني صحيح.',errValidPhone:'الرجاء إدخال رقم هاتف صحيح (٨ أرقام على الأقل).',errFieldRequired:'هذا الحقل مطلوب.',
   errPasswordLen:'يجب أن تكون كلمة المرور 8 أحرف على الأقل وتحتوي على حرف كبير ورقم.',
   
   ticketAddCal:'أضف إلى التقويم',ticketDirections:'الاتجاهات',ticketLocation:'الموقع',ticketScanGate:'امسح الرمز عند البوابة A',
@@ -2215,11 +2215,11 @@ function renderAuthModal(){
         </div>
       </div>
       <div class="auth-field"><label>${t('heightLabel')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
-        <input id="a-height" type="number" placeholder="${t('heightPlaceholder')}" min="100" max="250" onkeydown="if(event.key==='Enter')doCompleteGoogle()"></div>
+        <input id="a-height" type="number" placeholder="${t('heightPlaceholder')}" min="100" max="250" onkeydown="if(event.key==='Enter')doCompleteGoogle()" onblur="_vBlur(this,'height')"></div>
       <div class="auth-field"><label>${t('authPhone')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
         <div class="auth-cc-row">
           <select id="a-cc">${ccOpts}</select>
-          <input id="a-phone" type="tel" inputmode="tel" autocomplete="tel" oninput="fmtPhoneInput(this)" placeholder="${t('enterPhone')}">
+          <input id="a-phone" type="tel" inputmode="tel" autocomplete="tel" oninput="fmtPhoneInput(this)" placeholder="${t('enterPhone')}" onblur="_vBlur(this,'phone')">
         </div></div>
       <button class="btn-primary auth-submit" onclick="doCompleteGoogle()">${t('finishBtn')}</button>`;
   } else {
@@ -2229,7 +2229,7 @@ function renderAuthModal(){
     </div>`;
     body=`
       ${googleBlock}
-      <div class="auth-field"><label>${t('authFullName')}</label><input id="a-name" type="text" autocapitalize="words" autocomplete="name" placeholder="${t('authFullName')}"></div>
+      <div class="auth-field"><label>${t('authFullName')}</label><input id="a-name" type="text" autocapitalize="words" autocomplete="name" placeholder="${t('authFullName')}" onblur="_vBlur(this,'name')"></div>
       <div class="auth-field"><label>${t('genderLabel')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
         <div style="display:flex;gap:8px;margin-top:4px">
           <button id="sgn-male" type="button" class="toggle-btn${S.signupGender==='male'?' active':''}" style="${_genderBtnStyle('male',S.signupGender)}"
@@ -2239,16 +2239,16 @@ function renderAuthModal(){
         </div>
       </div>
       <div class="auth-field"><label>${t('authEmail')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
-        <input id="a-email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="${t('enterEmail')}"></div>
+        <input id="a-email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="${t('enterEmail')}" onblur="_vBlur(this,'email')"></div>
       <div class="auth-field"><label>${t('authPhone')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
         <div class="auth-cc-row">
           <select id="a-cc">${ccOpts}</select>
-          <input id="a-phone" type="tel" inputmode="tel" autocomplete="tel" oninput="fmtPhoneInput(this)" placeholder="${t('enterPhone')}">
+          <input id="a-phone" type="tel" inputmode="tel" autocomplete="tel" oninput="fmtPhoneInput(this)" placeholder="${t('enterPhone')}" onblur="_vBlur(this,'phone')">
         </div></div>
-      <div class="auth-field"><label>${t('authPassword')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label><input id="a-pwd" type="password" autocomplete="new-password" placeholder="${t('authPasswordHint')}"></div>
+      <div class="auth-field"><label>${t('authPassword')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label><input id="a-pwd" type="password" autocomplete="new-password" placeholder="${t('authPasswordHint')}" onblur="_vBlur(this,'pwd')"></div>
       <div class="auth-field"><label>${t('authConfirmPassword')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label><input id="a-pwd2" type="password" autocomplete="new-password" placeholder="${t('authConfirmPassword')}"></div>
       <div class="auth-field"><label>${t('heightLabel')} &nbsp;<span style="color:var(--red);font-size:11px">*</span></label>
-        <input id="a-height" type="number" inputmode="numeric" placeholder="${t('heightPlaceholder')}" min="100" max="250" onkeydown="if(event.key==='Enter')doSignup()"></div>
+        <input id="a-height" type="number" inputmode="numeric" placeholder="${t('heightPlaceholder')}" min="100" max="250" onkeydown="if(event.key==='Enter')doSignup()" onblur="_vBlur(this,'height')"></div>
       <button class="btn-primary auth-submit" onclick="doSignup()">${t('authSignupBtn')}</button>`;
   }
 
@@ -2353,6 +2353,47 @@ async function doResetPassword(){
   }catch(e){authErr(t('errConnection'));}
 }
 function authErr(msg){const el=document.getElementById('auth-err');if(el){el.textContent=msg;if(msg){try{el.scrollIntoView({block:'center',behavior:_sb()});}catch(e){}}}}
+
+// ── Inline field validation: specific message directly under the field, icon + text so the
+// error is never color-only, aria-invalid/aria-describedby for screen readers. The message
+// clears itself as soon as the user edits the field. ──
+function _fieldErr(el,msg){
+  if(!el)return;
+  if(!el.id)el.id='f'+Math.random().toString(36).slice(2,9);
+  const errId=el.id+'-err';
+  el.setAttribute('aria-invalid','true');
+  el.setAttribute('aria-describedby',errId);
+  el.classList.add('field-invalid');
+  let e=document.getElementById(errId);
+  if(!e){
+    e=document.createElement('div');e.className='field-err';e.id=errId;
+    // when the input shares a line (phone cc+number, height+cm), place the message under the row
+    const host=el.closest('.phone-row,.auth-cc-row,.height-row')||el;
+    host.insertAdjacentElement('afterend',e);
+  }
+  e.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span>'+esc(msg)+'</span>';
+  if(!el._feBound){el._feBound=true;el.addEventListener('input',()=>_fieldOk(el));}
+}
+function _fieldOk(el){
+  if(!el)return;
+  el.removeAttribute('aria-invalid');el.classList.remove('field-invalid');
+  const e=el.id?document.getElementById(el.id+'-err'):null;if(e)e.remove();
+}
+// Blur-time validator (never per-keystroke). Empty fields stay quiet on blur — required-ness
+// is enforced at submit; blur only judges what the user actually typed.
+function _vBlur(el,kind){
+  if(!el)return true;
+  const v=(el.value||'').trim();
+  if(!v){_fieldOk(el);return true;}
+  let msg='';
+  if(kind==='name'&&v.split(/\s+/).length<2)msg=t('errEnterName');
+  else if(kind==='email'&&!/^[^\s<>"'()]+@[^\s<>"'()]+\.[^\s<>"'()]+$/.test(v))msg=t('errValidEmail');
+  else if(kind==='phone'&&v.replace(/\D/g,'').length<8)msg=t('errValidPhone');
+  else if(kind==='pwd'&&(v.length<8||!/[A-Z]/.test(v)||!/[0-9]/.test(v)))msg=t('errPasswordLen');
+  else if(kind==='height'){const h=parseInt(v);if(isNaN(h)||h<100||h>250)msg=t('errValidHeightCm');}
+  if(msg){_fieldErr(el,msg);return false;}
+  _fieldOk(el);return true;
+}
 // Server/connection failure in an auth flow: offline gets an honest message instead of the
 // generic one, and the failure is logged to error_log (code/message only — never credentials).
 function _authFail(where,error){
@@ -2403,16 +2444,17 @@ async function doSignup(){
   const phone=(document.getElementById('a-phone')?.value||'').replace(/\D/g,'');
   const pwd=(document.getElementById('a-pwd')?.value||'');
   const pwd2=(document.getElementById('a-pwd2')?.value||'');
-  if(!name||name.trim().split(/\s+/).length<2){authErr(t('errEnterName'));return;}
+  const _fe=(id,msg)=>{authErr(msg);_fieldErr(document.getElementById(id),msg);};
+  if(!name||name.trim().split(/\s+/).length<2){_fe('a-name',t('errEnterName'));return;}
   if(!S.signupGender){authErr(t('errSelectGender'));return;}
-  if(!email){authErr(t('errEmailRequired'));return;}
-  if(!/^[^\s<>"'()]+@[^\s<>"'()]+\.[^\s<>"'()]+$/.test(email)){authErr(t('errValidEmail'));return;}
-  if(!phone){authErr(t('errPhoneRequired'));return;}
-  if(pwd.length<8||!/[A-Z]/.test(pwd)||!/[0-9]/.test(pwd)){authErr(t('errPasswordLen'));return;}
-  if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
+  if(!email){_fe('a-email',t('errEmailRequired'));return;}
+  if(!/^[^\s<>"'()]+@[^\s<>"'()]+\.[^\s<>"'()]+$/.test(email)){_fe('a-email',t('errValidEmail'));return;}
+  if(!phone){_fe('a-phone',t('errPhoneRequired'));return;}
+  if(pwd.length<8||!/[A-Z]/.test(pwd)||!/[0-9]/.test(pwd)){_fe('a-pwd',t('errPasswordLen'));return;}
+  if(pwd!==pwd2){_fe('a-pwd2',t('errPasswordMatch'));return;}
   if(S._authBusy)return;S._authBusy=true;_authBtnBusy(true); // block double-submit / held-Enter key-repeat bursts that created duplicate accounts
   const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
-  if(isNaN(heightRaw)||heightRaw<100||heightRaw>250){authErr(t('errValidHeightCm'));S._authBusy=false;return;}
+  if(isNaN(heightRaw)||heightRaw<100||heightRaw>250){authErr(t('errValidHeightCm'));_fieldErr(document.getElementById('a-height'),t('errValidHeightCm'));S._authBusy=false;_authBtnBusy(false);return;}
   const fullPhone=phone?_normPhone(phone,cc):'';
   try{
     if(CUST_RPC){
@@ -3196,7 +3238,7 @@ function renderRegister(){
       <label>${t('heightLabel')} &nbsp;<span class="label-hint">${t('heightHint')}</span></label>
       <div class="height-row">
         <input type="number" id="reg-height-${i}" placeholder="${t('heightPlaceholder')}" min="100" max="250"
-          value="${esc(String(bikeH))}" oninput="onBikeHeightInput(${i},this.value)" required>
+          value="${esc(String(bikeH))}" oninput="onBikeHeightInput(${i},this.value)" onblur="_vBlur(this,'height')" required>
       </div>
     </div>`;
 
@@ -3528,8 +3570,9 @@ function validateRegInputs(){
     const h=parseInt(S.regBikeHeights[i]);
     if(isNaN(h)||h<100||h>250){
       const hInp=document.getElementById(`reg-height-${i}`);
-      if(hInp){hInp.style.outline='2px solid var(--red)';hInp.style.borderColor='var(--red)';setTimeout(()=>{hInp.style.outline='';hInp.style.borderColor='';},2500);hInp.scrollIntoView({behavior:_sb(),block:'center'});}
-      toast(qty>1?`${t('errValidHeightCm')} (${t('bike')} ${i+1})`:t('errValidHeightCm'),'error');return false;
+      if(hInp){_fieldErr(hInp,t('errValidHeightCm'));hInp.scrollIntoView({behavior:_sb(),block:'center'});hInp.focus({preventScroll:true});}
+      else toast(qty>1?`${t('errValidHeightCm')} (${t('bike')} ${i+1})`:t('errValidHeightCm'),'error');
+      return false;
     }
   }
   let firstErrEl=null;
@@ -5621,7 +5664,7 @@ function showWalkinModal(){
 function closeWalkinModal(){const m=document.getElementById('walkin-modal');if(m){m.style.display='none';m.innerHTML='';}}
 async function saveWalkin(){
   const name=(document.getElementById('wi-name')?.value||'').trim();
-  if(!name){const i=document.getElementById('wi-name');if(i){i.style.borderColor='var(--red)';i.focus();}return;}
+  if(!name){const i=document.getElementById('wi-name');if(i){_fieldErr(i,t('errFieldRequired'));i.focus();}return;}
   const phone=(document.getElementById('wi-phone')?.value||'').trim();
   const height=parseInt(document.getElementById('wi-height')?.value)||null;
   const sessId=document.getElementById('wi-sess')?.value;
@@ -5693,7 +5736,7 @@ function closeBookingEditModal(){const m=document.getElementById('booking-edit-m
 async function saveBookingEdit(){
   const e=getQueue().find(x=>x.id===S._beId);if(!e){closeBookingEditModal();return;}
   const name=(document.getElementById('be-name')?.value||'').trim();
-  if(!name){const i=document.getElementById('be-name');if(i){i.style.borderColor='var(--red)';i.focus();}return;}
+  if(!name){const i=document.getElementById('be-name');if(i){_fieldErr(i,t('errFieldRequired'));i.focus();}return;}
   const phone=(document.getElementById('be-phone')?.value||'').trim();
   const height=parseInt(document.getElementById('be-height')?.value)||null;
   const ty=S._beType||e.typePreference||'Any';
