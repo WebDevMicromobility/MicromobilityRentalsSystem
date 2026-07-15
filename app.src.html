@@ -42,7 +42,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=112">
+  <link rel="stylesheet" href="./styles.css?v=113">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
@@ -9983,7 +9983,7 @@ function saveTeamManager(){
 function renderTeamManager(){
   const m=document.getElementById('team-mgr-modal');if(!m)return;
   const draft=S._teamDraft||[];
-  const _inp='padding:9px 11px;border-radius:4px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-family:inherit;font-size:13px;width:100%';
+  const _inp='padding:9px 11px;border-radius:4px;border:1px solid var(--border);background:var(--in-bg);color:var(--text);font-family:inherit;font-size:13px;width:100%';
   m.style.display='flex';
   m.innerHTML=`<div class="modal-backdrop" style="z-index:260" onclick="if(event.target===this)closeTeamManager()">
     <div class="modal-box" role="dialog" aria-modal="true" style="max-width:400px">
@@ -10078,7 +10078,7 @@ function renderCashierModal(){
   const tot=Math.round(purchases.reduce((s,p)=>s+(Number(p.qty)||0)*(Number(p.price)||0),0)*100)/100;
   const invItems=(S.inventory||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   const isCustom=S._cashItem==='__custom__';
-  const _inp='padding:9px 11px;border-radius:4px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-family:inherit;font-size:13px;width:100%';
+  const _inp='padding:9px 11px;border-radius:4px;border:1px solid var(--border);background:var(--in-bg);color:var(--text);font-family:inherit;font-size:13px;width:100%';
   const lines=purchases.length?purchases.map((p,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border)">
       ${_itemThumb(p.id,30)}<div style="flex:1;min-width:0">
         <div style="font-weight:700;font-size:13px">${esc(p.name)}${Number(p.qty)>1?` <span style="color:var(--muted)">×${p.qty}</span>`:''}</div>
@@ -10344,7 +10344,7 @@ async function saveReceiptEdit(){
 function renderReceiptEdit(){
   const m=document.getElementById('receipt-edit-modal');if(!m)return;
   const lines=S._reEdit||[];
-  const _inp='padding:8px 10px;border-radius:3px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-family:inherit;font-size:13px;width:100%';
+  const _inp='padding:8px 10px;border-radius:3px;border:1px solid var(--border);background:var(--in-bg);color:var(--text);font-family:inherit;font-size:13px;width:100%';
   const _lb='font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px';
   const payOpts=[['paid',t('paidLabel')],['pending',t('pendingLabel')],['house',t('onTheHouseLabel')],['team',t('payTeam')]];
   m.style.display='flex';
@@ -10446,7 +10446,7 @@ function renderCashier(){
   const cartCardSAR=_ctCardSAR(cartPaidAfterDisc);
   const cartCashSAR=Math.max(0,Math.round((cartPaidAfterDisc-cartCardSAR)*100)/100);
   const _tgl='padding:8px 10px;border-radius:3px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0;min-width:46px';
-  const _inp='padding:9px 11px;border-radius:4px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-family:inherit;font-size:13px;width:100%';
+  const _inp='padding:9px 11px;border-radius:4px;border:1px solid var(--border);background:var(--in-bg);color:var(--text);font-family:inherit;font-size:13px;width:100%';
   // Category-first item picker for Sales: pick a category, then see the items inside it
   const _ctItemBtn=it=>{const sel=S._ctItem===it.id;const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;const lowB=(q<=0||(lo>0&&q<=lo));return`<button type="button" onclick="_ctSet('_ctItem','${it.id}')" title="${esc(it.name)}" style="position:relative;text-align:start;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(var(--green-rgb),.08)':'var(--s2)'};border-radius:4px;padding:0;overflow:hidden;cursor:pointer;font-family:inherit">${lowB?`<span title="${q<=0?t('invOutStock'):t('invLowStock')}" style="position:absolute;top:4px;${ar?'left':'right'}:4px;z-index:1;background:${q<=0?'var(--red)':'var(--orange)'};color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:2px;line-height:1.5">${q}</span>`:''}${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="" style="width:100%;height:62px;object-fit:contain;background:var(--photo-bg);display:block">`:`<div style="width:100%;height:62px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:10px;text-align:center;padding:4px">${esc(_invCatLabel(it.category))}</div>`}<div style="padding:5px 7px"><div style="font-weight:700;font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.name)}</div><div style="font-size:11px;color:var(--green);font-weight:700">${_priceLabel(it.price)||'—'}</div></div></button>`;};
   const _ctCustomBtn=`<button type="button" onclick="_ctSet('_ctItem','__custom__')" style="border:1.5px dashed ${isCustom?'var(--green)':'var(--border)'};background:${isCustom?'rgba(var(--green-rgb),.08)':'transparent'};border-radius:4px;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:96px;color:${isCustom?'var(--green)':'var(--muted)'}"><span style="font-size:20px;line-height:1">+</span><span style="font-size:10px;font-weight:700;text-align:center;padding:0 4px">${t('cashCustomOpt')}</span></button>`;
@@ -10754,7 +10754,7 @@ function renderInventory(){
           </div>`).join('')}
           <button type="button" class="btn-secondary" style="font-size:12px;padding:6px 12px;margin-top:2px" onclick="_nuMicroAdd()">+ ${t('nuAddMicro')}</button>
         </div>
-        <div class="form-group"><label>${t('nuIngredients')}</label><textarea oninput="S._invNutri.ingredients=this.value" rows="2" style="padding:9px 11px;border-radius:4px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-family:inherit;font-size:13px;width:100%;resize:vertical">${esc(S._invNutri.ingredients||'')}</textarea></div>
+        <div class="form-group"><label>${t('nuIngredients')}</label><textarea oninput="S._invNutri.ingredients=this.value" rows="2" style="padding:9px 11px;border-radius:4px;border:1px solid var(--border);background:var(--in-bg);color:var(--text);font-family:inherit;font-size:13px;width:100%;resize:vertical">${esc(S._invNutri.ingredients||'')}</textarea></div>
       </div>`:''}
     </div>`:''}
     <div style="display:flex;gap:8px">
