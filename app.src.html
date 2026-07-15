@@ -1647,11 +1647,14 @@ async function loadData(showLoader=false){
   S.customers=c.data||[];
   S.sessions=ses.data||[];
   S.dataLoaded=true; // first successful load - render real content instead of skeletons
-  // Inventory + promo codes are optional/error-tolerant (tables may not exist until migration is run)
-  try{const inv=await sb.from('inventory').select('*');if(!inv.error)S.inventory=inv.data||[];}catch(e){}
-  try{const cn=await sb.from('customer_notes').select('*');if(!cn.error)S.custNotes=cn.data||[];}catch(e){} // tolerant: table may not exist until add-customer-notes.sql runs
-  try{const pc=await sb.from('promo_codes').select('*');if(!pc.error)S.promoCodes=pc.data||[];}catch(e){}
-  try{const cs=await sb.from('cashier_sales').select('*');if(!cs.error)S.cashSales=cs.data||[];}catch(e){}
+  // Inventory + promo codes are optional/error-tolerant (tables may not exist until migration
+  // is run). Fetched IN PARALLEL - these used to run serially and added 4 round trips to boot.
+  await Promise.all([
+    (async()=>{try{const inv=await sb.from('inventory').select('*');if(!inv.error)S.inventory=inv.data||[];}catch(e){}})(),
+    (async()=>{try{const cn=await sb.from('customer_notes').select('*');if(!cn.error)S.custNotes=cn.data||[];}catch(e){}})(),
+    (async()=>{try{const pc=await sb.from('promo_codes').select('*');if(!pc.error)S.promoCodes=pc.data||[];}catch(e){}})(),
+    (async()=>{try{const cs=await sb.from('cashier_sales').select('*');if(!cs.error)S.cashSales=cs.data||[];}catch(e){}})(),
+  ]);
   try{_outbox().forEach(op=>{if(op.kind==='delete')S.cashSales=(S.cashSales||[]).filter(r=>r.id!==op.id);else{const i=(S.cashSales||[]).findIndex(r=>r.id===op.id);if(i>=0)S.cashSales[i]=op.data;else S.cashSales.push(op.data);}});}catch(e){} // keep unsynced offline sales visible
   try{const _v=_voidedIds();if(_v.length)S.cashSales=(S.cashSales||[]).filter(r=>_v.indexOf(r.id)<0);}catch(e){} // never resurrect a voided sale
   _outboxFlush();
@@ -3940,8 +3943,9 @@ async function submitReg(){
   S.regSubmitting=true;
   renderRegister();
   try{
-    
-    await loadData();
+    // Fresh queue numbers are all we need before inserting - one round trip instead of
+    // the full reload (which also pulled bikes+photos, inventory, notes, promos, sales).
+    try{const _q=await _queueFetch(true);if(_q&&!_q.error&&_q.data)S.queue=_q.data.map(entryFromDB);}catch(e){}
     const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
     const baseQNum=nextQNum(S.selSession);
     
@@ -4005,7 +4009,7 @@ async function submitReg(){
             // Roll back any rows that DID insert before retrying or bailing
             await Promise.all(entries.map(e=>sb.from('queue_entries').delete().eq('id',e.id))).catch(()=>{});
             if(_dup&&_try<3){
-              await loadData();
+              try{const _q2=await _queueFetch(true);if(_q2&&!_q2.error&&_q2.data)S.queue=_q2.data.map(entryFromDB);}catch(e){}
               const _base=nextQNum(S.selSession);entries.forEach((e,i)=>{e.queueNum=_base+i;}); // fresh numbers, then retry
               continue;
             }
@@ -4042,7 +4046,7 @@ async function submitReg(){
     // Record the promo code used (tolerant) so redemptions can be reported
     if(S.promoApplied&&S.promoApplied.code){const _pc=String(S.promoApplied.code);try{await Promise.all(entries.map(e=>_ownEntryUpdate(e.id,{promo_code:_pc})));}catch(e){}}
 
-    await loadData();
+    await loadDataLight(); // slim parallel refresh - the ticket needs the queue, not photos/inventory
     _sendBookingEmail(entries[0]); // confirmation email (no-op unless Brevo is configured server-side)
     S.lastTickets=entries.map(e=>getQueue().find(q=>q.id===e.id)||e);
     S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
