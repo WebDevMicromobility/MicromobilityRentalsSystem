@@ -7,7 +7,7 @@
       --bg:#f0f2f3; --s1:#ffffff; --s2:#e5e9ea; --s3:#eceff0;
       --green:#00b467; --green-h:#00a25d; --green-d:#008a50;
       --ac-fill:#00b467; --ac-fill-h:#00a25d; /* large fills (buttons); dark overrides desaturate them */
-      --red:#a33b2e; --orange:#8a5c14; --blue:#2f63ad; --purple:#6d47c0;
+      --red:#a33b2e; --orange:#8a5c14; --blue:#2f63ad; --purple:#7a46c2;
       --text:#0f1215; --muted:#4f565c; --muted-l:#767e85; --border:rgba(15,18,21,.15);
       color-scheme:light;
       --accent2:rgba(0,138,80,.36); --warn:rgba(15,18,21,.38);
@@ -15,9 +15,7 @@
       --line2:rgba(15,18,21,.35); --acink:#04140c; --acsoft:rgba(0,180,103,.1);
       --foot:#0f1215; --footink:#f2f5f2; --footmut:#9aa1a7;
       /* rgb-triple helpers so tinted overlays (badges, hovers, borders) stay theme-correct */
-      --green-rgb:0,180,103; --tint-rgb:15,18,21; --red-rgb:163,59,46; --warn-rgb:138,92,20; --purple-rgb:109,71,192; --blue-rgb:47,99,173;
-      /* Jeddah Corniche Circuit sector accents (used for steps, secondary states) */
-      --sector:#6d47c0; --flag:#8a5c14;
+      --green-rgb:0,180,103; --tint-rgb:15,18,21; --red-rgb:163,59,46; --warn-rgb:138,92,20; --purple-rgb:122,70,194; --blue-rgb:47,99,173;
       /* Design tokens: 8px spacing grid, radius steps, type scale, neutral elevation, motion */
       --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px; --sp-8:32px;
       --r-xs:2px; --r-sm:3px; --r-md:4px; --r-lg:6px; --r-xl:7px; --r-pill:999px;
@@ -27,20 +25,19 @@
     }
     /* Dark theme - toggled via [data-theme="dark"] on <html> */
     :root[data-theme="dark"]{
-      /* Jeddah Corniche Circuit: asphalt page, carbon surfaces, timing-green accent,
-         sector purple + flag amber as secondary accents. */
+      /* Jeddah Corniche Circuit: asphalt page, carbon surfaces, timing-green accent.
+         Brand colors only: green / white / black. */
       --bg:#08090b; --s1:#101318; --s2:#161a21; --s3:#1d222b;
       --green:#00e585; --green-h:#2eeb99; --green-d:#00e585;
       --ac-fill:#00cf78; --ac-fill-h:#0adf85; /* desaturated for big fills: saturated greens vibrate on dark */
-      --red:#d4705f; --orange:#ffb300; --blue:#4aa8f8; --purple:#9d7bff;
+      --red:#d4705f; --orange:#d4a04c; --blue:#4aa8f8; --purple:#a06af0;
       --text:#f2f5f2; --muted:#8b939b; --muted-l:#626a72; --border:#232830;
       color-scheme:dark;
       --accent2:rgba(0,229,133,.55); --warn:rgba(255,255,255,.55);
       --photo-bg:var(--s3); /* backdrop behind product photos (shot on dark) */
       --line2:rgba(242,245,242,.32); --acink:#04140c; --acsoft:rgba(0,229,133,.1);
       --foot:#060708; --footink:#f2f5f2; --footmut:#8b939b;
-      --green-rgb:0,229,133; --tint-rgb:242,245,242; --red-rgb:212,112,95; --warn-rgb:255,179,0; --purple-rgb:157,123,255; --blue-rgb:74,168,248;
-      --sector:#9d7bff; --flag:#ffb300;
+      --green-rgb:0,229,133; --tint-rgb:242,245,242; --red-rgb:212,112,95; --warn-rgb:212,160,76; --purple-rgb:160,106,240; --blue-rgb:74,168,248;
       --sh-1:0 1px 2px rgba(16,19,18,.06); --sh-2:0 4px 14px rgba(16,19,18,.08); --sh-3:0 14px 44px rgba(16,19,18,.14);
     }
     /* Hero art (hero.webp) is white-on-transparent - keep its dark chip until a real
@@ -1736,9 +1733,9 @@
     .sess-card-dot.on,.landing-avail-dot:not(.full){box-shadow:0 0 8px rgba(var(--green-rgb),.9);}
     .sess-card-date,.landing-avail-date{font-weight:700;}
 
-    /* Ticket: sector-gradient top strip (green -> sector purple) */
+    /* Ticket: timing-green top strip */
     .ticket-card{position:relative;overflow:hidden;}
-    .ticket-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--green),var(--sector));}
+    .ticket-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--green);}
 
     /* ── Arabic guards: IBM Plex, upright, no uppercase games ── */
     html[lang="ar"] .landing-main-title,html[lang="ar"] .page-title,html[lang="ar"] .auth-title,
@@ -1807,20 +1804,20 @@
     .landing-hero-grid,.landing-avail-rows,.landing-footer{position:relative;z-index:1;}
     html[lang="ar"] .landing-ghost{display:none;}
 
-    /* Sector stripes: green / purple / amber divider */
+    /* Speed stripes: green fading divider */
     .sector-stripes{display:flex;gap:6px;margin:40px 0 6px;}
     .sector-stripes i{height:4px;flex:1;}
     .sector-stripes i:nth-child(1){background:var(--green);}
-    .sector-stripes i:nth-child(2){background:var(--sector);}
-    .sector-stripes i:nth-child(3){background:var(--flag);}
+    .sector-stripes i:nth-child(2){background:rgba(var(--green-rgb),.45);}
+    .sector-stripes i:nth-child(3){background:rgba(var(--green-rgb),.18);}
 
     /* Start-line dashed strip above the landing session board */
     .landing-avail-rows{padding-top:26px;}
     .landing-avail-rows::before{content:'';position:absolute;top:8px;left:0;right:0;height:8px;background:repeating-linear-gradient(90deg,var(--border) 0 12px,transparent 12px 24px);}
 
-    /* Footer carries the sector strip on top */
+    /* Footer carries the green strip on top */
     #app-footer{position:relative;}
-    #app-footer::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--green) 0 33.4%,var(--sector) 33.4% 66.7%,var(--flag) 66.7% 100%);}
+    #app-footer::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--green);}
 
     /* Primary CTA: timing-green glow, stronger on hover */
     .btn-primary{box-shadow:0 4px 18px rgba(var(--green-rgb),.22);}
@@ -1864,10 +1861,8 @@
     /* Inputs: timing-green focus ring */
     input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px var(--acsoft);outline:none;}
 
-    /* Analytics KPI cards: sector-coloured top strips, cycling green / purple / amber */
+    /* Analytics KPI cards: timing-green top strips */
     .analytics-kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--green);}
-    .analytics-kpi-card:nth-child(3n+2)::before{background:var(--sector);}
-    .analytics-kpi-card:nth-child(3n)::before{background:var(--flag);}
 
     /* Session rows light up on hover */
     .sess-card:hover:not(.sess-full),.landing-avail-row:hover:not(.full){border-color:rgba(var(--green-rgb),.4);box-shadow:0 0 14px rgba(var(--green-rgb),.12);}
