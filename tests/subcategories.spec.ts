@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
 
-// Protein Snacks is a parent group split into Cookies / Gummies / Muffins sub-categories.
-// The Sales item picker must nest them: one "Protein Snacks" card at the top level that
-// drills into the three sub-category cards, then into the items.
+// Protein Snacks types (Cookies / Gummies / Muffins) are leaf categories. The Sales picker
+// lays a department out flat like All items: section headers + items, no drill-in cards.
 
 const fixtures = {
   sessions: [{
@@ -38,27 +37,19 @@ test.describe('protein sub-categories', () => {
     await page.waitForFunction('S.inventory && S.inventory.length > 0');
   });
 
-  test('the three protein subs collapse into one parent card that drills down', async ({ page }) => {
+  test('a department lists its items flat like All items - no category cards', async ({ page }) => {
     // Top level shows departments, not raw categories.
     const top = (await pickerCards(page, '')).map((c) => c.cat);
     expect(top).toEqual(expect.arrayContaining(['__all__', '__sec__supp']));
     expect(top).not.toContain('__grp__ProteinSnacks');
 
-    // Supplements & Beverages holds the single Protein Snacks group card (its 3 sub-types).
+    // Supplements & Beverages: items render directly in category sections -
+    // no drill-in cards for Protein Snacks or its sub-types.
     const supp = await pickerCards(page, '__sec__supp');
-    const grp = supp.find((c) => c.cat === '__grp__ProteinSnacks')!;
-    expect(grp, 'Protein Snacks group card').toBeTruthy();
-    expect(grp.text).toContain('Protein Snacks');
-    expect(grp.text).toContain('3 items');
-
-    // Drill into the group: the three sub-category cards.
-    const subCats = (await pickerCards(page, '__grp__ProteinSnacks')).map((c) => c.cat);
-    expect(subCats).toEqual(expect.arrayContaining(['ProteinCookies', 'ProteinGummies', 'ProteinMuffins']));
-    expect(subCats).not.toContain('__grp__ProteinSnacks');
-
-    // Drill into a sub-category: its item is listed.
-    await pickerCards(page, 'ProteinCookies');
+    expect(supp.map((c) => c.cat)).not.toContain('__grp__ProteinSnacks');
     await expect(page.locator('#tab-cashier')).toContainText('Choc Cookie');
+    await expect(page.locator('#tab-cashier')).toContainText('Berry Gummy');
+    await expect(page.locator('#tab-cashier')).toContainText('Banana Muffin');
   });
 
   test('the inventory Type dropdown maps a protein snack to its Protein<Type> leaf', async ({ page }) => {
@@ -108,7 +99,7 @@ test.describe('protein sub-categories', () => {
     expect(html.indexOf('Protein Snacks')).toBeLessThan(html.indexOf('Protein Cookies'));
   });
 
-  test('the sales picker drills through departments the way the Protein Snacks card does', async ({ page }) => {
+  test('each department lists only its own items, flat', async ({ page }) => {
     await page.evaluate(() => {
       S.inventory = [
         { id: 'p1', name: 'Bar', brand: 'Barebells', category: 'ProteinBars', qty: 3, price: 5 },
@@ -122,17 +113,17 @@ test.describe('protein sub-categories', () => {
     expect(top).toEqual(expect.arrayContaining(['__all__', '__sec__supp', '__sec__equip']));
     expect(top).not.toContain('__grp__ProteinSnacks');
     expect(top).not.toContain('Helmet');
-    // Tap Supplements & Beverages → its category cards (Protein Snacks group + Electrolytes), no equipment
-    const supp = (await pickerCards(page, '__sec__supp')).map((c) => c.cat);
-    expect(supp).toEqual(expect.arrayContaining(['__grp__ProteinSnacks', 'ElectrolyteSachets']));
-    expect(supp).not.toContain('Helmet');
-    // Tap Equipment → Helmet + Accessory, no supplements
-    const equip = (await pickerCards(page, '__sec__equip')).map((c) => c.cat);
-    expect(equip).toEqual(expect.arrayContaining(['Helmet', 'Accessory']));
-    expect(equip).not.toContain('__grp__ProteinSnacks');
-    // Protein Snacks still drills into its sub-categories
-    const subs = (await pickerCards(page, '__grp__ProteinSnacks')).map((c) => c.cat);
-    expect(subs).toContain('ProteinBars');
+    // Supplements & Beverages: its items directly (no group cards), none of the equipment
+    const suppCards = (await pickerCards(page, '__sec__supp')).map((c) => c.cat);
+    expect(suppCards).not.toContain('__grp__ProteinSnacks');
+    await expect(page.locator('#tab-cashier')).toContainText('Bar');
+    await expect(page.locator('#tab-cashier')).toContainText('Hydrate');
+    await expect(page.locator('#tab-cashier')).not.toContainText('Helmet');
+    // Equipment: its items directly, no supplements
+    await pickerCards(page, '__sec__equip');
+    await expect(page.locator('#tab-cashier')).toContainText('Helmet');
+    await expect(page.locator('#tab-cashier')).toContainText('Lock');
+    await expect(page.locator('#tab-cashier')).not.toContainText('Hydrate');
   });
 
   test('a price of 0 shows as Free; editing a free item pre-checks the Free toggle', async ({ page }) => {

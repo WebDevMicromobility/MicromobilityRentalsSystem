@@ -10807,21 +10807,21 @@ function renderCashier(){
   // right in AR — the arrow flips). Shown at every drill-in level of the item picker. The
   // destination stays as a tooltip so context isn't lost.
   const _ctBack=(target,label)=>`<div style="margin-bottom:8px"><button type="button" onclick="_ctSet('_ctPickCat','${target}')" title="${esc(label)}" aria-label="${t('regBackBtn')}" style="display:inline-flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--border);border-radius:4px;color:var(--green);font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;padding:6px 12px 6px 10px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;${ar?'transform:scaleX(-1)':''}"><path d="M19 12H5M11 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>${t('regBackBtn')}</button></div>`;
+  // Sectioned flat layout (the "All items" style): category headers with the items inline,
+  // same top-seller ordering everywhere - no per-category buttons to drill through.
+  const _flatGrid=inner=>`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;padding:2px">${inner}</div>`;
+  const _ctSections=cats=>cats.map(cat=>{
+    const its=invItems.filter(it=>(it.category||'Other')===cat);
+    if(!its.length)return'';
+    return`<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:6px 0 6px 2px">${esc(_invCatLabel(cat))}</div>${_flatGrid(its.map(_ctItemBtn).join(''))}</div>`;
+  }).join('');
   if(S._ctPickCat==='__all__'){
-    // All items: grouped into category sections (alphabetical), items inside keep the top-seller order
-    const _flatGrid=inner=>`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;padding:2px">${inner}</div>`;
-    const _sections=_ctCats.map(cat=>{
-      const its=invItems.filter(it=>(it.category||'Other')===cat);
-      if(!its.length)return'';
-      return`<div style="margin-bottom:12px"><div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:6px 0 6px 2px">${esc(_invCatLabel(cat))}</div>${_flatGrid(its.map(_ctItemBtn).join(''))}</div>`;
-    }).join('');
-    _ctItemPicker=`${_ctBack('',t('cashAllItems'))}<div style="max-height:248px;overflow-y:auto;margin-top:4px">${_sections}${_flatGrid(_ctCustomBtn)}</div>`;
+    _ctItemPicker=`${_ctBack('',t('cashAllItems'))}<div style="max-height:248px;overflow-y:auto;margin-top:4px">${_ctSections(_ctCats)}${_flatGrid(_ctCustomBtn)}</div>`;
   }else if(S._ctPickCat==='__sec__supp'||S._ctPickCat==='__sec__equip'){
-    // A department (Supplements & Beverages / Equipment): show the category cards it contains.
-    const isSup=S._ctPickCat==='__sec__supp';const seen=new Set(),es=[];
-    _ctCats.forEach(cat=>{if(_isSuppCat(cat)!==isSup)return;const g=_catGroup(cat);if(g){if(seen.has(g))return;seen.add(g);es.push({key:'__grp__'+g,cat:g,label:_invCatLabel(g),n:invItems.filter(it=>_catGroup(it.category||'Other')===g).length});}else es.push({key:cat,cat,label:_invCatLabel(cat),n:invItems.filter(it=>(it.category||'Other')===cat).length});});
-    es.sort((a,b)=>a.label.localeCompare(b.label));
-    _ctItemPicker=`${_ctBack('',isSup?t('invSecSupplements'):t('invSecEquipment'))}${_ctGrid(es.map(e=>_ctCatCard(e.key,e.cat,e.label,e.n)).join(''))}`;
+    // A department (Supplements & Beverages / Equipment): its items laid out exactly like
+    // All items (protein snacks included) - sections, not category cards.
+    const isSup=S._ctPickCat==='__sec__supp';
+    _ctItemPicker=`${_ctBack('',isSup?t('invSecSupplements'):t('invSecEquipment'))}<div style="max-height:248px;overflow-y:auto;margin-top:4px">${_ctSections(_ctCats.filter(c=>_isSuppCat(c)===isSup))}${_flatGrid(_ctCustomBtn)}</div>`;
   }else if(S._ctPickCat.slice(0,7)==='__grp__'){
     // A parent group (e.g. Protein Snacks): show its sub-category cards; drilling one shows its items.
     const g=S._ctPickCat.slice(7);
