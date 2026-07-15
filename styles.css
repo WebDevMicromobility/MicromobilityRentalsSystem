@@ -1860,6 +1860,8 @@
 
     /* Inputs: timing-green focus ring */
     input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px var(--acsoft);outline:none;}
+    /* an invalid field keeps its red ring while focused - a green ring around a red border reads as mixed signals */
+    input.field-invalid:focus,select.field-invalid:focus{box-shadow:0 0 0 3px rgba(var(--red-rgb),.15);}
 
     /* Analytics KPI cards: timing-green top strips */
     .analytics-kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--green);}
@@ -1870,3 +1872,10 @@
     /* Booking stepper: the active step glows like a start light, digits in race numerals */
     .reg-stepper [aria-current]{font-family:'Chakra Petch','Barlow',sans-serif;font-variant-numeric:tabular-nums;}
     .reg-stepper [aria-current="step"]{box-shadow:0 0 10px rgba(var(--green-rgb),.55);}
+
+    /* Sticky queue header must be opaque: the base th rule's background:none was
+       winning the cascade, letting row text and the filter bar scroll straight
+       through the stuck header strip */
+    @media(min-width:1024px){
+      .queue-table th{background:var(--s1);box-shadow:0 1px 0 var(--line2);}
+    }

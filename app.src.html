@@ -42,7 +42,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=106">
+  <link rel="stylesheet" href="./styles.css?v=108">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
@@ -2050,7 +2050,7 @@ function spotsLeftLabel(n){
   return`${n} spot${n===1?'':'s'} left`;
 }
 const TYPE_CLS={Road:'type-road',Hybrid:'type-hybrid',Mountain:'type-mountain',Gravel:'type-gravel',Any:'type-any','Road Carbon':'type-roadcarbon'};
-function typeLabel(ty){const m={Road:t('typeRoad'),Hybrid:t('typeHybrid'),Mountain:t('typeMountain'),Gravel:t('typeGravel'),Any:t('typeAny'),'Road Carbon':t('typeRoadCarbon')};return m[ty]||ty;}
+function typeLabel(ty){const m={Road:t('typeRoad'),Hybrid:t('typeHybrid'),Mountain:t('typeMountain'),Gravel:t('typeGravel'),Any:t('typeAny'),'Road Carbon':t('typeRoadCarbon')};return m[ty]||ty||t('typeAny');} // null/legacy rows read as 'Any', never the literal 'undefined'
 // The type choices a customer can book (also used by the staff walk-in / edit-booking forms).
 const CUST_TYPES=['Any','Road','Hybrid','Mountain','Road Carbon'];
 
@@ -3313,7 +3313,6 @@ function renderRegister(){
     const qrHtml=ticketQR(bookingRef(tkt),124);
     const _sess=allSessions().find(s=>s.id===tkt.sessionId);
     const sessTime=sessionTime(_sess);
-    const _loc=(_sess&&_sess.location)||'';
     const label=total>1?`${t('bike')} ${idx+1} / ${total}`:'';
     const frame=tkt.height?heightToSize(Number(tkt.height)):typeLabel(tkt.typePreference||'Any');
     const gcal=_gcalUrl(idx);
@@ -3337,10 +3336,6 @@ function renderRegister(){
             ${t('ticketAddCal')}
           </a>`
           :`<button type="button" onclick="_ticketCal(${idx})" class="btn-secondary" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px" aria-label="${t('ticketAddCal')}">${t('ticketAddCal')}</button>`}
-        ${_loc?`<a href="${esc(_mapUrl(_loc))}" target="_blank" rel="noopener" class="btn-secondary" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;text-decoration:none" aria-label="${t('ticketDirections')}">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          ${t('ticketDirections')}
-        </a>`:''}
       </div>
     </div>`;
   }
@@ -4022,7 +4017,6 @@ function renderBookingTicket(entries,opts){
     </div>
     <div style="padding:0 18px 16px;display:flex;gap:8px">
       <button class="btn-secondary" style="flex:1;font-size:12px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="downloadBookingICS('${primary.sessionId}')" aria-label="${t('addToCalendarBtn')}"> ${t('addToCalendarBtn')}</button>
-      ${(sess&&sess.location)?`<a href="${esc(_mapUrl(sess.location))}" target="_blank" rel="noopener" class="btn-secondary" style="flex:1;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none" aria-label="${t('ticketDirections')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${t('ticketDirections')}</a>`:''}
     </div>
     ${actionsHtml}
   </div>`;
@@ -4212,7 +4206,7 @@ function renderRateModal(){
   const scale=n=>{const cur=n==='bike'?S._rateBike:S._rateExp;return Array.from({length:10},(_,i)=>i+1).map(v=>`<button onclick="setRate('${n}',${v})" aria-label="${v}" style="width:28px;height:28px;border-radius:50%;border:1px solid ${cur>=v?'var(--green)':'var(--border)'};background:${cur>=v?'rgba(var(--green-rgb),.18)':'transparent'};color:${cur>=v?'var(--green)':'var(--muted)'};font-weight:800;font-size:11px;cursor:pointer">${v}</button>`).join('');};
   const _re=getQueue().find(x=>x.id===S._rateId);
   const _rs=_re?allSessions().find(s=>s.id===_re.sessionId):null;
-  const _rmeta=_re?`${_rs&&_rs.day?dayLabel(_rs.day)+' · ':''}${shortDate(_re.sessionDate||_re.sessionId)}${_rs&&_rs.location?' · '+esc(_rs.location):''}`:'';
+  const _rmeta=_re?`${_rs&&_rs.day?dayLabel(_rs.day)+' · ':''}${shortDate(_re.sessionDate||_re.sessionId)}`:'';
   document.getElementById('rate-modal').innerHTML=`<div class="modal-backdrop" onclick="${S._rateForced?'':'if(event.target===this)closeRateModal()'}">
     <div class="modal-box" role="dialog" aria-modal="true" style="max-width:440px">
       <div class="modal-title">${t('rateTitle')}</div>
@@ -4924,7 +4918,6 @@ function cloneSession(id){
   const s=allSessions().find(x=>x.id===id);if(!s)return;
   const slots=parseSlots(s.bike_slots)||{};
   S.showAddSession=true;S.editSessionId=null;S.newSessDate='';S.newSessRepeat='1';
-  S.newSessLocation=s.location||(S.bkLocations&&S.bkLocations[0])||'';
   const m=String((slots._time)||'09:00 - 11:00').match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/);
   if(m){S.newSessStartTime=m[1];S.newSessEndTime=m[2];}
   if(slots._bikes&&slots._bikes.length){
@@ -5014,12 +5007,6 @@ function renderSessions(){
           <select id="ns-repeat" style="max-width:240px" onchange="S.newSessRepeat=this.value">
             <option value="1"${(S.newSessRepeat||'1')==='1'?' selected':''}>${t('repeatOnceOpt')}</option>
             ${[2,3,4,6,8,12].map(n=>`<option value="${n}"${String(S.newSessRepeat)===String(n)?' selected':''}>${t('repeatWeeksOpt').replace('{0}',n)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="form-group">
-          <label>${t('sessionBranchLabel')}</label>
-          <select id="ns-location" style="max-width:240px" onchange="S.newSessLocation=this.value">
-            ${(S.bkLocations||['Sharafeyah Branch','JCC']).map(l=>`<option value="${esc(l)}"${(S.newSessLocation||S.bkLocations[0])===l?' selected':''}>${esc(l)}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
@@ -5252,7 +5239,7 @@ function renderSessions(){
       actionBtns=`<button class="btn-sm btn-green" onclick="toggleSession('${s.id}','open')">${t('openBtn')}</button>`;
     }
     return`<tr>
-      <td data-label="${t('colDate')}" style="font-weight:800">${shortDate(s.session_date||s.id)}${s.location?`<div style="font-size:10px;color:var(--green);font-weight:700;margin-top:2px"> ${esc(s.location)}</div>`:''}</td>
+      <td data-label="${t('colDate')}" style="font-weight:800">${shortDate(s.session_date||s.id)}</td>
       <td data-label="${t('colDay')}" style="color:var(--muted)">${dayLabel(s.day)||''}</td>
       <td data-label="${t('colCapacity')}">
         <div style="font-weight:800">${cap}</div>
@@ -5285,7 +5272,7 @@ function renderSessions(){
   const _listCard=(s)=>{const d=_sessD(s);const pct=d.cap?Math.round(d.booked/d.cap*100):0;const sel=S.selSessionDetail===s.id;
     return`<button class="sess-lc${sel?' selected':''}" onclick="selectSessionDetail('${s.id}')" aria-label="${esc(shortDate(s.session_date||s.id))}">
       <div class="sess-lc-top"><span class="sess-lc-date">${shortDate(s.session_date||s.id)}</span>${d.badge}</div>
-      <div class="sess-lc-meta">${dayLabel(s.day)||''} · ${sessionTime(s)}${s.location?` · ${esc(s.location)}`:''}</div>
+      <div class="sess-lc-meta">${dayLabel(s.day)||''} · ${sessionTime(s)}</div>
       <div class="sess-lc-bar"><div style="width:${pct}%;background:${d.left===0?'var(--orange)':'var(--green)'}"></div></div>
       <div class="sess-lc-count">${d.booked}/${d.cap} · ${d.left} ${t('spotsLeft')}</div>
     </button>`;};
@@ -5297,7 +5284,7 @@ function renderSessions(){
       return`<div class="sess-rider"><span class="sess-rider-q">#${e.queueNum}</span><div class="sess-rider-info"><div class="sess-rider-name">${esc(e.name)}</div>${bk?`<div class="sess-rider-bike">${bk}</div>`:''}</div>${statusBadge(e.status)}</div>`;
     }).join(''):`<div class="empty-state" style="padding:18px;font-size:13px">${t('sessNoRiders')}</div>`;
     return`<button class="sess-back-btn" onclick="selectSessionDetail(null)">‹ ${t('sessBackList')}</button>
-      <div class="sess-detail-head"><div style="min-width:0"><div class="sess-detail-date">${shortDate(_selSess.session_date||_selSess.id)}</div><div class="sess-detail-day">${dayLabel(_selSess.day)||''} · ${sessionTime(_selSess)}${_selSess.location?` · ${esc(_selSess.location)}`:''}</div></div>${d.badge}</div>
+      <div class="sess-detail-head"><div style="min-width:0"><div class="sess-detail-date">${shortDate(_selSess.session_date||_selSess.id)}</div><div class="sess-detail-day">${dayLabel(_selSess.day)||''} · ${sessionTime(_selSess)}</div></div>${d.badge}</div>
       <div class="sess-detail-stats"><div><div class="sess-ds-num">${d.booked}/${d.cap}</div><div class="sess-ds-lbl">${t('colBookings')}</div></div><div><div class="sess-ds-num">${d.left}</div><div class="sess-ds-lbl">${t('spotsLeft')}</div></div>${d.fleetInfo?`<div class="sess-ds-fleet"><div class="sess-ds-fleetval">${d.fleetInfo}</div><div class="sess-ds-lbl">${t('bikeFleetComp')}</div></div>`:''}</div>
       <div class="sess-detail-actions"><button class="btn-sm btn-green" onclick="startEditSession('${_selSess.id}')">${t('editBtn2')}</button><button class="btn-sm btn-muted" onclick="cloneSession('${_selSess.id}')">${t('cloneSessBtn')}</button>${d.actions}${isAdmin()?`<button class="btn-sm btn-red" onclick="deleteSession('${_selSess.id}')" ${d.booked>0?`disabled title="${t('hasBookingsTitle')}"`:''}>${t('deleteBtn')}</button>`:''}</div>
       <div class="sess-detail-rtitle">${t('sessRidersTitle')} <span style="color:var(--muted)">(${riders.length})</span></div>
@@ -5545,10 +5532,7 @@ async function addSession(){
   // Build one session per week (same weekday/time/config), skipping dates that already exist
   const base=new Date(date+'T00:00:00');
   const _iso=dt=>`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-  const sessLocation=(document.getElementById('ns-location')?.value||S.newSessLocation||(S.bkLocations&&S.bkLocations[0])||'').trim();
-  // id = date + branch slug: the plain-date id made the SECOND branch's session on the same
-  // date collide (23505) and silently report "date exists". Same date+branch still skips.
-  const _locSlug=sessLocation?'-'+sessLocation.toLowerCase().replace(/[^a-z0-9]+/g,'').slice(0,10):'';
+  const _locSlug=''; // locations removed - session ids are plain dates
   const rows=[];
   for(let i=0;i<weeks;i++){
     const dt=new Date(base);dt.setDate(base.getDate()+i*7);const ds=_iso(dt);
@@ -5565,7 +5549,6 @@ async function addSession(){
     if(created===0&&otherErr)throw otherErr;
     // Set branch + offered add-ons separately so missing columns can never block session creation
     const _sessUpd={};
-    if(sessLocation)_sessUpd.location=sessLocation;
     if((S.newSessAddons||[]).length)_sessUpd.addons=JSON.stringify(S.newSessAddons);
     if(Object.keys(_sessUpd).length&&createdIds.length){try{await Promise.all(createdIds.map(id=>sb.from('sessions').update(_sessUpd).eq('id',id)));}catch(e){}}
     await loadData();
@@ -6367,7 +6350,7 @@ function renderStaffQueue(){
         ${thQSort('name',t('colRider'))}
         <th style="font-size:10px;color:var(--muted)">${t('colHeight')}</th>
         ${thQSort('type',t('bikeTypeLabel'))}
-        <th class="hide-mobile" style="display:none"></th>
+        ${S.sfSession==='all'?`<th class="hide-mobile">${t('colSession')}</th>`:'<th class="hide-mobile" style="display:none"></th>'}
         <th>${t('colBike')}</th>
         <th>${t('colColor')}</th>
         <th>${t('colPrice')||'Price'}</th>
@@ -7842,7 +7825,7 @@ function _onScanPayload(raw){
 }
 
 function openModal(riderId){
-  S.modalRider=riderId;S.modalBikes=[];S.modalShowAll=false;S.modalShowAddBike=false;S.modalAddBikeName='';S.modalAddBikeType=null;S.modalAddBikeSize='M';S.modalAddBikeFrame='';S.modalAddBikeLocation=S.bkLocations[0]||'JCC';S.modalAddBikeNumber='';S.modalSearch='';S.modalSort='default';S.modalSortDir=1;S.modalFilterSize='all';S.modalFilterBrand='all';S.modalFilterModel='all';S.modalPriceEdit=false;
+  S.modalRider=riderId;S.modalBikes=[];S.modalShowAll=false;S.modalShowAddBike=false;S.modalAddBikeName='';S.modalAddBikeType=null;S.modalAddBikeSize='M';S.modalAddBikeFrame='';S.modalAddBikeNumber='';S.modalSearch='';S.modalSort='default';S.modalSortDir=1;S.modalFilterSize='all';S.modalFilterBrand='all';S.modalFilterModel='all';S.modalPriceEdit=false;
   
   const entry=getQueue().find(e=>e.id===riderId);
   if(entry&&entry.status==='active')S.modalBikes=getAssignedBikeIds(entry);
@@ -8037,7 +8020,6 @@ function renderModal(){
   const heightBadge=rider.height?`<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(110,232,154,.12);border:1px solid rgba(110,232,154,.3);border-radius:2px;padding:3px 8px;font-size:11px;font-weight:700;color:var(--green)"><bdi>${rider.height} ${t('cmUnit')}</bdi></span>`:'';
 
   
-  if(S.modalShowAddBike&&!S.modalAddBikeLocation)S.modalAddBikeLocation=S.bkLocations[0]||'JCC';
   if(S.modalShowAddBike&&!S.modalAddBikeNumber)S.modalAddBikeNumber=String(_nextBikeNumber());
   const addBikeTypeBtns=['Road','Hybrid','Mountain','Gravel'].map(ty=>
     `<button type="button" class="toggle-btn${S.modalAddBikeType===ty?' active':''}" style="font-size:11px;padding:5px 10px"
@@ -8045,7 +8027,6 @@ function renderModal(){
   const addBikeSizeBtns=['XS','S','M','L'].map(sz=>
     `<button type="button" class="toggle-btn${S.modalAddBikeSize===sz?' active':''}" style="font-size:11px;padding:5px 10px"
       onclick="S.modalAddBikeSize='${sz}';renderModal()">${sz}</button>`).join('');
-  const modalLocOpts=(S.bkLocations||[]).map(l=>`<option value="${esc(l)}"${l===S.modalAddBikeLocation?' selected':''}>${esc(l)}</option>`).join('');
   const modalFrameOpts=FRAME_TYPES.map(f=>`<option value="${f}"${S.modalAddBikeFrame===f?' selected':''}>${t('frame'+f)}</option>`).join('');
   const modalAutoName=genBikeName(S.modalAddBikeType,S.modalAddBikeFrame,S.modalAddBikeNumber||0,S.modalAddBikeSize);
   const quickAddForm=S.modalShowAddBike?`
@@ -8056,10 +8037,6 @@ function renderModal(){
         <div class="toggle-group" style="margin-top:4px">${addBikeTypeBtns}</div>
       </div>
       <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap">
-        <div class="form-group" style="flex:1;min-width:130px">
-          <label style="font-size:11px">${t('bikeLocationLabel')}</label>
-          <select onchange="S.modalAddBikeLocation=this.value;renderModal()">${modalLocOpts}</select>
-        </div>
         <div class="form-group" style="flex:1;min-width:130px">
           <label style="font-size:11px">${t('bikeFrameTypeLabel')}</label>
           <select onchange="S.modalAddBikeFrame=this.value;renderModal()"><option value=""${!S.modalAddBikeFrame?' selected':''}>—</option>${modalFrameOpts}</select>
@@ -8141,14 +8118,12 @@ async function saveModalPrice(id){
 async function modalQuickAddBike(){
   if(!S.modalAddBikeType){toast(t('errBikeTypeReq'),'error');return;}
   if(!S.modalAddBikeFrame){toast(t('errBikeFrameReq'),'error');return;}
-  const location=(S.modalAddBikeLocation||'').trim();
-  if(!location){toast(t('errBikeLocationReq'),'error');return;}
   const bikeNum=parseInt(S.modalAddBikeNumber||'');
   if(!bikeNum||bikeNum<1){toast(t('errBikeNumberReq'),'error');return;}
   if(getBikes().some(b=>Number(b.bike_number)===bikeNum)){toast(t('errBikeNumberDup'),'error');return;}
   const size=S.modalAddBikeSize||'M';
   const name=genBikeName(S.modalAddBikeType,S.modalAddBikeFrame,bikeNum,size);
-  const bike={id:uid(),name,size,type:S.modalAddBikeType,colors:['#6ee89a'],color_names:[''],status:'available',brand:null,model:null,groupset:null,speeds:null,location,frame_type:S.modalAddBikeFrame,bike_number:bikeNum};
+  const bike={id:uid(),name,size,type:S.modalAddBikeType,colors:['#6ee89a'],color_names:[''],status:'available',brand:null,model:null,groupset:null,speeds:null,location:null,frame_type:S.modalAddBikeFrame,bike_number:bikeNum};
   const{error:bikeErr}=await sb.from('bikes').insert(bike);
   if(bikeErr){toast(bikeErr.message,'error');return;}
   await loadData();
@@ -8343,17 +8318,6 @@ function renderBikes(){
         style="width:72px;padding:3px 6px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:2px;color:var(--text);font-family:'Barlow',sans-serif;font-size:11px;font-weight:600;text-align:center">
       ${S.addBikeColors.length>1?`<button class="color-del" onclick="removeColor(${i})" type="button" aria-label="Remove color">&#x2715;</button>`:''}</div>`).join('');
   const addColorBtn=S.addBikeColors.length<4?`<button class="add-color-slot" onclick="addColorSlot()" type="button">+<br>${t('colorWord')}</button>`:'';
-  const locationField=S._bkLocationAdd
-    ?`<div style="display:flex;gap:6px">
-        <input id="bk-location" type="text" value="${esc(S._bkLocation==='__pending__'?'':S._bkLocation)}" placeholder="${t('addLocationLabel')}" style="flex:1"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();_bkLocationSave();}">
-        <button class="btn-primary" style="padding:8px 14px;flex-shrink:0;white-space:nowrap" onclick="_bkLocationSave()">✓ ${t('saveBtn')||'Save'}</button>
-        <button class="btn-secondary" style="padding:8px 10px;flex-shrink:0" onclick="_bkLocationCancel()" aria-label="${t('cancelBtn')}">✕</button>
-      </div>`
-    :`<select id="bk-location" onchange="_bkLocationChange(this.value)">
-        ${S.bkLocations.map(l=>`<option value="${esc(l)}"${l===S._bkLocation?' selected':''}>${esc(l)}</option>`).join('')}
-        <option value="__add__">+ ${t('addLocationLabel')}</option>
-      </select>`;
   const frameField=`<select id="bk-frame" onchange="S._bkFrame=this.value;_updateBkNamePreview()">
       <option value=""${!S._bkFrame?' selected':''}>—</option>
       ${FRAME_TYPES.map(f=>`<option value="${f}"${S._bkFrame===f?' selected':''}>${t('frame'+f)}</option>`).join('')}
@@ -8374,7 +8338,6 @@ function renderBikes(){
   const addForm=(S.showAddBike||isEdit)?`<div class="inline-form" id="bk-add-form">
     <div class="form-title">${isEdit?t('editBikeTitle'):t('addBikeTitle')}</div>
     <div class="form-row">
-      <div class="form-group"><label>${t('bikeLocationLabel')}</label>${locationField}</div>
       <div class="form-group"><label>${t('walkinSize')}</label><select id="bk-size" onchange="S.addBikeSize=this.value;_updateBkNamePreview()">${sizeOpts}</select></div>
     </div>
     <div class="form-row">
@@ -8561,7 +8524,7 @@ function renderBikes(){
           <div style="font-size:12px;color:var(--muted)">${t('noBikes')}</div>
         </div>
         <button class="btn-secondary" style="font-size:12px;padding:6px 12px"
-          onclick="S.showAddBike=true;S.addBikeType='${ty}';S.editBikeId=null;S.addBikeSize='M';S.addBikeColors=['#03ff89'];S.addBikeColorNames=[''];S._bkName='';S._bkFrame='';S._bkLocationAdd=false;S._bkLocation=S.bkLocations[0]||'JCC';S._bkNumber=String(_nextBikeNumber());renderBikes();_scrollToBikeForm()">
+          onclick="S.showAddBike=true;S.addBikeType='${ty}';S.editBikeId=null;S.addBikeSize='M';S.addBikeColors=['#03ff89'];S.addBikeColorNames=[''];S._bkName='';S._bkFrame='';S._bkNumber=String(_nextBikeNumber());renderBikes();_scrollToBikeForm()">
           + ${typeLabel(ty)}
         </button>
       </div>`;
@@ -8628,7 +8591,7 @@ function renderBikes(){
           </div>
         </div>
         <button class="btn-secondary" style="font-size:12px;padding:6px 12px"
-          onclick="S.showAddBike=true;S.addBikeType='${ty}';S.editBikeId=null;S.addBikeSize='M';S.addBikeColors=['#03ff89'];S.addBikeColorNames=[''];S._bkName='';S._bkFrame='';S._bkLocationAdd=false;S._bkLocation=S.bkLocations[0]||'JCC';S._bkNumber=String(_nextBikeNumber());renderBikes();_scrollToBikeForm()">
+          onclick="S.showAddBike=true;S.addBikeType='${ty}';S.editBikeId=null;S.addBikeSize='M';S.addBikeColors=['#03ff89'];S.addBikeColorNames=[''];S._bkName='';S._bkFrame='';S._bkNumber=String(_nextBikeNumber());renderBikes();_scrollToBikeForm()">
           + ${typeLabel(ty)}
         </button>
       </div>
@@ -8703,8 +8666,6 @@ function renderBikes(){
       <button class="btn-sm btn-muted" onclick="bkBulkMaintenance()">${t('bkBulkMaint')}</button>
       <button class="btn-sm btn-muted" onclick="bkBulkRetire()">${t('bkBulkRetire')}</button>
       <span class="bk-bulk-group">
-        <select id="bk-bulk-loc" class="filter-select" style="height:32px;min-width:120px">${S.bkLocations.map(l=>`<option value="${esc(l)}">${esc(l)}</option>`).join('')}</select>
-        <button class="btn-sm btn-green" onclick="bkBulkLocation()">${t('bkBulkMove')}</button>
       </span>
       ${isAdmin()?`<span class="bk-bulk-group">
         <input id="bk-bulk-price" type="number" min="0" step="0.5" placeholder="${t('bkBulkPricePh')}" class="filter-select" style="height:32px;width:84px">
@@ -8760,19 +8721,8 @@ function renderBikes(){
     ${retiredSection}`;
 }
 
-function _resetBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S.addBikeColorNames=[''];S._bkName='';S._bkNameCustom=false;S._bkBrand='';S._bkModel='';S._bkGroupset='';S._bkSpeeds='';S._bkRentalPrice='';S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;S._bkLocation=S.bkLocations[0]||'Sharafeyah Branch';S._bkLocationAdd=false;S._bkFrame='';S._bkNumber='';S._bkStartDate=_todayISO();S._bkPhoto='';}
+function _resetBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S.addBikeColorNames=[''];S._bkName='';S._bkNameCustom=false;S._bkBrand='';S._bkModel='';S._bkGroupset='';S._bkSpeeds='';S._bkRentalPrice='';S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;S._bkFrame='';S._bkNumber='';S._bkStartDate=_todayISO();S._bkPhoto='';}
 
-function _bkLocationChange(val){
-  if(val==='__add__'){S._bkLocationAdd=true;S._bkLocation='__pending__';renderBikes();setTimeout(()=>document.getElementById('bk-location')?.focus(),50);return;}
-  S._bkLocation=val;renderBikes();
-}
-function _bkLocationSave(){
-  const v=(document.getElementById('bk-location')?.value||'').trim();
-  if(!v){_bkLocationCancel();return;}
-  if(!S.bkLocations.includes(v)){S.bkLocations=[...S.bkLocations,v];try{localStorage.setItem('cq_bk_locations',JSON.stringify(S.bkLocations));}catch(e){}}
-  S._bkLocation=v;S._bkLocationAdd=false;renderBikes();
-}
-function _bkLocationCancel(){S._bkLocationAdd=false;S._bkLocation=S.bkLocations[0]||'Sharafeyah Branch';renderBikes();}
 function _updateBkNamePreview(){
   const el=document.getElementById('bk-name');if(!el)return;
   const num=document.getElementById('bk-number')?.value||S._bkNumber;
@@ -8871,8 +8821,6 @@ async function addBike(){
   const speeds=speedsRaw?parseInt(speedsRaw)||null:null;
   if(!S.addBikeType){toast(t('errBikeTypeReq'),'error');return;}
   if(!S._bkFrame){toast(t('errBikeFrameReq'),'error');return;}
-  const location=(document.getElementById('bk-location')?.value||S._bkLocation||'').trim();
-  if(!location||location==='__add__'){toast(t('errBikeLocationReq'),'error');return;}
   const bikeNum=parseInt(document.getElementById('bk-number')?.value||S._bkNumber||'');
   if(!bikeNum||bikeNum<1){toast(t('errBikeNumberReq'),'error');return;}
   if(getBikes().some(b=>Number(b.bike_number)===bikeNum)){toast(t('errBikeNumberDup'),'error');return;}
@@ -8882,7 +8830,7 @@ async function addBike(){
   const colorNames=S.addBikeColorNames.slice(0,S.addBikeColors.length).map(n=>n||'');
   const rentalPrice=S._bkRentalPrice?parseFloat(S._bkRentalPrice)||null:null;
   const startDate=(document.getElementById('bk-start')?.value||S._bkStartDate||_todayISO());
-  const bike={id:uid(),name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:colorNames,status:'available',brand,model,groupset,speeds,rental_price:rentalPrice,location,frame_type:S._bkFrame,bike_number:bikeNum,in_service_date:startDate,retired_date:null};
+  const bike={id:uid(),name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:colorNames,status:'available',brand,model,groupset,speeds,rental_price:rentalPrice,frame_type:S._bkFrame,bike_number:bikeNum,in_service_date:startDate,retired_date:null};
   let{error:insErr}=await sb.from('bikes').insert(bike);
   // Race/unique-violation guard: another bike grabbed this number — retry once with a fresh number
   if(insErr){
@@ -8911,7 +8859,6 @@ function startEdit(id){
   S._bkName=bike.name;S._bkNameCustom=bike.name!==genBikeName(bike.type,bike.frame_type,bike.bike_number,bike.size);S._bkBrand=bike.brand||'';S._bkModel=bike.model||'';
   S._bkGroupset=bike.groupset||'';S._bkSpeeds=bike.speeds!=null?String(bike.speeds):'';S._bkRentalPrice=bike.rental_price!=null?String(bike.rental_price):'';
   S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;
-  S._bkLocation=bike.location&&S.bkLocations.includes(bike.location)?bike.location:(S.bkLocations[0]||'JCC');
   S._bkLocationAdd=false;S._bkFrame=bike.frame_type||'';S._bkNumber=bike.bike_number!=null?String(bike.bike_number):'';
   S._bkStartDate=bike.in_service_date||'';S._bkPhoto=bike.photo||'';
   _autoSaveBkOpts(bike.brand,bike.model,bike.groupset);
@@ -8929,8 +8876,6 @@ async function saveBikeEdit(){
   const speeds=speedsRaw?parseInt(speedsRaw)||null:null;
   if(!S.addBikeType){toast(t('errBikeTypeReq'),'error');return;}
   if(!S._bkFrame){toast(t('errBikeFrameReq'),'error');return;}
-  const location=(document.getElementById('bk-location')?.value||S._bkLocation||'').trim();
-  if(!location||location==='__add__'){toast(t('errBikeLocationReq'),'error');return;}
   const bikeNum=parseInt(document.getElementById('bk-number')?.value||S._bkNumber||'');
   if(!bikeNum||bikeNum<1){toast(t('errBikeNumberReq'),'error');return;}
   if(getBikes().some(b=>b.id!==S.editBikeId&&Number(b.bike_number)===bikeNum)){toast(t('errBikeNumberDup'),'error');return;}
@@ -8940,9 +8885,9 @@ async function saveBikeEdit(){
   const editColorNames=S.addBikeColorNames.slice(0,S.addBikeColors.length).map(n=>n||'');
   const rentalPrice=S._bkRentalPrice?parseFloat(S._bkRentalPrice)||null:null;
   const startDate=(document.getElementById('bk-start')?.value||S._bkStartDate||existing.in_service_date||_todayISO());
-  const prev={name:existing.name,size:existing.size,type:existing.type,colors:[...existing.colors],color_names:[...(existing.color_names||[])],status:existing.status,brand:existing.brand||null,model:existing.model||null,groupset:existing.groupset||null,speeds:existing.speeds||null,rental_price:existing.rental_price??null,location:existing.location||null,frame_type:existing.frame_type||null,bike_number:existing.bike_number??null,in_service_date:existing.in_service_date||null};
+  const prev={name:existing.name,size:existing.size,type:existing.type,colors:[...existing.colors],color_names:[...(existing.color_names||[])],status:existing.status,brand:existing.brand||null,model:existing.model||null,groupset:existing.groupset||null,speeds:existing.speeds||null,rental_price:existing.rental_price??null,frame_type:existing.frame_type||null,bike_number:existing.bike_number??null,in_service_date:existing.in_service_date||null};
   const bid=S.editBikeId;
-  const{error}=await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:editColorNames,status:existing.status,brand,model,groupset,speeds,rental_price:rentalPrice,location,frame_type:S._bkFrame,bike_number:bikeNum,in_service_date:startDate}).eq('id',bid);
+  const{error}=await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:editColorNames,status:existing.status,brand,model,groupset,speeds,rental_price:rentalPrice,frame_type:S._bkFrame,bike_number:bikeNum,in_service_date:startDate}).eq('id',bid);
   if(error){toast(error.message||'Save failed','error');return;}
   try{await sb.from('bikes').update({photo:S._bkPhoto||null}).eq('id',bid);}catch(e){}
   await loadData();
@@ -9041,17 +8986,6 @@ async function bkBulkMaintenance(){
     renderBikes();
   }});
 }
-async function bkBulkLocation(){
-  const loc=(document.getElementById('bk-bulk-loc')?.value||'').trim();
-  if(!loc){toast(t('bkBulkPickLoc'),'error');return;}
-  const picked=_bkSelectedBikes();if(!picked.length)return;
-  const prev=picked.map(b=>({id:b.id,location:b.location||null}));
-  await Promise.all(picked.map(b=>sb.from('bikes').update({location:loc}).eq('id',b.id)));
-  await loadData();S.bkSelected=[];
-  toast(t('bkBulkUpdated').replace('{0}',picked.length));
-  pushUndo(`${t('bkBulkMove')} (${picked.length})`,async()=>{await Promise.all(prev.map(p=>sb.from('bikes').update({location:p.location}).eq('id',p.id)));await loadData();renderBikes();});
-  renderBikes();
-}
 async function bkBulkPrice(){
   if(!isAdmin()){toast(t('adminOnlyMsg'),'error');return;}
   const raw=(document.getElementById('bk-bulk-price')?.value||'').trim();
@@ -9067,7 +9001,7 @@ async function bkBulkPrice(){
 }
 function bkBulkExport(){
   const picked=_bkSelectedBikes();if(!picked.length)return;
-  const cols=['bike_number','name','type','size','brand','model','groupset','speeds','rental_price','location','status','in_service_date','retired_date'];
+  const cols=['bike_number','name','type','size','brand','model','groupset','speeds','rental_price','status','in_service_date','retired_date'];
   const csvCell=_csvCell;
   const rows=[cols.join(',')].concat(picked.map(b=>cols.map(c=>csvCell(b[c])).join(',')));
   const blob=new Blob(['﻿'+rows.join('\n')],{type:'text/csv;charset=utf-8'});
@@ -9107,7 +9041,7 @@ function openBikeProfile(id){
         <div style="display:flex;align-items:center;gap:12px;min-width:0">
           ${bike.photo?`<img loading="lazy" decoding="async" src="${esc(bike.photo)}" alt="" style="width:48px;height:48px;border-radius:4px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}
           <div style="min-width:0"><div class="modal-title" style="margin-bottom:0">${esc(bike.name)}</div>
-            <div style="font-size:12px;color:var(--muted)">${typeLabel(bike.type)} · ${esc(bike.size||'')}${bike.location?' · '+esc(bike.location):''}</div></div>
+            <div style="font-size:12px;color:var(--muted)">${typeLabel(bike.type)} · ${esc(bike.size||'')}</div></div>
         </div>
         <button onclick="closeBikeProfile()" aria-label="Close" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 2px">&times;</button>
       </div>
@@ -9122,7 +9056,7 @@ function openBikeProfile(id){
       <div>
         ${spec(t('bikeBrand'),bike.brand)}${spec(t('bikeModel'),bike.model)}${spec(t('bikeGroupset'),bike.groupset)}
         ${spec(t('bikeSpeeds'),bike.speeds)}${spec(t('bikeRentalPrice'),bike.rental_price!=null?'SAR '+bike.rental_price:'')}
-        ${spec(t('bikeLocationLabel'),bike.location)}${spec(t('lifespanLabel'),_bikeLifespan(bike)!=='—'?_bikeLifespan(bike):(bike.in_service_date?t('bpInServiceLabel')+' '+shortDate(bike.in_service_date):''))}
+        ${spec(t('lifespanLabel'),_bikeLifespan(bike)!=='—'?_bikeLifespan(bike):(bike.in_service_date?t('bpInServiceLabel')+' '+shortDate(bike.in_service_date):''))}
         <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0"><span style="color:var(--muted);font-size:12px">${t('bpColorsLabel')}</span><span style="display:flex;gap:4px">${colors.map(c=>`<span style="width:14px;height:14px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3)"></span>`).join('')}</span></div>
       </div>
       <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 4px">${t('bpHistoryTitle')}</div>
@@ -11130,9 +11064,7 @@ function renderCommunity(){
     ?[['count',t('lbRidersBooked')],['duration',t('lbMinutes')],['spent',t('lbSpent')]]
     :[['duration',t('lbMinutes')],['count',t('commRides')],['spent',t('lbSpent')]];
   // Branch filter: only when completed+paid rides span more than one branch
-  const lbBranches=[...new Set(getQueue().filter(e=>e.status==='done'&&e.paid).map(e=>{const s=(S.sessions||[]).find(x=>x.id===e.sessionId);return s&&s.location;}).filter(Boolean))];
-  if(lbBranches.length>1&&S.lbBranch!=='all'&&!lbBranches.includes(S.lbBranch))S.lbBranch='all';
-  const branchRow=lbBranches.length>1?`<div class="filter-row" style="margin-bottom:6px">${pill('lbBranch','all',t('allBranchesLabel'))}${lbBranches.map(b=>`<button class="filter-pill${S.lbBranch===b?' active':''}" onclick="setLb('lbBranch','${esc(b).replace(/'/g,"\\'")}')">${esc(b)}</button>`).join('')}</div>`:'';
+  const branchRow=''; // locations removed
   // Summary KPIs reflecting the current window/branch filter
   const kRiders=list.length;
   const kRides=list.reduce((s,m)=>s+(m.count||0),0);
