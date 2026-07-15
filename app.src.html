@@ -45,7 +45,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=118">
+  <link rel="stylesheet" href="./styles.css?v=119">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
@@ -415,7 +415,7 @@ en:{
   saveAccountBtn:'Save Changes',accountSaved:'Profile updated successfully.',
   statTotalRides:'Total Rides',statTotalSpent:'Total Spent',statMemberSince:'Member Since',statFavType:'Favourite Type',
   statStreak:'Week Streak',statNextRide:'Next Ride',mrBookNext:'Book your next ride',mrToday:'Today!',mrTomorrow:'Tomorrow',mrInDays:'in {0} days',
-  mrBadgesTitle:'Badges',mrShareBtn:'Share my season',mrShareText:'My season at the Jeddah Corniche Circuit 🚴',memberCardTitle:'Member card',
+  mrBadgesTitle:'Badges',bdHowTo:'How to earn',bdEarned:'Earned',closeWord:'Close',mrShareBtn:'Share my season',mrShareText:'My season at the Jeddah Corniche Circuit 🚴',memberCardTitle:'Member card',
   bdFirstLap:'First Lap',bdFirstLapD:'Completed your first circuit ride',
   bdRegular:'Grid Regular',bdRegularD:'5 rides on the grid',
   bdPodium:'Podium Pace',bdPodiumD:'10 rides strong',
@@ -812,7 +812,7 @@ ar:{
   saveAccountBtn:'حفظ التغييرات',accountSaved:'تم تحديث الملف الشخصي.',
   statTotalRides:'مجموع الرحلات',statTotalSpent:'إجمالي الإنفاق',statMemberSince:'عضو منذ',statFavType:'النوع المفضل',
   statStreak:'أسابيع متتالية',statNextRide:'الرحلة القادمة',mrBookNext:'احجز رحلتك القادمة',mrToday:'اليوم!',mrTomorrow:'غداً',mrInDays:'بعد {0} أيام',
-  mrBadgesTitle:'الأوسمة',mrShareBtn:'شارك موسمي',mrShareText:'موسمي في حلبة كورنيش جدة 🚴',memberCardTitle:'بطاقة العضوية',
+  mrBadgesTitle:'الأوسمة',bdHowTo:'كيف تحصل عليه',bdEarned:'حصلت عليه',closeWord:'إغلاق',mrShareBtn:'شارك موسمي',mrShareText:'موسمي في حلبة كورنيش جدة 🚴',memberCardTitle:'بطاقة العضوية',
   bdFirstLap:'اللفة الأولى',bdFirstLapD:'أكملت أول رحلة لك في الحلبة',
   bdRegular:'منتظم الحلبة',bdRegularD:'٥ رحلات في الحلبة',
   bdPodium:'إيقاع المنصة',bdPodiumD:'١٠ رحلات',
@@ -4357,11 +4357,30 @@ function _mrBadges(all,completed){
 function _mrBadgesRow(all,completed){
   const B=_mrBadges(all,completed);
   return`<div class="analytics-section-title" style="margin-top:22px">${t('mrBadgesTitle')}</div>
-  <div class="mr-badges">${B.map(b=>`<div class="mr-badge${b.on?'':' locked'}" title="${esc(t(b.d))}" aria-label="${esc(t(b.k))}: ${esc(t(b.d))}${b.on?'':' (locked)'}">
+  <div class="mr-badges">${B.map((b,i)=>`<button type="button" class="mr-badge${b.on?'':' locked'}" onclick="_mrBadgeInfo(${i})" aria-label="${esc(t(b.k))}: ${esc(t(b.d))}${b.on?'':' (locked)'}">
     <span class="mr-badge-ic" aria-hidden="true">${b.i}</span>
     <span class="mr-badge-nm">${t(b.k)}</span>
     ${b.on?'':`<span class="mr-badge-p">${b.p||'🔒'}</span>`}
-  </div>`).join('')}</div>`;
+  </button>`).join('')}</div>`;
+}
+// Tapping a badge explains how to earn it (and shows progress on locked ones)
+function _mrBadgeInfo(i){
+  const cust=S.loggedIn;if(!cust)return;
+  const all=getQueue().filter(e=>e.customerId===cust.id);
+  const completed=all.filter(e=>e.status==='done'&&e.paid);
+  const b=_mrBadges(all,completed)[i];if(!b)return;
+  const old=document.getElementById('badge-pop');if(old)old.remove();
+  const el=document.createElement('div');el.id='badge-pop';el.className='badge-pop';
+  el.innerHTML=`<div class="badge-pop-box" role="dialog" aria-modal="true" aria-label="${esc(t(b.k))}">
+    <div class="badge-pop-ic${b.on?'':' locked'}">${b.i}</div>
+    <div class="badge-pop-nm">${t(b.k)}</div>
+    <div class="badge-pop-how">${t('bdHowTo')}</div>
+    <div class="badge-pop-d">${esc(t(b.d))}</div>
+    ${b.on?`<div class="badge-pop-earned">✓ ${t('bdEarned')}</div>`:(b.p?`<div class="badge-pop-prog">${b.p}</div>`:'')}
+    <button type="button" class="btn-secondary" style="width:100%;margin-top:14px" onclick="document.getElementById('badge-pop').remove()">${t('closeWord')||'Close'}</button>
+  </div>`;
+  el.addEventListener('click',e=>{if(e.target===el)el.remove();});
+  document.body.appendChild(el);
 }
 function _mrMemberCard(cust,completed){
   const ar=S.lang==='ar';
@@ -4369,7 +4388,7 @@ function _mrMemberCard(cust,completed){
   const tier=_mrTier(completed.length);
   return`<div class="mr-cardrow">
     <div class="member-card">
-      <div class="member-card-head"><span class="member-card-brand">MICRO<i>MOBILITY</i></span><span class="member-card-tier">${tier.name}</span></div>
+      <div class="member-card-head"><img src="logo.png" alt="MicroMobility" class="member-card-logo"><span class="member-card-tier">${tier.name}</span></div>
       <div class="member-card-name">${esc(cust.name||'')}</div>
       <div class="member-card-foot">
         <div><div class="member-card-lbl">${t('statMemberSince')}</div><div class="member-card-val">${since}</div></div>
