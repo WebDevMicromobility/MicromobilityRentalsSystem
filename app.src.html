@@ -202,6 +202,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 <div id="factory-reset-modal" style="display:none"></div>
 <div id="walkin-modal" style="display:none"></div>
 <div id="booking-edit-modal" style="display:none"></div>
+<div id="booking-note-modal" style="display:none"></div>
 <div id="print-opts-modal"   style="display:none"></div>
 <div id="qnum-edit-modal"    style="display:none"></div>
 <div id="reschedule-modal"   style="display:none"></div>
@@ -237,7 +238,7 @@ en:{
   noteCustomerLabel:'Customer',noteCustomerPh:'Type or pick a name…',notePhonePh:'Phone (optional)',
   noteTextLabel:'Note',noteTextPh:'e.g. Prefers a low saddle, paid deposit in cash…',noteAddBtn:'Add note',
   noteSearchPh:'Search notes by name, phone or text…',notesEmpty:'No notes yet. Add the first one above.',
-  noteDeleteBtn:'Delete',noteSavedToast:'Note saved',noteDeletedToast:'Note deleted',undoDeleteNote:'Delete note',
+  noteDeleteBtn:'Delete',noteSavedToast:'Note saved',noteBtn:'Note',noteForBooking:'Note · #{0} {1}',noteRecentTitle:'Previous notes for this customer',noteBookingChip:'Booking #{0}',noteDeletedToast:'Note deleted',undoDeleteNote:'Delete note',
   errNoteRequired:'Write a note first.',errNoteCustomer:'Who is this note about?',
   roleAdmin:'Admin',roleFrontDesk:'Front Desk',switchToFrontDesk:'Front Desk mode',switchToAdmin:'Admin',adminOnlyMsg:'Admin only.',
   authWelcome:'Welcome to MicroMobility',authSub:'Sign in or create an account to track your rides.',
@@ -639,7 +640,7 @@ ar:{
   noteCustomerLabel:'العميل',noteCustomerPh:'اكتب أو اختر اسماً…',notePhonePh:'الجوال (اختياري)',
   noteTextLabel:'الملاحظة',noteTextPh:'مثال: يفضّل مقعداً منخفضاً، دفع العربون نقداً…',noteAddBtn:'إضافة ملاحظة',
   noteSearchPh:'ابحث بالاسم أو الجوال أو النص…',notesEmpty:'لا توجد ملاحظات بعد. أضف الأولى أعلاه.',
-  noteDeleteBtn:'حذف',noteSavedToast:'تم حفظ الملاحظة',noteDeletedToast:'تم حذف الملاحظة',undoDeleteNote:'حذف ملاحظة',
+  noteDeleteBtn:'حذف',noteSavedToast:'تم حفظ الملاحظة',noteBtn:'ملاحظة',noteForBooking:'ملاحظة · #{0} {1}',noteRecentTitle:'ملاحظات سابقة لهذا العميل',noteBookingChip:'حجز #{0}',noteDeletedToast:'تم حذف الملاحظة',undoDeleteNote:'حذف ملاحظة',
   errNoteRequired:'اكتب الملاحظة أولاً.',errNoteCustomer:'عن مَن هذه الملاحظة؟',
   roleAdmin:'مدير',roleFrontDesk:'موظف استقبال',switchToFrontDesk:'وضع الاستقبال',switchToAdmin:'مدير',adminOnlyMsg:'للمدير فقط.',
   authWelcome:'مرحباً بك في مايكرو موبيليتي',authSub:'سجل دخولك أو أنشئ حساباً لتتبع رحلاتك.',
@@ -2988,6 +2989,50 @@ async function deleteCustomerNote(id){
   toast(t('noteDeletedToast'));
   renderNotes();
 }
+// Note on a specific booking: prefilled from the entry, saved with a booking reference.
+function showBookingNoteModal(entryId){
+  const e=getQueue().find(x=>x.id===entryId);if(!e)return;
+  const recent=(S.custNotes||[])
+    .filter(n=>(e.customerId&&n.customer_id===e.customerId)||(n.phone&&e.phone&&n.phone===e.phone))
+    .sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)).slice(0,3);
+  const ar=S.lang==='ar';
+  const m=document.getElementById('booking-note-modal');
+  m.style.display='flex';
+  m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeBookingNoteModal()">
+    <div class="modal-box" role="dialog" aria-modal="true" style="max-width:420px">
+      <div class="modal-title">${t('noteForBooking').replace('{0}',e.queueNum).replace('{1}',esc(e.name))}</div>
+      <div class="modal-sub">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</div>
+      ${recent.length?`<div style="margin:12px 0 2px;font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${t('noteRecentTitle')}</div>
+        ${recent.map(n=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12.5px;line-height:1.5"><div style="white-space:pre-wrap;word-break:break-word">${esc(n.note)}</div><div style="font-size:10.5px;color:var(--muted);margin-top:3px">${n.created_at?new Date(n.created_at).toLocaleString(ar?'ar-u-ca-gregory-nu-latn':'en-GB',{timeZone:KSA_TZ,day:'numeric',month:'short',year:'numeric'}):''}${n.author?` · ${esc(n.author)}`:''}</div></div>`).join('')}`:''}
+      <div class="form-group" style="margin:14px 0 0"><label>${t('noteTextLabel')} *</label>
+        <textarea id="bn-text" rows="3" maxlength="500" placeholder="${t('noteTextPh')}" style="width:100%;resize:vertical;padding:10px 12px;border-radius:4px;border:1px solid var(--border);background:var(--in-bg);color:var(--text);font-family:inherit;font-size:14px"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeBookingNoteModal()">${t('cancelBtn')}</button>
+        <button class="btn-primary" onclick="saveBookingNote('${e.id}')">+ ${t('noteAddBtn')}</button>
+      </div>
+    </div></div>`;
+  setTimeout(()=>document.getElementById('bn-text')?.focus(),50);
+}
+function closeBookingNoteModal(){const m=document.getElementById('booking-note-modal');if(m){m.style.display='none';m.innerHTML='';}}
+async function saveBookingNote(entryId){
+  const e=getQueue().find(x=>x.id===entryId);if(!e){closeBookingNoteModal();return;}
+  const text=(document.getElementById('bn-text')?.value||'').trim();
+  if(!text){const i=document.getElementById('bn-text');if(i){_fieldErr(i,t('errNoteRequired'));i.focus();}return;}
+  const row={id:uid(),customer_id:e.customerId||null,customer_name:e.name||'',phone:e.phone||null,note:text,author:_opName()||null,created_at:new Date().toISOString(),booking_id:e.id};
+  let res=await sb.from('customer_notes').insert(row);
+  // tolerant: booking_id column may not exist yet (alter in add-customer-notes.sql) - retry without it
+  if(res&&res.error&&(String(res.error.code||'')==='42703'||/booking_id/.test(res.error.message||''))){
+    delete row.booking_id;
+    res=await sb.from('customer_notes').insert(row);
+  }
+  if(_writeErr(res,'note'))return;
+  S.custNotes=[row,...(S.custNotes||[])];
+  logAction(`${t('noteAddBtn')}: #${e.queueNum} ${e.name}`);
+  closeBookingNoteModal();
+  toast(t('noteSavedToast'));
+  renderStaffQueue();
+}
 function renderNotes(){
   const el=document.getElementById('tab-notes');if(!el)return;
   const q=(S._noteSearch||'').toLowerCase();
@@ -3023,6 +3068,7 @@ function renderNotes(){
               <div style="display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap">
                 <span style="font-weight:800;font-size:14px">${esc(n.customer_name)}</span>
                 ${n.phone?`<span style="font-size:11px;color:var(--muted);direction:ltr;unicode-bidi:isolate">${esc(n.phone)}</span>`:''}
+                ${(()=>{if(!n.booking_id)return'';const be=getQueue().find(x=>x.id===n.booking_id);return be?`<span style="font-size:10px;font-weight:800;color:var(--green);border:1px solid rgba(var(--green-rgb),.3);border-radius:2px;padding:1px 7px;white-space:nowrap">${t('noteBookingChip').replace('{0}',be.queueNum)} · ${shortDate(be.sessionDate)}</span>`:'';})()}
               </div>
               <button class="btn-sm btn-muted" onclick="deleteCustomerNote('${esc(n.id)}')">${t('noteDeleteBtn')}</button>
             </div>
@@ -6261,11 +6307,13 @@ function renderStaffQueue(){
   }
   function _entryActions(e){
     const _editBtn=`<button class="btn-sm btn-muted" onclick="showBookingEditModal('${e.id}')" title="${t('editBookingTitle')}">${ICON_PENCIL} ${t('editBookingBtn')}</button>`;
-    if(e.status==='waitlist')return`<button class="btn-sm btn-green" onclick="promoteWaitlist('${e.id}')">${ICON_PROMOTE} ${t('promoteBtn')}</button>${_editBtn}<button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
-    if(e.status==='waiting')return`${_bulkChk(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button>${_editBtn}<button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
-    if(e.status==='active')return`${_bulkChk(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="showCashierModal('${e.id}')">${t('cashierAddBtn')}</button>${_editBtn}<button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
-    if(e.status==='done')return`<button class="btn-sm btn-green" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
-    if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
+    const _nCount=(S.custNotes||[]).filter(n=>(e.customerId&&n.customer_id===e.customerId)||(n.phone&&e.phone&&n.phone===e.phone)).length;
+    const _noteBtn=`<button class="btn-sm btn-muted" onclick="showBookingNoteModal('${e.id}')" title="${t('notesTitle')}">🗒 ${t('noteBtn')}${_nCount?` (${_nCount})`:''}</button>`;
+    if(e.status==='waitlist')return`<button class="btn-sm btn-green" onclick="promoteWaitlist('${e.id}')">${ICON_PROMOTE} ${t('promoteBtn')}</button>${_editBtn}${_noteBtn}<button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
+    if(e.status==='waiting')return`${_bulkChk(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button>${_editBtn}${_noteBtn}<button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
+    if(e.status==='active')return`${_bulkChk(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="showCashierModal('${e.id}')">${t('cashierAddBtn')}</button>${_editBtn}${_noteBtn}<button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
+    if(e.status==='done')return`<button class="btn-sm btn-green" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button>${_noteBtn}<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
+    if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button>${_noteBtn}<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
     if(e.status==='cancelled')return`<button class="btn-sm btn-green" onclick="doRestoreCancelled('${e.id}')">${t('restoreBookingBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
     return`<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
   }

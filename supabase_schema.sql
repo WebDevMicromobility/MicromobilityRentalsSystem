@@ -256,5 +256,6 @@ create table if not exists customer_notes (
   phone         text,
   note          text not null,
   author        text,
+  booking_id    text,
   created_at    timestamptz not null default now()
 );

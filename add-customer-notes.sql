@@ -6,8 +6,12 @@ create table if not exists customer_notes (
   phone         text,
   note          text not null,
   author        text,             -- staff operator name (client-side attribution)
+  booking_id    text,             -- optional: the queue_entries booking this note was written on
   created_at    timestamptz not null default now()
 );
+
+-- If you already created the table without it:
+alter table customer_notes add column if not exists booking_id text;
 
 alter table customer_notes enable row level security;
 
