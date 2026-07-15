@@ -363,6 +363,7 @@ en:{
   walkinSession:'Session',walkinSize:'Frame Size',walkinType:'Bike Type Preference',
   addWalkinBtn:'Add Walk-in',cancelBtn:'Cancel',
   editBookingBtn:'Edit',editBookingTitle:'Edit Booking',editBookingSub:'Change the rider details or move the booking, the same fields the customer can edit.',undoEditBooking:'Edit booking',saveChangesBtn:'Save Changes',
+  beAddRidersLabel:'Add riders',beAddRiderBtn:'Add rider',beRiderPh:'Rider name',beRemoveRider:'Remove rider',beRidersAdded:'rider(s) added',
   checkInBtn:'Check In',returnBikeBtn:'Return Bike',removeBtn:'Remove',noShowBtn:'No-Show',customerShowedBtn:'Customer Showed',undoCheckinBtn:'Undo Check-in',toastUndoCheckin:'Check-in reversed - rider moved back to waiting.',
   footerCopy:'© 2026 MicroMobility. All Rights Reserved',sessDeletedGroup:'Deleted Sessions',histLogBtn:'Log',
   anPayTitle:'Payments',anCashCollected:'Cash collected',anCardCollected:'Card collected',anCardShare:'card share',anDiscountsGiven:'Discounts given',
@@ -747,6 +748,7 @@ ar:{
   walkinSession:'الجلسة',walkinSize:'مقاس الإطار',walkinType:'تفضيل نوع الدراجة',
   addWalkinBtn:'إضافة زيارة',cancelBtn:'إلغاء',
   editBookingBtn:'تعديل',editBookingTitle:'تعديل الحجز',editBookingSub:'عدّل بيانات الراكب أو انقل الحجز، نفس الحقول التي يمكن للعميل تعديلها.',undoEditBooking:'تعديل الحجز',saveChangesBtn:'حفظ التغييرات',
+  beAddRidersLabel:'إضافة رُكّاب',beAddRiderBtn:'إضافة راكب',beRiderPh:'اسم الراكب',beRemoveRider:'إزالة الراكب',beRidersAdded:'رُكّاب أُضيفوا',
   checkInBtn:'تسجيل الدخول',returnBikeBtn:'إرجاع الدراجة',removeBtn:'حذف',noShowBtn:'لم يحضر',customerShowedBtn:'العميل حضر',undoCheckinBtn:'تراجع عن تسجيل الدخول',toastUndoCheckin:'تم التراجع عن تسجيل الدخول - الراكب عاد إلى قائمة الانتظار.',
   footerCopy:'© 2026 مايكروموبيليتي. جميع الحقوق محفوظة',sessDeletedGroup:'الجلسات المحذوفة',histLogBtn:'السجل',
   anPayTitle:'المدفوعات',anCashCollected:'المحصّل نقداً',anCardCollected:'المحصّل بالبطاقة',anCardShare:'نسبة البطاقة',anDiscountsGiven:'الخصومات الممنوحة',
@@ -5701,6 +5703,7 @@ function showBookingEditModal(entryId){
   if(!['waiting','waitlist','active'].includes(e.status)){toast(t('errCancelWaiting'),'error');return;}
   S._beId=entryId;
   S._beType=S._beType&&S._beRender===entryId?S._beType:(e.typePreference||'Any');
+  if(S._beRender===entryId)_beSyncNewRiders();else S._beNewRiders=[];
   S._beRender=entryId;
   const keep=id=>{const el=document.getElementById(id);return el!=null&&el.value!==''?el.value:null;};
   const _n=keep('be-name')??e.name??'',_p=keep('be-phone')??e.phone??'',_h=keep('be-height')??(e.height?String(e.height):''),_s=keep('be-sess')??e.sessionId;
@@ -5732,13 +5735,29 @@ function showBookingEditModal(entryId){
         <div style="display:flex;gap:6px">${CUST_TYPES.map(tyBtn).join('')}</div></div>
       ${canMove?`<div class="form-group" style="margin-bottom:14px"><label>${t('colSession')}</label>
         <select id="be-sess">${sessOpts}</select></div>`:''}
+      <div class="form-group" style="margin-bottom:14px"><label>${t('beAddRidersLabel')}</label>
+        ${(S._beNewRiders||[]).map((r,i)=>`<div style="display:flex;gap:6px;margin-top:8px;align-items:center">
+          <input id="be-nr-name-${i}" type="text" placeholder="${t('beRiderPh')}" value="${esc(r.name||'')}" maxlength="60" style="flex:1;min-width:0">
+          <input id="be-nr-height-${i}" type="number" min="80" max="230" placeholder="${t('cmUnit')}" value="${esc(r.height||'')}" style="width:70px;flex-shrink:0">
+          <select id="be-nr-type-${i}" onchange="_beSyncNewRiders()" style="width:100px;flex-shrink:0">${CUST_TYPES.map(ty=>`<option value="${ty}"${(r.type||'Any')===ty?' selected':''}>${typeLabel(ty)}</option>`).join('')}</select>
+          <button type="button" class="btn-sm btn-muted" onclick="_beRemoveRider(${i})" aria-label="${t('beRemoveRider')}" style="flex-shrink:0">&#x2715;</button>
+        </div>`).join('')}
+        <button type="button" class="btn-secondary" style="width:100%;margin-top:8px" onclick="_beAddRider()">+ ${t('beAddRiderBtn')}</button>
+      </div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeBookingEditModal()">${t('cancelBtn')}</button>
         <button class="btn-primary" onclick="saveBookingEdit()">${t('saveChangesBtn')}</button>
       </div>
     </div></div>`;
 }
-function closeBookingEditModal(){const m=document.getElementById('booking-edit-modal');if(m){m.style.display='none';m.innerHTML='';}S._beId=null;S._beRender=null;S._beType=null;}
+function closeBookingEditModal(){const m=document.getElementById('booking-edit-modal');if(m){m.style.display='none';m.innerHTML='';}S._beId=null;S._beRender=null;S._beType=null;S._beNewRiders=null;}
+// New-rider rows survive the modal's re-renders (type clicks, add/remove) by syncing DOM -> state first.
+function _beSyncNewRiders(){(S._beNewRiders||[]).forEach((r,i)=>{
+  const n=document.getElementById('be-nr-name-'+i),h=document.getElementById('be-nr-height-'+i),ty=document.getElementById('be-nr-type-'+i);
+  if(n)r.name=n.value;if(h)r.height=h.value;if(ty)r.type=ty.value;
+});}
+function _beAddRider(){_beSyncNewRiders();S._beNewRiders=[...(S._beNewRiders||[]),{name:'',height:'',type:'Any'}];showBookingEditModal(S._beId);}
+function _beRemoveRider(i){_beSyncNewRiders();(S._beNewRiders||[]).splice(i,1);showBookingEditModal(S._beId);}
 async function saveBookingEdit(){
   const e=getQueue().find(x=>x.id===S._beId);if(!e){closeBookingEditModal();return;}
   const name=(document.getElementById('be-name')?.value||'').trim();
@@ -5769,13 +5788,40 @@ async function saveBookingEdit(){
   const res=await sb.from('queue_entries').update(patch).eq('id',e.id);
   if(_writeErr(res,'edit booking'))return;
   if(moving&&e.status==='waitlist')await _addonStockQ(entryAddons(e),-1); // waitlist -> confirmed: reserve the add-ons, like the customer reschedule
+  // Added riders: one entry each with fresh consecutive numbers, same contact + account,
+  // exactly like the customer's group booking (waitlist when the session can't fit them).
+  _beSyncNewRiders();
+  const newRiders=(S._beNewRiders||[])
+    .map(r=>({name:(r.name||'').trim(),height:parseInt(r.height)||null,type:CUST_TYPES.includes(r.type)?r.type:'Any'}))
+    .filter(r=>r.name||r.height);
+  const inserted=[];
+  if(newRiders.length){
+    const sessT=allSessions().find(s=>s.id===toSessionId);
+    const rStatus=((sessT&&sessT.status==='full')||spotsLeft(toSessionId)<newRiders.length+(moving?1:0))?'waitlist':'waiting';
+    let qn=nextQNum(toSessionId)+(moving?1:0); // when moving, the edited entry already took the next number
+    for(const r of newRiders){
+      const ent={id:uid(),name:r.name,email:e.email||'',phone,size:r.height?heightToSize(r.height):'',height:r.height,
+        typePreference:r.type,paid:false,assignedBikeId:null,sessionId:toSessionId,
+        sessionDay:moving?patch.session_day:e.sessionDay,sessionDate:moving?patch.session_date:e.sessionDate,
+        queueNum:qn,status:rStatus,registeredAt:new Date().toISOString(),walkIn:!!e.walkIn,
+        customerId:e.customerId||null,price:priceForType(r.type)};
+      let r2=await sb.from('queue_entries').insert(entryToDB(ent));
+      if(r2&&r2.error&&(String(r2.error.code||r2.error.message).includes('23505')||/duplicate|unique/i.test(r2.error.message||''))){
+        await loadDataLight();qn=nextQNum(toSessionId);ent.queueNum=qn; // another device grabbed the number: take a fresh one and retry once
+        r2=await sb.from('queue_entries').insert(entryToDB(ent));
+      }
+      if(_writeErr(r2,'add rider'))break;
+      inserted.push(ent.id);qn++;
+    }
+  }
   const id=e.id;
   pushUndo(`${t('undoEditBooking')} #${prev.queue_num} ${prev.name}`,async()=>{
     await sb.from('queue_entries').update(prev).eq('id',id);
+    if(inserted.length)await Promise.all(inserted.map(x=>sb.from('queue_entries').delete().eq('id',x))).catch(()=>{});
     await loadDataLight();renderStaffQueue();
   });
   closeBookingEditModal();
-  logAction(`${t('editBookingTitle')}: #${prev.queue_num} ${prev.name}${moving?` → ${shortDate(patch.session_date)}`:''}`);
+  logAction(`${t('editBookingTitle')}: #${prev.queue_num} ${prev.name}${moving?` → ${shortDate(patch.session_date)}`:''}${inserted.length?` · +${inserted.length} ${t('beRidersAdded')}`:''}`);
   await loadDataLight();
   toast(t('toastBookingUpdated'));
   S._flashId=id;S._flashColor='green';setTimeout(()=>{S._flashId=null;},800);
