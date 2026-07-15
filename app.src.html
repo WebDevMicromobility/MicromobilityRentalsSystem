@@ -1476,7 +1476,7 @@ const _sbReady=new Promise(res=>{
 // ('1'/'0') still overrides, so tests pin '0' for open mode and staging/debug can
 // force either. When true the app uses the token RPCs + queue_public view instead
 // of reading the locked tables directly (see SECURITY-RUNBOOK.md).
-const SECURE_AUTH=(()=>{try{const v=localStorage.getItem('cq_secure_auth');if(v==='1')return true;if(v==='0')return false;}catch(e){}return false;})();
+const SECURE_AUTH=(()=>{try{const v=localStorage.getItem('cq_secure_auth');if(v==='1')return true;if(v==='0')return false;}catch(e){}return true;})(); // default ON: prod RLS only honors staff writes from an authed session, so devices without one must be sent to the staff sign-in (a PIN-only unlock silently loses every write)
 // Customer identity flows ALWAYS use the SECURITY DEFINER RPCs: the customers table stays
 // staff-only in the DB even with the queue lockdown (SECURE_AUTH) off, so direct reads/
 // writes on it would be rejected (broke Google signup with 'Connection error').
