@@ -42,7 +42,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=99">
+  <link rel="stylesheet" href="./styles.css?v=100">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
@@ -2042,17 +2042,6 @@ function spotsLeftLabel(n){
   if(S.lang==='ar')return`${n} ${n===1?'مقعد متبقي':'مقاعد متبقية'}`;
   return`${n} spot${n===1?'':'s'} left`;
 }
-// v2 design: 74x4 capacity bar per session row. Green fill = booked %, amber when <=3
-// spots remain, gray track when full. Returns '' for a session it can't resolve.
-function capBar(sid){
-  const sess=S.sessions.find(x=>x.id===sid);if(!sess)return'';
-  const cap=(sess.capacity)||12;
-  const n=spotsLeft(sid);
-  const booked=Math.max(0,cap-n);
-  const pct=Math.min(100,Math.round(booked/cap*100));
-  const fill=n===0?'var(--muted-l)':(n<=3?'var(--orange)':'var(--green)');
-  return`<span class="cap-bar" aria-hidden="true"><span class="cap-bar-fill" style="width:${pct}%;background:${fill}"></span></span>`;
-}
 const TYPE_CLS={Road:'type-road',Hybrid:'type-hybrid',Mountain:'type-mountain',Gravel:'type-gravel',Any:'type-any','Road Carbon':'type-roadcarbon'};
 function typeLabel(ty){const m={Road:t('typeRoad'),Hybrid:t('typeHybrid'),Mountain:t('typeMountain'),Gravel:t('typeGravel'),Any:t('typeAny'),'Road Carbon':t('typeRoadCarbon')};return m[ty]||ty;}
 // The type choices a customer can book (also used by the staff walk-in / edit-booking forms).
@@ -2710,8 +2699,7 @@ function renderLandingAvail(){
         <span class="landing-avail-time">${timeStr}</span>
       </span>
       <span class="landing-avail-right">
-        ${capBar(s.id)}
-        <span class="landing-avail-spots${full?' full':low?' low':''}">${spotsLeftLabel(n)}</span>
+        <span class="landing-avail-spots${full?' full':low?' low':''}">${full?t('statusFull'):t('availLabel')}</span>
       </span>
     </button>`;
   }).join('');
@@ -3102,8 +3090,7 @@ function renderRegister(){
             <span class="sess-card-time">${sessionTime(s)}</span>
           </span>
           <span class="sess-card-right">
-            ${capBar(s.id)}
-            <span class="sess-card-spots ${isFull?'spots-red':_low?'spots-low':'spots-green'}">${isFull?t('waitlistLabel'):spotsLeftLabel(_n)}</span>
+            <span class="sess-card-spots ${isFull?'spots-red':_low?'spots-low':'spots-green'}">${isFull?t('waitlistLabel'):t('availLabel')}</span>
           </span>
         </button>`;
       }).join('')
@@ -6588,7 +6575,7 @@ function showRescheduleModal(fromSessionId){
     const room=cap-taken;const full=room<moving.length;
     return`<button ${full?'disabled':''} onclick="rescheduleBooking('${fromSessionId}','${s.id}')" style="display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:start;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:${full?'rgba(var(--tint-rgb),.02)':'var(--s2)'};color:var(--text);font-family:'Albert Sans',sans-serif;cursor:${full?'not-allowed':'pointer'};opacity:${full?'.5':'1'};margin-bottom:8px">
       <span style="font-weight:800;font-size:13px">${dayLabel(s.day)} · ${shortDate(s.session_date||s.id)}</span>
-      <span style="font-size:11px;font-weight:700;color:${full?'var(--red)':'var(--green)'}">${full?t('statusFull'):room+' '+t('availLabel').toLowerCase()}</span>
+      <span style="font-size:11px;font-weight:700;color:${full?'var(--red)':'var(--green)'}">${full?t('statusFull'):t('availLabel')}</span>
     </button>`;
   }).join(''):`<div class="empty-state">${t('rescheduleNoSessions')}</div>`;
   const m=document.getElementById('reschedule-modal');m.style.display='flex';
