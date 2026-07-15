@@ -45,7 +45,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=114">
+  <link rel="stylesheet" href="./styles.css?v=115">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
@@ -61,7 +61,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 
 <header id="topbar">
   <button type="button" class="topbar-logo" onclick="goLanding()" style="cursor:pointer;background:none;border:none;padding:0" aria-label="MicroMobility home">
-    <img id="topbar-logo-img" src="logo-dark.png" alt="MicroMobility">
+    <img id="topbar-logo-img" src="logo.png" alt="MicroMobility">
   </button>
   <div style="display:flex;align-items:center;gap:10px">
     <button class="lang-toggle" id="lang-btn" onclick="setLang(S.lang==='en'?'ar':'en')" title="Switch language" aria-label="Switch language">العربية</button>
@@ -2912,9 +2912,9 @@ function toggleTheme(){
 }
 function applyThemeIcon(){
   const cur=document.documentElement.getAttribute('data-theme')||'light';
-  // Dark-ink wordmark on light theme; the original (white wordmark) art on dark.
+  // The topbar is asphalt in both themes now - the dark-background logo art always fits.
   const lg=document.getElementById('topbar-logo-img');
-  if(lg){const want=cur==='dark'?'logo.png':'logo-dark.png';if(!lg.src.endsWith(want))lg.src=want;}
+  if(lg&&!lg.src.endsWith('logo.png'))lg.src='logo.png';
   const b=document.getElementById('theme-toggle-btn');if(!b)return;
   const next=cur==='light'?'dark':'light';
   const lbl=next==='light'?t('themeLight'):t('themeDark');
