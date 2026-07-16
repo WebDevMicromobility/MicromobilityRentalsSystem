@@ -2541,6 +2541,9 @@ function _authFail(where,error){
 // makes every future login "invalid credentials" — the stored address LOOKS identical but
 // never string-matches again. Strip them from identity fields.
 function _cleanIdent(v){return String(v==null?'':v).replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF\u00A0]/g,'').trim();}
+// Capitalize the first letter of every name word (e.g. "ahmed ALI" -> "Ahmed Ali").
+// Splits on space, hyphen and apostrophe so "al-najjar"/"o'brien" cap correctly; Arabic is caseless so it passes through unchanged.
+function _titleCaseName(v){return _cleanIdent(v).replace(/\s+/g,' ').replace(/(^|[\s\-'\u2019])([\p{L}])/gu,(m,sep,ch)=>sep+ch.toLocaleUpperCase()).replace(/([\p{L}])([\p{L}]*)/gu,(m,f,rest)=>f+rest.toLocaleLowerCase());}
 function _asciiDigits(v){return String(v==null?'':v).replace(/[٠-٩]/g,c=>String.fromCharCode(c.charCodeAt(0)-1584)).replace(/[۰-۹]/g,c=>String.fromCharCode(c.charCodeAt(0)-1728));}
 // Live phone mask: groups digits as "5XX XXX XXXX" while typing (display only; saved value is stripped to digits)
 function fmtPhoneInput(el){
@@ -2571,7 +2574,7 @@ function _normPhone(raw,cc){
 }
 
 async function doSignup(){
-  const name=_cleanIdent(document.getElementById('a-name')?.value||'');
+  const name=_titleCaseName(document.getElementById('a-name')?.value||'');
   const email=_cleanIdent(document.getElementById('a-email')?.value||'').toLowerCase();
   const cc=document.getElementById('a-cc')?.value||'+966';
   const phone=(document.getElementById('a-phone')?.value||'').replace(/\D/g,'');
@@ -2672,7 +2675,7 @@ async function handleGoogleReturn(){
   const email=(session.user.email||'').trim().toLowerCase();
   S._oauthProvider=(session.user.app_metadata&&session.user.app_metadata.provider)||'google';
   const meta=session.user.user_metadata||{};
-  const gname=meta.full_name||meta.name||'';
+  const gname=_titleCaseName(meta.full_name||meta.name||'');
   const gphoto=meta.avatar_url||meta.picture||'';
   if(!email)return false;
   if(CUST_RPC){
@@ -2713,7 +2716,7 @@ function openGoogleComplete(){
 function _authBtnBusy(busy){try{document.querySelectorAll('#auth-modal .auth-submit').forEach(b=>{b.disabled=busy;b.style.opacity=busy?'.6':'';});}catch(e){}}
 async function doCompleteGoogle(){
   const g=S._pendingGoogle||{};
-  const name=_cleanIdent(document.getElementById('a-name')?.value||g.name||'');
+  const name=_titleCaseName(document.getElementById('a-name')?.value||g.name||'');
   const cc=document.getElementById('a-cc')?.value||'+966';
   const phone=(document.getElementById('a-phone')?.value||'').replace(/\D/g,'');
   if(!name||name.trim().split(/\s+/).length<2){authErr(t('errEnterName'));return;}
@@ -3665,7 +3668,7 @@ function renderRegister(){
 
 
   const reviewRiders=Array.from({length:S.regQty},(_,i)=>{
-    const nm=(S.regRiderNames[i]!==undefined&&String(S.regRiderNames[i]).trim())?String(S.regRiderNames[i]).trim():(i===0&&cust?cust.name:'');
+    const nm=_titleCaseName((S.regRiderNames[i]!==undefined&&String(S.regRiderNames[i]).trim())?String(S.regRiderNames[i]):(i===0&&cust?cust.name:''));
     const ty=S.regBikeTypes[i]||'Any';
     const h=S.regBikeHeights[i]||'';
     return`<div style="display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--border)">
@@ -4897,7 +4900,7 @@ function refreshAccSizeBadge(){
 async function saveAccount(){
   const cust=S.loggedIn||getSession();
   if(!cust)return;
-  const name=(document.getElementById('acc-name')?.value||'').trim();
+  const name=_titleCaseName(document.getElementById('acc-name')?.value||'');
   const email=(document.getElementById('acc-email')?.value||'').trim().toLowerCase();
   const cc=document.getElementById('acc-cc')?.value||'+966';
   const phone=(document.getElementById('acc-phone')?.value||'').replace(/\D/g,'');
@@ -6093,7 +6096,7 @@ function showWalkinModal(){
 }
 function closeWalkinModal(){const m=document.getElementById('walkin-modal');if(m){m.style.display='none';m.innerHTML='';}}
 async function saveWalkin(){
-  const name=(document.getElementById('wi-name')?.value||'').trim();
+  const name=_titleCaseName(document.getElementById('wi-name')?.value||'');
   if(!name){const i=document.getElementById('wi-name');if(i){_fieldErr(i,t('errFieldRequired'));i.focus();}return;}
   const phone=(document.getElementById('wi-phone')?.value||'').trim();
   const height=parseInt(document.getElementById('wi-height')?.value)||null;
@@ -6182,7 +6185,7 @@ function _beAddRider(){_beSyncNewRiders();S._beNewRiders=[...(S._beNewRiders||[]
 function _beRemoveRider(i){_beSyncNewRiders();(S._beNewRiders||[]).splice(i,1);showBookingEditModal(S._beId);}
 async function saveBookingEdit(){
   const e=getQueue().find(x=>x.id===S._beId);if(!e){closeBookingEditModal();return;}
-  const name=(document.getElementById('be-name')?.value||'').trim();
+  const name=_titleCaseName(document.getElementById('be-name')?.value||'');
   if(!name){const i=document.getElementById('be-name');if(i){_fieldErr(i,t('errFieldRequired'));i.focus();}return;}
   const phone=(document.getElementById('be-phone')?.value||'').trim();
   const height=parseInt(document.getElementById('be-height')?.value)||null;
@@ -6214,7 +6217,7 @@ async function saveBookingEdit(){
   // exactly like the customer's group booking (waitlist when the session can't fit them).
   _beSyncNewRiders();
   const newRiders=(S._beNewRiders||[])
-    .map(r=>({name:(r.name||'').trim(),height:parseInt(r.height)||null,type:CUST_TYPES.includes(r.type)?r.type:'Any'}))
+    .map(r=>({name:_titleCaseName(r.name||''),height:parseInt(r.height)||null,type:CUST_TYPES.includes(r.type)?r.type:'Any'}))
     .filter(r=>r.name||r.height);
   const inserted=[];
   if(newRiders.length){
