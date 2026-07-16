@@ -51,7 +51,7 @@ for (const lang of ['en', 'ar']) {
     await page.goto('/');
     await waitForSb(page);
     page.on('dialog', (d) => d.dismiss().catch(() => {}));
-    await page.evaluate(`window.open=()=>null;window.print=()=>{};doLogout=()=>{};signInGoogle=()=>{};`);
+    await page.evaluate(`window.open=()=>null;window.print=()=>{};doLogout=()=>{};signInGoogle=()=>{};signInApple=()=>{};`);
     await page.evaluate(MONKEY(120, lang === 'ar' ? 4242 : 1717));
     expect(errs, errs.join('\n')).toEqual([]);
   });
@@ -66,7 +66,7 @@ for (const lang of ['en', 'ar']) {
     await page.goto('/?staff');
     await waitForSb(page);
     page.on('dialog', (d) => d.dismiss().catch(() => {}));
-    await page.evaluate(`window.open=()=>null;window.print=()=>{};lockStaff=async()=>{};doLogout=()=>{};signInGoogle=()=>{};`);
+    await page.evaluate(`window.open=()=>null;window.print=()=>{};lockStaff=async()=>{};doLogout=()=>{};signInGoogle=()=>{};signInApple=()=>{};`);
     await page.evaluate(MONKEY(120, lang === 'ar' ? 9001 : 5150));
     expect(errs, errs.join('\n')).toEqual([]);
   });
