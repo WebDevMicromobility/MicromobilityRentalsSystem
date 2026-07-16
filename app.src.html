@@ -1982,8 +1982,9 @@ function longDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('en-US'
 function todayStr(){return new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});}
 function fmt12h(timeStr){
   if(!timeStr)return timeStr;
+  const ar=S&&S.lang==='ar';
   return timeStr.replace(/(\d{1,2}):(\d{2})/g,(_,h,m)=>{
-    const hr=parseInt(h);const suf=hr>=12?'PM':'AM';const h12=hr%12||12;
+    const hr=parseInt(h);const suf=hr>=12?(ar?'م':'PM'):(ar?'ص':'AM');const h12=hr%12||12;
     return m==='00'?`${h12} ${suf}`:`${h12}:${m} ${suf}`;
   });
 }
@@ -6402,7 +6403,7 @@ function renderStaffQueue(){
       </td>
       <td style="text-align:center">${posCell}</td>
       <td><div class="rider-name">${esc(e.name)}${wiTag}${noShowFlag(e)}</div><div class="rider-sub">${esc(fmtPhone(e.phone))||'—'}</div>${_adChips(e)}</td>
-      <td style="font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">${e.height?e.height+' cm':'<span style="color:var(--muted)">—</span>'}</td>
+      <td style="font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">${e.height?e.height+' '+t('cmUnit'):'<span style="color:var(--muted)">—</span>'}</td>
       <td>${typeBadge(resolvedType(e))}</td>
       ${S.sfSession==='all'?`<td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
       <td>${assignedBikes.length>0
@@ -6479,7 +6480,7 @@ function renderStaffQueue(){
         <span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--green);color:#000;font-size:10px;font-weight:900;flex-shrink:0">${i+1}</span>
         <span class="rider-name" style="margin:0;font-weight:${isFirst?'900':'600'}">${esc(e.name)}${isFirst?noShowFlag(e):''}</span>
       </div>${isFirst&&ownerPhone?`<div class="rider-sub" style="margin-top:3px;padding-left:22px">${esc(fmtPhone(ownerPhone))}</div>`:''}${_adChips(e)}`;
-      const heightCell=`<td style="vertical-align:middle;font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">${e.height?e.height+' cm':'<span style="color:var(--muted)">—</span>'}</td>`;
+      const heightCell=`<td style="vertical-align:middle;font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">${e.height?e.height+' '+t('cmUnit'):'<span style="color:var(--muted)">—</span>'}</td>`;
       const groupLine=isFirst?'border-top:2px solid rgba(var(--green-rgb),.15)':'';
       const bottomLine=isLast?'border-bottom:2px solid rgba(var(--green-rgb),.15)':'';
       const leftLine='border-left:2px solid rgba(var(--green-rgb),.2)';
@@ -9716,7 +9717,7 @@ function renderHistory(){
         <div class="rider-sub" style="margin-top:3px">${esc(fmtPhone(e.phone))||'—'}</div>
         <div class="rider-sub">${hasEmail?esc(e.email):`<span style="font-style:italic;color:var(--muted)">${t('noEmailLabel')}</span>`}</div>
       </td>
-      <td style="font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">${e.height?e.height+' cm':'<span style="color:var(--muted)">—</span>'}</td>
+      <td style="font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">${e.height?e.height+' '+t('cmUnit'):'<span style="color:var(--muted)">—</span>'}</td>
       <td>${typeBadge(resolvedType(e))}</td>
       <td class="hide-mobile">
         <div style="font-weight:800;font-size:13px">${dayLabel(e.sessionDay)||''}</div>
@@ -11516,8 +11517,8 @@ function renderCommunity(){
     return`<div style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border)">
       <span style="width:8px;height:8px;border-radius:50%;background:${sl>0?'var(--green)':'var(--orange)'};flex-shrink:0"></span>
       <div style="flex:1;min-width:0">
-        <div style="font-weight:800;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.day||'')}${s.location?` · ${esc(s.location)}`:''}</div>
-        <div style="font-size:11px;color:var(--muted);font-weight:700">${esc(s.session_date||s.id||'')}${s.status&&_sessStatusLbl[s.status]?` · ${_sessStatusLbl[s.status]}`:''}</div>
+        <div style="font-weight:800;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(dayLabel(s.day)||'')}</div>
+        <div style="font-size:11px;color:var(--muted);font-weight:700">${shortDate(s.session_date||s.id)||''}${s.status&&_sessStatusLbl[s.status]?` · ${_sessStatusLbl[s.status]}`:''}</div>
       </div>
       <div style="text-align:right;flex-shrink:0;font-size:12px;font-weight:800;color:${sl>0?'var(--green)':'var(--orange)'}">${spotsLeftLabel(sl)}</div>
     </div>`;
