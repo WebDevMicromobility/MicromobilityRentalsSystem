@@ -4250,6 +4250,8 @@ function renderBookingTicket(entries,opts){
   const stForBadge=anyActive?'active':allDone?'done':allNoShow?'noshow':primary.status;
   const total=g.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
   const canEdit=opts.actions&&g.some(e=>e.status==='waiting'||e.status==='waitlist');
+  // Wallet pass is only meaningful for a live booking - never on completed, cancelled or no-show.
+  const isLive=g.some(e=>e.status==='waiting'||e.status==='active'||e.status==='waitlist');
   // Live position cue (how many waiting riders are ahead in this session)
   let cueHtml='';
   if(stForBadge==='active'){
@@ -4340,7 +4342,7 @@ function renderBookingTicket(entries,opts){
       <button class="btn-secondary" style="flex:1;font-size:12px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="downloadBookingICS('${primary.sessionId}')" aria-label="${t('addToCalendarBtn')}"> ${t('addToCalendarBtn')}</button>
       <a href="${DIRECTIONS_URL}" target="_blank" rel="noopener" class="btn-secondary" style="flex:1;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none" aria-label="${t('ticketDirections')}${t('opensNewTab')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${t('ticketDirections')}</a>
     </div>
-    ${_hasWallet()?`<div class="wallet-slot" style="padding:0 18px 14px"><button type="button" class="btn-wallet" onclick="addBookingToWallet('${primary.id}',this)" aria-label="${t('addToWallet')}">
+    ${(_hasWallet()&&isLive)?`<div class="wallet-slot" style="padding:0 18px 14px"><button type="button" class="btn-wallet" onclick="addBookingToWallet('${primary.id}',this)" aria-label="${t('addToWallet')}">
       ${WALLET_GLYPH}
       ${t('addToWallet')}</button></div>`:''}
     ${actionsHtml}
