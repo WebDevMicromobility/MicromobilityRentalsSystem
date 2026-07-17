@@ -45,7 +45,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=137">
+  <link rel="stylesheet" href="./styles.css?v=138">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
@@ -7078,16 +7078,18 @@ function renderStaffQueue(){
       const fillPct=Math.round(Math.min((sWait+sActive+sDone)/cap*100,100));
       const fillClr=fillPct>=90?'var(--red)':'var(--green)';
       const isCurrent=S.sfSession===s.id;
-      return`<div class="sess-summary-chip${isCurrent?' active-sess':''}"
+      const _cm=_isCommunity(s);
+      return`<div class="sess-summary-chip${isCurrent?' active-sess':''}${_cm?' community':''}"
         onclick="setSfSession('${s.id}')" title="${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}">
         <div class="sess-chip-info">
+          ${_cm?`<div class="sess-chip-event">☕ ${esc(s.title||t('landCommTitle'))}</div>`:''}
           <div class="sess-chip-date">${dayLabel(s.day)}, ${shortDate(s.session_date||s.id)} &nbsp;·&nbsp; ${sessionTime(s)}</div>
           <div class="sess-chip-counts">
-            <span style="color:var(--green)">${sWait} ${t('waitingStat').toLowerCase()}</span>
+            <span style="color:${_cm?'#4aa8f8':'var(--green)'}">${sWait} ${t('waitingStat').toLowerCase()}</span>
             ${sActive?` &middot; <span style="color:var(--text)">${sActive} ${t('activeSessChip')}</span>`:''}
             ${sDone?` &middot; <span style="color:var(--muted)">${sDone} ${t('doneSessChip')}</span>`:''}
           </div>
-          <div class="sess-chip-bar"><div class="sess-chip-fill" style="width:${fillPct}%;background:${fillClr}"></div></div>
+          <div class="sess-chip-bar"><div class="sess-chip-fill" style="width:${fillPct}%;background:${_cm&&fillPct<90?'#4aa8f8':fillClr}"></div></div>
         </div>
         <div class="sess-chip-badge"><span class="badge-${s.status}">${{open:t('statusOpen'),full:t('statusFull'),closed:t('statusClosed')}[s.status]}</span></div>
       </div>`;
@@ -7098,7 +7100,7 @@ function renderStaffQueue(){
       openSess.map(s=>{
         const q=getQueue().filter(e=>e.sessionId===s.id);
         const sWait=q.filter(e=>e.status==='waiting').length;
-        const label=`${dayLabel(s.day)}, ${shortDate(s.session_date||s.id)} · ${sessionTime(s)} — ${sWait} ${t('waitingStat').toLowerCase()}`;
+        const label=`${_isCommunity(s)?`☕ ${s.title||t('landCommTitle')} · `:''}${dayLabel(s.day)}, ${shortDate(s.session_date||s.id)} · ${sessionTime(s)} — ${sWait} ${t('waitingStat').toLowerCase()}`;
         return`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${label}</option>`;
       }).join('');
 
