@@ -37,7 +37,7 @@ function _gcalUrl(idx) {
     const d = String(tkt.sessionDate || '').replace(/-/g, '');
     if (d.length !== 8) return '';
     const sh = (m ? m[1] : '9').padStart(2, '0'), sm = m ? m[2] : '00', eh = (m ? m[3] : '11').padStart(2, '0'), em = m ? m[4] : '00';
-    const loc = ((sess && sess.location) === 'JCC' ? 'Jeddah Corniche Circuit' : (sess && sess.location) || 'Jeddah Corniche Circuit') + ', Gate A';
+    const loc = ((sess && sess.location) === 'JCC' ? 'Jeddah Corniche Circuit' : (sess && sess.location) || 'Jeddah Corniche Circuit');
     const e = encodeURIComponent;
     return 'https://calendar.google.com/calendar/render?action=TEMPLATE'
       + '&text=' + e('MicroMobility Rental #' + tkt.queueNum)

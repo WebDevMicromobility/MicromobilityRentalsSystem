@@ -37,6 +37,8 @@ export async function onRequestPost(context) {
   try { body = await request.json(); } catch { return json({ ok: false, error: 'bad body' }, 400); }
   const { customerId, token, bookingId } = body || {};
   if (!customerId || !token || !bookingId) return json({ ok: false, error: 'missing fields' }, 400);
+  // Client-resolved add-ons (display only — ownership is still verified below via the token).
+  const addons = _cleanAddons(body && body.addons);
 
   const SUPA = env.SUPABASE_URL || SUPA_DEFAULT;
   const ANON = env.SUPABASE_ANON_KEY;
@@ -54,7 +56,7 @@ export async function onRequestPost(context) {
   if (!b) return json({ ok: false, error: 'not found' }, 404);
 
   try {
-    const pkpass = await buildPkpass(b, { p12b64, p12pw, passTypeId, teamId });
+    const pkpass = await buildPkpass(b, { p12b64, p12pw, passTypeId, teamId, addons });
     return new Response(pkpass, {
       headers: {
         'Content-Type': 'application/vnd.apple.pkpass',
@@ -76,8 +78,15 @@ async function buildPkpass(b, cfg) {
   const time = b.session_time || '';                            // "9 PM - 11 PM"
   const rider = b.name || '';
   const bikeType = _bikeLabel(b.type_preference);
-  const priceStr = (b.price != null && b.price !== '' && !Number.isNaN(+b.price)) ? `SAR ${(+b.price)}` : '';
   const dates = _sessionDates(b); // { start, end } ISO-8601 (Jeddah +03:00), or null if unparseable
+
+  // Add-ons resolved by the client (name + qty + line total). Fold their cost into the shown
+  // total so the pass matches the app, and list them on the back.
+  const addons = Array.isArray(cfg.addons) ? cfg.addons : [];
+  const rental = (b.price != null && b.price !== '' && !Number.isNaN(+b.price)) ? +b.price : 0;
+  const addonSum = addons.reduce((s, a) => s + (Number(a.p) || 0), 0);
+  const grand = Math.round((rental + addonSum) * 100) / 100;
+  const priceStr = (rental || addonSum) ? `SAR ${grand}` : '';
 
   // Best practice: keep secondary + auxiliary to ~4 fields total on an event ticket with a QR.
   // Secondary row: time + rider. Auxiliary row: bike + total. Only push fields that have a value.
@@ -88,6 +97,11 @@ async function buildPkpass(b, cfg) {
   const auxiliary = [];
   if (bikeType) auxiliary.push({ key: 'bike', label: 'BIKE', value: bikeType });
   if (priceStr) auxiliary.push({ key: 'total', label: 'TOTAL', value: priceStr });
+
+  // Back-of-pass add-on list, one line per item, e.g. "Helmet ×2 — SAR 30".
+  const addonsBack = addons.length
+    ? [{ key: 'addons', label: 'Add-ons', value: addons.map((a) => `${a.n}${a.q > 1 ? ' ×' + a.q : ''} — SAR ${a.p}`).join('\n') }]
+    : [];
 
   const pass = {
     formatVersion: 1,
@@ -105,7 +119,7 @@ async function buildPkpass(b, cfg) {
     barcodes: [{ format: 'PKBarcodeFormatQR', message: barcodeMsg, messageEncoding: 'iso-8859-1', altText: `#${num}` }],
     // keep the legacy single-barcode field too for older iOS
     barcode: { format: 'PKBarcodeFormatQR', message: barcodeMsg, messageEncoding: 'iso-8859-1', altText: `#${num}` },
-    locations: [{ latitude: 21.6266, longitude: 39.1099, relevantText: 'Your ride is nearby — head to Gate A' }],
+    locations: [{ latitude: 21.6266, longitude: 39.1099, relevantText: 'Your ride is nearby — the Circuit is just ahead' }],
     // Semantic tags let iOS drive Live Activities, lock-screen relevance and the event guide.
     semantics: {
       eventName: 'Jeddah Corniche Circuit ride',
@@ -123,11 +137,11 @@ async function buildPkpass(b, cfg) {
       auxiliaryFields: auxiliary,
       backFields: [
         { key: 'when', label: 'Session', value: `${when}${time ? ' · ' + time : ''}`.trim() },
-        { key: 'gate', label: 'Gate', value: 'Gate A — Jeddah Corniche Circuit' },
         { key: 'venue', label: 'Venue', value: 'Jeddah Corniche Circuit' },
         { key: 'directions', label: 'Directions', value: `<a href="${DIRECTIONS}">Open in Maps</a>` },
+        ...addonsBack,
         { key: 'pay', label: 'Payment', value: 'Pay at the booth — cash, mada or STC Pay.' },
-        { key: 'help', label: 'Good to know', value: 'Show this pass at Gate A. Bikes are assigned first come, first served, so arrive a little early to get the type you picked.' },
+        { key: 'help', label: 'Good to know', value: 'Show this pass on arrival. Bikes are assigned first come, first served, so arrive a little early to get the type you picked.' },
         { key: 'ref', label: 'Reference', value: barcodeMsg },
       ],
     },
@@ -183,6 +197,17 @@ function _sessionDates(b) {
   } catch (e) {
     return null;
   }
+}
+
+// Sanitize the client-supplied add-on list: cap count and lengths, coerce types. This is
+// display-only text (ownership is verified separately), so we just keep it sane and bounded.
+function _cleanAddons(a) {
+  if (!Array.isArray(a)) return [];
+  return a.slice(0, 20).map((x) => ({
+    n: String((x && x.n) || '').replace(/\s+/g, ' ').trim().slice(0, 60),
+    q: Math.max(1, Math.min(99, parseInt(x && x.q, 10) || 1)),
+    p: Math.max(0, Math.min(100000, Math.round((Number(x && x.p) || 0) * 100) / 100)),
+  })).filter((x) => x.n);
 }
 
 // Friendly bike-type label for the pass (matches the app's wording).
