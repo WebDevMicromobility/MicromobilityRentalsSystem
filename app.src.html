@@ -2212,20 +2212,23 @@ async function addBookingToWallet(bookingId,btn){
 // share sheet. Falls back to downloading the .pkpass if Web Share isn't available.
 async function shareBookingPass(bookingId,btn){
   const _old=btn?btn.innerHTML:'';if(btn){btn.disabled=true;btn.innerHTML=esc(t('sharePassBusy'));}
+  const _dl=(blob)=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='booking.pkpass';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);};
   try{
     const r=await _fetchPassBlob(bookingId);
     if(!r.ok){_walletErrToast(r);return;}
-    const file=new File([r.blob],'booking.pkpass',{type:'application/vnd.apple.pkpass'});
-    const data={title:t('sharePassTitle'),text:t('sharePassText')};
-    if(navigator.canShare&&navigator.canShare({files:[file]}))data.files=[file];
-    if(navigator.share){
-      try{await navigator.share(data);}
-      catch(e){if(e&&e.name==='AbortError')return;throw e;} // user dismissed the sheet: not an error
-    }else{ // no Web Share: download so they can attach it manually
-      const url=URL.createObjectURL(r.blob);const a=document.createElement('a');a.href=url;a.download='booking.pkpass';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);
-      toast(t('sharePassFallback'),'success');
+    const file=new File([r.blob],'MicroMobility-pass.pkpass',{type:'application/vnd.apple.pkpass'});
+    const canFile=!!(navigator.canShare&&navigator.canShare({files:[file]}));
+    if(navigator.share&&canFile){
+      try{await navigator.share({files:[file],title:t('sharePassTitle'),text:t('sharePassText')});}
+      catch(e){
+        if(e&&e.name==='AbortError')return; // user dismissed the sheet: not an error
+        _dl(r.blob);toast(t('sharePassFallback')+' ['+((e&&e.name)||'share')+']','error');
+      }
+    }else{ // this device/browser won't share the pass file: download so they can send it manually
+      _dl(r.blob);
+      toast(t('sharePassFallback')+' ['+(navigator.share?'no-file':'no-webshare')+']','error');
     }
-  }catch(e){toast(t('walletErr'),'error');}
+  }catch(e){toast(t('walletErr')+' ['+((e&&e.name)||'err')+']','error');}
   finally{if(btn){btn.disabled=false;btn.innerHTML=_old;}}
 }
 // Product photo lightbox: tap an add-on thumbnail to see it big (closes on tap, Esc or the x)
