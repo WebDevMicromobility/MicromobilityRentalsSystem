@@ -73,19 +73,19 @@ async function buildPkpass(b, cfg) {
   const barcodeMsg = ['MMC', num, ref6].filter(Boolean).join('-'); // matches the app scanner
   const when = `${b.session_day || ''} ${b.session_date || ''}`.trim();
   const time = b.session_time || '';
-  const frame = b.size || '';
   const rider = b.name || '';
   const bikeType = _bikeLabel(b.type_preference);
   const priceStr = (b.price != null && b.price !== '' && !isNaN(+b.price)) ? `SAR ${(+b.price)}` : '';
 
-  // Only include fields that actually have a value, so the pass never shows a lonely "—".
-  const secondary = [];
+  // Secondary row: the session date + its time. Only push fields that have a value,
+  // so the pass never shows a lonely "—".
+  const secondary = [{ key: 'session', label: 'SESSION', value: when || 'Jeddah Corniche Circuit' }];
   if (time) secondary.push({ key: 'time', label: 'TIME', value: time });
-  if (rider) secondary.push({ key: 'rider', label: 'RIDER', value: rider });
 
+  // Auxiliary row: rider, bike type, total. (Frame size intentionally omitted.)
   const auxiliary = [];
+  if (rider) auxiliary.push({ key: 'rider', label: 'RIDER', value: rider });
   if (bikeType) auxiliary.push({ key: 'bike', label: 'BIKE', value: bikeType });
-  if (frame) auxiliary.push({ key: 'frame', label: 'SIZE', value: frame });
   if (priceStr) auxiliary.push({ key: 'total', label: 'TOTAL', value: priceStr });
 
   const pass = {
@@ -95,18 +95,17 @@ async function buildPkpass(b, cfg) {
     serialNumber: String(b.id),
     organizationName: 'MicroMobility Rentals',
     description: `Booking #${num} — Jeddah Corniche Circuit`,
-    foregroundColor: 'rgb(244,247,244)',
+    foregroundColor: 'rgb(242,245,242)',
     backgroundColor: 'rgb(7,9,11)',
     labelColor: 'rgb(0,229,133)',
-    logoText: 'MicroMobility',
     sharingProhibited: true,
     barcodes: [{ format: 'PKBarcodeFormatQR', message: barcodeMsg, messageEncoding: 'iso-8859-1', altText: `#${num}` }],
     // keep the legacy single-barcode field too for older iOS
     barcode: { format: 'PKBarcodeFormatQR', message: barcodeMsg, messageEncoding: 'iso-8859-1', altText: `#${num}` },
     locations: [{ latitude: 21.6266, longitude: 39.1099, relevantText: 'Your ride is nearby — head to Gate A' }],
     eventTicket: {
-      headerFields: [{ key: 'queue', label: 'QUEUE', value: `#${num}` }],
-      primaryFields: [{ key: 'session', label: 'RIDE SESSION', value: when || 'Jeddah Corniche Circuit' }],
+      headerFields: [],
+      primaryFields: [{ key: 'queue', label: 'QUEUE', value: `#${num}` }],
       secondaryFields: secondary,
       auxiliaryFields: auxiliary,
       backFields: [
