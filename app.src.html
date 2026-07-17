@@ -4823,29 +4823,13 @@ function renderAccount(){
     <div class="page-sub">${t('accountSub')}</div>
     ${_seasonDashboard(cust)}
     ${(()=>{
-      const rides=myDone.filter(e=>e.paid).length;
-      const tiers=[[0,'tierNewcomer'],[3,'tierRegular'],[10,'tierPro'],[25,'tierElite'],[50,'tierLegend']];
-      let ti=0;for(let i=0;i<tiers.length;i++){if(rides>=tiers[i][0])ti=i;}
-      const next=tiers[ti+1];
-      const nextTxt=next?t('ridesToNext').replace('{0}',next[0]-rides).replace('{1}',t(next[1])):'';
+      // Tier + total rides now live in the season dashboard above; keep only the unique
+      // profile-completeness meter here.
       const fields=[cust.name,cust.email,cust.phone,cust.height,cust.birth_date,cust.country,cust.city,cust.photo,(cust.type_preference&&cust.type_preference!=='Any')];
       const pct=Math.round(fields.filter(Boolean).length/fields.length*100);
-      return`<div class="form-section" style="max-width:640px;margin:0 auto 16px;display:flex;flex-direction:column;gap:14px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-          <div>
-            <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${t('rideTierLabel')}</div>
-            <div style="font-size:20px;font-weight:900;color:var(--green);letter-spacing:-.5px">${t(tiers[ti][1])}</div>
-            ${nextTxt?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${nextTxt}</div>`:''}
-          </div>
-          <div style="text-align:right">
-            <div style="font-size:28px;font-weight:900;letter-spacing:-1px">${rides}</div>
-            <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${t('statTotalRides')}</div>
-          </div>
-        </div>
-        <div>
-          <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px">${t('profileCompleteLabel').replace('{0}',pct)}</div>
-          <div style="height:8px;border-radius:2px;background:rgba(var(--tint-rgb),.07);overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--green);border-radius:2px;transition:width .4s"></div></div>
-        </div>
+      return`<div class="form-section" style="max-width:640px;margin:22px auto 16px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:5px">${t('profileCompleteLabel').replace('{0}',pct)}</div>
+        <div style="height:8px;border-radius:2px;background:rgba(var(--tint-rgb),.07);overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--green);border-radius:2px;transition:width .4s"></div></div>
       </div>`;
     })()}
     <div class="form-section" style="max-width:640px;margin:0 auto">
