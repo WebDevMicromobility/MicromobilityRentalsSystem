@@ -64,7 +64,8 @@ test.describe('login', () => {
 test.describe('signup', () => {
   async function fillSignup(page: import('@playwright/test').Page) {
     await page.evaluate('switchAuthMode("signup")');
-    await page.fill('#a-name', 'Faisal Babalghoum');
+    await page.fill('#a-first', 'Faisal');
+    await page.fill('#a-last', 'Babalghoum');
     await page.evaluate('setSignupGender("male")');
     await page.fill('#a-email', 'faisal@example.com');
     await page.fill('#a-phone', '0508566560');
@@ -78,9 +79,10 @@ test.describe('signup', () => {
     await page.evaluate('switchAuthMode("signup")');
     const errAfter = async () => { await page.evaluate('doSignup()'); return (await page.locator('#auth-err').textContent()) || ''; };
     expect(await errAfter()).toBeTruthy();                       // name
-    await page.fill('#a-name', 'One');                           // single word → still name error
+    await page.fill('#a-first', 'One');                          // first name only → still name error (last required)
     expect(await errAfter()).toBeTruthy();
-    await page.fill('#a-name', 'Faisal Babalghoum');
+    await page.fill('#a-first', 'Faisal');
+    await page.fill('#a-last', 'Babalghoum');
     expect(await errAfter()).toBeTruthy();                       // gender
     await page.evaluate('setSignupGender("male")');
     expect(await errAfter()).toBeTruthy();                       // email
@@ -153,7 +155,9 @@ test.describe('google complete-profile', () => {
     await page.evaluate('S._pendingGoogle={email:"g@x.com",name:"Gee User"};openGoogleComplete()');
     await expect(page.locator('#a-height')).toBeVisible();
     await page.locator('#auth-modal .btn-secondary').click(); // Cancel - Go Home
-    await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
+    // Auth-first: a signed-out visitor's landing IS the sign-in page, so the modal stays
+    // open — but back in plain login mode, with the pending Google session discarded.
+    await page.waitForFunction('S.authMode==="login" && !document.getElementById("a-height")');
     expect(await page.evaluate('S._pendingGoogle')).toBeNull();
   });
 
@@ -220,7 +224,8 @@ test.describe('remaining hardening', () => {
       await route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(!!body.p_phone) }); // taken only when checking phone
     });
     await page.evaluate('switchAuthMode("signup")');
-    await page.fill('#a-name', 'Faisal Babalghoum');
+    await page.fill('#a-first', 'Faisal');
+    await page.fill('#a-last', 'Babalghoum');
     await page.evaluate('setSignupGender("male")');
     await page.fill('#a-email', 'new@example.com');
     await page.fill('#a-phone', '0508566560');
@@ -237,7 +242,8 @@ test.describe('remaining hardening', () => {
     await boot(page);
     await captureRpc(page, 'customer_signup', [{ session_token: 'tok-new' }]);
     await page.evaluate('switchAuthMode("signup")');
-    await page.fill('#a-name', 'Faisal Babalghoum');
+    await page.fill('#a-first', 'Faisal');
+    await page.fill('#a-last', 'Babalghoum');
     await page.evaluate('setSignupGender("male")');
     await page.fill('#a-email', 'new@example.com');
     await page.fill('#a-phone', '0508566560');
@@ -315,21 +321,25 @@ test.describe('round 4: invisible characters & post-login flow', () => {
     expect(loginCalls[0].p_identifier).toBe('x@y.com'); // was "x@y.com\u200F" → invalid credentials forever
   });
 
-  test('email login lands the customer in the booking view, not back on the landing page', async ({ page }) => {
+  test('email login lands the customer on the event picker, not a dead landing page', async ({ page }) => {
     await boot(page, { 'rpc:customer_login': [customer] });
     expect(await page.evaluate('S.view')).toBe('landing');
     await page.fill('#a-identifier', 'x@y.com');
     await page.fill('#a-pwd', 'Zq8xTselah');
     await page.evaluate('doLogin()');
     await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
-    expect(await page.evaluate('S.view')).toBe('customer'); // Google flow already did this; email flows stranded users
+    // Auth-first flow: after signing in the landing IS the event picker (clickable event
+    // cards), so staying on it is correct - stranded would be a landing with no way in.
+    expect(await page.evaluate('S.view')).toBe('landing');
+    await expect(page.locator('.landing-event-card').first()).toBeVisible();
   });
 
   test('signup with a bidi-marked email stores the clean address', async ({ page }) => {
     await boot(page);
     const calls = await captureRpc(page, 'customer_signup', [{ session_token: 't' }]);
     await page.evaluate('switchAuthMode("signup")');
-    await page.fill('#a-name', 'Faisal Babalghoum');
+    await page.fill('#a-first', 'Faisal');
+    await page.fill('#a-last', 'Babalghoum');
     await page.evaluate('setSignupGender("male")');
     await page.evaluate(`document.getElementById('a-email').value='Faisal\u200F@Example.com\u200E'`);
     await page.fill('#a-phone', '0508566560');

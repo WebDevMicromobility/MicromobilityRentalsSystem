@@ -25,7 +25,11 @@ export async function stubSupabase(page: Page, fixtures: Fixtures = {}) {
 
     const rpc = url.pathname.match(/\/rest\/v1\/rpc\/([^/?]+)/);
     if (rpc) {
-      const body = (fixtures as Record<string, unknown>)[`rpc:${rpc[1]}`];
+      let body = (fixtures as Record<string, unknown>)[`rpc:${rpc[1]}`];
+      // list_sessions is how customers read sessions since tag-gated events: the real RPC
+      // returns the sessions table (public rows + tagged ones), so default it to the
+      // sessions fixture unless a spec overrides it explicitly.
+      if (body === undefined && rpc[1] === 'list_sessions') body = fixtures['sessions'] || [];
       return route.fulfill({
         status: 200,
         headers: { ...cors(), 'content-type': 'application/json' },

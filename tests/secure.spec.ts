@@ -27,7 +27,8 @@ test('customer login goes through the customer_login RPC', async ({ page }) => {
   await secureOn(page);
   await page.goto('/');
   await waitForSb(page);
-  await page.locator('.landing-hero-card').click(); // not logged in → auth modal opens
+  // Auth-first: a signed-out visitor's first page IS the sign-in screen — no click needed.
+  await expect(page.locator('#a-identifier')).toBeVisible();
   await page.fill('#a-identifier', 'secure@example.com');
   await page.fill('#a-pwd', 'Passw0rdX');
   await page.evaluate(`doLogin()`);
@@ -73,7 +74,7 @@ test('a stale staff unlock without an Auth session falls back to the PIN gate', 
   await page.goto('/');
   await waitForSb(page);
 
-  await expect(page.locator('.landing-hero-card')).toBeVisible(); // landed on the public page, not the staff panel
+  await expect(page.locator('.auth-box')).toBeVisible(); // landed on the public sign-in page, not the staff panel
   expect(await page.evaluate(`localStorage.getItem('cq_staff')`)).toBeNull();
   expect(await page.evaluate(`S._staffAuthed === true`)).toBe(false);
 });

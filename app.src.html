@@ -45,7 +45,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=135">
+  <link rel="stylesheet" href="./styles.css?v=136">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
@@ -2337,7 +2337,17 @@ function openAuthModal(){
   renderAuthModal();
   document.getElementById('auth-modal').style.display='flex';
 }
-function closeAuthModal(){document.getElementById('auth-modal').style.display='none';}
+function closeAuthModal(){
+  const m=document.getElementById('auth-modal');if(!m)return;
+  // Auth-first: on the signed-out landing the auth screen IS the page, so it can't be
+  // dismissed into nothing (Escape, stray close calls). Sign-in success closes normally
+  // because the session exists by the time this runs. The staff PIN path is exempt.
+  if(S.view==='landing'&&!getSession()&&!document.querySelector('.pin-backdrop')){
+    if(m.style.display!=='flex'||S._authRenderMode!==S.authMode){renderAuthModal();m.style.display='flex';}
+    return;
+  }
+  m.style.display='none';
+}
 
 function renderAuthModal(){
   const mode=S.authMode;
@@ -2484,7 +2494,7 @@ function renderAuthModal(){
       ${tabs}
       <div class="auth-err" id="auth-err"></div>
       ${body}
-      ${!isForgot?`<button class="btn-secondary" style="width:100%;margin-top:10px" onclick="${mode==='gcomplete'?'cancelGoogleComplete()':'closeAuthModal();goLanding()'}">${t('authCancel')}</button>`:''}
+      ${!isForgot?`<button class="btn-secondary auth-cancel-btn${mode==='gcomplete'?' auth-keep':''}" style="width:100%;margin-top:10px" onclick="${mode==='gcomplete'?'cancelGoogleComplete()':'closeAuthModal();goLanding()'}">${t('authCancel')}</button>`:''}
     </div>
   </div>`;
   Object.keys(_snap).forEach(id=>{const el=document.getElementById(id);if(el&&!el.value)el.value=_snap[id];});
@@ -2836,7 +2846,7 @@ async function handleGoogleReturn(){
 }
 // Cancelling the complete-profile step must also drop the pending Google Auth session,
 // otherwise every future visit re-opens this modal.
-function cancelGoogleComplete(){S._pendingGoogle=null;try{if(sb&&sb.auth)sb.auth.signOut();}catch(e){}closeAuthModal();goLanding();}
+function cancelGoogleComplete(){S._pendingGoogle=null;try{if(sb&&sb.auth)sb.auth.signOut();}catch(e){}S.authMode='login';closeAuthModal();goLanding();}
 function openGoogleComplete(){
   S.authMode='gcomplete';S.signupGender=null;S.signupTypePref='Any';
   renderAuthModal();
@@ -3014,14 +3024,20 @@ function landHeroClick(){const c=getSession();if(!c){goCustomer('register');retu
 function renderLandingAvail(){
   const strip=document.getElementById('land-avail-strip');if(!strip)return;
   const cust=S.loggedIn||getSession();
-  // Hero CTA: the first thing a signed-out visitor gets is sign in / sign up. Signed-in
-  // customers get no buttons here - the event cards below are the way in.
+  // Auth-first: for a signed-out visitor the sign in / sign up screen is the FIRST page,
+  // a separate page from the event picker. The landing content hides and the auth box
+  // shows full-page (undismissable). The staff PIN overlay (z-300) still renders above it.
+  const lb=document.getElementById('landing-body');
+  if(lb)lb.classList.toggle('auth-gate',!cust);
+  const am=document.getElementById('auth-modal');
+  if(!cust&&S.view==='landing'){
+    // Only open it if it isn't already showing - background refreshes call this render, and
+    // re-rendering an open modal would wipe what the visitor is typing.
+    if(am&&am.style.display!=='flex'){renderAuthModal();am.style.display='flex';}
+    if(am)am.classList.add('as-page');
+  }else if(am){am.classList.remove('as-page');}
   const cta=document.getElementById('land-auth-cta');
-  if(cta)cta.innerHTML=cust?'':`
-    <div style="display:flex;gap:10px;flex-wrap:wrap">
-      <button class="btn-primary" onclick="goCustomer('register')">${t('authLogin')}</button>
-      <button class="btn-secondary" onclick="goCustomer('register');setTimeout(()=>switchAuthMode('signup'),0)">${t('authSignup')}</button>
-    </div>`;
+  if(cta)cta.innerHTML='';
   // Event cards (signed-in only): JCC always; the Saturday Community Ride card appears only
   // when a community session was returned for this customer - i.e. the server already decided
   // they may see it. Cards are the click targets; there are no separate Reserve buttons.
@@ -3100,6 +3116,9 @@ function goCustomer(tab){
 function goStaff(){
   localStorage.setItem('cq_staff','1');
   showView('staff');
+  // The signed-out landing keeps the auth page open; entering staff must clear it or the
+  // overlay would sit on top of the panel (view is 'staff' now, so the close guard passes).
+  try{const m=document.getElementById('auth-modal');if(m){m.style.display='none';m.classList.remove('as-page');}}catch(e){}
   renderStaffTabs();
   
   _autoSelectSession();
@@ -6656,13 +6675,16 @@ function renderStaffQueue(){
     if(e.status!=='waiting')return'';
     return`<button class="btn-sm btn-muted" title="${t('moveUpLabel')}" aria-label="${t('moveUpLabel')}" style="padding:5px 8px" onclick="moveQueueEntry('${e.id}',-1)">▲</button><button class="btn-sm btn-muted" title="${t('moveDownLabel')}" aria-label="${t('moveDownLabel')}" style="padding:5px 8px" onclick="moveQueueEntry('${e.id}',1)">▼</button>`;
   }
+  // Community-session ids, computed once per render - a per-row allSessions().find() scan
+  // pushed the big-queue render past its perf budget.
+  const _commSessIds=new Set((S.sessions||[]).filter(_isCommunity).map(s=>s.id));
   function _entryActions(e){
     const _editBtn=`<button class="btn-sm btn-muted" onclick="showBookingEditModal('${e.id}')" title="${t('editBookingTitle')}">${ICON_PENCIL} ${t('editBookingBtn')}</button>`;
     const _nCount=(S.custNotes||[]).filter(n=>(e.customerId&&n.customer_id===e.customerId)||(n.phone&&e.phone&&n.phone===e.phone)).length;
     const _noteBtn=`<button class="btn-sm btn-muted" onclick="showBookingNoteModal('${e.id}')" title="${t('notesTitle')}">🗒 ${t('noteBtn')}${_nCount?` (${_nCount})`:''}</button>`;
     // Community-event reservations: staff select who rides. Pending rows get Approve/Reject
     // (a waitlist approve = hand-picked promotion into a freed/expanded spot).
-    const _comm=_isCommunity(allSessions().find(s=>s.id===e.sessionId));
+    const _comm=_commSessIds.has(e.sessionId);
     if(_comm&&e.approval==='pending'&&(e.status==='waiting'||e.status==='waitlist')){
       const chip=`<span style="font-size:10px;font-weight:900;color:var(--orange);border:1px solid rgba(var(--warn-rgb),.4);border-radius:2px;padding:2px 8px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">${t('apprPendingChip')}</span>`;
       return`${chip}<button class="btn-sm btn-green" onclick="approveEntry('${e.id}')">✓ ${e.status==='waitlist'?t('apprSelectBtn'):t('apprApproveBtn')}</button><button class="btn-sm btn-red" onclick="rejectEntry('${e.id}')">${t('apprRejectBtn')}</button>${_editBtn}${_noteBtn}`;

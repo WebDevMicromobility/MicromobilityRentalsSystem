@@ -73,17 +73,19 @@ test('switching language mid-signup keeps everything typed', async ({ page }) =>
   await page.goto('/');
   await waitForSb(page);
   await page.evaluate('openAuthModal();switchAuthMode("signup")');
-  await page.fill('#a-name', 'Faisal Babalghoum');
+  await page.fill('#a-first', 'Faisal');
+  await page.fill('#a-last', 'Babalghoum');
   await page.fill('#a-email', 'faisal@example.com');
   await page.fill('#a-phone', '0508566560');
   await page.fill('#a-pwd', 'Zq8xTselah');
   await page.evaluate('setLang("ar")'); // re-renders the open modal
-  expect(await page.evaluate('document.getElementById("a-name").value')).toBe('Faisal Babalghoum');
+  expect(await page.evaluate('document.getElementById("a-first").value')).toBe('Faisal');
+  expect(await page.evaluate('document.getElementById("a-last").value')).toBe('Babalghoum');
   expect(await page.evaluate('document.getElementById("a-email").value')).toBe('faisal@example.com');
   expect(await page.evaluate('document.getElementById("a-pwd").value')).toBe('Zq8xTselah');
   // mode switches still start clean
   await page.evaluate('switchAuthMode("login");switchAuthMode("signup")');
-  expect(await page.evaluate('document.getElementById("a-name").value')).toBe('');
+  expect(await page.evaluate('document.getElementById("a-first").value')).toBe('');
 });
 
 test('monkey: 40 random staff-panel clicks produce zero page errors', async ({ page }) => {
