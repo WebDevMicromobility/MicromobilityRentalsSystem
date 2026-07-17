@@ -11854,10 +11854,40 @@ function _tagEditForm(){
     </div>
   </div>`;
 }
-function _commAccounts(){
+// Customer rows only (the part the search filters). Rendered into #am-cust-rows so typing
+// in the search box never re-renders the box itself - only the results below it.
+function _amCustRows(){
   const custs=(S.customers||[]).slice().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
   const q=(S.amSearch||'').trim().toLowerCase();
   const shown=q?custs.filter(c=>[c.name,c.email,c.phone].some(v=>String(v||'').toLowerCase().includes(q))):custs;
+  S._amShownCount=shown.length;
+  return shown.map(c=>{
+    const myTags=_tagsForCust(c.id);
+    const chips=myTags.length?myTags.map(_tagChip).join(''):`<span class="am-meta">${t('amNoTags')}</span>`;
+    const picking=S.tagCustId===c.id;
+    const picker=picking?`<div class="am-picker">${(S.tags||[]).map(tg=>{const on=myTags.some(x=>x.id===tg.id);return `<button class="am-pick${on?' on':''}" onclick="toggleCustTag('${c.id}','${tg.id}')" style="--tc:${esc(tg.color||'#00e585')}">${on?'✓ ':'+ '}${esc(tg.name)}</button>`;}).join('')||`<span class="am-meta">${t('amNoTags')}</span>`}</div>`:'';
+    const contact=[c.email,c.phone].filter(Boolean)
+      .map(v=>`<bdi>${esc(v)}</bdi>`).join(' <span style="opacity:.5">·</span> ');
+    return `<div class="am-cust">
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.name||'—')}</div>
+        ${contact?`<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${contact}</div>`:''}
+        <div class="am-chips">${chips}</div>
+      </div>
+      <button class="btn-sm ${picking?'btn-green':'btn-secondary'}" style="flex-shrink:0" onclick="S.tagCustId=${picking?'null':`'${c.id}'`};renderCommunity()">${picking?t('doneBtn'):t('amEditTags')}</button>
+    </div>${picker}`;
+  }).join('')||`<div class="empty-state">${q?t('commNoMatch'):t('amNoCustomers')}</div>`;
+}
+// Search handler: update ONLY the results container + count, leaving the input untouched so
+// typing is never interrupted by a re-render.
+function _amSearchInput(v){
+  S.amSearch=v;
+  _debRender('am',()=>{
+    const w=document.getElementById('am-cust-rows');if(w)w.innerHTML=_amCustRows();
+    const c=document.getElementById('am-cust-count');if(c)c.textContent='('+(S._amShownCount||0)+')';
+  });
+}
+function _commAccounts(){
   const tagRows=(S.tags||[]).slice().sort((a,b)=>(b.auto_grant?1:0)-(a.auto_grant?1:0)||String(a.name).localeCompare(String(b.name))).map(tg=>{
     const cnt=(S.customerTags||[]).filter(ct=>ct.tag_id===tg.id).length;
     return `<div class="am-tag-row">
@@ -11875,24 +11905,11 @@ function _commAccounts(){
     ${tagRows}
     ${S.tagEdit!==null?_tagEditForm():`<button class="btn-secondary" style="margin-top:12px" onclick="openTagEdit('')">+ ${t('amNewTag')}</button>`}
   </div>`;
-  const custRows=shown.map(c=>{
-    const myTags=_tagsForCust(c.id);
-    const chips=myTags.length?myTags.map(_tagChip).join(''):`<span class="am-meta">${t('amNoTags')}</span>`;
-    const picking=S.tagCustId===c.id;
-    const picker=picking?`<div class="am-picker">${(S.tags||[]).map(tg=>{const on=myTags.some(x=>x.id===tg.id);return `<button class="am-pick${on?' on':''}" onclick="toggleCustTag('${c.id}','${tg.id}')" style="--tc:${esc(tg.color||'#00e585')}">${on?'✓ ':'+ '}${esc(tg.name)}</button>`;}).join('')||`<span class="am-meta">${t('amNoTags')}</span>`}</div>`:'';
-    return `<div class="am-cust">
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.name||'—')}</div>
-        <div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.email||c.phone||'')}</div>
-        <div class="am-chips">${chips}</div>
-      </div>
-      <button class="btn-sm ${picking?'btn-green':'btn-secondary'}" style="flex-shrink:0" onclick="S.tagCustId=${picking?'null':`'${c.id}'`};renderCommunity()">${picking?t('doneBtn'):t('amEditTags')}</button>
-    </div>${picker}`;
-  }).join('')||`<div class="empty-state">${q?t('commNoMatch'):t('amNoCustomers')}</div>`;
+  const rows=_amCustRows();
   const custPanel=`<div class="form-section">
-    <div class="form-title">${t('amCustomersTitle')} <span style="color:var(--muted);font-weight:600;font-size:13px">(${shown.length})</span></div>
-    <input id="am-search" type="text" value="${esc(S.amSearch||'')}" placeholder="${esc(t('amSearchPh'))}" oninput="S.amSearch=this.value;_debRender('am',renderCommunity)" onfocus="S._amFocused=true" onblur="S._amFocused=false" style="width:100%;box-sizing:border-box;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.15);border-radius:4px;padding:9px 12px;margin-bottom:12px;color:var(--text);font-family:'Barlow',sans-serif;font-size:13px;font-weight:600;outline:none">
-    ${custRows}
+    <div class="form-title">${t('amCustomersTitle')} <span id="am-cust-count" style="color:var(--muted);font-weight:600;font-size:13px">(${S._amShownCount||0})</span></div>
+    <input id="am-search" type="text" value="${esc(S.amSearch||'')}" placeholder="${esc(t('amSearchPh'))}" oninput="_amSearchInput(this.value)" onfocus="S._amFocused=true" onblur="S._amFocused=false" style="width:100%;box-sizing:border-box;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.15);border-radius:4px;padding:9px 12px;margin-bottom:12px;color:var(--text);font-family:'Barlow',sans-serif;font-size:13px;font-weight:600;outline:none">
+    <div id="am-cust-rows">${rows}</div>
   </div>`;
   return tagPanel+custPanel;
 }
