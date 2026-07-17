@@ -18552,6 +18552,16 @@ async function buildPkpass(b, cfg) {
   const when = `${b.session_day || ""} ${b.session_date || ""}`.trim();
   const time = b.session_time || "";
   const frame = b.size || "";
+  const rider = b.name || "";
+  const bikeType = _bikeLabel(b.type_preference);
+  const priceStr = b.price != null && b.price !== "" && !isNaN(+b.price) ? `SAR ${+b.price}` : "";
+  const secondary = [];
+  if (time) secondary.push({ key: "time", label: "TIME", value: time });
+  if (rider) secondary.push({ key: "rider", label: "RIDER", value: rider });
+  const auxiliary = [];
+  if (bikeType) auxiliary.push({ key: "bike", label: "BIKE", value: bikeType });
+  if (frame) auxiliary.push({ key: "frame", label: "SIZE", value: frame });
+  if (priceStr) auxiliary.push({ key: "total", label: "TOTAL", value: priceStr });
   const pass = {
     formatVersion: 1,
     passTypeIdentifier: cfg.passTypeId,
@@ -18559,30 +18569,27 @@ async function buildPkpass(b, cfg) {
     serialNumber: String(b.id),
     organizationName: "MicroMobility Rentals",
     description: `Booking #${num} \u2014 Jeddah Corniche Circuit`,
-    foregroundColor: "rgb(242,245,242)",
-    backgroundColor: "rgb(8,9,11)",
+    foregroundColor: "rgb(244,247,244)",
+    backgroundColor: "rgb(7,9,11)",
     labelColor: "rgb(0,229,133)",
     logoText: "MicroMobility",
+    sharingProhibited: true,
     barcodes: [{ format: "PKBarcodeFormatQR", message: barcodeMsg, messageEncoding: "iso-8859-1", altText: `#${num}` }],
     // keep the legacy single-barcode field too for older iOS
     barcode: { format: "PKBarcodeFormatQR", message: barcodeMsg, messageEncoding: "iso-8859-1", altText: `#${num}` },
     locations: [{ latitude: 21.6266, longitude: 39.1099, relevantText: "Your ride is nearby \u2014 head to Gate A" }],
     eventTicket: {
-      headerFields: [{ key: "queue", label: "QUEUE #", value: `#${num}` }],
-      primaryFields: [{ key: "session", label: "SESSION", value: when || "Jeddah Corniche Circuit" }],
-      secondaryFields: [
-        { key: "time", label: "TIME", value: time || "\u2014" },
-        { key: "rider", label: "RIDER", value: b.name || "\u2014" }
-      ],
-      auxiliaryFields: [
-        { key: "frame", label: "FRAME", value: frame || "\u2014" },
-        { key: "gate", label: "GATE", value: "A" }
-      ],
+      headerFields: [{ key: "queue", label: "QUEUE", value: `#${num}` }],
+      primaryFields: [{ key: "session", label: "RIDE SESSION", value: when || "Jeddah Corniche Circuit" }],
+      secondaryFields: secondary,
+      auxiliaryFields: auxiliary,
       backFields: [
-        { key: "venue", label: "Venue", value: "Jeddah Corniche Circuit, Gate A" },
-        { key: "directions", label: "Directions", value: DIRECTIONS },
+        { key: "gate", label: "Gate", value: "Gate A \u2014 Jeddah Corniche Circuit" },
+        { key: "venue", label: "Venue", value: "Jeddah Corniche Circuit" },
+        { key: "directions", label: "Directions", value: `<a href="${DIRECTIONS}">Open in Maps</a>` },
         { key: "pay", label: "Payment", value: "Pay at the booth \u2014 cash, mada or STC Pay." },
-        { key: "help", label: "Note", value: "Show this pass at Gate A. Bikes are assigned first come, first served." }
+        { key: "help", label: "Good to know", value: "Show this pass at Gate A. Bikes are assigned first come, first served, so arrive a little early to get the type you picked." },
+        { key: "ref", label: "Reference", value: barcodeMsg }
       ]
     }
   };
@@ -18596,6 +18603,20 @@ async function buildPkpass(b, cfg) {
   const wwdrPem = await getWWDR();
   files["signature"] = signManifest(manifestStr, cfg.p12b64, cfg.p12pw, wwdrPem);
   return zipSync(files, { level: 6 });
+}
+function _bikeLabel(t) {
+  const k = String(t || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
+  const map = {
+    road: "Road",
+    hybrid: "Hybrid",
+    mountain: "Mountain",
+    gravel: "Gravel",
+    any: "Any",
+    roadcarbon: "Road Carbon"
+  };
+  if (map[k]) return map[k];
+  const s = String(t || "").trim();
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
 }
 function sha1hex(bytes) {
   const md = import_node_forge.default.md.sha1.create();

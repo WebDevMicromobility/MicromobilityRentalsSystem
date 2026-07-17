@@ -2022,9 +2022,23 @@
     :root[data-theme="dark"] .btn-apple{background:#fff;color:#000;border-color:#fff;}
     :root[data-theme="dark"] .btn-apple:hover{background:#e8e8e8;color:#000;}
 
-    /* Add to Apple Wallet: Apple's black pill button (white in dark theme surface) */
-    .btn-wallet{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;background:#000;color:#fff;border:none;border-radius:8px;padding:11px 16px;font-family:'Barlow',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s;}
-    .btn-wallet:hover{background:#1a1a1a;}
-    :root[data-theme="dark"] .btn-wallet{background:#fff;color:#000;}
-    :root[data-theme="dark"] .btn-wallet:hover{background:#e6e6e6;}
+    /* Add to Apple Wallet: a mini "pass" - matte-black card, hairline green edge,
+       matching the black/green pass it generates. Same look in both themes. */
+    .btn-wallet{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;
+      background:linear-gradient(180deg,#141619,#050607);color:#f4f7f4;
+      border:1px solid rgba(0,229,133,.32);border-radius:13px;padding:13px 18px;
+      font-family:'Barlow',sans-serif;font-size:15px;font-weight:700;letter-spacing:.2px;
+      cursor:pointer;position:relative;overflow:hidden;-webkit-tap-highlight-color:transparent;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 6px 18px rgba(0,0,0,.35);
+      transition:transform .12s ease, box-shadow .2s ease, border-color .2s ease;}
+    /* thin green sheen across the top edge, echoing the pass's label colour */
+    .btn-wallet::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;
+      background:linear-gradient(90deg,transparent,rgba(0,229,133,.85),transparent);}
+    .btn-wallet .wallet-glyph{flex:none;color:#f4f7f4;}
+    .btn-wallet:hover{border-color:rgba(0,229,133,.6);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 8px 22px rgba(0,229,133,.16);}
+    .btn-wallet:active{transform:scale(.985);}
+    .btn-wallet:disabled{opacity:.6;cursor:default;transform:none;}
+    .btn-wallet:focus-visible{outline:2px solid #00e585;outline-offset:2px;}
+    @media (prefers-reduced-motion: reduce){.btn-wallet{transition:none;}.btn-wallet:active{transform:none;}}
     html[lang="ar"] .btn-wallet{font-family:'IBM Plex Sans Arabic',sans-serif;}
