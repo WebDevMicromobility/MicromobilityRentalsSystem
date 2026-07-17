@@ -159,3 +159,8 @@ grant execute on function list_sessions(text, text) to anon, authenticated;
 --   still works through the existing whitelist, so that RPC needs no change.
 -- * Staff approve/reject with a normal authenticated UPDATE on queue_entries,
 --   covered by the existing staff policy -- no extra RPC needed.
+
+-- ── 8. Community-event extras: meeting point + breakfast spot (Google Maps links) ──
+alter table sessions add column if not exists meet_url       text;
+alter table sessions add column if not exists breakfast_name text;
+alter table sessions add column if not exists breakfast_url  text;
