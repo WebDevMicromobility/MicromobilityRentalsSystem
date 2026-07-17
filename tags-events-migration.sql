@@ -4,7 +4,7 @@
 --   1. A tagging system (tags + customer_tags) that ONLY staff can ever read.
 --      Customers can never learn that tags exist, let alone which they hold.
 --   2. Tag-gated sessions. Every customer automatically holds the 'jcc' tag, so
---      JCC rides behave exactly as before; the Saturday Community Ride is gated
+--      JCC rides behave exactly as before; the Saturday Social Ride is gated
 --      on an invite-only tag and is invisible in the DATABASE to everyone else,
 --      not merely hidden in the browser.
 --   3. A per-booking approval state, so a reservation is not a seat until staff
@@ -42,8 +42,8 @@ insert into tags (id, slug, name, color, description, auto_grant, locked, create
   ('tag_jcc','jcc','JCC Rider','#00e585',
    'Standard access to Jeddah Corniche Circuit rides. Granted automatically to every account. Remove it to block a rider from booking JCC.',
    true, true, (extract(epoch from now())*1000)::bigint),
-  ('tag_saturday','saturday','Saturday Community Ride','#4aa8f8',
-   'Invite only. Only riders with this tag can see or book the Saturday Community Ride.',
+  ('tag_saturday','saturday','Saturday Social Ride','#4aa8f8',
+   'Invite only. Only riders with this tag can see or book the Saturday Social Ride.',
    false, true, (extract(epoch from now())*1000)::bigint)
 on conflict (id) do nothing;
 
@@ -78,7 +78,7 @@ alter table sessions add column if not exists required_tag_id text references ta
 alter table sessions add column if not exists needs_approval  boolean not null default false;
 alter table sessions add column if not exists hide_queue      boolean not null default false;
 alter table sessions add column if not exists spots           integer;   -- hard cap for private events
-alter table sessions add column if not exists title           text;      -- 'Saturday Community Ride'
+alter table sessions add column if not exists title           text;      -- 'Saturday Social Ride'
 alter table sessions add column if not exists event_kind      text;      -- 'jcc' | 'community'
 create index if not exists sessions_required_tag_idx on sessions (required_tag_id);
 
