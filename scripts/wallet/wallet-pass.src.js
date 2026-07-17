@@ -17,7 +17,7 @@
 
 import forge from 'node-forge';
 import { zipSync } from 'fflate';
-import { PASS_IMAGES } from './_pass-images.js';
+import { PASS_IMAGES } from './pass-images.js';
 
 const SUPA_DEFAULT = 'https://amyqxovbnlreassrqihr.supabase.co';
 const DIRECTIONS = 'https://maps.app.goo.gl/zJLjmiaJgfJDKQwY7';
