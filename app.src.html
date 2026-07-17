@@ -4187,11 +4187,13 @@ function setBikeType(idx,type){
   if(pp){
     const allSet=S.regBikeTypes.slice(0,S.regQty).every(ty=>ty);
     if(allSet){
+      // Community rides are free whatever bike type is picked - never show a price.
+      const _cm=_isCommunity(allSessions().find(s=>s.id===S.selSession));
       const tMin=S.regBikeTypes.slice(0,S.regQty).reduce((s,ty)=>s+priceForType(ty||'Any'),0);
       const tMax=S.regBikeTypes.slice(0,S.regQty).reduce((s,ty)=>s+priceForTypeMax(ty||'Any'),0);
       const hRange=S.regBikeTypes.slice(0,S.regQty).some(ty=>ty==='Any');
-      const tDisplay=hRange?(tMin===tMax?`SAR ${tMin}`:`SAR ${tMin} - ${tMax}`):`SAR ${tMin.toFixed(2).replace(/\.00$/,'')}`;
-      const breakdown=S.regQty>1
+      const tDisplay=_cm?t('freeLabel'):hRange?(tMin===tMax?`SAR ${tMin}`:`SAR ${tMin} - ${tMax}`):`SAR ${tMin.toFixed(2).replace(/\.00$/,'')}`;
+      const breakdown=_cm?'':S.regQty>1
         ?S.regBikeTypes.slice(0,S.regQty).map((ty,i)=>`${t('bike')} ${i+1}: ${priceDisplay(ty)}`).join(' &nbsp;&middot;&nbsp; ')
         :t('pricePerBike');
       pp.innerHTML=`<div class="price-preview">
