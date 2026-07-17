@@ -19,3 +19,7 @@ alter table customer_notes enable row level security;
 drop policy if exists "staff full access" on customer_notes;
 create policy "staff full access" on customer_notes
   for all using (is_staff()) with check (is_staff());
+
+-- Note types (staff complaint / customer complaint / feedback / comment).
+-- Re-run this file (or just this line) after updating the app.
+alter table customer_notes add column if not exists note_type text;
