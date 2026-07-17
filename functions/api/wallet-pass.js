@@ -18524,6 +18524,7 @@ async function onRequestPost(context) {
   const { customerId, token, bookingId } = body || {};
   if (!customerId || !token || !bookingId) return json({ ok: false, error: "missing fields" }, 400);
   const addons = _cleanAddons(body && body.addons);
+  const groupIds = Array.isArray(body && body.groupIds) ? body.groupIds.filter((x2) => typeof x2 === "string").slice(0, 50) : [];
   const SUPA = env.SUPABASE_URL || SUPA_DEFAULT;
   const ANON = env.SUPABASE_ANON_KEY;
   if (!ANON) return json({ ok: false, error: "no anon key" }, 500);
@@ -18536,8 +18537,10 @@ async function onRequestPost(context) {
   const rows = await rpc.json();
   const b = Array.isArray(rows) ? rows.find((r) => r.id === bookingId) : null;
   if (!b) return json({ ok: false, error: "not found" }, 404);
+  let group = groupIds.length ? rows.filter((r) => groupIds.includes(r.id)) : [b];
+  if (!group.some((r) => r.id === b.id)) group = [b];
   try {
-    const pkpass = await buildPkpass(b, { p12b64, p12pw, passTypeId, teamId, addons });
+    const pkpass = await buildPkpass(b, { p12b64, p12pw, passTypeId, teamId, addons, group });
     return new Response(pkpass, {
       headers: {
         "Content-Type": "application/vnd.apple.pkpass",
@@ -18550,44 +18553,54 @@ async function onRequestPost(context) {
   }
 }
 async function buildPkpass(b, cfg) {
-  const num = b.queue_num != null ? String(b.queue_num) : "";
+  const group = Array.isArray(cfg.group) && cfg.group.length ? cfg.group : [b];
+  const single = group.length === 1;
   const ref6 = b.id ? String(b.id).slice(0, 6) : "";
-  const barcodeMsg = ["MMC", num, ref6].filter(Boolean).join("-");
+  const primaryNum = b.queue_num != null ? String(b.queue_num) : "";
+  const barcodeMsg = ["MMC", primaryNum, ref6].filter(Boolean).join("-");
+  const nums = group.map((r) => r.queue_num != null ? Number(r.queue_num) : null).filter((n) => n != null).sort((a, c) => a - c);
+  const numsDisplay = _numsDisplay(nums) || `#${primaryNum}`;
   const when = `${b.session_day || ""} ${b.session_date || ""}`.trim();
   const shortWhen = _shortWhen(b.session_day, b.session_date);
   const time = b.session_time || "";
-  const rider = b.name || "";
-  const bikeType = _bikeLabel(b.type_preference);
   const dates = _sessionDates(b);
+  const ridersValue = single ? b.name || "" : `${group.length} riders`;
+  const types = [...new Set(group.map((r) => _bikeLabel(r.type_preference)).filter(Boolean))];
+  const bikeType = types.length === 1 ? types[0] : types.length > 1 ? "Mixed" : "";
   const addons = Array.isArray(cfg.addons) ? cfg.addons : [];
-  const rental = b.price != null && b.price !== "" && !Number.isNaN(+b.price) ? +b.price : 0;
+  const rentalSum = group.reduce((s, r) => s + (r.price != null && r.price !== "" && !Number.isNaN(+r.price) ? +r.price : 0), 0);
   const addonSum = addons.reduce((s, a) => s + (Number(a.p) || 0), 0);
-  const grand = Math.round((rental + addonSum) * 100) / 100;
-  const priceStr = rental || addonSum ? `SAR ${grand}` : "";
+  const grand = Math.round((rentalSum + addonSum) * 100) / 100;
+  const priceStr = rentalSum || addonSum ? `SAR ${grand}` : "";
   const secondary = [];
   if (time) secondary.push({ key: "time", label: "TIME", value: time });
-  if (rider) secondary.push({ key: "rider", label: "RIDER", value: rider });
+  if (ridersValue) secondary.push({ key: "riders", label: single ? "RIDER" : "RIDERS", value: ridersValue });
   const auxiliary = [];
   if (bikeType) auxiliary.push({ key: "bike", label: "BIKE", value: bikeType });
   if (priceStr) auxiliary.push({ key: "total", label: "TOTAL", value: priceStr });
-  const addonsBack = addons.length ? [{ key: "addons", label: "Add-ons", value: addons.map((a) => `${a.n}${a.q > 1 ? " \xD7" + a.q : ""} \u2014 SAR ${a.p}`).join("\n") }] : [];
+  const ridersBack = single ? [] : [{
+    key: "riders_list",
+    label: "Riders",
+    value: group.slice().sort((a, c) => (a.queue_num || 0) - (c.queue_num || 0)).map((r) => `#${r.queue_num} ${r.name || ""}${_bikeLabel(r.type_preference) ? " - " + _bikeLabel(r.type_preference) : ""}`.trim()).join("\n")
+  }];
+  const addonsBack = addons.length ? [{ key: "addons", label: "Add-ons", value: addons.map((a) => `${a.n}${a.q > 1 ? " x" + a.q : ""} - SAR ${a.p}`).join("\n") }] : [];
   const pass = {
     formatVersion: 1,
     passTypeIdentifier: cfg.passTypeId,
     teamIdentifier: cfg.teamId,
     serialNumber: String(b.id),
     organizationName: "MicroMobility Rentals",
-    description: `Booking #${num} \u2014 Jeddah Corniche Circuit`,
+    description: `Booking ${numsDisplay} - Jeddah Corniche Circuit`,
     foregroundColor: "rgb(242,245,242)",
     backgroundColor: "rgb(7,9,11)",
     labelColor: "rgb(0,229,133)",
-    // sharing is allowed: riders can pass this to a friend from Wallet or via the app's Share button.
+    sharingProhibited: true,
     // Surface on the lock screen around the ride time, and grey out after it ends.
     ...dates ? { relevantDate: dates.start, expirationDate: dates.end } : {},
-    barcodes: [{ format: "PKBarcodeFormatQR", message: barcodeMsg, messageEncoding: "iso-8859-1", altText: `#${num}` }],
+    barcodes: [{ format: "PKBarcodeFormatQR", message: barcodeMsg, messageEncoding: "iso-8859-1", altText: numsDisplay }],
     // keep the legacy single-barcode field too for older iOS
-    barcode: { format: "PKBarcodeFormatQR", message: barcodeMsg, messageEncoding: "iso-8859-1", altText: `#${num}` },
-    locations: [{ latitude: 21.6266, longitude: 39.1099, relevantText: "Your ride is nearby \u2014 the Circuit is just ahead" }],
+    barcode: { format: "PKBarcodeFormatQR", message: barcodeMsg, messageEncoding: "iso-8859-1", altText: numsDisplay },
+    locations: [{ latitude: 21.6266, longitude: 39.1099, relevantText: "Your ride is nearby - the Circuit is just ahead" }],
     // Semantic tags let iOS drive Live Activities, lock-screen relevance and the event guide.
     semantics: {
       eventName: "Jeddah Corniche Circuit ride",
@@ -18600,13 +18613,14 @@ async function buildPkpass(b, cfg) {
       // Header is the ONLY field visible when the pass is collapsed in the stack — put the
       // most useful glance value (the date) here so a rider can find this pass among others.
       headerFields: [{ key: "date", label: "SESSION", value: shortWhen || "Circuit" }],
-      primaryFields: [{ key: "queue", label: "QUEUE", value: `#${num}` }],
+      primaryFields: [{ key: "queue", label: single ? "QUEUE" : "QUEUE NUMBERS", value: numsDisplay }],
       secondaryFields: secondary,
       auxiliaryFields: auxiliary,
       backFields: [
         { key: "when", label: "Session", value: `${when}${time ? " \xB7 " + time : ""}`.trim() },
         { key: "venue", label: "Venue", value: "Jeddah Corniche Circuit" },
         { key: "directions", label: "Directions", value: `<a href="${DIRECTIONS}">Open in Maps</a>` },
+        ...ridersBack,
         ...addonsBack,
         { key: "pay", label: "Payment", value: "Pay at the booth \u2014 cash, mada or STC Pay." },
         { key: "help", label: "Good to know", value: "Show this pass on arrival. Bikes are assigned first come, first served, so arrive a little early to get the type you picked." },
@@ -18624,6 +18638,13 @@ async function buildPkpass(b, cfg) {
   const wwdrPem = await getWWDR();
   files["signature"] = signManifest(manifestStr, cfg.p12b64, cfg.p12pw, wwdrPem);
   return zipSync(files, { level: 6 });
+}
+function _numsDisplay(nums) {
+  if (!nums || !nums.length) return "";
+  if (nums.length === 1) return `#${nums[0]}`;
+  const consecutive = nums.every((n, i2) => i2 === 0 || n === nums[i2 - 1] + 1);
+  if (consecutive) return `#${nums[0]}-#${nums[nums.length - 1]}`;
+  return nums.map((n) => `#${n}`).join(", ");
 }
 function _shortWhen(day, date) {
   const d = String(day || "").trim().slice(0, 3);
