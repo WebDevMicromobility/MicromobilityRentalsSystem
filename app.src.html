@@ -3651,19 +3651,17 @@ function renderRegister(){
     const _sess=allSessions().find(s=>s.id===tkt.sessionId);
     const sessTime=sessionTime(_sess);
     const label=total>1?`${t('bike')} ${idx+1} / ${total}`:'';
-    const frame=tkt.height?heightToSize(Number(tkt.height)):typeLabel(tkt.typePreference||'Any');
     return`<div class="ticket-card" style="${idx>0?'margin-top:16px':''}">
       ${label?`<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;padding:14px 24px 0;text-align:center">${label}</div>`:''}
       <div class="ticket-top">
         <div class="ticket-num-label">${t('queueNumLabel')}</div>
         <div class="ticket-num">#${tkt.queueNum}</div>
-        <div class="ticket-qr-wrap">${qrHtml}<div class="ticket-qr-caption">${t('ticketScanGate')}</div></div>
+        <div class="ticket-qr-wrap">${qrHtml}</div>
       </div>
       <div class="ticket-cols">
         <div class="ticket-col"><div class="ticket-label">${t('colSession')}</div><div class="ticket-value">${dayLabel(tkt.sessionDay)} ${shortDate(tkt.sessionDate)}</div></div>
         <div class="ticket-col"><div class="ticket-label">${t('timeLabel')}</div><div class="ticket-value">${sessTime}</div></div>
         <div class="ticket-col"><div class="ticket-label">${t('nameLabel')}</div><div class="ticket-value">${esc(tkt.name)}</div></div>
-        <div class="ticket-col"><div class="ticket-label">${t('frameSizeLabel')}</div><div class="ticket-value">${esc(String(frame))}</div></div>
       </div>
       <div style="padding:0 24px 18px;display:flex;gap:8px">
         <button type="button" onclick="_ticketCal(${idx})" class="btn-secondary" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px" aria-label="${t('ticketAddCal')}">
@@ -4710,6 +4708,37 @@ async function _mrShareCard(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='my-season.png';
   document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1200);
 }
+// Season dashboard (stats + badges + member card). Lives at the top of My Account.
+function _seasonDashboard(cust){
+  const allEntries=getQueue().filter(e=>e.customerId===cust.id);
+  const completed=allEntries.filter(e=>e.status==='done'&&e.paid);
+  const map={};allEntries.forEach(e=>{(map[e.sessionId]=map[e.sessionId]||[]).push(e);});
+  const currentGroups=[];
+  Object.values(map).forEach(g=>{const up=g.filter(e=>e.status==='waiting'||e.status==='active'||e.status==='waitlist');if(up.length)currentGroups.push(up);});
+  currentGroups.sort((a,b)=>new Date(b[0].sessionDate||b[0].sessionId)-new Date(a[0].sessionDate||a[0].sessionId));
+  const rides=completed.length;
+  const tier=_mrTier(rides);
+  const streak=_mrStreak(completed);
+  const nextGroup=currentGroups.length?currentGroups[currentGroups.length-1]:null;
+  let nextTxt='';
+  if(nextGroup){const nd=Math.max(0,Math.round((new Date((nextGroup[0].sessionDate||'').slice(0,10)+'T00:00:00')-new Date(_todayISO()+'T00:00:00'))/864e5));nextTxt=nd===0?t('mrToday'):nd===1?t('mrTomorrow'):t('mrInDays').replace('{0}',nd);}
+  const prog=tier.next?Math.max(4,Math.min(100,Math.round((rides-tier.next.from)/(tier.next.to-tier.next.from)*100))):100;
+  return`
+    <div class="rides-stat-row">
+      <div class="rides-stat-card"><div class="rides-stat-num" style="color:var(--green)">${rides}</div><div class="rides-stat-label">${t('statTotalRides')}</div></div>
+      <div class="rides-stat-card">
+        <div class="rides-stat-num" style="font-size:18px;color:var(--green)">${tier.name}</div>
+        <div class="mr-tierbar"><i style="width:${prog}%"></i></div>
+        <div class="rides-stat-label">${tier.next?t('ridesToNext').replace('{0}',tier.next.need).replace('{1}',tier.next.name):t('rideTierLabel')}</div>
+      </div>
+      <div class="rides-stat-card"><div class="rides-stat-num"${streak>=2?' style="color:var(--green)"':''}>${streak>=2?'🔥 ':''}${streak}</div><div class="rides-stat-label">${t('statStreak')}</div></div>
+      ${nextGroup
+        ?`<div class="rides-stat-card"><div class="rides-stat-num" style="font-size:17px">${dayLabel(nextGroup[0].sessionDay)||shortDate(nextGroup[0].sessionDate)}</div><div style="font-size:12px;font-weight:800;color:var(--green);margin-top:2px">${nextTxt}</div><div class="rides-stat-label">${t('statNextRide')}</div></div>`
+        :`<div class="rides-stat-card" style="display:flex;align-items:center;justify-content:center"><button type="button" class="btn-primary" style="font-size:12px;padding:10px 12px" onclick="setCustTab('register')">${t('mrBookNext')}</button></div>`}
+    </div>
+    ${_mrBadgesRow(allEntries,completed)}
+    ${_mrMemberCard(cust,completed)}`;
+}
 function renderMyRides(){
   const cust=S.loggedIn;
   if(!cust){document.getElementById('tab-myrides').innerHTML='';return;}
@@ -4752,32 +4781,6 @@ function renderMyRides(){
   document.getElementById('tab-myrides').innerHTML=`
     <div class="page-title">${t('myRidesTitle')}</div>
     <div class="page-sub">${t('myRidesSub')}</div>
-    <div class="rides-stat-row">${(()=>{
-      const rides=completed.length;
-      const tier=_mrTier(rides);
-      const streak=_mrStreak(completed);
-      // soonest upcoming booking (currentGroups is sorted newest-first)
-      const nextGroup=currentGroups.length?currentGroups[currentGroups.length-1]:null;
-      let nextTxt='';
-      if(nextGroup){
-        const nd=Math.max(0,Math.round((new Date((nextGroup[0].sessionDate||'').slice(0,10)+'T00:00:00')-new Date(_todayISO()+'T00:00:00'))/864e5));
-        nextTxt=nd===0?t('mrToday'):nd===1?t('mrTomorrow'):t('mrInDays').replace('{0}',nd);
-      }
-      const prog=tier.next?Math.max(4,Math.min(100,Math.round((rides-tier.next.from)/(tier.next.to-tier.next.from)*100))):100;
-      return`
-      <div class="rides-stat-card"><div class="rides-stat-num" style="color:var(--green)">${rides}</div><div class="rides-stat-label">${t('statTotalRides')}</div></div>
-      <div class="rides-stat-card">
-        <div class="rides-stat-num" style="font-size:18px;color:var(--green)">${tier.name}</div>
-        <div class="mr-tierbar"><i style="width:${prog}%"></i></div>
-        <div class="rides-stat-label">${tier.next?t('ridesToNext').replace('{0}',tier.next.need).replace('{1}',tier.next.name):t('rideTierLabel')}</div>
-      </div>
-      <div class="rides-stat-card"><div class="rides-stat-num"${streak>=2?' style="color:var(--green)"':''}>${streak>=2?'🔥 ':''}${streak}</div><div class="rides-stat-label">${t('statStreak')}</div></div>
-      ${nextGroup
-        ?`<div class="rides-stat-card"><div class="rides-stat-num" style="font-size:17px">${dayLabel(nextGroup[0].sessionDay)||shortDate(nextGroup[0].sessionDate)}</div><div style="font-size:12px;font-weight:800;color:var(--green);margin-top:2px">${nextTxt}</div><div class="rides-stat-label">${t('statNextRide')}</div></div>`
-        :`<div class="rides-stat-card" style="display:flex;align-items:center;justify-content:center"><button type="button" class="btn-primary" style="font-size:12px;padding:10px 12px" onclick="setCustTab('register')">${t('mrBookNext')}</button></div>`}`;
-    })()}</div>
-    ${_mrBadgesRow(allEntries,completed)}
-    ${_mrMemberCard(cust,completed)}
     <div class="analytics-section-title" style="margin-top:24px">${t('myCurrentRides')}</div>
     <div class="myrides-grid">${currentCards}</div>
     <div class="analytics-section-title" style="margin-top:30px">${t('myPastRides')}</div>
@@ -4799,7 +4802,6 @@ function renderAccount(){
     `<option value="${code}"${accCC===code?' selected':''}>${code}</option>`).join('');
   const accH=cust.height||'';
   const accSz=null;
-  const sizeDisplay='';
   const accBirth=cust.birth_date||'';
   const accCountry=cust.country||'';
   const accCity=cust.city||'';
@@ -4819,6 +4821,7 @@ function renderAccount(){
   document.getElementById('tab-account').innerHTML=`
     <div class="page-title">${t('accountTitle')}</div>
     <div class="page-sub">${t('accountSub')}</div>
+    ${_seasonDashboard(cust)}
     ${(()=>{
       const rides=myDone.filter(e=>e.paid).length;
       const tiers=[[0,'tierNewcomer'],[3,'tierRegular'],[10,'tierPro'],[25,'tierElite'],[50,'tierLegend']];
@@ -4874,9 +4877,7 @@ function renderAccount(){
           </div></div>
         <div class="form-group"><label>${t('heightLabel')} &nbsp;<span class="label-hint">${t('heightHint')}</span></label>
           <div class="height-row">
-            <input type="number" id="acc-height" value="${esc(String(accH))}" placeholder="${t('heightPlaceholder')}" min="100" max="250"
-              oninput="refreshAccSizeBadge()">
-            <div id="acc-size-wrap">${sizeDisplay}</div>
+            <input type="number" id="acc-height" value="${esc(String(accH))}" placeholder="${t('heightPlaceholder')}" min="100" max="250">
           </div></div>
       </div>
       <div class="form-row">
@@ -4945,14 +4946,6 @@ function onAccCountryChange(country){
   const list=country&&COUNTRY_CITIES[country]?COUNTRY_CITIES[country]:[];
   citySel.disabled=!country;
   citySel.innerHTML=`<option value="">${country?t('selectCityOpt'):t('selectCountryFirst')}</option>`+list.map(c=>`<option value="${esc(c)}">${esc(cityLabel(c))}</option>`).join('');
-}
-function refreshAccSizeBadge(){
-  const h=parseInt(document.getElementById('acc-height')?.value||'');
-  const wrap=document.getElementById('acc-size-wrap');
-  if(!wrap)return;
-  if(isNaN(h)||h<100||h>250){wrap.innerHTML='';return;}
-  const sz=heightToSize(h);
-  wrap.innerHTML=`<span style="font-size:13px;font-weight:800;color:var(--green);padding:4px 10px;border-radius:3px;background:rgba(var(--green-rgb),.1);border:1px solid rgba(var(--green-rgb),.25)">${sizeLabel(sz)}</span>`;
 }
 
 async function saveAccount(){
