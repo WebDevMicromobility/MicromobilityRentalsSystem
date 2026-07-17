@@ -113,7 +113,7 @@ async function buildPkpass(b, cfg) {
     foregroundColor: 'rgb(242,245,242)',
     backgroundColor: 'rgb(7,9,11)',
     labelColor: 'rgb(0,229,133)',
-    sharingProhibited: true,
+    // sharing is allowed: riders can pass this to a friend from Wallet or via the app's Share button.
     // Surface on the lock screen around the ride time, and grey out after it ends.
     ...(dates ? { relevantDate: dates.start, expirationDate: dates.end } : {}),
     barcodes: [{ format: 'PKBarcodeFormatQR', message: barcodeMsg, messageEncoding: 'iso-8859-1', altText: `#${num}` }],
