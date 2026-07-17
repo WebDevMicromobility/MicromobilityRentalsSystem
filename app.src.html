@@ -45,7 +45,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=130">
+  <link rel="stylesheet" href="./styles.css?v=131">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
@@ -2615,6 +2615,15 @@ function _splitName(full){
 }
 // Join both boxes back into the stored name, with the same casing rule as the old single field.
 function _joinName(first,last){return _titleCaseName(((first||'')+' '+(last||'')).trim());}
+// Name rules: each box needs at least ONE word (a box may hold more than one — e.g. a compound
+// last name like "Anas Alnajjar"), and the joined name must be at least TWO words. Returns ''
+// when valid, otherwise which box to flag.
+function _nameErr(first,last){
+  if(!_cleanIdent(first))return'first';
+  if(!_cleanIdent(last))return'last';
+  if(_joinName(first,last).split(/\s+/).filter(Boolean).length<2)return'first';
+  return'';
+}
 function _asciiDigits(v){return String(v==null?'':v).replace(/[٠-٩]/g,c=>String.fromCharCode(c.charCodeAt(0)-1584)).replace(/[۰-۹]/g,c=>String.fromCharCode(c.charCodeAt(0)-1728));}
 // Live phone mask: groups digits as "5XX XXX XXXX" while typing (display only; saved value is stripped to digits)
 function fmtPhoneInput(el){
@@ -2654,9 +2663,8 @@ async function doSignup(){
   const pwd=(document.getElementById('a-pwd')?.value||'');
   const pwd2=(document.getElementById('a-pwd2')?.value||'');
   const _fe=(id,msg)=>{authErr(msg);_fieldErr(document.getElementById(id),msg);};
-  // Both boxes required — same effect as the old "full name needs 2+ words" rule.
-  if(!_cleanIdent(first)){_fe('a-first',t('errEnterName'));return;}
-  if(!_cleanIdent(last)){_fe('a-last',t('errEnterName'));return;}
+  const _ne=_nameErr(first,last);
+  if(_ne){_fe(_ne==='last'?'a-last':'a-first',t('errEnterName'));return;}
   if(!S.signupGender){authErr(t('errSelectGender'));return;}
   if(!email){_fe('a-email',t('errEmailRequired'));return;}
   if(!/^[^\s<>"'()]+@[^\s<>"'()]+\.[^\s<>"'()]+$/.test(email)){_fe('a-email',t('errValidEmail'));return;}
@@ -2797,7 +2805,7 @@ async function doCompleteGoogle(){
   const name=_joinName(first,last);
   const cc=document.getElementById('a-cc')?.value||'+966';
   const phone=(document.getElementById('a-phone')?.value||'').replace(/\D/g,'');
-  if(!_cleanIdent(first)||!_cleanIdent(last)){authErr(t('errEnterName'));return;} // both boxes = the old 2+ words rule
+  if(_nameErr(first,last)){authErr(t('errEnterName'));return;}
   if(!S.signupGender){authErr(t('errSelectGender'));return;}
   if(!phone){authErr(t('errPhoneRequired'));return;}
   const heightRaw=parseInt(document.getElementById('a-height')?.value||'');
@@ -4970,7 +4978,7 @@ async function saveAccount(){
   const heightRaw=parseInt(document.getElementById('acc-height')?.value||'');
   const errEl=document.getElementById('acc-err');
   const setErr=msg=>{if(errEl)errEl.textContent=msg;};
-  if(!name){setErr(t('errAccountName'));return;}
+  if(_nameErr(accFirst,accLast)){setErr(t('errEnterName'));return;}
   if(email&&!/^[^\s<>"'()]+@[^\s<>"'()]+\.[^\s<>"'()]+$/.test(email)){setErr(t('errValidEmail'));return;}
   setErr('');
   const fullPhone=phone?_normPhone(phone,cc):'';
