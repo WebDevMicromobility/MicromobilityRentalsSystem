@@ -1620,6 +1620,22 @@ async function _queueFetch(windowed){
   const mineIds=new Set(mineRows.map(r=>r.id));
   return{data:[...mineRows,...((pub&&pub.data)||[]).filter(r=>!mineIds.has(r.id))],error:pub&&pub.error};
 }
+// Sessions. Staff read the table directly (their RLS policy returns everything, incl.
+// private events). Customers go through list_sessions(), the only route that can return a
+// tag-gated event — a direct select can't see one, so nothing leaks if this is bypassed.
+// Falls back to the plain select when the RPC isn't deployed yet, so the app keeps working
+// between shipping this build and running tags-events-migration.sql.
+async function _sessionsFetch(){
+  const isStaffDevice=(typeof localStorage!=='undefined'&&localStorage.getItem('cq_staff')==='1');
+  if(!isStaffDevice){
+    const cust=S.loggedIn||getSession();
+    try{
+      const r=await sb.rpc('list_sessions',{p_id:(cust&&cust.id)||null,p_token:(cust&&cust.session_token)||null});
+      if(!r.error&&Array.isArray(r.data))return{data:r.data,error:null};
+    }catch(e){/* RPC missing (pre-migration): fall through */}
+  }
+  return sb.from('sessions').select('*').order('session_date');
+}
 
 let _bootDone=false;
 async function loadData(showLoader=false){
@@ -1634,7 +1650,7 @@ async function loadData(showLoader=false){
     [q,b,ses]=await Promise.all([
       _queueFetch(true),
       sb.from('bikes').select('*'),
-      sb.from('sessions').select('*').order('session_date'),
+      _sessionsFetch(),
     ]);
   }catch(e){q={data:null,error:e};b={data:null,error:e};ses={data:null,error:e};}
   // Customers are fetched ONLY on staff devices - the Sales tab's saved-customer picker
@@ -13197,7 +13213,7 @@ async function loadDataLight(){
   let q,ses,cs,bk;
   try{[q,ses,cs,bk]=await Promise.all([
     _queueFetch(true),
-    sb.from('sessions').select('*').order('session_date'),
+    _sessionsFetch(),
     sb.from('cashier_sales').select('*'),
     sb.from('bikes').select('id,status'), // status-only (no photos) so availability stays fresh on the poll without a heavy payload
   ]);}catch(e){return;} // offline: keep current state
