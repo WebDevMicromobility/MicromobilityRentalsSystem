@@ -72,19 +72,20 @@ async function buildPkpass(b, cfg) {
   const ref6 = b.id ? String(b.id).slice(0, 6) : '';
   const barcodeMsg = ['MMC', num, ref6].filter(Boolean).join('-'); // matches the app scanner
   const when = `${b.session_day || ''} ${b.session_date || ''}`.trim();
-  const time = b.session_time || '';
+  const shortWhen = _shortWhen(b.session_day, b.session_date); // "Sun 19 Jul" for the header (glance value)
+  const time = b.session_time || '';                            // "9 PM - 11 PM"
   const rider = b.name || '';
   const bikeType = _bikeLabel(b.type_preference);
-  const priceStr = (b.price != null && b.price !== '' && !isNaN(+b.price)) ? `SAR ${(+b.price)}` : '';
+  const priceStr = (b.price != null && b.price !== '' && !Number.isNaN(+b.price)) ? `SAR ${(+b.price)}` : '';
+  const dates = _sessionDates(b); // { start, end } ISO-8601 (Jeddah +03:00), or null if unparseable
 
-  // Secondary row: the session date + its time. Only push fields that have a value,
-  // so the pass never shows a lonely "—".
-  const secondary = [{ key: 'session', label: 'SESSION', value: when || 'Jeddah Corniche Circuit' }];
+  // Best practice: keep secondary + auxiliary to ~4 fields total on an event ticket with a QR.
+  // Secondary row: time + rider. Auxiliary row: bike + total. Only push fields that have a value.
+  const secondary = [];
   if (time) secondary.push({ key: 'time', label: 'TIME', value: time });
+  if (rider) secondary.push({ key: 'rider', label: 'RIDER', value: rider });
 
-  // Auxiliary row: rider, bike type, total. (Frame size intentionally omitted.)
   const auxiliary = [];
-  if (rider) auxiliary.push({ key: 'rider', label: 'RIDER', value: rider });
   if (bikeType) auxiliary.push({ key: 'bike', label: 'BIKE', value: bikeType });
   if (priceStr) auxiliary.push({ key: 'total', label: 'TOTAL', value: priceStr });
 
@@ -99,16 +100,29 @@ async function buildPkpass(b, cfg) {
     backgroundColor: 'rgb(7,9,11)',
     labelColor: 'rgb(0,229,133)',
     sharingProhibited: true,
+    // Surface on the lock screen around the ride time, and grey out after it ends.
+    ...(dates ? { relevantDate: dates.start, expirationDate: dates.end } : {}),
     barcodes: [{ format: 'PKBarcodeFormatQR', message: barcodeMsg, messageEncoding: 'iso-8859-1', altText: `#${num}` }],
     // keep the legacy single-barcode field too for older iOS
     barcode: { format: 'PKBarcodeFormatQR', message: barcodeMsg, messageEncoding: 'iso-8859-1', altText: `#${num}` },
     locations: [{ latitude: 21.6266, longitude: 39.1099, relevantText: 'Your ride is nearby — head to Gate A' }],
+    // Semantic tags let iOS drive Live Activities, lock-screen relevance and the event guide.
+    semantics: {
+      eventName: 'Jeddah Corniche Circuit ride',
+      venueName: 'Jeddah Corniche Circuit',
+      venueLocation: { latitude: 21.6266, longitude: 39.1099 },
+      eventType: 'PKEventTypeGeneric',
+      ...(dates ? { eventStartDate: dates.start, eventEndDate: dates.end } : {}),
+    },
     eventTicket: {
-      headerFields: [],
+      // Header is the ONLY field visible when the pass is collapsed in the stack — put the
+      // most useful glance value (the date) here so a rider can find this pass among others.
+      headerFields: [{ key: 'date', label: 'SESSION', value: shortWhen || 'Circuit' }],
       primaryFields: [{ key: 'queue', label: 'QUEUE', value: `#${num}` }],
       secondaryFields: secondary,
       auxiliaryFields: auxiliary,
       backFields: [
+        { key: 'when', label: 'Session', value: `${when}${time ? ' · ' + time : ''}`.trim() },
         { key: 'gate', label: 'Gate', value: 'Gate A — Jeddah Corniche Circuit' },
         { key: 'venue', label: 'Venue', value: 'Jeddah Corniche Circuit' },
         { key: 'directions', label: 'Directions', value: `<a href="${DIRECTIONS}">Open in Maps</a>` },
@@ -133,6 +147,42 @@ async function buildPkpass(b, cfg) {
   files['signature'] = signManifest(manifestStr, cfg.p12b64, cfg.p12pw, wwdrPem);
 
   return zipSync(files, { level: 6 });
+}
+
+// Short glance date for the header, e.g. "Sunday" + "19 Jul 2026" -> "Sun 19 Jul".
+function _shortWhen(day, date) {
+  const d = String(day || '').trim().slice(0, 3);
+  const dt = String(date || '').trim().replace(/\s*\d{4}\s*$/, ''); // drop the year
+  return `${d} ${dt}`.trim();
+}
+
+// Parse the booking's date + time strings into ISO-8601 datetimes in Jeddah time (+03:00,
+// Arabia Standard Time, no DST). Returns { start, end } or null if the strings can't be read.
+// Built by hand (no Date parsing) so a locale quirk can never throw and break the pass.
+const _MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+function _sessionDates(b) {
+  try {
+    const md = String(b.session_date || '').match(/(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4})/);
+    if (!md) return null;
+    const mo = _MONTHS[md[2].slice(0, 3).toLowerCase()];
+    if (!mo) return null;
+    const day = +md[1], year = +md[3];
+    const p2 = (n) => String(n).padStart(2, '0');
+    const iso = (h, min) => `${year}-${p2(mo)}-${p2(day)}T${p2(h)}:${p2(min)}:00+03:00`;
+    const parseT = (s) => {
+      const t = s.match(/(\d{1,2})(?::(\d{2}))?\s*([AaPp])/);
+      let h = +t[1]; const min = t[2] ? +t[2] : 0; const pm = /p/i.test(t[3]);
+      if (pm && h !== 12) h += 12;
+      if (!pm && h === 12) h = 0;
+      return iso(h, min);
+    };
+    const times = String(b.session_time || '').match(/\d{1,2}(?::\d{2})?\s*[AaPp][Mm]/g) || [];
+    const start = times.length ? parseT(times[0]) : iso(0, 0);
+    const end = times.length >= 2 ? parseT(times[times.length - 1]) : iso(23, 59);
+    return { start, end };
+  } catch (e) {
+    return null;
+  }
 }
 
 // Friendly bike-type label for the pass (matches the app's wording).
