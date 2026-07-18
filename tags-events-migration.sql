@@ -164,3 +164,14 @@ grant execute on function list_sessions(text, text) to anon, authenticated;
 alter table sessions add column if not exists meet_url       text;
 alter table sessions add column if not exists breakfast_name text;
 alter table sessions add column if not exists breakfast_url  text;
+
+-- ── Breakfast spots: reusable list for the Saturday Social Ride session form ──
+create table if not exists breakfast_spots (
+  id         text primary key,
+  name       text not null,
+  url        text,               -- maps link, exactly as staff pasted it
+  created_at bigint not null
+);
+alter table breakfast_spots enable row level security;
+drop policy if exists "staff full" on breakfast_spots;
+create policy "staff full" on breakfast_spots for all using (is_staff()) with check (is_staff());
