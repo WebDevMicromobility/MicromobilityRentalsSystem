@@ -7379,19 +7379,36 @@ async function bulkSfCheckin(){
 }
 // Reorder a waiting entry by swapping its queue number with the adjacent waiting entry
 async function moveQueueEntry(id,dir){
-  const e=getQueue().find(x=>x.id===id);if(!e||e.status!=='waiting')return;
-  const waiting=getQueue().filter(x=>x.sessionId===e.sessionId&&x.status==='waiting').sort((a,b)=>a.queueNum-b.queueNum);
-  const idx=waiting.findIndex(x=>x.id===id);
-  const swapWith=waiting[idx+dir];
-  if(!swapWith)return;
-  const a=e.queueNum,b=swapWith.queueNum;
-  // Swap through a temporary number, sequentially, so a unique (session_id, queue_num) index never sees two rows share a number mid-swap.
-  const tmp=nextQNum(e.sessionId);
-  for(const[eid,num]of[[e.id,tmp],[swapWith.id,a],[e.id,b]]){
-    const{error}=await sb.from('queue_entries').update({queue_num:num}).eq('id',eid);
-    if(error){toast(error.message||t('errConnection'),'error');await loadData();renderStaffQueue();return;}
-  }
-  await loadData();renderStaffQueue();
+  // One swap at a time: a second arrow click mid-swap would compute the same temporary
+  // number from stale state and trip the (session_id, queue_num) unique index.
+  if(S._reorderBusy)return;
+  S._reorderBusy=true;
+  try{
+    for(let attempt=0;attempt<2;attempt++){
+      const e=getQueue().find(x=>x.id===id);if(!e||e.status!=='waiting')return;
+      const waiting=getQueue().filter(x=>x.sessionId===e.sessionId&&x.status==='waiting').sort((a,b)=>a.queueNum-b.queueNum);
+      const idx=waiting.findIndex(x=>x.id===id);
+      const swapWith=waiting[idx+dir];
+      if(!swapWith)return;
+      const a=e.queueNum,b=swapWith.queueNum;
+      // Swap through a temporary number, sequentially, so the unique (session_id, queue_num)
+      // index never sees two rows share a number mid-swap.
+      const tmp=nextQNum(e.sessionId);
+      let dup=false;
+      for(const[eid,num]of[[e.id,tmp],[swapWith.id,a],[e.id,b]]){
+        const{error}=await sb.from('queue_entries').update({queue_num:num}).eq('id',eid);
+        if(error){
+          if(String(error.code||'').includes('23505')||/duplicate|unique/i.test(error.message||'')){dup=true;break;}
+          toast(error.message||t('errConnection'),'error');await loadData();renderStaffQueue();return;
+        }
+      }
+      if(!dup)break;
+      // Another device (or an in-flight write) took a number: resync and retry once, silently.
+      await loadData();
+      if(attempt===1){renderStaffQueue();return;}
+    }
+    await loadData();renderStaffQueue();
+  }finally{S._reorderBusy=false;}
 }
 
 function setSfStatus(v){S.sfStatus=v;renderStaffQueue();}
