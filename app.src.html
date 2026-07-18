@@ -3680,6 +3680,7 @@ function renderRegister(){
   // Open sessions are bookable; full sessions are joinable via the waitlist. Only the chosen
   // event's sessions show: JCC by default, or the community event picked on the landing page.
   const _ev=S.selEvent||'jcc';
+  const _commSel=_isCommunity(allSessions().find(s=>s.id===S.selSession)); // selected session is a community ride
   let available=allSessions().filter(s=>(s.status==='open'||s.status==='full')&&_evMatch(s,_ev))
     .sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
   ensureBikeSizes();
@@ -3784,7 +3785,9 @@ function renderRegister(){
     </div>`:'';
 
   
-  const qtyStepper=`
+  // Community rides are personal: one reservation, the account holder only - no group bookings.
+  if(_commSel&&S.regQty!==1){S.regQty=1;ensureBikeSizes();}
+  const qtyStepper=_commSel?'':`
     <div class="reg-row">
       <span class="reg-row-label">${t('numBikes')}</span>
       <div class="qty-stepper">
@@ -3841,7 +3844,6 @@ function renderRegister(){
 
   
   const allTypesSet=S.regBikeTypes.slice(0,S.regQty).every(ty=>ty);
-  const _commSel=_isCommunity(allSessions().find(s=>s.id===S.selSession)); // community rides are free
   const totalMin=S.regBikeTypes.slice(0,S.regQty).reduce((s,ty)=>s+priceForType(ty||'Any'),0);
   const totalMax=S.regBikeTypes.slice(0,S.regQty).reduce((s,ty)=>s+priceForTypeMax(ty||'Any'),0);
   const hasRange=S.regBikeTypes.slice(0,S.regQty).some(ty=>ty==='Any');
@@ -4229,6 +4231,7 @@ function ensureBikeSizes(){
 }
 
 function changeRegQty(delta){
+  if(_isCommunity(allSessions().find(s=>s.id===S.selSession))){S.regQty=1;renderRegister();return;}
   S.regQty=Math.max(1,Math.min(10,S.regQty+delta));
   ensureBikeSizes();
   renderRegister();
@@ -4575,11 +4578,11 @@ function renderBookingTicket(entries,opts){
   return`<div class="ticket-card" style="margin-top:0">
     <div class="ticket-header">
       <div class="ticket-num-block">
-        <div class="ticket-num-label">${n>1?n+' '+(t('bike')||'bikes'):t('queueNumLabel')}</div>
+        ${_comm?'':`<div class="ticket-num-label">${n>1?n+' '+(t('bike')||'bikes'):t('queueNumLabel')}</div>`}
         <div class="ticket-num" style="font-size:${numFont};letter-spacing:${numDisplay.length<=4?'-3px':'-1px'}">${numDisplay}</div>
       </div>
       <div class="ticket-right">
-        ${statusBadge(stForBadge)}
+        ${_comm?'':statusBadge(stForBadge)}
         ${ticketQR(bookingRef(primary),132)}
         <div style="font-size:10px;color:var(--muted);font-weight:700;text-align:right;line-height:1.4">${dayLabel(primary.sessionDay)}<br>${shortDate(primary.sessionDate)}<br>${sessTime}</div>
       </div>
