@@ -1,5 +1,5 @@
 
-const CACHE = 'mmcq-v174';
+const CACHE = 'mmcq-v175';
 const IMG_CACHE = 'mmcq-img'; // Supabase Storage photos; persists across app versions (content-addressed)
 const SHELL = [
   './',
@@ -77,8 +77,9 @@ self.addEventListener('fetch', (e) => {
   if (url.origin === self.location.origin) {
     e.respondWith(
       caches.match(req).then((hit) => hit || fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(req, copy));
+        // Only cache successes: caching a 404 (e.g. an image that ships in a later deploy)
+        // would pin the failure until the next cache-version bump.
+        if (res && res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }
         return res;
       }).catch(() => hit))
     );
