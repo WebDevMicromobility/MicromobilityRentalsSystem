@@ -3034,16 +3034,20 @@ function selectEvent(ev){S.selEvent=ev;S.selSession=null;goCustomer('register');
 // staff). Shown to customers on the session picker and on their booking card.
 function _commInfoHtml(sess){
   if(!_isCommunity(sess))return'';
-  const pill='display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:800;padding:8px 13px;border-radius:4px;border:1px solid rgba(74,168,248,.35);color:#4aa8f8;text-decoration:none;background:rgba(74,168,248,.07)';
+  // Same look as the card's other actions (Add to Calendar / Get Directions): btn-secondary
+  // with a small stroke icon, sharing one flex row.
+  const _b='class="btn-secondary" style="flex:1;min-width:130px;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none"';
+  const pin='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>';
+  const cup='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z"/><line x1="6" y1="2" x2="6" y2="4"/><line x1="10" y1="2" x2="10" y2="4"/><line x1="14" y1="2" x2="14" y2="4"/></svg>';
   const rows=[];
   const mu=_safeUrl(sess.meet_url);
-  if(mu)rows.push(`<a href="${esc(mu)}" target="_blank" rel="noopener" style="${pill}">📍 ${t('meetPointLbl')} · ${t('openMapsLbl')}</a>`);
+  if(mu)rows.push(`<a href="${esc(mu)}" target="_blank" rel="noopener" ${_b} aria-label="${t('meetPointLbl')}${t('opensNewTab')}">${pin}${t('meetPointLbl')}</a>`);
   const bn=(sess.breakfast_name||'').trim();
   const bu=_safeUrl(sess.breakfast_url);
-  if(bu)rows.push(`<a href="${esc(bu)}" target="_blank" rel="noopener" style="${pill}">☕ ${t('breakfastLbl')}${bn?' · '+esc(bn):''} · ${t('openMapsLbl')}</a>`);
-  else if(bn)rows.push(`<span style="${pill}">☕ ${t('breakfastLbl')} · ${esc(bn)}</span>`);
+  if(bu)rows.push(`<a href="${esc(bu)}" target="_blank" rel="noopener" ${_b} aria-label="${t('breakfastLbl')}${t('opensNewTab')}">${cup}${bn?esc(bn):t('breakfastLbl')}</a>`);
+  else if(bn)rows.push(`<span ${_b}>${cup}${esc(bn)}</span>`);
   if(!rows.length)return'';
-  return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">${rows.join('')}</div>`;
+  return `<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">${rows.join('')}</div>`;
 }
 function landHeroClick(){const c=getSession();if(!c){goCustomer('register');return;}selectEvent('jcc');}
 function renderLandingAvail(){
