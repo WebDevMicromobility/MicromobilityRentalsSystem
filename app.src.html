@@ -6938,10 +6938,10 @@ function renderStaffQueue(){
           </div>`).join('')
         :'<span style="color:var(--muted)">—</span>'}</td>
       <td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
-      <td style="font-weight:800;white-space:nowrap">${_commSessIds.has(e.sessionId)?`<span style="color:var(--green)">${t('freeLabel')}</span>`:(()=>{const _p=e.price??DEFAULT_PRICE,_a=addonsCost(entryAddons(e));return _a>0?`SAR ${Math.round((_p+_a)*100)/100}<div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${t('reviewRentalLabel')} ${_p} + ${t('addonsLabel')} ${_a}</div>`:`SAR ${_p}`;})()}</td>
+      <td style="font-weight:800;white-space:nowrap">${_commSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:(()=>{const _p=e.price??DEFAULT_PRICE,_a=addonsCost(entryAddons(e));return _a>0?`SAR ${Math.round((_p+_a)*100)/100}<div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${t('reviewRentalLabel')} ${_p} + ${t('addonsLabel')} ${_a}</div>`:`SAR ${_p}`;})()}</td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-          ${_commSessIds.has(e.sessionId)?`<span style="font-size:11px;font-weight:800;color:var(--green)">${t('freeLabel')}</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
+          ${_commSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
           ${_commSessIds.has(e.sessionId)?'':`<button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" aria-label="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:6px;min-width:24px;min-height:24px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>`}
         </div>
       </td>
@@ -6981,7 +6981,7 @@ function renderStaffQueue(){
     const houseAmt=activeGroup.filter(e=>e.paid&&(e.price??DEFAULT_PRICE)===0).length;
     const remaining=_r2g(totalPrice-paidAmt);
     const paidCount=activeGroup.filter(e=>e.paid&&(e.price??DEFAULT_PRICE)>0).length;
-    const priceSpan=_commSessIds.has(primary.sessionId)?`<span style="font-weight:800;color:var(--green)">${t('freeLabel')}</span>`:`<span style="font-weight:800;white-space:nowrap">SAR ${totalPrice}</span>
+    const priceSpan=_commSessIds.has(primary.sessionId)?`<span style="color:var(--muted)">—</span>`:`<span style="font-weight:800;white-space:nowrap">SAR ${totalPrice}</span>
       ${adTotal>0?`<div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${t('addonsLabel')}: SAR ${adTotal}</div>`:''}
       <div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${paidCount}/${activeGroup.length} ${t('paidLabel')}${houseAmt>0?` · ${houseAmt} `:''}</div>
       ${remaining>0?`<div style="font-size:11px;font-weight:800;color:#e08828;margin-top:3px">SAR ${remaining} ${t('dueWord')}</div>`:`<div style="font-size:11px;font-weight:800;color:var(--green);margin-top:3px">✓ ${t('settledLabel')}</div>`}`;
@@ -7027,7 +7027,7 @@ function renderStaffQueue(){
           <td rowspan="${n}" style="vertical-align:middle">${priceSpan}</td>
           <td style="vertical-align:middle" onclick="event.stopPropagation()">
             <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-              ${_commSessIds.has(e.sessionId)?`<span style="font-size:11px;font-weight:800;color:var(--green)">${t('freeLabel')}</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
+              ${_commSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
               ${_commSessIds.has(e.sessionId)?'':`<button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" aria-label="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:6px;min-width:24px;min-height:24px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>`}
             </div>
           </td>
@@ -7045,7 +7045,7 @@ function renderStaffQueue(){
           <td style="vertical-align:middle"><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
           <td style="vertical-align:middle" onclick="event.stopPropagation()">
             <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-              ${_commSessIds.has(e.sessionId)?`<span style="font-size:11px;font-weight:800;color:var(--green)">${t('freeLabel')}</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
+              ${_commSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
               ${_commSessIds.has(e.sessionId)?'':`<button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" aria-label="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:6px;min-width:24px;min-height:24px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>`}
             </div>
           </td>
@@ -10304,7 +10304,7 @@ function renderHistory(){
       <td onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
           ${e.status==='done'&&!e.paid?`<button class="btn-sm" title="${t('selectRowTip')}" onclick="toggleHistSelect('${e.id}')" style="padding:4px 8px;background:${S.histSelected.includes(e.id)?'rgba(var(--green-rgb),.18)':'rgba(var(--tint-rgb),.04)'};border:1px solid ${S.histSelected.includes(e.id)?'var(--green)':'rgba(var(--tint-rgb),.14)'};color:${S.histSelected.includes(e.id)?'var(--green)':'var(--muted)'}">${S.histSelected.includes(e.id)?'☑':'☐'}</button>`:''}
-          ${_commSessIds.has(e.sessionId)?`<span style="font-size:11px;font-weight:800;color:var(--green)">${t('freeLabel')}</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
+          ${_commSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
           <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" aria-label="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:6px;min-width:24px;min-height:24px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>
         </div>
       </td>
