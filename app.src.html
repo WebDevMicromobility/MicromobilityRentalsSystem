@@ -6510,7 +6510,7 @@ function renderCommAddModal(){
   m.style.display='flex';
   m.innerHTML='<div class="modal-backdrop" onclick="if(event.target===this)closeCommAddModal()">'
     +'<div class="modal-box" role="dialog" aria-modal="true" style="max-width:460px">'
-    +'<div class="modal-title">☕ '+t('commAddTitle')+'</div>'
+    +'<div class="modal-title">'+t('commAddTitle')+'</div>'
     +'<div class="form-group" style="margin:14px 0 10px"><label>'+t('colSession')+'</label>'
     +'<select onchange="S._caSess=this.value;renderCommAddModal()">'+sess.map(s=>'<option value="'+s.id+'"'+(s.id===S._caSess?' selected':'')+'>'+dayLabel(s.day)+' '+shortDate(s.session_date||s.id)+' · '+esc(s.title||t('landCommTitle'))+(s.status==='closed'?' ('+t('statusClosed')+')':'')+'</option>').join('')+'</select>'
     +(cur?'<div style="font-size:11px;color:'+(left>0?'var(--muted)':'var(--orange)')+';margin-top:5px;font-weight:700">'+left+' '+t('spotsLeft')+'</div>':'')+'</div>'
@@ -7133,7 +7133,7 @@ function renderStaffQueue(){
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <button class="btn-sm btn-green" onclick="showWalkinModal()" style="white-space:nowrap">${t('addWalkin')}</button>${allSessions().some(s=>_isCommunity(s)&&s.status!=='deleted')?`<button class="btn-sm" onclick="showCommAddModal()" style="white-space:nowrap;background:rgba(74,168,248,.12);border:1px solid rgba(74,168,248,.4);color:#4aa8f8">☕ ${t('commAddRiderBtn')}</button>`:''}
+        <button class="btn-sm btn-green" onclick="showWalkinModal()" style="white-space:nowrap">${t('addWalkin')}</button>${allSessions().some(s=>_isCommunity(s)&&s.status!=='deleted')?`<button class="btn-sm" onclick="showCommAddModal()" style="white-space:nowrap;background:rgba(74,168,248,.12);border:1px solid rgba(74,168,248,.4);color:#4aa8f8">${t('commAddRiderBtn')}</button>`:''}
         ${S.sfSession!=='all'?`<button onclick="showPrintReportOptions()" style="background:rgba(var(--tint-rgb),.05);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);font-family:'Barlow',sans-serif;transition:background .18s,color .18s,border-color .18s,transform .18s,box-shadow .18s,opacity .18s;line-height:1" onmouseover="this.style.borderColor='rgba(var(--green-rgb),.35)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='rgba(var(--tint-rgb),.1)';this.style.color='var(--muted)'">${ICON_PRINT} ${t('printReportBtn')}</button>`:''}
         <div class="density-toggle">
           <button class="density-btn${S.queueDensity==='comfortable'?' active':''}" onclick="setQueueDensity('comfortable')" title="${t('comfortableTip')}">⊡</button>
@@ -7176,7 +7176,7 @@ function renderStaffQueue(){
       return`<div class="sess-summary-chip${isCurrent?' active-sess':''}${_cm?' community':''}"
         onclick="setSfSession('${s.id}')" title="${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}">
         <div class="sess-chip-info">
-          ${_cm?`<div class="sess-chip-event">☕ ${esc(s.title||t('landCommTitle'))}</div>`:''}
+          ${_cm?`<div class="sess-chip-event">${esc(s.title||t('landCommTitle'))}</div>`:''}
           <div class="sess-chip-date">${dayLabel(s.day)}, ${shortDate(s.session_date||s.id)} &nbsp;·&nbsp; ${sessionTime(s)}</div>
           <div class="sess-chip-counts">
             <span style="color:${_cm?'#4aa8f8':'var(--green)'}">${sWait} ${t('waitingStat').toLowerCase()}</span>
@@ -7194,7 +7194,7 @@ function renderStaffQueue(){
       openSess.map(s=>{
         const q=getQueue().filter(e=>e.sessionId===s.id);
         const sWait=q.filter(e=>e.status==='waiting').length;
-        const label=`${_isCommunity(s)?`☕ ${s.title||t('landCommTitle')} · `:''}${dayLabel(s.day)}, ${shortDate(s.session_date||s.id)} · ${sessionTime(s)} — ${sWait} ${t('waitingStat').toLowerCase()}`;
+        const label=`${_isCommunity(s)?`${s.title||t('landCommTitle')} · `:''}${dayLabel(s.day)}, ${shortDate(s.session_date||s.id)} · ${sessionTime(s)} — ${sWait} ${t('waitingStat').toLowerCase()}`;
         return`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${label}</option>`;
       }).join('');
 
