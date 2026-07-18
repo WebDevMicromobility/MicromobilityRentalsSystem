@@ -172,13 +172,23 @@
     .lec-title{font-family:'Barlow Condensed','Barlow',sans-serif;font-weight:800;font-style:italic;text-transform:uppercase;font-size:22px;letter-spacing:.4px;line-height:1.1;}
     .lec-meta{font-size:12px;font-weight:700;color:var(--muted);margin-top:7px;}
     .lec-arrow{position:absolute;bottom:14px;inset-inline-end:16px;font-size:18px;font-weight:900;color:var(--green);opacity:.8;}
-    /* Event artwork: once loaded it becomes the whole card (the art carries its own title). */
+    /* Event artwork: once loaded it becomes the whole card, styled exactly like the JCC
+       hero card - image, bottom gradient, and the circular green arrow CTA. */
     .lec-art{display:none;}
-    .landing-event-card.has-art{padding:0;aspect-ratio:13/12;max-height:360px;overflow:hidden;}
+    .landing-event-card.has-art{padding:0;aspect-ratio:6/5;max-height:360px;overflow:hidden;}
     .landing-event-card.has-art .lec-art{display:block;position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
     .landing-event-card.has-art .lec-kicker,.landing-event-card.has-art .lec-title,
-    .landing-event-card.has-art .lec-meta,.landing-event-card.has-art .lec-arrow{visibility:hidden;}
+    .landing-event-card.has-art .lec-meta{visibility:hidden;}
     .landing-event-card.has-art::before{display:none;}
+    .landing-event-card.has-art .lec-arrow{
+      visibility:visible;position:absolute;bottom:20px;inset-inline-end:22px;opacity:1;
+      width:44px;height:44px;border-radius:50%;background:var(--ac-fill);color:var(--acink);
+      display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;
+      transition:transform .28s cubic-bezier(.2,.8,.2,1);}
+    .landing-event-card.has-art:hover .lec-arrow{transform:scale(1.1) translateX(3px);}
+    html[dir="rtl"] .landing-event-card.has-art:hover .lec-arrow{transform:scale(1.1) translateX(-3px);}
+    .landing-event-card.has-art::after{content:'';position:absolute;bottom:0;left:0;right:0;height:80px;
+      background:linear-gradient(to top,rgba(0,0,0,.6) 0%,transparent 100%);pointer-events:none;}
     .landing-events-grid{align-items:stretch;}
     .landing-event-card{display:flex;flex-direction:column;justify-content:center;}
     .landing-event-card.community .lec-arrow{color:#4aa8f8;}
