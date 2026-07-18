@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
 test('landing page renders with the customer app name', async ({ page }) => {
   await expect(page).toHaveTitle('MicroMobility Rentals');
   await expect(page.locator('#land-main-title')).toContainText('Reserve Your');
-  await expect(page.locator('#land-sub')).toHaveText('Bicycle rentals - Jeddah Corniche Circuit');
+  await expect(page.locator('#land-sub')).toHaveText('Bicycle rentals & community rides in Jeddah');
 });
 
 test('shows the no-sessions message when nothing is bookable', async ({ page }) => {
@@ -21,7 +21,7 @@ test('language dropdown switches to arabic and back, and offers spanish', async 
   await expect(page.locator('.pay-menu-popup')).toContainText('Español'); // three-language menu
   await page.locator('.pay-menu-popup button', { hasText: 'العربية' }).click();
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-  await expect(page.locator('#land-sub')).toHaveText('تأجير الدراجات - حلبة كورنيش جدة');
+  await expect(page.locator('#land-sub')).toHaveText('تأجير الدراجات وجولات مجتمعية في جدة');
   await expect(page.locator('#footer-copy')).toContainText('جميع الحقوق محفوظة');
   // spanish translates the landing copy (ltr)
   await page.locator('#lang-btn').click();
@@ -40,5 +40,5 @@ test('language choice survives a reload', async ({ page }) => {
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   await page.reload();
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
-  await expect(page.locator('#land-sub')).toHaveText('تأجير الدراجات - حلبة كورنيش جدة');
+  await expect(page.locator('#land-sub')).toHaveText('تأجير الدراجات وجولات مجتمعية في جدة');
 });
