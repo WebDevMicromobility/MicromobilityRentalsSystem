@@ -45,7 +45,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1284x2778.png">
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
-  <link rel="stylesheet" href="./styles.css?v=140">
+  <link rel="stylesheet" href="./styles.css?v=141">
 <script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
 </head>
 <body>
@@ -3706,11 +3706,12 @@ document.addEventListener('keydown',e=>{
 
 function renderRegister(){
   const cust=S.loggedIn||getSession();
-  // Open sessions are bookable; full sessions are joinable via the waitlist. Only the chosen
-  // event's sessions show: JCC by default, or the community event picked on the landing page.
+  // Open sessions are bookable; full sessions are joinable via the waitlist. The JCC list
+  // ALSO includes Saturday Social Rides (badged blue) so every customer can find them from
+  // either entry point; the Saturday landing card still shows only that event.
   const _ev=S.selEvent||'jcc';
   const _commSel=_isCommunity(allSessions().find(s=>s.id===S.selSession)); // selected session is a community ride
-  let available=allSessions().filter(s=>(s.status==='open'||s.status==='full')&&_evMatch(s,_ev))
+  let available=allSessions().filter(s=>(s.status==='open'||s.status==='full')&&(_ev==='community'?_isCommunity(s):true))
     .sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
   ensureBikeSizes();
   // Branch is not shown to customers (staff-only); no branch filter or labels here.
@@ -3722,10 +3723,12 @@ function renderRegister(){
         const isFull=s.status==='full';
         const _n=spotsLeft(s.id);
         const _low=!isFull&&_n>0&&_n<=3;
-        return`<button type="button" class="sess-card${sel?' sess-selected':''}" onclick="S.selSession='${s.id}';renderRegister()">
+        const _c=_isCommunity(s);
+        return`<button type="button" class="sess-card${sel?' sess-selected':''}${_c?' sess-card-comm':''}" onclick="S.selSession='${s.id}';renderRegister()">
           <span class="sess-card-left">
             <span class="sess-card-dot${sel?' on':''}"></span>
             <span class="sess-card-date">${dayLabel(s.day)} &middot; ${shortDate(s.session_date||s.id)}</span>
+            ${_c?`<span class="sess-comm-chip">${esc(s.title||t('landCommTitle'))}</span>`:''}
             <span class="sess-card-time">${sessionTime(s)}</span>
           </span>
           <span class="sess-card-right">

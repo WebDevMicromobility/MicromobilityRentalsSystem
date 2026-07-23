@@ -4,7 +4,7 @@ const IMG_CACHE = 'mmcq-img'; // Supabase Storage photos; persists across app ve
 const SHELL = [
   './',
   './index.html',
-  './styles.css?v=140',
+  './styles.css?v=141',
   './manifest.json',
   './logo.png',
   './logo-dark.png',
