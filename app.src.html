@@ -6403,11 +6403,14 @@ async function addSession(){
     const _sessUpd={};
     if((S.newSessAddons||[]).length)_sessUpd.addons=JSON.stringify(S.newSessAddons);
     if(Object.keys(_sessUpd).length&&createdIds.length){try{await Promise.all(createdIds.map(id=>sb.from('sessions').update(_sessUpd).eq('id',id)));}catch(e){}}
-    // Community events MUST get their gating fields. Unlike add-ons this cannot be tolerant:
-    // if the columns are missing (migration not run) the session would be publicly visible,
-    // so on failure the just-created rows are rolled back and staff get a clear error.
+    // Community events MUST get their event fields. Unlike add-ons this cannot be tolerant:
+    // if the columns are missing (migration not run) the ride would behave like a normal
+    // paid session (no approval gate, visible queue numbers), so on failure the
+    // just-created rows are rolled back and staff get a clear error.
+    // required_tag_id stays null: the ride is visible to every customer once opened;
+    // seats are still granted only through staff approval / manual add.
     if(isCommSess&&createdIds.length){
-      const _gate={event_kind:'community',required_tag_id:'tag_saturday',needs_approval:true,hide_queue:true,spots:total,title:t('landCommTitle')};
+      const _gate={event_kind:'community',required_tag_id:null,needs_approval:true,hide_queue:true,spots:total,title:t('landCommTitle')};
       let _gateErr=null;
       await Promise.all(createdIds.map(async id=>{const r=await sb.from('sessions').update(_gate).eq('id',id);if(r&&r.error)_gateErr=r.error;}));
       if(_gateErr){
