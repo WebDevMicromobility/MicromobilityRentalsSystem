@@ -7038,17 +7038,6 @@ function renderStaffQueue(){
     const arrow=active?(S.sfSortDir===1?'↑':'↓'):'';
     return`<th class="an-sort-th${active?' an-sort-active':''}${cls?' '+cls:''}" onclick="setSfSort('${col}')">${label}${active?' '+arrow:''}</th>`;
   }
-  const waitingBase=base.filter(e=>e.status==='waiting').sort((a,b)=>a.queueNum-b.queueNum);
-  const nextRider=waitingBase[0];
-  const totalWaiting=new Set(waitingBase.map(e=>`${e.sessionId}:${e.queueNum}`)).size;
-  const nextUp=nextRider?`<div class="next-up-banner">
-    <div>
-      <div class="next-up-label">${t('nextUpLabel')} &nbsp;<span style="font-size:12px;color:var(--muted);font-weight:600">${totalWaiting} ${t('inLine')}</span></div>
-      <div class="next-up-name">#${nextRider.queueNum} - ${esc(nextRider.name)}</div>
-      <div class="next-up-details">${typeLabel(nextRider.typePreference)} &middot; ${nextRider.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</div>
-    </div>
-    <button class="btn-primary" onclick="openModal('${nextRider.id}')">${t('assignBikeCheckin')}</button>
-  </div>`:'';
   const qSessOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>${t('allSessions')}</option>`+
     sessions.filter(s=>s.status!=='deleted').map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</option>`).join('');
   const qStatusOpts=['all','waiting','active','done','noshow','cancelled'].map(s=>{
@@ -7482,14 +7471,28 @@ function renderStaffQueue(){
     mobileCards=_fg.map(g=>renderGroupCard(g)).join('');
     if(!filtered.length)mobileCards=`<div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div>`;
   }
-  document.getElementById('tab-queue').innerHTML=_qvPills+_queueHeader+_sessSummaryBar+`
-    <div class="stats-row">
+  document.getElementById('tab-queue').innerHTML=_qvPills+_queueHeader+_sessSummaryBar+`${(()=>{
+    // Saturday Social Ride (a single community session selected): the JCC stats (Expected / On Bike /
+    // Completed) don't apply — show the approval funnel instead: total riders, approved, pending, waitlist.
+    const _commStats=S.sfSession!=='all'&&_isCommunity(allSessions().find(s=>s.id===S.sfSession));
+    if(_commStats){
+      const nApproved=base.filter(e=>e.approval==='approved').length;
+      const nPending=base.filter(e=>e.approval==='pending'&&e.status!=='waitlist').length;
+      const nWaitlist=base.filter(e=>e.status==='waitlist').length;
+      return`<div class="stats-row">
+        <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('statNumRiders')}</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nApproved}</div><div class="stat-label">${t('apprApprovedChip')}</div></div>
+        <div class="stat-card"><div class="stat-num" style="color:var(--orange)">${nPending}</div><div class="stat-label">${t('apprPendingChip')}</div></div>
+        <div class="stat-card"><div class="stat-num">${nWaitlist}</div><div class="stat-label">${t('waitlistLabel')}</div></div>
+      </div>`;
+    }
+    return`<div class="stats-row">
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('statNumRiders')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWait}</div><div class="stat-label">${t('statExpected')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nBike}</div><div class="stat-label">${t('onBikeStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nDonePaid}</div><div class="stat-label">${t('statCompleted')}</div></div>
-    </div>
-    ${nextUp}
+    </div>`;
+  })()}
     ${(()=>{
       
       const cutoff=Date.now()-5*60*1000;
