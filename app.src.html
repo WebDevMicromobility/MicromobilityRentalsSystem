@@ -4376,9 +4376,13 @@ async function submitReg(){
       let _ok=false;
       for(let _try=0;_try<4&&!_ok;_try++){
         try{
-          const insRes=await Promise.all(entries.map(e=>sb.from('queue_entries').insert(entryToDB(e))));
+          const insRes=await Promise.all(entries.map(e=>sb.from('queue_entries').insert(entryToDB(e)).select()));
           const insFail=insRes.find(r=>r&&r.error);
           if(insFail)throw insFail.error;
+          // The DB assigns the final queue number atomically (queue_entries_assign_qnum
+          // trigger), overriding whatever this device computed - sync it back so the
+          // ticket and toast show the real number even on a stale client.
+          insRes.forEach((r,i)=>{const row=r&&r.data&&r.data[0];if(row&&row.queue_num!=null)entries[i].queueNum=row.queue_num;});
           _ok=true;
         }catch(err){
           if(typeof navigator!=='undefined'&&navigator.onLine===false){
