@@ -1607,18 +1607,36 @@ function entryToDB(e){
 // Secure mode as a customer: the table's SELECT is locked, so availability comes
 // from the no-PII queue_public view and the customer's own rows (full fields,
 // needed for My Rides tickets) from the token-checked my_bookings() RPC.
+// PostgREST silently caps every request at 1000 rows. Once the queue crossed that,
+// single-shot fetches dropped the LAST rows in sort order - which, ordered by session_id,
+// are the NEWEST sessions. Page until a short page arrives so nothing is ever truncated.
+async function _pagedAll(makeSel){
+  const PAGE=1000;let all=[],from=0;
+  for(;;){
+    const{data,error}=await makeSel().range(from,from+PAGE-1);
+    if(error)return{data:all.length?all:null,error};
+    all=all.concat(data||[]);
+    if(!data||data.length<PAGE)break;
+    from+=PAGE;
+  }
+  return{data:all,error:null};
+}
 async function _queueFetch(windowed){
   const wantSecure=SECURE_AUTH&&!S._staffAuthed;
   if(!wantSecure){
-    let sel=sb.from('queue_entries').select('*');
-    if(windowed)sel=sel.gte('session_date',_qWindowCut());
-    return sel.order('session_id').order('queue_num');
+    return _pagedAll(()=>{
+      let sel=sb.from('queue_entries').select('*');
+      if(windowed)sel=sel.gte('session_date',_qWindowCut());
+      return sel.order('session_id').order('queue_num');
+    });
   }
-  let pubSel=sb.from('queue_public').select('*');
-  if(windowed)pubSel=pubSel.gte('session_date',_qWindowCut());
   const cust=S.loggedIn||getSession();
   const [pub,mine]=await Promise.all([
-    pubSel.order('session_id').order('queue_num'),
+    _pagedAll(()=>{
+      let pubSel=sb.from('queue_public').select('*');
+      if(windowed)pubSel=pubSel.gte('session_date',_qWindowCut());
+      return pubSel.order('session_id').order('queue_num');
+    }),
     (cust&&cust.session_token)?sb.rpc('my_bookings',{p_id:cust.id,p_token:cust.session_token}):Promise.resolve({data:[]}),
   ]);
   const mineRows=(mine&&!mine.error&&mine.data)||[];
