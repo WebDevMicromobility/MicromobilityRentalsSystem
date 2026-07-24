@@ -1687,7 +1687,7 @@ async function loadData(showLoader=false){
     // Paged (PostgREST caps every request at 1000 rows): the customer base and tag list both grow
     // unbounded, so a single-shot fetch would silently drop rows once past 1000 - staff would see a
     // real customer as "not found" or a tagged rider as untagged.
-    try{const r=await _pagedAll(()=>sb.from('customers').select('id,name,email,phone,created_at').order('created_at').order('id'));if(!r.error&&r.data)c=r;}catch(e){}
+    try{const r=await _pagedAll(()=>sb.from('customers').select('id,name,email,phone,height,type_preference,created_at').order('created_at').order('id'));if(!r.error&&r.data)c=r;}catch(e){}
     // Tags are staff-only (RLS blocks everyone else). Tolerant: pre-migration these tables
     // don't exist yet, so a failure just leaves the tag UI empty rather than breaking boot.
     try{const rt=await sb.from('tags').select('*');if(!rt.error&&rt.data)S.tags=rt.data;}catch(e){}
