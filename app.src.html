@@ -8828,7 +8828,9 @@ function printCommunityRoster(sess){
   const nPending=riders.filter(e=>e.approval==='pending'&&e.status!=='waitlist').length;
   const nWaitlist=riders.filter(e=>e.status==='waitlist').length;
   const rows=riders.map((e,i)=>{
-    const phone=entryPhone(e);
+    // entryPhone() is a closure inside renderStaffQueue, not reachable here — resolve the phone inline:
+    // the booking's snapshot phone, falling back to the linked customer record.
+    const phone=e.phone||(e.customerId?((getCustomers().find(x=>x.id===e.customerId)||{}).phone||''):'')||'';
     return`<tr>
       <td>${i+1}</td>
       <td>${esc(e.name||'—')}</td>
