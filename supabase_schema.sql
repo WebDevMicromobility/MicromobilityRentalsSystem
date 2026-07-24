@@ -147,9 +147,12 @@ create table if not exists queue_entries (
 --     from ranked r join maxes m on m.session_id = r.session_id where r.rn > 1)
 --   update queue_entries q set queue_num = f.new_num from to_fix f where q.id = f.id;
 --
--- create unique index if not exists queue_entries_session_qnum_uniq
---   on queue_entries (session_id, queue_num)
---   where status not in ('cancelled','removed','noshow');
+-- LIVE in production and REQUIRED: the app assigns queue numbers assuming this partial unique index
+-- exists (it also gives paged queue fetches a stable total order). A rebuild without it would allow
+-- duplicate live (session_id, queue_num) rows and make range-paging non-deterministic.
+create unique index if not exists queue_entries_session_qnum_uniq
+  on queue_entries (session_id, queue_num)
+  where status not in ('cancelled','removed','noshow');
 
 -- Optional: JS error capture (the app inserts here tolerantly; safe to skip)
 -- create table if not exists error_log (id bigint generated always as identity primary key, at text, msg text, src text, ua text);
