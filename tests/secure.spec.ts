@@ -99,10 +99,12 @@ test('customer writes route through the token RPCs when the table is locked', as
   // an own-row update (cancel) must go to the RPC, not a direct table PATCH
   const res = await page.evaluate(`_ownEntryUpdate('q-mine', { status: 'cancelled', assigned_bike_id: null })`);
   expect(res).toEqual({ error: null });
+  // Queue numbers never shift (gaps are kept), so _shiftDownAfter is a deliberate no-op: it must
+  // make NO writes at all - not a direct table PATCH and not even the shiftdown RPC.
   await page.evaluate(`_shiftDownAfter('s1', 3)`);
 
   expect(rpcCalls.some((c) => c.includes('rpc/customer_booking_update'))).toBe(true);
-  expect(rpcCalls.some((c) => c.includes('rpc/customer_shiftdown'))).toBe(true);
+  expect(rpcCalls.some((c) => c.includes('rpc/customer_shiftdown'))).toBe(false); // shifting removed
   expect(rpcCalls.some((c) => c.includes('queue_entries'))).toBe(false); // never touched the locked table directly
 });
 
