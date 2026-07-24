@@ -7204,7 +7204,7 @@ function renderStaffQueue(){
       const isHouse=e.paid&&(e.price??DEFAULT_PRICE)===0;
       // Same tappable payment control the desktop table has: shows the state, opens the
       // Pending / Paid (cash·card·split) / On-the-house menu.
-      const payBtn=`<button class="pay-toggle ${isHouse?'house':e.paid?'paid':'pending'}" style="font-size:10px;padding:5px 9px;min-height:26px" onclick="event.stopPropagation();showPayMenu('${e.id}',event)">${isHouse?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`;
+      const payBtn=_commSessIds.has(e.sessionId)?'':`<button class="pay-toggle ${isHouse?'house':e.paid?'paid':'pending'}" style="font-size:10px;padding:5px 9px;min-height:26px" onclick="event.stopPropagation();showPayMenu('${e.id}',event)">${isHouse?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`;
       const indent=n>1?'padding-left:22px':'';
       return`<div style="padding:6px 0;${i>0?'border-top:1px solid rgba(var(--tint-rgb),.05)':''}">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -7216,7 +7216,7 @@ function renderStaffQueue(){
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${statusBadge(e.status)}${payBtn}</div>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px;${indent}">
-          ${typeLabel(e.typePreference)}${bikeInfo?` &middot; <span style="color:var(--muted-l)">${esc(bikeInfo)}</span>`:''} &middot; <bdi style="font-weight:800;color:var(--text)">SAR ${e.price??DEFAULT_PRICE}</bdi>
+          ${typeLabel(e.typePreference)}${bikeInfo?` &middot; <span style="color:var(--muted-l)">${esc(bikeInfo)}</span>`:''}${_commSessIds.has(e.sessionId)?'':` &middot; <bdi style="font-weight:800;color:var(--text)">SAR ${e.price??DEFAULT_PRICE}</bdi>`}
         </div>
       </div>`;
     }).join('');
@@ -7964,19 +7964,32 @@ function confirmLogUndo(logId){
 // Approve: a waiting reservation becomes a confirmed seat; a waitlist one is also promoted
 // into the queue (used when a spot frees up, a booking is cancelled, or spots are expanded).
 async function approveEntry(id){
-  const e=getQueue().find(x=>x.id===id);if(!e||e.approval!=='pending')return;
-  const patch={approval:'approved'};
-  if(e.status==='waitlist'){patch.status='waiting';patch.queue_num=nextQNum(e.sessionId);}
-  const{error}=await sb.from('queue_entries').update(patch).eq('id',id);
-  if(error){toast(error.message||t('errConnection'),'error');return;}
-  await loadDataLight();
-  logAction(`${t('apprApproveBtn')}: #${patch.queue_num||e.queueNum} ${e.name}`);
-  toast(t('apprApprovedToast').replace('{0}',e.name));
-  pushUndo(`${t('apprApproveBtn')} · ${e.name}`,async()=>{
-    await sb.from('queue_entries').update({approval:'pending',status:e.status,queue_num:e.queueNum}).eq('id',id);
-    await loadDataLight();renderStaffQueue();
-  });
-  renderStaffQueue();renderMyRides();
+  // Busy-guarded and retried: promoting from the waitlist assigns a fresh queue number
+  // computed from local state; a concurrent write can take that number first and trip
+  // the (session_id, queue_num) unique index, so on a duplicate we resync and retry once.
+  if(S._apprBusy)return;S._apprBusy=true;
+  try{
+    for(let attempt=0;attempt<2;attempt++){
+      const e=getQueue().find(x=>x.id===id);if(!e||e.approval!=='pending')return;
+      const patch={approval:'approved'};
+      if(e.status==='waitlist'){patch.status='waiting';patch.queue_num=nextQNum(e.sessionId);}
+      const{error}=await sb.from('queue_entries').update(patch).eq('id',id);
+      if(error){
+        const dup=String(error.code||'').includes('23505')||/duplicate|unique/i.test(error.message||'');
+        if(dup&&attempt===0){await loadDataLight();continue;}
+        toast(error.message||t('errConnection'),'error');return;
+      }
+      await loadDataLight();
+      logAction(`${t('apprApproveBtn')}: #${patch.queue_num||e.queueNum} ${e.name}`);
+      toast(t('apprApprovedToast').replace('{0}',e.name));
+      pushUndo(`${t('apprApproveBtn')} · ${e.name}`,async()=>{
+        await sb.from('queue_entries').update({approval:'pending',status:e.status,queue_num:e.queueNum}).eq('id',id);
+        await loadDataLight();renderStaffQueue();
+      });
+      renderStaffQueue();renderMyRides();
+      return;
+    }
+  }finally{S._apprBusy=false;}
 }
 // Undo an approval: the seat goes back to pending selection (status stays as-is, so the
 // rider keeps their place in the list while staff reconsider).
