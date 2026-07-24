@@ -7976,7 +7976,10 @@ async function approveEntry(id){
     for(let attempt=0;attempt<2;attempt++){
       const e=getQueue().find(x=>x.id===id);if(!e||e.approval!=='pending')return;
       const patch={approval:'approved'};
-      if(e.status==='waitlist'){patch.status='waiting';patch.queue_num=nextQNum(e.sessionId);}
+      // Community rides order by reservation time and hide numbers, so a promoted rider
+      // keeps their original queue_num - no renumbering means no unique-index collision.
+      // JCC promotes still take a fresh number (position at the end of the queue).
+      if(e.status==='waitlist'){patch.status='waiting';if(!_commSessIds.has(e.sessionId))patch.queue_num=nextQNum(e.sessionId);}
       const{error}=await sb.from('queue_entries').update(patch).eq('id',id);
       if(error){
         const dup=String(error.code||'').includes('23505')||/duplicate|unique/i.test(error.message||'');
