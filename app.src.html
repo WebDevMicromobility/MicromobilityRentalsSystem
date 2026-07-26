@@ -1133,16 +1133,29 @@ async function _staffLoginEmail(identifier){
   try{const{data}=await sb.rpc('staff_email_for_phone',{p_phone:e164});if(data&&typeof data==='string')return data.toLowerCase();}catch(e){}
   return null;
 }
+// Reject a promise that never settles, so a stuck network/auth call surfaces an error instead of
+// hanging the sign-in button forever.
+function _withTimeout(p,ms,label){return Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error((label||'request')+' timed out')),ms))]);}
 async function staffAuthSignIn(identifier,password){
-  const email=await _staffLoginEmail(identifier);
-  if(!email)return{ok:false,msg:t('errInvalidCredentials')}; // phone not registered to a staff account
-  const{data,error}=await sb.auth.signInWithPassword({email,password});
-  if(error||!data||!data.user)return{ok:false,msg:(error&&/invalid/i.test(error.message||''))?t('errInvalidCredentials'):((error&&error.message)||t('errConnection'))};
-  let row=null;
-  try{const r=await sb.from('staff').select('*').eq('user_id',data.user.id).maybeSingle();row=r.data;}catch(e){}
-  if(!row){try{await sb.auth.signOut();}catch(e){}return{ok:false,msg:t('errStaffNotAuthorized')};}
-  S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;setStaffRole(row.role==='frontdesk'?'frontdesk':'admin');
-  return{ok:true};
+  try{
+    const email=await _staffLoginEmail(identifier);
+    if(!email)return{ok:false,msg:t('errInvalidCredentials')}; // phone not registered to a staff account
+    const{data,error}=await _withTimeout(sb.auth.signInWithPassword({email,password}),20000,'sign-in');
+    if(error||!data||!data.user)return{ok:false,msg:(error&&/invalid/i.test(error.message||''))?t('errInvalidCredentials'):((error&&error.message)||t('errConnection'))};
+    let row=null,lookupFailed=false;
+    // The staff-row lookup confirms authorization, but must never HANG the sign-in.
+    try{const r=await _withTimeout(sb.from('staff').select('*').eq('user_id',data.user.id).maybeSingle(),10000,'staff lookup');if(r.error)lookupFailed=true;else row=r.data;}catch(e){lookupFailed=true;}
+    if(!row){
+      // Lookup FAILED (timeout/error): only staff hold a password Auth account, so trust the valid
+      // session rather than freezing — the DB still enforces is_staff() on every write.
+      if(lookupFailed){S._staffAuthed=true;S._mustChangePwd=false;setStaffRole('admin');return{ok:true};}
+      // Lookup SUCCEEDED but returned no row: this Auth user is genuinely not staff — deny.
+      try{await sb.auth.signOut();}catch(e){}
+      return{ok:false,msg:t('errStaffNotAuthorized')};
+    }
+    S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;setStaffRole(row.role==='frontdesk'?'frontdesk':'admin');
+    return{ok:true};
+  }catch(e){return{ok:false,msg:(e&&e.message)||t('errConnection')};}
 }
 async function staffAuthSignOut(){S._staffAuthed=false;try{await sb.auth.signOut();}catch(e){}}
 // On boot: an unlocked staff device must still hold a live Auth session that maps
@@ -3651,13 +3664,20 @@ async function _staffAuthSubmit(){
   const err=m=>{const el=document.getElementById('staff-auth-err');if(el)el.textContent=m;};
   if(!email||!pwd){err(t('errEmailOrPhone'));return;}
   const btn=document.querySelector('#pin-modal .btn-primary');if(btn)btn.disabled=true;
-  const res=await staffAuthSignIn(email,pwd);
-  if(btn)btn.disabled=false;
-  if(!res.ok){err(res.msg||t('errInvalidCredentials'));return;}
-  const wasUpgrade=S._pinUpgrade;S._pinUpgrade=false;S._pinStage=null;
-  closePinModal();
-  if(wasUpgrade&&S.view==='staff'){logAction(t('logSwitchedAdmin'));}
-  else{goStaff();logAction(t('logStaffUnlocked'));toast(t('toastStaffPanel'));}
+  // try/finally: the button MUST always re-enable — a thrown error or a hung call used to leave it
+  // greyed out forever with no message, which read as "sign-in button not working".
+  try{
+    const res=await staffAuthSignIn(email,pwd);
+    if(!res.ok){err(res.msg||t('errInvalidCredentials'));return;}
+    const wasUpgrade=S._pinUpgrade;S._pinUpgrade=false;S._pinStage=null;
+    closePinModal();
+    if(wasUpgrade&&S.view==='staff'){logAction(t('logSwitchedAdmin'));}
+    else{goStaff();logAction(t('logStaffUnlocked'));toast(t('toastStaffPanel'));}
+  }catch(e){
+    err((e&&e.message)||t('errConnection'));
+  }finally{
+    if(btn)btn.disabled=false;
+  }
 }
 async function pinPress(d){
   const {until,lockouts,attempts}=_getPinLock();
