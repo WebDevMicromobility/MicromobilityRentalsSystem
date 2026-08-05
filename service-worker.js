@@ -9,6 +9,7 @@ const SHELL = [
   './logo.png',
   './logo-dark.png',
   './jcc.png',
+  './jcc-white.png',
   './brand.png',
   './hero.webp',
   './icon-192.png',
