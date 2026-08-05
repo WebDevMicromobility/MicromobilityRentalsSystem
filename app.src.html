@@ -109,6 +109,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <button class="tab-btn"        data-ctab="account"  onclick="setCustTab('account')">My Account</button>
   </nav>
   <div class="view-main">
+    <button id="cust-back-btn" class="cust-back-btn" onclick="custBack()"><span class="mirror-rtl" aria-hidden="true">&#8249;</span> Back</button>
     <div id="tab-register" class="tab-panel active"></div>
     <div id="tab-myrides"  class="tab-panel"></div>
     <div id="tab-account"  class="tab-panel"></div>
@@ -1064,6 +1065,7 @@ function setLang(lang){
   if(lmt)lmt.innerHTML=lang==='ar'?'احجز <span>دراجتك الآن!</span>':lang==='es'?'¡Reserva tu <span>bicicleta ahora!</span>':'Reserve Your <span>Bicycle Now!</span>';
   const lca=document.getElementById('land-cta-arrow');if(lca)lca.innerHTML=lang==='ar'?'&#8592;':'&#8594;';
   const lsb=document.getElementById('land-staff-btn');if(lsb)lsb.textContent=t('staffAccess');
+  const cbb=document.getElementById('cust-back-btn');if(cbb)cbb.innerHTML='<span class="mirror-rtl" aria-hidden="true">&#8249;</span> '+t('regBackBtn');
   const fc=document.getElementById('footer-copy');if(fc)fc.textContent=t('footerCopy');
   const rl=document.getElementById('bnav-reserve-lbl');if(rl)rl.textContent=t('tabReserve');
   const ml=document.getElementById('bnav-myrides-lbl');if(ml)ml.textContent=t('tabMyRides');
@@ -3063,15 +3065,33 @@ function showView(v){
 }
 
 let _navRestoring=false;
-function _navState(){return {view:S.view,ctab:S.custTab,stab:S.staffTab};}
+// ev + step ride along so browser Back also walks the event picker choice and the
+// Reserve wizard's steps (3 → 2 → 1 → landing), not just view/tab changes.
+function _navState(){return {view:S.view,ctab:S.custTab,stab:S.staffTab,ev:S.selEvent,step:S.regStep};}
 function _saveNav(){try{sessionStorage.setItem('cq_nav',JSON.stringify(_navState()));}catch(e){}}
 function _loadNav(){try{const r=sessionStorage.getItem('cq_nav');return r?JSON.parse(r):null;}catch(e){return null;}}
-function _pushNav(){if(_navRestoring)return;try{history.pushState(_navState(),'');}catch(e){}_saveNav();}
+function _pushNav(){
+  if(_navRestoring)return;
+  const st=_navState();
+  try{
+    // Every render path calls this, so identical consecutive states used to STACK -
+    // each browser Back then popped a clone and visibly did nothing. Replace when
+    // nothing changed; push only real transitions.
+    const c=history.state;
+    if(c&&c.view===st.view&&c.ctab===st.ctab&&c.stab===st.stab&&c.ev===st.ev&&c.step===st.step)history.replaceState(st,'');
+    else history.pushState(st,'');
+  }catch(e){}
+  _saveNav();
+}
 function _applyNav(st){
   if(!st)return;
   _navRestoring=true;
   if(st.view==='staff'&&localStorage.getItem('cq_staff')==='1'){goStaff();if(st.stab)setStaffTab(st.stab);}
-  else if(st.view==='customer'&&getSession()){goCustomer(st.ctab||'register');}
+  else if(st.view==='customer'&&getSession()){
+    if(st.ev)S.selEvent=st.ev;
+    if(st.step&&(st.ctab||'register')==='register')S.regStep=st.step;
+    goCustomer(st.ctab||'register');
+  }
   else{goLanding();}
   _navRestoring=false;_saveNav();
 }
@@ -3264,6 +3284,12 @@ function renderLandingAvail(){
   }).join('');
 }
 
+// Customer page Back: step back inside the Reserve wizard first, otherwise return to
+// the landing event picker - the same path the browser Back button now walks.
+function custBack(){
+  if(S.custTab==='register'&&!(S.lastTickets&&S.lastTickets.length)&&S.regStep>1){regGoStep(S.regStep-1);return;}
+  goLanding();
+}
 function goCustomer(tab){
   S.loggedIn=getSession();
   if(!S.loggedIn){
@@ -4251,7 +4277,7 @@ function renderRegister(){
   document.getElementById('tab-register').innerHTML=body;
 }
 
-function regGoStep(n){S.regStep=n;renderRegister();try{window.scrollTo({top:0,behavior:_sb()});}catch(e){}}
+function regGoStep(n){S.regStep=n;renderRegister();_pushNav();try{window.scrollTo({top:0,behavior:_sb()});}catch(e){}}
 function _regAddonQty(id){const a=(S.regAddons||[]).find(x=>(x&&typeof x==='object'?x.id:x)===id);return a?(typeof a==='object'?(Number(a.qty)||1):1):0;}
 function _setRegAddonQty(id,delta){
   S.regAddons=(S.regAddons||[]).map(x=>(x&&typeof x==='object')?x:{id:x,qty:1});
@@ -4264,10 +4290,10 @@ function _setRegAddonQty(id,delta){
 }
 function regNextFromSession(){
   if(!S.selSession){toast(t('errSelectSession'),'error');return;}
-  S.regStep=2;renderRegister();try{window.scrollTo({top:0,behavior:_sb()});}catch(e){}
+  S.regStep=2;renderRegister();_pushNav();try{window.scrollTo({top:0,behavior:_sb()});}catch(e){}
 }
 function regNextToReview(){
-  if(validateRegInputs()){S.regStep=3;renderRegister();try{window.scrollTo({top:0,behavior:_sb()});}catch(e){}}
+  if(validateRegInputs()){S.regStep=3;renderRegister();_pushNav();try{window.scrollTo({top:0,behavior:_sb()});}catch(e){}}
 }
 function regBookAnother(){
   S.lastTickets=[];S.selSession=null;S.regStep=1;S.regQty=1;
