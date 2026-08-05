@@ -29,10 +29,10 @@ test('non-member clicking the Saturday card in Reserve gets the members-only dia
 
   await page.locator('.sess-card-comm').click();
   const modal = page.locator('#confirm-modal');
-  await expect(modal).toContainText('Members only');
+  await expect(modal).toContainText('Community members only');
   await expect(modal).toContainText('Saturday Social Ride');
   // WhatsApp contact: number shown, wa.me link
-  await expect(modal.locator('a[href="https://wa.me/966566668818"]')).toContainText('+966 56 666 8818');
+  await expect(modal.locator('a[href="https://wa.me/966534423513"]')).toContainText('+966 53 442 3513');
   // the session was NOT selected
   expect(await page.evaluate('S.selSession')).toBeNull();
 
@@ -49,7 +49,7 @@ test('non-member clicking the landing Saturday event card gets the dialog and st
   await page.evaluate('goLanding()'); // a signed-in customer boots into Reserve; the event cards live on landing
 
   await page.locator('#land-events .landing-event-card.community').click();
-  await expect(page.locator('#confirm-modal')).toContainText('Members only');
+  await expect(page.locator('#confirm-modal')).toContainText('Community members only');
   expect(await page.evaluate('S.view')).toBe('landing');
 });
 
@@ -76,6 +76,14 @@ test('signed-in landing shows only the two event cards; Reserve lists only the c
   await expect(page.locator('#land-events .landing-event-card')).toHaveCount(2);
   await expect(page.locator('.landing-hero-grid')).toBeHidden();     // hero removed for signed-in
   await expect(page.locator('#land-avail-strip')).toBeEmpty();       // availability strip removed
+
+  // the Staff Access entry is back and asks for credentials on a locked device
+  await expect(page.locator('#land-staff-btn')).toBeVisible();
+  await page.locator('#land-staff-btn').click();
+  await expect(page.locator('#pin-modal .pin-box')).toBeVisible();
+  await expect(page.locator('#staff-auth-email')).toBeVisible();     // email+password prompt
+  await page.locator('#pin-modal .pin-cancel').click();              // close before the card assertions
+  await expect(page.locator('#pin-modal .pin-box')).toBeHidden();
 
   // picking the JCC event lists ONLY the JCC session (no Saturday card mixed in)
   await page.locator('#land-events .landing-event-card').first().click();
