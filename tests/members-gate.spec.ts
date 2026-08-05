@@ -23,7 +23,9 @@ test('non-member clicking the Saturday card in Reserve gets the members-only dia
   await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
   await page.goto('/');
   await waitForSb(page);
-  await page.evaluate(`setCustTab('register')`);
+  // The Reserve list shows only the chosen event; enter the community view directly
+  // (a non-member can still land here with stale state - the card click must gate).
+  await page.evaluate(`S.selEvent='community';setCustTab('register')`);
 
   await page.locator('.sess-card-comm').click();
   const modal = page.locator('#confirm-modal');
@@ -54,12 +56,30 @@ test('member continues into the booking flow with no dialog', async ({ page }) =
   await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
   await page.goto('/');
   await waitForSb(page);
-  await page.evaluate(`setCustTab('register')`);
+  await page.evaluate(`S.selEvent='community';setCustTab('register')`);
 
   await page.locator('.sess-card-comm').click();
   await expect(page.locator('.sess-card-comm.sess-selected')).toBeVisible();
   expect(await page.evaluate('S.selSession')).toBe('comm1');
   await expect(page.locator('#confirm-modal')).toBeHidden();
+});
+
+test('signed-in landing shows only the two event cards; Reserve lists only the chosen event', async ({ page }) => {
+  await stubSupabase(page, { ...fixtures, 'rpc:community_member': true });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate('goLanding()');
+
+  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(2);
+  await expect(page.locator('.landing-hero-grid')).toBeHidden();     // hero removed for signed-in
+  await expect(page.locator('#land-avail-strip')).toBeEmpty();       // availability strip removed
+
+  // picking the JCC event lists ONLY the JCC session (no Saturday card mixed in)
+  await page.locator('#land-events .landing-event-card').first().click();
+  await page.waitForFunction(`S.view==='customer'`);
+  await expect(page.locator('.sess-card')).toHaveCount(1);
+  await expect(page.locator('.sess-card-comm')).toHaveCount(0);
 });
 
 test('member landing card click opens the community Reserve flow', async ({ page }) => {
