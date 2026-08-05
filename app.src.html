@@ -1977,8 +1977,12 @@ function ticketQR(payload,px){
 
 function bookingRef(e){
   if(!e)return 'MMC';
-  const num=e.queueNum!=null?String(e.queueNum):'';
   const ref=e.id?String(e.id).slice(0,6):'';
+  // Community rides never reveal a queue number, and the QR payload is customer-visible
+  // (any camera decodes it) - so their ref carries only the id part. The staff scanner
+  // accepts both the numbered and the number-free format.
+  if(_commSessIds.has(e.sessionId))return ['MMC',ref].filter(Boolean).join('-');
+  const num=e.queueNum!=null?String(e.queueNum):'';
   return ['MMC',num,ref].filter(Boolean).join('-');
 }
 function getSession(){
@@ -9301,10 +9305,12 @@ function _onScanPayload(raw){
   _scanLastTxt=txt;_scanLastAt=now;
   const el=document.getElementById('scan-msg');
   const say=(msg,color)=>{if(el){el.textContent=msg;el.style.color=color||'var(--muted)';}};
-  const m=txt.match(/^MMC-(\d+)-([0-9a-fA-F][0-9a-fA-F-]{3,7})$/);
+  // Numbered (MMC-7-a1b2c3) or number-free community format (MMC-a1b2c3): the id prefix
+  // is the real key; the queue number, when present, is only an extra consistency check.
+  const m=txt.match(/^MMC-(?:(\d+)-)?([0-9a-zA-Z][0-9a-zA-Z-]{3,7})$/);
   if(!m){say(t('scanNotFound'),'var(--red)');return;}
   const ref=m[2].toLowerCase();
-  const entry=getQueue().find(e=>String(e.queueNum)===m[1]&&String(e.id).toLowerCase().startsWith(ref));
+  const entry=getQueue().find(e=>String(e.id).toLowerCase().startsWith(ref)&&(m[1]==null||String(e.queueNum)===m[1]));
   if(!entry){say(t('scanNotFound'),'var(--red)');return;}
   const nm=entry.name||'';
   if(entry.status==='waiting'){
