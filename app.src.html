@@ -3111,6 +3111,10 @@ function _isOwnBike(e){return !!e&&e.typePreference==='Own';}
 function _evMatch(s,ev){return ev==='community'?_isCommunity(s):!_isCommunity(s);}
 // Membership test for community sessions, shared by every staff row template (queue, history).
 const _commSessIds={has:sid=>_isCommunity((S.sessions||[]).find(s=>s.id===sid))};
+// Approval state of a community reservation. Rows created before the approval workflow
+// (or through paths that never stamped it - old bookings, imports) carry approval null;
+// staff still have to select those riders, so a missing value READS AS 'pending'.
+function _apprOf(e){return (e&&e.approval)||'pending';}
 // Breakfast-spot picker for the session forms: saved spots + "new spot" inline inputs.
 // selVar/nameVar/urlVar are S-keys; picking a saved spot fills name+url from the list.
 function _bfPickerHtml(selVar,nameVar,urlVar,rerender){
@@ -3347,6 +3351,7 @@ function _autoSelectSession(){
 }
 
 function setCustTab(tab){
+  if(S.view!=='customer'&&getSession())showView('customer'); // a customer tab implies the customer view
   S.custTab=tab;
   try{sessionStorage.setItem('cq_nav_ctab',tab);}catch(e){}
   renderCustomerTabs();
@@ -7255,7 +7260,7 @@ function renderStaffQueue(){
     // plus a Waitlist action (usable even with spots free, so staff can park a request
     // without rejecting it); a waitlist approve = hand-picked promotion into a spot.
     const _comm=_commSessIds.has(e.sessionId);
-    if(_comm&&e.approval==='pending'&&(e.status==='waiting'||e.status==='waitlist')){
+    if(_comm&&_apprOf(e)==='pending'&&(e.status==='waiting'||e.status==='waitlist')){
       const chip=`<span style="font-size:10px;font-weight:900;color:var(--orange);border:1px solid rgba(var(--warn-rgb),.4);border-radius:2px;padding:2px 8px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">${t('apprPendingChip')}</span>`;
       const wlBtn=e.status==='waiting'?`<button class="btn-sm btn-muted" onclick="commToWaitlist('${e.id}')" title="${t('waitlistLabel')}">⏳ ${t('waitlistLabel')}</button>`:'';
       return`${chip}<button class="btn-sm btn-green" onclick="approveEntry('${e.id}')">✓ ${t('apprApproveBtn')}</button><button class="btn-sm btn-red" onclick="rejectEntry('${e.id}')">${t('apprRejectBtn')}</button>${wlBtn}${_editBtn}${_noteBtn}`;
@@ -7624,7 +7629,7 @@ function renderStaffQueue(){
     const _commStats=S.sfSession!=='all'&&_isCommunity(allSessions().find(s=>s.id===S.sfSession));
     if(_commStats){
       const nApproved=base.filter(e=>e.approval==='approved').length;
-      const nPending=base.filter(e=>e.approval==='pending'&&e.status!=='waitlist').length;
+      const nPending=base.filter(e=>_apprOf(e)==='pending'&&e.status!=='waitlist').length;
       const nWaitlist=base.filter(e=>e.status==='waitlist').length;
       const nOwn=base.filter(e=>_isOwnBike(e)&&['waiting','active','done'].includes(e.status)).length;
       return`<div class="stats-row">
@@ -8240,7 +8245,7 @@ async function approveEntry(id){
   if(S._apprBusy)return;S._apprBusy=true;
   try{
     for(let attempt=0;attempt<2;attempt++){
-      const e=getQueue().find(x=>x.id===id);if(!e||e.approval!=='pending')return;
+      const e=getQueue().find(x=>x.id===id);if(!e||_apprOf(e)!=='pending')return;
       const patch={approval:'approved'};
       // Community rides order by reservation time and hide numbers, so a promoted rider
       // keeps their original queue_num - no renumbering means no unique-index collision.
@@ -8270,7 +8275,7 @@ async function commToWaitlist(id){
   // Staff parks a pending community request on the waitlist without rejecting it.
   // Allowed regardless of remaining spots. queue_num is left untouched (numbers are
   // stable, never reused or shifted), so an undo restores the exact same position.
-  const e=getQueue().find(x=>x.id===id);if(!e||e.approval!=='pending'||e.status!=='waiting')return;
+  const e=getQueue().find(x=>x.id===id);if(!e||_apprOf(e)!=='pending'||e.status!=='waiting')return;
   const{error}=await sb.from('queue_entries').update({status:'waitlist'}).eq('id',id);
   if(error){toast(error.message||t('errConnection'),'error');return;}
   await loadDataLight();
@@ -8298,7 +8303,7 @@ async function unapproveEntry(id){
 // Reject: the reservation is declined and the spot freed. The row lands under Cancelled so
 // staff keep an audit trail; the customer just sees their reservation was not confirmed.
 async function rejectEntry(id){
-  const e=getQueue().find(x=>x.id===id);if(!e||e.approval!=='pending')return;
+  const e=getQueue().find(x=>x.id===id);if(!e||_apprOf(e)!=='pending')return;
   const _wasWaitlist=e.status==='waitlist'; // waitlist never reserved stock
   const{error}=await sb.from('queue_entries').update({approval:'rejected',status:'cancelled'}).eq('id',id);
   if(error){toast(error.message||t('errConnection'),'error');return;}
@@ -8974,7 +8979,7 @@ function printCommunityRoster(sess){
     .sort((a,b)=>new Date(a.registeredAt||0)-new Date(b.registeredAt||0));
   const statusOf=e=>e.status==='waitlist'?t('waitlistLabel'):(e.approval==='approved'?t('apprApprovedChip'):t('apprPendingChip'));
   const nApproved=riders.filter(e=>e.approval==='approved'&&e.status!=='waitlist').length;
-  const nPending=riders.filter(e=>e.approval==='pending'&&e.status!=='waitlist').length;
+  const nPending=riders.filter(e=>_apprOf(e)==='pending'&&e.status!=='waitlist').length;
   const nWaitlist=riders.filter(e=>e.status==='waitlist').length;
   const rows=riders.map((e,i)=>{
     // entryPhone() is a closure inside renderStaffQueue, not reachable here — resolve the phone inline:
@@ -14335,7 +14340,10 @@ function _refreshView(){
     target=nav&&nav.view;
     if(target==='staff'&&!staffOK)target=null;
     if(target==='customer'&&!S.loggedIn)target=null;
-    if(!target)target=S.loggedIn?'customer':(staffOK?'staff':'landing');
+    // A fresh visit by a remembered (signed-in) customer lands on the PICK YOUR EVENT
+    // page - never straight into the JCC Reserve list. Only a same-tab reload restores
+    // their previous place (cq_nav lives in sessionStorage, which a new tab starts empty).
+    if(!target)target=staffOK?'staff':'landing';
   }
   // A view MUST end up active or the page is a blank header/footer. If the chosen
   // view's render throws, fall back to the landing so the user always sees something.

@@ -12,11 +12,12 @@ const openSession = {
 test.describe('booking flow', () => {
   test('select session → rider details → confirm → ticket shown', async ({ page }) => {
     await stubSupabase(page, { sessions: [openSession] });
-    // A remembered login boots straight into the Reserve tab (no account → the
-    // hero opens the auth modal instead, and booking requires an account anyway).
+    // A remembered login boots onto the PICK YOUR EVENT page; entering the JCC
+    // event card opens the Reserve tab (booking requires an account anyway).
     await loginCustomer(page);
     await page.goto('/');
     await waitForSb(page);
+    await page.locator('#land-events .landing-event-card').first().click();
 
     // Step 1 — pick the open session (the click auto-waits for the card to render)
     await page.locator('.sess-card').first().click();

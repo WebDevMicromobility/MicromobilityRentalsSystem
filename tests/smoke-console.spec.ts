@@ -43,6 +43,7 @@ test('customer booking + add-ons render with no console errors', async ({ page }
   await loginCustomer(page);
   await page.goto('/');
   await waitForSb(page);
+  await page.locator('#land-events .landing-event-card').first().click();
   await page.locator('.sess-card').first().click();
   await expect(errs, errs.join('\n')).toEqual([]);
 });

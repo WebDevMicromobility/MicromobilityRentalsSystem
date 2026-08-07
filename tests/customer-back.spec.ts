@@ -11,17 +11,22 @@ const fixtures = {
   queue_entries: [],
 };
 
-test('the Back button returns from the customer page to the landing event picker', async ({ page }) => {
+test('fresh signed-in visit lands on the event picker; Back returns there from the customer page', async ({ page }) => {
   await stubSupabase(page, fixtures);
   await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
   await page.goto('/');
   await waitForSb(page);
 
-  // signed-in boot lands on the Reserve tab; the Back button is visible there
+  // a remembered customer entering the link starts on PICK YOUR EVENT, not the JCC list
+  expect(await page.evaluate('S.view')).toBe('landing');
+  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(2);
+
+  // entering an event shows the customer page with its Back button
+  await page.locator('#land-events .landing-event-card').first().click();
+  await page.waitForFunction(`S.view==='customer'`);
   await expect(page.locator('#cust-back-btn')).toBeVisible();
   await page.locator('#cust-back-btn').click();
   await page.waitForFunction(`S.view==='landing'`);
-  // both event cards always render (the Saturday card shows even with no community session)
   await expect(page.locator('#land-events .landing-event-card')).toHaveCount(2);
 });
 
