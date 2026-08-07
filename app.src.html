@@ -3883,8 +3883,10 @@ function renderRegister(){
         const sel=S.selSession===s.id;
         const isFull=s.status==='full';
         const _n=spotsLeft(s.id);
-        const _low=!isFull&&_n>0&&_n<=3;
         const _c=_isCommunity(s);
+        // Community rides never hint at fullness from computed spots - customers only see
+        // "waitlist" once staff explicitly mark the session full.
+        const _low=!isFull&&!_c&&_n>0&&_n<=3;
         return`<button type="button" class="sess-card${sel?' sess-selected':''}${_c?' sess-card-comm':''}" onclick="selectSessCard('${s.id}')">
           <span class="sess-card-left">
             <span class="sess-card-dot${sel?' on':''}"></span>
@@ -4131,11 +4133,11 @@ function renderRegister(){
     ${branchFilter}
     <div class="session-picker-wrap" id="session-picker-wrap">
       <div class="session-cards-grid">${sessCards}</div>
-      ${(()=>{ // full community ride: reservations still work but land on the waitlist - say so up front
+      ${(()=>{ // community ride staff-marked FULL: reservations still work but land on the waitlist - say so up front
         if(!S.selSession)return'';
         const _cs=allSessions().find(s=>s.id===S.selSession);
         if(!_isCommunity(_cs))return'';
-        if(_cs.status!=='full'&&spotsLeft(S.selSession)>0)return'';
+        if(_cs.status!=='full')return''; // computed spots never surface to customers
         return`<div style="display:flex;align-items:flex-start;gap:10px;margin-top:12px;padding:12px 14px;border-radius:4px;background:rgba(var(--warn-rgb),.08);border:1px solid rgba(var(--warn-rgb),.3)">
           <span style="width:8px;height:8px;border-radius:50%;background:var(--orange);flex-shrink:0;margin-top:4px"></span>
           <span style="font-size:12.5px;font-weight:700;color:var(--orange);line-height:1.5">${t('commFullWaitlistMsg')}</span>
@@ -4467,10 +4469,11 @@ async function submitReg(){
   // Decide by ACTUAL remaining spots too, not just the manually-set 'full' status — capacity
   // could be reached without staff marking it, and a group needs qty spots, not one.
   const sess0=allSessions().find(s=>s.id===S.selSession);
-  // Own-bike community bookings are never capacity-waitlisted: spots meter rental bikes
-  // only. A staff-set 'full' status still waitlists everyone (an explicit close).
-  const _ownComm=_isCommunity(sess0)&&S.regBikeTypes[0]==='Own';
-  let bookingStatus=(sess0&&sess0.status==='full')||(!_ownComm&&spotsLeft(S.selSession)<qty)?'waitlist':'waiting';
+  // Community bookings are never capacity-waitlisted: spots meter the rental bikes for
+  // staff planning and stay invisible to customers. Only a staff-set 'full' status
+  // waitlists them (an explicit close). JCC keeps the capacity-based waitlist.
+  const _commSel0=_isCommunity(sess0);
+  let bookingStatus=(sess0&&sess0.status==='full')||(!_commSel0&&spotsLeft(S.selSession)<qty)?'waitlist':'waiting';
 
   const email=cust.email||'',phone=cust.phone||'';
   
@@ -4503,7 +4506,7 @@ async function submitReg(){
     // possibly-stale local data, so a session that filled up in the meantime would otherwise
     // over-seat. (Closes the single-stale-client capacity window; the DB capacity trigger in the
     // SQL bundle closes the rarer two-devices-at-once race.)
-    {const _s=allSessions().find(s=>s.id===S.selSession);if((_s&&_s.status==='full')||(!_ownComm&&spotsLeft(S.selSession)<qty))bookingStatus='waitlist';}
+    {const _s=allSessions().find(s=>s.id===S.selSession);if((_s&&_s.status==='full')||(!_commSel0&&spotsLeft(S.selSession)<qty))bookingStatus='waitlist';}
     const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
     const baseQNum=nextQNum(S.selSession);
     

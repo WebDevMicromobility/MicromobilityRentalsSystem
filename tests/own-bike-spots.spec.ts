@@ -21,6 +21,20 @@ const fixtures = {
   queue_entries: [entry('q1', 'Own'), entry('q2', 'Own'), entry('q3', 'Any')],
 };
 
+test('customers see the Saturday ride as available until staff mark it full', async ({ page }) => {
+  // 3 renters against a 2-spot cap: spots are exhausted, but the session status is
+  // still 'open' - customers must NOT see a waitlist/full hint until staff mark it.
+  const packed = { ...fixtures, queue_entries: [entry('q1', 'Any'), entry('q2', 'Any'), entry('q3', 'Any')] };
+  await stubSupabase(page, { ...packed, 'rpc:community_member': true });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`S.selEvent='community';setCustTab('register')`);
+
+  expect(await page.evaluate(`spotsLeft('comm1')`)).toBe(0);
+  await expect(page.locator('.sess-card-comm .sess-card-spots')).toHaveText('Available');
+});
+
 test('own-bike riders do not consume community spots', async ({ page }) => {
   await stubSupabase(page, { ...fixtures, 'rpc:community_member': true });
   await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
