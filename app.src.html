@@ -2231,7 +2231,9 @@ function typePillLabel(ty){return ty==='Own'?t('typeOwnPref'):typeLabel(ty);}
 const CUST_TYPES=['Any','Road','Hybrid','Mountain','Road Carbon','Own'];
 // 'Own' ("I have my own bike") is exclusive to the Saturday Social Ride — JCC rentals always need a
 // rental bike. Every bike-type selector uses this so 'Own' only appears in a community context.
-function bikeTypeOpts(allowOwn){return allowOwn?CUST_TYPES:CUST_TYPES.filter(ty=>ty!=='Own');}
+// allowOwn=true means a community (Saturday) context: 'Own' becomes available and
+// 'Road Carbon' is withdrawn - carbon road bikes are not offered on the social ride.
+function bikeTypeOpts(allowOwn){return allowOwn?CUST_TYPES.filter(ty=>ty!=='Road Carbon'):CUST_TYPES.filter(ty=>ty!=='Own');}
 // Single venue: tickets link straight to the circuit pin (locations/branches removed from the UI).
 const DIRECTIONS_URL='https://maps.app.goo.gl/zJLjmiaJgfJDKQwY7';
 // Haptic tap on key confirmations. iOS Safari has no Vibration API; since 17.4 a hidden
@@ -3872,6 +3874,9 @@ function renderRegister(){
   // for 'community' - switching events happens on the landing event cards.
   const _ev=S.selEvent||'jcc';
   const _commSel=_isCommunity(allSessions().find(s=>s.id===S.selSession)); // selected session is a community ride
+  // Road Carbon is not offered on the social ride; a saved profile preference could still
+  // pre-select it (the button set hides it), so coerce any such choice to Road here.
+  if(_commSel)S.regBikeTypes=S.regBikeTypes.map(ty=>ty==='Road Carbon'?'Road':ty);
   let available=allSessions().filter(s=>(s.status==='open'||s.status==='full')&&_evMatch(s,_ev))
     .sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
   ensureBikeSizes();
@@ -4459,7 +4464,7 @@ async function submitReg(){
   // Saturday Social Ride: every customer books ONLY themselves - no additional riders. The UI already
   // hides the quantity stepper and forces 1, but hard-clamp here too so no state path can insert a
   // multi-rider (each an approval:'pending', price:0) community booking.
-  if(_isCommunity(_selSess0)){qty=1;S.regQty=1;}
+  if(_isCommunity(_selSess0)){qty=1;S.regQty=1;S.regBikeTypes=S.regBikeTypes.map(ty=>ty==='Road Carbon'?'Road':ty);}
   ensureBikeSizes();
   if(!validateRegInputs())return;
   const heights=[];
