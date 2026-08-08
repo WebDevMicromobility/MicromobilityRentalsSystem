@@ -352,7 +352,38 @@ inside Bookings; Logs merged into History). Front-desk role sees only Sales + Bo
   blocks non-asset files (.sql/.md/src/tests) from being served publicly; service worker
   versioning (`mmcq-vN` + `styles.css?v=N`).
 
-## 10. Files worth giving the implementing AI alongside this document
+## 10. Connecting the new website to the live database (zero-migration transfer)
+
+There is NO data migration. The new website connects to the SAME Supabase project the
+current app uses, so every customer account, tag (with validity windows), ride/booking,
+session, sale, inventory item, and photo is already there the moment the new frontend
+goes live. Both sites can run side by side during the transition.
+
+```js
+// Supabase JS v2 client - same credentials the current app ships publicly
+const SUPABASE_URL = 'https://amyqxovbnlreassrqihr.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFteXF4b3ZibmxyZWFzc3JxaWhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwOTk0NzUsImV4cCI6MjA5ODY3NTQ3NX0.NzlLzOqZfTqx2TyeyNeqXwDPfvcPV2q4DHqPrlS8Tjk';
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+```
+
+- This is the PUBLIC anon key (safe in frontend code; RLS + RPCs are the security boundary).
+  Never put the service-role key in any frontend.
+- Customers sign in on the new domain with their existing email/phone + password via
+  `customer_login` — same accounts, rides, and tags appear immediately. Browser sessions
+  do NOT carry across domains, so each customer signs in once on the new site; nothing else
+  changes for them.
+- Storage photos are public URLs under the same project (`/storage/v1/object/public/photos/p/...`)
+  and keep working as-is.
+- Realtime channels (queue_entries, sessions, bikes, inventory, cashier_sales) are already
+  enabled on this project.
+- Rules for the transition: additive SQL migrations only (new tables for workshop/store with
+  `customer_id` FKs); never drop or rename existing tables/columns/RPCs while the current
+  app is still deployed; test schema changes on the staging project first
+  (`ariyvnxeywozmwxmylhb`, a data copy) per the house rule.
+- Once the new site fully replaces the old one, the old Cloudflare Pages deployment can be
+  retired with zero data work - the database never moved.
+
+## 11. Files worth giving the implementing AI alongside this document
 
 1. `app.src.html` — the complete current implementation (UI, logic, i18n dictionaries).
 2. `supabase_schema.sql` + `security-migration.sql` + `tags-events-migration.sql` +
