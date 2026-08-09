@@ -8887,6 +8887,26 @@ function reportStatusLabel(st){
 function exportSessionExcel(){
   const sessId=S.sfSession;if(sessId==='all')return;
   const sess=allSessions().find(s=>s.id===sessId);if(!sess)return;
+  // Saturday Social Ride: roster-style export (same riders/columns as the printed roster,
+  // height included) — the JCC columns below (price/payment/add-ons) don't apply to the free ride.
+  if(_isCommunity(sess)){
+    const riders=getQueue()
+      .filter(e=>e.sessionId===sessId&&(e.status==='waiting'||e.status==='waitlist'||e.status==='active'))
+      .sort((a,b)=>new Date(a.registeredAt||0)-new Date(b.registeredAt||0));
+    if(!riders.length){toast(t('toastNoExport'),'warning');return;}
+    const statusOf=e=>e.status==='waitlist'?t('waitlistLabel'):(e.approval==='approved'?t('apprApprovedChip'):t('apprPendingChip'));
+    const headers=['#',t('nameLabel'),t('repColPhone'),t('heightLabel')+' ('+t('cmUnit')+')',t('repColType'),t('colStatus')];
+    const rosterRows=riders.map((e,i)=>{
+      const phone=e.phone||(e.customerId?((getCustomers().find(x=>x.id===e.customerId)||{}).phone||''):'')||'';
+      return[i+1,e.name||'',phone,e.height||'',typeLabel(resolvedType(e)),statusOf(e)];
+    });
+    const rosterCsv=[headers,...rosterRows].map(r=>r.map(_csvCell).join(',')).join('\n');
+    const blob=new Blob(['﻿'+rosterCsv],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=`roster_${dayLabel(sess.day)}_${sess.session_date||sess.id}.csv`;a.click();
+    URL.revokeObjectURL(url);
+    return;
+  }
   const entries=getQueue()
     .filter(e=>e.sessionId===sessId&&(e.status==='active'||e.status==='done'))
     .sort((a,b)=>a.queueNum-b.queueNum);
