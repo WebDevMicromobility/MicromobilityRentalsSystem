@@ -138,7 +138,6 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
   <nav class="tab-nav" id="staff-tab-nav" aria-label="Staff sections">
     <button class="tab-btn"        data-stab="cashier"   onclick="setStaffTab('cashier')">Sales</button>
     <button class="tab-btn active" data-stab="queue"     onclick="setStaffTab('queue')">Bookings</button>
-    <button class="tab-btn"        data-stab="waitlist"  onclick="setStaffTab('waitlist')">Waitlist</button>
     <button class="tab-btn"        data-stab="inventory" onclick="setStaffTab('inventory')">Inventory</button>
     <button class="tab-btn"        data-stab="community" onclick="setStaffTab('community')">Community</button>
     <button class="tab-btn"        data-stab="analytics" onclick="setStaffTab('analytics')">Analytics</button>
@@ -147,7 +146,6 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
   </nav>
   <div class="view-main">
     <div id="tab-queue"     class="tab-panel active"></div>
-    <div id="tab-waitlist"  class="tab-panel"></div>
     <div id="tab-inventory"  class="tab-panel"></div>
     <div id="tab-cashier"   class="tab-panel"></div>
     <div id="tab-community"  class="tab-panel"></div>
@@ -3370,12 +3368,12 @@ function setCustTab(tab){
 }
 function setStaffTab(tab){
   if(tab==='sessions'){S.queueView='sessions';tab='queue';} // Sessions merged into the Bookings tab
-  if(!isAdmin()&&tab!=='cashier'&&tab!=='queue'&&tab!=='waitlist')tab='queue'; // Front Desk mode: Sales, Bookings & Waitlist
+  if(tab==='waitlist'){S.queueView='waitlist';tab='queue';} // Waitlist lives there too (third pill)
+  if(!isAdmin()&&tab!=='cashier'&&tab!=='queue')tab='queue'; // Front Desk mode: only Sales & Bookings
   S.staffTab=tab;
   try{sessionStorage.setItem('cq_nav_stab',tab);}catch(e){}
   renderStaffTabs();
   if(tab==='queue')renderStaffQueue();
-  else if(tab==='waitlist')renderDeskWaitlist();
   else if(tab==='history')renderHistory();
   else if(tab==='analytics')renderAnalytics();
   else if(tab==='inventory')renderInventory();
@@ -3404,15 +3402,14 @@ function renderCustomerTabs(){
 }
 
 function renderStaffTabs(){
-  // Front Desk mode is limited to Sales + Bookings + Waitlist; hide the rest and keep the active tab valid.
-  const _desk=!isAdmin(),_deskTabs=['cashier','queue','waitlist'];
-  if(_desk&&!_deskTabs.includes(S.staffTab))S.staffTab='queue';
+  // Front Desk mode is limited to Sales + Bookings; hide the rest and keep the active tab valid.
+  const _desk=!isAdmin();
+  if(_desk&&S.staffTab!=='cashier'&&S.staffTab!=='queue')S.staffTab='queue';
   document.querySelectorAll('#staff-tab-nav .tab-btn').forEach(b=>{
-    b.style.display=(_desk&&!_deskTabs.includes(b.dataset.stab))?'none':'';
+    b.style.display=(_desk&&b.dataset.stab!=='cashier'&&b.dataset.stab!=='queue')?'none':'';
     b.classList.toggle('active',b.dataset.stab===S.staffTab);
   });
   document.getElementById('tab-queue')     .classList.toggle('active',S.staffTab==='queue');
-  document.getElementById('tab-waitlist')  .classList.toggle('active',S.staffTab==='waitlist');
   document.getElementById('tab-inventory') .classList.toggle('active',S.staffTab==='inventory');
   document.getElementById('tab-cashier')   .classList.toggle('active',S.staffTab==='cashier');
   document.getElementById('tab-community') .classList.toggle('active',S.staffTab==='community');
@@ -3595,11 +3592,14 @@ function renderNotes(){
 function _wlList(){return(S.deskWaitlist||[]).filter(w=>w.status==='waiting').sort((a,b)=>new Date(a.created_at||0)-new Date(b.created_at||0));}
 function _wlAvail(ty){return(S.bikes||[]).filter(b=>b.status==='available'&&(!ty||ty==='Any'||b.type===ty)).length;}
 function _wlElapsed(iso){const m=Math.max(0,Math.round((Date.now()-new Date(iso||Date.now()))/60000));return m<60?m+' min':Math.floor(m/60)+' h '+(m%60)+' min';}
+function _wlOpenSess(){return allSessions().filter(x=>(x.status==='open'||x.status==='full')&&!_isCommunity(x)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));}
 function renderDeskWaitlist(){
-  const el=document.getElementById('tab-waitlist');if(!el)return;
-  // The 30s poll re-renders this tab; don't wipe the form while staff are typing in it.
+  const el=document.getElementById('wl-host');if(!el)return; // lives inside the Bookings tab (waitlist view)
+  // The 30s poll re-renders this view; don't wipe the form while staff are typing in it.
   if(document.activeElement&&el.contains(document.activeElement)&&/^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName))return;
   const list=_wlList();
+  const open=_wlOpenSess();
+  if(!S._wlSess||!open.find(x=>x.id===S._wlSess))S._wlSess=(((S.sfSession!=='all'&&open.find(x=>x.id===S.sfSession))||open[0])||{}).id;
   el.innerHTML=`
     <div class="page-title">${t('wlTitle')}</div>
     <div class="page-sub">${t('wlSub')}</div>
@@ -3615,7 +3615,10 @@ function renderDeskWaitlist(){
       </div>
       <button class="btn-primary" onclick="addDeskWaitlist()">+ ${t('wlAddBtn')}</button>
     </div>
-    <div style="max-width:680px;margin-top:22px;display:flex;flex-direction:column;gap:10px">
+    <div class="form-group" style="max-width:680px;margin-top:18px"><label for="wl-sess">${t('colSession')}</label>
+      <select id="wl-sess" onchange="S._wlSess=this.value" style="width:100%;padding:10px 12px;border-radius:4px;border:1px solid var(--border);background:var(--in-bg);color:var(--text);font-family:inherit;font-size:14px">${open.map(x=>`<option value="${x.id}"${S._wlSess===x.id?' selected':''}>${dayLabel(x.day)} ${shortDate(x.session_date||x.id)} · ${sessionTime(x)}${x.status==='full'?` (${t('statusFull')})`:''}</option>`).join('')||`<option value="">${t('noSessionsAvail')}</option>`}</select>
+    </div>
+    <div style="max-width:680px;margin-top:14px;display:flex;flex-direction:column;gap:10px">
       ${list.length?list.map((w,i)=>{
         const avail=_wlAvail(w.bike_type);
         return`<div class="q-card" style="margin:0">
@@ -3627,7 +3630,7 @@ function renderDeskWaitlist(){
               ${avail>0?`<span style="font-size:10px;font-weight:800;color:var(--green);border:1px solid rgba(var(--green-rgb),.35);border-radius:2px;padding:1px 7px;white-space:nowrap">${t('wlAvailNow').replace('{0}',avail)}</span>`:''}
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0">
-              <button class="btn-sm btn-green" onclick="resolveDeskWaitlist('${esc(w.id)}','done')">✓ ${t('wlGivenBtn')}</button>
+              <button class="btn-sm btn-green" onclick="giveDeskBike('${esc(w.id)}')">✓ ${t('wlGivenBtn')}</button>
               <button class="btn-sm btn-muted" onclick="resolveDeskWaitlist('${esc(w.id)}','removed')">${t('wlRemoveBtn')}</button>
             </div>
           </div>
@@ -3651,6 +3654,42 @@ async function addDeskWaitlist(){
   S._wlName='';S._wlPhone='';S._wlType='Any';
   renderDeskWaitlist();
 }
+// "Bike given" = the rider leaves the waitlist AND lands in the main queue as a real booking
+// (walk-in style, in the session picked in the wl-sess select) — so from here on they get the
+// exact same row options and behavior as any other booking.
+async function giveDeskBike(id){
+  const w=(S.deskWaitlist||[]).find(x=>x.id===id);if(!w)return;
+  const sess=_wlOpenSess().find(x=>x.id===S._wlSess);
+  if(!sess){toast(t('noSessionsAvail'),'warning');return;}
+  // Same name-match as the Walk-in modal: link a known customer account so it shows in My Rides.
+  const _match=(S.customers||[]).find(c=>String(c.name||'').trim().toLowerCase()===String(w.name||'').trim().toLowerCase());
+  const ty=CUST_TYPES.includes(w.bike_type)?w.bike_type:'Any';
+  const entry={id:uid(),name:w.name,email:(_match&&_match.email)||'',phone:w.phone||(_match&&_match.phone)||'',
+    size:(_match&&_match.height)?heightToSize(Number(_match.height)):'',height:(_match&&_match.height)||null,
+    typePreference:ty,paid:false,assignedBikeId:null,sessionId:sess.id,sessionDay:sess.day,
+    sessionDate:sess.session_date||sess.id,queueNum:nextQNum(sess.id),status:'waiting',
+    registeredAt:new Date().toISOString(),walkIn:!_match,customerId:(_match&&_match.id)||null,
+    price:priceForType(ty),approval:null};
+  let res=await sb.from('queue_entries').insert(entryToDB(entry));
+  if(res&&res.error&&(String(res.error.code||res.error.message).includes('23505')||/duplicate|unique/i.test(res.error.message||''))){
+    await loadDataLight();entry.queueNum=nextQNum(sess.id); // another device grabbed the number: take a fresh one and retry once
+    res=await sb.from('queue_entries').insert(entryToDB(entry));
+  }
+  if(_writeErr(res,'walk-in'))return;
+  await sb.from('desk_waitlist').update({status:'done',resolved_at:new Date().toISOString()}).eq('id',id);
+  w.status='done';
+  pushUndo(`${t('undoWl')} · ${w.name}`,async()=>{
+    await sb.from('queue_entries').delete().eq('id',entry.id);
+    await sb.from('desk_waitlist').update({status:'waiting',resolved_at:null}).eq('id',id);
+    w.status='waiting';
+    await loadDataLight();renderStaffQueue();
+  });
+  logAction(`${t('wlGivenBtn')}: ${w.name} → #${entry.queueNum}`);
+  await loadDataLight();
+  toast(t('wlGivenToast').replace('{0}',w.name));
+  S._flashId=entry.id;S._flashColor='green';setTimeout(()=>{S._flashId=null;},800);
+  renderStaffQueue();
+}
 async function resolveDeskWaitlist(id,status){
   const w=(S.deskWaitlist||[]).find(x=>x.id===id);if(!w)return;
   const res=await sb.from('desk_waitlist').update({status,resolved_at:new Date().toISOString()}).eq('id',id);
@@ -3659,7 +3698,7 @@ async function resolveDeskWaitlist(id,status){
   pushUndo(`${t('undoWl')} · ${w.name}`,async()=>{
     await sb.from('desk_waitlist').update({status:'waiting',resolved_at:null}).eq('id',id);
     w.status='waiting';
-    if(S.staffTab==='waitlist')renderDeskWaitlist();
+    renderDeskWaitlist(); // no-op unless the waitlist view is on screen
   });
   toast(status==='done'?t('wlGivenToast').replace('{0}',w.name):t('wlRemovedToast'));
   renderDeskWaitlist();
@@ -7252,10 +7291,20 @@ function renderStaffQueue(){
   const _qvPills=`<div class="filter-row" style="margin-bottom:12px">
     <button class="filter-pill${(S.queueView||'bookings')==='bookings'?' active':''}" onclick="S.queueView='bookings';renderStaffQueue()">${t('tabQueue')}</button>
     <button class="filter-pill${S.queueView==='sessions'?' active':''}" onclick="S.queueView='sessions';renderStaffQueue()">${t('tabSessions')}</button>
+    <button class="filter-pill${S.queueView==='waitlist'?' active':''}" onclick="S.queueView='waitlist';renderStaffQueue()">${t('wlTitle')}</button>
   </div>`;
   if(S.queueView==='sessions'){ // Sessions view lives inside the Bookings tab now
     const _qh=document.getElementById('tab-queue');
     if(_qh){_qh.innerHTML=_qvPills+'<div id="sess-host"></div>';renderSessions();}
+    return;
+  }
+  if(S.queueView==='waitlist'){ // Desk waitlist: third view inside the Bookings tab
+    const _qh=document.getElementById('tab-queue');
+    if(_qh){
+      const _ae=document.activeElement;
+      if(document.getElementById('wl-host')&&_ae&&_qh.contains(_ae)&&/^(INPUT|SELECT|TEXTAREA)$/.test(_ae.tagName))return; // background poll: keep a half-typed form
+      _qh.innerHTML=_qvPills+'<div id="wl-host"></div>';renderDeskWaitlist();
+    }
     return;
   }
   reconcileOrphanBikes();
@@ -14569,7 +14618,6 @@ async function _autoRefresh(full){
     _lastRefresh=Date.now();
     const tab=S.staffTab; // re-render only the visible tab; switching tabs re-renders fresh anyway
     if(tab==='queue')renderStaffQueue();
-    else if(tab==='waitlist')renderDeskWaitlist();
     else if(tab==='bikes')renderBikes();
     else if(tab==='history')renderHistory();
     else if(tab==='analytics')renderAnalytics();
