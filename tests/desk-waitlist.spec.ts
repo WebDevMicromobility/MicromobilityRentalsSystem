@@ -33,12 +33,15 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   const rowFor = (name: string) => panel.locator('tr, .q-card').filter({ hasText: name }).filter({ visible: true });
   await expect(rowFor('Waiting One')).toHaveCount(1);
   await expect(rowFor('Waiting Two')).toHaveCount(1);
-  await expect(rowFor('Already Served')).toHaveCount(0); // resolved rows stay out of the list
-  await expect(rowFor('Owes Money')).toHaveCount(1); // unpaid waiting booking surfaces here (and stays in the queue)
-  await expect(rowFor('Owes Money').getByRole('button', { name: /Check In/i })).toHaveCount(1);
-  await expect(rowFor('Fully Settled')).toHaveCount(0); // marked paid = promoted off the waitlist
-  await expect(rowFor('On A Bike')).toHaveCount(0); // bike given = promoted off the waitlist
-  await expect(panel.getByText('1 available now').filter({ visible: true })).toHaveCount(3); // the free Road bike satisfies the Road, Any, and surfaced-booking (Road) requests
+  // Queue bookings never show here — the waitlist page is walk-ups + their history only.
+  await expect(rowFor('Owes Money')).toHaveCount(0);
+  await expect(rowFor('Fully Settled')).toHaveCount(0);
+  await expect(rowFor('On A Bike')).toHaveCount(0);
+  // Resolved walk-ups appear in the history section on the same page, not the waiting list.
+  await expect(rowFor('Already Served')).toHaveCount(1);
+  await expect(rowFor('Already Served').getByText(/Bike given/)).toBeVisible();
+  await expect(rowFor('Already Served').getByRole('button', { name: /Remove/ })).toHaveCount(0); // history rows have no actions
+  await expect(panel.getByText('1 available now').filter({ visible: true })).toHaveCount(2); // the free Road bike satisfies both the Road and the Any request
   await expect(panel.locator('#wl-sess')).toHaveValue('s0'); // choose-session select in the filter bar
 
   // Add a party of two through the modal (writes are echoed as success by the stub):
@@ -78,8 +81,9 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   expect(posts[0].status).toBe('waiting');
   expect(posts[0].paid).toBe(true); // the cash payment taken while waiting
 
-  // Remove takes a rider off the list without booking anything.
+  // Remove takes a rider off the waiting list (into history) without booking anything.
   await rowFor('Waiting Two').getByRole('button', { name: /Remove/ }).click();
-  await expect(rowFor('Waiting Two')).toHaveCount(0);
+  await expect(rowFor('Waiting Two').filter({ hasText: 'Removed' })).toHaveCount(1); // now a history row
+  await expect(rowFor('Waiting Two').getByRole('button', { name: /Remove/ })).toHaveCount(0);
   expect(posts).toHaveLength(1); // still just the one booking
 });
