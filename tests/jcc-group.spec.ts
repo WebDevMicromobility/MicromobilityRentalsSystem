@@ -1,0 +1,46 @@
+import { test, expect } from '@playwright/test';
+import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
+
+// JCC "Add group": walk-in style — free-text riders under ONE group name. Unnamed riders
+// become "<group name> 2/3…", a named rider matching a saved customer gets linked, and all
+// rows share a group_id + group_name in a single queue_entries insert.
+test('JCC group modal books multiple walk-in riders under one group name', async ({ page }) => {
+  const sessions = [{ id: 's0', day: 'Friday', session_date: '2099-02-10', capacity: 12, status: 'open', created_at: 1 }];
+  const customers = [{ id: 'c9', name: 'Known Rider', email: 'k@x.com', phone: '0599999999', height: 175 }];
+  await stubSupabase(page, { sessions, customers });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+
+  await page.getByRole('button', { name: 'Add group' }).click();
+  const modal = page.locator('#jcc-group-modal');
+  await modal.locator('#jg-name').fill('Tamer Group');
+  await modal.locator('#jg-phone').fill('0512345678');
+  await modal.locator('#jg-r-name-0').fill('Known Rider'); // matches the saved customer
+  await modal.locator('#jg-r-h-1').fill('170'); // second rider: no name, just a height
+  await modal.getByRole('button', { name: /\+ Add rider/ }).click(); // third rider: empty row still holds a bike
+  await expect(modal.locator('#jg-r-name-2')).toBeVisible();
+
+  const posts: Record<string, unknown>[][] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && r.url().includes('/rest/v1/queue_entries')) {
+      const sent = r.postDataJSON();
+      posts.push(Array.isArray(sent) ? sent : [sent]);
+    }
+  });
+  await modal.getByRole('button', { name: /Add group \(3\)/ }).click();
+  await expect(modal).toBeHidden(); // save completed and closed the modal (toast is too short-lived to assert under load)
+
+  expect(posts).toHaveLength(1);
+  const rows = posts[0];
+  expect(rows).toHaveLength(3);
+  expect(rows.map((r) => r.name)).toEqual(['Known Rider', 'Tamer Group 2', 'Tamer Group 3']);
+  expect(new Set(rows.map((r) => r.group_id)).size).toBe(1); // one shared group
+  expect(rows.every((r) => r.group_name === 'Tamer Group')).toBe(true);
+  expect(rows.every((r) => r.session_id === 's0' && r.status === 'waiting')).toBe(true);
+  expect(rows.every((r) => r.phone === '0512345678')).toBe(true); // group contact on every rider
+  expect(rows[0].customer_id).toBe('c9'); // name-matched customer gets linked, like Walk-in
+  expect(rows[0].walk_in).toBe(false);
+  expect(rows[1].walk_in).toBe(true);
+  expect(rows[1].height).toBe(170);
+});

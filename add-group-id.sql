@@ -3,3 +3,7 @@
 -- The app only sends group_id when set, so running the app before this migration is safe
 -- (same pattern as the approval column). Run in the Supabase SQL editor.
 alter table queue_entries add column if not exists group_id text;
+
+-- JCC "Add group": one display name for the whole party (e.g. "Tamer Group"), shown on the
+-- roster group block; unnamed riders fall back to "<group name> 1/2/3…".
+alter table queue_entries add column if not exists group_name text;
