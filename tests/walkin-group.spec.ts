@@ -70,3 +70,44 @@ test('a customer with default payment "on the house" books as paid with price 0'
   expect(posts[0].paid).toBe(true); // default payment applied
   expect(posts[0].price).toBe(0);
 });
+
+// default_pay can be limited to specific bike types: 'house:Road' rides free on a Road
+// bike but pays normally on any other type.
+test('type-restricted "on the house" only applies to the listed bike types', async ({ page }) => {
+  const sessions = [{ id: 's0', day: 'Friday', session_date: '2099-02-10', capacity: 12, status: 'open', created_at: 1 }];
+  const customers = [{ id: 'c2', name: 'Road Only', email: 'r@x.com', phone: '0500000002', height: 175, default_pay: 'house:Road' }];
+  await stubSupabase(page, { sessions, customers });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+
+  const posts: Record<string, unknown>[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && r.url().includes('/rest/v1/queue_entries')) {
+      const sent = r.postDataJSON();
+      posts.push(...(Array.isArray(sent) ? sent : [sent]));
+    }
+  });
+
+  const modal = page.locator('#walkin-modal');
+  const walkIn = async (type: string) => {
+    await page.evaluate(() => {
+      // @ts-expect-error app globals
+      showWalkinModal();
+    });
+    await modal.locator('#wi-name').fill('Road Only');
+    await modal.getByRole('button', { name: type, exact: true }).click();
+    await modal.getByRole('button', { name: /Walk/i }).last().click();
+    await expect(modal).toBeHidden();
+  };
+
+  await walkIn('Road'); // covered type -> free
+  await expect.poll(() => posts.length).toBe(1);
+  expect(posts[0].paid).toBe(true);
+  expect(posts[0].price).toBe(0);
+
+  await walkIn('Mountain'); // uncovered type -> normal payment
+  await expect.poll(() => posts.length).toBe(2);
+  expect(posts[1].paid).toBe(false);
+  expect(posts[1].price as number).toBeGreaterThan(0);
+});
