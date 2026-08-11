@@ -9098,12 +9098,13 @@ async function promoteWaitlist(id){
   if(S._promoteBusy)return;S._promoteBusy=true;
   try{
     const e=getQueue().find(x=>x.id===id);if(!e||e.status!=='waitlist')return;
-    const newNum=nextQNum(e.sessionId);
-    const{error}=await sb.from('queue_entries').update({status:'waiting',queue_num:newNum}).eq('id',id);
+    // The booking KEEPS its original number: queue numbers are assigned at creation and are
+    // stable/never reused (the unique index exempts only cancelled/removed), so no collision.
+    const{error}=await sb.from('queue_entries').update({status:'waiting'}).eq('id',id);
     if(error){toast(error.message||t('errConnection'),'error');return;}
     await loadData();
     await _consumeAddonsOnEnter(e); // booking is now confirmed, so reserve its add-on stock
-    logAction&&logAction(t('logPromotedFromWaitlist').replace('{0}',newNum).replace('{1}',e.name));
+    logAction&&logAction(t('logPromotedFromWaitlist').replace('{0}',e.queueNum).replace('{1}',e.name));
     toast(t('toastPromoted'));
     renderStaffQueue();renderMyRides();
   }finally{S._promoteBusy=false;}
@@ -9117,8 +9118,8 @@ async function _autoPromoteOldestWaitlist(sessionId){
     .sort((a,b)=>new Date(a.registeredAt)-new Date(b.registeredAt));
   if(!wl.length)return false;
   const e=wl[0];
-  const newNum=nextQNum(sessionId);
-  const{error}=await sb.from('queue_entries').update({status:'waiting',queue_num:newNum}).eq('id',e.id);
+  // Keeps its original booking number (stable numbers, no reuse — same rule as manual promote).
+  const{error}=await sb.from('queue_entries').update({status:'waiting'}).eq('id',e.id);
   if(error)return false; // don't claim a promotion (or consume stock) if the write failed
   await _consumeAddonsOnEnter(e); // promoted booking now reserves its add-on stock
   return true;
