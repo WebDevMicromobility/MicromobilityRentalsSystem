@@ -62,13 +62,17 @@ test('a customer with default payment "on the house" books as paid with price 0'
   });
   const modal = page.locator('#walkin-modal');
   await modal.locator('#wi-name').fill('House Rider'); // matches the saved customer
-  await modal.getByRole('button', { name: /Walk/i }).last().click();
+  await modal.getByRole('button', { name: /\+ Add rider/ }).click();
+  await modal.locator('#wi-r-name-0').fill('House Rider'); // same name, but NOT the first rider
+  await modal.getByRole('button', { name: /\(2\)/ }).click();
   await expect(modal).toBeHidden();
 
-  await expect.poll(() => posts.length).toBe(1);
+  await expect.poll(() => posts.length).toBe(2);
   expect(posts[0].customer_id).toBe('c1');
-  expect(posts[0].paid).toBe(true); // default payment applied
+  expect(posts[0].paid).toBe(true); // default payment applied to the FIRST rider
   expect(posts[0].price).toBe(0);
+  expect(posts[1].paid).toBe(false); // co-riders always pay, even with a matching name
+  expect(posts[1].price as number).toBeGreaterThan(0);
 });
 
 // default_pay can be limited to specific bike types: 'house:Road' rides free on a Road
