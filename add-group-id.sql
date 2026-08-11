@@ -13,3 +13,7 @@ alter table queue_entries add column if not exists group_contact text;
 
 -- The responsible person's own number (kept even when every rider has their own phone).
 alter table queue_entries add column if not exists group_phone text;
+
+-- Staff-only waitlist serial: per-session, assigned when a booking enters the waitlist,
+-- monotonic (kept after promotion so numbers are never reused). Never shown to customers.
+alter table queue_entries add column if not exists waitlist_num int;

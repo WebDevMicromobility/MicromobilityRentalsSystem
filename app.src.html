@@ -1608,6 +1608,7 @@ function entryFromDB(e){
     groupName:e.group_name||null, // JCC groups: one display name for the whole party ("Tamer Group")
     groupContact:e.group_contact||null, // who the group's main phone belongs to
     groupPhone:e.group_phone||null, // the responsible person's own number
+    waitlistNum:e.waitlist_num||null, // staff-only waitlist serial (shown only while status is waitlist)
     rideDuration:e.ride_duration||null,
     ratingBike:e.rating_bike||null,ratingExp:e.rating_exp||null,feedback:e.feedback||null,checkedInAt:e.checked_in_at||null,checkedOutAt:e.checked_out_at||null,
     promoCode:e.promo_code||null,
@@ -1629,6 +1630,7 @@ function entryToDB(e){
   if(e.groupName)row.group_name=e.groupName;
   if(e.groupContact)row.group_contact=e.groupContact;
   if(e.groupPhone)row.group_phone=e.groupPhone;
+  if(e.waitlistNum)row.waitlist_num=e.waitlistNum;
   return row;
 }
 // Per-customer default payment (customers.default_pay, staff-set):
@@ -2145,6 +2147,9 @@ function spotsLeft(sid){
   return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed').length);
 }
 function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid&&e.status!=='cancelled'&&e.status!=='removed').map(e=>e.queueNum||0);return nums.length?nums.reduce((a,b)=>Math.max(a,b),0)+1:1;} // cancelled/removed numbers are recycled (the partial unique index exempts those rows); noshow numbers stay reserved because the rider can come back
+// Staff-only waitlist serial: per-session, monotonic over ALL rows (promoted rows keep
+// theirs hidden, so a number is never handed out twice within a session).
+function nextWlNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid).map(e=>e.waitlistNum||0);return nums.length?nums.reduce((a,b)=>Math.max(a,b),0)+1:1;}
 // Close the gap a cancelled/removed booking leaves: shift every waiting rider behind it down one.
 // Sequential and ascending so the partial unique (session_id,queue_num) index never sees two LIVE rows share a number mid-shift.
 // True when we're acting as a signed-in customer against a locked DB: queue_entries
@@ -3674,7 +3679,7 @@ function renderDeskWaitlist(){
       <td style="vertical-align:middle"><div style="display:flex;gap:6px;flex-wrap:wrap">${actions(w)}</div></td>
     </tr>`;
   const bookTr=e=>{const ty=resolvedType(e);return`<tr>
-      <td style="min-width:52px;vertical-align:middle"><span class="queue-num-cell" style="font-size:15px;line-height:1.25">#${e.queueNum}</span><div style="font-size:9px;font-weight:900;color:var(--orange);margin-top:2px;text-transform:uppercase;letter-spacing:.4px">${t('waitlistLabel')}</div></td>
+      <td style="min-width:52px;vertical-align:middle"><span class="queue-num-cell" style="font-size:15px;line-height:1.25">#${e.queueNum}</span><div style="font-size:9px;font-weight:900;color:var(--orange);margin-top:2px;text-transform:uppercase;letter-spacing:.4px">${t('waitlistLabel')}${e.waitlistNum?` · W${e.waitlistNum}`:''}</div></td>
       <td style="vertical-align:middle"><div class="rider-name" style="margin:0;font-weight:800">${esc(e.name)}</div>${e.phone?`<div class="rider-sub" style="margin-top:3px">${esc(fmtPhone(e.phone))}</div>`:''}</td>
       <td style="vertical-align:middle">${typeBadge(ty)}</td>
       <td style="vertical-align:middle;font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap">${_wlElapsed(e.registeredAt)}<div style="font-size:10px;font-weight:600;margin-top:2px">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</div></td>
@@ -3703,7 +3708,7 @@ function renderDeskWaitlist(){
         <div style="display:flex;align-items:center;gap:7px;min-width:0">
           <span class="queue-num-cell" style="font-size:13px">#${e.queueNum}</span>
           <span style="font-weight:800;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px">${esc(e.name)}</span>
-          <span style="font-size:9px;font-weight:900;color:var(--orange);text-transform:uppercase;letter-spacing:.4px;flex-shrink:0">${t('waitlistLabel')}</span>
+          <span style="font-size:9px;font-weight:900;color:var(--orange);text-transform:uppercase;letter-spacing:.4px;flex-shrink:0">${t('waitlistLabel')}${e.waitlistNum?` · W${e.waitlistNum}`:''}</span>
         </div>
         ${availChip(_wlAvail(ty))}
       </div>
@@ -4905,7 +4910,9 @@ async function submitReg(){
     const baseQNum=nextQNum(S.selSession);
     
     const _isCommBooking=_isCommunity(sess);
+    const _wlBase=bookingStatus==='waitlist'?nextWlNum(S.selSession):0;
     const entries=Array.from({length:qty},(_,i)=>_applyDefaultPay({
+      waitlistNum:bookingStatus==='waitlist'?_wlBase+i:null,
       id:uid(),name:riderNames[i],email,phone,
       size:heights[i]?heightToSize(heights[i]):'',height:heights[i]||null,
       typePreference:S.regBikeTypes[i],paid:false,
@@ -7214,9 +7221,9 @@ async function saveCommAdd(){
   const toWaitlist=S._caDest==='waitlist';
   const comm=_isCommunity(sess); // group mode books JCC sessions: real prices, no approval flow
   const groupId=S._caGroup?uid():null; // one shared id = one roster group (buildQueueGroups keys on it)
-  const mkEntries=()=>{const base=nextQNum(sess.id);return fresh.map((c,i)=>{
+  const mkEntries=()=>{const base=nextQNum(sess.id);const wlBase=toWaitlist?nextWlNum(sess.id):0;return fresh.map((c,i)=>{
     const ty=S._caOwn?'Own':(c.type_preference==='Own'?'Any':(c.type_preference||'Any'));
-    return{id:uid(),name:c.name||'',email:c.email||'',phone:c.phone||'',
+    return{id:uid(),name:c.name||'',email:c.email||'',phone:c.phone||'',waitlistNum:toWaitlist?wlBase+i:null,
     size:c.height?heightToSize(Number(c.height)):'',height:c.height||null,
     typePreference:ty,paid:false,assignedBikeId:null,
     sessionId:sess.id,sessionDay:sess.day,sessionDate:sess.session_date||sess.id,
@@ -7839,8 +7846,9 @@ async function saveBookingEdit(){
     const sessT=allSessions().find(s=>s.id===toSessionId);
     const rStatus=((sessT&&sessT.status==='full')||spotsLeft(toSessionId)<newRiders.length+(moving?1:0))?'waitlist':'waiting';
     let qn=nextQNum(toSessionId)+(moving?1:0); // when moving, the edited entry already took the next number
+    let _wln=rStatus==='waitlist'?nextWlNum(toSessionId):0;
     for(const r of newRiders){
-      const ent=_applyDefaultPay({id:uid(),name:r.name,email:e.email||'',phone,size:r.height?heightToSize(r.height):'',height:r.height,
+      const ent=_applyDefaultPay({id:uid(),name:r.name,email:e.email||'',phone,size:r.height?heightToSize(r.height):'',height:r.height,waitlistNum:rStatus==='waitlist'?_wln++:null,
         typePreference:r.type,paid:false,assignedBikeId:null,sessionId:toSessionId,
         sessionDay:moving?patch.session_day:e.sessionDay,sessionDate:moving?patch.session_date:e.sessionDate,
         queueNum:qn,status:rStatus,registeredAt:new Date().toISOString(),walkIn:!!e.walkIn,
@@ -8060,6 +8068,7 @@ function renderStaffQueue(){
       <td style="min-width:52px">
         ${_commSessIds.has(e.sessionId)?`<span style="font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap" title="${t('reservedAtLabel')}">${_resTimeShort(e)}</span>`:`
         <span class="queue-num-cell" style="font-size:${e.status!=='waiting'?'18':'22'}px">#${e.queueNum}</span>
+        ${e.status==='waitlist'&&e.waitlistNum?`<div style="font-size:10px;font-weight:900;color:var(--orange);margin-top:2px;white-space:nowrap">W${e.waitlistNum}</div>`:''}
         <button onclick="showEditQNumModal('${e.id}')" title="${t('editQNumTip')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:6px 8px;min-width:24px;min-height:24px;line-height:1;display:block;margin:2px 0 0 -8px" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">#</button>`}
       </td>
       <td style="text-align:center">${posCell}</td>
@@ -9041,7 +9050,7 @@ async function commToWaitlist(id){
   // Allowed regardless of remaining spots. queue_num is left untouched (numbers are
   // stable, never reused or shifted), so an undo restores the exact same position.
   const e=getQueue().find(x=>x.id===id);if(!e||_apprOf(e)!=='pending'||e.status!=='waiting')return;
-  const{error}=await sb.from('queue_entries').update({status:'waitlist'}).eq('id',id);
+  const{error}=await sb.from('queue_entries').update({status:'waitlist',waitlist_num:e.waitlistNum||nextWlNum(e.sessionId)}).eq('id',id);
   if(error){toast(error.message||t('errConnection'),'error');return;}
   await loadDataLight();
   logAction(`${t('waitlistLabel')}: ${e.name}`);

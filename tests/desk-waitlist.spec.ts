@@ -20,7 +20,7 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
     phone: '05555555' + qn, customer_id: null, type_preference: 'Road', status, paid, price: 30, registered_at: '2099-01-01T09:00:00Z',
   });
   const queue_entries = [qb('qb1', 51, 'Owes Money', 'waiting', false), qb('qb2', 52, 'Fully Settled', 'waiting', true), qb('qb3', 53, 'On A Bike', 'active', false),
-    { ...qb('qb4', 91, 'On The List', 'waitlist', false), type_preference: 'Mountain' }];
+    { ...qb('qb4', 91, 'On The List', 'waitlist', false), type_preference: 'Mountain', waitlist_num: 3 }];
   await stubSupabase(page, { desk_waitlist, bikes, sessions, queue_entries });
   await unlockStaff(page);
   await page.goto('/');
@@ -42,6 +42,7 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   await expect(rowFor('On The List')).toHaveCount(1);
   await expect(rowFor('On The List').getByRole('button', { name: /Promote/ })).toHaveCount(1);
   await expect(rowFor('On The List').getByText('#91')).toBeVisible();
+  await expect(rowFor('On The List').getByText(/W3/)).toBeVisible(); // staff-only waitlist serial next to the booking number
   // Resolved walk-ups appear in the history section on the same page, not the waiting list.
   await expect(rowFor('Already Served')).toHaveCount(1);
   await expect(rowFor('Already Served').getByText(/Bike given/)).toBeVisible();
