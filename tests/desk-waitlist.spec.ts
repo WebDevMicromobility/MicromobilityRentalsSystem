@@ -14,7 +14,13 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   ];
   const bikes = [{ id: 'b1', name: 'R-01', type: 'Road', status: 'available', colors: [] }];
   const sessions = [{ id: 's0', day: 'Friday', session_date: '2099-02-10', capacity: 12, status: 'open', created_at: 1 }];
-  await stubSupabase(page, { desk_waitlist, bikes, sessions });
+  // Queue bookings surface on the waitlist too — but ONLY while unpaid and not checked in.
+  const qb = (id: string, qn: number, name: string, status: string, paid: boolean): Record<string, unknown> => ({
+    id, session_id: 's0', session_day: 'Friday', session_date: '2099-02-10', queue_num: qn, name,
+    phone: '05555555' + qn, customer_id: null, type_preference: 'Road', status, paid, price: 30, registered_at: '2099-01-01T09:00:00Z',
+  });
+  const queue_entries = [qb('qb1', 51, 'Owes Money', 'waiting', false), qb('qb2', 52, 'Fully Settled', 'waiting', true), qb('qb3', 53, 'On A Bike', 'active', false)];
+  await stubSupabase(page, { desk_waitlist, bikes, sessions, queue_entries });
   await unlockStaff(page);
   await page.goto('/');
   await waitForSb(page);
@@ -28,7 +34,11 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   await expect(rowFor('Waiting One')).toHaveCount(1);
   await expect(rowFor('Waiting Two')).toHaveCount(1);
   await expect(rowFor('Already Served')).toHaveCount(0); // resolved rows stay out of the list
-  await expect(panel.getByText('1 available now').filter({ visible: true })).toHaveCount(2); // the free Road bike satisfies both the Road and the Any request
+  await expect(rowFor('Owes Money')).toHaveCount(1); // unpaid waiting booking surfaces here (and stays in the queue)
+  await expect(rowFor('Owes Money').getByRole('button', { name: /Check In/i })).toHaveCount(1);
+  await expect(rowFor('Fully Settled')).toHaveCount(0); // marked paid = promoted off the waitlist
+  await expect(rowFor('On A Bike')).toHaveCount(0); // bike given = promoted off the waitlist
+  await expect(panel.getByText('1 available now').filter({ visible: true })).toHaveCount(3); // the free Road bike satisfies the Road, Any, and surfaced-booking (Road) requests
   await expect(panel.locator('#wl-sess')).toHaveValue('s0'); // choose-session select in the filter bar
 
   // Add a party of two through the modal (writes are echoed as success by the stub):

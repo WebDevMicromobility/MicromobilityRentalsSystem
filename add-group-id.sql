@@ -7,3 +7,6 @@ alter table queue_entries add column if not exists group_id text;
 -- JCC "Add group": one display name for the whole party (e.g. "Tamer Group"), shown on the
 -- roster group block; unnamed riders fall back to "<group name> 1/2/3…".
 alter table queue_entries add column if not exists group_name text;
+
+-- Who the group's main phone number belongs to (shown next to the phone on the roster).
+alter table queue_entries add column if not exists group_contact text;
