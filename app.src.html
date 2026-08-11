@@ -3608,17 +3608,20 @@ function renderDeskWaitlist(){
   const _today=todayStr();
   const nGiven=(S.deskWaitlist||[]).filter(w=>w.status==='done'&&String(w.resolved_at||'').slice(0,10)===_today).length;
   const availChip=avail=>avail>0?`<span style="font-size:10px;font-weight:800;color:var(--green);border:1px solid rgba(var(--green-rgb),.35);border-radius:2px;padding:1px 7px;white-space:nowrap">${t('wlAvailNow').replace('{0}',avail)}</span>`:`<span style="color:var(--muted)">—</span>`;
-  const actions=w=>`<button class="btn-sm btn-green" onclick="giveDeskBike('${esc(w.id)}')">✓ ${t('wlGivenBtn')}</button>
+  const actions=w=>`<button class="btn-sm btn-green" onclick="giveDeskBike('${esc(w.id)}')">${t('checkInBtn')}</button>
       <button class="btn-sm btn-muted" onclick="resolveDeskWaitlist('${esc(w.id)}','removed')">${t('wlRemoveBtn')}</button>`;
+  const payBtn=w=>{const isHouse=w.paid&&_wlRowPrice(w)===0;return`<button class="pay-toggle ${isHouse?'house':w.paid?'paid':'pending'}" onclick="showWlPayMenu('${esc(w.id)}',event)">${isHouse?' '+t('onTheHouseLabel'):w.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`;};
   const rows=list.map((w,i)=>`<tr>
       <td style="min-width:52px;vertical-align:middle"><span class="queue-num-cell" style="font-size:15px;line-height:1.25">#${i+1}</span></td>
       <td style="vertical-align:middle"><div class="rider-name" style="margin:0;font-weight:800">${esc(w.name)}</div>${w.phone?`<div class="rider-sub" style="margin-top:3px">${esc(fmtPhone(w.phone))}</div>`:''}</td>
       <td style="vertical-align:middle">${typeBadge(w.bike_type||'Any')}</td>
       <td style="vertical-align:middle;font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap">${_wlElapsed(w.created_at)}${w.author?`<div style="font-size:10px;font-weight:600;margin-top:2px">${esc(w.author)}</div>`:''}</td>
       <td style="vertical-align:middle">${availChip(_wlAvail(w.bike_type))}</td>
+      <td style="vertical-align:middle;font-weight:800;white-space:nowrap">SAR ${_wlRowPrice(w)}</td>
+      <td style="vertical-align:middle" onclick="event.stopPropagation()">${payBtn(w)}</td>
       <td style="vertical-align:middle"><div style="display:flex;gap:6px;flex-wrap:wrap">${actions(w)}</div></td>
     </tr>`).join('');
-  const emptyRow=list.length?'':`<tr><td colspan="6"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('wlEmpty'))}</div></td></tr>`;
+  const emptyRow=list.length?'':`<tr><td colspan="8"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('wlEmpty'))}</div></td></tr>`;
   const cards=list.length?list.map((w,i)=>`<div class="q-card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
         <div style="display:flex;align-items:center;gap:7px;min-width:0">
@@ -3627,8 +3630,8 @@ function renderDeskWaitlist(){
         </div>
         ${availChip(_wlAvail(w.bike_type))}
       </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">${typeLabel(w.bike_type||'Any')}${w.phone?` &middot; <bdi>${esc(fmtPhone(w.phone))}</bdi>`:''} &middot; ${t('wlWaitingFor').replace('{0}',_wlElapsed(w.created_at))}</div>
-      <div style="display:flex;gap:6px;margin-top:9px">${actions(w)}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">${typeLabel(w.bike_type||'Any')}${w.phone?` &middot; <bdi>${esc(fmtPhone(w.phone))}</bdi>`:''} &middot; ${t('wlWaitingFor').replace('{0}',_wlElapsed(w.created_at))} &middot; <bdi style="font-weight:800;color:var(--text)">SAR ${_wlRowPrice(w)}</bdi></div>
+      <div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap">${payBtn(w)}${actions(w)}</div>
     </div>`).join(''):`<div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('wlEmpty'))}</div>`;
   el.innerHTML=`
     <div class="section-header">
@@ -3672,6 +3675,8 @@ function renderDeskWaitlist(){
         <th>${t('bikeTypeLabel')}</th>
         <th style="font-size:10px;color:var(--muted)">${t('waitingStat')}</th>
         <th>${t('colBike')}</th>
+        <th>${t('colPrice')||'Price'}</th>
+        <th>${t('colPayment')}</th>
         <th>${t('colManageBooking')}</th>
       </tr></thead>
       <tbody>${rows}${emptyRow}</tbody>
@@ -3710,7 +3715,7 @@ async function addDeskWaitlist(){
   const phone=(document.getElementById('wl-phone')?.value||'').trim();
   if(!name){const i=document.getElementById('wl-name');if(i){_fieldErr(i,t('errFieldRequired'));i.focus();}return;}
   if(phone.replace(/\D/g,'').length<8){const i=document.getElementById('wl-phone');if(i){_fieldErr(i,t('errValidPhone'));i.focus();}return;}
-  const row={id:uid(),name,phone,bike_type:S._wlType||'Any',status:'waiting',author:_opName()||null,created_at:new Date().toISOString()};
+  const row={id:uid(),name,phone,bike_type:S._wlType||'Any',status:'waiting',paid:false,author:_opName()||null,created_at:new Date().toISOString()};
   const res=await sb.from('desk_waitlist').insert(row);
   if(_writeErr(res,'waitlist'))return;
   S.deskWaitlist=[...(S.deskWaitlist||[]),row];
@@ -3719,6 +3724,71 @@ async function addDeskWaitlist(){
   toast(t('wlAddedToast').replace('{0}',name));
   S._wlType='Any';
   renderDeskWaitlist();
+}
+// Payment on a waitlist row: the exact same states and popup menu as a queue booking
+// (Pending / Paid cash / Paid card / Split / On the house), stored on desk_waitlist and
+// carried onto the real booking at check-in.
+function _wlRowPrice(w){return w.price??priceForType(w.bike_type||'Any');}
+function showWlPayMenu(id,evt){
+  document.querySelectorAll('.pay-menu-popup').forEach(m=>m.remove());
+  const w=(S.deskWaitlist||[]).find(x=>x.id===id);if(!w)return;
+  const isHouse=w.paid&&_wlRowPrice(w)===0;
+  const opts=[
+    {label:` ${t('pendingLabel')}`,mode:'pending',active:!w.paid},
+    {label:`✓ ${t('paidLabel')} · ${t('cashCash')}`,mode:'cash',active:w.paid&&!isHouse&&w.pay_method!=='card'&&w.pay_method!=='split'},
+    {label:`✓ ${t('paidLabel')} · ${t('cashCard')}`,mode:'card',active:w.paid&&!isHouse&&w.pay_method==='card'},
+    {label:`✓ ${t('paidLabel')} · ${t('splitWord')}…`,mode:'split',active:w.paid&&!isHouse&&w.card_amount!=null},
+    {label:` ${t('onTheHouseLabel')} · SAR 0`,mode:'house',active:isHouse},
+  ];
+  const menu=document.createElement('div');
+  menu.className='pay-menu-popup';
+  menu.style.cssText='position:fixed;z-index:9001;background:var(--s2);border:1.5px solid var(--border);border-radius:4px;padding:5px;min-width:200px;box-shadow:0 6px 24px rgba(0,0,0,.6)';
+  menu.innerHTML=opts.map(o=>`<button class="pay-menu-opt${o.active?' active':''}" onclick="${o.mode==='split'?`splitWlPayment('${id}')`:`toggleWlPayment('${id}','${o.mode}')`};document.querySelectorAll('.pay-menu-popup').forEach(m=>m.remove())">${o.label}</button>`).join('');
+  document.body.appendChild(menu);
+  const r=evt.currentTarget.getBoundingClientRect();
+  const mh=menu.offsetHeight||100;
+  const top=(r.bottom+4+mh>window.innerHeight)?r.top-mh-4:r.bottom+4;
+  menu.style.left=Math.min(r.left,window.innerWidth-210)+'px';
+  menu.style.top=top+'px';
+  evt.stopPropagation();
+  setTimeout(()=>{document.addEventListener('click',function close(e){if(!menu.contains(e.target)){menu.remove();document.removeEventListener('click',close);}});},0);
+}
+async function toggleWlPayment(id,mode){
+  const w=(S.deskWaitlist||[]).find(x=>x.id===id);if(!w)return;
+  const base=priceForType(w.bike_type||'Any');
+  const prev={paid:!!w.paid,price:w.price??null,pay_method:w.pay_method||null,card_amount:w.card_amount??null};
+  let paid,price,method;
+  if(mode==='house'){paid=true;price=0;method=null;}
+  else if(mode==='pending'){paid=false;price=base;method=null;}
+  else{paid=true;price=base;method=mode==='card'?'card':'cash';}
+  const patch={paid,price,pay_method:method,card_amount:null};
+  Object.assign(w,patch);
+  renderDeskWaitlist();
+  haptic();
+  toast(paid&&price===0?' '+t('onTheHouseLabel'):paid?'✓ '+t('paidLabel'):t('pendingLabel'),paid?'':'warning');
+  const res=await sb.from('desk_waitlist').update(patch).eq('id',id);
+  if(_writeErr(res,'payment')){Object.assign(w,prev);renderDeskWaitlist();return;}
+  pushUndo(`${t('undoPayment')} ${w.name}`,async()=>{
+    await sb.from('desk_waitlist').update(prev).eq('id',id);
+    Object.assign(w,prev);renderDeskWaitlist();
+  });
+}
+async function splitWlPayment(id){
+  const w=(S.deskWaitlist||[]).find(x=>x.id===id);if(!w)return;
+  const price=Math.round(priceForType(w.bike_type||'Any')*100)/100;
+  const raw=prompt(t('splitCardPrompt'),w.card_amount!=null?String(w.card_amount):'');if(raw===null)return;
+  let card=parseFloat(raw);if(isNaN(card)||card<0)card=0;card=Math.round(Math.min(card,price)*100)/100;
+  const prev={paid:!!w.paid,price:w.price??null,pay_method:w.pay_method||null,card_amount:w.card_amount??null};
+  const patch={paid:true,price,pay_method:'split',card_amount:card};
+  Object.assign(w,patch);
+  renderDeskWaitlist();
+  toast(`✓ ${t('cashCard')} ${card} · ${t('cashCash')} ${Math.round((price-card)*100)/100}`);
+  const res=await sb.from('desk_waitlist').update(patch).eq('id',id);
+  if(_writeErr(res,'split payment')){Object.assign(w,prev);renderDeskWaitlist();return;}
+  pushUndo(`${t('undoPayment')} ${w.name}`,async()=>{
+    await sb.from('desk_waitlist').update(prev).eq('id',id);
+    Object.assign(w,prev);renderDeskWaitlist();
+  });
 }
 // "Bike given" = the rider leaves the waitlist AND lands in the main queue as a real booking
 // (walk-in style, in the session picked in the wl-sess select) — so from here on they get the
@@ -3732,16 +3802,17 @@ async function giveDeskBike(id){
   const ty=CUST_TYPES.includes(w.bike_type)?w.bike_type:'Any';
   const entry={id:uid(),name:w.name,email:(_match&&_match.email)||'',phone:w.phone||(_match&&_match.phone)||'',
     size:(_match&&_match.height)?heightToSize(Number(_match.height)):'',height:(_match&&_match.height)||null,
-    typePreference:ty,paid:false,assignedBikeId:null,sessionId:sess.id,sessionDay:sess.day,
+    typePreference:ty,paid:!!w.paid,assignedBikeId:null,sessionId:sess.id,sessionDay:sess.day,
     sessionDate:sess.session_date||sess.id,queueNum:nextQNum(sess.id),status:'waiting',
     registeredAt:new Date().toISOString(),walkIn:!_match,customerId:(_match&&_match.id)||null,
-    price:priceForType(ty),approval:null};
+    price:_wlRowPrice(w),approval:null}; // payment taken while waiting carries onto the booking
   let res=await sb.from('queue_entries').insert(entryToDB(entry));
   if(res&&res.error&&(String(res.error.code||res.error.message).includes('23505')||/duplicate|unique/i.test(res.error.message||''))){
     await loadDataLight();entry.queueNum=nextQNum(sess.id); // another device grabbed the number: take a fresh one and retry once
     res=await sb.from('queue_entries').insert(entryToDB(entry));
   }
   if(_writeErr(res,'walk-in'))return;
+  if(w.pay_method)try{await sb.from('queue_entries').update({pay_method:w.pay_method,card_amount:w.card_amount??null}).eq('id',entry.id);}catch(e){} // tolerant, like togglePayment
   await sb.from('desk_waitlist').update({status:'done',resolved_at:new Date().toISOString()}).eq('id',id);
   w.status='done';
   pushUndo(`${t('undoWl')} · ${w.name}`,async()=>{
@@ -3755,6 +3826,7 @@ async function giveDeskBike(id){
   toast(t('wlGivenToast').replace('{0}',w.name));
   S._flashId=entry.id;S._flashColor='green';setTimeout(()=>{S._flashId=null;},800);
   renderStaffQueue();
+  if(getQueue().some(x=>x.id===entry.id))openModal(entry.id); // straight into bike assignment, same as the queue's Check In
 }
 async function resolveDeskWaitlist(id,status){
   const w=(S.deskWaitlist||[]).find(x=>x.id===id);if(!w)return;

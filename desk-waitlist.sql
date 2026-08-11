@@ -12,6 +12,13 @@ create table if not exists desk_waitlist (
   resolved_at timestamptz
 );
 
+-- Payment while waiting (same Pending / Cash / Card / Split / On-the-house states as the
+-- queue). Carried onto the real booking when the rider is checked in.
+alter table desk_waitlist add column if not exists paid        boolean not null default false;
+alter table desk_waitlist add column if not exists price       numeric;
+alter table desk_waitlist add column if not exists pay_method  text;
+alter table desk_waitlist add column if not exists card_amount numeric;
+
 alter table desk_waitlist enable row level security;
 
 -- Staff-only, same lockdown as customer_notes: authed staff get full access.

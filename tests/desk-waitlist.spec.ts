@@ -41,7 +41,13 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   await expect(modal).toBeHidden();
   await expect(rowFor('New Walkup')).toHaveCount(1);
 
-  // "Bike given" books the rider into the selected session: capture the queue_entries insert.
+  // Payment on the waitlist row: same pay-toggle + menu as a queue booking.
+  await rowFor('Waiting One').getByRole('button', { name: /Pending/ }).click();
+  await page.locator('.pay-menu-popup').getByRole('button', { name: /Paid · Cash/ }).click();
+  await expect(rowFor('Waiting One').getByRole('button', { name: /Paid/ })).toBeVisible();
+
+  // "Check In" books the rider into the selected session, payment state carried over:
+  // capture the queue_entries insert.
   const posts: Record<string, unknown>[] = [];
   page.on('request', (r) => {
     if (r.method() === 'POST' && r.url().includes('/rest/v1/queue_entries')) {
@@ -49,12 +55,13 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
       posts.push(Array.isArray(sent) ? sent[0] : sent);
     }
   });
-  await rowFor('Waiting One').getByRole('button', { name: /Bike given/ }).click();
+  await rowFor('Waiting One').getByRole('button', { name: /Check In/i }).click();
   await expect(page.getByText('Bike given to Waiting One')).toBeVisible(); // toast
   expect(posts).toHaveLength(1);
   expect(posts[0].name).toBe('Waiting One');
   expect(posts[0].session_id).toBe('s0');
   expect(posts[0].status).toBe('waiting');
+  expect(posts[0].paid).toBe(true); // the cash payment taken while waiting
 
   // Remove takes a rider off the list without booking anything.
   await rowFor('Waiting Two').getByRole('button', { name: /Remove/ }).click();
