@@ -30,9 +30,10 @@ test('the Customer button on a queue row opens the account editor', async ({ pag
 // switching to "on the house" comps their current unpaid booking on the spot.
 test('a default-payment change applies to current bookings immediately', async ({ page }) => {
   const sessions = [{ id: 's0', day: 'Friday', session_date: '2099-02-10', capacity: 12, status: 'open', created_at: 1 }];
-  // No email/phone on the fixture: the editor's duplicate checks would trip on the stub
-  // (it returns the whole customers fixture for any filtered GET).
-  const customers = [{ id: 'c1', name: 'Live Rider', email: '', phone: '', height: 175, default_pay: null }];
+  // Email/phone present but UNCHANGED at save: the duplicate checks must be skipped
+  // entirely (the stub returns the whole customers fixture for any filtered GET, so a
+  // pre-fix dup check would wrongly block with "already exists").
+  const customers = [{ id: 'c1', name: 'Live Rider', email: 'l@x.com', phone: '+966500000001', height: 175, default_pay: null }];
   const queue_entries = [{ id: 'e1', session_id: 's0', session_day: 'Friday', session_date: '2099-02-10', queue_num: 1, name: 'Live Rider', phone: '0500000001', customer_id: 'c1', type_preference: 'Road', status: 'waiting', paid: false, price: 30, registered_at: '2099-01-01T10:00:00Z' }];
   await stubSupabase(page, { sessions, customers, queue_entries });
   await unlockStaff(page);
@@ -55,7 +56,7 @@ test('a default-payment change applies to current bookings immediately', async (
   await modal.getByRole('button', { name: /Save/ }).click();
   await expect(modal).toBeHidden();
 
-  await expect.poll(() => patches.filter((p) => p.url.includes('queue_entries')).length).toBe(1);
+  await expect.poll(() => patches.some((p) => p.url.includes('queue_entries') && p.url.includes('id=eq.e1'))).toBe(true);
   const qp = patches.find((p) => p.url.includes('queue_entries') && p.url.includes('id=eq.e1'));
   expect(qp?.body).toEqual({ paid: true, price: 0 }); // live booking comped on the spot
   const cp = patches.find((p) => p.url.includes('/customers'));

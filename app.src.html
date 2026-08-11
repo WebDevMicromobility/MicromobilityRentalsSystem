@@ -7454,7 +7454,8 @@ function showEditCustomerModal(id){
   if(c.phone){const m=COUNTRY_CODES.find(([code])=>c.phone.startsWith(code));if(m){cc=m[0];phone=c.phone.slice(m[0].length);}else phone=c.phone;}
   S._cf={mode:'edit',id:c.id,origName:c.name||'',first:n.first,middle:n.middle,last:n.last,email:c.email||'',cc,phone,pwd:'',
     height:c.height!=null?String(c.height):'',gender:c.gender||'',birth:c.birth_date||'',country:c.country||'',city:c.city||'',type:c.type_preference||'Any',
-    defpay:_housePayTypes(c)?'house':'',defpayTypes:(h=>h&&h!=='all'?h:bikeTypeOpts(false))(_housePayTypes(c)),origDefPay:c.default_pay||null,hiddenTypes:_hiddenTypes(c)};
+    defpay:_housePayTypes(c)?'house':'',defpayTypes:(h=>h&&h!=='all'?h:bikeTypeOpts(false))(_housePayTypes(c)),origDefPay:c.default_pay||null,hiddenTypes:_hiddenTypes(c),
+    origPhone:c.phone||'',origEmail:(c.email||'').toLowerCase()};
   renderCustFormModal();
 }
 function closeCustFormModal(){const m=document.getElementById('new-acct-modal');if(m){m.style.display='none';m.innerHTML='';}S._cf=null;}
@@ -7599,8 +7600,11 @@ async function saveCustForm(){
     // EDIT: a signed-in staff member writes the customers row directly (is_staff() full access).
     S._cfBusy=true;
     try{
-      if(email){const{data:dup}=await sb.from('customers').select('id').eq('email',email).neq('id',d.id).limit(1);if(dup&&dup.length){toast(t('errEmailExists'),'error');return;}}
-      if(fullPhone){const{data:dup}=await sb.from('customers').select('id').eq('phone',fullPhone).neq('id',d.id).limit(1);if(dup&&dup.length){toast(t('errPhoneExists'),'error');return;}}
+      // Duplicate checks only when the value actually CHANGED: accounts legitimately share
+      // phones (family members, walk-in-created rows), and an unchanged phone/email must
+      // never block saving unrelated edits like bike type or the payment option.
+      if(email&&email!==(d.origEmail||'')){const{data:dup}=await sb.from('customers').select('id').eq('email',email).neq('id',d.id).limit(1);if(dup&&dup.length){toast(t('errEmailExists'),'error');return;}}
+      if(fullPhone&&fullPhone!==(d.origPhone||'')){const{data:dup}=await sb.from('customers').select('id').eq('phone',fullPhone).neq('id',d.id).limit(1);if(dup&&dup.length){toast(t('errPhoneExists'),'error');return;}}
       // Optional password change: only if staff typed one. Validated then set SERVER-SIDE (bcrypt) via
       // the is_staff()-guarded RPC, which also rotates the session token so old logins are invalidated.
       const newPwd=val('cf-pwd');
