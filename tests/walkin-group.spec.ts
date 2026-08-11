@@ -38,3 +38,35 @@ test('walk-in modal books multiple riders as one group', async ({ page }) => {
   expect(rows[0].group_id).toBe(rows[1].group_id); // grouped on the roster
   expect(rows.every((r) => r.walk_in === true && r.session_id === 's0' && r.status === 'waiting')).toBe(true);
 });
+
+// customers.default_pay = 'house': any new booking created for that person starts on the
+// house (paid, SAR 0). Matched by account AND name, so other riders still pay normally.
+test('a customer with default payment "on the house" books as paid with price 0', async ({ page }) => {
+  const sessions = [{ id: 's0', day: 'Friday', session_date: '2099-02-10', capacity: 12, status: 'open', created_at: 1 }];
+  const customers = [{ id: 'c1', name: 'House Rider', email: 'h@x.com', phone: '0500000001', height: 175, default_pay: 'house' }];
+  await stubSupabase(page, { sessions, customers });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(() => {
+    // @ts-expect-error app globals
+    showWalkinModal();
+  });
+
+  const posts: Record<string, unknown>[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && r.url().includes('/rest/v1/queue_entries')) {
+      const sent = r.postDataJSON();
+      posts.push(...(Array.isArray(sent) ? sent : [sent]));
+    }
+  });
+  const modal = page.locator('#walkin-modal');
+  await modal.locator('#wi-name').fill('House Rider'); // matches the saved customer
+  await modal.getByRole('button', { name: /Walk/i }).last().click();
+  await expect(modal).toBeHidden();
+
+  await expect.poll(() => posts.length).toBe(1);
+  expect(posts[0].customer_id).toBe('c1');
+  expect(posts[0].paid).toBe(true); // default payment applied
+  expect(posts[0].price).toBe(0);
+});
