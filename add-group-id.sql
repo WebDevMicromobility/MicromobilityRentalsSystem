@@ -10,3 +10,6 @@ alter table queue_entries add column if not exists group_name text;
 
 -- Who the group's main phone number belongs to (shown next to the phone on the roster).
 alter table queue_entries add column if not exists group_contact text;
+
+-- The responsible person's own number (kept even when every rider has their own phone).
+alter table queue_entries add column if not exists group_phone text;

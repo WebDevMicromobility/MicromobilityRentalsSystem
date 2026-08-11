@@ -1607,6 +1607,7 @@ function entryFromDB(e){
     groupId:e.group_id||null, // staff "Add group": links riders with different (or no) accounts into one roster group
     groupName:e.group_name||null, // JCC groups: one display name for the whole party ("Tamer Group")
     groupContact:e.group_contact||null, // who the group's main phone belongs to
+    groupPhone:e.group_phone||null, // the responsible person's own number
     rideDuration:e.ride_duration||null,
     ratingBike:e.rating_bike||null,ratingExp:e.rating_exp||null,feedback:e.feedback||null,checkedInAt:e.checked_in_at||null,checkedOutAt:e.checked_out_at||null,
     promoCode:e.promo_code||null,
@@ -1627,6 +1628,7 @@ function entryToDB(e){
   if(e.groupId)row.group_id=e.groupId;   // same rule (add-group-id.sql)
   if(e.groupName)row.group_name=e.groupName;
   if(e.groupContact)row.group_contact=e.groupContact;
+  if(e.groupPhone)row.group_phone=e.groupPhone;
   return row;
 }
 // Per-customer default payment (customers.default_pay, staff-set):
@@ -1752,7 +1754,7 @@ async function loadData(showLoader=false){
     // Paged (PostgREST caps every request at 1000 rows): the customer base and tag list both grow
     // unbounded, so a single-shot fetch would silently drop rows once past 1000 - staff would see a
     // real customer as "not found" or a tagged rider as untagged.
-    try{const r=await _pagedAll(()=>sb.from('customers').select('id,name,email,phone,height,type_preference,gender,birth_date,country,city,created_at').order('created_at').order('id'));if(!r.error&&r.data)c=r;}catch(e){}
+    try{const r=await _pagedAll(()=>sb.from('customers').select('id,name,email,phone,height,type_preference,gender,birth_date,country,city,created_at,default_pay,hidden_types').order('created_at').order('id'));if(!r.error&&r.data)c=r;}catch(e){}
     // Tags are staff-only (RLS blocks everyone else). Tolerant: pre-migration these tables
     // don't exist yet, so a failure just leaves the tag UI empty rather than breaking boot.
     try{const rt=await sb.from('tags').select('*');if(!rt.error&&rt.data)S.tags=rt.data;}catch(e){}
@@ -2947,7 +2949,7 @@ async function handleGoogleReturn(){
     return 'complete';
   }
   let cust=null;
-  try{const{data}=await sb.from('customers').select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city,photo').eq('email',email).maybeSingle();cust=data;}catch(e){}
+  try{const{data}=await sb.from('customers').select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city,photo,default_pay,hidden_types').eq('email',email).maybeSingle();cust=data;}catch(e){}
   if(cust){
     // Backfill the avatar from Google if they have none yet
     let photo=cust.photo;
@@ -7304,7 +7306,7 @@ async function saveJccGroup(){
       typePreference:r.type,paid:false,assignedBikeId:null,sessionId:sess.id,sessionDay:sess.day,
       sessionDate:sess.session_date||sess.id,queueNum:base+i,status:'waiting',
       registeredAt:new Date().toISOString(),walkIn:!_match,customerId:(_match&&_match.id)||null,
-      price:priceForType(r.type),approval:null,groupId,groupName:gname,groupContact:cname||null});});};
+      price:priceForType(r.type),approval:null,groupId,groupName:gname,groupContact:cname||null,groupPhone:phone||null});});};
   let entries=mk();
   let res=await sb.from('queue_entries').insert(entries.map(entryToDB));
   if(res&&res.error&&(String(res.error.code||res.error.message).includes('23505')||/duplicate|unique/i.test(res.error.message||''))){
@@ -7333,7 +7335,7 @@ function showGroupEditModal(entryId){
   S._geIds=members.map(m=>m.id);
   const primary=members[0];
   const comm=_commSessIds.has(primary.sessionId);
-  const mainPhone=(primary.phone||'').trim();
+  const mainPhone=(primary.groupPhone||primary.phone||'').trim(); // the responsible person's number when stored
   const open=allSessions().filter(x=>(x.status==='open'||x.status==='full')&&!_isCommunity(x)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
   if(!open.find(x=>x.id===primary.sessionId)){const cur=allSessions().find(x=>x.id===primary.sessionId);if(cur)open.unshift(cur);}
   const m=document.getElementById('group-edit-modal');if(!m)return;
@@ -7370,7 +7372,7 @@ async function saveGroupEdit(){
   const primary=members[0];
   const gname=_titleCaseName(document.getElementById('ge-gname')?.value||'');
   const cname=_titleCaseName(document.getElementById('ge-cname')?.value||'');
-  const oldMain=(primary.phone||'').trim();
+  const oldMain=(primary.groupPhone||primary.phone||'').trim();
   const mainPhone=(document.getElementById('ge-phone')?.value||'').trim();
   const toSessionId=document.getElementById('ge-sess')?.value||primary.sessionId;
   const moving=toSessionId!==primary.sessionId;
@@ -7382,7 +7384,7 @@ async function saveGroupEdit(){
     if(cap-taken<members.length){toast(t('rescheduleFull'),'error');return;}
   }
   const prev=members.map(m=>({id:m.id,name:m.name,phone:m.phone||'',height:m.height||null,size:m.size||'',type_preference:m.typePreference,price:m.price??DEFAULT_PRICE,
-    group_name:m.groupName||null,group_contact:m.groupContact||null,session_id:m.sessionId,session_day:m.sessionDay,session_date:m.sessionDate,queue_num:m.queueNum,status:m.status}));
+    group_name:m.groupName||null,group_contact:m.groupContact||null,group_phone:m.groupPhone||null,session_id:m.sessionId,session_day:m.sessionDay,session_date:m.sessionDate,queue_num:m.queueNum,status:m.status}));
   const base=moving?nextQNum(toSessionId):0;
   for(let i=0;i<members.length;i++){
     const m=members[i];
@@ -7390,7 +7392,7 @@ async function saveGroupEdit(){
     const ownPhone=(document.getElementById('ge-r-ph-'+i)?.value||'').trim();
     const height=parseInt(document.getElementById('ge-r-h-'+i)?.value)||null;
     const ty=document.getElementById('ge-r-type-'+i)?.value||m.typePreference;
-    const patch={name,height,size:height?heightToSize(height):(m.size||''),group_name:gname||null,group_contact:cname||null};
+    const patch={name,height,size:height?heightToSize(height):(m.size||''),group_name:gname||null,group_contact:cname||null,group_phone:mainPhone||null};
     // Own phone wins; members who were on the (old) main phone follow the new main phone.
     patch.phone=ownPhone||((m.phone||'').trim()===oldMain?mainPhone:m.phone||'');
     if(CUST_TYPES.includes(ty)&&ty!==m.typePreference){
@@ -7838,7 +7840,7 @@ async function saveBookingEdit(){
         typePreference:r.type,paid:false,assignedBikeId:null,sessionId:toSessionId,
         sessionDay:moving?patch.session_day:e.sessionDay,sessionDate:moving?patch.session_date:e.sessionDate,
         queueNum:qn,status:rStatus,registeredAt:new Date().toISOString(),walkIn:!!e.walkIn,
-        customerId:e.customerId||null,groupId,groupName:e.groupName||null,price:_isCommunity(sessT)?0:priceForType(r.type),
+        customerId:e.customerId||null,groupId,groupName:e.groupName||null,groupContact:e.groupContact||null,groupPhone:e.groupPhone||null,price:_isCommunity(sessT)?0:priceForType(r.type),
         approval:_isCommunity(sessT)?'approved':null}); // staff-added riders on a community event are pre-selected (and ride free)
       let r2=await sb.from('queue_entries').insert(entryToDB(ent));
       if(r2&&r2.error&&(String(r2.error.code||r2.error.message).includes('23505')||/duplicate|unique/i.test(r2.error.message||''))){
@@ -8128,11 +8130,10 @@ function renderStaffQueue(){
       const bikeNames=assignedBikes.length
         ?assignedBikes.map(b=>`<span style="font-weight:700;font-size:13px">${esc(b.name)}</span>`).join('<br>')
         :'<span style="color:var(--muted)">—</span>';
-      const ownerPhone=isFirst?entryPhone(primary):'';
       const riderCell=`<div style="display:flex;align-items:baseline;gap:5px">
         <span style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--green);color:#000;font-size:10px;font-weight:900;flex-shrink:0">${i+1}</span>
         <span class="rider-name" style="margin:0;font-weight:${isFirst?'900':'600'}">${esc(e.name)}${isFirst?noShowFlag(e):''}</span>
-      </div>${isFirst&&ownerPhone?`<div class="rider-sub" style="margin-top:3px;padding-inline-start:22px">${esc(fmtPhone(ownerPhone))}${primary.groupContact?` · ${esc(primary.groupContact)}`:''}</div>`:''}${_adChips(e)}`;
+      </div>${e.phone?`<div class="rider-sub" style="margin-top:3px;padding-inline-start:22px">${esc(fmtPhone(e.phone))}</div>`:''}${_adChips(e)}`;
       const heightCell=`<td style="vertical-align:middle;font-size:12px;font-weight:700;color:var(--green);white-space:nowrap">${e.height?e.height+' '+t('cmUnit'):'<span style="color:var(--muted)">—</span>'}</td>`;
       const groupLine=isFirst?'border-top:2px solid rgba(var(--green-rgb),.15)':'';
       const bottomLine=isLast?'border-bottom:2px solid rgba(var(--green-rgb),.15)':'';
@@ -8146,6 +8147,7 @@ function renderStaffQueue(){
             <span class="queue-num-cell" style="font-size:15px;line-height:1.25">${_commSessIds.has(primary.sessionId)?'—':qNumDisplay}</span>
             <div style="font-size:10px;color:var(--green);font-weight:800;margin-top:3px">${n} ${t('bike')||'Bikes'}</div>
             ${primary.groupName?`<div style="font-size:10px;font-weight:900;color:#4aa8f8;margin-top:2px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(primary.groupName)}">${esc(primary.groupName)}</div>`:''}
+            ${(primary.groupContact||primary.groupPhone)?`${primary.groupContact?`<div style="font-size:10px;color:var(--muted);font-weight:700;margin-top:3px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(primary.groupContact)}">${esc(primary.groupContact)}</div>`:''}${primary.groupPhone||entryPhone(primary)?`<div style="margin-top:3px">${_contactCell(primary.groupPhone||entryPhone(primary),primary)}</div>`:''}`:''}
             <button onclick="showEditQNumModal('${primary.id}')" title="${t('editQNumTip')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:6px 8px;min-width:24px;min-height:24px;line-height:1;margin:3px 0 0 -8px;display:block" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">#</button>
             <button onclick="showGroupEditModal('${primary.id}')" title="${t('groupEditTitle')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:6px 8px;min-width:24px;min-height:24px;line-height:1;margin:0 0 0 -8px;display:block" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>
           </td>
@@ -8164,7 +8166,7 @@ function renderStaffQueue(){
             </div>
           </td>
           <td style="vertical-align:middle">${statusCellHtml(e)}</td>
-          <td rowspan="${n}" style="vertical-align:middle">${_contactCell(entryPhone(primary),primary)}${primary.groupContact?`<div style="font-size:10px;color:var(--muted);font-weight:700;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:80px" title="${esc(primary.groupContact)}">${esc(primary.groupContact)}</div>`:''}</td>
+          <td style="vertical-align:middle">${_contactCell(e.phone,e)}</td>
           <td style="vertical-align:middle"><div class="actions-cell">${_entryActions(e)}</div></td>
         </tr>`;
       }else{
@@ -8182,6 +8184,7 @@ function renderStaffQueue(){
             </div>
           </td>
           <td style="vertical-align:middle">${statusCellHtml(e)}</td>
+          <td style="vertical-align:middle">${_contactCell(e.phone,e)}</td>
           <td style="vertical-align:middle"><div class="actions-cell">${_entryActions(e)}</div></td>
         </tr>`;
       }
@@ -8214,7 +8217,7 @@ function renderStaffQueue(){
             <span style="font-weight:800;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px">${esc(e.name)}</span>
             ${e.height?`<span style="font-size:11px;font-weight:800;color:var(--green);flex-shrink:0"><bdi>${e.height} ${t('cmUnit')}</bdi></span>`:''}
           </div>
-          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${statusBadge(e.status)}${payBtn}</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${e.phone?_contactCell(e.phone,e):''}${statusBadge(e.status)}${payBtn}</div>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px;${indent}">
           ${typeLabel(e.typePreference)}${bikeInfo?` &middot; <span style="color:var(--muted-l)">${esc(bikeInfo)}</span>`:''}${_commSessIds.has(e.sessionId)?'':` &middot; <bdi style="font-weight:800;color:var(--text)">SAR ${e.price??DEFAULT_PRICE}</bdi>`}
@@ -8236,7 +8239,6 @@ function renderStaffQueue(){
         ${n>1?`<button onclick="showGroupEditModal('${primary.id}')" title="${t('groupEditTitle')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:6px 8px;min-width:24px;min-height:24px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>`:''}
       </div>
       ${sessLabel}
-      ${primary.groupContact?`<div style="font-size:11px;color:var(--muted);margin-bottom:4px">${esc(primary.groupContact)} · <bdi>${esc(fmtPhone(entryPhone(primary)))}</bdi></div>`:''}
       <div>${riderRows}</div>
       ${(()=>{
         const canEdit=group.some(e=>['waiting','active','waitlist'].includes(e.status));
@@ -8252,7 +8254,7 @@ function renderStaffQueue(){
           </div>`;
         }).join('');
       })()}
-      ${(()=>{const ph=entryPhone(primary);return ph?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(var(--tint-rgb),.06);display:flex;align-items:center;gap:8px">${_contactCell(ph,primary)}${primary.groupContact?`<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(primary.groupContact)} · <bdi>${esc(fmtPhone(ph))}</bdi></span>`:''}</div>`:''})()}
+      ${(()=>{const ph=primary.groupPhone||entryPhone(primary);return ph?`<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(var(--tint-rgb),.06);display:flex;align-items:center;gap:8px">${_contactCell(ph,primary)}${primary.groupContact?`<span style="font-size:11px;color:var(--muted);font-weight:700;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(primary.groupContact)} · <bdi>${esc(fmtPhone(ph))}</bdi></span>`:''}</div>`:''})()}
       <div style="margin-top:10px;display:flex;flex-direction:column;gap:6px">${actionsHtml}</div>
     </div>`;
   }

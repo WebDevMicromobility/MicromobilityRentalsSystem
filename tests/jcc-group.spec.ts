@@ -43,6 +43,7 @@ test('JCC group modal books multiple walk-in riders under one group name', async
   expect(rows.every((r) => r.session_id === 's0' && r.status === 'waiting')).toBe(true);
   expect(rows.map((r) => r.phone)).toEqual(['0587654321', '0512345678', '0512345678']); // own phone first, group phone as fallback
   expect(rows.every((r) => r.group_contact === 'Tamer')).toBe(true); // main phone's owner stored on the booking
+  expect(rows.every((r) => r.group_phone === '0512345678')).toBe(true); // responsible person's own number kept on every row
   expect(rows[0].customer_id).toBe('c9'); // name-matched customer gets linked, like Walk-in
   expect(rows[0].walk_in).toBe(false);
   expect(rows[1].walk_in).toBe(true);
