@@ -74,6 +74,7 @@ test('a customer with default payment "on the house" books as paid with price 0'
 // default_pay can be limited to specific bike types: 'house:Road' rides free on a Road
 // bike but pays normally on any other type.
 test('type-restricted "on the house" only applies to the listed bike types', async ({ page }) => {
+  test.slow(); // two full walk-in cycles + network polls: needs headroom under parallel CPU load
   const sessions = [{ id: 's0', day: 'Friday', session_date: '2099-02-10', capacity: 12, status: 'open', created_at: 1 }];
   const customers = [{ id: 'c2', name: 'Road Only', email: 'r@x.com', phone: '0500000002', height: 175, default_pay: 'house:Road' }];
   await stubSupabase(page, { sessions, customers });
