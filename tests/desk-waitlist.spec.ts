@@ -19,7 +19,8 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
     id, session_id: 's0', session_day: 'Friday', session_date: '2099-02-10', queue_num: qn, name,
     phone: '05555555' + qn, customer_id: null, type_preference: 'Road', status, paid, price: 30, registered_at: '2099-01-01T09:00:00Z',
   });
-  const queue_entries = [qb('qb1', 51, 'Owes Money', 'waiting', false), qb('qb2', 52, 'Fully Settled', 'waiting', true), qb('qb3', 53, 'On A Bike', 'active', false)];
+  const queue_entries = [qb('qb1', 51, 'Owes Money', 'waiting', false), qb('qb2', 52, 'Fully Settled', 'waiting', true), qb('qb3', 53, 'On A Bike', 'active', false),
+    { ...qb('qb4', 91, 'On The List', 'waitlist', false), type_preference: 'Mountain' }];
   await stubSupabase(page, { desk_waitlist, bikes, sessions, queue_entries });
   await unlockStaff(page);
   await page.goto('/');
@@ -33,10 +34,14 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   const rowFor = (name: string) => panel.locator('tr, .q-card').filter({ hasText: name }).filter({ visible: true });
   await expect(rowFor('Waiting One')).toHaveCount(1);
   await expect(rowFor('Waiting Two')).toHaveCount(1);
-  // Queue bookings never show here — the waitlist page is walk-ups + their history only.
+  // Confirmed/checked-in queue bookings never show here — but WAITLIST-status bookings do,
+  // with a Promote action (the #91 case).
   await expect(rowFor('Owes Money')).toHaveCount(0);
   await expect(rowFor('Fully Settled')).toHaveCount(0);
   await expect(rowFor('On A Bike')).toHaveCount(0);
+  await expect(rowFor('On The List')).toHaveCount(1);
+  await expect(rowFor('On The List').getByRole('button', { name: /Promote/ })).toHaveCount(1);
+  await expect(rowFor('On The List').getByText('#91')).toBeVisible();
   // Resolved walk-ups appear in the history section on the same page, not the waiting list.
   await expect(rowFor('Already Served')).toHaveCount(1);
   await expect(rowFor('Already Served').getByText(/Bike given/)).toBeVisible();

@@ -3617,6 +3617,15 @@ function renderDeskWaitlist(){
   const actions=w=>`<button class="btn-sm btn-green" onclick="giveDeskBike('${esc(w.id)}')">${t('checkInBtn')}</button>
       <button class="btn-sm btn-muted" onclick="resolveDeskWaitlist('${esc(w.id)}','removed')">${t('wlRemoveBtn')}</button>`;
   const payBtn=w=>{const isHouse=w.paid&&_wlRowPrice(w)===0;return`<button class="pay-toggle ${isHouse?'house':w.paid?'paid':'pending'}" onclick="showWlPayMenu('${esc(w.id)}',event)">${isHouse?' '+t('onTheHouseLabel'):w.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`;};
+  // Queue bookings whose status is WAITLIST (holding no spot yet) belong on this page too;
+  // confirmed 'waiting' bookings live in the queue only. Promote / payment / contact work
+  // inline — once promoted, the row continues in the queue view alone.
+  const _todayB=todayStr();
+  const wlBookAll=getQueue().filter(e=>e.status==='waitlist'&&!_commSessIds.has(e.sessionId)&&String(e.sessionDate||e.sessionId||'').slice(0,10)>=_todayB);
+  const wlBook=wlBookAll.filter(e=>!q||String(e.name||'').toLowerCase().includes(q)||String(e.phone||'').includes(q));
+  const merged=[...wlBook.map(e=>({b:e,ts:new Date(e.registeredAt||0).getTime()})),...list.map(w=>({w,ts:new Date(w.created_at||0).getTime()}))].sort((x,y)=>x.ts-y.ts);
+  const nAll=all.length+wlBookAll.length;
+  const bPay=e=>{const h=e.paid&&(e.price??DEFAULT_PRICE)===0;return`<button class="pay-toggle ${h?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">${h?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`;};
   const walkTr=(w,pos)=>`<tr>
       <td style="min-width:52px;vertical-align:middle"><span class="queue-num-cell" style="font-size:15px;line-height:1.25">#${pos}</span></td>
       <td style="vertical-align:middle"><div class="rider-name" style="margin:0;font-weight:800">${esc(w.name)}</div>${w.phone?`<div class="rider-sub" style="margin-top:3px">${esc(fmtPhone(w.phone))}</div>`:''}</td>
@@ -3628,8 +3637,20 @@ function renderDeskWaitlist(){
       <td style="vertical-align:middle">${_contactCell(w.phone,{status:'waiting'})}</td>
       <td style="vertical-align:middle"><div style="display:flex;gap:6px;flex-wrap:wrap">${actions(w)}</div></td>
     </tr>`;
-  const rows=list.map((w,i)=>walkTr(w,i+1)).join('');
-  const emptyRow=list.length?'':`<tr><td colspan="9"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('wlEmpty'))}</div></td></tr>`;
+  const bookTr=e=>{const ty=resolvedType(e);return`<tr>
+      <td style="min-width:52px;vertical-align:middle"><span class="queue-num-cell" style="font-size:15px;line-height:1.25">#${e.queueNum}</span><div style="font-size:9px;font-weight:900;color:var(--orange);margin-top:2px;text-transform:uppercase;letter-spacing:.4px">${t('waitlistLabel')}</div></td>
+      <td style="vertical-align:middle"><div class="rider-name" style="margin:0;font-weight:800">${esc(e.name)}</div>${e.phone?`<div class="rider-sub" style="margin-top:3px">${esc(fmtPhone(e.phone))}</div>`:''}</td>
+      <td style="vertical-align:middle">${typeBadge(ty)}</td>
+      <td style="vertical-align:middle;font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap">${_wlElapsed(e.registeredAt)}<div style="font-size:10px;font-weight:600;margin-top:2px">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</div></td>
+      <td style="vertical-align:middle">${availChip(_wlAvail(ty))}</td>
+      <td style="vertical-align:middle;font-weight:800;white-space:nowrap">SAR ${e.price??DEFAULT_PRICE}</td>
+      <td style="vertical-align:middle" onclick="event.stopPropagation()">${bPay(e)}</td>
+      <td style="vertical-align:middle">${_contactCell(e.phone,e)}</td>
+      <td style="vertical-align:middle"><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn-sm btn-green" onclick="promoteWaitlist('${e.id}')">${ICON_PROMOTE} ${t('promoteBtn')}</button></div></td>
+    </tr>`;};
+  let _wp=0;
+  const rows=merged.map(it=>it.w?walkTr(it.w,++_wp):bookTr(it.b)).join('');
+  const emptyRow=merged.length?'':`<tr><td colspan="9"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('wlEmpty'))}</div></td></tr>`;
   const walkCard=(w,pos)=>`<div class="q-card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
         <div style="display:flex;align-items:center;gap:7px;min-width:0">
@@ -3641,7 +3662,20 @@ function renderDeskWaitlist(){
       <div style="font-size:11px;color:var(--muted);margin-top:4px">${typeLabel(w.bike_type||'Any')}${w.phone?` &middot; <bdi>${esc(fmtPhone(w.phone))}</bdi>`:''} &middot; ${t('wlWaitingFor').replace('{0}',_wlElapsed(w.created_at))} &middot; <bdi style="font-weight:800;color:var(--text)">SAR ${_wlRowPrice(w)}</bdi></div>
       <div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;align-items:center">${payBtn(w)}${_contactCell(w.phone,{status:'waiting'})}${actions(w)}</div>
     </div>`;
-  const cards=list.length?list.map((w,i)=>walkCard(w,i+1)).join(''):`<div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('wlEmpty'))}</div>`;
+  const bookCard=e=>{const ty=resolvedType(e);return`<div class="q-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div style="display:flex;align-items:center;gap:7px;min-width:0">
+          <span class="queue-num-cell" style="font-size:13px">#${e.queueNum}</span>
+          <span style="font-weight:800;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px">${esc(e.name)}</span>
+          <span style="font-size:9px;font-weight:900;color:var(--orange);text-transform:uppercase;letter-spacing:.4px;flex-shrink:0">${t('waitlistLabel')}</span>
+        </div>
+        ${availChip(_wlAvail(ty))}
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">${typeLabel(ty)}${e.phone?` &middot; <bdi>${esc(fmtPhone(e.phone))}</bdi>`:''} &middot; ${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)} &middot; <bdi style="font-weight:800;color:var(--text)">SAR ${e.price??DEFAULT_PRICE}</bdi></div>
+      <div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;align-items:center">${bPay(e)}${_contactCell(e.phone,e)}<button class="btn-sm btn-green" onclick="promoteWaitlist('${e.id}')">${ICON_PROMOTE} ${t('promoteBtn')}</button></div>
+    </div>`;};
+  let _wpc=0;
+  const cards=merged.length?merged.map(it=>it.w?walkCard(it.w,++_wpc):bookCard(it.b)).join(''):`<div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('wlEmpty'))}</div>`;
   // History of resolved waitlist entries (bike given / removed), newest first, same page.
   const _arH=S.lang==='ar';
   const hist=(S.deskWaitlist||[])
@@ -3679,7 +3713,7 @@ function renderDeskWaitlist(){
       </div>
     </div>
     <div class="stats-row">
-      <div class="stat-card"><div class="stat-num" style="color:var(--green)">${all.length}</div><div class="stat-label">${t('waitingStat')}</div></div>
+      <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nAll}</div><div class="stat-label">${t('waitingStat')}</div></div>
       <div class="stat-card"><div class="stat-num">${nFree}</div><div class="stat-label">${t('wlStatFree')}</div></div>
       <div class="stat-card"><div class="stat-num">${nGiven}</div><div class="stat-label">${t('wlStatGiven')}</div></div>
     </div>
@@ -3692,7 +3726,7 @@ function renderDeskWaitlist(){
           <input id="wl-search-input" class="search-input" placeholder="${t('searchPlaceholder')}" value="${esc(S._wlSearch||'')}" oninput="_wlSearchInput(this.value)">
         </div>
       </div>
-      ${list.length!==all.length?`<div class="result-count">${list.length} ${t('resultOf')} ${all.length} ${t('resultRiders')}</div>`:''}
+      ${merged.length!==nAll?`<div class="result-count">${merged.length} ${t('resultOf')} ${nAll} ${t('resultRiders')}</div>`:''}
     </div>
     <div class="queue-mobile-view">${cards}</div>
     <div class="table-wrapper queue-table-desktop-wrap"><table class="queue-table${S.queueDensity==='compact'?' compact':''}">
@@ -7335,6 +7369,28 @@ async function saveGroupEdit(){
   toast(t('toastBookingUpdated'));
   renderStaffQueue();
 }
+// One tap marks every unpaid member of a group booking as paid (same price rules as the
+// single pay toggle: a deliberate promo 0 stays 0, an incidental 0 falls back to the bike price).
+async function groupMarkPaid(entryId){
+  const members=_groupMembers(entryId).filter(m=>!m.paid);
+  if(!members.length)return;
+  const prev=members.map(m=>({id:m.id,paid:!!m.paid,price:m.price??DEFAULT_PRICE}));
+  const res=await Promise.all(members.map(m=>{
+    const price=(m.price===0&&!m.promoCode)?_entryFallbackPrice(m):(m.price??DEFAULT_PRICE);
+    m.paid=true;m.price=price;
+    return sb.from('queue_entries').update({paid:true,price}).eq('id',m.id);
+  }));
+  if(_writeErr(res,'payment')){await loadDataLight();renderStaffQueue();return;}
+  haptic();
+  logAction(t('logBulkPaid').replace('{0}',members.length));
+  toast(`${members.length} ✓ ${t('paidLabel')}`);
+  pushUndo(`${t('undoPayment')} ${members[0].groupName||members[0].name}`,async()=>{
+    await Promise.all(prev.map(p=>sb.from('queue_entries').update({paid:p.paid,price:p.price}).eq('id',p.id)));
+    await loadDataLight();renderStaffQueue();renderHistory();
+  });
+  await loadDataLight();
+  renderStaffQueue();renderHistory();renderMyRides();
+}
 // ── Staff: create a full customer account (name/email/phone/password/height). Uses the
 // same customer_signup RPC as self-service signup; the returned session token is simply
 // discarded, so the staff device never switches identity. ──
@@ -7985,7 +8041,7 @@ function renderStaffQueue(){
           ${S.sfSession==='all'?`<td class="hide-mobile" rowspan="${n}" style="vertical-align:middle">${dayLabel(primary.sessionDay)||''} ${shortDate(primary.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
           <td style="vertical-align:middle">${bikeNames}</td>
           <td style="vertical-align:middle"><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">${colorSwatches}</div></td>
-          <td rowspan="${n}" style="vertical-align:middle">${priceSpan}</td>
+          <td rowspan="${n}" style="vertical-align:middle">${priceSpan}${(!_commSessIds.has(primary.sessionId)&&remaining>0)?`<button class="btn-sm btn-green" style="margin-top:6px;white-space:nowrap" onclick="groupMarkPaid('${primary.id}')">✓ ${t('bulkPaidBtn')}</button>`:''}</td>
           <td style="vertical-align:middle" onclick="event.stopPropagation()">
             <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
               ${_commSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
@@ -8060,6 +8116,7 @@ function renderStaffQueue(){
         ${n>1?`<span style="font-size:10px;color:var(--green);font-weight:800">${n} ${t('bike')||'Bikes'}</span>`:''}
         ${primary.groupName?`<span style="font-size:10px;font-weight:900;color:#4aa8f8;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(primary.groupName)}">${esc(primary.groupName)}</span>`:''}
         ${posTag}
+        ${(n>1&&!_commSessIds.has(primary.sessionId)&&group.some(e=>!e.paid&&!['cancelled','noshow'].includes(e.status)))?`<button class="btn-sm btn-green" style="font-size:10px;padding:4px 8px" onclick="groupMarkPaid('${primary.id}')">✓ ${t('bulkPaidBtn')}</button>`:''}
         <button onclick="showEditQNumModal('${primary.id}')" title="${t('editQNumTip')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:6px 8px;min-width:24px;min-height:24px;line-height:1;margin-left:auto" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">#</button>
         ${n>1?`<button onclick="showGroupEditModal('${primary.id}')" title="${t('groupEditTitle')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:6px 8px;min-width:24px;min-height:24px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>`:''}
       </div>

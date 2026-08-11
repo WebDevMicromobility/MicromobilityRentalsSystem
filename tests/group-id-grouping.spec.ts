@@ -31,4 +31,17 @@ test('riders sharing a group_id render as one group even without customer accoun
   expect(txt).toMatch(/#1\s*[-–]\s*#2/); // e1+e2 grouped by group_id
   expect(txt).not.toMatch(/#2\s*[-–]\s*#3/); // the group does not swallow the next solo row
   expect(txt).not.toMatch(/#3\s*[-–]\s*#4/); // account-less rows without group_id stay solo
+
+  // The grouped pair (and only it) gets a one-tap "Mark paid" that pays every member.
+  const paidBtn = page.locator('#tab-queue').getByRole('button', { name: /Mark paid/ }).filter({ visible: true });
+  await expect(paidBtn).toHaveCount(1);
+  const patched: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'PATCH' && r.url().includes('/rest/v1/queue_entries')) {
+      const id = (r.url().match(/id=eq\.([^&]+)/) || [])[1];
+      if (id) patched.push(id);
+    }
+  });
+  await paidBtn.click();
+  await expect.poll(() => patched.sort()).toEqual(['e1', 'e2']);
 });
