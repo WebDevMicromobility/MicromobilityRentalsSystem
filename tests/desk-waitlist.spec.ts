@@ -31,15 +31,20 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   await expect(panel.getByText('1 available now').filter({ visible: true })).toHaveCount(2); // the free Road bike satisfies both the Road and the Any request
   await expect(panel.locator('#wl-sess')).toHaveValue('s0'); // choose-session select in the filter bar
 
-  // Add a walk-up through the modal (writes are echoed as success by the stub).
+  // Add a party of two through the modal (writes are echoed as success by the stub):
+  // the second rider row is left unnamed and waits as "New Walkup 2".
   await panel.getByRole('button', { name: /Add to waitlist/ }).click();
   const modal = page.locator('#wl-add-modal');
   await modal.locator('#wl-name').fill('New Walkup');
   await modal.locator('#wl-phone').fill('0544444444');
   await modal.getByRole('button', { name: 'Hybrid' }).click();
-  await modal.getByRole('button', { name: /Add to waitlist/ }).click();
+  await modal.getByRole('button', { name: /\+ Add rider/ }).click();
+  await modal.getByRole('button', { name: /Add to waitlist \(2\)/ }).click();
   await expect(modal).toBeHidden();
-  await expect(rowFor('New Walkup')).toHaveCount(1);
+  await expect(rowFor('New Walkup 2')).toHaveCount(1);
+  await expect(rowFor('New Walkup')).toHaveCount(2); // both rows carry the shared name prefix
+  await expect(rowFor('New Walkup 2').locator('a[href^="https://wa.me/"]')).toHaveCount(1); // WhatsApp + call per rider
+  await expect(rowFor('New Walkup 2').locator('a[href^="tel:"]')).toHaveCount(1);
 
   // Payment on the waitlist row: same pay-toggle + menu as a queue booking.
   await rowFor('Waiting One').getByRole('button', { name: /Pending/ }).click();
