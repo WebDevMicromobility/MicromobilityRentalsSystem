@@ -4452,6 +4452,9 @@ function renderRegister(){
   
   // Community rides are personal: one reservation, the account holder only - no group bookings.
   if(_commSel&&S.regQty!==1){S.regQty=1;ensureBikeSizes();}
+  // Carbon road bikes are not offered on the social ride: a selection carried over from a
+  // JCC pick (or a profile preference) silently becomes 'Any' here.
+  if(_commSel)S.regBikeTypes=S.regBikeTypes.map(ty=>ty==='Road Carbon'?'Any':ty);
   const qtyStepper=_commSel?'':`
     <div class="reg-row">
       <span class="reg-row-label">${t('numBikes')}</span>
@@ -4992,7 +4995,7 @@ async function submitReg(){
       waitlistNum:bookingStatus==='waitlist'?_wlBase+i:null,
       id:uid(),name:riderNames[i],email,phone,
       size:heights[i]?heightToSize(heights[i]):'',height:heights[i]||null,
-      typePreference:S.regBikeTypes[i],paid:false,
+      typePreference:_isCommBooking&&S.regBikeTypes[i]==='Road Carbon'?'Any':S.regBikeTypes[i],paid:false,
       assignedBikeId:null,sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
       queueNum:baseQNum+i,status:bookingStatus,registeredAt:new Date().toISOString(),walkIn:false,
       customerId:cust.id,price:_isCommBooking?0:priceForType(S.regBikeTypes[i]), // community rides are free
@@ -7341,7 +7344,7 @@ async function saveCommAdd(){
   const comm=_isCommunity(sess); // group mode books JCC sessions: real prices, no approval flow
   const groupId=S._caGroup?uid():null; // one shared id = one roster group (buildQueueGroups keys on it)
   const mkEntries=()=>{const base=nextQNum(sess.id);const wlBase=toWaitlist?nextWlNum(sess.id):0;return fresh.map((c,i)=>{
-    const ty=S._caOwn?'Own':(c.type_preference==='Own'?'Any':(c.type_preference||'Any'));
+    const ty=S._caOwn?'Own':(['Own','Road Carbon'].includes(c.type_preference)?'Any':(c.type_preference||'Any')); // Own is comm-only pref, Road Carbon is not offered on the social ride
     return{id:uid(),name:c.name||'',email:c.email||'',phone:c.phone||'',waitlistNum:toWaitlist?wlBase+i:null,
     size:c.height?heightToSize(Number(c.height)):'',height:c.height||null,
     typePreference:ty,paid:false,assignedBikeId:null,
@@ -7968,7 +7971,7 @@ async function saveBookingEdit(){
     let _wln=rStatus==='waitlist'?nextWlNum(toSessionId):0;
     for(const r of newRiders){
       const ent=_applyDefaultPay({id:uid(),name:r.name,email:e.email||'',phone,size:r.height?heightToSize(r.height):'',height:r.height,waitlistNum:rStatus==='waitlist'?_wln++:null,
-        typePreference:r.type,paid:false,assignedBikeId:null,sessionId:toSessionId,
+        typePreference:_isCommunity(sessT)&&r.type==='Road Carbon'?'Any':r.type,paid:false,assignedBikeId:null,sessionId:toSessionId,
         sessionDay:moving?patch.session_day:e.sessionDay,sessionDate:moving?patch.session_date:e.sessionDate,
         queueNum:qn,status:rStatus,registeredAt:new Date().toISOString(),walkIn:!!e.walkIn,
         customerId:e.customerId||null,groupId,groupName:e.groupName||null,groupContact:e.groupContact||null,groupPhone:e.groupPhone||null,price:_isCommunity(sessT)?0:priceForType(r.type),
