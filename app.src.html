@@ -2616,6 +2616,7 @@ function renderAuthModal(){
       <div class="auth-err" id="auth-err"></div>
       ${body}
       ${!isForgot?`<button class="btn-secondary auth-cancel-btn${mode==='gcomplete'?' auth-keep':''}" style="width:100%;margin-top:10px" onclick="${mode==='gcomplete'?'cancelGoogleComplete()':'closeAuthModal();goLanding()'}">${t('authCancel')}</button>`:''}
+      ${mode==='gcomplete'||isForgot?'':`<button type="button" class="staff-access-btn" style="width:100%;margin-top:14px" onclick="staffAccessClick()">${t('staffAccess')}</button>`}
     </div>
   </div>`;
   Object.keys(_snap).forEach(id=>{const el=document.getElementById(id);if(el&&!el.value)el.value=_snap[id];});
@@ -2689,7 +2690,7 @@ async function doResetPassword(){
       if(error||!customer){authErr(t('errResetNoMatch'));return;}
       S.rememberMe=true;S.loggedIn=customer;setSession(customer);S.forgotStep=1;S.forgotEmail='';S.forgotVerified=null;S.authMode='login';
       await loadData();
-      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goLanding(); // after signing in, show the event picker (landing)
+      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('myrides'); // straight into My Rides (with the bottom bar) after signing in
       logAction(t('logPwdResetSelf')+(customer.email||''));
       toast(t('toastPwReset'));return;
     }
@@ -2701,7 +2702,7 @@ async function doResetPassword(){
     if(error)throw error;
     S.loggedIn=customer;setSession(customer);S.forgotStep=1;S.forgotEmail='';S.forgotVerified=null;S.authMode='login';
     await loadData();
-    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goLanding(); // after signing in, show the event picker (landing)
+    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('myrides'); // straight into My Rides (with the bottom bar) after signing in
     logAction(t('logPwdResetSelf')+(customer.email||''));
     toast(t('toastPwReset'));
   }catch(e){authErr(t('errConnection'));}
@@ -2878,7 +2879,7 @@ async function doSignup(){
       S.rememberMe=true; // a brand-new account shouldn't evaporate when the browser closes (matches the Google flow)
       S.loggedIn=safeCustomer;setSession(safeCustomer);
       await loadData();
-      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goLanding(); // after signing in, show the event picker (landing)
+      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('myrides'); // straight into My Rides (with the bottom bar) after signing in
       logAction(t('logAcctCreated')+name);
       toast(`${name}! ${t('toastAccountCreated')}`);
       return;
@@ -2894,7 +2895,7 @@ async function doSignup(){
     await loadData();
     const safeCustomer={id:customer.id,name,email,phone:fullPhone,height,type_preference,created_at:customer.created_at};
     S.loggedIn=safeCustomer;setSession(safeCustomer);
-    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goLanding(); // after signing in, show the event picker (landing)
+    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('myrides'); // straight into My Rides (with the bottom bar) after signing in
     logAction(t('logAcctCreated')+name);
     toast(`${name}! ${t('toastAccountCreated')}`);
   }catch(e){_authFail('exception',e);}
@@ -3003,7 +3004,7 @@ async function doCompleteGoogle(){
       const safe={id:newId,name,email:g.email||'',phone:fullPhone,height:heightRaw,type_preference:S.signupTypePref||'Any',created_at:new Date().toISOString(),photo:g.photo||null,session_token:tok};
       S.rememberMe=true;S.loggedIn=safe;setSession(safe);S._pendingGoogle=null;
       await loadData();
-      closeAuthModal();goLanding();
+      closeAuthModal();goCustomer('myrides');
       logAction(t('logAcctCreatedGoogle')+name);
       toast(`${name}! ${t('toastAccountCreated')}`);
       return;
@@ -3015,7 +3016,7 @@ async function doCompleteGoogle(){
     await loadData();
     const safe={id:customer.id,name,email:customer.email,phone:fullPhone,height:heightRaw,type_preference:customer.type_preference,created_at:customer.created_at,photo:customer.photo};
     S.rememberMe=true;S.loggedIn=safe;setSession(safe);S._pendingGoogle=null;
-    closeAuthModal();goLanding();
+    closeAuthModal();goCustomer('myrides');
     logAction(t('logAcctCreatedGoogle')+name);
     toast(`${name}! ${t('toastAccountCreated')}`);
   }catch(e){_authFail('exception',e);}
@@ -3040,7 +3041,7 @@ async function doLogin(){
       if(!customer){authErr(t('errInvalidCredentials'));return;}
       S.loggedIn=customer;setSession(customer);
       await loadData();
-      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goLanding(); // after signing in, show the event picker (landing)
+      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('myrides'); // straight into My Rides (with the bottom bar) after signing in
       logAction(t('logLoggedIn')+customer.name);
       toast(`${t('toastWelcomeBack')}, ${customer.name}!`);
       return;
@@ -3070,7 +3071,7 @@ async function doLogin(){
     delete customer.password_hash;
     S.loggedIn=customer;setSession(customer);
     await loadData();
-    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goLanding(); // after signing in, show the event picker (landing)
+    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('myrides'); // straight into My Rides (with the bottom bar) after signing in
     logAction(t('logLoggedIn')+customer.name);
     toast(`${t('toastWelcomeBack')}, ${customer.name}!`);
   }catch(e){_authFail('exception',e);}
@@ -3211,7 +3212,9 @@ async function commAccess(){
     const r=await sb.rpc('community_member',{p_id:cust.id,p_token:cust.session_token||null});
     if(r.error)return false; // network/RPC failure: deny now, but don't cache so a retry can pass
     const ok=r.data===true;
-    S._commAccess={custId:cust.id,ok};
+    // Cache POSITIVE answers only: a "no" can flip mid-session (staff grants the tag while
+    // the app is open) and a cached denial kept blocking members until a full reload.
+    if(ok)S._commAccess={custId:cust.id,ok};else S._commAccess=null;
     return ok;
   }catch(e){return false;}
 }
