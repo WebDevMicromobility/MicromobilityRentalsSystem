@@ -7996,9 +7996,10 @@ function setQueueDensity(d){S.queueDensity=d;try{localStorage.setItem('cq_densit
 function renderStaffQueue(){
   {const _sy=window.scrollY;requestAnimationFrame(()=>{if(Math.abs(window.scrollY-_sy)>1)window.scrollTo(0,_sy);});} // keep scroll position across the in-place rebuild
   if(!S.dataLoaded){const _el=document.getElementById('tab-queue');if(_el)_el.innerHTML=skeletonList(7);return;}
+  if(!isAdmin()&&S.queueView==='sessions')S.queueView='bookings'; // Front Desk has no Sessions view
   const _qvPills=`<div class="filter-row" style="margin-bottom:12px">
     <button class="filter-pill${(S.queueView||'bookings')==='bookings'?' active':''}" onclick="S.queueView='bookings';renderStaffQueue()">${t('tabQueue')}</button>
-    <button class="filter-pill${S.queueView==='sessions'?' active':''}" onclick="S.queueView='sessions';renderStaffQueue()">${t('tabSessions')}</button>
+    ${isAdmin()?`<button class="filter-pill${S.queueView==='sessions'?' active':''}" onclick="S.queueView='sessions';renderStaffQueue()">${t('tabSessions')}</button>`:''}
     <button class="filter-pill${S.queueView==='waitlist'?' active':''}" onclick="S.queueView='waitlist';renderStaffQueue()">${t('wlTitle')}</button>
   </div>`;
   if(S.queueView==='sessions'){ // Sessions view lives inside the Bookings tab now
@@ -8012,10 +8013,15 @@ function renderStaffQueue(){
     return;
   }
   reconcileOrphanBikes();
-  const queue=getQueue();const sessions=allSessions();
-  const base=S.sfSession!=='all'
+  // Front Desk accounts never see the Saturday (community) side: those sessions are hidden
+  // from the roster, the session filter, and the community add button.
+  const _fd=!isAdmin();
+  if(_fd&&S.sfSession!=='all'&&_commSessIds.has(S.sfSession))S.sfSession='all';
+  const queue=getQueue();const sessions=allSessions().filter(s=>!(_fd&&_isCommunity(s)));
+  const base=(S.sfSession!=='all'
     ?queue.filter(e=>e.sessionId===S.sfSession&&e.status!=='removed'&&e.status!=='cancelled')
-    :queue.filter(e=>e.status!=='removed'&&e.status!=='cancelled');
+    :queue.filter(e=>e.status!=='removed'&&e.status!=='cancelled'))
+    .filter(e=>!(_fd&&_commSessIds.has(e.sessionId)));
   // "Expected"/"On Bike" are LIVE counts. When viewing ALL sessions, exclude past-dated sessions,
   // or riders left stuck in 'waiting'/'active' on old sessions (never checked in / never returned)
   // inflate them — e.g. showing "4 expected" when nothing is actually pending today. A specific
@@ -8399,7 +8405,7 @@ function renderStaffQueue(){
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">
-        <button class="btn-sm btn-green" onclick="showWalkinModal()" style="white-space:nowrap">${t('addWalkin')}</button><button class="btn-sm" onclick="showJccGroupModal()" style="white-space:nowrap;background:rgba(74,168,248,.12);border:1px solid rgba(74,168,248,.4);color:#4aa8f8">${t('commAddGroupBtn')}</button>${allSessions().some(s=>_isCommunity(s)&&s.status!=='deleted')?`<button class="btn-sm" onclick="showCommAddModal()" style="white-space:nowrap;background:rgba(74,168,248,.12);border:1px solid rgba(74,168,248,.4);color:#4aa8f8">${t('commAddRiderBtn')}</button>`:''}
+        <button class="btn-sm btn-green" onclick="showWalkinModal()" style="white-space:nowrap">${t('addWalkin')}</button><button class="btn-sm" onclick="showJccGroupModal()" style="white-space:nowrap;background:rgba(74,168,248,.12);border:1px solid rgba(74,168,248,.4);color:#4aa8f8">${t('commAddGroupBtn')}</button>${isAdmin()&&allSessions().some(s=>_isCommunity(s)&&s.status!=='deleted')?`<button class="btn-sm" onclick="showCommAddModal()" style="white-space:nowrap;background:rgba(74,168,248,.12);border:1px solid rgba(74,168,248,.4);color:#4aa8f8">${t('commAddRiderBtn')}</button>`:''}
         ${S.sfSession!=='all'?`<button onclick="showPrintReportOptions()" style="background:rgba(var(--tint-rgb),.05);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);font-family:'Barlow',sans-serif;transition:background .18s,color .18s,border-color .18s,transform .18s,box-shadow .18s,opacity .18s;line-height:1" onmouseover="this.style.borderColor='rgba(var(--green-rgb),.35)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='rgba(var(--tint-rgb),.1)';this.style.color='var(--muted)'">${ICON_PRINT} ${t('printReportBtn')}</button>`:''}
         <div class="density-toggle">
           <button class="density-btn${S.queueDensity==='comfortable'?' active':''}" onclick="setQueueDensity('comfortable')" title="${t('comfortableTip')}">⊡</button>
@@ -8427,7 +8433,7 @@ function renderStaffQueue(){
 
   
   const _sessSummaryBar=(()=>{
-    const openSess=allSessions().filter(s=>s.status==='open'||s.status==='full').sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+    const openSess=allSessions().filter(s=>(s.status==='open'||s.status==='full')&&!(_fd&&_isCommunity(s))).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
     if(!openSess.length)return'';
     const chips=openSess.map(s=>{
       const q=getQueue().filter(e=>e.sessionId===s.id);
