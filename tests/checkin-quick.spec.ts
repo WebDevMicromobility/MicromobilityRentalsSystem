@@ -23,16 +23,17 @@ test('quick check-in confirms payment + bike type without picking a bike', async
   page.on('request', (r) => {
     if (r.method() === 'PATCH' && r.url().includes('/rest/v1/queue_entries') && r.url().includes('id=eq.e1')) patches.push(r.postDataJSON());
   });
-  await modal.getByRole('button', { name: /Paid/ }).click();
+  await modal.getByRole('button', { name: /Paid · Cash/ }).click();
   await modal.getByRole('button', { name: 'Road', exact: true }).click();
   await modal.getByRole('button', { name: /Confirm/ }).click();
   await expect(modal).toBeHidden();
 
-  await expect.poll(() => patches.length).toBeGreaterThanOrEqual(1);
+  await expect.poll(() => patches.length).toBeGreaterThanOrEqual(2);
   expect(patches[0].status).toBe('active'); // checked in
   expect(patches[0].paid).toBe(true); // payment answered in the same modal
   expect(patches[0].type_preference).toBe('Road'); // type chosen, no assigned_bike_id involved
   expect(patches[0].assigned_bike_id).toBeUndefined();
+  expect(patches[1].pay_method).toBe('cash'); // the chosen pay method is recorded, like the pay menu
 });
 
 // The booking price follows the type chosen at check-in — except riders on the house

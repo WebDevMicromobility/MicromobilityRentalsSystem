@@ -10242,7 +10242,8 @@ function _onScanPayload(raw){
 function showCheckinModal(id){
   const e=getQueue().find(x=>x.id===id);if(!e)return;
   if(e.status!=='waiting'){openModal(id);return;} // non-waiting paths keep the classic modal
-  S._ciId=id;S._ciType=resolvedType(e)||'Any';S._ciPaid=e.paid?'paid':'pending';
+  S._ciId=id;S._ciType=resolvedType(e)||'Any';
+  S._ciPaid=e.paid?((e.price??DEFAULT_PRICE)===0?'house':e.pay_method==='card'?'card':e.card_amount!=null?'split':'cash'):'pending';
   renderCheckinModal();
 }
 function renderCheckinModal(){
@@ -10255,7 +10256,13 @@ function renderCheckinModal(){
     <div class="modal-box" role="dialog" aria-modal="true" style="max-width:420px">
       <div class="modal-title">${t('checkInBtn')} · #${e.queueNum} ${esc(e.name)}</div>
       ${comm?'':`<div class="form-group" style="margin:14px 0 10px"><label>${t('colPayment')}${!e.paid?` · SAR ${e.price??DEFAULT_PRICE}`:''}</label>
-        <div style="display:flex;gap:6px;margin-top:4px">${payBtn('pending',' '+t('pendingLabel'))}${payBtn('paid','✓ '+t('paidLabel'))}</div></div>`}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+          ${payBtn('pending',' '+t('pendingLabel'))}
+          ${payBtn('cash','✓ '+t('paidLabel')+' · '+t('cashCash'))}
+          ${payBtn('card','✓ '+t('paidLabel')+' · '+t('cashCard'))}
+          ${payBtn('split','✓ '+t('paidLabel')+' · '+t('splitWord')+'…')}
+          ${payBtn('house',' '+t('onTheHouseLabel'))}
+        </div></div>`}
       <div class="form-group" style="margin:14px 0 12px"><label>${t('bikeTypeLabel')}</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${bikeTypeOpts(comm).map(tyBtn).join('')}</div></div>
       <button type="button" class="btn-secondary" style="width:100%" onclick="closeCheckinModal();openModal('${e.id}')">${t('assignBikeTitle')}…</button>
@@ -10272,25 +10279,43 @@ async function confirmCheckinModal(){
   const comm=_commSessIds.has(e.sessionId);
   const patch={status:'active'};
   if(ty!==e.typePreference)patch.type_preference=ty;
-  // The booking price FOLLOWS the chosen type — except riders on the house (their
-  // default-payment covers this type, or staff comped them manually) and promo-priced
-  // rows, whose discount must survive the type pick. Paid rows keep their recorded price.
-  const isHouse=e.paid&&(e.price??DEFAULT_PRICE)===0;
-  if(!comm&&!isHouse){
+  // Payment: the full pay-menu states (pending / cash / card / split / house), layered on
+  // the type-follows pricing. Protections: promo prices survive; a paid row's recorded
+  // amount is never rewritten (except an explicit Pending/House choice); riders whose
+  // default payment covers the chosen type ride free automatically.
+  let _method,_card=null;
+  if(!comm){
+    const mode=S._ciPaid||'pending';
+    const isHouseNow=e.paid&&(e.price??DEFAULT_PRICE)===0;
     const c=e.customerId?(S.customers||[]).find(x=>x.id===e.customerId):null;
     const houseForTy=c&&_custHouseFor(c,ty)&&String(c.name||'').trim().toLowerCase()===String(e.name||'').trim().toLowerCase();
-    if(houseForTy){if(!e.paid){patch.paid=true;patch.price=0;}}
-    else if(!e.paid&&!e.promoCode){const np=priceForType(ty);if((e.price??DEFAULT_PRICE)!==np)patch.price=np;}
-  }
-  if(!comm&&S._ciPaid==='paid'&&!e.paid&&patch.paid===undefined){
-    patch.paid=true;
-    if(patch.price===undefined)patch.price=(e.price===0&&!e.promoCode)?_entryFallbackPrice(e):(e.price??DEFAULT_PRICE);
+    const typePrice=()=>e.promoCode?(e.price??DEFAULT_PRICE):priceForType(ty);
+    const setPrice=p=>{if((e.price??DEFAULT_PRICE)!==p)patch.price=p;};
+    if(mode==='house'){
+      if(!e.paid)patch.paid=true;
+      setPrice(0);_method=null;
+    }else if(mode==='pending'){
+      if(houseForTy){if(!e.paid)patch.paid=true;setPrice(0);_method=null;} // covered type: on the house automatically
+      else{if(e.paid)patch.paid=false;setPrice(typePrice());_method=null;}
+    }else{ // cash | card | split
+      if(!e.paid)patch.paid=true;
+      const np=e.paid?(e.price??DEFAULT_PRICE):(houseForTy||isHouseNow)?0:typePrice();
+      setPrice(np);
+      if(np===0){_method=null;}
+      else if(mode==='split'){
+        const raw=prompt(t('splitCardPrompt'),e.card_amount!=null?String(e.card_amount):'');
+        if(raw===null)return; // cancelled: stay in the modal, nothing written
+        let cd=parseFloat(raw);if(isNaN(cd)||cd<0)cd=0;
+        _card=Math.round(Math.min(cd,np)*100)/100;_method='split';
+      }else _method=mode;
+    }
   }
   // Status-guarded like the classic check-in: if another device beat us to it, don't double up.
   const _q=await sb.from('queue_entries').update(patch).eq('id',e.id).eq('status','waiting').select('id');
   if(_writeErr(_q,'check-in'))return;
   closeCheckinModal();
   if(!(_q.data&&_q.data.length)){await loadDataLight();renderStaffQueue();return;}
+  if(!comm&&_method!==undefined){try{await sb.from('queue_entries').update({pay_method:_method,card_amount:_card}).eq('id',e.id);}catch(_){}} // tolerant, like togglePayment
   try{await sb.from('queue_entries').update({checked_in_at:new Date().toISOString()}).eq('id',e.id);}catch(_){}
   Object.assign(e,{status:'active',typePreference:ty},patch.paid?{paid:true}:{},patch.price!==undefined?{price:patch.price}:{});
   logAction(`${t('checkInBtn')}: #${e.queueNum} ${e.name}`);
