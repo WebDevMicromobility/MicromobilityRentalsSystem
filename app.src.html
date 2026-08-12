@@ -193,6 +193,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 
 <div id="pin-modal"        style="display:none"></div>
 <div id="bike-modal"       style="display:none"></div>
+<div id="checkin-modal"    style="display:none"></div>
 <div id="edit-price-modal"  style="display:none"></div>
 <div id="receipt-modal"    style="display:none"></div>
 <div id="auth-modal"       style="display:none"></div>
@@ -3832,7 +3833,7 @@ function showWlAddModal(){
         <button class="btn-primary" onclick="addDeskWaitlist()">+ ${t('wlAddBtn')}${S._wlExtra.length?` (${S._wlExtra.length+1})`:''}</button>
       </div>
     </div></div>`;
-  setTimeout(()=>{const i=document.getElementById('wl-name');if(i&&!_n)i.focus();},60);
+  setTimeout(()=>{const i=document.getElementById('wl-name');if(i&&!_n&&(!document.activeElement||document.activeElement===document.body))i.focus();},60); // don't steal focus from a fast typist
 }
 function _wlxSync(){(S._wlExtra||[]).forEach((r,i)=>{
   const n=document.getElementById('wlx-name-'+i),ty=document.getElementById('wlx-type-'+i);
@@ -4004,7 +4005,7 @@ async function giveDeskBike(id){
   toast(t('wlGivenToast').replace('{0}',w.name));
   S._flashId=entry.id;S._flashColor='green';setTimeout(()=>{S._flashId=null;},800);
   renderStaffQueue();
-  if(getQueue().some(x=>x.id===entry.id))openModal(entry.id); // straight into bike assignment, same as the queue's Check In
+  if(getQueue().some(x=>x.id===entry.id))showCheckinModal(entry.id); // straight into the quick check-in (payment + bike type), same as the queue's Check In
 }
 async function resolveDeskWaitlist(id,status){
   const w=(S.deskWaitlist||[]).find(x=>x.id===id);if(!w)return;
@@ -6376,7 +6377,7 @@ function _kbCheckInNext(){
     .sort((a,b)=>a.sessionId.localeCompare(b.sessionId)||a.queueNum-b.queueNum);
   if(!waiting.length){toast(t('kbNoWaiting'),'info');return;}
   if(S.staffTab!=='queue')setStaffTab('queue');
-  openModal(waiting[0].id);
+  showCheckinModal(waiting[0].id);
 }
 
 function selectSessionDetail(id){
@@ -7785,7 +7786,7 @@ function showWalkinModal(){
         <button class="btn-primary" onclick="saveWalkin()">${t('addWalkinBtn')}${S._wiRiders.length?` (${S._wiRiders.length+1})`:''}</button>
       </div>
     </div></div>`;
-  setTimeout(()=>{const i=document.getElementById('wi-name');if(i&&!_n)i.focus();},60);
+  setTimeout(()=>{const i=document.getElementById('wi-name');if(i&&!_n&&(!document.activeElement||document.activeElement===document.body))i.focus();},60); // don't steal focus from a fast typist
 }
 function closeWalkinModal(){const m=document.getElementById('walkin-modal');if(m){m.style.display='none';m.innerHTML='';}S._wiRiders=[];}
 function _wiSync(){(S._wiRiders||[]).forEach((r,i)=>{
@@ -8129,7 +8130,7 @@ function renderStaffQueue(){
     }
     const _apprChip=(_comm&&e.approval==='approved')?`<span style="font-size:10px;font-weight:900;color:var(--green);border:1px solid rgba(var(--green-rgb),.35);border-radius:2px;padding:2px 8px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">✓ ${t('apprApprovedChip')}</span><button class="btn-sm btn-muted" title="${t('apprUndoBtn')}" onclick="unapproveEntry('${e.id}')">↺ ${t('apprUndoBtn')}</button>`:'';
     if(e.status==='waitlist')return`${_apprChip}<button class="btn-sm btn-green" onclick="promoteWaitlist('${e.id}')">${ICON_PROMOTE} ${t('promoteBtn')}</button>${_editBtn}${_noteBtn}<button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
-    if(e.status==='waiting')return`${_apprChip}${_bulkChk(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button>${_editBtn}${_noteBtn}<button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
+    if(e.status==='waiting')return`${_apprChip}${_bulkChk(e)}<button class="btn-sm btn-green" onclick="showCheckinModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button>${_editBtn}${_noteBtn}<button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
     if(e.status==='active')return`${_apprChip}${_bulkChk(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="showCashierModal('${e.id}')">${t('cashierAddBtn')}</button>${_editBtn}${_noteBtn}<button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
     if(e.status==='done')return`<button class="btn-sm btn-green" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button>${_noteBtn}<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
     if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button>${_noteBtn}<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
@@ -10225,7 +10226,7 @@ function _onScanPayload(raw){
     try{if(navigator.vibrate)navigator.vibrate(80);}catch(e){}
     toast(t('scanFound').replace('{0}',entry.queueNum).replace('{1}',nm));
     closeScanModal();
-    openModal(entry.id);
+    showCheckinModal(entry.id);
     return;
   }
   if(entry.status==='active'){say(t('scanAlreadyActive').replace('{0}',entry.queueNum).replace('{1}',nm),'#ffb347');return;}
@@ -10235,6 +10236,63 @@ function _onScanPayload(raw){
   say(t('scanNotFound'),'var(--red)');
 }
 
+// ── Quick check-in: staff confirm PAYMENT (paid or not) and the bike TYPE — no specific
+// bike is picked here. The classic bike picker stays one tap away ("Assign specific
+// bike…"), and remains the tool for Change Bike on active riders and reservations. ──
+function showCheckinModal(id){
+  const e=getQueue().find(x=>x.id===id);if(!e)return;
+  if(e.status!=='waiting'){openModal(id);return;} // non-waiting paths keep the classic modal
+  S._ciId=id;S._ciType=resolvedType(e)||'Any';S._ciPaid=e.paid?'paid':'pending';
+  renderCheckinModal();
+}
+function renderCheckinModal(){
+  const e=getQueue().find(x=>x.id===S._ciId);const m=document.getElementById('checkin-modal');if(!e||!m)return;
+  const comm=_commSessIds.has(e.sessionId);
+  const tyBtn=ty=>`<button type="button" class="toggle-btn${S._ciType===ty?' active':''}" onclick="S._ciType='${ty}';renderCheckinModal()">${typeLabel(ty)}</button>`;
+  const payBtn=(v,lbl)=>`<button type="button" class="toggle-btn${S._ciPaid===v?' active':''}" style="flex:1" onclick="S._ciPaid='${v}';renderCheckinModal()">${lbl}</button>`;
+  m.style.display='flex';
+  m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeCheckinModal()">
+    <div class="modal-box" role="dialog" aria-modal="true" style="max-width:420px">
+      <div class="modal-title">${t('checkInBtn')} · #${e.queueNum} ${esc(e.name)}</div>
+      ${comm?'':`<div class="form-group" style="margin:14px 0 10px"><label>${t('colPayment')}${!e.paid?` · SAR ${e.price??DEFAULT_PRICE}`:''}</label>
+        <div style="display:flex;gap:6px;margin-top:4px">${payBtn('pending',' '+t('pendingLabel'))}${payBtn('paid','✓ '+t('paidLabel'))}</div></div>`}
+      <div class="form-group" style="margin:14px 0 12px"><label>${t('bikeTypeLabel')}</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${bikeTypeOpts(comm).map(tyBtn).join('')}</div></div>
+      <button type="button" class="btn-secondary" style="width:100%" onclick="closeCheckinModal();openModal('${e.id}')">${t('assignBikeTitle')}…</button>
+      <div class="modal-footer">
+        <button class="btn-secondary" onclick="closeCheckinModal()">${t('cancelBtn')}</button>
+        <button class="btn-primary" onclick="confirmCheckinModal()">${t('confirmCheckin')}</button>
+      </div>
+    </div></div>`;
+}
+function closeCheckinModal(){const m=document.getElementById('checkin-modal');if(m){m.style.display='none';m.innerHTML='';}S._ciId=null;}
+async function confirmCheckinModal(){
+  const e=getQueue().find(x=>x.id===S._ciId);if(!e)return;
+  const ty=CUST_TYPES.includes(S._ciType)?S._ciType:(e.typePreference||'Any');
+  const comm=_commSessIds.has(e.sessionId);
+  const patch={status:'active'};
+  if(ty!==e.typePreference){
+    patch.type_preference=ty;
+    // Reprice on a type change like every other editor: only unpaid rows still on the old default.
+    if(!comm&&!e.paid&&(e.price??DEFAULT_PRICE)===priceForType(e.typePreference||'Any'))patch.price=priceForType(ty);
+  }
+  if(!comm&&S._ciPaid==='paid'&&!e.paid){
+    patch.paid=true;
+    if(patch.price===undefined)patch.price=(e.price===0&&!e.promoCode)?_entryFallbackPrice(e):(e.price??DEFAULT_PRICE);
+  }
+  // Status-guarded like the classic check-in: if another device beat us to it, don't double up.
+  const _q=await sb.from('queue_entries').update(patch).eq('id',e.id).eq('status','waiting').select('id');
+  if(_writeErr(_q,'check-in'))return;
+  closeCheckinModal();
+  if(!(_q.data&&_q.data.length)){await loadDataLight();renderStaffQueue();return;}
+  try{await sb.from('queue_entries').update({checked_in_at:new Date().toISOString()}).eq('id',e.id);}catch(_){}
+  Object.assign(e,{status:'active',typePreference:ty},patch.paid?{paid:true}:{},patch.price!==undefined?{price:patch.price}:{});
+  logAction(`${t('checkInBtn')}: #${e.queueNum} ${e.name}`);
+  await loadDataLight();
+  toast(`✓ #${e.queueNum} ${e.name}`);
+  S._flashId=e.id;S._flashColor='green';setTimeout(()=>{S._flashId=null;},800);
+  renderStaffQueue();
+}
 function openModal(riderId){
   S.modalRider=riderId;S.modalBikes=[];S.modalShowAll=false;S.modalShowAddBike=false;S.modalAddBikeName='';S.modalAddBikeType=null;S.modalAddBikeSize='M';S.modalAddBikeFrame='';S.modalAddBikeNumber='';S.modalSearch='';S.modalSort='default';S.modalSortDir=1;S.modalFilterSize='all';S.modalFilterBrand='all';S.modalFilterModel='all';S.modalPriceEdit=false;
   

@@ -60,7 +60,7 @@ test.describe('unlocked staff panel', () => {
       S.queue.push({ id: 'abc123de-0000-4000-8000-000000000001', queueNum: 7, name: 'Scan Test', status: 'waiting', sessionId: 's1', typePreference: 'Any', size: 'M', paid: false });
       _onScanPayload('MMC-7-abc123');
     `);
-    await expect(page.locator('#bike-modal')).toContainText('Scan Test');
+    await expect(page.locator('#checkin-modal')).toContainText('Scan Test'); // quick check-in modal (payment + bike type)
   });
 });
 
