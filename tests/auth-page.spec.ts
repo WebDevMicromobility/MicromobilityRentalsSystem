@@ -341,6 +341,8 @@ test.describe('round 4: invisible characters & post-login flow', () => {
       return vis(bn) || vis(tn);
     });
     expect(nav).toBe(true);
+    // Bike shortcut to My Rides sits in the topbar beside the customer avatar.
+    await expect(page.locator('#topbar-right').getByRole('button', { name: 'My Rides' })).toBeVisible();
   });
 
   test('signup with a bidi-marked email stores the clean address', async ({ page }) => {
