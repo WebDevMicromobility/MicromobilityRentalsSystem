@@ -75,3 +75,21 @@ create trigger queue_entries_community_gate_upd
   for each row
   when (new.session_id is distinct from old.session_id)
   execute function _community_booking_gate();
+
+-- Carbon road bikes are not offered on the Saturday Social Ride. Client pickers exclude
+-- them, but stale cached builds bypassed that (booking #58, 2026-08-12) — so the DATABASE
+-- coerces any 'Road Carbon' booking on a community session to 'Road', on insert and
+-- update alike. Silent coercion (not rejection) so old clients keep working.
+create or replace function _comm_no_carbon() returns trigger language plpgsql as $$
+begin
+  if new.type_preference='Road Carbon' and exists(
+    select 1 from sessions s where s.id=new.session_id and s.event_kind='community') then
+    new.type_preference:='Road';
+  end if;
+  return new;
+end$$;
+
+drop trigger if exists queue_entries_comm_no_carbon on queue_entries;
+create trigger queue_entries_comm_no_carbon
+  before insert or update on queue_entries
+  for each row execute function _comm_no_carbon();
