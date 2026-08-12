@@ -65,3 +65,13 @@ end $$;
 drop trigger if exists queue_entries_community_gate on queue_entries;
 create trigger queue_entries_community_gate before insert on queue_entries
   for each row execute function _community_booking_gate();
+
+-- The gate originally fired on INSERT only — moving an existing booking INTO the Saturday
+-- session via reschedule (an UPDATE of session_id) bypassed the tag check entirely.
+-- Same gate function, now also on session changes. Staff stay exempt.
+drop trigger if exists queue_entries_community_gate_upd on queue_entries;
+create trigger queue_entries_community_gate_upd
+  before update on queue_entries
+  for each row
+  when (new.session_id is distinct from old.session_id)
+  execute function _community_booking_gate();

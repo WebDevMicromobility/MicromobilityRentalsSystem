@@ -8844,7 +8844,9 @@ function showRescheduleModal(fromSessionId){
   const moving=getQueue().filter(e=>e.customerId===cust.id&&e.sessionId===fromSessionId&&(e.status==='waiting'||e.status==='waitlist'));
   if(!moving.length){toast(t('errCancelWaiting'),'error');return;}
   const today=_todayISO();
-  const opts=allSessions().filter(s=>s.id!==fromSessionId&&s.status==='open'&&(s.session_date||s.id)>=today)
+  // Community rides are never a reschedule target: they're invite-only (tag-gated), solo,
+  // and approval-based — moving a JCC group in would bypass all three rules.
+  const opts=allSessions().filter(s=>s.id!==fromSessionId&&s.status==='open'&&!_isCommunity(s)&&(s.session_date||s.id)>=today)
     .sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
   const list=opts.length?opts.map(s=>{
     const cap=s.capacity||12;
@@ -8872,6 +8874,7 @@ async function rescheduleBooking(fromSessionId,toSessionId){
   const moving=getQueue().filter(e=>e.customerId===cust.id&&e.sessionId===fromSessionId&&(e.status==='waiting'||e.status==='waitlist'));
   if(!moving.length){closeRescheduleModal();return;}
   const newSess=allSessions().find(s=>s.id===toSessionId);if(!newSess){closeRescheduleModal();return;}
+  if(_isCommunity(newSess)){closeRescheduleModal();return;} // never a reschedule target (invite-only, solo, approval-based); the DB update-gate backstops this
   const cap=newSess.capacity||12;
   const taken=getQueue().filter(e=>e.sessionId===toSessionId&&(e.status==='waiting'||e.status==='active')).length;
   if(cap-taken<moving.length){toast(t('rescheduleFull'),'error');return;}
