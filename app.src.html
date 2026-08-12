@@ -10271,12 +10271,18 @@ async function confirmCheckinModal(){
   const ty=CUST_TYPES.includes(S._ciType)?S._ciType:(e.typePreference||'Any');
   const comm=_commSessIds.has(e.sessionId);
   const patch={status:'active'};
-  if(ty!==e.typePreference){
-    patch.type_preference=ty;
-    // Reprice on a type change like every other editor: only unpaid rows still on the old default.
-    if(!comm&&!e.paid&&(e.price??DEFAULT_PRICE)===priceForType(e.typePreference||'Any'))patch.price=priceForType(ty);
+  if(ty!==e.typePreference)patch.type_preference=ty;
+  // The booking price FOLLOWS the chosen type — except riders on the house (their
+  // default-payment covers this type, or staff comped them manually) and promo-priced
+  // rows, whose discount must survive the type pick. Paid rows keep their recorded price.
+  const isHouse=e.paid&&(e.price??DEFAULT_PRICE)===0;
+  if(!comm&&!isHouse){
+    const c=e.customerId?(S.customers||[]).find(x=>x.id===e.customerId):null;
+    const houseForTy=c&&_custHouseFor(c,ty)&&String(c.name||'').trim().toLowerCase()===String(e.name||'').trim().toLowerCase();
+    if(houseForTy){if(!e.paid){patch.paid=true;patch.price=0;}}
+    else if(!e.paid&&!e.promoCode){const np=priceForType(ty);if((e.price??DEFAULT_PRICE)!==np)patch.price=np;}
   }
-  if(!comm&&S._ciPaid==='paid'&&!e.paid){
+  if(!comm&&S._ciPaid==='paid'&&!e.paid&&patch.paid===undefined){
     patch.paid=true;
     if(patch.price===undefined)patch.price=(e.price===0&&!e.promoCode)?_entryFallbackPrice(e):(e.price??DEFAULT_PRICE);
   }
