@@ -82,8 +82,13 @@ function cors() {
 }
 
 // Unlocks the staff panel locally, exactly like a successful PIN entry does.
+// Also names the operator: the op-gate modal blocks the staff view until a name is set
+// (every logged action carries who did it), and specs act as "Spec Staff".
 export async function unlockStaff(page: Page) {
-  await page.addInitScript(() => localStorage.setItem('cq_staff', '1'));
+  await page.addInitScript(() => {
+    localStorage.setItem('cq_staff', '1');
+    localStorage.setItem('cq_op_name', 'Spec Staff');
+  });
 }
 
 // Signs a customer in locally, exactly like a remembered login session does.
