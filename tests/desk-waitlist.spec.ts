@@ -43,18 +43,31 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   await expect(rowFor('On The List')).toHaveCount(1);
   await expect(rowFor('On The List').getByRole('button', { name: /Promote/ })).toHaveCount(1);
   await expect(rowFor('On The List').getByText('#91')).toBeVisible();
-  await expect(rowFor('On The List').getByText(/W3/)).toBeVisible(); // staff-only waitlist serial next to the booking number
+  await expect(rowFor('On The List').locator('input[type="number"]')).toHaveValue('3'); // staff-only W serial, directly editable
 
-  // Reordering: move-down swaps the pair and renumbers the session's waitlist 1..n.
+  // Fast reordering: staff REWRITE the W number directly; the row jumps and the session
+  // renumbers 1..n (drag also works — no arrow buttons).
   const reorders: { url: string; body: Record<string, unknown> }[] = [];
   page.on('request', (r) => {
     if (r.method() === 'PATCH' && r.url().includes('/rest/v1/queue_entries')) reorders.push({ url: r.url(), body: r.postDataJSON() });
   });
-  await rowFor('On The List').getByRole('button', { name: 'Move down' }).click();
-  await expect.poll(() => reorders.length).toBe(2);
-  expect(reorders.find((p) => p.url.includes('id=eq.qb4'))?.body).toEqual({ waitlist_num: 2 });
-  expect(reorders.find((p) => p.url.includes('id=eq.qb5'))?.body).toEqual({ waitlist_num: 1 });
-  await expect(rowFor('Second List').getByText(/W1/)).toBeVisible(); // optimistic re-render shows the new order
+  const wInput = rowFor('On The List').locator('input[type="number"]');
+  await wInput.fill('2');
+  await wInput.press('Enter');
+  // (a browser may fire the change event twice; duplicate identical patches are harmless)
+  await expect.poll(() => reorders.some((p) => p.url.includes('id=eq.qb4') && p.body.waitlist_num === 2)
+    && reorders.some((p) => p.url.includes('id=eq.qb5') && p.body.waitlist_num === 1)).toBe(true);
+
+  // A waitlisted booking can be sent to the Staff List: a linked managed row is created.
+  const mwLink: Record<string, unknown>[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && r.url().includes('/rest/v1/desk_waitlist')) {
+      const sent = r.postDataJSON();
+      mwLink.push(...(Array.isArray(sent) ? sent : [sent]));
+    }
+  });
+  await rowFor('Second List').getByRole('button', { name: 'To staff list' }).click();
+  await expect.poll(() => mwLink.some((r) => r.kind === 'managed' && r.booking_id === 'qb5')).toBe(true);
   // Resolved walk-ups appear in the history section on the same page, not the waiting list.
   await expect(rowFor('Already Served')).toHaveCount(1);
   await expect(rowFor('Already Served').getByText(/Bike given/)).toBeVisible();
@@ -99,21 +112,15 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   expect(posts[0].status).toBe('waiting');
   expect(posts[0].paid).toBe(true); // the cash payment taken while waiting
 
-  // Staff Managed Waitlist: quick inline add, hand-ordered, own section.
+  // Staff Managed Waitlist: its OWN view via the Staff List pill; quick inline add lands
+  // there with kind 'managed' and an editable position number (no arrows).
+  await panel.getByRole('button', { name: 'Staff List', exact: true }).click();
   await panel.locator('#mw-name').fill('Vip One');
-  const mwPosts: Record<string, unknown>[] = [];
-  page.on('request', (r) => {
-    if (r.method() === 'POST' && r.url().includes('/rest/v1/desk_waitlist')) {
-      const sent = r.postDataJSON();
-      mwPosts.push(...(Array.isArray(sent) ? sent : [sent]));
-    }
-  });
   await panel.getByRole('button', { name: /\+ Add$/ }).click();
-  await expect.poll(() => mwPosts.length).toBe(1);
-  expect(mwPosts[0].kind).toBe('managed'); // lands on the managed list, not the walk-up one
-  expect(mwPosts[0].sort_order).toBe(1);
+  await expect.poll(() => mwLink.some((r) => r.kind === 'managed' && r.name === 'Vip One')).toBe(true);
   await expect(rowFor('Vip One')).toHaveCount(1);
-  await expect(rowFor('Vip One').getByRole('button', { name: /Move up/ })).toHaveCount(1); // orderable
+  await expect(rowFor('Vip One').locator('input[type="number"]')).toHaveCount(1); // type-a-number ordering
+  await panel.getByRole('button', { name: 'Waitlist', exact: true }).click(); // back for the remaining checks
 
   // Remove takes a rider off the waiting list (into history) without booking anything.
   await rowFor('Waiting Two').getByRole('button', { name: /Remove/ }).click();

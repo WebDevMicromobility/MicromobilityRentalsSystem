@@ -31,3 +31,7 @@ create policy "staff full access" on desk_waitlist
 -- ordered by sort_order (renumbered 1..n on every drag / arrow move).
 alter table desk_waitlist add column if not exists kind text not null default 'walkup';
 alter table desk_waitlist add column if not exists sort_order int;
+
+-- A managed-list entry can reference an existing waitlisted BOOKING (added from the
+-- Waitlist page): it then shows the booking number and its action is Promote, not Check In.
+alter table desk_waitlist add column if not exists booking_id text;
