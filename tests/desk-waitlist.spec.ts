@@ -13,7 +13,8 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
     { id: 'w3', name: 'Already Served', phone: '0533333333', bike_type: 'Any', status: 'done', author: null, created_at: '2099-01-01T09:00:00Z', resolved_at: '2099-01-01T09:30:00Z' },
   ];
   const bikes = [{ id: 'b1', name: 'R-01', type: 'Road', status: 'available', colors: [] }];
-  const sessions = [{ id: 's0', day: 'Friday', session_date: '2099-02-10', capacity: 12, status: 'open', created_at: 1 }];
+  const sessions = [{ id: 's0', day: 'Friday', session_date: '2099-02-10', capacity: 12, status: 'open', created_at: 1 },
+    { id: 's1', day: 'Saturday', session_date: '2099-02-17', capacity: 12, status: 'open', created_at: 2 }];
   // Queue bookings surface on the waitlist too — but ONLY while unpaid and not checked in.
   const qb = (id: string, qn: number, name: string, status: string, paid: boolean): Record<string, unknown> => ({
     id, session_id: 's0', session_day: 'Friday', session_date: '2099-02-10', queue_num: qn, name,
@@ -21,7 +22,8 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   });
   const queue_entries = [qb('qb1', 51, 'Owes Money', 'waiting', false), qb('qb2', 52, 'Fully Settled', 'waiting', true), qb('qb3', 53, 'On A Bike', 'active', false),
     { ...qb('qb4', 91, 'On The List', 'waitlist', false), type_preference: 'Mountain', waitlist_num: 3 },
-    { ...qb('qb5', 92, 'Second List', 'waitlist', false), type_preference: 'Mountain', waitlist_num: 4 }];
+    { ...qb('qb5', 92, 'Second List', 'waitlist', false), type_preference: 'Mountain', waitlist_num: 4 },
+    { ...qb('qb6', 21, 'Other Session Rider', 'waitlist', false), session_id: 's1', session_date: '2099-02-17', waitlist_num: 1 }];
   await stubSupabase(page, { desk_waitlist, bikes, sessions, queue_entries });
   await unlockStaff(page);
   await page.goto('/');
@@ -74,6 +76,13 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   await expect(rowFor('Already Served').getByRole('button', { name: /Remove/ })).toHaveCount(0); // history rows have no actions
   await expect(panel.getByText('1 available now').filter({ visible: true })).toHaveCount(2); // the free Road bike satisfies both the Road and the Any request
   await expect(panel.locator('#wl-sess')).toHaveValue('s0'); // choose-session select in the filter bar
+  // The selector FILTERS per session — no cross-session consolidation.
+  await expect(rowFor('Other Session Rider')).toHaveCount(0);
+  await panel.locator('#wl-sess').selectOption('s1');
+  await expect(rowFor('Other Session Rider')).toHaveCount(1);
+  await expect(rowFor('On The List')).toHaveCount(0);
+  await panel.locator('#wl-sess').selectOption('s0');
+  await expect(rowFor('On The List')).toHaveCount(1);
 
   // Add a party of two through the modal (writes are echoed as success by the stub):
   // the second rider row is left unnamed and waits as "New Walkup 2".

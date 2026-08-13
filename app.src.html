@@ -3813,7 +3813,8 @@ function renderDeskWaitlist(){
   const all=_wlList();
   const list=all.filter(w=>!q||String(w.name||'').toLowerCase().includes(q)||String(w.phone||'').includes(q));
   const open=_wlOpenSess();
-  if(!S._wlSess||!open.find(x=>x.id===S._wlSess))S._wlSess=(((S.sfSession!=='all'&&open.find(x=>x.id===S.sfSession))||open[0])||{}).id;
+  const _wlCnt={};getQueue().forEach(e=>{if(e.status==='waitlist'&&!_commSessIds.has(e.sessionId))_wlCnt[e.sessionId]=(_wlCnt[e.sessionId]||0)+1;});
+  if(!S._wlSess||!open.find(x=>x.id===S._wlSess))S._wlSess=(((S.sfSession!=='all'&&open.find(x=>x.id===S.sfSession))||open.find(x=>_wlCnt[x.id])||open[0])||{}).id;
   const nFree=(S.bikes||[]).filter(b=>b.status==='available').length;
   const _today=todayStr();
   const nGiven=(S.deskWaitlist||[]).filter(w=>w.status==='done'&&String(w.resolved_at||'').slice(0,10)===_today).length;
@@ -3829,11 +3830,9 @@ function renderDeskWaitlist(){
   // waitlists get worked past midnight, and un-closed sessions stay live for days. So no
   // date cutoff at all: any open/full session shows its waitlisted bookings; closing the
   // session (the close-out) retires them from this working view.
-  const wlBookAll=getQueue().filter(e=>{
-    if(e.status!=='waitlist'||_commSessIds.has(e.sessionId))return false;
-    const _s=allSessions().find(x=>x.id===e.sessionId);
-    return !!_s&&(_s.status==='open'||_s.status==='full');
-  });
+  // Each session's waitlist is viewed on its own: the session selector above filters the
+  // list (and stays the hand-out target for walk-ups). Options show per-session counts.
+  const wlBookAll=getQueue().filter(e=>e.status==='waitlist'&&e.sessionId===S._wlSess&&!_commSessIds.has(e.sessionId));
   // Bookings in staff-set W order (per session, earliest session first); desk walk-ups (FIFO) after.
   const wlBook=wlBookAll.filter(e=>!q||String(e.name||'').toLowerCase().includes(q)||String(e.phone||'').includes(q))
     .sort((a,b)=>String(a.sessionDate||'').localeCompare(String(b.sessionDate||''))||_wlCmp(a,b));
@@ -3937,7 +3936,7 @@ function renderDeskWaitlist(){
     <div class="filter-bar">
       <div class="filter-row">
         <span class="filter-label">${t('colSession')}:</span>
-        <select class="filter-select" style="min-width:200px" onchange="S._wlSess=this.value" id="wl-sess">${open.map(x=>`<option value="${x.id}"${S._wlSess===x.id?' selected':''}>${dayLabel(x.day)} ${shortDate(x.session_date||x.id)} · ${sessionTime(x)}${x.status==='full'?` (${t('statusFull')})`:''}</option>`).join('')||`<option value="">${t('noSessionsAvail')}</option>`}</select>
+        <select class="filter-select" style="min-width:200px" onchange="S._wlSess=this.value;renderStaffQueue()" id="wl-sess">${open.map(x=>`<option value="${x.id}"${S._wlSess===x.id?' selected':''}>${dayLabel(x.day)} ${shortDate(x.session_date||x.id)} · ${sessionTime(x)}${x.status==='full'?` (${t('statusFull')})`:''}${_wlCnt[x.id]?` · ${_wlCnt[x.id]} ${t('waitlistLabel')}`:''}</option>`).join('')||`<option value="">${t('noSessionsAvail')}</option>`}</select>
         <div class="search-wrap" style="margin-left:8px">
           <svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="white" stroke-width="1.4"/><line x1="9.5" y1="9.5" x2="13" y2="13" stroke="white" stroke-width="1.4" stroke-linecap="round"/></svg>
           <input id="wl-search-input" class="search-input" placeholder="${t('searchPlaceholder')}" value="${esc(S._wlSearch||'')}" oninput="_wlSearchInput(this.value)">
