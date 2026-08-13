@@ -65,9 +65,7 @@ test('a default-payment change applies to current bookings immediately', async (
 
   // The hidden type disappears from that customer's own booking picker.
   const hidden = await page.evaluate(() => {
-    // @ts-expect-error app globals
     S.loggedIn = { id: 'c1', name: 'Live Rider' };
-    // @ts-expect-error app globals
     const c = (S.customers || []).find((x: { id: string }) => x.id === 'c1');
     if (c) (c as { hidden_types?: string }).hidden_types = 'Road Carbon';
     // @ts-expect-error app globals

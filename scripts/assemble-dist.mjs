@@ -16,7 +16,10 @@ const dist = join(root, 'dist');
 const FILES = [
   'index.html', 'styles.css', 'service-worker.js', 'manifest.json', '404.html',
   '_headers', '_redirects',
+  'robots.txt', 'sitemap.xml',
   'brand.png', 'hero.webp', 'icon-192.png', 'icon-512.png', 'logo.png', 'apple-touch-icon.png',
+  // referenced by the app + service-worker SHELL — missing any of these breaks cache.addAll on install
+  'jcc.png', 'jcc-white.png', 'logo-dark.png', 'og-image.png', 'social-ride.jpg',
 ];
 // Directories copied recursively (functions/ MUST be inside dist for Pages Functions;
 // vendor/ holds the self-hosted libraries; splash/ holds the iOS PWA launch screens).

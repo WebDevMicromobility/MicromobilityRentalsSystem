@@ -36,6 +36,6 @@ test('a fixed-amount promo split sums exactly to the discounted total', async ({
     const drift=Math.round((target-sum1)*100)/100;
     if(drift!==0)entries[entries.length-1].price=Math.max(0,Math.round((entries[entries.length-1].price+drift)*100)/100);
     return { sum: Math.round(entries.reduce((s,e)=>s+e.price,0)*100)/100, target };
-  })()`);
+  })()`) as { sum: number; target: number };
   expect(out.sum).toBe(out.target); // 162.50 exactly, no halala drift
 });

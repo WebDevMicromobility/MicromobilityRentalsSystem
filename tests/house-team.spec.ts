@@ -85,7 +85,7 @@ test('a refunded receipt with a discount reports the NET amount refunded', async
     { name:'Gel',  cat:'EnergyGels',   qty:2, price:10, pay:'refunded' },
     { name:'Disc', cat:'__discount__', qty:1, price:-5, pay:'refunded' },
     { name:'Gel',  cat:'EnergyGels',   qty:1, price:10, pay:'paid' },
-  ])`);
+  ])`) as { refunded: number; collected: number };
   expect(out.refunded).toBe(15); // 20 - 5 discount — Math.abs used to report 25
   expect(out.collected).toBe(10); // the live line is untouched
 });
@@ -103,6 +103,6 @@ test('cancelled/no-show bookings do not count their add-ons as sold units', asyn
       {id:'d',sessionId:'s1',status:'noshow',   addons:[{id:'i1',qty:4}]},
     ];
     return _itemSoldUnits();
-  })()`);
+  })()`) as Record<string, number>;
   expect(out.i1).toBe(3); // done 2 + waiting 1; the restocked 9 from cancelled/noshow no longer inflate reorders
 });

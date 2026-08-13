@@ -20,7 +20,7 @@ test('_csvCell neutralizes formula-injection payloads and still quotes correctly
     formulaWithComma: _csvCell('=A1,evil'),
     empty:     _csvCell(null),
     number:    _csvCell(57.5),
-  })`);
+  })`) as Record<string, string>;
   // dangerous leads get a literal-text quote prefix
   expect(out.hyperlink).toBe(`"'=HYPERLINK(""http://evil"",""x"")"`); // prefixed AND quoted (has commas)
   expect(out.plus.startsWith("'+")).toBe(true);

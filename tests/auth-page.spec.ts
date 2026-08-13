@@ -280,7 +280,7 @@ test.describe('round 3: storage, Arabic keyboards, paste, error visibility', () 
     const out = await page.evaluate(`(()=>{
       const el=document.createElement('input');el.value='٠٥٠٨٧٢٧٠١٢';fmtPhoneInput(el);
       return { masked: el.value, norm: _normPhone('٠٥٠٨٧٢٧٠١٢','+966'), eastern: _normPhone('۰۵۰۸۷۲۷۰۱۲','+966') };
-    })()`);
+    })()`) as { masked: string; norm: string; eastern: string };
     expect(out.masked).toBe('050 872 7012'); // was silently wiped as the user typed
     expect(out.norm).toBe('+966508727012');
     expect(out.eastern).toBe('+966508727012');
@@ -293,7 +293,7 @@ test.describe('round 3: storage, Arabic keyboards, paste, error visibility', () 
       el.value='+966 508 727 012'; fmtPhoneInput(el); const a=el.value;
       el.value='00966508727012'; fmtPhoneInput(el); const b=el.value;
       return { a, b, norm: _normPhone(a.replace(/\\D/g,''),'+966') };
-    })()`);
+    })()`) as { a: string; b: string; norm: string };
     expect(out.a).toBe('050 872 7012'); // was "966 508 7270" — a corrupt number
     expect(out.b).toBe('050 872 7012');
     expect(out.norm).toBe('+966508727012');
@@ -372,7 +372,7 @@ test.describe('round 5: staff phone formats & remember-me default', () => {
       intlZero: _staffPhoneE164('+966 0562847777'),
       zeros: _staffPhoneE164('00966562847777'),
       bare: _staffPhoneE164('562847777'),
-    })`);
+    })`) as Record<string, string>;
     expect(out.local).toBe('+966562847777');
     expect(out.arabic).toBe('+966562847777'); // was '+' + empty — Arabic keyboards couldn't staff-login by phone
     expect(out.intlZero).toBe('+966562847777'); // was '+9660…'

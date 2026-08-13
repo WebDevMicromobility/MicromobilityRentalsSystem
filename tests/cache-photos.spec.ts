@@ -9,12 +9,10 @@ test('cache keeps URL photos but strips heavy base64', async ({ page }) => {
   await page.goto('/');
   await waitForSb(page);
   const snap = await page.evaluate(() => {
-    // @ts-expect-error app globals
     S.inventory = [
       { id: 'u1', name: 'URL item', photo: 'https://x.supabase.co/storage/v1/object/public/photos/a.jpg' },
       { id: 'b1', name: 'B64 item', photo: 'data:image/png;base64,AAAABBBBCCCC' },
     ];
-    // @ts-expect-error app globals
     S.bikes = []; S.sessions = []; S.cashSales = [];
     // @ts-expect-error app globals
     _cacheSave();

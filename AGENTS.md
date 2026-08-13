@@ -18,9 +18,12 @@ The served `index.html` is a **minified build artifact**. The editable source of
 - `styles.css`, `service-worker.js`, `manifest.json`, `*.png` — served static assets.
 - `staff/index.html` — tiny redirect stub for the `/staff` entry.
 - `_headers`, `_redirects` — Cloudflare Pages config (security headers; the allowlist that hides internal files — see below).
-- `*.sql`, `SECURITY-RUNBOOK.md` — database schema + the production security model (RLS, RPCs). `security-migration.sql` is the applied production access-control model.
-- `tests/` — Playwright suite (`npm test`); all Supabase traffic is stubbed, tests never touch prod.
-- `scripts/build-html.mjs` — the minify build.
+- `robots.txt`, `sitemap.xml` — served SEO files (also copied into dist builds).
+- `sql/` — database SQL. `sql/applied/` is the frozen record of hand-run production migrations (incl. `security-migration.sql`, the applied access-control model); `sql/rollbacks/` holds emergency-only undo scripts. See `sql/README.md`.
+- `supabase/migrations/` — **all new schema changes go here** via the Supabase CLI (see its README). Never hand-paste schema SQL into the dashboard editor again.
+- `SECURITY-RUNBOOK.md` — the production security model (RLS, RPCs) and staging-first procedure.
+- `tests/` — Playwright suite (`npm test`); all Supabase traffic is stubbed, tests never touch prod. `tests/a11y.spec.ts` is a report-only axe-core audit (flip `STRICT` once clean).
+- `scripts/build-html.mjs` — the minify build. `scripts/check-i18n.mjs` — CI gate enforcing EN/AR/ES key parity in the `LANG` object.
 
 ## Backend / Supabase
 
@@ -32,7 +35,7 @@ The served `index.html` is a **minified build artifact**. The editable source of
 ## Workflow
 
 - **Deploy** = push to `main` (Cloudflare Pages auto-builds). CI runs the Playwright suite on every push.
-- Before committing app changes: `npm run build:html` then `npm test` (46 tests must pass). `npm run lint` = eslint + tsc.
+- Before committing app changes: `npm run build:html` then `npm test`. `npm run lint` = eslint + tsc + i18n key parity, and it runs as a blocking CI step — keep it green.
 - The service worker serves navigations network-first, so `index.html` changes go live without a cache bump.
 
 ## Do not expose internal files publicly

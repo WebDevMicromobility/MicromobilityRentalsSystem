@@ -23,7 +23,7 @@ test('session report escapes hostile customer email/name/bike in the print HTML'
     S.sfSession='s1';
     try{ printSessionReport(); }finally{ window.open=realOpen; }
     return captured;
-  })()`);
+  })()`) as string;
   expect(html.length).toBeGreaterThan(100);
   // no live injection survived
   expect(html).not.toContain('<script>steal');

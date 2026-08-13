@@ -7,7 +7,8 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
   // service-worker.js is the legacy hand-written worker (replaced by the generated
   // one in dist builds); the root .mjs files are one-off migration tooling.
-  { ignores: ['node_modules/**', 'dist/**', 'test-results/**', 'vendor/**', '**/*.mjs', 'service-worker.js'] },
+  // functions/api/wallet-pass.js is a generated esbuild bundle (npm run build:wallet) — never lint it.
+  { ignores: ['node_modules/**', 'dist/**', 'test-results/**', 'vendor/**', '**/*.mjs', 'service-worker.js', 'functions/api/wallet-pass.js'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -35,6 +36,20 @@ export default tseslint.config(
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
       'no-empty': ['error', { allowEmptyCatch: true }],
+    },
+  },
+  // The wallet pass generator source also runs in the Workers runtime (bundled by build:wallet).
+  {
+    files: ['scripts/wallet/**/*.js'],
+    languageOptions: {
+      globals: {
+        fetch: 'readonly', Response: 'readonly', Request: 'readonly', URL: 'readonly',
+        console: 'readonly', crypto: 'readonly', caches: 'readonly', atob: 'readonly', btoa: 'readonly',
+        TextEncoder: 'readonly', TextDecoder: 'readonly',
+      },
+    },
+    rules: {
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrors: 'none' }],
     },
   },
   // Cloudflare Pages Functions run in the Workers runtime — give them its web globals.
