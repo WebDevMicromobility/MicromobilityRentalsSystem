@@ -22,3 +22,11 @@ end$$;
 drop trigger if exists queue_entries_capacity on queue_entries;
 create trigger queue_entries_capacity before insert on queue_entries
   for each row execute function _capacity_guard();
+
+-- Same guard when a booking MOVES between sessions (customer reschedule): a non-staff row
+-- landing as 'waiting' in a full session is coerced to 'waitlist'. Fires before
+-- wl_num_assign_upd (name order), so the coerced row still gets its W-number.
+drop trigger if exists queue_entries_capacity_upd on queue_entries;
+create trigger queue_entries_capacity_upd before update of session_id on queue_entries
+  for each row when (new.session_id is distinct from old.session_id)
+  execute function _capacity_guard();

@@ -1621,7 +1621,7 @@ function entryFromDB(e){
 }
 function entryToDB(e){
   const row={id:e.id,name:e.name,email:e.email||'',phone:e.phone||'',
-    size:e.size,height:e.height||null,type_preference:e.typePreference,paid:e.paid,price:e.price??30,
+    size:e.size,height:e.height||null,type_preference:e.typePreference,paid:e.paid,price:e.price??DEFAULT_PRICE,
     assigned_bike_id:e.assignedBikeId||null,session_id:e.sessionId,
     session_day:e.sessionDay,session_date:e.sessionDate,
     queue_num:e.queueNum,status:e.status,registered_at:e.registeredAt,
@@ -2088,7 +2088,10 @@ function priceForBike(bike){
   return bike.rental_price??priceForType(bike.type);
 }
 function _entryFallbackPrice(entry){
-  
+  // Premium tiers (Road Carbon) are fulfilled with a base-type bike: summing the assigned
+  // bike's price would silently undercharge the booked premium fare (250 -> 75). Same rule
+  // as the bike-assign path.
+  if(PREMIUM_TIERS[entry.typePreference]!=null)return priceForType(entry.typePreference);
   const bikeIds=getAssignedBikeIds(entry);
   if(bikeIds.length){
     const bikes=bikeIds.map(id=>getBikes().find(b=>b.id===id)).filter(Boolean);
@@ -3780,8 +3783,11 @@ function renderManagedWl(){
     <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px;max-width:900px">
       ${mw.length?mw.map((w,i)=>{
         const bk=w.booking_id?getQueue().find(x=>x.id===w.booking_id):null;
-        const action=bk&&bk.status==='waitlist'
-          ?`<button class="btn-sm btn-green" onclick="mwPromote('${w.id}')">${ICON_PROMOTE} ${t('promoteBtn')}</button>`
+        // A row LINKED to a booking never gets the walk-up Check In (that inserts a brand-new
+        // booking = the same rider twice). Waitlist -> Promote; already promoted/cancelled
+        // elsewhere -> the row is spent, only Remove is left.
+        const action=w.booking_id
+          ?(bk&&bk.status==='waitlist'?`<button class="btn-sm btn-green" onclick="mwPromote('${w.id}')">${ICON_PROMOTE} ${t('promoteBtn')}</button>`:'')
           :`<button class="btn-sm btn-green" onclick="giveDeskBike('${esc(w.id)}')">${t('checkInBtn')}</button>`;
         return`<div class="q-card" style="margin:0;cursor:grab" draggable="true" ondragstart="_mwDragStart(event,'${w.id}')" ondragover="_mwDragOver(event,'${w.id}')" ondrop="_mwDrop(event,'${w.id}')">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
@@ -3801,7 +3807,7 @@ function renderManagedWl(){
     </div>`;
 }
 function payBtnMw(w){const isHouse=w.paid&&_wlRowPrice(w)===0;return`<button class="pay-toggle ${isHouse?'house':w.paid?'paid':'pending'}" onclick="showWlPayMenu('${esc(w.id)}',event)">${isHouse?' '+t('onTheHouseLabel'):w.paid?'\u2713 '+t('paidLabel'):' '+t('pendingLabel')}</button>`;}
-function _wlAvail(ty){return(S.bikes||[]).filter(b=>b.status==='available'&&(!ty||ty==='Any'||b.type===ty)).length;}
+function _wlAvail(ty){const base=PREMIUM_TIERS[ty]||ty;return(S.bikes||[]).filter(b=>b.status==='available'&&(!base||base==='Any'||b.type===base)).length;} // premium tiers count their fulfilling base type (Road Carbon -> Road)
 function _wlElapsed(iso){const m=Math.max(0,Math.round((Date.now()-new Date(iso||Date.now()))/60000));return m<60?m+' min':Math.floor(m/60)+' h '+(m%60)+' min';}
 function _wlOpenSess(){return allSessions().filter(x=>(x.status==='open'||x.status==='full')&&!_isCommunity(x)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));}
 // The view mirrors the Bookings queue page: same section header (live indicator, header
@@ -3837,7 +3843,7 @@ function renderDeskWaitlist(){
   const wlBook=wlBookAll.filter(e=>!q||String(e.name||'').toLowerCase().includes(q)||String(e.phone||'').includes(q))
     .sort((a,b)=>String(a.sessionDate||'').localeCompare(String(b.sessionDate||''))||_wlCmp(a,b));
   const merged=[...wlBook.map(e=>({b:e})),...list.map(w=>({w}))];
-  const nAll=all.length+wlBookAll.length+_wlManaged().length;
+  const nAll=all.length+wlBookAll.length; // pre-search total of what THIS page can show (Staff List rows live on their own view)
   const bPay=e=>{const h=e.paid&&(e.price??DEFAULT_PRICE)===0;return`<button class="pay-toggle ${h?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">${h?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`;};
   const walkTr=(w,pos)=>`<tr>
       <td style="min-width:52px;vertical-align:middle"><span class="queue-num-cell" style="font-size:15px;line-height:1.25">#${pos}</span></td>
@@ -4063,14 +4069,14 @@ async function toggleWlPayment(id,mode){
   else{paid=true;price=base;method=mode==='card'?'card':'cash';}
   const patch={paid,price,pay_method:method,card_amount:null};
   Object.assign(w,patch);
-  renderDeskWaitlist();
+  renderStaffQueue(); // routes to whichever view is live (Waitlist page OR Staff List)
   haptic();
   toast(paid&&price===0?' '+t('onTheHouseLabel'):paid?'✓ '+t('paidLabel'):t('pendingLabel'),paid?'':'warning');
   const res=await sb.from('desk_waitlist').update(patch).eq('id',id);
-  if(_writeErr(res,'payment')){Object.assign(w,prev);renderDeskWaitlist();return;}
+  if(_writeErr(res,'payment')){Object.assign(w,prev);renderStaffQueue();return;}
   pushUndo(`${t('undoPayment')} ${w.name}`,async()=>{
     await sb.from('desk_waitlist').update(prev).eq('id',id);
-    Object.assign(w,prev);renderDeskWaitlist();
+    Object.assign(w,prev);renderStaffQueue();
   });
 }
 async function splitWlPayment(id){
@@ -4081,13 +4087,13 @@ async function splitWlPayment(id){
   const prev={paid:!!w.paid,price:w.price??null,pay_method:w.pay_method||null,card_amount:w.card_amount??null};
   const patch={paid:true,price,pay_method:'split',card_amount:card};
   Object.assign(w,patch);
-  renderDeskWaitlist();
+  renderStaffQueue();
   toast(`✓ ${t('cashCard')} ${card} · ${t('cashCash')} ${Math.round((price-card)*100)/100}`);
   const res=await sb.from('desk_waitlist').update(patch).eq('id',id);
-  if(_writeErr(res,'split payment')){Object.assign(w,prev);renderDeskWaitlist();return;}
+  if(_writeErr(res,'split payment')){Object.assign(w,prev);renderStaffQueue();return;}
   pushUndo(`${t('undoPayment')} ${w.name}`,async()=>{
     await sb.from('desk_waitlist').update(prev).eq('id',id);
-    Object.assign(w,prev);renderDeskWaitlist();
+    Object.assign(w,prev);renderStaffQueue();
   });
 }
 // ── Waitlist ordering: staff can reorder waitlisted BOOKINGS (drag rows on desktop, ▲/▼
@@ -4150,8 +4156,12 @@ async function _wlDrop(ev,id){
 // exact same row options and behavior as any other booking.
 async function giveDeskBike(id){
   const w=(S.deskWaitlist||[]).find(x=>x.id===id);if(!w)return;
-  const sess=_wlOpenSess().find(x=>x.id===S._wlSess);
+  // S._wlSess is set by the Waitlist page's session select; landing here straight from the
+  // Staff List (which has no selector) must still work — fall back to the first open session.
+  const _open=_wlOpenSess();
+  const sess=_open.find(x=>x.id===S._wlSess)||_open[0];
   if(!sess){toast(t('noSessionsAvail'),'warning');return;}
+  S._wlSess=sess.id;
   // Same name-match as the Walk-in modal: link a known customer account so it shows in My Rides.
   const _match=(S.customers||[]).find(c=>String(c.name||'').trim().toLowerCase()===String(w.name||'').trim().toLowerCase());
   const ty=CUST_TYPES.includes(w.bike_type)?w.bike_type:'Any';
@@ -4171,6 +4181,12 @@ async function giveDeskBike(id){
   await sb.from('desk_waitlist').update({status:'done',resolved_at:new Date().toISOString()}).eq('id',id);
   w.status='done';
   pushUndo(`${t('undoWl')} · ${w.name}`,async()=>{
+    // Only delete the booking while it's still an untouched 'waiting' row: the flow opens the
+    // quick check-in right after, so by undo time the rider may already be checked in / paid —
+    // deleting then would erase a live paid booking.
+    await loadDataLight();
+    const _fresh=getQueue().find(x=>x.id===entry.id);
+    if(_fresh&&(_fresh.status!=='waiting'||(_fresh.paid&&!entry.paid))){toast(t('errCancelWaiting'),'warning');return;}
     await sb.from('queue_entries').delete().eq('id',entry.id);
     await sb.from('desk_waitlist').update({status:'waiting',resolved_at:null}).eq('id',id);
     w.status='waiting';
@@ -4191,10 +4207,10 @@ async function resolveDeskWaitlist(id,status){
   pushUndo(`${t('undoWl')} · ${w.name}`,async()=>{
     await sb.from('desk_waitlist').update({status:'waiting',resolved_at:null}).eq('id',id);
     w.status='waiting';
-    renderDeskWaitlist(); // no-op unless the waitlist view is on screen
+    renderStaffQueue();
   });
   toast(status==='done'?t('wlGivenToast').replace('{0}',w.name):t('wlRemovedToast'));
-  renderDeskWaitlist();
+  renderStaffQueue(); // routes to whichever view is live (Waitlist page OR Staff List)
 }
 
 function toggleTheme(){
@@ -4730,7 +4746,7 @@ function renderRegister(){
         <div class="ticket-col"><div class="ticket-label">${t('nameLabel')}</div><div class="ticket-value">${esc(tkt.name)}</div></div>
       </div>
       <div style="padding:0 24px 18px;display:flex;gap:8px">
-        <button type="button" onclick="_ticketCal(${idx})" class="btn-secondary" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px" aria-label="${t('ticketAddCal')}">
+        <button type="button" onclick="downloadBookingICS('${tkt.sessionId}')" class="btn-secondary" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px" aria-label="${t('ticketAddCal')}">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
           ${t('ticketAddCal')}
         </button>
@@ -4950,8 +4966,11 @@ function _promoDiscount(total){
   const p=S.promoApplied;if(!p)return 0;
   if(p.applies_to){
     // Type-restricted code: discount each matching bike in the booking, nothing else.
+    // A first rider covered on the house pays 0 — their bike gets no discount in the stored
+    // rows, so it must not count here either or the preview promises more off than is charged.
     let d=0;
-    S.regBikeTypes.slice(0,S.regQty).forEach(ty=>{
+    S.regBikeTypes.slice(0,S.regQty).forEach((ty,i)=>{
+      if(i===0&&_regHouseFor(ty||'Any'))return;
       if(ty===p.applies_to){
         const base=priceForType(ty);
         d+=p.kind==='flat'?Math.min(Number(p.value),base):base*(Number(p.value)/100);
@@ -5200,8 +5219,12 @@ async function submitReg(){
           if(insFail)throw insFail.error;
           // The DB assigns the final queue number atomically (queue_entries_assign_qnum
           // trigger), overriding whatever this device computed - sync it back so the
-          // ticket and toast show the real number even on a stale client.
-          insRes.forEach((r,i)=>{const row=r&&r.data&&r.data[0];if(row&&row.queue_num!=null)entries[i].queueNum=row.queue_num;});
+          // ticket and toast show the real number even on a stale client. Same for STATUS:
+          // the capacity trigger may have coerced 'waiting' into 'waitlist' (two devices
+          // grabbing the last spot) — the toast, add-on stock and ticket must follow the
+          // row that actually landed, not what this device computed.
+          insRes.forEach((r,i)=>{const row=r&&r.data&&r.data[0];if(row&&row.queue_num!=null)entries[i].queueNum=row.queue_num;if(row&&row.status){entries[i].status=row.status;if(row.waitlist_num!=null)entries[i].waitlistNum=row.waitlist_num;}});
+          if(entries.some(e=>e.status==='waitlist'))bookingStatus='waitlist';
           _ok=true;
         }catch(err){
           if(typeof navigator!=='undefined'&&navigator.onLine===false){
@@ -5250,7 +5273,7 @@ async function submitReg(){
       const _aj=JSON.stringify(S.regAddons);
       try{await _ownEntryUpdate(entries[0].id,{addons:_aj});entries[0].addons=S.regAddons;}catch(e){} // add-ons attach to the account holder only (per-rider, not the whole booking)
       // Consume add-on stock once for the whole booking
-      if(bookingStatus!=='waitlist')await _addonStockQ(S.regAddons,-1);
+      if(entries[0].status!=='waitlist')await _addonStockQ(S.regAddons,-1); // add-ons ride on the account holder's row; a capacity-coerced waitlist row must not reserve stock
     }
     // Record the promo code used (tolerant) so redemptions can be reported
     if(S.promoApplied&&S.promoApplied.code){const _pc=String(S.promoApplied.code);try{await Promise.all(entries.map(e=>_ownEntryUpdate(e.id,{promo_code:_pc})));}catch(e){}}
@@ -5304,7 +5327,18 @@ async function submitModifyBooking(){
     const entry=existing[i];
     const newType=S.regBikeTypes[i];
     if(entry.typePreference!==newType){
-      calls.push(_ownEntryUpdate(entry.id,{type_preference:newType,price:priceForType(newType)}));
+      // Reprice only a plain unpaid row. A PAID row keeps its recorded amount (money is in the
+      // drawer); a promo row keeps its discounted price (repricing would silently strip the
+      // code); an on-the-house row (paid, 0) stays free while the new type is still covered,
+      // otherwise it reverts to unpaid at the new type's fare.
+      const patch={type_preference:newType};
+      const _isHouse=entry.paid&&(entry.price??DEFAULT_PRICE)===0&&!entry.promoCode;
+      if(_isHouse){
+        if(!(i===0&&_regHouseFor(newType))){patch.paid=false;patch.price=priceForType(newType);}
+      }else if(!entry.paid&&!entry.promoCode){
+        patch.price=priceForType(newType);
+      }
+      calls.push(_ownEntryUpdate(entry.id,patch));
     }
   }
 
@@ -8638,7 +8672,7 @@ function renderStaffQueue(){
       openSess.map(s=>{
         const q=getQueue().filter(e=>e.sessionId===s.id);
         const sWait=q.filter(e=>e.status==='waiting').length;
-        const label=`${_isCommunity(s)?`${s.title||t('landCommTitle')} · `:''}${dayLabel(s.day)}, ${shortDate(s.session_date||s.id)} · ${sessionTime(s)} — ${sWait} ${t('waitingStat').toLowerCase()}`;
+        const label=`${_isCommunity(s)?`${esc(s.title||t('landCommTitle'))} · `:''}${dayLabel(s.day)}, ${shortDate(s.session_date||s.id)} · ${sessionTime(s)} — ${sWait} ${t('waitingStat').toLowerCase()}`;
         return`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${label}</option>`;
       }).join('');
 
@@ -8802,7 +8836,13 @@ async function bulkSfPaid(){
 async function bulkSfCheckin(){
   const ids=S.sfSelected.filter(id=>{const e=getQueue().find(x=>x.id===id);return e&&e.status==='waiting';});
   if(!ids.length)return;
-  const res=await Promise.all(ids.map(id=>sb.from('queue_entries').update({status:'active'}).eq('id',id)));
+  const res=await Promise.all(ids.map(async id=>{
+    const e=getQueue().find(x=>x.id===id);
+    const _c=await _claimReservedBikes(e); // reserved bike goes in-use with the rider (or the stale link is dropped)
+    const r=await sb.from('queue_entries').update({status:'active',..._c.patch}).eq('id',id).eq('status','waiting').select('id');
+    if(!(r&&r.error)&&!(r.data&&r.data.length)&&_c.claimed.length)await Promise.all(_c.claimed.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b))).catch(()=>{}); // another device beat us: release the claim
+    return r;
+  }));
   try{const _now=new Date().toISOString();await Promise.all(ids.map(id=>sb.from('queue_entries').update({checked_in_at:_now}).eq('id',id)));}catch(_){} // tolerant
   const fail=res.find(r=>r&&r.error);
   await loadData();S.sfSelected=[];
@@ -8912,8 +8952,9 @@ async function togglePayment(id,mode){
 async function splitRentalPayment(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
   const price=Math.round(((entry.price===0&&!entry.promoCode?_entryFallbackPrice(entry):(entry.price??DEFAULT_PRICE)))*100)/100;
+  const _tot=Math.round((price+addonsCost(entryAddons(entry)))*100)/100; // the card slice may cover add-ons too — clamping at the rental alone made rental+add-on card payments unrecordable
   const raw=prompt(t('splitCardPrompt'),entry.card_amount!=null?String(entry.card_amount):'');if(raw===null)return;
-  let card=parseFloat(raw);if(isNaN(card)||card<0)card=0;card=Math.round(Math.min(card,price)*100)/100;
+  let card=parseFloat(raw);if(isNaN(card)||card<0)card=0;card=Math.round(Math.min(card,_tot)*100)/100;
   const prevPaid=entry.paid,prevPrice=entry.price,prevMethod=entry.pay_method||null,prevCard=entry.card_amount??null;
   entry.paid=true;entry.price=price;entry.pay_method='split';entry.card_amount=card;
   renderStaffQueue();renderHistory();
@@ -9086,10 +9127,24 @@ async function rescheduleBooking(fromSessionId,toSessionId){
   const _toComm=_isCommunity(newSess);
   // Preserve a promo-comped price too (price 0 WITH a promo code is deliberate, not a community 0):
   // only a bare 0 with no promo gets repriced to the bike's fare when leaving a community ride.
-  await Promise.all(sorted.map((e,i)=>sb.from('queue_entries').update({session_id:toSessionId,session_day:newSess.day,session_date:newSess.session_date||toSessionId,queue_num:base+i,status:'waiting',price:_toComm?0:((e.price>0||e.promoCode)?e.price:priceForType(e.typePreference))}).eq('id',e.id)));
+  const _move=(e,n)=>sb.from('queue_entries').update({session_id:toSessionId,session_day:newSess.day,session_date:newSess.session_date||toSessionId,queue_num:n,status:'waiting',price:_toComm?0:((e.price>0||e.promoCode)?e.price:priceForType(e.typePreference))}).eq('id',e.id);
+  let _rs=await Promise.all(sorted.map((e,i)=>_move(e,base+i)));
+  // A queue-number collision (someone booked into the target at the same moment) silently
+  // half-moves the group: retry once with fresh numbers, then surface any remaining failure
+  // instead of toasting success over a partial move.
+  const _dup=r=>r&&r.error&&(String(r.error.code||r.error.message||'').includes('23505')||/duplicate|unique/i.test(r.error.message||''));
+  if(_rs.some(_dup)){
+    await loadData();
+    const b2=nextQNum(toSessionId);
+    _rs=await Promise.all(sorted.map((e,i)=>_move(e,b2+i)));
+  }
+  if(_writeErr(_rs,'reschedule')){await loadData();renderMyRides();return;}
   await loadData();
-  if(wasAllWaitlist)for(const _m of moving)await _addonStockQ(entryAddons(_m),-1); // per-rider: reserve every moving rider's add-ons (not just the first), now that the waitlist booking is confirmed
-  toast(t('toastRescheduled'));
+  // Consume add-on stock only for rows that really landed as confirmed 'waiting' (the DB
+  // capacity guard may have coerced the move back to waitlist on a just-filled session).
+  if(wasAllWaitlist)for(const _m of moving){const _f=getQueue().find(x=>x.id===_m.id);if(_f&&_f.status==='waiting')await _addonStockQ(entryAddons(_m),-1);}
+  const _anyWl=moving.some(_m=>{const _f=getQueue().find(x=>x.id===_m.id);return _f&&_f.status==='waitlist';});
+  toast(_anyWl?t('toastWaitlisted'):t('toastRescheduled'));
   renderMyRides();
 }
 
@@ -9129,6 +9184,7 @@ async function staffCancelEntry(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
   if(entry.status==='waitlist'){
     await sb.from('queue_entries').update({status:'cancelled'}).eq('id',id);
+    await _mwRetireLinked(id,'removed'); // a Staff List row carrying this booking is spent
     await loadData();toast(`${t('cancelBtn')} ✓`);renderStaffQueue();renderMyRides();return;
   }
   if(entry.status!=='waiting'&&entry.status!=='active'){toast(t('toastCannotCancel'),'error');return;}
@@ -9413,8 +9469,12 @@ async function promoteWaitlist(id){
     const e=getQueue().find(x=>x.id===id);if(!e||e.status!=='waitlist')return;
     // The booking KEEPS its original number: queue numbers are assigned at creation and are
     // stable/never reused (the unique index exempts only cancelled/removed), so no collision.
-    const{error}=await sb.from('queue_entries').update({status:'waiting'}).eq('id',id);
-    if(error){toast(error.message||t('errConnection'),'error');return;}
+    // Status-guarded: another device promoting the same row inside the poll window must be a
+    // no-op here, or the add-on stock below would be consumed twice.
+    const _pq=await sb.from('queue_entries').update({status:'waiting'}).eq('id',id).eq('status','waitlist').select('id');
+    if(_pq&&_pq.error){toast(_pq.error.message||t('errConnection'),'error');return;}
+    if(!(_pq.data&&_pq.data.length)){await loadData();renderStaffQueue();return;} // already promoted elsewhere
+    await _mwRetireLinked(id); // a Staff List row carrying this booking is now spent
     await loadData();
     await _consumeAddonsOnEnter(e); // booking is now confirmed, so reserve its add-on stock
     logAction&&logAction(t('logPromotedFromWaitlist').replace('{0}',e.queueNum).replace('{1}',e.name));
@@ -9440,16 +9500,29 @@ async function _autoPromoteOldestWaitlist(sessionId){
   if(!wl.length)return false;
   const e=wl[0];
   // Keeps its original booking number (stable numbers, no reuse — same rule as manual promote).
-  const{error}=await sb.from('queue_entries').update({status:'waiting'}).eq('id',e.id);
-  if(error)return false; // don't claim a promotion (or consume stock) if the write failed
+  // Status-guarded like the manual promote: a stale device auto-promoting an already-promoted
+  // row must not consume its add-on stock a second time.
+  const _aq=await sb.from('queue_entries').update({status:'waiting'}).eq('id',e.id).eq('status','waitlist').select('id');
+  if((_aq&&_aq.error)||!(_aq.data&&_aq.data.length))return false; // don't claim a promotion (or consume stock) if the write failed or lost the race
+  await _mwRetireLinked(e.id);
   await _consumeAddonsOnEnter(e); // promoted booking now reserves its add-on stock
   return e; // truthy for existing callers; the entry lets them show the WhatsApp nudge
+}
+// A Staff List row linked to this booking is spent once the booking leaves the waitlist
+// (promoted / cancelled), whichever page did it.
+async function _mwRetireLinked(bookingId,status){
+  const rows=(S.deskWaitlist||[]).filter(w=>w.booking_id===bookingId&&w.status==='waiting');
+  for(const w of rows){
+    try{await sb.from('desk_waitlist').update({status:status||'done',resolved_at:new Date().toISOString()}).eq('id',w.id);w.status=status||'done';}catch(_){}
+  }
 }
 async function doNoShow(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
   const savedQNum=entry.queueNum;
   // Ticket numbers are stable and never reused; no-show just frees the slot and leaves a gap (no shifting, which a unique index would reject).
-  await sb.from('queue_entries').update({status:'noshow'}).eq('id',id);
+  // Everything below (auto-promote, restock) assumes the slot really freed — bail if the write failed.
+  const _ns=await sb.from('queue_entries').update({status:'noshow'}).eq('id',id);
+  if(_writeErr(_ns,'no-show')){await loadDataLight();renderStaffQueue();return;}
   const _promoted=await _autoPromoteOldestWaitlist(entry.sessionId);
   await loadDataLight(); // queue-only status change: slim re-sync (no photo refetch)
   await _restockAddonsOnExit(entry);
@@ -10114,19 +10187,23 @@ function printCloseout(){
   const rentEntries=getQueue().filter(e=>sessIds.has(e.sessionId)&&(e.status==='active'||e.status==='done'));
   const rentCollected=r2(rentPaid.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0));
   const rentPending=r2(rentEntries.filter(e=>!e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0));
-  const _rcard=e=>{const p=e.price??DEFAULT_PRICE;if(e.card_amount!=null)return Math.min(Math.max(0,Number(e.card_amount)||0),p);return e.pay_method==='card'?p:0;};
-  const rentCard=r2(rentPaid.reduce((s,e)=>s+_rcard(e),0));
-  const rentCash=r2(Math.max(0,rentCollected-rentCard));
   // Booking add-on revenue, per-rider, following each rider's paid state (collected if the rider is paid, else pending)
   const addonCollected=r2(rentPaid.reduce((s,e)=>s+addonsCost(entryAddons(e)),0));
   const addonPending=r2(rentEntries.filter(e=>!e.paid).reduce((s,e)=>s+addonsCost(entryAddons(e)),0));
+  // Card vs cash over the rider's WHOLE take (rental + add-ons): pay_method 'card' means the
+  // full amount went through the terminal — attributing the add-on part to cash printed a
+  // drawer count that never matched the physical drawer. A split's card_amount may cover
+  // add-ons too (the split prompt allows up to rental + add-ons).
+  const _rcard=e=>{const p=(e.price??DEFAULT_PRICE)+addonsCost(entryAddons(e));if(e.card_amount!=null)return Math.min(Math.max(0,Number(e.card_amount)||0),p);return e.pay_method==='card'?p:0;};
+  const rentCard=r2(rentPaid.reduce((s,e)=>s+_rcard(e),0));
+  const rentCash=r2(Math.max(0,rentCollected+addonCollected-rentCard));
   let salesLines=[];daySessions.forEach(s=>{salesLines=salesLines.concat(_cashSessionLines(s.id));});
   const st=_salesTotals(salesLines);
   const grandCollected=r2(rentCollected+st.collected+addonCollected),grandPending=r2(rentPending+st.pending+addonPending);
   let coCard=0,coCash=0;daySessions.forEach(s=>{const c=_cashCardCash(s.id);coCard+=c.card;coCash+=c.cash;});coCard=r2(coCard);coCash=r2(coCash);
   // Reconciliation: the card + cash split should equal everything collected. A non-zero delta flags a data-entry slip
   // (e.g. a rider/sale marked paid with no pay method, or a refund that did not restock) before the drawer is counted.
-  const grandCard=r2(rentCard+coCard),grandCash=r2(rentCash+coCash+addonCollected);
+  const grandCard=r2(rentCard+coCard),grandCash=r2(rentCash+coCash); // add-on money already sits inside rentCard/rentCash by pay method
   const reconDelta=r2(grandCollected-(grandCard+grandCash));
   const row=(label,val,color)=>`<div style="display:flex;justify-content:space-between;padding:4px 0"><span>${label}</span><strong${color?` style="color:${color}"`:''}>SAR ${val}</strong></div>`;
   const catRows=st.cats.map(c=>`<tr><td>${esc(_invCatLabel(c.cat))}</td><td style="text-align:center">${c.qty}</td><td style="text-align:end">SAR ${c.value}</td></tr>`).join('');
@@ -10289,9 +10366,11 @@ async function doRemove(id){
   const savedAssigned=entry.assignedBikeId;
   const restocks=prevStatus==='waiting'||prevStatus==='active'; // pre-ride removal returns add-ons; done = delivered, noshow/cancelled already restocked
   addHistLog(t('histRemoved'),entry,async()=>{
-    // Undo: restore status, queue number, AND the bike link + bike status (nulled on removal below).
-    const calls=[sb.from('queue_entries').update({status:prevStatus==='done'?'done':'waiting',assigned_bike_id:savedAssigned??null,queue_num:_restoreNum(entry.sessionId,savedQNum,id)}).eq('id',id)];
-    bikeIds.forEach(bid=>calls.push(sb.from('bikes').update({status:'in-use'}).eq('id',bid)));
+    // Undo: restore the status the row actually HAD (a removed no-show/cancelled row must come
+    // back as no-show/cancelled — not as a live 'waiting' rider holding a capacity spot), the
+    // queue number, AND the bike link. Bikes go back in-use only for a rider who was riding.
+    const calls=[sb.from('queue_entries').update({status:prevStatus,assigned_bike_id:savedAssigned??null,queue_num:_restoreNum(entry.sessionId,savedQNum,id)}).eq('id',id)];
+    if(prevStatus==='active')bikeIds.forEach(bid=>calls.push(sb.from('bikes').update({status:'in-use'}).eq('id',bid)));
     await Promise.all(calls);
     await loadData();
     if(restocks)await _consumeAddonsOnEnter(entry); // the restore brings the booking back, so re-reserve what the removal restocked
@@ -10489,6 +10568,30 @@ function renderCheckinModal(){
     </div></div>`;
 }
 function closeCheckinModal(){const m=document.getElementById('checkin-modal');if(m){m.style.display='none';m.innerHTML='';}S._ciId=null;}
+// Activating a rider must CLAIM their reserved bike (available -> in-use, atomically — same
+// conditional update as the bike picker), or DROP the reservation if another device took the
+// bike first. Skipping this leaves an active rider pointing at an 'available' bike: a second
+// rider can be assigned the same bike, and the first rider's return would then set it
+// 'available' mid-ride. Returns the queue-row patch to merge plus what was claimed (so a
+// lost status race can release it again).
+async function _claimReservedBikes(e){
+  const ids=e?getAssignedBikeIds(e):[];
+  const claimed=[];
+  for(const bid of ids){
+    let taken=false;
+    try{
+      const{data,error}=await sb.from('bikes').update({status:'in-use'}).eq('id',bid).eq('status','available').select('id');
+      if(error)throw error;
+      taken=!!(data&&data.length);
+    }catch(_){}
+    if(!taken){
+      await Promise.all(claimed.map(b2=>sb.from('bikes').update({status:'available'}).eq('id',b2))).catch(()=>{});
+      return{patch:{assigned_bike_id:null},claimed:[]};
+    }
+    claimed.push(bid);
+  }
+  return{patch:{},claimed};
+}
 async function confirmCheckinModal(){
   const e=getQueue().find(x=>x.id===S._ciId);if(!e)return;
   const ty=CUST_TYPES.includes(S._ciType)?S._ciType:(e.typePreference||'Any');
@@ -10522,15 +10625,20 @@ async function confirmCheckinModal(){
         const raw=prompt(t('splitCardPrompt'),e.card_amount!=null?String(e.card_amount):'');
         if(raw===null)return; // cancelled: stay in the modal, nothing written
         let cd=parseFloat(raw);if(isNaN(cd)||cd<0)cd=0;
-        _card=Math.round(Math.min(cd,np)*100)/100;_method='split';
+        _card=Math.round(Math.min(cd,np+addonsCost(entryAddons(e)))*100)/100;_method='split'; // card slice may cover add-ons too
       }else _method=mode;
     }
   }
+  // A reservation made while waiting becomes a real claim now (or is dropped if the bike is gone).
+  const _claim=await _claimReservedBikes(e);
+  Object.assign(patch,_claim.patch);
+  if(_claim.patch.assigned_bike_id===null){const _rb=getBikes().find(b=>b.id===e.assignedBikeId);toast(`${_rb?_rb.name+': ':''}${t('errBikeUnavailable')}`,'warning');}
+  const _unclaim=()=>Promise.all(_claim.claimed.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b))).catch(()=>{});
   // Status-guarded like the classic check-in: if another device beat us to it, don't double up.
   const _q=await sb.from('queue_entries').update(patch).eq('id',e.id).eq('status','waiting').select('id');
-  if(_writeErr(_q,'check-in'))return;
+  if(_writeErr(_q,'check-in')){await _unclaim();return;}
   closeCheckinModal();
-  if(!(_q.data&&_q.data.length)){await loadDataLight();renderStaffQueue();return;}
+  if(!(_q.data&&_q.data.length)){await _unclaim();await loadDataLight();renderStaffQueue();return;}
   if(!comm&&_method!==undefined){try{await sb.from('queue_entries').update({pay_method:_method,card_amount:_card}).eq('id',e.id);}catch(_){}} // tolerant, like togglePayment
   try{await sb.from('queue_entries').update({checked_in_at:new Date().toISOString()}).eq('id',e.id);}catch(_){}
   Object.assign(e,{status:'active',typePreference:ty},patch.paid?{paid:true}:{},patch.price!==undefined?{price:patch.price}:{});
@@ -14525,9 +14633,11 @@ function renderAnalytics(){
   const noShowLost=Math.round(noshow.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0));
   const noShowByDay=(()=>{const m={};noshow.forEach(e=>{if(e.sessionDay)m[e.sessionDay]=(m[e.sessionDay]||0)+1;});
     return Object.fromEntries(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].filter(d=>m[d]).map(d=>[dayLabel(d),m[d]]));})();
-  // Cash vs card mix: paid rentals (pay_method/card_amount) + cashier receipts (card meta lines)
+  // Cash vs card mix: paid rentals (pay_method/card_amount) + cashier receipts (card meta lines).
+  // Same row basis as revCollected (every paid row except cancelled/removed — a paid no-show's
+  // money is in the drawer) and same whole-take attribution as the close-out (rental + add-ons).
   const payMix=(()=>{let card=0,cash=0;
-    done.filter(e=>e.paid).forEach(e=>{const p=e.price??DEFAULT_PRICE;
+    _paidRows(queue).forEach(e=>{const p=(e.price??DEFAULT_PRICE)+addonsCost(entryAddons(e));
       const c=e.card_amount!=null?Math.min(Math.max(0,Number(e.card_amount)||0),p):(e.pay_method==='card'?p:0);
       card+=c;cash+=p-c;});
     [...sessIds].forEach(sid=>{const cc=_cashCardCash(sid);card+=cc.card;cash+=cc.cash;});
@@ -15886,6 +15996,10 @@ if('serviceWorker' in navigator){
   const _swBootAt=Date.now();let _userTouched=false;
   try{['pointerdown','keydown'].forEach(ev=>window.addEventListener(ev,()=>{_userTouched=true;},{once:true,passive:true}));}catch(e){}
   let _updPending=false;
+  // The reload marker only suppresses the echo of OUR OWN reload (the SW re-announces the
+  // update right after). It is consumed at boot — a lingering flag would make the update bar
+  // one-shot per tab, so a second deploy the same day would never surface.
+  const _justReloaded=(()=>{try{const v=sessionStorage.getItem('cq_upd_reload')==='1';sessionStorage.removeItem('cq_upd_reload');return v;}catch(e){return false;}})();
   const _updReload=()=>{try{sessionStorage.setItem('cq_upd_reload','1');}catch(e){}location.reload();};
   const _updBar=()=>{
     if(document.getElementById('upd-bar'))return;
@@ -15897,7 +16011,7 @@ if('serviceWorker' in navigator){
   };
   try{navigator.serviceWorker.addEventListener('message',ev=>{
     if(!ev.data||ev.data.type!=='shell-updated')return;
-    if(sessionStorage.getItem('cq_upd_reload')==='1')return; // at most one auto-reload per session (no loops)
+    if(_justReloaded&&Date.now()-_swBootAt<15000)return; // the SW echoing the deploy we just reloaded for (no loops); later deploys still surface
     if(Date.now()-_swBootAt<8000&&!_userTouched){_updReload();return;}
     // Mid-session: never yank the page away, but don't let the stale build linger either —
     // a persistent Refresh bar now, and a silent reload the moment the app is hidden
@@ -15905,7 +16019,7 @@ if('serviceWorker' in navigator){
     _updPending=true;
     try{_updBar();}catch(e){}
   });}catch(e){}
-  try{document.addEventListener('visibilitychange',()=>{if(document.hidden&&_updPending&&sessionStorage.getItem('cq_upd_reload')!=='1')_updReload();});}catch(e){}
+  try{document.addEventListener('visibilitychange',()=>{if(document.hidden&&_updPending)_updReload();});}catch(e){}
 }
 </script>
 </body>

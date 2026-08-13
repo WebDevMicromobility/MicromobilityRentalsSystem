@@ -23,7 +23,12 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   const queue_entries = [qb('qb1', 51, 'Owes Money', 'waiting', false), qb('qb2', 52, 'Fully Settled', 'waiting', true), qb('qb3', 53, 'On A Bike', 'active', false),
     { ...qb('qb4', 91, 'On The List', 'waitlist', false), type_preference: 'Mountain', waitlist_num: 3 },
     { ...qb('qb5', 92, 'Second List', 'waitlist', false), type_preference: 'Mountain', waitlist_num: 4 },
-    { ...qb('qb6', 21, 'Other Session Rider', 'waitlist', false), session_id: 's1', session_date: '2099-02-17', waitlist_num: 1 }];
+    { ...qb('qb6', 21, 'Other Session Rider', 'waitlist', false), session_id: 's1', session_date: '2099-02-17', waitlist_num: 1 },
+    // A premium-tier request is fulfilled with its base type: the free Road bike must light its chip.
+    { ...qb('qb7', 93, 'Carbon Freak', 'waitlist', false), type_preference: 'Road Carbon', waitlist_num: 5 }];
+  // A Staff List row LINKED to a booking that already left the waitlist (promoted elsewhere):
+  // it must never offer the walk-up Check In (that would book the same rider twice).
+  desk_waitlist.push({ id: 'm1', name: 'Fully Settled', phone: '0566666666', bike_type: 'Road', status: 'waiting', author: null, created_at: '2099-01-01T11:00:00Z', resolved_at: null, kind: 'managed', sort_order: 1, booking_id: 'qb2' } as never);
   await stubSupabase(page, { desk_waitlist, bikes, sessions, queue_entries });
   await unlockStaff(page);
   await page.goto('/');
@@ -74,7 +79,7 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   await expect(rowFor('Already Served')).toHaveCount(1);
   await expect(rowFor('Already Served').getByText(/Bike given/)).toBeVisible();
   await expect(rowFor('Already Served').getByRole('button', { name: /Remove/ })).toHaveCount(0); // history rows have no actions
-  await expect(panel.getByText('1 available now').filter({ visible: true })).toHaveCount(2); // the free Road bike satisfies both the Road and the Any request
+  await expect(panel.getByText('1 available now').filter({ visible: true })).toHaveCount(3); // the free Road bike satisfies the Road walk-up, the Any walk-up AND the Road Carbon booking (premium tier -> Road)
   await expect(panel.locator('#wl-sess')).toHaveValue('s0'); // choose-session select in the filter bar
   // The selector FILTERS per session — no cross-session consolidation.
   await expect(rowFor('Other Session Rider')).toHaveCount(0);
@@ -129,6 +134,11 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   await expect.poll(() => mwLink.some((r) => r.kind === 'managed' && r.name === 'Vip One')).toBe(true);
   await expect(rowFor('Vip One')).toHaveCount(1);
   await expect(rowFor('Vip One').locator('input[type="number"]')).toHaveCount(1); // type-a-number ordering
+  // The linked row whose booking is no longer waitlisted: spent — no Check In, no Promote, Remove only.
+  await expect(rowFor('Fully Settled')).toHaveCount(1);
+  await expect(rowFor('Fully Settled').getByRole('button', { name: /Check In/i })).toHaveCount(0);
+  await expect(rowFor('Fully Settled').getByRole('button', { name: /Promote/ })).toHaveCount(0);
+  await expect(rowFor('Fully Settled').getByRole('button', { name: /Remove/ })).toHaveCount(1);
   await panel.getByRole('button', { name: 'Waitlist', exact: true }).click(); // back for the remaining checks
 
   // Remove takes a rider off the waiting list (into history) without booking anything.
