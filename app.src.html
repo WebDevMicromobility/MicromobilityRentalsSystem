@@ -3825,15 +3825,14 @@ function renderDeskWaitlist(){
   // Queue bookings whose status is WAITLIST (holding no spot yet) belong on this page too;
   // confirmed 'waiting' bookings live in the queue only. Promote / payment / contact work
   // inline — once promoted, the row continues in the queue view alone.
-  // Night sessions run 9-11 PM and their waitlists are worked past midnight — a plain
-  // "today or later" cutoff made the live session's waitlist vanish at 12:00 AM. Include
-  // yesterday's date too, as long as the session hasn't been closed out.
-  const _cutB=new Date(Date.now()-864e5).toLocaleDateString('en-CA',{timeZone:KSA_TZ});
+  // A session's waitlist matters until the session is CLOSED OUT — sessions run at night,
+  // waitlists get worked past midnight, and un-closed sessions stay live for days. So no
+  // date cutoff at all: any open/full session shows its waitlisted bookings; closing the
+  // session (the close-out) retires them from this working view.
   const wlBookAll=getQueue().filter(e=>{
     if(e.status!=='waitlist'||_commSessIds.has(e.sessionId))return false;
-    if(String(e.sessionDate||e.sessionId||'').slice(0,10)<_cutB)return false;
     const _s=allSessions().find(x=>x.id===e.sessionId);
-    return !_s||_s.status==='open'||_s.status==='full';
+    return !!_s&&(_s.status==='open'||_s.status==='full');
   });
   // Bookings in staff-set W order (per session, earliest session first); desk walk-ups (FIFO) after.
   const wlBook=wlBookAll.filter(e=>!q||String(e.name||'').toLowerCase().includes(q)||String(e.phone||'').includes(q))
