@@ -99,6 +99,22 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   expect(posts[0].status).toBe('waiting');
   expect(posts[0].paid).toBe(true); // the cash payment taken while waiting
 
+  // Staff Managed Waitlist: quick inline add, hand-ordered, own section.
+  await panel.locator('#mw-name').fill('Vip One');
+  const mwPosts: Record<string, unknown>[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && r.url().includes('/rest/v1/desk_waitlist')) {
+      const sent = r.postDataJSON();
+      mwPosts.push(...(Array.isArray(sent) ? sent : [sent]));
+    }
+  });
+  await panel.getByRole('button', { name: /\+ Add$/ }).click();
+  await expect.poll(() => mwPosts.length).toBe(1);
+  expect(mwPosts[0].kind).toBe('managed'); // lands on the managed list, not the walk-up one
+  expect(mwPosts[0].sort_order).toBe(1);
+  await expect(rowFor('Vip One')).toHaveCount(1);
+  await expect(rowFor('Vip One').getByRole('button', { name: /Move up/ })).toHaveCount(1); // orderable
+
   // Remove takes a rider off the waiting list (into history) without booking anything.
   await rowFor('Waiting Two').getByRole('button', { name: /Remove/ }).click();
   await expect(rowFor('Waiting Two').filter({ hasText: 'Removed' })).toHaveCount(1); // now a history row

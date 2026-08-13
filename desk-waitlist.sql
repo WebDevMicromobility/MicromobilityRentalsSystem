@@ -25,3 +25,9 @@ alter table desk_waitlist enable row level security;
 drop policy if exists "staff full access" on desk_waitlist;
 create policy "staff full access" on desk_waitlist
   for all using (is_staff()) with check (is_staff());
+
+-- Staff Managed Waitlist: a second, hand-ordered list on the same page.
+-- kind 'walkup' (default) = first-come walk-up list; 'managed' = staff-curated,
+-- ordered by sort_order (renumbered 1..n on every drag / arrow move).
+alter table desk_waitlist add column if not exists kind text not null default 'walkup';
+alter table desk_waitlist add column if not exists sort_order int;
