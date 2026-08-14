@@ -8,7 +8,8 @@ export default tseslint.config(
   // service-worker.js is the legacy hand-written worker (replaced by the generated
   // one in dist builds); the root .mjs files are one-off migration tooling.
   // functions/api/wallet-pass.js is a generated esbuild bundle (npm run build:wallet) — never lint it.
-  { ignores: ['node_modules/**', 'dist/**', 'test-results/**', 'vendor/**', '**/*.mjs', 'service-worker.js', 'functions/api/wallet-pass.js'] },
+  // design_handoff_erp_reskin/ is the designer's reference bundle (prototype JS, not shipped code).
+  { ignores: ['node_modules/**', 'dist/**', 'test-results/**', 'vendor/**', '**/*.mjs', 'service-worker.js', 'functions/api/wallet-pass.js', 'design_handoff_erp_reskin/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
