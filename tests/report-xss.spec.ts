@@ -30,7 +30,8 @@ test('session report escapes hostile customer email/name/bike in the print HTML'
   expect(html).not.toContain('<script>evil');
   expect(html).not.toContain('<img src=x onerror'); // live tag; the escaped &lt;img…&gt; text is inert
   expect(html).not.toContain('"><script>');
-  // the data is present, but escaped
-  expect(html).toContain('&lt;script&gt;steal');
+  // the data is present, but escaped. (Template B prints no phone/email columns, so the
+  // hostile email never reaches the HTML at all — name and bike name are the printed surfaces.)
   expect(html).toContain('&lt;b&gt;Bad');
+  expect(html).toContain('&lt;img src=x onerror');
 });
