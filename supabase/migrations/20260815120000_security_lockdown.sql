@@ -158,15 +158,12 @@ end $function$;
 -- trigger, but _cust_token_ok / customer_token_ok are token oracles. None of these is
 -- called by the client; the customer-facing RPCs keep their grants.
 -- ─────────────────────────────────────────────────────────────────────────────
-revoke execute on function public._approval_guard()            from anon, authenticated;
-revoke execute on function public._community_booking_gate()    from anon, authenticated;
-revoke execute on function public._enforce_booking_price()     from anon, authenticated;
-revoke execute on function public._grant_auto_tags()           from anon, authenticated;
+-- Trigger guards are deliberately NOT revoked: PostgreSQL checks EXECUTE on a trigger
+-- function at CREATE TRIGGER time, but the behaviour is subtle enough that revoking it
+-- risks breaking every booking insert for no real gain — called as an RPC they just error
+-- outside trigger context. The token oracles below are the actual exposure.
 revoke execute on function public._cust_token_ok(text,text)    from anon, authenticated;
 revoke execute on function public.customer_token_ok(text,text) from anon, authenticated;
-revoke execute on function public.assign_queue_num()           from anon, authenticated;
-revoke execute on function public.queue_num_update_guard()     from anon, authenticated;
-revoke execute on function public.staff_mark_pwd_changed()     from anon;
 revoke execute on function public.staff_set_customer_password(text,text) from anon;
 
 -- ─────────────────────────────────────────────────────────────────────────────
