@@ -3327,6 +3327,14 @@ const _commSessIds={has:sid=>_isCommunity((S.sessions||[]).find(s=>s.id===sid))}
 // (or through paths that never stamped it - old bookings, imports) carry approval null;
 // staff still have to select those riders, so a missing value READS AS 'pending'.
 function _apprOf(e){return (e&&e.approval)||'pending';}
+// Saturday Social Ride membership: a rider is a member when their customer record
+// carries an active Saturday tag. Top level — the queue, the roster report and the
+// report builder's filter all read it.
+function _isSatMember(e){
+  const tg=(S.tags||[]).find(x=>x.id==='tag_saturday');
+  if(!tg||!e||!e.customerId)return false;
+  return (S.customerTags||[]).some(ct=>ct.customer_id===e.customerId&&ct.tag_id===tg.id&&_tagActive(ct));
+}
 // Breakfast-spot picker for the session forms: saved spots + "new spot" inline inputs.
 // selVar/nameVar/urlVar are S-keys; picking a saved spot fills name+url from the list.
 function _bfPickerHtml(selVar,nameVar,urlVar,rerender){
@@ -8725,14 +8733,7 @@ function renderStaffQueue(_resultsOnly){
       ${canEdit?`<button type="button" onclick="event.stopPropagation();showAddonPicker('${e.id}')" title="${t('addonEditTitle')}" style="background:var(--s1);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:10px;font-weight:800;padding:5px 9px;border-radius:2px;cursor:pointer;line-height:1.4;min-height:24px">+ ${t('addonAddBtn')}</button>`:''}
     </div>`;
   };
-  // Saturday Social Ride membership: a rider counts as a member when their customer
-// record carries an active Saturday tag. Only meaningful on a community session.
-function _isSatMember(e){
-  const tg=(S.tags||[]).find(x=>x.id==='tag_saturday');
-  if(!tg||!e||!e.customerId)return false;
-  return (S.customerTags||[]).some(ct=>ct.customer_id===e.customerId&&ct.tag_id===tg.id&&_tagActive(ct));
-}
-function _commQueueView(){
+  function _commQueueView(){
   return S.sfSession!=='all'&&_isCommunity(allSessions().find(s=>s.id===S.sfSession));
 }
 function _memberCell(e,extra){
@@ -10596,9 +10597,9 @@ const _REP_SECTIONS=[
   {k:'sales',   key:'cashSalesTitle'},
 ];
 function _repDefaults(){
-  return {cols:{qnum:1,name:1,member:0,phone:0,height:0,bike:1,payment:1,status:1},
+  return {cols:{qnum:1,name:1,member:1,phone:0,height:0,bike:1,payment:1,status:1},
           sections:{summary:1,addons:1,sales:1},
-          fType:'all',fStatus:'all',fPay:'all'};
+          fType:'all',fStatus:'all',fPay:'all',fMember:'all'};
 }
 function _repOpts(){
   if(!S._repOpts){
@@ -10621,6 +10622,8 @@ function _repFilter(list){
     if(o.fStatus!=='all'&&e.status!==o.fStatus)return false;
     if(o.fPay==='paid'&&!e.paid)return false;
     if(o.fPay==='pending'&&e.paid)return false;
+    if(o.fMember==='member'&&!_isSatMember(e))return false;
+    if(o.fMember==='nonmember'&&_isSatMember(e))return false;
     return true;
   });
 }
@@ -10648,13 +10651,15 @@ function showPrintReportOptions(){
       </div>
 
       <div style="font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">${t('repOptFilters')}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px">
         <label style="display:flex;flex-direction:column;gap:4px">${t('bikeTypeLabel')}
           ${sel('rep-f-type',o.fType,[['all',t('filterAll')],..._types.map(x=>[x,typeLabel(x)])],"_repSetFilter('fType',this.value)")}</label>
         <label style="display:flex;flex-direction:column;gap:4px">${t('filterStatus')}
           ${sel('rep-f-status',o.fStatus,[['all',t('filterAll')],['waiting',t('statusWaiting')],['active',t('statusActive')],['done',t('statusDone')],['noshow',t('statusNoshow')]],"_repSetFilter('fStatus',this.value)")}</label>
         <label style="display:flex;flex-direction:column;gap:4px">${t('filterPay')}
           ${sel('rep-f-pay',o.fPay,[['all',t('filterAll')],['paid',t('filterPaid')],['pending',t('pendingLabel')]],"_repSetFilter('fPay',this.value)")}</label>
+        <label style="display:flex;flex-direction:column;gap:4px">${t('colMember')}
+          ${sel('rep-f-member',o.fMember,[['all',t('filterAll')],['member',t('memberYes')],['nonmember',t('memberNo')]],"_repSetFilter('fMember',this.value)")}</label>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:10px">
@@ -10686,10 +10691,11 @@ function exportSessionExcel(){
       .sort((a,b)=>new Date(a.registeredAt||0)-new Date(b.registeredAt||0)));
     if(!riders.length){toast(t('toastNoExport'),'warning');return;}
     const statusOf=e=>e.status==='waitlist'?t('waitlistLabel'):(e.approval==='approved'?t('apprApprovedChip'):t('apprPendingChip'));
-    const headers=['#',t('nameLabel'),t('repColPhone'),t('heightLabel')+' ('+t('cmUnit')+')',t('repColType'),t('colStatus')];
+    const _showMem=!!_repOpts().cols.member;
+    const headers=['#',t('nameLabel'),...(_showMem?[t('colMember')]:[]),t('repColPhone'),t('heightLabel')+' ('+t('cmUnit')+')',t('repColType'),t('colStatus')];
     const rosterRows=riders.map((e,i)=>{
       const phone=e.phone||(e.customerId?((getCustomers().find(x=>x.id===e.customerId)||{}).phone||''):'')||'';
-      return[i+1,e.name||'',phone,e.height||'',typeLabel(resolvedType(e)),statusOf(e)];
+      return[i+1,e.name||'',...(_showMem?[t(_isSatMember(e)?'memberYes':'memberNo')]:[]),phone,e.height||'',typeLabel(resolvedType(e)),statusOf(e)];
     });
     const rosterCsv=[headers,...rosterRows].map(r=>r.map(_csvCell).join(',')).join('\n');
     const blob=new Blob(['﻿'+rosterCsv],{type:'text/csv;charset=utf-8'});
@@ -10804,6 +10810,7 @@ function printCommunityRoster(sess){
   const riders=_repFilter(getQueue()
     .filter(e=>e.sessionId===sess.id&&(e.status==='waiting'||e.status==='waitlist'||e.status==='active'))
     .sort((a,b)=>new Date(a.registeredAt||0)-new Date(b.registeredAt||0)));
+  const _showMem=!!_repOpts().cols.member; // membership is the Saturday-specific column
   const statusOf=e=>e.status==='waitlist'?t('waitlistLabel'):(e.approval==='approved'?t('apprApprovedChip'):t('apprPendingChip'));
   const nApproved=riders.filter(e=>e.approval==='approved'&&e.status!=='waitlist').length;
   const nPending=riders.filter(e=>_apprOf(e)==='pending'&&e.status!=='waitlist').length;
@@ -10815,12 +10822,13 @@ function printCommunityRoster(sess){
     return`<tr>
       <td>${i+1}</td>
       <td>${esc(e.name||'—')}</td>
+      ${_showMem?`<td>${t(_isSatMember(e)?'memberYes':'memberNo')}</td>`:''}
       <td>${phone?`<a href="tel:${esc(phone)}">${esc(phone)}</a>`:'—'}</td>
       <td>${e.height?esc(String(e.height))+' '+cm:'—'}</td>
       <td>${esc(typeLabel(resolvedType(e)))}</td>
       <td>${esc(statusOf(e))}</td>
     </tr>`;
-  }).join('')||`<tr><td colspan="6" style="text-align:center;color:#777;padding:18px">—</td></tr>`;
+  }).join('')||`<tr><td colspan="${_showMem?7:6}" style="text-align:center;color:#777;padding:18px">—</td></tr>`;
   const body=`
     <div class="totals">
       <div class="total-item"><span class="total-num">${riders.length}</span><span class="total-lbl">${t('statNumRiders')}</span></div>
@@ -10829,7 +10837,7 @@ function printCommunityRoster(sess){
       <div class="total-item"><span class="total-num">${nWaitlist}</span><span class="total-lbl">${t('waitlistLabel')}</span></div>
     </div>
     <table>
-      <thead><tr><th>#</th><th>${t('nameLabel')}</th><th>${t('repColPhone')}</th><th>${t('heightLabel')}</th><th>${t('repColType')}</th><th>${t('colStatus')}</th></tr></thead>
+      <thead><tr><th>#</th><th>${t('nameLabel')}</th>${_showMem?`<th>${t('colMember')}</th>`:''}<th>${t('repColPhone')}</th><th>${t('heightLabel')}</th><th>${t('repColType')}</th><th>${t('colStatus')}</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
   const html=_reportShell({
@@ -10902,7 +10910,7 @@ function printSessionReport(){
     payment:e=>`<td>${_payCell(e)}</td>`,
     status: e=>`<td style="font-weight:700;color:${_stColor[e.status]||'#111512'}">${reportStatusLabel(e.status)}</td>`,
   };
-  const _sel=_REP_COLS.filter(c=>_ro.cols[c.k]);
+  const _sel=_REP_COLS.filter(c=>c.k!=='member'&&_ro.cols[c.k]); // membership is Saturday-only
   const _cols=_sel.length?_sel:_REP_COLS.filter(c=>c.k==='qnum'||c.k==='name');
   const _head=_cols.map(c=>`<th>${t(c.key)}</th>`).join('');
   const rows=entries.map(e=>`<tr>${_cols.map(c=>_cell[c.k](e)).join('')}</tr>`).join('')
