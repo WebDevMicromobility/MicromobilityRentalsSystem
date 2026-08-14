@@ -2542,7 +2542,7 @@ function renderAuthModal(){
   const isForgot=mode==='forgot';
   const ccOpts=COUNTRY_CODES.map(([code,iso])=>`<option value="${code}"${code==='+966'?' selected':''}>${code}</option>`).join('');
   // Same theme-aware pick as the topbar (dark shows logo.png, light shows logo-dark.png)
-  const logoSrc=document.documentElement.getAttribute('data-theme')==='dark'?'logo.png':'logo-dark.png';
+  const logoSrc='logo-dark.png'; // auth box is always the white paper surface — customer side is light-only
   let title=t('authWelcome'),subtitle=t('authSub'),tabs='',body='';
   const googleBlock=_isInAppBrowser()?`
     <div style="background:rgba(var(--warn-rgb),.08);border:1px solid rgba(var(--warn-rgb),.35);border-radius:4px;padding:10px 14px;font-size:12px;font-weight:600;line-height:1.6;color:var(--text)">${t('iabGoogleBlocked')}</div>
@@ -4289,10 +4289,10 @@ function toggleTheme(){
 function applyThemeIcon(){
   const cur=document.documentElement.getAttribute('data-theme')||'light';
   // Logo art follows its SURFACE, not the theme: customer pages sit on the white paper
-  // header (reskin), so the dark-wordmark art shows the name there in both themes; the
-  // staff topbar stays asphalt and keeps the white-wordmark art in both themes.
+  // header and use the MARK-ONLY art (no wordmark, per brand direction); the staff
+  // topbar stays asphalt and keeps the full white-wordmark art.
   const lg=document.getElementById('topbar-logo-img');
-  const _want=document.body.classList.contains('view-staff')?'logo.png':'logo-dark.png';
+  const _want=document.body.classList.contains('view-staff')?'logo.png':'logo-mark-dark.png';
   if(lg&&!lg.src.endsWith('/'+_want))lg.src=_want;
   const b=document.getElementById('theme-toggle-btn');if(!b)return;
   const next=cur==='light'?'dark':'light';
