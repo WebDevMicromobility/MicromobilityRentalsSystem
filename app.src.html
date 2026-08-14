@@ -3202,6 +3202,7 @@ function showView(v){
   document.body.classList.toggle('view-staff',v==='staff');
   document.title=v==='staff'?'MicroMobility Rental and Inventory System':'MicroMobility Rentals';
   renderTopbarRight();
+  applyThemeIcon(); // topbar logo art follows the view's surface (white paper vs asphalt)
   _opGateCheck(); // staff view is unusable until the operator says who they are
 }
 
@@ -4287,9 +4288,12 @@ function toggleTheme(){
 }
 function applyThemeIcon(){
   const cur=document.documentElement.getAttribute('data-theme')||'light';
-  // The topbar is asphalt in both themes now - the dark-background logo art always fits.
+  // Logo art follows its SURFACE, not the theme: customer pages sit on the white paper
+  // header (reskin), so the dark-wordmark art shows the name there in both themes; the
+  // staff topbar stays asphalt and keeps the white-wordmark art in both themes.
   const lg=document.getElementById('topbar-logo-img');
-  if(lg&&!lg.src.endsWith('logo.png'))lg.src='logo.png';
+  const _want=document.body.classList.contains('view-staff')?'logo.png':'logo-dark.png';
+  if(lg&&!lg.src.endsWith('/'+_want))lg.src=_want;
   const b=document.getElementById('theme-toggle-btn');if(!b)return;
   const next=cur==='light'?'dark':'light';
   const lbl=next==='light'?t('themeLight'):t('themeDark');
