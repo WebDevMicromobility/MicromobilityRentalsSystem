@@ -1189,7 +1189,13 @@ async function staffAuthSignIn(identifier,password){
     return{ok:true};
   }catch(e){return{ok:false,msg:(e&&e.message)||t('errConnection')};}
 }
-async function staffAuthSignOut(){S._staffAuthed=false;try{await sb.auth.signOut();}catch(e){}}
+async function staffAuthSignOut(){
+  S._staffAuthed=false;
+  // The operator name belongs to the account that just left: drop the device copy so the
+  // next sign-in restores that person's own name (or asks once) instead of inheriting this one.
+  try{localStorage.removeItem('cq_op_name');}catch(_){}
+  try{await sb.auth.signOut();}catch(e){}
+}
 // On boot: an unlocked staff device must still hold a live Auth session that maps
 // to a staff row, or the unlock flag is dropped and the PIN gate returns.
 async function staffAuthRestore(){
@@ -9115,12 +9121,32 @@ function _opName(){try{return localStorage.getItem('cq_op_name')||'';}catch(_){r
 function setOpName(v){
   const nv=String(v||'').trim().slice(0,40);const old=_opName();
   try{localStorage.setItem('cq_op_name',nv);}catch(_){}
-  if(nv&&nv!==old)logAction(t('logOperatorSet').replace('{0}',nv)); // hand-overs are themselves on the record
+  if(nv&&nv!==old){
+    logAction(t('logOperatorSet').replace('{0}',nv)); // hand-overs are themselves on the record
+    // Mirror onto the signed-in staff account (auth user metadata) so a new device or a
+    // cleared browser restores the name silently instead of re-asking. Customers never
+    // hold a Supabase Auth session, so this is a no-op outside the staff side.
+    try{sb.auth.getSession().then(({data})=>{if(data&&data.session)sb.auth.updateUser({data:{op_name:nv}}).then(()=>{},()=>{});},()=>{});}catch(_){}
+  }
 }
 // ── Mandatory operator: every staff action in the log carries the name of who did it.
 // The staff view is blocked by this gate until the person on the device says who they are;
 // the name stamps S.fullLog `by` and the shared staff_actions `who` on every logAction.
-function _opGateCheck(){if(S.view==='staff'&&!_opName())showOpGate();}
+async function _opGateCheck(){
+  if(S.view!=='staff'||_opName())return;
+  // Account first: a name saved at a previous device's gate rides in on the auth session.
+  // Restored silently (no "Operator changed" log line — it's the same person, new browser).
+  try{
+    const{data}=await sb.auth.getSession();
+    const n=data&&data.session&&data.session.user&&data.session.user.user_metadata&&data.session.user.user_metadata.op_name;
+    if(n){
+      try{localStorage.setItem('cq_op_name',String(n).trim().slice(0,40));}catch(_){}
+      if(S.staffTab==='history'&&S.histView==='log')renderLogs();
+      return;
+    }
+  }catch(_){}
+  if(S.view==='staff'&&!_opName())showOpGate();
+}
 function showOpGate(){
   const m=document.getElementById('op-gate-modal');if(!m||m.style.display==='flex')return;
   const names=(S.teamMembers||[]).slice(0,12);
