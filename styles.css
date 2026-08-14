@@ -2995,3 +2995,154 @@
       body.view-staff .snav-pin{display:none;}
       body.view-staff .snav-lbl{opacity:1;}
     }
+
+    /* ── Search clear (×) — mounted by _mountSearchClears() into each search field ── */
+    .search-clear{
+      position:absolute;inset-inline-end:6px;top:50%;transform:translateY(-50%);
+      width:26px;height:26px;padding:0;border:none;border-radius:50%;background:none;
+      color:var(--muted);cursor:pointer;display:none;align-items:center;justify-content:center;
+      line-height:0;flex-shrink:0;
+    }
+    .search-clear:hover{background:rgba(var(--tint-rgb),.1);color:var(--text);}
+    input.has-clear{padding-inline-end:34px;}
+
+    /* ── Staff topbar on small phones ───────────────────────────────────────
+       The role switch + undo + password + Lock could overflow the bar in portrait,
+       pushing Lock off-screen (it was only reachable in landscape). Everything
+       shrinks and the right-hand group is allowed to compress so Lock always fits. */
+    @media(max-width:520px){
+      body.view-staff #topbar#topbar{gap:4px;padding:0 8px;}
+      body.view-staff #topbar .topbar-logo{flex-shrink:1;min-width:0;}
+      body.view-staff #topbar-logo-img{max-width:38px;}
+      body.view-staff #topbar > div{min-width:0;gap:4px;}
+      body.view-staff #topbar .topbar-right{gap:3px;min-width:0;flex-wrap:nowrap;}
+      body.view-staff #topbar .role-seg{flex-shrink:1;min-width:0;}
+      body.view-staff #topbar .role-seg button{padding:0 7px;font-size:10.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;}
+      body.view-staff #topbar .lang-toggle{padding:0 6px;font-size:10.5px;gap:3px;}
+      body.view-staff #topbar .topbar-btn{padding:0 7px;font-size:10.5px;gap:4px;flex-shrink:0;}
+      body.view-staff #topbar .topbar-btn.icon{width:32px;padding:0;}
+      /* Lock is the escape hatch — it never shrinks away */
+      body.view-staff #topbar .topbar-btn.danger{flex-shrink:0;}
+    }
+    @media(max-width:380px){
+      body.view-staff #topbar .lang-toggle{font-size:0;padding:0 8px;} /* flag only */
+      body.view-staff #topbar .lang-toggle::first-letter{font-size:13px;}
+      body.view-staff #topbar .role-seg button{padding:0 5px;font-size:10px;}
+    }
+    @media(max-width:430px){
+      /* secondary staff controls go icon-only so Lock always has room */
+      body.view-staff #topbar .topbar-btn.undo-btn{font-size:0;padding:0 8px;gap:0;}
+      body.view-staff #topbar .topbar-btn.undo-btn svg{width:14px;height:14px;}
+      body.view-staff #topbar .role-seg button{max-width:64px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:inline-block;line-height:34px;}
+    }
+    @media(max-width:340px){
+      body.view-staff #topbar .topbar-btn.danger{font-size:0;padding:0 8px;gap:0;}
+      body.view-staff #topbar .topbar-btn.danger svg{width:14px;height:14px;}
+    }
+
+    /* ════════════════════════════════════════════════════════════════════════
+       LIGHT THEME: white header + white footer (customer and staff).
+       The staff bar keeps its ink treatment only in the staff dark theme.
+       ════════════════════════════════════════════════════════════════════════ */
+    body #app-footer{background:#ffffff;border-top:1px solid var(--border);}
+    body #app-footer::before{background:var(--green);opacity:.85;}
+    body .footer-copy{color:var(--muted);}
+    /* staff header on paper */
+    body.view-staff #topbar#topbar{background:#ffffff;border-bottom:1px solid var(--sf-line);}
+    body.view-staff #topbar::after{background:var(--green);}
+    body.view-staff #topbar .lang-toggle,
+    body.view-staff #topbar .topbar-btn{
+      color:var(--text);background:var(--sf-card);border:1px solid var(--sf-ctl);
+    }
+    body.view-staff #topbar .lang-toggle:hover,
+    body.view-staff #topbar .topbar-btn:hover{background:var(--sf-hover2);color:var(--text);border-color:var(--sf-ctl-h);}
+    body.view-staff #topbar .topbar-btn.danger{color:var(--red);}
+    body.view-staff #topbar .topbar-btn.danger:hover{background:#a33b2e;border-color:#a33b2e;color:#fff;}
+    body.view-staff #topbar .topbar-btn.undo-btn{color:var(--green);border-color:rgba(12,122,61,.35);background:rgba(12,122,61,.07);}
+    body.view-staff #topbar .topbar-btn.undo-btn:hover{background:rgba(12,122,61,.14);}
+    body.view-staff #topbar .role-seg{border-color:var(--sf-ctl);}
+    body.view-staff #topbar .role-seg button{color:var(--muted);}
+    body.view-staff #topbar .role-seg button+button{border-inline-start-color:var(--sf-ctl);}
+    body.view-staff #topbar .role-seg button.on{background:rgba(12,122,61,.1);color:var(--green);}
+    body.view-staff #topbar .role-seg button:not(.on):hover{background:var(--sf-hover);color:var(--text);}
+
+    /* staff dark theme keeps the ink bar */
+    html[data-staff-theme="dark"] body.view-staff #topbar#topbar{background:#0f1215;border-bottom:none;}
+    html[data-staff-theme="dark"] body.view-staff #topbar::after{background:#03ff89;}
+    html[data-staff-theme="dark"] body.view-staff #topbar .lang-toggle,
+    html[data-staff-theme="dark"] body.view-staff #topbar .topbar-btn{
+      color:#d7dcda;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.14);
+    }
+    html[data-staff-theme="dark"] body.view-staff #topbar .lang-toggle:hover,
+    html[data-staff-theme="dark"] body.view-staff #topbar .topbar-btn:hover{background:rgba(255,255,255,.1);color:#fff;}
+    html[data-staff-theme="dark"] body.view-staff #topbar .topbar-btn.danger{color:#ff8d7e;}
+    html[data-staff-theme="dark"] body.view-staff #topbar .topbar-btn.undo-btn{color:#03ff89;border-color:rgba(3,255,137,.3);background:rgba(3,255,137,.08);}
+    html[data-staff-theme="dark"] body.view-staff #topbar .role-seg{border-color:rgba(255,255,255,.15);}
+    html[data-staff-theme="dark"] body.view-staff #topbar .role-seg button{color:#9aa39d;}
+    html[data-staff-theme="dark"] body.view-staff #topbar .role-seg button+button{border-inline-start-color:rgba(255,255,255,.15);}
+    html[data-staff-theme="dark"] body.view-staff #topbar .role-seg button.on{background:rgba(3,255,137,.12);color:#03ff89;}
+    html[data-staff-theme="dark"] body.view-staff #topbar .role-seg button:not(.on):hover{background:rgba(255,255,255,.07);color:#fff;}
+    html[data-staff-theme="dark"] body #app-footer{background:#0f1215;border-top:1px solid rgba(255,255,255,.08);}
+
+    /* ── One control size: adjacent buttons/selects match height and line up ──
+       Staff rows previously mixed 30px row buttons with 34px selects, 40px
+       secondaries and 44px primaries, so neighbours looked ragged. */
+    body.view-staff .section-header,
+    body.view-staff .section-header > div,
+    body.view-staff .filter-row,
+    body.view-staff .filter-bar-row,
+    body.view-staff .actions-cell,
+    body.view-staff .sort-bar,
+    body.view-staff .an-subnav,
+    body.view-staff .an-range-bar,
+    body.view-staff .toggle-group,
+    body.view-staff .bike-actions,
+    body.view-staff .bike-list-actions,
+    body.view-staff .density-toggle,
+    body.view-staff .view-toggle,
+    body.view-staff .hist-action-btns{align-items:center;}
+    body.view-staff .btn-primary,
+    body.view-staff .btn-secondary,
+    body.view-staff .btn-sm,
+    body.view-staff .toggle-btn,
+    body.view-staff .filter-pill,
+    body.view-staff .sort-pill,
+    body.view-staff .an-nav-btn,
+    body.view-staff .density-btn,
+    body.view-staff .view-toggle-btn,
+    body.view-staff .filter-select,
+    body.view-staff .search-input,
+    body.view-staff .pay-toggle{
+      min-height:38px;padding-top:0;padding-bottom:0;
+      display:inline-flex;align-items:center;justify-content:center;
+      white-space:nowrap;line-height:1.15;
+    }
+    /* selects keep their native arrow padding; inputs stay text-aligned */
+    body.view-staff .filter-select,body.view-staff .search-input{justify-content:flex-start;}
+    body.view-staff .search-input{display:block;}
+    body.view-staff .view-toggle{min-height:38px;}
+    body.view-staff .view-toggle-btn{min-height:36px;}
+    /* the sidebar rail is a vertical list — keep its items left-aligned */
+    body.view-staff .inv-navbtn{min-height:38px;display:flex;align-items:center;justify-content:flex-start;}
+    @media(max-width:767px){
+      body.view-staff .btn-primary,
+      body.view-staff .btn-secondary,
+      body.view-staff .btn-sm,
+      body.view-staff .toggle-btn,
+      body.view-staff .filter-pill,
+      body.view-staff .sort-pill,
+      body.view-staff .an-nav-btn,
+      body.view-staff .density-btn,
+      body.view-staff .filter-select,
+      body.view-staff .search-input,
+      body.view-staff .pay-toggle{min-height:42px;}
+      body.view-staff .view-toggle{min-height:42px;}
+      body.view-staff .view-toggle-btn{min-height:40px;}
+      /* equal-width action buttons so a row of them reads as one control group */
+      body.view-staff .actions-cell .btn-sm{flex:1 1 calc(50% - 3px);}
+    }
+    /* customer side: keep neighbouring buttons the same height too */
+    body:not(.view-staff) .section-header,
+    body:not(.view-staff) .filter-row,
+    body:not(.view-staff) .toggle-group,
+    body:not(.view-staff) .sort-bar{align-items:center;}
