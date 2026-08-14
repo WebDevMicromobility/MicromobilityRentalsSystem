@@ -3390,7 +3390,7 @@ function showCommMembersModal(sess){
   const wa='<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>';
   m.style.display='block';
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeConfirm()">
-    <div class="confirm-box">
+    <div class="confirm-box" role="dialog" aria-modal="true">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="display:flex;align-items:center;gap:10px;min-width:0">
           <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:rgba(74,168,248,.12);border:1px solid rgba(74,168,248,.4);color:#4aa8f8;flex-shrink:0">${lock}</span>
@@ -3608,7 +3608,9 @@ function renderCustomerTabs(){
   // that's the section that reads as current.
   const _act=S.view==='landing'?'register':S.custTab;
   document.querySelectorAll('#customer-tab-nav .tab-btn').forEach(b=>{
-    b.classList.toggle('active',b.dataset.ctab===_act);
+    const _on=b.dataset.ctab===_act;
+    b.classList.toggle('active',_on);
+    if(_on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
   });
   document.getElementById('tab-register').classList.toggle('active',S.custTab==='register');
   document.getElementById('tab-myrides').classList.toggle('active',S.custTab==='myrides');
@@ -3616,7 +3618,9 @@ function renderCustomerTabs(){
   
   document.querySelectorAll('.cust-bnav-btn').forEach((btn,i)=>{
     const tabs=['register','myrides','account'];
-    btn.classList.toggle('active',tabs[i]===_act);
+    const _on=tabs[i]===_act;
+    btn.classList.toggle('active',_on);
+    if(_on)btn.setAttribute('aria-current','page');else btn.removeAttribute('aria-current');
   });
   
   const rl=document.getElementById('bnav-reserve-lbl');if(rl)rl.textContent=t('tabReserve');
@@ -3657,7 +3661,9 @@ function renderStaffTabs(){
   document.getElementById('staff-tab-nav').classList.toggle('desk-mode',_desk); // ERP rail: suite labels hide in Front Desk mode
   document.querySelectorAll('#staff-tab-nav .tab-btn').forEach(b=>{
     b.style.display=(_desk&&b.dataset.stab!=='cashier'&&b.dataset.stab!=='queue')?'none':'';
-    b.classList.toggle('active',b.dataset.stab===S.staffTab);
+    const _on=b.dataset.stab===S.staffTab;
+    b.classList.toggle('active',_on);
+    if(_on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
   });
   document.getElementById('tab-queue')     .classList.toggle('active',S.staffTab==='queue');
   document.getElementById('tab-inventory') .classList.toggle('active',S.staffTab==='inventory');
@@ -4117,7 +4123,7 @@ function renderDeskWaitlist(){
     <div class="filter-bar">
       <div class="filter-row">
         <span class="filter-label">${t('colSession')}:</span>
-        <select class="filter-select" style="min-width:200px" onchange="S._wlSess=this.value;renderStaffQueue()" id="wl-sess">${open.map(x=>`<option value="${x.id}"${S._wlSess===x.id?' selected':''}>${dayLabel(x.day)} ${shortDate(x.session_date||x.id)} · ${sessionTime(x)}${x.status==='full'?` (${t('statusFull')})`:''}${_wlCnt[x.id]?` · ${_wlCnt[x.id]} ${t('waitlistLabel')}`:''}</option>`).join('')||`<option value="">${t('noSessionsAvail')}</option>`}</select>
+        <select class="filter-select" style="min-width:200px" onchange="S._wlSess=this.value;renderStaffQueue()" id="wl-sess" aria-label="${esc(t('colSession'))}">${open.map(x=>`<option value="${x.id}"${S._wlSess===x.id?' selected':''}>${dayLabel(x.day)} ${shortDate(x.session_date||x.id)} · ${sessionTime(x)}${x.status==='full'?` (${t('statusFull')})`:''}${_wlCnt[x.id]?` · ${_wlCnt[x.id]} ${t('waitlistLabel')}`:''}</option>`).join('')||`<option value="">${t('noSessionsAvail')}</option>`}</select>
         <div class="search-wrap" style="margin-left:8px">
           ${_artIcon('search',13)}
           <input id="wl-search-input" class="search-input" placeholder="${t('searchPlaceholder')}" value="${esc(S._wlSearch||'')}" oninput="_wlSearchInput(this.value)">
@@ -7345,7 +7351,7 @@ function renderSessions(){
     <div class="filter-bar">
       <div class="filter-row">
         <span class="filter-label">${t('filterStatus')}:</span>
-        <select class="filter-select" onchange="setSessStatusFilter(this.value)">${sessStatusOpts}</select>
+        <select class="filter-select" onchange="setSessStatusFilter(this.value)" aria-label="${esc(t('filterStatus'))}">${sessStatusOpts}</select>
         <select class="filter-select" onchange="setSessSort(this.value)" aria-label="${t('colDate')}">${sessSortOpts}</select>
       </div>
       ${sessList.length!==sessions.length?`<div class="result-count">${sessList.length} ${t('resultOf')} ${sessions.length} ${t('resultSessions')}</div>`:''}
@@ -9046,7 +9052,7 @@ function renderQRow(e){
     return`
       <div class="sess-summary-bar sess-bar-desktop">${chips}</div>
       <div class="sess-bar-mobile" style="margin-bottom:14px">
-        <select class="filter-select" style="width:100%;font-size:14px;height:44px" onchange="setSfSession(this.value)">${dropdownOpts}</select>
+        <select class="filter-select" aria-label="${esc(t('colSession'))}" style="width:100%;font-size:14px;height:44px" onchange="setSfSession(this.value)">${dropdownOpts}</select>
       </div>`;
   })();
 
@@ -9055,10 +9061,11 @@ function renderQRow(e){
   
   let rows,emptyRow='';
   let mobileCards='';
+  const _qShown=filtered.slice(0,S.sfLimit||150);
   if(S.sfSession==='all'){
     const orderedSessions=[...allSessions()].sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
     rows=orderedSessions.map(sess=>{
-      const sessFiltered=filtered.filter(e=>e.sessionId===sess.id);
+      const sessFiltered=_qShown.filter(e=>e.sessionId===sess.id);
       if(!sessFiltered.length)return'';
       const nW=sessFiltered.filter(e=>e.status==='waiting').length;
       const nA=sessFiltered.filter(e=>e.status==='active').length;
@@ -9076,14 +9083,14 @@ function renderQRow(e){
     if(!filtered.length)emptyRow=`<tr><td colspan="13"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`;
     
     mobileCards=orderedSessions.map(sess=>{
-      const sessFiltered=filtered.filter(e=>e.sessionId===sess.id);
+      const sessFiltered=_qShown.filter(e=>e.sessionId===sess.id);
       if(!sessFiltered.length)return'';
       const hdr=`<div style="font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:6px 0 4px;border-bottom:1px solid rgba(var(--tint-rgb),.06);margin-bottom:8px">${dayLabel(sess.day)} &middot; ${shortDate(sess.session_date||sess.id)} &middot; ${sessionTime(sess)}</div>`;
       return hdr+buildQueueGroups(sessFiltered).map(g=>renderGroupCard(g)).join('');
     }).join('');
     if(!filtered.length)mobileCards=`<div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div>`;
   }else{
-    const _fg=buildQueueGroups(filtered); // build once, reuse for the table + the mobile cards
+    const _fg=buildQueueGroups(_qShown); // build once, reuse for the table + the mobile cards
     rows=_fg.map(g=>renderGroupRow(g)).join('');
     emptyRow=filtered.length===0?`<tr><td colspan="13"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`:'';
     mobileCards=_fg.map(g=>renderGroupCard(g)).join('');
@@ -9133,16 +9140,16 @@ function renderQRow(e){
     <div class="filter-bar">
       <div class="filter-row">
         <span class="filter-label">${t('colSession')}:</span>
-        <select class="filter-select" style="min-width:160px" onchange="setSfSession(this.value)">${qSessOpts}</select>
+        <select class="filter-select" style="min-width:160px" onchange="setSfSession(this.value)" aria-label="${esc(t('colSession'))}">${qSessOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('filterStatus')}:</span>
-        <select class="filter-select" onchange="setSfStatus(this.value)">${qStatusOpts}</select>
+        <select class="filter-select" onchange="setSfStatus(this.value)" aria-label="${esc(t('filterStatus'))}">${qStatusOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('filterPay')}:</span>
-        <select class="filter-select" onchange="setSfPay(this.value)">${qPayOpts}</select>
+        <select class="filter-select" onchange="setSfPay(this.value)" aria-label="${esc(t('filterPay'))}">${qPayOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('bikeTypeLabel')}:</span>
-        <select class="filter-select" onchange="setSfBike(this.value)">${qBikeOpts}</select>
+        <select class="filter-select" onchange="setSfBike(this.value)" aria-label="${esc(t('bikeTypeLabel'))}">${qBikeOpts}</select>
         <div class="search-wrap" style="margin-left:8px">
           ${_artIcon('search',13)}
-          <input id="sf-search-input" class="search-input" placeholder="${t('searchPlaceholder')}" value="${esc(S.sfSearch)}"
+          <input id="sf-search-input" class="search-input" aria-label="${esc(t('searchPlaceholder'))}" placeholder="${t('searchPlaceholder')}" value="${esc(S.sfSearch)}"
             oninput="setSfSearch(this.value)">
         </div>
         <button class="btn-sm btn-green" style="margin-left:8px;display:inline-flex;align-items:center;gap:6px" onclick="openScanModal()" title="${t('scanTitle')}">
@@ -9157,6 +9164,7 @@ function renderQRow(e){
   // Re-rendering the whole panel would destroy the focused search input, and on a phone a
   // destroyed input closes the soft keyboard (focus() can't reopen it without a gesture).
   const _qResultsHtml=`
+    ${filtered.length>_qShown.length?`<div style="margin:10px 0;text-align:center"><button class="btn-secondary" onclick="S.sfLimit=(S.sfLimit||150)+200;renderStaffQueue()">${t('sessShowMore').replace('{0}',filtered.length-_qShown.length)}</button></div>`:''}
     <div class="queue-mobile-view">${mobileCards}</div>
     <div class="table-wrapper queue-table-desktop-wrap"><table class="queue-table${S.queueDensity==='compact'?' compact':''}">
       <thead><tr>
@@ -9235,20 +9243,20 @@ async function bulkSfCheckin(){
   renderStaffQueue();
 }
 // Reorder a waiting entry by swapping its queue number with the adjacent waiting entry
-function setSfStatus(v){S.sfStatus=v;renderStaffQueue();}
-function setSfSession(v){S.sfSession=v;renderStaffQueue();}
+function setSfStatus(v){S.sfStatus=v;S.sfLimit=150;renderStaffQueue();}
+function setSfSession(v){S.sfSession=v;S.sfLimit=150;renderStaffQueue();}
 function setSfSort(col){
   if(S.sfSort===col) S.sfSortDir=-S.sfSortDir;
   else{S.sfSort=col;S.sfSortDir=1;}
   renderStaffQueue();
 }
 function setSfSearch(v){
-  S.sfSearch=v;
+  S.sfSearch=v;S.sfLimit=150;
   const _keep=document.activeElement&&document.activeElement.id==='sf-search-input';
   _debRender('sfSearch',()=>{renderStaffQueue(_keep);if(_keep)return;const inp=document.getElementById('sf-search-input');if(inp){inp.focus();const l=(S.sfSearch||'').length;inp.setSelectionRange(l,l);}});
 }
-function setSfPay(v){S.sfPay=v;renderStaffQueue();}
-function setSfBike(v){S.sfBike=v;renderStaffQueue();}
+function setSfPay(v){S.sfPay=v;S.sfLimit=150;renderStaffQueue();}
+function setSfBike(v){S.sfBike=v;S.sfLimit=150;renderStaffQueue();}
 function setSfSize(v){S.sfSize=v;renderStaffQueue();}
 function toggleResetTool(){S.showResetTool=!S.showResetTool;renderStaffQueue();}
 async function staffResetPassword(){
@@ -9342,10 +9350,9 @@ async function splitRentalPayment(id){
   const prevPaid=entry.paid,prevPrice=entry.price,prevMethod=entry.pay_method||null,prevCard=entry.card_amount??null;
   entry.paid=true;entry.price=price;entry.pay_method='split';entry.card_amount=card;
   renderStaffQueue();renderHistory();
-  toast(`✓ ${t('cashCard')} ${card} · ${t('cashCash')} ${Math.round((price-card)*100)/100}`);
-  const _sr=await sb.from('queue_entries').update({paid:true,price:price}).eq('id',id);
+  toast(`✓ ${t('cashCard')} ${card} · ${t('cashCash')} ${Math.round((_tot-card)*100)/100}`);
+  const _sr=await sb.from('queue_entries').update({paid:true,price:price,pay_method:'split',card_amount:card}).eq('id',id);
   if(_writeErr(_sr,'split payment')){await loadDataLight();renderStaffQueue();renderHistory();return;}
-  try{await sb.from('queue_entries').update({pay_method:'split',card_amount:card}).eq('id',id);}catch(e){}
   await loadDataLight();renderStaffQueue();renderHistory();
   pushUndo(`${t('undoPayment')} #${entry.queueNum} ${entry.name}`,async()=>{
     await sb.from('queue_entries').update({paid:prevPaid,price:prevPrice}).eq('id',id);
@@ -9758,7 +9765,7 @@ function renderLogs(){
     <div class="filter-row" style="margin-bottom:8px">${catPill('all',t('filterAll'))}${_LOG_CATS.map(([v,k])=>catPill(v,t(k))).join('')}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
       <input id="log-search" type="text" value="${esc(S._logSearch||'')}" placeholder="${esc(t('logsSearchPh'))}" oninput="S._logSearch=this.value;_debRender('log',renderLogs)" style="flex:1;min-width:170px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.15);border-radius:4px;padding:8px 12px;color:var(--text);font-family:var(--font-body);font-size:13px;outline:none">
-      ${ops.length>1?`<select class="filter-select" onchange="S._logOp=this.value;renderLogs()"><option value="all"${(S._logOp||'all')==='all'?' selected':''}>${t('filterAll')}</option>${ops.map(o=>`<option value="${esc(o)}"${S._logOp===o?' selected':''}>${esc(o)}</option>`).join('')}</select>`:''}
+      ${ops.length>1?`<select class="filter-select" aria-label="${esc(t('logsOperator'))}" onchange="S._logOp=this.value;renderLogs()"><option value="all"${(S._logOp||'all')==='all'?' selected':''}>${t('filterAll')}</option>${ops.map(o=>`<option value="${esc(o)}"${S._logOp===o?' selected':''}>${esc(o)}</option>`).join('')}</select>`:''}
       <button class="btn-secondary" onclick="exportLogsCSV()" style="white-space:nowrap">${t('logsExportBtn')}</button>
     </div>`;
   const dayKey=ts=>new Date(ts).toLocaleDateString('en-CA',{timeZone:KSA_TZ});
@@ -10460,7 +10467,7 @@ function confirmDialog({title,body,confirmLabel,confirmClass,onConfirm}){
   const m=document.getElementById('confirm-modal');
   m.style.display='block';
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeConfirm()">
-    <div class="confirm-box">
+    <div class="confirm-box" role="dialog" aria-modal="true">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:${body?'10':'18'}px">
         <div style="font-size:18px;font-weight:900">${esc(title)}</div>
         <button onclick="closeConfirm()" aria-label="${t('closeBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 4px;transition:color .15s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&times;</button>
@@ -10633,7 +10640,7 @@ function showPrintReportOptions(){
   const chk=(on)=>on?_artIcon('boxOn',15):_artIcon('boxOff',15);
   const row=(kind,k,label)=>`<button type="button" onclick="_repToggle('${kind}','${k}')" style="display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border:none;background:none;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--text);text-align:start">${chk(o[kind][k])}<span>${esc(label)}</span></button>`;
   const _types=['Road','Hybrid','Mountain','Gravel','Road Carbon'];
-  const sel=(id,val,opts,onchg)=>`<select class="filter-select" style="width:100%" onchange="${onchg}">${opts.map(op=>`<option value="${esc(op[0])}"${val===op[0]?' selected':''}>${esc(op[1])}</option>`).join('')}</select>`;
+  const sel=(id,val,opts,onchg,lbl)=>`<select class="filter-select" aria-label="${esc(lbl||id)}" style="width:100%" onchange="${onchg}">${opts.map(op=>`<option value="${esc(op[0])}"${val===op[0]?' selected':''}>${esc(op[1])}</option>`).join('')}</select>`;
   m.style.display='flex';
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)_closePrintOpts()">
     <div class="modal-box" role="dialog" aria-modal="true" style="max-width:520px">
@@ -10653,13 +10660,13 @@ function showPrintReportOptions(){
       <div style="font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">${t('repOptFilters')}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:18px">
         <label style="display:flex;flex-direction:column;gap:4px">${t('bikeTypeLabel')}
-          ${sel('rep-f-type',o.fType,[['all',t('filterAll')],..._types.map(x=>[x,typeLabel(x)])],"_repSetFilter('fType',this.value)")}</label>
+          ${sel('rep-f-type',o.fType,[['all',t('filterAll')],..._types.map(x=>[x,typeLabel(x)])],"_repSetFilter('fType',this.value)",t('bikeTypeLabel'))}</label>
         <label style="display:flex;flex-direction:column;gap:4px">${t('filterStatus')}
-          ${sel('rep-f-status',o.fStatus,[['all',t('filterAll')],['waiting',t('statusWaiting')],['active',t('statusActive')],['done',t('statusDone')],['noshow',t('statusNoshow')]],"_repSetFilter('fStatus',this.value)")}</label>
+          ${sel('rep-f-status',o.fStatus,[['all',t('filterAll')],['waiting',t('statusWaiting')],['active',t('statusActive')],['done',t('statusDone')],['noshow',t('statusNoshow')]],"_repSetFilter('fStatus',this.value)",t('filterStatus'))}</label>
         <label style="display:flex;flex-direction:column;gap:4px">${t('filterPay')}
-          ${sel('rep-f-pay',o.fPay,[['all',t('filterAll')],['paid',t('filterPaid')],['pending',t('pendingLabel')]],"_repSetFilter('fPay',this.value)")}</label>
+          ${sel('rep-f-pay',o.fPay,[['all',t('filterAll')],['paid',t('filterPaid')],['pending',t('pendingLabel')]],"_repSetFilter('fPay',this.value)",t('filterPay'))}</label>
         <label style="display:flex;flex-direction:column;gap:4px">${t('colMember')}
-          ${sel('rep-f-member',o.fMember,[['all',t('filterAll')],['member',t('memberYes')],['nonmember',t('memberNo')]],"_repSetFilter('fMember',this.value)")}</label>
+          ${sel('rep-f-member',o.fMember,[['all',t('filterAll')],['member',t('memberYes')],['nonmember',t('memberNo')]],"_repSetFilter('fMember',this.value)",t('colMember'))}</label>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:10px">
@@ -11057,8 +11064,8 @@ function _loadJsQR(){
 function openScanModal(){
   const m=document.getElementById('scan-modal');
   m.style.display='flex';
-  m.innerHTML=`<div class="pin-backdrop" onclick="if(event.target===this)closeScanModal()">
-    <div class="pin-box" style="max-width:380px;width:92vw">
+  m.innerHTML=`<div class="pin-backdrop scan-backdrop" onclick="if(event.target===this)closeScanModal()">
+    <div class="pin-box" role="dialog" aria-modal="true" aria-label="${esc(t('scanTitle'))}" style="max-width:380px;width:92vw">
       <div class="pin-title">${t('scanTitle')}</div>
       <div class="pin-sub">${t('scanHint')}</div>
       <div style="position:relative;width:100%;border-radius:7px;overflow:hidden;background:#000;aspect-ratio:1/1">
@@ -11184,7 +11191,7 @@ function renderCheckinModal(){
         </div></div>`}
       <div class="form-group" style="margin:14px 0 12px"><label>${t('bikeTypeLabel')}</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${bikeTypeOpts(comm).map(tyBtn).join('')}</div></div>
-      <button type="button" class="btn-secondary" style="width:100%" onclick="closeCheckinModal();openModal('${e.id}')">${t('assignBikeTitle')}…</button>
+      <button type="button" class="btn-secondary" style="width:100%" onclick="_ciCarryPay();closeCheckinModal();openModal('${e.id}')">${t('assignBikeTitle')}…</button>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeCheckinModal()">${t('cancelBtn')}</button>
         <button class="btn-primary" onclick="confirmCheckinModal()">${t('confirmCheckin')}</button>
@@ -11226,6 +11233,9 @@ async function _reclaimBikes(ids){
   }
   return ok;
 }
+// "Assign specific bike…" leaves the check-in modal, and only confirmCheckinModal() reads
+// S._ciPaid — so the payment the staffer just chose used to be silently discarded. Carry it.
+function _ciCarryPay(){S._ciPayCarry=(S._ciPaid&&S._ciPaid!=='pending')?S._ciPaid:null;}
 async function confirmCheckinModal(){
   const e=getQueue().find(x=>x.id===S._ciId);if(!e)return;
   const ty=CUST_TYPES.includes(S._ciType)?S._ciType:(e.typePreference||'Any');
@@ -11757,7 +11767,14 @@ async function confirmAssign(){
   if(rider&&rider.typePreference==='Any'&&selected.length>0){
     await sb.from('queue_entries').update({type_preference:selected[0].type}).eq('id',riderId);
   }
-  await loadData();closeModal();
+  await loadData();
+  // apply the payment chosen back in the check-in modal (see _ciCarryPay)
+  const _carry=S._ciPayCarry;S._ciPayCarry=null;
+  if(_carry){
+    if(_carry==='split')await splitRentalPayment(riderId);
+    else if(_carry!=='team')await togglePayment(riderId,_carry);
+  }
+  closeModal();
   if(isReassign){
     toast(t('toastBikeChanged'));
     pushUndo(`${t('undoChangeBike')} #${qn} ${rName}`,async()=>{
@@ -12176,7 +12193,7 @@ function renderBikes(_resultsOnly){
       <span class="bk-bulk-group">
       </span>
       ${isAdmin()?`<span class="bk-bulk-group">
-        <input id="bk-bulk-price" type="number" min="0" step="0.5" placeholder="${t('bkBulkPricePh')}" class="filter-select" style="height:32px;width:84px">
+        <input id="bk-bulk-price" type="number" min="0" step="0.5" aria-label="${esc(t('bkBulkPricePh'))}" placeholder="${t('bkBulkPricePh')}" class="filter-select" style="height:32px;width:84px">
         <button class="btn-sm btn-green" onclick="bkBulkPrice()">${t('bkBulkSetPrice')}</button>
       </span>`:''}
       <button class="btn-sm btn-green" onclick="bkBulkExport()">${t('bkBulkExport')}</button>
@@ -12201,25 +12218,25 @@ function renderBikes(_resultsOnly){
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('totalStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nAvail}</div><div class="stat-label">${t('availLabel')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--text)">${nUse}</div><div class="stat-label">${t('inUseLabel')}</div></div>
-      <div class="stat-card${nMaint>0?' stat-card-clickable':''}"${nMaint>0?` onclick="setBkStatus('maintenance')" style="cursor:pointer"`:''}><div class="stat-num" style="color:var(--orange)">${nMaint}</div><div class="stat-label">${t('maintLabel')}</div></div>
+      <div class="stat-card${nMaint>0?' stat-card-clickable':''}"${nMaint>0?` role="button" tabindex="0" onclick="setBkStatus('maintenance')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setBkStatus('maintenance');}" style="cursor:pointer"`:''}><div class="stat-num" style="color:var(--orange)">${nMaint}</div><div class="stat-label">${t('maintLabel')}</div></div>
     </div>
     <div class="filter-bar" style="margin-bottom:20px">
       <div class="filter-row" style="flex-wrap:wrap;gap:10px;align-items:flex-end">
         <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px;max-width:280px">
           <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">${t('searchWord')}</span>
-          <input id="bk-search-input" type="text" class="filter-select" placeholder="${t('phBikeSearch')}" value="${esc(bkSearch)}" oninput="setBkSearch(this.value)">
+          <input id="bk-search-input" type="text" class="filter-select" aria-label="${esc(t('phBikeSearch'))}" placeholder="${t('phBikeSearch')}" value="${esc(bkSearch)}" oninput="setBkSearch(this.value)">
         </div>
         <div style="display:flex;flex-direction:column;gap:4px">
           <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">${t('filterType')}</span>
-          <select class="filter-select" onchange="S.bkTypeFilter=this.value;renderBikes()">${bkTypeOpts}</select>
+          <select class="filter-select" aria-label="${esc(t('filterType'))}" onchange="S.bkTypeFilter=this.value;renderBikes()">${bkTypeOpts}</select>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px">
           <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">${t('filterStatus')}</span>
-          <select class="filter-select" onchange="setBkStatus(this.value)">${bkStatusOpts}</select>
+          <select class="filter-select" aria-label="${esc(t('filterStatus'))}" onchange="setBkStatus(this.value)">${bkStatusOpts}</select>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px">
           <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">${t('sizeWord')}</span>
-          <select class="filter-select" onchange="setBkSize(this.value)">${bkSizeOpts}</select>
+          <select class="filter-select" aria-label="${esc(t('sizeWord'))}" onchange="setBkSize(this.value)">${bkSizeOpts}</select>
         </div>
         ${bkSearch||S.bkTypeFilter!=='all'||S.bkStatus!=='all'||S.bkSize!=='all'?`<button class="btn-secondary" style="font-size:12px;padding:5px 10px;align-self:flex-end" onclick="S.bkSearch='';S.bkTypeFilter='all';S.bkStatus='all';S.bkSize='all';renderBikes()">${_artIcon('close',11)} ${t('clearWord')}</button>`:''}
       </div>
@@ -12268,7 +12285,7 @@ function _showCustomPriceModal(){
   const m=document.getElementById('confirm-modal');
   m.style.display='block';
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this){var _m=document.getElementById('confirm-modal');_m.style.display='none';_m.innerHTML='';renderBikes();}">
-    <div class="confirm-box">
+    <div class="confirm-box" role="dialog" aria-modal="true">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
         <div style="font-size:18px;font-weight:900">${t('bikeCustomPrice')}</div>
         <button onclick="document.getElementById('confirm-modal').style.display='none';document.getElementById('confirm-modal').innerHTML='';renderBikes()" aria-label="${t('closeBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 4px" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&times;</button>
@@ -12698,7 +12715,7 @@ function openCustomerProfile(entryId){
         <div class="modal-title" style="margin-bottom:0">${esc(e.name)}</div>
         <button onclick="closeCustomerProfile()" aria-label="${t('closeBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 2px">&times;</button>
       </div>
-      <div class="modal-sub" style="margin-bottom:12px">${e.customerId?[e.phone,e.email].filter(Boolean).join(' · '):t('custWalkIn')}</div>
+      <div class="modal-sub" style="margin-bottom:12px">${e.customerId?esc([e.phone,e.email].filter(Boolean).join(' · ')):t('custWalkIn')}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
         ${kpi(doneePaid.length,t('custTotalRides'))}
         ${kpi('SAR '+spent,t('custTotalSpent'))}
@@ -12876,19 +12893,19 @@ function renderHistory(_resultsOnly){
       <div class="filter-row">
         <div class="search-wrap" style="flex-shrink:0">
           ${_artIcon('search',13)}
-          <input id="hist-search-input" class="search-input" placeholder="${t('searchPlaceholder')}" value="${esc(S.histSearch)}"
+          <input id="hist-search-input" class="search-input" aria-label="${esc(t('searchPlaceholder'))}" placeholder="${t('searchPlaceholder')}" value="${esc(S.histSearch)}"
             oninput="setHistSearch(this.value)">
         </div>
         <span class="filter-label" style="margin-left:8px">${t('filterStatus')}:</span>
-        <select class="filter-select" onchange="setHistStatus(this.value)">${hStatusOpts}</select>
+        <select class="filter-select" onchange="setHistStatus(this.value)" aria-label="${esc(t('filterStatus'))}">${hStatusOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('filterPay')}:</span>
-        <select class="filter-select" onchange="setHistPay(this.value)">${hPayOpts}</select>
+        <select class="filter-select" onchange="setHistPay(this.value)" aria-label="${esc(t('filterPay'))}">${hPayOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('filterType')}:</span>
-        <select class="filter-select" onchange="setHistType(this.value)">${hTypeOpts}</select>
+        <select class="filter-select" onchange="setHistType(this.value)" aria-label="${esc(t('filterType'))}">${hTypeOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('colSession')}:</span>
-        <select class="filter-select" onchange="setHistSess(this.value)">${sessOpts}</select>
+        <select class="filter-select" onchange="setHistSess(this.value)" aria-label="${esc(t('colSession'))}">${sessOpts}</select>
         <span class="filter-label" style="margin-left:8px">${t('histRangeLabel')}:</span>
-        <select class="filter-select" onchange="setHistRange(this.value)">${hRangeOpts}</select>
+        <select class="filter-select" onchange="setHistRange(this.value)" aria-label="${esc(t('histRangeLabel'))}">${hRangeOpts}</select>
       </div>
       ${filtered.length!==hist.length?`<div class="result-count">${filtered.length} ${t('resultOf')} ${hist.length} ${t('resultRecords')}</div>`:''}
     </div>
@@ -14357,7 +14374,7 @@ function renderInventory(){
   const _stD=_stockTakeDiffs();
   const ctlBar=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0 2px">
       <input id="inv-search" type="text" value="${esc(S.invSearch||'')}" placeholder="${esc(t('invSearchPh'))}" oninput="S.invSearch=this.value;_debRender('inv',renderInventory)" style="flex:1;min-width:160px;background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:8px 12px;color:var(--text);font-family:var(--font-body);font-size:13px;outline:none">
-      <select class="filter-select" onchange="S.invSort=this.value;renderInventory()">${[['cat',t('invSortCat')],['name',t('sortName')],['stock',t('invSortStock')],['sales',t('invSortSales')]].map(([v,l])=>`<option value="${v}"${(S.invSort||'cat')===v?' selected':''}>${l}</option>`).join('')}</select>
+      <select class="filter-select" aria-label="${esc(t('sortLabel'))}" onchange="S.invSort=this.value;renderInventory()">${[['cat',t('invSortCat')],['name',t('sortName')],['stock',t('invSortStock')],['sales',t('invSortSales')]].map(([v,l])=>`<option value="${v}"${(S.invSort||'cat')===v?' selected':''}>${l}</option>`).join('')}</select>
       <button class="btn-secondary" onclick="toggleStockTake()" style="white-space:nowrap;${S.invCount?'border-color:var(--green);color:var(--green)':''}">${S.invCount?t('stCancelBtn'):t('stStartBtn')}</button>
     </div>
     ${S.invCount?`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:rgba(var(--green-rgb),.06);border:1px solid rgba(var(--green-rgb),.25);border-radius:4px;padding:9px 12px;margin-top:6px">
@@ -14604,7 +14621,7 @@ function renderTagGrantModal(){
   const temp=st.kind==='temp';
   m.style.display='block';
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this){S._tg=null;closeConfirm();}">
-    <div class="confirm-box">
+    <div class="confirm-box" role="dialog" aria-modal="true">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:18px;font-weight:900">${t('tagAddTitle')}</div>
         <button onclick="S._tg=null;closeConfirm()" aria-label="${t('closeBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 4px">&times;</button>
@@ -15241,7 +15258,7 @@ function renderAnalytics(){
           onchange="S.analyticsDateTo=this.value;renderAnalytics()">
       `:''}
       <span style="font-size:12px;font-weight:700;color:var(--muted);margin-left:8px">${t('anSessionLabel')}:</span>
-      <select class="filter-select" onchange="S.anSession=this.value;renderAnalytics()">
+      <select class="filter-select" aria-label="${esc(t('colSession'))}" onchange="S.anSession=this.value;renderAnalytics()">
         <option value="all"${(S.anSession==='all'||!S.anSession)?' selected':''}>${t('anSessionAll')}</option>
         ${_anRangeSessions.slice().reverse().map(s=>`<option value="${s.id}"${S.anSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${s.location?' · '+esc(s.location):''}</option>`).join('')}
       </select>
@@ -16565,18 +16582,46 @@ document.addEventListener('keydown',e=>{
   if(tabKeys[k]){e.preventDefault();setStaffTab(tabKeys[k]);return;}
 });
 
-// ── Modal accessibility: trap Tab focus inside the open dialog + Escape to close ──
-function _visibleModals(){return[...document.querySelectorAll('.modal-backdrop,.pin-backdrop,.auth-backdrop')].filter(m=>m.getClientRects().length>0);}
+// ── Modal accessibility: focus in, trap Tab, Escape to close, focus back out ──
+function _visibleModals(){return[...document.querySelectorAll('.modal-backdrop,.pin-backdrop,.auth-backdrop,.scan-backdrop')].filter(m=>m.getClientRects().length>0);}
+function _modalFocusables(modal){
+  return[...modal.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')]
+    .filter(el=>el.getClientRects().length>0);
+}
+// Modals are built with innerHTML, so opening one leaves focus on the trigger (or dumps it on
+// <body>) and a screen reader announces nothing; closing one used to strand focus at the top of
+// the page. Watch for dialogs appearing/disappearing and move focus in, then hand it back.
+let _preModalFocus=null,_modalWasOpen=false;
+function _syncModalFocus(){
+  const modals=_visibleModals();const modal=modals[modals.length-1];
+  if(modal&&!_modalWasOpen){
+    _preModalFocus=document.activeElement&&document.activeElement!==document.body?document.activeElement:null;
+    const f=_modalFocusables(modal);
+    const box=modal.querySelector('[role="dialog"]')||modal.firstElementChild;
+    // prefer a real control; otherwise focus the dialog box itself so it gets announced
+    if(f.length)f[0].focus();
+    else if(box){box.setAttribute('tabindex','-1');box.focus();}
+  }else if(!modal&&_modalWasOpen){
+    const back=_preModalFocus;_preModalFocus=null;
+    if(back&&document.contains(back))try{back.focus();}catch(e){}
+  }
+  _modalWasOpen=!!modal;
+}
+try{
+  const _mfo=new MutationObserver(()=>{clearTimeout(window.__mfT);window.__mfT=setTimeout(_syncModalFocus,40);});
+  document.addEventListener('DOMContentLoaded',()=>_mfo.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['style']}));
+}catch(e){}
 document.addEventListener('keydown',e=>{
   if(e.key!=='Tab'&&e.key!=='Escape')return;
   const modals=_visibleModals();const modal=modals[modals.length-1];
   if(!modal)return;
   if(e.key==='Escape'){
-    // Only the standard dismissible modals close on Escape (not the PIN gate / login)
-    if(modal.classList.contains('modal-backdrop')){e.preventDefault();modal.click();}
+    // Dismissible dialogs only — the PIN gate and the auth page are page-level, not dialogs.
+    if(!modal.classList.contains('modal-backdrop')&&!modal.classList.contains('scan-backdrop'))return;
+    e.preventDefault();modal.click();
     return;
   }
-  const list=[...modal.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>el.getClientRects().length>0);
+  const list=_modalFocusables(modal);
   if(!list.length)return;
   const first=list[0],last=list[list.length-1],inside=modal.contains(document.activeElement);
   if(e.shiftKey&&(document.activeElement===first||!inside)){e.preventDefault();last.focus();}

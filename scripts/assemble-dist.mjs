@@ -19,7 +19,7 @@ const FILES = [
   'robots.txt', 'sitemap.xml',
   'brand.png', 'hero.webp', 'icon-192.png', 'icon-512.png', 'logo.png', 'apple-touch-icon.png',
   // referenced by the app + service-worker SHELL — missing any of these breaks cache.addAll on install
-  'jcc.png', 'jcc-white.png', 'logo-dark.png', 'og-image.png', 'social-ride.jpg',
+  'jcc.png', 'jcc-white.png', 'logo-dark.png', 'logo-mark-dark.png', 'og-image.png',
 ];
 // Directories copied recursively (functions/ MUST be inside dist for Pages Functions;
 // vendor/ holds the self-hosted libraries; splash/ holds the iOS PWA launch screens).
@@ -33,7 +33,7 @@ async function main() {
 
   for (const f of FILES) {
     const src = join(root, f);
-    if (!(await exists(src))) { console.warn(`assemble-dist: skipping missing file ${f}`); continue; }
+    if (!(await exists(src))) throw new Error(`assemble-dist: required file missing: ${f}`);
     await copyFile(src, join(dist, f));
   }
   for (const d of DIRS) {

@@ -30,6 +30,16 @@ jobs:
       - run: npm ci
       - name: Lint (eslint + tsc + i18n key parity)
         run: npm run lint
+      # index.html is a generated artifact and the tests only ever load the BUILT file.
+      # Without this, editing app.src.html and forgetting `npm run build:html` gives a
+      # green run against stale code — and Pages then deploys that stale artifact.
+      - name: index.html is up to date with app.src.html
+        run: |
+          npm run build:html
+          git diff --exit-code -- index.html service-worker.js \
+            || { echo '::error::index.html/service-worker.js are stale — run `npm run build:html` and commit the result.'; exit 1; }
+      - name: dist/ assembles with every referenced asset present
+        run: node scripts/assemble-dist.mjs
       - run: npx playwright install --with-deps chromium
       - run: npm test
 

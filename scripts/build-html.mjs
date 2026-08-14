@@ -4,6 +4,7 @@
 // inside onclick="fn()" template literals, so renaming identifiers would break it.
 import { minify } from 'html-minifier-terser';
 import { readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 
 // Modularization foundation: logic can live in separate src/ files and be pulled in
 // at build time via `<!--include:path/to/file.js-->` markers. Inlining (not ES-module
@@ -29,7 +30,7 @@ async function resolveIncludes(text) {
 const raw = await readFile(new URL('../app.src.html', import.meta.url), 'utf8');
 const src = await resolveIncludes(raw);
 
-const out = await minify(src, {
+let out = await minify(src, {
   collapseWhitespace: true,
   conservativeCollapse: true, // keep a single space where text nodes need it (layout-safe)
   removeComments: true, // HTML comments
@@ -49,7 +50,32 @@ const out = await minify(src, {
   removeAttributeQuotes: false,
 });
 
+// ── Cache busting, derived not hand-maintained ───────────────────────────────
+// styles.css used to be pinned as `?v=NNN` in BOTH index.html and the service worker's
+// precache list, bumped by hand. It drifted 78 commits once, and because the SW serves
+// same-origin assets cache-first with no revalidation, returning users and installed
+// PWAs kept an old stylesheet forever while the HTML updated around it — new markup,
+// old CSS. The tag is now the stylesheet's own content hash, so it moves automatically
+// whenever the file changes, and the SW cache name moves with it.
+const cssUrl = new URL('../styles.css', import.meta.url);
+const cssHash = createHash('sha256').update(await readFile(cssUrl)).digest('hex').slice(0, 10);
+const beforeCss = out;
+out = out.replace(/styles\.css\?v=[a-z0-9]+/g, `styles.css?v=${cssHash}`);
+if (out === beforeCss && /styles\.css\?v=/.test(beforeCss)) {
+  throw new Error('build: styles.css cache tag present but not rewritten');
+}
+
+// Keep the service worker's precache entry and cache name in lockstep with that hash.
+const swUrl = new URL('../service-worker.js', import.meta.url);
+let sw = await readFile(swUrl, 'utf8');
+const swBefore = sw;
+sw = sw
+  .replace(/styles\.css\?v=[a-z0-9]+/g, `styles.css?v=${cssHash}`)
+  .replace(/const CACHE = '[^']*';/, `const CACHE = 'mmcq-${cssHash}';`);
+if (!/const CACHE = 'mmcq-/.test(sw)) throw new Error('build: could not rewrite the SW cache name');
+if (sw !== swBefore) await writeFile(swUrl, sw);
+
 // No build/tooling banner in the shipped file — index.html is public (View Source),
 // so the "edit app.src.html, not index.html" rule lives in AGENTS.md / CLAUDE.md instead.
 await writeFile(new URL('../index.html', import.meta.url), out);
-console.log(`built index.html: ${src.length} -> ${out.length} bytes`);
+console.log(`built index.html: ${src.length} -> ${out.length} bytes (assets v=${cssHash})`);

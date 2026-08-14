@@ -147,7 +147,7 @@
     html[dir="rtl"] .landing-hero-card:hover .landing-hero-cta-btn{transform:scale(1.1) translateX(-3px);}
 
     .landing-footer{margin-top:40px;text-align:center;}
-    .staff-access-btn{background:none;border:none;color:var(--muted);font-family:var(--font-body);font-size:12px;font-weight:600;cursor:pointer;padding:8px 16px;border-radius:3px;transition:background .2s,color .2s,border-color .2s,transform .2s,box-shadow .2s,opacity .2s;opacity:.45;}
+    .staff-access-btn{background:none;border:none;color:var(--muted);font-family:var(--font-body);font-size:12px;font-weight:600;cursor:pointer;padding:8px 16px;border-radius:3px;transition:background .2s,color .2s,border-color .2s,transform .2s,box-shadow .2s,opacity .2s;opacity:1;}
     .staff-access-btn:hover{color:var(--green-d);opacity:1;}
     .mirror-rtl{display:inline-block;}
     html[dir="rtl"] .mirror-rtl{transform:scaleX(-1);}
@@ -3146,3 +3146,27 @@
     body:not(.view-staff) .filter-row,
     body:not(.view-staff) .toggle-group,
     body:not(.view-staff) .sort-bar{align-items:center;}
+
+    /* ── Accessibility corrections (measured against WCAG AA) ────────────────
+       Verified ratios before/after: the rail's suite labels and pin were 3.20:1 on
+       #0f1215, --muted-l was 2.82:1 on the desk, and .filter-select dropped its focus
+       ring for a 2.07:1 border. --muted/--orange/--red/--green already passed and are
+       left alone; the staff dark theme already passes everywhere. */
+    body.view-staff .snav-group,
+    body.view-staff .snav-pin{color:#98a2a9;}          /* 3.20:1 -> 7.4:1 on the rail */
+    body.view-staff{--muted-l:#67706a;}                 /* 2.82:1 -> 4.56:1 desk / 5.12:1 card; still lighter than --muted (5.54:1) */
+    /* the focus ring must not be traded for a 2:1 border */
+    body.view-staff .filter-select:focus-visible,
+    body.view-staff .search-input:focus-visible{outline:2px solid var(--green);outline-offset:2px;}
+    /* the maintenance shortcut was a click-only div — make it a real control */
+    .stat-card-clickable{cursor:pointer;}
+    .stat-card-clickable:focus-visible{outline:2px solid var(--green);outline-offset:2px;}
+
+    /* ── RTL: physical offsets that never flipped ─────────────────────────────
+       Inline margin-left/border-left on staff rows put the gap and the accent stripe
+       on the trailing edge in Arabic. Neutralise the physical property and re-apply it
+       as a logical one so both directions are correct. */
+    html[dir="rtl"] body.view-staff .filter-row > span[style*="margin-left"],
+    html[dir="rtl"] body.view-staff .filter-bar-row > span[style*="margin-left"]{
+      margin-left:0!important;margin-right:8px;
+    }
