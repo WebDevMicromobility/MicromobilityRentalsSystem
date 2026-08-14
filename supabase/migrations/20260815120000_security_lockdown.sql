@@ -170,8 +170,10 @@ revoke execute on function public.staff_set_customer_password(text,text) from an
 -- 9. Pin search_path on the remaining flagged functions (advisor: 0011). A mutable
 -- search_path in a SECURITY DEFINER context is a privilege-escalation vector.
 -- ─────────────────────────────────────────────────────────────────────────────
-alter function public._capacity_guard()  set search_path = 'public';
-alter function public._titlecase_keep()  set search_path = 'public';
-alter function public._ctag_active()     set search_path = 'public';
-alter function public._wl_num_assign()   set search_path = 'public';
-alter function public._comm_no_carbon()  set search_path = 'public';
+-- Signatures matter here: two of these take arguments, and naming them without the
+-- argument types raises 42883 (which rolls the whole script back).
+alter function public._capacity_guard()                      set search_path = 'public';
+alter function public._titlecase_keep(text)                  set search_path = 'public';
+alter function public._ctag_active(bigint, bigint)           set search_path = 'public';
+alter function public._wl_num_assign()                       set search_path = 'public';
+alter function public._comm_no_carbon()                      set search_path = 'public';
