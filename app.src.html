@@ -8511,9 +8511,12 @@ function renderStaffQueue(){
     // Community-event reservations: staff select who rides. Pending rows get Approve/Reject,
     // plus a Waitlist action (usable even with spots free, so staff can park a request
     // without rejecting it); a waitlist approve = hand-picked promotion into a spot.
+    // LIVE rows still marked 'rejected' (a rejected booking restored from Cancelled)
+    // get the same controls with a red Rejected chip — never a dead end on the roster.
     const _comm=_commSessIds.has(e.sessionId);
-    if(_comm&&_apprOf(e)==='pending'&&(e.status==='waiting'||e.status==='waitlist')){
-      const chip=`<span style="font-size:10px;font-weight:900;color:var(--orange);border:1px solid rgba(var(--warn-rgb),.4);border-radius:2px;padding:2px 8px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">${t('apprPendingChip')}</span>`;
+    if(_comm&&['pending','rejected'].includes(_apprOf(e))&&(e.status==='waiting'||e.status==='waitlist')){
+      const _rej=_apprOf(e)==='rejected';
+      const chip=`<span style="font-size:10px;font-weight:900;color:${_rej?'var(--red)':'var(--orange)'};border:1px solid rgba(var(${_rej?'--red-rgb':'--warn-rgb'}),.4);border-radius:2px;padding:2px 8px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">${_rej?t('filterRejected'):t('apprPendingChip')}</span>`;
       const wlBtn=e.status==='waiting'?`<button class="btn-sm btn-muted" onclick="commToWaitlist('${e.id}')" title="${t('waitlistLabel')}">⏳ ${t('waitlistLabel')}</button>`:'';
       return`${chip}<button class="btn-sm btn-green" onclick="approveEntry('${e.id}')">✓ ${t('apprApproveBtn')}</button><button class="btn-sm btn-red" onclick="rejectEntry('${e.id}')">${t('apprRejectBtn')}</button>${wlBtn}${_editBtn}${_noteBtn}`;
     }
@@ -9609,7 +9612,9 @@ async function approveEntry(id){
   if(S._apprBusy)return;S._apprBusy=true;
   try{
     for(let attempt=0;attempt<2;attempt++){
-      const e=getQueue().find(x=>x.id===id);if(!e||_apprOf(e)!=='pending')return;
+      // 'rejected' is approvable too: a rejected booking restored from Cancelled stays
+      // marked rejected, and staff must be able to overturn that verdict from the roster.
+      const e=getQueue().find(x=>x.id===id);if(!e||!['pending','rejected'].includes(_apprOf(e))||!['waiting','waitlist'].includes(e.status))return;
       const patch={approval:'approved'};
       // Community rides order by reservation time and hide numbers, so a promoted rider
       // keeps their original queue_num - no renumbering means no unique-index collision.
@@ -9639,7 +9644,7 @@ async function commToWaitlist(id){
   // Staff parks a pending community request on the waitlist without rejecting it.
   // Allowed regardless of remaining spots. queue_num is left untouched (numbers are
   // stable, never reused or shifted), so an undo restores the exact same position.
-  const e=getQueue().find(x=>x.id===id);if(!e||_apprOf(e)!=='pending'||e.status!=='waiting')return;
+  const e=getQueue().find(x=>x.id===id);if(!e||!['pending','rejected'].includes(_apprOf(e))||e.status!=='waiting')return;
   const{error}=await sb.from('queue_entries').update({status:'waitlist',waitlist_num:e.waitlistNum||nextWlNum(e.sessionId)}).eq('id',id);
   if(error){toast(error.message||t('errConnection'),'error');return;}
   await loadDataLight();
@@ -9667,7 +9672,9 @@ async function unapproveEntry(id){
 // Reject: the reservation is declined and the spot freed. The row lands under Cancelled so
 // staff keep an audit trail; the customer just sees their reservation was not confirmed.
 async function rejectEntry(id){
-  const e=getQueue().find(x=>x.id===id);if(!e||_apprOf(e)!=='pending')return;
+  // Live rows already marked 'rejected' (restored-from-Cancelled zombies) can be re-rejected,
+  // which lands them back in Cancelled properly.
+  const e=getQueue().find(x=>x.id===id);if(!e||!['pending','rejected'].includes(_apprOf(e))||!['waiting','waitlist'].includes(e.status))return;
   const _wasWaitlist=e.status==='waitlist'; // waitlist never reserved stock
   const{error}=await sb.from('queue_entries').update({approval:'rejected',status:'cancelled'}).eq('id',id);
   if(error){toast(error.message||t('errConnection'),'error');return;}
@@ -9827,20 +9834,26 @@ async function _execRestoreCancelled(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry||entry.status!=='cancelled')return;
   const slotTaken=getQueue().some(e=>e.sessionId===entry.sessionId&&e.queueNum===entry.queueNum&&e.id!==id&&['waiting','active','done'].includes(e.status));
   const newQNum=slotTaken?nextQNum(entry.sessionId):entry.queueNum;
+  // A restored REJECTED community booking comes back as a fresh request, not the old
+  // verdict: without this it sat on the roster as waiting+rejected with no approval
+  // controls at all (the Riham Issa zombie).
+  const _wasRejected=_commSessIds.has(entry.sessionId)&&entry.approval==='rejected';
+  const upd={status:'waiting',queue_num:newQNum};
+  if(_wasRejected)upd.approval='pending';
   try{
-    const{error}=await sb.from('queue_entries').update({status:'waiting',queue_num:newQNum}).eq('id',id);
+    const{error}=await sb.from('queue_entries').update(upd).eq('id',id);
     if(error)throw error;
   }catch(err){
     console.error('doRestoreCancelled failed',err);
     toast(t('errSomethingWrong')+(err&&(err.message||err.code)?' ('+(err.message||err.code)+')':''),'error');
     await loadDataLight();renderStaffQueue();return;
   }
-  entry.queueNum=newQNum;entry.status='waiting';
+  entry.queueNum=newQNum;entry.status='waiting';if(_wasRejected)entry.approval='pending';
   await loadDataLight();
   await _consumeAddonsOnEnter(entry); // rider is back in the queue: re-reserve the add-on stock returned on cancel
   toast(t('toastBookingRestored'));
   pushUndo(`${t('logRestoredBooking')} #${newQNum} ${entry.name}`,async()=>{
-    await sb.from('queue_entries').update({status:'cancelled'}).eq('id',id);
+    await sb.from('queue_entries').update({status:'cancelled',...(_wasRejected?{approval:'rejected'}:{})}).eq('id',id);
     try{await _restockAddonsOnExit(entry);}catch(e){}
     await loadData();renderStaffQueue();
   });
