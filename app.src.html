@@ -67,7 +67,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
   <link rel="stylesheet" href="./styles.css?v=142">
-<script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');}catch(e){}</script>
+<script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');if(localStorage.getItem('cq_staff_theme')==='dark')document.documentElement.setAttribute('data-staff-theme','dark');}catch(e){}</script>
 </head>
 <body>
 <div id="loading-screen">
@@ -93,6 +93,11 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 
 
 <main>
+<nav class="tab-nav" id="customer-tab-nav" aria-label="Customer sections">
+  <button class="tab-btn active" data-ctab="register" onclick="setCustTab('register')">Reserve</button>
+  <button class="tab-btn"        data-ctab="myrides"  onclick="setCustTab('myrides')">My Rides</button>
+  <button class="tab-btn"        data-ctab="account"  onclick="setCustTab('account')">My Account</button>
+</nav>
 <div id="view-landing">
   <div id="landing-body">
     <div class="landing-ghost" aria-hidden="true">MICROMOBILITY</div>
@@ -124,19 +129,18 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 
 
 <div id="view-customer">
-  <nav class="tab-nav" id="customer-tab-nav" aria-label="Customer sections">
-    <button class="tab-btn active" data-ctab="register" onclick="setCustTab('register')">Reserve</button>
-    <button class="tab-btn"        data-ctab="myrides"  onclick="setCustTab('myrides')">My Rides</button>
-    <button class="tab-btn"        data-ctab="account"  onclick="setCustTab('account')">My Account</button>
-  </nav>
   <div class="view-main">
     <button id="cust-back-btn" class="cust-back-btn" onclick="custBack()"><span class="mirror-rtl" aria-hidden="true">&#8249;</span> Back</button>
     <div id="tab-register" class="tab-panel active"></div>
     <div id="tab-myrides"  class="tab-panel"></div>
     <div id="tab-account"  class="tab-panel"></div>
   </div>
-  
-  <nav id="cust-bottom-nav" aria-label="Customer navigation">
+</div>
+
+<!-- The customer sections bar lives OUTSIDE #view-customer so the signed-in event
+     picker (the landing view) can show it too; body.view-customer / body.view-picker
+     decide when it appears. -->
+<nav id="cust-bottom-nav" aria-label="Customer navigation">
     <div class="cust-bnav-grid" id="cust-bnav-grid">
       <button class="cust-bnav-btn active" onclick="setCustTab('register')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16L10 8l3.5 4L17 8"/><path d="M18 16L17 8"/><path d="M10 8L8.5 5.5Q10 5 11.5 5.5"/></svg>
@@ -151,8 +155,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
         <span id="bnav-account-lbl">Account</span>
       </button>
     </div>
-  </nav>
-</div>
+</nav>
 
 
 <div id="view-staff">
@@ -3201,12 +3204,28 @@ function prefillFromAccount(){
 }
 
 
+// The customer sections bar shows on the customer view AND on the signed-in event
+// picker (the landing view), so a rider can reach My Rides / My Account before
+// choosing an event. Signed-out visitors get the auth page instead — no bar.
+function _syncCustNav(){
+  const _cl=document.body.classList;
+  const _wantC=S.view==='customer';
+  // getSession() parses storage, so only ask when the landing view could actually show the bar
+  const _wantP=S.view==='landing'&&!!(S.loggedIn||getSession());
+  // Staff and the signed-out auth page never show it: leave without touching the DOM.
+  // renderLandingAvail() calls this on every background refresh, so it stays cheap.
+  if(!_wantC&&!_wantP&&!_cl.contains('view-customer')&&!_cl.contains('view-picker'))return;
+  _cl.toggle('view-customer',_wantC);
+  _cl.toggle('view-picker',_wantP);
+  if(_wantC||_wantP)renderCustomerTabs();
+}
 function showView(v){
   S.view=v;
   document.getElementById('view-landing').classList.toggle('active',v==='landing');
   document.getElementById('view-customer').classList.toggle('active',v==='customer');
   document.getElementById('view-staff').classList.toggle('active',v==='staff');
   document.body.classList.toggle('view-staff',v==='staff');
+  _syncCustNav();
   document.title=v==='staff'?'MicroMobility Rental and Inventory System':'MicroMobility Rentals';
   renderTopbarRight();
   applyThemeIcon(); // topbar logo art follows the view's surface (white paper vs asphalt)
@@ -3388,6 +3407,7 @@ function renderLandingAvail(){
   // Saturday included - the ride stays visible to every customer and the members gate
   // answers the click. The JCC logo is jcc.png (optional: onerror removes the img).
   if(lb)lb.classList.toggle('events-only',!!cust);
+  _syncCustNav(); // login/logout on the landing page flips the sections bar on or off
   const ev=document.getElementById('land-events');
   if(ev){
     if(!cust){ev.innerHTML='';}
@@ -3528,8 +3548,11 @@ function setStaffTab(tab){
 }
 
 function renderCustomerTabs(){
+  // On the event picker no panel is open yet; the picker IS step one of Reserve, so
+  // that's the section that reads as current.
+  const _act=S.view==='landing'?'register':S.custTab;
   document.querySelectorAll('#customer-tab-nav .tab-btn').forEach(b=>{
-    b.classList.toggle('active',b.dataset.ctab===S.custTab);
+    b.classList.toggle('active',b.dataset.ctab===_act);
   });
   document.getElementById('tab-register').classList.toggle('active',S.custTab==='register');
   document.getElementById('tab-myrides').classList.toggle('active',S.custTab==='myrides');
@@ -3537,7 +3560,7 @@ function renderCustomerTabs(){
   
   document.querySelectorAll('.cust-bnav-btn').forEach((btn,i)=>{
     const tabs=['register','myrides','account'];
-    btn.classList.toggle('active',tabs[i]===S.custTab);
+    btn.classList.toggle('active',tabs[i]===_act);
   });
   
   const rl=document.getElementById('bnav-reserve-lbl');if(rl)rl.textContent=t('tabReserve');
@@ -4283,7 +4306,22 @@ async function resolveDeskWaitlist(id,status){
   renderStaffQueue(); // routes to whichever view is live (Waitlist page OR Staff List)
 }
 
+// Staff runs its own opt-in dark theme under cq_staff_theme, kept apart from the
+// customer cq_theme: the customer side is light-only, and staff must default to the
+// light ERP paper. Light needs no stored value; only the dark opt-in is persisted.
+function _staffDark(){return document.documentElement.getAttribute('data-staff-theme')==='dark';}
+function toggleStaffTheme(){
+  if(_staffDark()){
+    document.documentElement.removeAttribute('data-staff-theme');
+    try{localStorage.removeItem('cq_staff_theme');}catch(e){}
+  }else{
+    document.documentElement.setAttribute('data-staff-theme','dark');
+    try{localStorage.setItem('cq_staff_theme','dark');}catch(e){}
+  }
+  applyThemeIcon();
+}
 function toggleTheme(){
+  if(S.view==='staff'){toggleStaffTheme();return;} // one topbar button, per-view meaning
   // Dark is the default: it needs no stored preference. Light is the explicit opt-in, so
   // only light is persisted — clearing the key must fall back to dark, not light.
   const cur=document.documentElement.getAttribute('data-theme')||'light';
@@ -4300,6 +4338,11 @@ function applyThemeIcon(){
   const _want='logo-mark-dark.png';
   if(lg&&!lg.src.endsWith('/'+_want))lg.src=_want;
   const b=document.getElementById('theme-toggle-btn');if(!b)return;
+  if(S.view==='staff'){ // the icon shows the theme the tap switches TO
+    const _lbl=_staffDark()?t('themeLight'):t('themeDark');
+    b.innerHTML=_staffDark()?ICON_SUN:ICON_MOON;b.title=_lbl;b.setAttribute('aria-label',_lbl);
+    return;
+  }
   const next=cur==='light'?'dark':'light';
   const lbl=next==='light'?t('themeLight'):t('themeDark');
   b.innerHTML=next==='dark'?ICON_MOON:ICON_SUN;b.title=lbl;b.setAttribute('aria-label',lbl);
@@ -6734,6 +6777,8 @@ const _ART={
   whatsapp:'<path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>',
   search:'<circle opacity=".35" cx="10.5" cy="10.5" r="6.5"/><path d="M10.5 6.5a4 4 0 0 1 4 4h-2a2 2 0 0 0-2-2v-2Zm5.6 8.1 5 5-1.5 1.5-5-5a7 7 0 0 0 1.5-1.5Z"/>',
   bike:'<circle opacity=".35" cx="5.5" cy="16.5" r="4"/><circle opacity=".35" cx="18.5" cy="16.5" r="4"/><path d="M9.8 7h4.6v1.6h-1.5l3.2 5.4a2.5 2.5 0 1 1-1.4.8l-1.1-1.9-3.2 3.9a2.5 2.5 0 1 1-1.2-1l3.6-4.4-1.5-2.5-1.5.1V7Z"/>',
+  sun:'<circle cx="12" cy="12" r="4.6"/><path opacity=".35" d="M11 1.5h2v3.4h-2zm0 17.6h2v3.4h-2zM1.5 11h3.4v2H1.5zm17.6 0h3.4v2h-3.4zM4.2 5.6l1.4-1.4 2.4 2.4-1.4 1.4zm11.8 11.8 1.4-1.4 2.4 2.4-1.4 1.4zm2.4-13.2 1.4 1.4-2.4 2.4-1.4-1.4zM4.2 18.4l2.4-2.4 1.4 1.4-2.4 2.4z"/>',
+  moon:'<path d="M21.4 13.2A9.2 9.2 0 1 1 10.8 2.6a7.2 7.2 0 0 0 10.6 10.6Z"/><path opacity=".35" d="M17.4 2.2l.7 1.9 1.9.7-1.9.7-.7 1.9-.7-1.9-1.9-.7 1.9-.7.7-1.9Z"/>',
 };
 function _artIcon(kind,px){
   px=px||14;
@@ -6744,8 +6789,8 @@ const ICON_PRINT=_artIcon('print');
 const ICON_EXPORT=_artIcon('download');
 const ICON_RESCHEDULE=_artIcon('cycle');
 const ICON_PROMOTE=_artIcon('promote');
-const ICON_SUN=`<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="12" cy="12" r="4"/><path d="M12 3v1M12 20v1M4 12H3M21 12h-1M5.6 5.6l.7.7M17.7 17.7l.7.7M18.4 5.6l-.7.7M6.3 17.7l-.7.7"/></svg>`;
-const ICON_MOON=`<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>`;
+const ICON_SUN=_artIcon('sun',15);
+const ICON_MOON=_artIcon('moon',15);
 function noShowFlag(e){
   const n=customerNoShows(e);
   return n>=3?`<span title="${t('noShowFlagTip').replace('{0}',n)}" style="margin-left:5px;font-size:10px;color:var(--orange);font-weight:800;white-space:nowrap;border:1px solid var(--orange);border-radius:2px;padding:1px 5px">${n}</span>`:'';
