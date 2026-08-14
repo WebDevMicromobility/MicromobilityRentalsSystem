@@ -2752,3 +2752,88 @@
       body.view-staff .q-card .btn-sm{min-height:40px;}
       body.view-staff .actions-cell{min-width:0;}
     }
+
+    /* ── Staff fleet tables on phones: 13 columns can't fit, and a nested sideways
+       scroll hides the Status/Rider/action columns entirely. Same treatment the
+       sessions table already gets: each row becomes a label/value card. ── */
+    @media(max-width:767px){
+      body.view-staff .bk-table,body.view-staff .bk-table tbody,
+      body.view-staff .bk-table tr,body.view-staff .bk-table td{display:block;width:100%;max-width:100%;box-sizing:border-box;}
+      body.view-staff .bk-table{min-width:0!important;}
+      body.view-staff .table-wrapper:has(.bk-table){overflow-x:visible;border:none;background:none;border-radius:0;}
+      body.view-staff .bk-table thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);border:0;}
+      body.view-staff .bk-table tr{
+        position:relative;background:#fff;border:1px solid #dfe4e6;border-radius:10px;
+        margin-bottom:10px;padding:10px 12px;overflow:hidden;
+      }
+      body.view-staff .bk-table tbody tr:nth-child(odd) td,
+      body.view-staff .bk-table tbody tr:hover td{background:none;}
+      body.view-staff .bk-table td{border:none;padding:5px 0;text-align:start;overflow-wrap:anywhere;}
+      /* label/value rows */
+      body.view-staff .bk-table td[data-label]{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+      body.view-staff .bk-table td[data-label]::before{
+        content:attr(data-label);flex:0 0 auto;
+        font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);
+      }
+      html[lang="ar"] body.view-staff .bk-table td[data-label]::before{letter-spacing:0;text-transform:none;}
+      /* name headlines the card; the select checkbox tucks beside it */
+      body.view-staff .bk-table td.bk-cell-name{
+        padding:0 0 8px;margin-bottom:4px;border-bottom:1px solid #eef1ec;font-size:15px;font-weight:700;
+      }
+      body.view-staff .bk-table td.bk-cell-sel{
+        position:absolute;top:10px;inset-inline-end:12px;width:auto;padding:0;
+      }
+      /* actions get their own full-width row of comfortable buttons */
+      body.view-staff .bk-table td:last-child .actions-cell{gap:6px;margin-top:6px;}
+      body.view-staff .bk-table td:last-child .actions-cell .btn-sm{flex:1 1 calc(50% - 3px);min-height:40px;}
+      /* empty-state row: no giant blank table box */
+      body.view-staff .bk-table td[colspan]{padding:6px 0;}
+      body.view-staff .bk-table td[colspan]::before{display:none;}
+      body.view-staff .bk-table tr:has(td[colspan]){padding:4px 10px;}
+    }
+
+    /* ── Phone tap targets: HIG asks for ~44px; staff controls were 24–31px ── */
+    @media(max-width:767px){
+      body.view-staff .btn-sm{min-height:40px;padding:8px 12px;}
+      body.view-staff .actions-cell .btn-sm{min-height:40px;}
+      body.view-staff .pay-toggle{min-height:36px;padding:8px 12px;}
+      body.view-staff .view-toggle-btn,body.view-staff .density-btn{min-height:38px;min-width:42px;}
+      body.view-staff .bk-table input[type="checkbox"],
+      body.view-staff .queue-table input[type="checkbox"]{width:22px;height:22px;}
+      /* contact call/WhatsApp circles */
+      body.view-staff .q-card a[href^="tel:"],body.view-staff .q-card a[href*="wa.me"],
+      body.view-staff .queue-table a[href^="tel:"],body.view-staff .queue-table a[href*="wa.me"]{width:36px!important;height:36px!important;}
+      /* customer back button was a 17px hit area */
+      .cust-back-btn{min-height:40px;padding:0 6px;}
+    }
+
+    /* Long names must ellipsize, never spill out of their card */
+    .member-card-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .cust-topbar-name,.cust-topbar-email{max-width:min(140px,28vw);}
+    /* These carry inline min-height in the JS templates, so the phone sizing has to
+       outrank it. Handler names are load-bearing in this repo, so they're stable hooks. */
+    @media(max-width:767px){
+      body.view-staff .pay-toggle{min-height:36px!important;}
+      button[onclick*="showAddonPicker"]{min-height:36px!important;}
+      body.view-staff [onclick*="showEditQNumModal"],
+      body.view-staff [onclick*="showGroupEditModal"],
+      body.view-staff [onclick*="showEditPriceModal"]{min-height:36px!important;min-width:36px;}
+      .topbar-logo{min-height:40px;display:inline-flex;align-items:center;}
+    }
+    @media(max-width:767px){
+      body.view-staff [onclick*="toggleResetTool"]{min-height:38px;min-width:38px;}
+      body.view-staff .bk-table td.bk-cell-sel input[type="checkbox"]{width:24px;height:24px;}
+      /* customer topbar: at ≤400px the avatar + name + LOG OUT overran the viewport */
+      #topbar-right .cust-topbar-name,#topbar-right .cust-topbar-email{max-width:64px;}
+    }
+    @media(max-width:400px){
+      #topbar-right .cust-topbar-name,#topbar-right .cust-topbar-email{display:none;}
+      #topbar-right{gap:4px;}
+    }
+    /* Member card name: shrink to fit on phones instead of ellipsizing a rider's own name */
+    @media(max-width:560px){
+      .member-card-name{font-size:22px;}
+    }
+    @media(max-width:390px){
+      .member-card-name{font-size:19px;}
+    }
