@@ -4,11 +4,24 @@ import type { Page } from '@playwright/test';
 // Supabase Auth session object — so values are broader than arrays.
 export type Fixtures = Record<string, unknown>;
 
+/** A write failure the stub should inject, so specs can reach the error branches.
+ *  `table` limits it to one table (default: every write); `methods` to POST/PATCH/DELETE.
+ *  `once` fails the first matching write only, which is how you test a retry succeeding. */
+export type FailWrite = {
+  table?: string;
+  methods?: string[];
+  once?: boolean;
+  status?: number;
+  code?: string;
+  message?: string;
+};
+
 // Intercepts every request to *.supabase.co so tests never touch the real
 // database. GETs return the fixture rows for the table (default: empty),
 // writes are echoed back as if they succeeded. RPCs answer with the fixture
 // under 'rpc:<name>'; Auth password sign-in answers with 'auth:token'.
-export async function stubSupabase(page: Page, fixtures: Fixtures = {}) {
+export async function stubSupabase(page: Page, fixtures: Fixtures = {}, failWrite?: FailWrite) {
+  let failsLeft = failWrite ? (failWrite.once ? 1 : Infinity) : 0;
   // SECURE_AUTH defaults ON in production; pin open mode for the stubbed suite
   // unless a spec explicitly opts into secure mode after this (secureOn sets '1').
   await page.addInitScript(() => localStorage.setItem('cq_secure_auth', '0'));
@@ -56,6 +69,25 @@ export async function stubSupabase(page: Page, fixtures: Fixtures = {}) {
         status: 200,
         headers: { ...cors(), 'content-type': 'application/json', 'content-range': `0-${rows.length}/${rows.length}` },
         body: JSON.stringify(rows),
+      });
+    }
+
+    // Injected write failure. Without this the stub answers 2xx to every write, so ~60% of
+    // the app's save paths — the ones with no error check — look identical to working code
+    // in the suite, and RLS denials are unreachable in a test.
+    if (
+      failWrite && failsLeft > 0 &&
+      (!failWrite.table || failWrite.table === table) &&
+      (!failWrite.methods || failWrite.methods.includes(method))
+    ) {
+      failsLeft--;
+      return route.fulfill({
+        status: failWrite.status ?? 403,
+        headers: { ...cors(), 'content-type': 'application/json' },
+        body: JSON.stringify({
+          code: failWrite.code ?? '42501',
+          message: failWrite.message ?? 'new row violates row-level security policy',
+        }),
       });
     }
 
