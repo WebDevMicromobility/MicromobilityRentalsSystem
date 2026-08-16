@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
+import { stubSupabase, unlockStaff, loginCustomer, waitForSb } from './helpers/supabase';
 
 // A blanket "does it render at all" sweep. The sessions two-pane detail shipped with
 // `waitlistCap(sel)` where the surrounding scope binds `_selSess`, so opening any session
@@ -85,4 +85,45 @@ test.describe('session drill-downs', () => {
     await page.waitForTimeout(250);
     expect(errs).toEqual([]);
   });
+});
+
+// Session shapes differ enough that one fixture proves little: a percentage cap and a count
+// cap take different branches, community rides skip pricing entirely, and the counts mode
+// stores a per-size object where the others store a number. Render each, staff and customer.
+const variants: Array<[string, Record<string, unknown>]> = [
+  ['plain', {}],
+  ['waitlist as a percentage', { bike_slots: JSON.stringify({ _time: '21:00 - 23:00', _total: 9, _wl: { m: 'pct', v: 20 } }) }],
+  ['waitlist as a count', { bike_slots: JSON.stringify({ _time: '21:00 - 23:00', _total: 9, _wl: { m: 'count', v: 5 } }) }],
+  ['community, unpublished', { event_kind: 'community', title: 'Saturday Social Ride', spots: 30, hide_queue: true }],
+  ['community, published', { event_kind: 'community', title: 'Saturday Social Ride', spots: 30, hide_queue: false }],
+  ['closed, with add-ons', { status: 'closed', addons: JSON.stringify(['i1']) }],
+  ['full, per-size counts', { status: 'full', bike_slots: JSON.stringify({ _time: '21:00 - 23:00', Road: { XS: 1, S: 2, M: 3, L: 1 } }) }],
+];
+
+test.describe('session shapes all render', () => {
+  for (const [name, over] of variants) {
+    test(`staff detail and editor: ${name}`, async ({ page }) => {
+      const errs = watch(page);
+      await stubSupabase(page, { sessions: [{ ...sessions[0], ...over }], queue_entries, bikes, inventory, promo_codes });
+      await unlockStaff(page);
+      await page.goto('/');
+      await waitForSb(page);
+      await page.evaluate(`setStaffTab('sessions'); selectSessionDetail('s0'); startEditSession('s0');`);
+      await page.waitForTimeout(200);
+      expect(errs, name).toEqual([]);
+    });
+
+    test(`customer screens: ${name}`, async ({ page }) => {
+      const errs = watch(page);
+      await stubSupabase(page, { sessions: [{ ...sessions[0], ...over }], queue_entries, bikes, inventory, promo_codes });
+      await loginCustomer(page, { id: 'c1' });
+      await page.goto('/');
+      await waitForSb(page);
+      for (const tab of ['register', 'myrides', 'account']) {
+        await page.evaluate(`setCustTab('${tab}')`);
+        await page.waitForTimeout(120);
+      }
+      expect(errs, name).toEqual([]);
+    });
+  }
 });
