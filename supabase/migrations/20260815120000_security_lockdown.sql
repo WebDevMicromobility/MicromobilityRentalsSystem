@@ -162,6 +162,10 @@ end $function$;
 -- function at CREATE TRIGGER time, but the behaviour is subtle enough that revoking it
 -- risks breaking every booking insert for no real gain — called as an RPC they just error
 -- outside trigger context. The token oracles below are the actual exposure.
+-- NOTE (2026-08-16): these three revokes had NO EFFECT. PostgreSQL grants EXECUTE on a new
+-- function to PUBLIC, and revoking from a role does not remove a PUBLIC grant, so anon kept
+-- reaching them. Superseded by 20260816140000_revoke_from_public.sql, which revokes from
+-- PUBLIC. Left as written so the migration history stays honest about what was applied.
 revoke execute on function public._cust_token_ok(text,text)    from anon, authenticated;
 revoke execute on function public.customer_token_ok(text,text) from anon, authenticated;
 revoke execute on function public.staff_set_customer_password(text,text) from anon;

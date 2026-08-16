@@ -44,6 +44,8 @@ as $function$
   );
 $function$;
 
+-- NOTE (2026-08-16): no effect — see 20260816140000_revoke_from_public.sql. A PUBLIC grant
+-- survives a revoke aimed at a role.
 revoke execute on function public._promo_valid(text, text) from anon, authenticated;
 
 -- ─────────────────────────────────────────────────────────────────────────────
