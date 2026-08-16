@@ -7812,25 +7812,36 @@ async function saveSessionEdit(){
       
       const existing=allSessions().find(s=>s.id===newDate&&s.id!==oldId);
       if(existing){toast(t('errDateExists'),'error');return;}
-      await sb.from('sessions').insert({
+      // Each step gates the next. A silently-failed insert used to be followed by moving
+      // every booking onto a session id that does not exist and then deleting the real
+      // one — the whole day's bookings orphaned, with a success toast.
+      if(_writeErr(await sb.from('sessions').insert({
         id:newDate,day:newDay,session_date:newDate,capacity:total,
         status:newStatus,created_at:sess.created_at||new Date().toISOString(),
         bike_slots:JSON.stringify(slots)
-      });
-      
-      await sb.from('queue_entries').update({
+      }),'move session'))return;
+
+      const _mv=await sb.from('queue_entries').update({
         session_id:newDate,session_date:newDate,session_day:newDay
       }).eq('session_id',oldId);
+      if(_mv&&_mv.error){
+        // Roll the new row back rather than leave two sessions for one day.
+        try{await sb.from('sessions').delete().eq('id',newDate);}catch(_){}
+        _writeErr(_mv,'move bookings');
+        return;
+      }
       // Cashier receipts follow too — leaving them on the deleted old id orphaned that
       // day's sales from the ledger, close-out and analytics (deleteSession already guards
       // against exactly this). Tolerant: a failure here never blocks the date move.
       try{await sb.from('cashier_sales').update({session_id:newDate}).eq('session_id',oldId);(S.cashSales||[]).forEach(r=>{if(r.session_id===oldId)r.session_id=newDate;});}catch(e){}
-      await sb.from('sessions').delete().eq('id',oldId);
+      // The bookings and receipts are already on the new id, so a failure here leaves a
+      // stale empty session rather than losing anything — report it, don't abort.
+      _writeErr(await sb.from('sessions').delete().eq('id',oldId),'remove old session');
     } else {
-      await sb.from('sessions').update({
+      if(_writeErr(await sb.from('sessions').update({
         day:newDay,session_date:newDate,capacity:total,
         status:newStatus,bike_slots:JSON.stringify(slots)
-      }).eq('id',oldId);
+      }).eq('id',oldId),'save session'))return;
     }
     // Persist offered add-ons separately so a missing column can't block the save (always written so removals stick)
     {try{await sb.from('sessions').update({addons:JSON.stringify(S.editSessAddons||[])}).eq('id',newDate);}catch(e){}}
@@ -7983,12 +7994,14 @@ async function toggleSession(id,newStatus){
   try{
     const prev=allSessions().find(s=>s.id===id);
     const prevStatus=prev?prev.status:'closed';
-    await sb.from('sessions').update({status:newStatus}).eq('id',id);
+    // PostgREST resolves with {error} on a denial rather than throwing, so the catch below
+    // never saw it and the success toast fired on a write that never happened.
+    if(_writeErr(await sb.from('sessions').update({status:newStatus}).eq('id',id),'session status',()=>toggleSession(id,newStatus)))return;
     await loadData();
     const lbl={open:t('sessOpened'),closed:t('sessClosed'),full:t('statusFull')+'.'}[newStatus]||newStatus;
     toast(lbl);
     pushUndo(`${t('undoSessionStatus')} ${shortDate(prev?.session_date||id)} → ${newStatus}`,async()=>{
-      await sb.from('sessions').update({status:prevStatus}).eq('id',id);
+      if(_writeErr(await sb.from('sessions').update({status:prevStatus}).eq('id',id),'undo session status'))return;
       await loadData();renderSessions();renderStaffQueue();
     });
     renderSessions();renderStaffQueue();
@@ -8004,7 +8017,7 @@ async function deleteSession(id){
     const sales=(S.cashSales||[]).filter(r=>r.session_id===id&&r.pay!=='refunded'&&r.category!=='__cardmeta__'&&r.category!=='__discount__').length;
     if(sales>0){toast(t('errHasSales'),'error');return;}
 
-    await sb.from('sessions').update({status:'deleted'}).eq('id',id);
+    if(_writeErr(await sb.from('sessions').update({status:'deleted'}).eq('id',id),'delete session',()=>deleteSession(id)))return;
     await loadData();
     toast(t('sessDeleted'));
     renderSessions();
@@ -8013,7 +8026,7 @@ async function deleteSession(id){
 
 async function restoreSession(id){
   try{
-    await sb.from('sessions').update({status:'closed'}).eq('id',id);
+    if(_writeErr(await sb.from('sessions').update({status:'closed'}).eq('id',id),'restore session',()=>restoreSession(id)))return;
     await loadData();
     toast(t('sessRestored'));
     renderSessions();

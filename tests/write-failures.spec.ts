@@ -188,3 +188,50 @@ test.describe('connection state', () => {
     expect(state.banner).toContain('not reachable');
   });
 });
+
+test.describe('session writes stop pretending to have worked', () => {
+  const admin = { sessions };
+
+  test('a refused status change reports instead of toasting success', async ({ page }) => {
+    await stubSupabase(page, admin, { table: 'sessions', methods: ['PATCH'] });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+
+    // PostgREST resolves with {error} on a denial rather than throwing, so the enclosing
+    // try/catch never saw it and the "Session closed" toast fired regardless.
+    await page.evaluate(`toggleSession('s0','closed')`);
+    await expect(page.locator('#err-bar-el')).toBeVisible();
+    expect(await page.evaluate(`allSessions().find(s=>s.id==='s0').status`)).toBe('open');
+  });
+
+  test('a date move that cannot create the new session leaves the old one alone', async ({ page }) => {
+    await stubSupabase(page, admin, { table: 'sessions', methods: ['POST'] });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+
+    const seen: string[] = [];
+    page.on('request', (r) => {
+      const u = r.url();
+      if (!u.includes('/rest/v1/')) return;
+      if (['POST', 'PATCH', 'DELETE'].includes(r.method())) seen.push(`${r.method()} ${u.split('/rest/v1/')[1].split('?')[0]}`);
+    });
+
+    await page.evaluate(`(async () => {
+      startEditSession('s0');
+      // plain-count mode: the default asks for assigned bikes, which this fixture has none of
+      S.editSessMode = 'total'; S.editSessTotal = '10';
+      S.editSessDate = '2099-03-01';
+      await saveSessionEdit();
+    })()`);
+
+    // The insert is attempted and refused...
+    expect(seen).toContain('POST sessions');
+    // ...and nothing after it runs: no booking move onto an id that does not exist, and no
+    // delete of the real session. That combination is what orphaned a whole day's bookings.
+    expect(seen).not.toContain('PATCH queue_entries');
+    expect(seen).not.toContain('DELETE sessions');
+    await expect(page.locator('#err-bar-el')).toBeVisible();
+  });
+});
