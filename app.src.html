@@ -14,7 +14,7 @@
   <meta property="og:site_name" content="MicroMobility Rentals">
   <meta property="og:title" content="MicroMobility Rentals — Bicycle Rentals at the Jeddah Corniche">
   <meta property="og:description" content="Reserve your ride with MicroMobility - bicycle rentals and community rides in Jeddah.">
-  <meta property="og:image" content="https://micromobilityrentals.pages.dev/og-image.png">
+  <meta property="og:image" content="__SITE_ORIGIN__/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:type" content="image/png">
@@ -23,7 +23,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="MicroMobility Rentals — Jeddah Corniche">
   <meta name="twitter:description" content="Book a bicycle rental at the Jeddah Corniche Circuit. Reserve your bike, pick a session, and skip the queue.">
-  <meta name="twitter:image" content="https://micromobilityrentals.pages.dev/og-image.png">
+  <meta name="twitter:image" content="__SITE_ORIGIN__/og-image.png">
   <link rel="preconnect" href="https://amyqxovbnlreassrqihr.supabase.co">
   <link rel="preload" as="script" href="./vendor/supabase-js-2.110.0.min.js"><!-- boot awaits this; fetch it at top priority right away -->
   <!-- Preload the primary UI font weights (body + bold) so first paint has them, avoiding a text-swap flash -->
@@ -31,25 +31,59 @@
   <link rel="preload" as="font" type="font/woff2" href="./fonts/BarlowCond-800i-latin.woff2" crossorigin>
   <link href="./fonts/fonts.css?v=6" rel="stylesheet">
   <link rel="icon" type="image/png" href="logo.png">
-  <link rel="canonical" href="https://micromobilityrentals.pages.dev/">
-  <!-- Structured data for search engines. Update the url/image origins when the custom domain goes live. -->
+  <link rel="canonical" href="__SITE_ORIGIN__/">
+  <!-- Language lived only in localStorage behind a single URL, so no crawler could ever reach
+       the Arabic site — backwards in Jeddah. ?lang= now selects the language on load, which
+       gives each one an address these alternates can point at. -->
+  <link rel="alternate" hreflang="en" href="__SITE_ORIGIN__/?lang=en">
+  <link rel="alternate" hreflang="ar" href="__SITE_ORIGIN__/?lang=ar">
+  <link rel="alternate" hreflang="es" href="__SITE_ORIGIN__/?lang=es">
+  <link rel="alternate" hreflang="x-default" href="__SITE_ORIGIN__/">
+  <!-- Structured data for search engines. The origin is substituted at build time from
+       site.config.json. TODO(owner): add openingHoursSpecification and geo coordinates —
+       deliberately omitted rather than guessed, since wrong hours send riders to a closed booth. -->
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
     "@type": "LocalBusiness",
+    "additionalType": "https://schema.org/BikeStore",
     "name": "MicroMobility Rentals",
     "alternateName": "مايكروموبيليتي",
-    "description": "Bicycle rentals and community rides at the Jeddah Corniche. Reserve a bike, pick a session, and skip the queue.",
-    "url": "https://micromobilityrentals.pages.dev/",
-    "image": "https://micromobilityrentals.pages.dev/og-image.png",
-    "logo": "https://micromobilityrentals.pages.dev/logo.png",
+    "description": "Bicycle rentals and community rides at the Jeddah Corniche Circuit. Reserve a bike, pick a session, and skip the queue.",
+    "url": "__SITE_ORIGIN__/",
+    "image": "__SITE_ORIGIN__/og-image.png",
+    "logo": "__SITE_ORIGIN__/logo.png",
+    "telephone": "+966566668818",
+    "email": "info@micromobility.sa",
+    "currenciesAccepted": "SAR",
+    "paymentAccepted": "Cash, Credit Card",
     "address": {
       "@type": "PostalAddress",
+      "streetAddress": "Jeddah Corniche Circuit",
       "addressLocality": "Jeddah",
+      "addressRegion": "Makkah Province",
       "addressCountry": "SA"
     },
+    "hasMap": "https://maps.app.goo.gl/zJLjmiaJgfJDKQwY7",
     "areaServed": "Jeddah",
-    "knowsLanguage": ["en", "ar", "es"]
+    "knowsLanguage": ["en", "ar", "es"],
+    "sameAs": [
+      "https://www.instagram.com/MicroMobilitySA/",
+      "https://wa.me/966566668818"
+    ],
+    "makesOffer": {
+      "@type": "Offer",
+      "itemOffered": {
+        "@type": "Service",
+        "name": "Bicycle rental",
+        "serviceType": "Bicycle rental"
+      },
+      "priceCurrency": "SAR",
+      "availableAtOrFrom": {
+        "@type": "Place",
+        "name": "Jeddah Corniche Circuit"
+      }
+    }
   }
   </script>
   <link rel="manifest" href="manifest.json">
@@ -73,12 +107,56 @@
 <div id="loading-screen">
   <img src="brand.png" alt="logo">
   <div class="ld-txt" id="ld-txt">Loading...</div>
-  <script>try{if(localStorage.getItem('cq_lang')==='ar'){document.documentElement.dir='rtl';document.documentElement.lang='ar';document.getElementById('ld-txt').textContent='جارٍ التحميل...';}}catch(e){}</script>
+  <script>try{var _ql=new URLSearchParams(location.search).get('lang');var _bl=_ql||localStorage.getItem('cq_lang');if(_bl==='ar'){document.documentElement.dir='rtl';document.documentElement.lang='ar';document.getElementById('ld-txt').textContent='جارٍ التحميل...';}else if(_bl==='es'){document.documentElement.lang='es';document.getElementById('ld-txt').textContent='Cargando...';}}catch(e){}</script>
 </div>
 <script>
 setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls.style.display!=='none'){ls.style.opacity='0';ls.style.pointerEvents='none';setTimeout(function(){ls.style.display='none';},400);}},5000);
 </script>
 
+
+<!-- The rendered page is almost entirely JavaScript, so a crawler that does not execute it
+     (Bing, most social unfurlers, AI crawlers) used to see about 48 words. This block is the
+     static description of the business: who, where, what, in English and Arabic. It is
+     removed the moment scripts run, so it never competes with the app's own UI. -->
+<noscript>
+  <div id="static-intro" style="max-width:760px;margin:0 auto;padding:32px 20px;font-family:system-ui,sans-serif;line-height:1.7">
+    <h1>MicroMobility Rentals — bicycle rentals at the Jeddah Corniche</h1>
+    <p>MicroMobility rents bicycles at the <strong>Jeddah Corniche Circuit</strong> in Jeddah,
+    Saudi Arabia. Reserve a bike online, choose the session you want to ride, and collect it at
+    the booth without queuing.</p>
+    <h2>What we rent</h2>
+    <ul>
+      <li>Road bikes</li>
+      <li>Road carbon bikes</li>
+      <li>Hybrid bikes</li>
+      <li>Mountain bikes</li>
+    </ul>
+    <p>Every bike is sized to the rider's height (XS to L) and reserved for a specific session,
+    so the bike you booked is waiting when you arrive.</p>
+    <h2>Saturday Social Ride</h2>
+    <p>We host a weekly community ride at the Corniche Circuit. It is free to join for members,
+    and riders may bring their own bike.</p>
+    <h2>Booking and contact</h2>
+    <p>Booking is online at <a href="__SITE_ORIGIN__/">micromobility</a> and needs JavaScript.
+    You can also reach us on
+    <a href="https://wa.me/966566668818">WhatsApp</a>,
+    <a href="https://www.instagram.com/MicroMobilitySA/">Instagram</a>,
+    or by email at <a href="mailto:info@micromobility.sa">info@micromobility.sa</a>.
+    Prices are in Saudi riyals (SAR); we take cash and card at the booth.</p>
+    <p><a href="https://maps.app.goo.gl/zJLjmiaJgfJDKQwY7">Directions to the Jeddah Corniche Circuit</a></p>
+    <hr>
+    <div lang="ar" dir="rtl">
+      <h2>مايكروموبيليتي — تأجير الدراجات على كورنيش جدة</h2>
+      <p>نؤجّر الدراجات في <strong>حلبة كورنيش جدة</strong> بمدينة جدة، المملكة العربية السعودية.
+      احجز دراجتك عبر الإنترنت، واختر الجلسة التي تريد ركوبها، واستلمها من الكشك دون انتظار.</p>
+      <p>نوفّر دراجات الطريق، ودراجات الطريق الكربونية، والدراجات الهجينة، والدراجات الجبلية،
+      بمقاسات تناسب طول الراكب. كما نقيم «رحلة السبت الاجتماعية» الأسبوعية لأعضاء مجتمعنا.</p>
+      <p>للتواصل: <a href="https://wa.me/966566668818">واتساب</a> ·
+      <a href="https://www.instagram.com/MicroMobilitySA/">إنستغرام</a> ·
+      <a href="mailto:info@micromobility.sa">info@micromobility.sa</a></p>
+    </div>
+  </div>
+</noscript>
 
 <header id="topbar">
   <button type="button" class="topbar-logo" onclick="goLanding()" style="cursor:pointer;background:none;border:none;padding:0" aria-label="MicroMobility home">
@@ -1089,9 +1167,29 @@ function showLangMenu(evt){
   menu.style.left=x+'px';menu.style.top=Math.min(r.bottom+6,window.innerHeight-menu.offsetHeight-8)+'px';
   setTimeout(()=>{const close=e=>{if(!menu.contains(e.target)){menu.remove();document.removeEventListener('click',close);}};document.addEventListener('click',close);},0);
 }
-function setLang(lang){
+// The language a URL asks for, if any. Gives each language an address a crawler can index
+// and a rider can share — previously the choice lived only in localStorage behind one URL,
+// so the Arabic site was invisible to search.
+function _langFromUrl(){
+  try{
+    const q=new URLSearchParams(location.search).get('lang');
+    return (q&&LANGS.some(l=>l.code===q))?q:'';
+  }catch(e){return'';}
+}
+function setLang(lang,_fromUrl){
   S.lang=lang;
   try{localStorage.setItem('cq_lang',lang);}catch(e){}
+  // Keep ?lang in step with the choice so the address stays shareable, without adding a
+  // history entry per toggle. Skipped on the initial read, which already matches.
+  if(!_fromUrl){
+    try{
+      const u=new URL(location.href);
+      if(u.searchParams.get('lang')!==lang){
+        u.searchParams.set('lang',lang);
+        history.replaceState(history.state,'',u.pathname+u.search+u.hash);
+      }
+    }catch(e){}
+  }
   document.documentElement.dir=lang==='ar'?'rtl':'ltr';
   document.documentElement.lang=lang;
   {const _lb=document.getElementById('lang-btn');const _l=LANGS.find(x=>x.code===lang)||LANGS[0];_lb.innerHTML=`${_l.flag} ${_l.short} ▾`;_lb.title=t('switchLangTip');_lb.setAttribute('aria-label',t('switchLangTip'));}
@@ -16713,7 +16811,13 @@ function _refreshView(){
     if(!S._fullWindow&&!(typeof window!=='undefined'&&window.__noWiden)){S._fullWindow=true;setTimeout(async()=>{try{await loadDataLight();}catch(_){return;}try{_refreshView();}catch(e){}},1200);}
   })();
   applyThemeIcon();
-  try{const savedLang=localStorage.getItem('cq_lang');setLang(LANGS.some(l=>l.code===savedLang)?savedLang:'en');}catch(e){setLang('en');}
+  // ?lang wins over the remembered choice: a shared or indexed link must open in the
+  // language it names, whatever this device last used.
+  try{
+    const urlLang=_langFromUrl();
+    if(urlLang){setLang(urlLang,true);}
+    else{const savedLang=localStorage.getItem('cq_lang');setLang(LANGS.some(l=>l.code===savedLang)?savedLang:'en',true);}
+  }catch(e){setLang('en',true);}
   const ls=document.getElementById('loading-screen');
   if(ls){ls.style.opacity='0';setTimeout(()=>{ls.style.display='none';},400);}
   // (session + staff auth already restored above, before the first loadData)

@@ -24,6 +24,10 @@ export async function onRequest(context) {
     path.startsWith('/tests/') ||
     path.startsWith('/scripts/') ||
     path.startsWith('/functions/') ||
+    // The ERP design bundle is 1.8 MB of internal reference and one of its files carries a
+    // real staff mobile number. It is a .html prototype, so the extension allow-list let it
+    // through — block the whole directory by path instead.
+    path.startsWith('/design_handoff_erp_reskin/') ||
     path.startsWith('/.github/') ||
     path.startsWith('/.claude/') ||
     /(^|\/)\.[^/]+$/.test(path);                                        // dotfiles (.gitignore, .prettierrc, …)

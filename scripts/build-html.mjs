@@ -75,6 +75,45 @@ sw = sw
 if (!/const CACHE = 'mmcq-/.test(sw)) throw new Error('build: could not rewrite the SW cache name');
 if (sw !== swBefore) await writeFile(swUrl, sw);
 
+// ── Public origin, from one place ────────────────────────────────────────────
+// The pages.dev host used to be typed into the canonical link, the OG/Twitter images, the
+// JSON-LD, the sitemap and robots.txt independently, so moving to the custom domain meant
+// finding every copy. app.src.html carries __SITE_ORIGIN__ and the two SEO files are
+// rewritten here, all from site.config.json.
+const site = JSON.parse(await readFile(new URL('../site.config.json', import.meta.url), 'utf8'));
+const origin = String(site.origin || '').replace(/\/+$/, '');
+if (!/^https?:\/\/[^/]+$/.test(origin)) {
+  throw new Error(`build: site.config.json origin must be a bare origin, got ${JSON.stringify(site.origin)}`);
+}
+if (out.includes('__SITE_ORIGIN__')) out = out.split('__SITE_ORIGIN__').join(origin);
+if (out.includes('__SITE_ORIGIN__')) throw new Error('build: site origin placeholder survived substitution');
+
+// sitemap.xml: one entry per language, each declaring the others as alternates, so the
+// Arabic and Spanish pages are discoverable rather than hidden behind localStorage.
+const langs = Array.isArray(site.languages) && site.languages.length ? site.languages : ['en'];
+const def = site.defaultLanguage || langs[0];
+const alt = (l) => `      <xhtml:link rel="alternate" hreflang="${l}" href="${origin}/?lang=${l}"/>`;
+const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+${langs.map((l) => `  <url>
+    <loc>${origin}/${l === def ? '' : `?lang=${l}`}</loc>
+${langs.map(alt).join('\n')}
+      <xhtml:link rel="alternate" hreflang="x-default" href="${origin}/"/>
+    <changefreq>weekly</changefreq>
+    <priority>${l === def ? '1.0' : '0.9'}</priority>
+  </url>`).join('\n')}
+</urlset>
+`;
+await writeFile(new URL('../sitemap.xml', import.meta.url), sitemap);
+
+const robotsUrl = new URL('../robots.txt', import.meta.url);
+let robots = await readFile(robotsUrl, 'utf8');
+const robotsBefore = robots;
+robots = robots.replace(/^Sitemap: .*$/m, `Sitemap: ${origin}/sitemap.xml`);
+if (!/^Sitemap: /m.test(robots)) throw new Error('build: robots.txt has no Sitemap line to rewrite');
+if (robots !== robotsBefore) await writeFile(robotsUrl, robots);
+
 // No build/tooling banner in the shipped file — index.html is public (View Source),
 // so the "edit app.src.html, not index.html" rule lives in AGENTS.md / CLAUDE.md instead.
 await writeFile(new URL('../index.html', import.meta.url), out);
