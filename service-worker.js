@@ -110,3 +110,53 @@ async function trimCache(name, max) {
   const keys = await c.keys();
   if (keys.length > max) for (let i = 0; i < keys.length - max; i++) await c.delete(keys[i]);
 }
+
+// ── Web Push ────────────────────────────────────────────────────────────────
+// Waitlist promotion used to depend on a 25-second banner appearing on whichever staff
+// phone happened to be awake. This is the other end of that: the rider's own device gets
+// told, whether or not the site is open.
+//
+// The payload is JSON: { title, body, url, tag }. A push that arrives without a decodable
+// payload still shows something rather than nothing — a silent push that shows no
+// notification gets the site's push permission revoked by the browser.
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) { /* keep the fallback */ }
+  const title = d.title || 'MicroMobility';
+  const opts = {
+    body: d.body || '',
+    icon: './icon-192.png',
+    badge: './icon-192.png',
+    // Same tag replaces an earlier notification for the same booking instead of stacking.
+    tag: d.tag || 'mm-general',
+    renotify: true,
+    data: { url: d.url || './' },
+    dir: d.dir || 'auto',
+    lang: d.lang || 'en',
+  };
+  e.waitUntil(self.registration.showNotification(title, opts));
+});
+
+// Tapping the notification focuses an open tab if there is one — opening a second copy of
+// an installed PWA is disorienting — and otherwise opens the app at the given URL.
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const target = (e.notification.data && e.notification.data.url) || './';
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((wins) => {
+      for (const w of wins) {
+        if ('focus' in w) { try { w.navigate(new URL(target, self.location.origin).href); } catch (_) { /* older browsers */ } return w.focus(); }
+      }
+      return self.clients.openWindow(target);
+    })
+  );
+});
+
+// The push service can rotate a subscription out from under us. Tell any open tab so it
+// re-subscribes and re-registers; if none is open, the next visit's subscribe() call does it.
+self.addEventListener('pushsubscriptionchange', (e) => {
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((wins) => wins.forEach((w) => w.postMessage({ type: 'push-resubscribe' })))
+  );
+});

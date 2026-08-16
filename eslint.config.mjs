@@ -61,6 +61,7 @@ export default tseslint.config(
         fetch: 'readonly', Response: 'readonly', Request: 'readonly', URL: 'readonly',
         console: 'readonly', crypto: 'readonly', caches: 'readonly',
         TextEncoder: 'readonly', TextDecoder: 'readonly',
+        atob: 'readonly', btoa: 'readonly', // base64url for the VAPID JWT and push keys
       },
     },
   },

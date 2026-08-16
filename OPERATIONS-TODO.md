@@ -16,11 +16,35 @@ Cloudflare Pages → Settings → Environment variables: confirm `BREVO_API_KEY`
 get no email. Also confirm `SUPABASE_ANON_KEY` and `DISCORD_WEBHOOK` are set for
 `functions/api/booking-confirm.js` and `functions/api/log-error.js`.
 
+## 2b. Switch on push notifications
+Everything is built and dormant. To activate:
+
+1. Generate a VAPID keypair (P-256). Any web-push tool does it, e.g.
+   `npx web-push generate-vapid-keys`.
+2. Cloudflare Pages → Settings → Environment variables, add:
+   - `VAPID_PUBLIC_KEY` — the public key (base64url). Not a secret.
+   - `VAPID_PRIVATE_KEY` — the private key as **base64url PKCS#8**, which is what
+     `crypto.subtle.importKey('pkcs8', …)` in `functions/api/push-send.js` expects.
+   - `VAPID_SUBJECT` — `mailto:info@micromobility.sa` (defaulted if unset).
+   - `SUPABASE_SERVICE_KEY` — service-role key; `push_subscriptions` is not readable
+     with the anon key.
+3. Set the same public key as `VAPID_PUBLIC_KEY` in `app.src.html` (one `const`, near
+   `pushSupported()`), then `npm run build:html`. Until it is set the toggle stays
+   hidden and nothing subscribes.
+4. Run `supabase/migrations/20260816130000_push_subscriptions.sql`.
+
+Riders opt in from My Account. Manual and automatic waitlist promotions both notify the
+booking owner. The encryption is checked against the RFC 8291 test vector in
+`tests/push.spec.ts`, but nothing has been sent through a live push service yet — send one
+real notification to a test account before relying on it.
+
 ## 3. Custom domain
 Attach the production domain (per the platform plan: micromobility.sa) to the Pages
-project, then update in one commit: canonical + JSON-LD urls in `app.src.html` (search
-"micromobilityrentals.pages.dev"), `robots.txt`, `sitemap.xml`, and the `og:` /
-`twitter:` image URLs. Rebuild with `npm run build:html`.
+project, then set `origin` in **`site.config.json`** and run `npm run build:html`. That one
+value now feeds the canonical link, hreflang alternates, JSON-LD, the `og:`/`twitter:`
+image URLs, `sitemap.xml` and `robots.txt` — there is nothing else to edit by hand.
+Note: `micromobility.sa` currently resolves to an unrelated store, so the DNS has to move
+before the domain is attached.
 
 ## 4. Supabase migration baseline (one-time)
 Follow `supabase/migrations/README.md`: install the CLI, link the prod project, run the
