@@ -7529,8 +7529,8 @@ function renderSessions(){
     return`<button class="sess-back-btn" onclick="selectSessionDetail(null)">‹ ${t('sessBackList')}</button>
       <div class="sess-detail-head"><div style="min-width:0"><div class="sess-detail-date">${shortDate(_selSess.session_date||_selSess.id)}</div><div class="sess-detail-day">${dayLabel(_selSess.day)||''} · ${sessionTime(_selSess)}</div></div>${d.badge}</div>
       <div class="sess-detail-stats">
-      ${(()=>{const _c=waitlistCap(sel);if(_c==null)return'';
-        const _u=waitlistUsed(sel.id);
+      ${(()=>{const _c=waitlistCap(_selSess);if(_c==null)return'';
+        const _u=waitlistUsed(_selSess.id);
         return `<div><div class="sess-ds-num">${_u}/${_c}</div><div class="sess-ds-lbl">${t('wlCapLabel')}</div></div>`;})()}<div><div class="sess-ds-num">${d.booked}/${d.cap}</div><div class="sess-ds-lbl">${t('colBookings')}</div></div><div><div class="sess-ds-num">${d.left}</div><div class="sess-ds-lbl">${t('spotsLeft')}</div></div>${d.fleetInfo?`<div class="sess-ds-fleet"><div class="sess-ds-fleetval">${d.fleetInfo}</div><div class="sess-ds-lbl">${t('bikeFleetComp')}</div></div>`:''}</div>
       <div class="sess-detail-actions"><button class="btn-sm btn-green" onclick="startEditSession('${_selSess.id}')">${t('editBtn2')}</button><button class="btn-sm btn-muted" onclick="cloneSession('${_selSess.id}')">${t('cloneSessBtn')}</button>${d.actions}${isAdmin()?`<button class="btn-sm btn-red" onclick="deleteSession('${_selSess.id}')" ${d.booked>0?`disabled title="${t('hasBookingsTitle')}"`:''}>${t('deleteBtn')}</button>`:''}</div>
       <div class="sess-detail-rtitle">${t('sessRidersTitle')} <span style="color:var(--muted)">(${riders.length})</span></div>
