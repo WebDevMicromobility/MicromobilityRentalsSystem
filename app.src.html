@@ -1621,7 +1621,7 @@ const S={
   actionLog:[],
   fullLog:[],
 
-  showAddBike:false,editBikeId:null,bkTypeFilter:'all',bkSort:'name',
+  showAddBike:false,editBikeId:null,bkTypeFilter:'all',
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],addBikeColorNames:[''],_bkName:'',
   _bkBrand:'',_bkModel:'',_bkGroupset:'',_bkSpeeds:'',_bkRentalPrice:'',
   _bkBrandAdd:false,_bkModelAdd:false,_bkGroupsetAdd:false,
@@ -1635,7 +1635,6 @@ const S={
   histStatus:'all',histPay:'all',histSess:'all',histRange:'all',histSelected:[],histSort:'date',histSortDir:-1,histType:'all',histSize:'all',histSearch:'',histLimit:60,
   histLog:[],showHistLog:false,
   
-  myStatus:'all',mySort:'date',mySortDir:-1,
   
   sessSort:'date',sessSortDir:-1,sessStatusFilter:'all',showDeletedSess:false,sessShowAll:false,
   
@@ -2019,80 +2018,10 @@ async function verifyPwd(pwd,stored){
 }
 
 const QR=(function(){
-  var EXP=new Array(512),LOG=new Array(256);
-  (function(){var x=1;for(var i=0;i<255;i++){EXP[i]=x;LOG[x]=i;x<<=1;if(x&0x100)x^=0x11d;}for(var i=255;i<512;i++)EXP[i]=EXP[i-255];})();
-  function gmul(a,b){return (a===0||b===0)?0:EXP[LOG[a]+LOG[b]];}
-  function rsGen(deg){var g=[1];for(var i=0;i<deg;i++){var ng=new Array(g.length+1);for(var k=0;k<ng.length;k++)ng[k]=0;for(var j=0;j<g.length;j++){ng[j]^=gmul(g[j],EXP[i]);ng[j+1]^=g[j];}g=ng;}return g;}
-  function rsEC(data,deg){var g=rsGen(deg);var res=data.slice();for(var i=0;i<deg;i++)res.push(0);for(var i=0;i<data.length;i++){var c=res[i];if(c!==0)for(var j=0;j<g.length;j++)res[i+j]^=gmul(g[j],c);}return res.slice(data.length);}
-  var VER={1:[10,[[1,16]]],2:[16,[[1,28]]],3:[26,[[1,44]]],4:[18,[[2,32]]],5:[24,[[2,43]]],6:[16,[[4,27]]],7:[18,[[4,31]]],8:[22,[[2,38],[2,39]]],9:[22,[[3,36],[2,37]]],10:[26,[[4,43],[1,44]]]};
-  var ALIGN={1:[],2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34],7:[6,22,38],8:[6,24,42],9:[6,26,46],10:[6,28,50]};
-  var VERINFO={7:0x07C94,8:0x085BC,9:0x09A99,10:0x0A4D3};
-  
-  var FMT_M=[0x2415,0x5245,0x1F3D,0x696D,0x4FD1,0x3981,0x74F9,0x02A9];
-  function totalData(v){var s=0,g=VER[v][1];for(var i=0;i<g.length;i++)s+=g[i][0]*g[i][1];return s;}
-  function pickVersion(len){for(var v=1;v<=10;v++){var cap=totalData(v)-2-((v<=9)?1:2);if(len<=cap)return v;}return null;}
-  function maskFn(mask,r,c){switch(mask){case 0:return (r+c)%2===0;case 1:return r%2===0;case 2:return c%3===0;case 3:return (r+c)%3===0;case 4:return (Math.floor(r/2)+Math.floor(c/3))%2===0;case 5:return ((r*c)%2)+((r*c)%3)===0;case 6:return (((r*c)%2)+((r*c)%3))%2===0;case 7:return (((r+c)%2)+((r*c)%3))%2===0;}return false;}
-  function buildBase(v){
-    var size=17+4*v;
-    var m=[],fn=[];for(var i=0;i<size;i++){m.push(new Array(size).fill(null));fn.push(new Array(size).fill(false));}
-    function inR(r,c){return r>=0&&r<size&&c>=0&&c<size;}
-    function finder(r,c){for(var i=-1;i<=7;i++)for(var j=-1;j<=7;j++){if(!inR(r+i,c+j))continue;var on=(i>=0&&i<=6&&(j===0||j===6))||(j>=0&&j<=6&&(i===0||i===6))||(i>=2&&i<=4&&j>=2&&j<=4);m[r+i][c+j]=on?1:0;fn[r+i][c+j]=true;}}
-    finder(0,0);finder(0,size-7);finder(size-7,0);
-    for(var i=8;i<size-8;i++){var t=(i%2===0)?1:0;m[6][i]=t;fn[6][i]=true;m[i][6]=t;fn[i][6]=true;}
-    var ap=ALIGN[v];
-    for(var a=0;a<ap.length;a++)for(var b=0;b<ap.length;b++){var r=ap[a],c=ap[b];if(fn[r][c])continue;for(var i=-2;i<=2;i++)for(var j=-2;j<=2;j++){var on=Math.max(Math.abs(i),Math.abs(j))!==1;m[r+i][c+j]=on?1:0;fn[r+i][c+j]=true;}}
-    m[size-8][8]=1;fn[size-8][8]=true;
-    for(var i=0;i<=8;i++){fn[8][i]=true;fn[i][8]=true;}
-    for(var i=0;i<8;i++){fn[size-1-i][8]=true;}
-    for(var i=0;i<7;i++){fn[8][size-1-i]=true;}
-    if(v>=7){for(var i=0;i<6;i++)for(var j=0;j<3;j++){fn[i][size-11+j]=true;fn[size-11+j][i]=true;}}
-    return {size:size,m:m,fn:fn};
-  }
-  function placeData(base,bitsArr){
-    var size=base.size,m=base.m,fn=base.fn,bitIdx=0,up=true;
-    for(var col=size-1;col>0;col-=2){if(col===6)col--;
-      for(var k=0;k<size;k++){var row=up?size-1-k:k;
-        for(var c2=0;c2<2;c2++){var cc=col-c2;
-          if(!fn[row][cc]){m[row][cc]=(bitIdx<bitsArr.length?bitsArr[bitIdx++]:0);}
-        }
-      }
-      up=!up;
-    }
-  }
-  function applyMask(base,mask){
-    var size=base.size,fn=base.fn,m=base.m,out=[];
-    for(var r=0;r<size;r++){out.push(m[r].slice());for(var c=0;c<size;c++){if(!fn[r][c]&&maskFn(mask,r,c))out[r][c]^=1;}}
-    return out;
-  }
-  function writeFormat(grid,size,mask){
-    var bits=FMT_M[mask];
-    for(var i=0;i<=5;i++)grid[8][i]=(bits>>i)&1;
-    grid[8][7]=(bits>>6)&1;grid[8][8]=(bits>>7)&1;grid[7][8]=(bits>>8)&1;
-    for(var i=9;i<=14;i++)grid[14-i][8]=(bits>>i)&1;
-    for(var i=0;i<=7;i++)grid[size-1-i][8]=(bits>>i)&1;
-    for(var i=8;i<=14;i++)grid[8][size-15+i]=(bits>>i)&1;
-    grid[size-8][8]=1;
-  }
-  function writeVersion(grid,size,v){
-    if(v<7)return;var info=VERINFO[v];
-    for(var i=0;i<18;i++){var b=(info>>i)&1;var r=Math.floor(i/3),c=i%3;grid[r][size-11+c]=b;grid[size-11+c][r]=b;}
-  }
-  function penalty(grid,size){
-    var p=0,r,c;
-    for(r=0;r<size;r++){var run=1;for(c=1;c<size;c++){if(grid[r][c]===grid[r][c-1]){run++;}else{if(run>=5)p+=run-2;run=1;}}if(run>=5)p+=run-2;}
-    for(c=0;c<size;c++){var run=1;for(r=1;r<size;r++){if(grid[r][c]===grid[r-1][c]){run++;}else{if(run>=5)p+=run-2;run=1;}}if(run>=5)p+=run-2;}
-    for(r=0;r<size-1;r++)for(c=0;c<size-1;c++){var v0=grid[r][c];if(v0===grid[r][c+1]&&v0===grid[r+1][c]&&v0===grid[r+1][c+1])p+=3;}
-    var pat1=[1,0,1,1,1,0,1,0,0,0,0],pat2=[0,0,0,0,1,0,1,1,1,0,1];
-    function match(arr,i,horiz,fixed){for(var k=0;k<11;k++){var rr=horiz?fixed:i+k,cc=horiz?i+k:fixed;if(grid[rr][cc]!==arr[k])return false;}return true;}
-    for(r=0;r<size;r++)for(c=0;c<size-10;c++){if(match(pat1,c,true,r))p+=40;if(match(pat2,c,true,r))p+=40;}
-    for(c=0;c<size;c++)for(r=0;r<size-10;r++){if(match(pat1,r,false,c))p+=40;if(match(pat2,r,false,c))p+=40;}
-    var dark=0;for(r=0;r<size;r++)for(c=0;c<size;c++)dark+=grid[r][c];
-    var ratio=dark*100/(size*size);var k5=Math.floor(Math.abs(ratio-50)/5);p+=k5*10;
-    return p;
-  }
-  
-  
-  
+  // Only the vendored qrcode-generator (loaded on demand by _loadQrcode) builds the matrix.
+  // A hand-rolled Reed-Solomon encoder used to live here — Galois tables, version/alignment
+  // maps, mask scoring, the lot — superseded when the library was vendored and unreachable
+  // ever since: encode() below throws if the library is absent rather than falling back.
   function encode(text){
     if(typeof qrcode==='undefined')throw new Error('QR library not loaded');
     var qr=qrcode(0,'M');           
@@ -2264,7 +2193,6 @@ function shortDate(ds){
     return d.toLocaleDateString(locale,{day:'numeric',month:'short',year:'numeric',timeZone:KSA_TZ});
   }catch{return ds;}
 }
-function longDate(ds){return new Date(ds+'T12:00:00').toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric',timeZone:KSA_TZ});}
 function todayStr(){return new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});}
 function fmt12h(timeStr){
   if(!timeStr)return timeStr;
@@ -2334,11 +2262,6 @@ function waitlistRoom(sid){
   const cap=waitlistCap(sess);
   if(cap==null)return Infinity;
   return Math.max(0,cap-waitlistUsed(sid));
-}
-function waitlistRuleLabel(sess){
-  const r=waitlistRule(sess);
-  if(!r)return t('wlCapNone');
-  return r.m==='pct'?`${r.v}% (${waitlistCap(sess)})`:String(Math.floor(r.v));
 }
 // The create/edit form control: mode (flat count vs % of capacity) + value.
 function _wlCapFieldHtml(pfx){
@@ -2532,18 +2455,7 @@ function resolvedType(entry){
 }
 function heightToSize(h){if(h<=166)return'XS';if(h<=172)return'S';if(h<=178)return'M';return'L';}
 function sizeLabel(sz){return{XS:'XS (166 cm & under)',S:'S (167-172 cm)',M:'M (173-178 cm)',L:'L (179 cm & up)'}[sz]||sz;}
-function sizeRange(sz){
-  const cm=S.lang==='ar'?'سم':'cm';
-  return{XS:`≤ 166 ${cm}`,S:`167-172 ${cm}`,M:`173-178 ${cm}`,L:`≥ 179 ${cm}`}[sz]||'';
-}
 function bikeGradient(c){if(!c||!c.length)return'var(--green)';if(c.length===1)return c[0];return`linear-gradient(135deg,${c.join(',')})`;}
-function bikeStrip(c){
-  if(!c||!c.length)return'var(--green)';
-  if(c.length===1)return c[0];
-  const pct=100/c.length;
-  const stops=c.flatMap((col,i)=>[`${col} ${(i*pct).toFixed(2)}%`,`${col} ${((i+1)*pct).toFixed(2)}%`]);
-  return`linear-gradient(to bottom,${stops.join(',')})`;
-}
 const DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const DAY_NAMES_AR={Sunday:'الأحد',Monday:'الاثنين',Tuesday:'الثلاثاء',Wednesday:'الأربعاء',Thursday:'الخميس',Friday:'الجمعة',Saturday:'السبت'};
 const DAY_NAMES_ES={Sunday:'Domingo',Monday:'Lunes',Tuesday:'Martes',Wednesday:'Miércoles',Thursday:'Jueves',Friday:'Viernes',Saturday:'Sábado'};
@@ -4114,14 +4026,6 @@ async function _mwApply(order){
     haptic();
   }
 }
-async function mwMove(id,dir){
-  const order=_wlManaged();
-  const i=order.findIndex(x=>x.id===id);
-  const j=i+(dir>0?1:-1);
-  if(i<0||j<0||j>=order.length)return;
-  [order[i],order[j]]=[order[j],order[i]];
-  await _mwApply(order);
-}
 let _mwDragId=null;
 function _mwDragStart(ev,id){_mwDragId=id;ev.dataTransfer.effectAllowed='move';try{ev.dataTransfer.setData('text/plain',id);}catch(_){}}
 function _mwDragOver(ev,id){if(_mwDragId&&_mwDragId!==id)ev.preventDefault();}
@@ -4531,15 +4435,6 @@ async function _wlApplyOrder(order){
     if(_writeErr(res,'reorder')){await loadDataLight();renderStaffQueue();return;}
     haptic();
   }
-}
-async function wlMove(id,dir){
-  const e=getQueue().find(x=>x.id===id);if(!e||e.status!=='waitlist')return;
-  const order=_wlSessList2(e.sessionId);
-  const i=order.findIndex(x=>x.id===id);
-  const j=i+(dir>0?1:-1);
-  if(i<0||j<0||j>=order.length)return;
-  [order[i],order[j]]=[order[j],order[i]];
-  await _wlApplyOrder(order);
 }
 // Type-a-number ordering for waitlisted bookings: rewrite the W number directly.
 async function wlSetPos(id,val){
@@ -6938,7 +6833,6 @@ function entryAddons(e){
   return out;
 }
 // Flat list of add-on ids for a booking (back-compat helper)
-function entryAddonIds(e){return entryAddons(e).map(a=>a.id);}
 // Join add-ons to inventory -> [{id,qty,name,brand,photo,price,lineTotal}]
 function addonLineItems(arr){
   return (arr||[]).map(a=>{
@@ -12826,8 +12720,6 @@ function _scrollToBikeForm(){
 }
 function toggleAddBike(){_resetBikeForm();S._bkNumber=String(_nextBikeNumber());S.showAddBike=true;renderBikes();_scrollToBikeForm();}
 function cancelBikeForm(){_resetBikeForm();renderBikes();}
-function setBkFilter(v){S.bkTypeFilter=v;renderBikes();}
-function setBkSort(v){S.bkSort=v;renderBikes();}
 function setBkSearch(v){S.bkSearch=v;const _k=document.activeElement&&document.activeElement.id==='bk-search-input';_debRender('bkSearch',()=>{renderBikes(_k);if(_k)return;const inp=document.getElementById('bk-search-input');if(inp){inp.focus();const l=(S.bkSearch||'').length;inp.setSelectionRange(l,l);}});}
 function _todayISO(){return todayStr();} // KSA calendar day — the browser-local date let off-KSA devices book/move onto the wrong day
 function _bikeLifespan(b){
@@ -13460,12 +13352,6 @@ function setHistType(v){S.histType=v;renderHistory();}
 function setHistSize(v){S.histSize=v;renderHistory();}
 let _histSearchT;
 function setHistSearch(v){S.histSearch=v;S.histLimit=60;const _k=document.activeElement&&document.activeElement.id==='hist-search-input';clearTimeout(_histSearchT);_histSearchT=setTimeout(()=>{renderHistory(_k);if(_k)return;const i=document.querySelector('#tab-history .search-input');if(i){i.focus();try{i.setSelectionRange(i.value.length,i.value.length);}catch(e){}}},220);} // debounced: type freely, filter on pause, keep focus
-function setMyStatus(v){S.myStatus=v;renderMyRides();}
-function setMySort(col){
-  if(S.mySort===col) S.mySortDir=-S.mySortDir;
-  else{S.mySort=col;S.mySortDir=col==='date'?-1:1;}
-  renderMyRides();
-}
 function setSessSort(col){
   if(S.sessSort===col) S.sessSortDir=-S.sessSortDir;
   else{S.sessSort=col;S.sessSortDir=1;}
@@ -13829,7 +13715,6 @@ const VW_PRESETS=[
  {k:'Antioxidant',name:'Vitamin Well Antioxidant',nu:{serving:'500 ml bottle',kcal:85,fat_g:0,satfat_g:0,carbs_g:21,sugar_g:21,fibre_g:0,protein_g:0,salt_g:0.13,ingredients:'Also contains per 500 ml: Green tea extract 20 mg, Elderberry extract 13 mg, Grape skin extract 13 mg, Pomegranate extract 10 mg',micros:[{n:'Vitamin E',a:'12',u:'mg',nrv:'100'},{n:'Vitamin C',a:'80',u:'mg',nrv:'100'},{n:'Zinc',a:'5.0',u:'mg',nrv:'50'},{n:'Manganese',a:'0.80',u:'mg',nrv:'40'},{n:'Selenium',a:'55',u:'µg',nrv:'100'}]}},
  {k:'Upgrade',name:'Vitamin Well Upgrade',nu:{serving:'500 ml bottle',kcal:85,fat_g:0,satfat_g:0,carbs_g:21,sugar_g:21,fibre_g:0,protein_g:0,salt_g:0.13,micros:[{n:'Vitamin D',a:'10',u:'µg',nrv:'100'},{n:'Vitamin E',a:'7.2',u:'mg',nrv:'60'},{n:'Niacin',a:'8.0',u:'mg',nrv:'50'},{n:'Vitamin B6',a:'1.4',u:'mg',nrv:'100'},{n:'Vitamin B12',a:'1.25',u:'µg',nrv:'50'},{n:'Biotin',a:'25',u:'µg',nrv:'50'},{n:'Pantothenic Acid',a:'2.4',u:'mg',nrv:'40'},{n:'Magnesium',a:'56.3',u:'mg',nrv:'15'},{n:'Zinc',a:'6.0',u:'mg',nrv:'60'},{n:'Selenium',a:'25',u:'µg',nrv:'45'}]}}
 ];
-function _nuPrefillVW(k){const p=VW_PRESETS.find(x=>x.k===k);if(!p)return;S._invNutri=JSON.parse(JSON.stringify(p.nu));S._invNutriOpen=true;if(!(S._invName||'').trim())S._invName=p.name;if(!(S._invBrand||'').trim())S._invBrand='Vitamin Well';if(!(S._invMl||'').trim())S._invMl='500';renderInventory();}
 function showNutrition(id){
   const it=(S.inventory||[]).find(x=>x.id===id);if(!it)return;
   const nu=_itemNutri(it)||{};
@@ -13894,7 +13779,6 @@ function _rememberSubtype(s){s=String(s||'').trim();if(!s)return;if(!PROTEIN_SUB
 const _CAT_ICON_SVG={
   Helmet:'<svg viewBox="0 0 24 24" fill="currentColor" style="width:66%;height:66%;opacity:.6"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 4.5C7 4.5 3.1 8.3 2.8 13c0 .5.4.9.9.9h16.6c.5 0 .9-.4.9-.9C20.9 8.3 17 4.5 12 4.5zm-3.6 8.3H6.2c.3-1.8 1.1-3.3 2.2-4.4-.3 1.4-.4 2.9-.1 4.4zm3.9 0h-2c-.3-1.6-.2-3.1.2-4.6.9 1.4 1.5 2.9 1.8 4.6zm3.9 0h-2.1c-.3-1.6-.8-3-1.6-4.3 1.8 1 3.2 2.5 3.7 4.3z"/><path d="M3.1 15.3h17.8a5 5 0 0 1-4.8 3.6H7.9a5 5 0 0 1-4.8-3.6z"/></svg>',
 };
-function _catIcon(cat){return _CAT_ICON_SVG[cat]||'';}
 // Icon for a specific item: match a helmet by category OR name (so it works even if the
 // item was filed under Accessory/Other), else fall back to its category icon.
 function _itemIcon(it){
