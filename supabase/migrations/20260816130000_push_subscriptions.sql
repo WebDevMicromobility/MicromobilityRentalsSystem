@@ -32,6 +32,11 @@ alter table public.push_subscriptions enable row level security;
 -- customer_booking_update). Staff can read it to see who is reachable.
 -- The sender runs with the service-role key, which bypasses RLS entirely.
 -- ─────────────────────────────────────────────────────────────────────────────
+-- Table privileges are NOT implied by a policy, and this Supabase project does not hand
+-- new public tables to anon/authenticated by default — that missing-grant behaviour is what
+-- broke the last project cutover. Grant SELECT explicitly; RLS below narrows it to staff.
+grant select on public.push_subscriptions to authenticated;
+
 drop policy if exists push_subs_staff_read on public.push_subscriptions;
 create policy push_subs_staff_read on public.push_subscriptions
   for select using ((select is_staff()));
