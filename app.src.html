@@ -8388,7 +8388,11 @@ function showWalkinModal(){
   S._wiType=S._wiType||'Any';
   S._wiRiders=S._wiRiders||[]; // extra riders beyond the first (walk-ups arriving together)
   const m=document.getElementById('walkin-modal');
-  const tyBtn=ty=>`<button type="button" onclick="_wiSync();S._wiType='${ty}';showWalkinModal()" style="flex:1;padding:9px;border-radius:4px;border:1.5px solid ${S._wiType===ty?'var(--green)':'var(--border)'};background:${S._wiType===ty?'rgba(var(--green-rgb),.12)':'transparent'};color:${S._wiType===ty?'var(--green)':'var(--muted)'};font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">${typeLabel(ty)}</button>`;
+  // Picking a type used to call showWalkinModal(), which rebuilds the modal's innerHTML —
+  // the button destroyed itself mid-click. A second quick tap then landed on a detached
+  // node and did nothing. Restyle the buttons in place instead; nothing else here depends
+  // on the selected type at render time.
+  const tyBtn=ty=>`<button type="button" data-wi-type="${esc(ty)}" onclick="_wiSetType('${esc(ty)}')" style="flex:1;padding:9px;border-radius:4px;border:1.5px solid ${S._wiType===ty?'var(--green)':'var(--border)'};background:${S._wiType===ty?'rgba(var(--green-rgb),.12)':'transparent'};color:${S._wiType===ty?'var(--green)':'var(--muted)'};font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">${typeLabel(ty)}</button>`;
   const keep=id=>{const el=document.getElementById(id);return el?el.value:'';} // preserve typed values across type-pill re-renders
   const _n=keep('wi-name'),_p=keep('wi-phone'),_h=keep('wi-height'),_s=keep('wi-sess')||selId;
   m.style.display='flex';
@@ -8424,6 +8428,16 @@ function _wiSync(){(S._wiRiders||[]).forEach((r,i)=>{
   const n=document.getElementById('wi-r-name-'+i),h=document.getElementById('wi-r-h-'+i),ty=document.getElementById('wi-r-type-'+i);
   if(n)r.name=n.value;if(h)r.height=h.value;if(ty)r.type=ty.value;
 });}
+function _wiSetType(ty){
+  S._wiType=ty;
+  document.querySelectorAll('#walkin-modal [data-wi-type]').forEach(b=>{
+    const on=b.getAttribute('data-wi-type')===ty;
+    b.style.borderColor=on?'var(--green)':'var(--border)';
+    b.style.background=on?'rgba(var(--green-rgb),.12)':'transparent';
+    b.style.color=on?'var(--green)':'var(--muted)';
+    b.setAttribute('aria-pressed',String(on));
+  });
+}
 function _wiAddRider(){_wiSync();S._wiRiders=[...(S._wiRiders||[]),{name:'',height:'',type:'Any'}];showWalkinModal();}
 function _wiRemoveRider(i){_wiSync();(S._wiRiders||[]).splice(i,1);showWalkinModal();}
 async function saveWalkin(){
@@ -13884,6 +13898,18 @@ async function _bookOutboxFlush(){
   _bookBusy=false;
 }
 // Commit the whole cart as one receipt (shared receipt_id), decrement stock, then print it
+// A discount is computed on the WHOLE cart, but it has to be booked against the buckets
+// it actually reduces. Charging all of it to the paid-now lines drove the receipt's paid
+// total negative (cart 100 = 40 paid + 60 pending, 50% off => paid recorded as -10), which
+// understated the drawer and fed a negative base to the card split. Take it out of the paid
+// lines first, then let the remainder reduce the pending side.
+function _ctDiscountSplit(cart,discSAR){
+  const paidSub=Math.round((cart||[]).filter(l=>l.pay==='paid')
+    .reduce((s,l)=>s+(Number(l.qty)||0)*(Number(l.price)||0),0)*100)/100;
+  const onPaid=Math.round(Math.min(Math.max(0,discSAR),Math.max(0,paidSub))*100)/100;
+  const onPending=Math.round(Math.max(0,discSAR-onPaid)*100)/100;
+  return {paidSub,onPaid,onPending};
+}
 function _ctDiscountSAR(cartTotal){const v=parseFloat(S._ctDisc);if(isNaN(v)||v<=0)return 0;const d=S._ctDiscPct?cartTotal*(v/100):v;return Math.min(Math.max(0,cartTotal),Math.round(d*100)/100);}
 // Live preview of discounted total + card/cash split without a full re-render (avoids swallowing the next click)
 function _ctPreview(){
@@ -13891,7 +13917,7 @@ function _ctPreview(){
   const cartTot=Math.round(cart.reduce((s,l)=>s+(Number(l.qty)||0)*(Number(l.price)||0),0)*100)/100;
   const cartPaidNum=cart.filter(l=>l.pay==='paid').reduce((s,l)=>s+(Number(l.qty)||0)*(Number(l.price)||0),0);
   const disc=_ctDiscountSAR(cartTot),after=Math.round((cartTot-disc)*100)/100;
-  const paidAfter=Math.max(0,Math.round((cartPaidNum-disc)*100)/100),card=_ctCardSAR(paidAfter),cash=Math.max(0,Math.round((paidAfter-card)*100)/100);
+  const paidAfter=Math.round((cartPaidNum-_ctDiscountSplit(cart,disc).onPaid)*100)/100,card=_ctCardSAR(paidAfter),cash=Math.max(0,Math.round((paidAfter-card)*100)/100);
   const g=document.getElementById('ct-grand');if(g)g.textContent='SAR '+after;
   const sp=document.getElementById('ct-split');if(sp)sp.innerHTML=card>0?`<span>${t('cashCard')} SAR ${card}</span><span>${t('cashCash')} SAR ${cash}</span>`:'';
 }
@@ -13904,7 +13930,14 @@ async function _ctRecord(){
   // Per-receipt discount as a negative 'paid' line (no schema change needed)
   const cartTotal=S._ctCart.reduce((s,l)=>s+l.qty*l.price,0);
   const discSAR=_ctDiscountSAR(cartTotal);
-  if(discSAR>0)rows.push({id:uid(),receipt_id:rid,session_id:sessId,customer_name:cust,item_id:null,name:t('cashDiscount'),category:'__discount__',qty:1,price:-discSAR,pay:S._ctCart.some(l=>l.pay==='paid')?'paid':'pending',team_name:null,created_at:at});
+  if(discSAR>0){
+    const _ds=_ctDiscountSplit(S._ctCart,discSAR);
+    const _dRow=(amt,pay)=>({id:uid(),receipt_id:rid,session_id:sessId,customer_name:cust,item_id:null,name:t('cashDiscount'),category:'__discount__',qty:1,price:-amt,pay,team_name:null,created_at:at});
+    if(_ds.onPaid>0)rows.push(_dRow(_ds.onPaid,'paid'));
+    if(_ds.onPending>0)rows.push(_dRow(_ds.onPending,'pending'));
+    // nothing paid and nothing pending (all house/team): keep the discount on the receipt
+    if(_ds.onPaid<=0&&_ds.onPending<=0)rows.push(_dRow(discSAR,'pending'));
+  }
   // Card/cash split as a qty-0 metadata line (never affects sales totals)
   const paidTotal=rows.filter(r=>r.pay==='paid').reduce((s,r)=>s+r.qty*r.price,0);
   const cardSAR=_ctCardSAR(paidTotal);
