@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubSupabase, unlockStaff, loginCustomer, waitForSb } from './helpers/supabase';
+import { stubSupabase, unlockStaff, loginCustomer, waitForSb, captureBookingRows } from './helpers/supabase';
 
 test.describe('overbooking guard', () => {
   const mk = (cap: number, booked: number) => ({
@@ -15,14 +15,7 @@ test.describe('overbooking guard', () => {
     await loginCustomer(page);
     await page.goto('/');
     await waitForSb(page);
-    const inserts: Record<string, unknown>[] = [];
-    await page.route(/\/rest\/v1\/queue_entries/, async (route) => {
-      if (route.request().method() === 'POST') {
-        const b = route.request().postDataJSON();
-        (Array.isArray(b) ? b : [b]).forEach((r: Record<string, unknown>) => inserts.push(r));
-      }
-      await route.fulfill({ status: 201, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: '[]' });
-    });
+    const inserts = await captureBookingRows(page);
     await page.evaluate(`S.selSession='s1';S.regQty=1;S.regBikeHeights=[175];S.regBikeTypes=['Hybrid'];S.regRiderNames=['Spec Rider'];`);
     await page.evaluate('submitReg()');
     await expect.poll(() => inserts.length).toBeGreaterThanOrEqual(1);
@@ -34,14 +27,7 @@ test.describe('overbooking guard', () => {
     await loginCustomer(page);
     await page.goto('/');
     await waitForSb(page);
-    const inserts: Record<string, unknown>[] = [];
-    await page.route(/\/rest\/v1\/queue_entries/, async (route) => {
-      if (route.request().method() === 'POST') {
-        const b = route.request().postDataJSON();
-        (Array.isArray(b) ? b : [b]).forEach((r: Record<string, unknown>) => inserts.push(r));
-      }
-      await route.fulfill({ status: 201, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: '[]' });
-    });
+    const inserts = await captureBookingRows(page);
     await page.evaluate(`S.selSession='s1';S.regQty=2;S.regBikeHeights=[175,170];S.regBikeTypes=['Hybrid','Road'];S.regRiderNames=['A B','C D'];`);
     await page.evaluate('submitReg()');
     await expect.poll(() => inserts.length).toBe(2);
@@ -53,14 +39,7 @@ test.describe('overbooking guard', () => {
     await loginCustomer(page);
     await page.goto('/');
     await waitForSb(page);
-    const inserts: Record<string, unknown>[] = [];
-    await page.route(/\/rest\/v1\/queue_entries/, async (route) => {
-      if (route.request().method() === 'POST') {
-        const b = route.request().postDataJSON();
-        (Array.isArray(b) ? b : [b]).forEach((r: Record<string, unknown>) => inserts.push(r));
-      }
-      await route.fulfill({ status: 201, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: '[]' });
-    });
+    const inserts = await captureBookingRows(page);
     await page.evaluate(`S.selSession='s1';S.regQty=1;S.regBikeHeights=[175];S.regBikeTypes=['Hybrid'];S.regRiderNames=['Spec Rider'];`);
     await page.evaluate('submitReg()');
     await expect.poll(() => inserts.length).toBeGreaterThanOrEqual(1);

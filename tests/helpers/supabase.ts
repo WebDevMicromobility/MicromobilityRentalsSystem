@@ -39,10 +39,34 @@ export async function stubSupabase(page: Page, fixtures: Fixtures = {}, failWrit
     const rpc = url.pathname.match(/\/rest\/v1\/rpc\/([^/?]+)/);
     if (rpc) {
       let body = (fixtures as Record<string, unknown>)[`rpc:${rpc[1]}`];
+      // An `rpc:<name>` fixture of { __rpcError: {...} } answers with a PostgREST error
+      // instead of rows. Needed to cover the two branches a client has to tell apart: a
+      // function that is missing (fall back) and one that refused (surface it).
+      if (body && typeof body === 'object' && '__rpcError' in (body as Record<string, unknown>)) {
+        const e = (body as { __rpcError: Record<string, unknown> }).__rpcError;
+        return route.fulfill({
+          status: Number(e.status) || 404,
+          headers: { ...cors(), 'content-type': 'application/json' },
+          body: JSON.stringify({ code: e.code, message: e.message, details: null, hint: null }),
+        });
+      }
       // list_sessions is how customers read sessions since tag-gated events: the real RPC
       // returns the sessions table (public rows + tagged ones), so default it to the
       // sessions fixture unless a spec overrides it explicitly.
       if (body === undefined && rpc[1] === 'list_sessions') body = fixtures['sessions'] || [];
+      // Customer bookings go through customer_create_booking, which returns one row per
+      // rider. Left to the generic `[]` default it would read as a refusal and every spec
+      // that books through the UI would fail, so echo the rows back the way the real
+      // function does. A spec that cares about the server overriding the client's guess
+      // stubs `rpc:customer_create_booking` explicitly.
+      if (body === undefined && rpc[1] === 'customer_create_booking') {
+        let sent: { p_entries?: Record<string, unknown>[] } = {};
+        try { sent = req.postDataJSON(); } catch { /* no body */ }
+        body = (sent?.p_entries ?? []).map((r) => ({
+          id: r.id, queue_num: r.queue_num, status: r.status,
+          waitlist_num: r.waitlist_num ?? null, price: r.price,
+        }));
+      }
       return route.fulfill({
         status: 200,
         headers: { ...cors(), 'content-type': 'application/json' },
@@ -103,6 +127,51 @@ export async function stubSupabase(page: Page, fixtures: Fixtures = {}, failWrit
       body: JSON.stringify(body),
     });
   });
+}
+
+/** The booking rows the client sent, whichever door it used.
+ *
+ *  Customer bookings go through the customer_create_booking RPC (so the row can come back
+ *  without SELECT on queue_entries); staff paths still insert directly. Specs care about
+ *  what was sent, not which transport carried it, so this captures both and answers with
+ *  rows shaped the way each caller expects.
+ *
+ *  Pass `rpcMissing` to simulate a database that predates the RPC, which must make the
+ *  client fall back to a direct insert. */
+export async function captureBookingRows(page: Page, opts: { rpcMissing?: boolean } = {}) {
+  const rows: Record<string, unknown>[] = [];
+  const head = { 'access-control-allow-origin': '*', 'content-type': 'application/json' };
+
+  await page.route(/\/rest\/v1\/rpc\/customer_create_booking/, async (route) => {
+    if (opts.rpcMissing) {
+      return route.fulfill({
+        status: 404, headers: head,
+        body: JSON.stringify({ code: 'PGRST202', message: 'Could not find the function public.customer_create_booking' }),
+      });
+    }
+    const sent = route.request().postDataJSON() as { p_entries?: Record<string, unknown>[] };
+    const entries = sent?.p_entries ?? [];
+    entries.forEach((r) => rows.push(r));
+    // Echo the shape the real RPC returns, so the client's queue-number sync has something
+    // to read back. queue_num is passed through rather than invented, since specs assert it.
+    return route.fulfill({
+      status: 200, headers: head,
+      body: JSON.stringify(entries.map((r) => ({
+        id: r.id, queue_num: r.queue_num, status: r.status,
+        waitlist_num: r.waitlist_num ?? null, price: r.price,
+      }))),
+    });
+  });
+
+  await page.route(/\/rest\/v1\/queue_entries/, async (route) => {
+    if (route.request().method() === 'POST') {
+      const b = route.request().postDataJSON();
+      (Array.isArray(b) ? b : [b]).forEach((r: Record<string, unknown>) => rows.push(r));
+    }
+    return route.fulfill({ status: 201, headers: head, body: '[]' });
+  });
+
+  return rows;
 }
 
 function cors() {

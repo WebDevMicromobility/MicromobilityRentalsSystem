@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubSupabase, loginCustomer, waitForSb } from './helpers/supabase';
+import { stubSupabase, loginCustomer, waitForSb, captureBookingRows } from './helpers/supabase';
 
 // The booking insert must carry promo_code (and the discounted price) atomically, so the
 // server price trigger can tell a legit promo discount from price manipulation.
@@ -14,14 +14,7 @@ test('a promo booking sends promo_code + discounted price in the insert row', as
   await page.goto('/');
   await waitForSb(page);
 
-  const inserts: Record<string, unknown>[] = [];
-  await page.route(/\/rest\/v1\/queue_entries/, async (route) => {
-    if (route.request().method() === 'POST') {
-      const b = route.request().postDataJSON();
-      (Array.isArray(b) ? b : [b]).forEach((r: Record<string, unknown>) => inserts.push(r));
-    }
-    await route.fulfill({ status: 201, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: '[]' });
-  });
+  const inserts = await captureBookingRows(page);
 
   await page.evaluate(`
     S.selSession='s1'; S.regQty=1; S.regBikeHeights=[175]; S.regBikeTypes=['Road']; S.regRiderNames=['Spec Rider'];
@@ -43,11 +36,7 @@ test('a non-promo booking sends a null promo_code (trigger will snap price to ca
   await loginCustomer(page, { id: 'c1' });
   await page.goto('/');
   await waitForSb(page);
-  const inserts: Record<string, unknown>[] = [];
-  await page.route(/\/rest\/v1\/queue_entries/, async (route) => {
-    if (route.request().method() === 'POST') { const b = route.request().postDataJSON(); (Array.isArray(b) ? b : [b]).forEach((r: Record<string, unknown>) => inserts.push(r)); }
-    await route.fulfill({ status: 201, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: '[]' });
-  });
+  const inserts = await captureBookingRows(page);
   await page.evaluate(`S.selSession='s1'; S.regQty=1; S.regBikeHeights=[175]; S.regBikeTypes=['Road']; S.regRiderNames=['Spec Rider']; S.promoApplied=null; submitReg();`);
   await expect.poll(() => inserts.length).toBeGreaterThanOrEqual(1);
   expect(inserts[0].promo_code ?? null).toBeNull();

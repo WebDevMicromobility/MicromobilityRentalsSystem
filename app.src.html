@@ -1759,6 +1759,36 @@ function entryFromDB(e){
     approval:e.approval||null, // community events: pending / approved / rejected (null = ordinary booking)
     purchases:(()=>{try{return e.purchases?(Array.isArray(e.purchases)?e.purchases:JSON.parse(e.purchases)):[];}catch(_){return[];}})()};
 }
+// ── Creating a booking ────────────────────────────────────────────────────
+// The customer path goes through customer_create_booking, a SECURITY DEFINER RPC that
+// inserts and returns the rows. That matters because the client NEEDS the rows back — the
+// DB assigns the queue number atomically and may coerce 'waiting' into 'waitlist' — and
+// `.insert().select()` gets those rows via RETURNING, which applies SELECT policies. That
+// interaction is why queue_entries is still world-readable: dropping the policy broke
+// booking outright. Going through the RPC is what lets that policy finally go.
+//
+// The fallback keeps a deploy in either order safe: on a database that predates the RPC it
+// reverts to the direct insert. Once the policy is dropped, the RPC is the only path that
+// works — which is exactly why the policy must not be dropped until this has shipped.
+async function _createBookings(entries){
+  const c=S.loggedIn||getSession();
+  if(c&&c.session_token){
+    const r=await sb.rpc('customer_create_booking',{
+      p_id:c.id,p_token:c.session_token,p_entries:entries.map(entryToDB),
+    });
+    if(!r.error){
+      if(!r.data||!r.data.length)return{error:{code:'PGRST116',message:'booking refused'}};
+      return{data:r.data};
+    }
+    // Only fall through when the function itself is absent; a real refusal must surface.
+    const m=((r.error.code||'')+' '+(r.error.message||'')).toLowerCase();
+    if(!(m.includes('pgrst202')||m.includes('42883')||m.includes('could not find')||m.includes('does not exist')))return{error:r.error};
+  }
+  const res=await Promise.all(entries.map(e=>sb.from('queue_entries').insert(entryToDB(e)).select()));
+  const bad=res.find(x=>x&&x.error);
+  if(bad)return{error:bad.error};
+  return{data:res.map(x=>(x.data&&x.data[0])||null).filter(Boolean)};
+}
 function entryToDB(e){
   const row={id:e.id,name:e.name,email:e.email||'',phone:e.phone||'',
     size:e.size,height:e.height||null,type_preference:e.typePreference,paid:e.paid,price:e.price??DEFAULT_PRICE,
@@ -5597,9 +5627,10 @@ async function submitReg(){
       let _ok=false;
       for(let _try=0;_try<4&&!_ok;_try++){
         try{
-          const insRes=await Promise.all(entries.map(e=>sb.from('queue_entries').insert(entryToDB(e)).select()));
-          const insFail=insRes.find(r=>r&&r.error);
-          if(insFail)throw insFail.error;
+          const _ins=await _createBookings(entries);
+          if(_ins.error)throw _ins.error;
+          // The RPC returns one row per entry, in order; the fallback shape matches.
+          const insRes=(_ins.data||[]).map(row=>({data:[row]}));
           // The DB assigns the final queue number atomically (queue_entries_assign_qnum
           // trigger), overriding whatever this device computed - sync it back so the
           // ticket and toast show the real number even on a stale client. Same for STATUS:
@@ -5707,6 +5738,7 @@ async function submitModifyBooking(){
   const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
   if(sess.status&&sess.status!=='open'&&sess.status!=='full'){toast(t('errSelectSession'),'error');return;} // session closed under them mid-edit
   const calls=[];
+  let _addedRes=null; // rows the booking RPC returns for riders added during this edit
 
 
   for(let i=0;i<Math.min(newQty,existing.length);i++){
@@ -5762,17 +5794,19 @@ async function submitModifyBooking(){
     // as it would at first booking. Rows that already exist keep the price they were quoted —
     // silently repricing a booking already in the queue is how disputes start at the booth.
     _applyPromoToEntries(addedEntries);
-    addedEntries.forEach(entry=>calls.push(sb.from('queue_entries').insert(entryToDB(entry)).select()));
+    // Added riders go through the same booking RPC as a first booking — one call for the
+    // whole set, kept out of `calls` because it returns rows the patches below do not.
+    calls.push(Promise.resolve({data:[]}).then(()=>_createBookings(addedEntries)).then(r=>{_addedRes=r;return r;}));
   }
 
   if(calls.length>0){
     const res=await Promise.all(calls);
     const fail=res.find(r=>r&&r.error);
-    if(fail){toast(fail.error.message||t('errConnection'),'error');return;}
+    if(fail){toast(_errMessage(fail.error),'error');return;}
     // Added rows: the DB assigns the real number and may capacity-coerce to waitlist —
     // the toast below must follow what actually landed (same rule as submitReg).
-    if(addedEntries.length){
-      res.slice(-addedEntries.length).forEach((r,i)=>{const row=r&&r.data&&r.data[0];if(row){if(row.queue_num!=null)addedEntries[i].queueNum=row.queue_num;if(row.status)addedEntries[i].status=row.status;}});
+    if(addedEntries.length&&_addedRes&&_addedRes.data){
+      _addedRes.data.forEach((row,i)=>{if(!row||!addedEntries[i])return;if(row.queue_num!=null)addedEntries[i].queueNum=row.queue_num;if(row.status)addedEntries[i].status=row.status;});
     }
   }
   await loadData();
