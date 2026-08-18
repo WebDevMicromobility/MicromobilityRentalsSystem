@@ -30,6 +30,21 @@ async function resolveIncludes(text) {
 const raw = await readFile(new URL('../app.src.html', import.meta.url), 'utf8');
 const src = await resolveIncludes(raw);
 
+// ── Fail loudly on a JavaScript syntax error ────────────────────────────────
+// html-minifier-terser does NOT throw when terser cannot parse an inline <script>; it
+// leaves that block unminified and reports success. The only outward sign is the output
+// barely shrinking, which is easy to miss — a broken build shipped this way twice. Parse
+// every inline script first, so a syntax error stops the build with a real message.
+for (const m of src.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/g)) {
+  if (/type\s*=\s*["']?application\/(ld\+json|json)/i.test(m[1])) continue; // data, not code
+  try {
+    new Function(m[2]);
+  } catch (e) {
+    const line = src.slice(0, m.index).split('\n').length;
+    throw new Error(`build: inline <script> starting at app.src.html:${line} has a syntax error — ${e.message}`);
+  }
+}
+
 let out = await minify(src, {
   collapseWhitespace: true,
   conservativeCollapse: true, // keep a single space where text nodes need it (layout-safe)
@@ -116,5 +131,12 @@ if (robots !== robotsBefore) await writeFile(robotsUrl, robots);
 
 // No build/tooling banner in the shipped file — index.html is public (View Source),
 // so the "edit app.src.html, not index.html" rule lives in AGENTS.md / CLAUDE.md instead.
+// Second guard, in case a future parser quirk slips past the check above: a real minify
+// pass removes ~18% of this file. Anything under 5% means terser bailed out silently.
+const shrink = 1 - out.length / src.length;
+if (shrink < 0.05) {
+  throw new Error(`build: output shrank only ${(shrink * 100).toFixed(1)}% — terser almost certainly failed to parse an inline script`);
+}
+
 await writeFile(new URL('../index.html', import.meta.url), out);
-console.log(`built index.html: ${src.length} -> ${out.length} bytes (assets v=${cssHash})`);
+console.log(`built index.html: ${src.length} -> ${out.length} bytes (${(shrink * 100).toFixed(1)}% smaller, assets v=${cssHash})`);

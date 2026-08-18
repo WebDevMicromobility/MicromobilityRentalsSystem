@@ -1313,19 +1313,51 @@ async function staffAuthSignOut(){
 // to a staff row, or the unlock flag is dropped and the PIN gate returns.
 async function staffAuthRestore(){
   if(!sb||localStorage.getItem('cq_staff')!=='1')return;
+  // The unlock is dropped ONLY when the server positively says this account is not staff.
+  // It used to be dropped on any failure at all, including a network blip — so a booth on
+  // flaky wifi (or a phone that had been asleep long enough for the access token to lapse)
+  // got thrown back to the PIN gate over and over. A write that genuinely lacks auth now
+  // reports itself through _writeErr ('your staff session may have expired'), so there is
+  // no need to pre-emptively lock the device on a guess.
+  let uid=null;
   try{
     const{data}=await sb.auth.getSession();
-    const uid=data&&data.session&&data.session.user&&data.session.user.id;
-    if(!uid)throw 0;
-    const{data:row}=await sb.from('staff').select('*').eq('user_id',uid).maybeSingle();
-    if(!row)throw 0;
-    S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;setStaffRole(row.role==='frontdesk'?'frontdesk':'admin');
+    uid=data&&data.session&&data.session.user&&data.session.user.id;
+    // An expired access token after the device has been asleep is ordinary, not a sign-out.
+    // supabase-js refreshes on its own timer, which does not run while the tab is closed —
+    // so ask for it explicitly rather than concluding the session is gone.
+    if(!uid){
+      const r=await sb.auth.refreshSession();
+      uid=(!r.error&&r.data&&r.data.session&&r.data.session.user&&r.data.session.user.id)||null;
+      if(!uid){
+        // Tell "this device never signed in" apart from "the refresh could not be done
+        // right now". The first is a real verdict and the PIN gate should return; the
+        // second is a booth on bad wifi and must not cost anyone their session.
+        const _m=((r.error&&(r.error.name||''))+' '+((r.error&&r.error.message)||'')).toLowerCase();
+        const _noSession=!r.error||_m.includes('authsessionmissing')||_m.includes('session missing')
+          ||_m.includes('refresh token not found')||_m.includes('invalid refresh token');
+        if(_noSession){
+          if(SECURE_AUTH){try{localStorage.removeItem('cq_staff');}catch(_){}}
+        }
+        S._staffAuthed=false;return;
+      }
+    }
   }catch(e){
-    // Secure mode: no Auth session means no access — drop the unlock. Open mode: keep the
-    // local unlock (reads are public); only the _staffAuthed extras stay off.
-    if(SECURE_AUTH){try{localStorage.removeItem('cq_staff');}catch(_){}}
-    S._staffAuthed=false;
+    S._staffAuthed=false;return; // unreachable: keep the unlock, retry later
   }
+  if(!uid){S._staffAuthed=false;return;}
+  let row,err;
+  try{
+    const r=await sb.from('staff').select('*').eq('user_id',uid).maybeSingle();
+    row=r.data;err=r.error;
+  }catch(e){S._staffAuthed=false;return;} // network, not a verdict
+  if(err){S._staffAuthed=false;return;}   // ditto: an error is not proof of non-staff
+  if(!row){
+    // A clean answer with no staff row IS a verdict: this account has no business here.
+    if(SECURE_AUTH){try{localStorage.removeItem('cq_staff');}catch(_){}}
+    S._staffAuthed=false;return;
+  }
+  S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;setStaffRole(row.role==='frontdesk'?'frontdesk':'admin');
 }
 async function lockStaff(){try{localStorage.removeItem('cq_staff');}catch(e){}await staffAuthSignOut();window.location.href='./';}
 function _clearPinLock(){try{localStorage.removeItem('cq_pin_until');localStorage.removeItem('cq_pin_lockouts');localStorage.removeItem('cq_pin_attempts');}catch(e){}}
@@ -17075,8 +17107,29 @@ async function _autoRefresh(full){
 setInterval(()=>{if(!document.hidden)_updateConnUI();},5000);
 try{_updateConnUI();}catch(e){} // reflect connection state on boot (handles starting up already offline)
 setInterval(()=>{if(!document.hidden)_autoRefresh(false);},30000); // light poll, paused while the tab is hidden (_autoRefresh itself no-ops under test)
+// ── Keeping the staff session alive ────────────────────────────────────────
+// supabase-js refreshes the access token on its own timer, but that timer does not run
+// while the tab is hidden or the phone is asleep — which at a booth is most of the evening.
+// Coming back to a lapsed token used to mean the PIN gate. Re-assert the session whenever
+// the screen returns, and keep retrying in the background if the network was the problem.
+async function _staffKeepAlive(){
+  try{
+    if(typeof localStorage==='undefined'||localStorage.getItem('cq_staff')!=='1')return;
+    if(typeof window!=='undefined'&&window.__noWiden)return; // tests set their own state
+    if(!sb||!sb.auth)return;
+    if(S._staffAuthed){
+      // Healthy: nudge the token so it never reaches expiry unattended.
+      try{await sb.auth.refreshSession();}catch(e){}
+      return;
+    }
+    await staffAuthRestore();
+    if(S._staffAuthed){try{await loadData();}catch(e){}try{_refreshView();}catch(e){}}
+  }catch(e){}
+}
+setInterval(()=>{if(!document.hidden)_staffKeepAlive();},10*60*1000); // well inside any token lifetime
 try{document.addEventListener('visibilitychange',()=>{
   if(document.hidden||(typeof window!=='undefined'&&window.__noWiden))return;
+  _staffKeepAlive(); // the token could not refresh itself while the tab was hidden
   if(S.view==='staff')_autoRefresh(true); // full catch-up when the booth screen comes back
   else if(S.view==='customer'&&S.custTab==='myrides'){loadData().then(()=>{try{_lastRefresh=Date.now();renderMyRides();renderLandingAvail();}catch(e){}}).catch(()=>{});} // customers had no poll/visibility catch-up — My Rides could sit stale
 });}catch(e){}

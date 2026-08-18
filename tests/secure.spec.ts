@@ -173,3 +173,79 @@ test('staff sign in with a Supabase Auth account (no 4-digit PIN)', async ({ pag
   expect(await page.evaluate(`S._staffAuthed`)).toBe(true);
   expect(await page.evaluate(`S.staffRole`)).toBe('admin');
 });
+
+// The booth runs on wifi that drops. staffAuthRestore used to treat ANY failure as proof
+// the session was gone and delete cq_staff, so a blip — or a phone that had been asleep
+// long enough for the access token to lapse — sent staff back to the PIN gate mid-shift.
+// A device that genuinely never signed in must still be turned away (the test above), but
+// one that merely could not reach the server keeps its unlock and retries.
+
+// These drive staffAuthRestore's decision directly by swapping sb.auth, rather than trying
+// to coax supabase-js into a particular internal state — the branch under test is "what does
+// this function conclude from a failed refresh", and that is exactly what is asserted.
+
+test('a network failure during auth restore does not cost staff their unlock', async ({ page }) => {
+  await stubSupabase(page, { sessions: [openSession] });
+  await secureOn(page);
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+
+  const kept = await page.evaluate(`(async () => {
+    localStorage.setItem('cq_staff', '1');           // as if boot had restored it
+    sb.auth.getSession    = async () => ({ data: { session: null } });
+    sb.auth.refreshSession = async () => { throw new TypeError('Failed to fetch'); };
+    await staffAuthRestore();
+    return { unlock: localStorage.getItem('cq_staff'), authed: S._staffAuthed === true };
+  })()`) as { unlock: string | null; authed: boolean };
+
+  expect(kept.unlock).toBe('1');   // the blip must not end the shift
+  expect(kept.authed).toBe(false); // but nothing is claimed about being authed
+});
+
+test('a refresh that reports no session at all does return staff to the PIN gate', async ({ page }) => {
+  await stubSupabase(page, { sessions: [openSession] });
+  await secureOn(page);
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+
+  // A definite verdict, not a blip: this device holds no refresh token, so there is nothing
+  // to restore and the unlock is stale. This is the case the test above must not weaken.
+  const dropped = await page.evaluate(`(async () => {
+    localStorage.setItem('cq_staff', '1');
+    sb.auth.getSession    = async () => ({ data: { session: null } });
+    sb.auth.refreshSession = async () => ({ data: { session: null }, error: { name: 'AuthSessionMissingError', message: 'Auth session missing!' } });
+    await staffAuthRestore();
+    return localStorage.getItem('cq_staff');
+  })()`) as string | null;
+
+  expect(dropped).toBeNull();
+});
+
+test('a lapsed access token is refreshed rather than treated as a sign-out', async ({ page }) => {
+  await stubSupabase(page, { sessions: [openSession] });
+  await secureOn(page);
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+
+  // The device was asleep past the token's lifetime — most of an evening at the booth.
+  // The refresh succeeds, so the session is restored and the unlock never comes into question.
+  const out = await page.evaluate(`(async () => {
+    localStorage.setItem('cq_staff', '1');
+    let asked = false;
+    sb.auth.getSession    = async () => ({ data: { session: null } });
+    sb.auth.refreshSession = async () => { asked = true; return { data: { session: { user: { id: 'staff-uid' } } }, error: null }; };
+    const from = sb.from.bind(sb);
+    sb.from = (t) => (t === 'staff'
+      ? { select: () => ({ eq: () => ({ maybeSingle: async () => ({ data: { user_id: 'staff-uid', role: 'admin', must_change_pwd: false }, error: null }) }) }) }
+      : from(t));
+    await staffAuthRestore();
+    return { asked, unlock: localStorage.getItem('cq_staff'), authed: S._staffAuthed === true };
+  })()`) as { asked: boolean; unlock: string | null; authed: boolean };
+
+  expect(out.asked).toBe(true);  // it asked for a new token instead of giving up
+  expect(out.unlock).toBe('1');
+  expect(out.authed).toBe(true);
+});
