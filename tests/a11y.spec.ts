@@ -2,12 +2,14 @@ import { test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { stubSupabase } from './helpers/supabase';
 
-// Accessibility audit — REPORT-ONLY for now. It prints axe-core violations to the
-// CI log (visible in the job output) but does not fail the build, so it can't
-// block deploys while the backlog is worked down. Once the log is clean for the
-// landing page, flip STRICT to true to lock it in as a regression gate, then
-// extend to more views.
-const STRICT = false;
+// Accessibility audit — now a GATE. The backlog it was written to work down is clear:
+// every audited view (landing, auth, booking, my rides, and each staff screen) reports
+// zero axe-core violations, so a new one is a regression and fails the build here.
+//
+// "Needs review" items are still only printed. Those are the checks axe cannot decide on
+// its own — colour contrast over gradients and images, mostly — and failing on them would
+// make the gate noise rather than signal. They stay in the log for a human to skim.
+const STRICT = true;
 
 // The audit used to run the instant page.goto() resolved — while #loading-screen was still
 // up — so axe was inspecting a spinner and reported "clean". Wait for the app to actually

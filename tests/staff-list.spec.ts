@@ -314,3 +314,62 @@ test.describe('parties, not single riders', () => {
     expect(orders[0][2]).toBe(orders[0][1] + 1);
   });
 });
+
+// "The four of them are here" is one action to a person at the booth, not four.
+test.describe('party-level actions', () => {
+  const party = (id: string, n: number, name: string, extra: Record<string, unknown> = {}) =>
+    qe(id, n, { status: 'waiting', paid: false, price: 60, group_id: 'grp1', group_name: 'Tamer Group', name, ...extra });
+
+  async function openWithParty(page: import('@playwright/test').Page) {
+    await stubSupabase(page, {
+      sessions,
+      queue_entries: [party('g1', 11, 'Tamer A'), party('g2', 12, 'Tamer B'), party('g3', 13, 'Tamer C')],
+      desk_waitlist: [],
+    });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('queue');S.queueView='managed';renderStaffQueue()`);
+    await page.evaluate(`mwFromBooking('g1')`);
+    await expect.poll(async () => page.locator('#mw-host .q-card').count()).toBe(1);
+  }
+
+  /** Every PATCH the client sends to queue_entries, with its body. */
+  function watchPatches(page: import('@playwright/test').Page) {
+    const out: { url: string; body: string }[] = [];
+    page.on('request', (r) => {
+      if (r.method() !== 'PATCH' || !r.url().includes('/rest/v1/queue_entries')) return;
+      out.push({ url: r.url(), body: r.postData() || '' });
+    });
+    return out;
+  }
+
+  test('checks the whole party in at once', async ({ page }) => {
+    await openWithParty(page);
+    const patches = watchPatches(page);
+    await page.locator('#mw-host').getByRole('button', { name: /Check In \(3\)/i }).click();
+    await expect.poll(() => patches.filter((p) => p.body.includes('"status":"active"')).length).toBe(3);
+  });
+
+  test('settles the whole party at once', async ({ page }) => {
+    await openWithParty(page);
+    const patches = watchPatches(page);
+    await page.locator('#mw-host').getByRole('button', { name: /Paid \(3\)/i }).click();
+    await expect.poll(() => patches.filter((p) => p.body.includes('"paid":true')).length).toBe(3);
+  });
+
+  test('a party already settled is not asked to pay again', async ({ page }) => {
+    await stubSupabase(page, {
+      sessions,
+      queue_entries: [party('g1', 11, 'Tamer A', { paid: true }), party('g2', 12, 'Tamer B', { paid: true })],
+      desk_waitlist: [],
+    });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('queue');S.queueView='managed';renderStaffQueue();mwFromBooking('g1')`);
+    await expect.poll(async () => page.locator('#mw-host .q-card').count()).toBe(1);
+    await expect(page.locator('#mw-host').getByRole('button', { name: /Paid \(/i })).toHaveCount(0);
+    await expect(page.locator('#mw-host').getByRole('button', { name: /Check In \(2\)/i })).toHaveCount(1);
+  });
+});

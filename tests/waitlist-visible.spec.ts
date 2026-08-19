@@ -34,6 +34,9 @@ test.describe('a rider on the waitlist', () => {
     await expect(card).toContainText('#3');                    // the number, not the word in its place
     await expect(page.locator('.ticket-num-label.wl-loud').first()).toContainText(/waitlist/i);
     await expect(page.locator('#tab-myrides .badge-waitlist').first()).toBeVisible();
+    // and they are told what it means, with the number staff can quote back to them
+    await expect(page.locator('.ticket-num-label.wl-loud').first()).toContainText('W1');
+    await expect(page.locator('.wl-note').first()).toContainText(/W1 in line/i);
   });
 });
 
