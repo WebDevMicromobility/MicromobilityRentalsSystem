@@ -130,12 +130,26 @@ test.describe('it behaves like a circuit session, not like the Saturday ride', (
     expect(rows[0].price).toBe(0);
   });
 
-  test('the bike-type menu: Own on both rides, Road Carbon only where it is paid for', async ({ page }) => {
+  test('the bike-type menu: Own on both rides, Road Carbon on neither', async ({ page }) => {
     await bootMember(page);
-    expect(await page.evaluate(`bikeTypeOpts(true,true)`)).not.toContain('Road Carbon'); // the free ride
-    expect(await page.evaluate(`bikeTypeOpts(true,false)`)).toContain('Road Carbon');    // the paid one
-    expect(await page.evaluate(`bikeTypeOpts(true,false)`)).toContain('Own');
-    expect(await page.evaluate(`bikeTypeOpts(false,false)`)).not.toContain('Own');       // JCC
+    await pickRide(page, 'ev-petromin', '2099-01-13-pw');
+    await page.evaluate(`S.regStep=2;renderRegister()`);
+    const types = await page.evaluate(`Array.from(document.querySelectorAll('[data-type-slot="0"]')).map(b=>b.dataset.type)`);
+    expect(types).toContain('Own');            // owners are welcome
+    expect(types).not.toContain('Road Carbon'); // carbon bikes do not go out on a community ride
+    expect(await page.evaluate(`bikeTypeOpts(false,false)`)).toContain('Road Carbon'); // ...but they do at the circuit
+    expect(await page.evaluate(`bikeTypeOpts(false,false)`)).not.toContain('Own');
+  });
+
+  test('a stale client asking for carbon on the paid ride is coerced, not charged for it', async ({ page }) => {
+    await bootMember(page);
+    const rows = await captureBookingRows(page);
+    await page.evaluate(
+      `S.selSession='2099-01-13-pw'; S.regQty=1; S.regBikeHeights=[175]; S.regBikeTypes=['Road Carbon'];
+       S.regRiderNames=['Spec Rider']; S.promoApplied=null; submitReg();`,
+    );
+    await expect.poll(() => rows.length).toBe(1);
+    expect(rows[0].type_preference).not.toBe('Road Carbon'); // the DB trigger backstops this too
   });
 
   test('a rider on their own bike is seated even when every seat is taken', async ({ page }) => {
