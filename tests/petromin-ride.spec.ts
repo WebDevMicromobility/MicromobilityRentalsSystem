@@ -171,6 +171,37 @@ test.describe('it behaves like a circuit session, not like the Saturday ride', (
     expect(rows[0].price).toBe(0);
   });
 
+  test('a party is capped at four riders — the stepper will not go past it', async ({ page }) => {
+    await bootMember(page);
+    await pickRide(page, 'ev-petromin', '2099-01-13-pw');
+    await page.evaluate(`S.regStep=2;renderRegister()`);
+    for (let i = 0; i < 8; i++) await page.evaluate('changeRegQty(1)');
+    expect(await page.evaluate('S.regQty')).toBe(4);
+    await expect(page.locator('.reg-row').first()).toContainText(/up to 4 riders/i);
+  });
+
+  test('a fifth rider is refused at submit, not quietly trimmed', async ({ page }) => {
+    await bootMember(page);
+    const rows = await captureBookingRows(page);
+    await page.evaluate(
+      `S.selSession='2099-01-13-pw'; S.regQty=5; S.regBikeHeights=[175,175,175,175,175];
+       S.regBikeTypes=['Road','Road','Road','Road','Road'];
+       S.regRiderNames=['A','B','C','D','E']; S.promoApplied=null; submitReg();`,
+    );
+    await expect(page.locator('.toast')).toContainText(/up to 4 riders/i);
+    expect(rows).toHaveLength(0);           // nothing was posted
+    expect(await page.evaluate('S.regQty')).toBe(4);
+  });
+
+  test('the JCC stepper still goes to ten', async ({ page }) => {
+    await bootMember(page);
+    await page.evaluate(`S.selEvent='jcc';setCustTab('register')`);
+    await page.locator('.sess-card.ev-jcc').click();
+    await page.waitForFunction(`S.selSession==='s1'`);
+    for (let i = 0; i < 12; i++) await page.evaluate('changeRegQty(1)');
+    expect(await page.evaluate('S.regQty')).toBe(10);
+  });
+
   test('a full seat count sends the next rider to the waitlist', async ({ page }) => {
     // 10 seats, 10 riders already on it: the client must not seat an 11th.
     const taken = Array.from({ length: 10 }, (_, i) => ({
