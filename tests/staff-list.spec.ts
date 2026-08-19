@@ -92,3 +92,95 @@ test.describe('adding a booking to the staff list', () => {
     expect(html).toContain(`mwFromBooking('e-wl')`);
   });
 });
+
+// The section could only take a hand-typed name: everything staff wanted to park there —
+// a queued booking, a waitlisted one, a regular who walked in — had to be retyped. The
+// name field is now a search over all three, and the browse button lists every addable
+// booking without typing anything.
+
+const customers = [
+  { id: 'c1', name: 'Salma Nour', phone: '0551112222', type_preference: 'Road', created_at: 1 },
+  { id: 'c2', name: 'Rider 1', phone: '050000001', type_preference: 'Hybrid', created_at: 2 },
+];
+
+async function openStaffList(page: import('@playwright/test').Page) {
+  await page.evaluate(`(()=>{ setStaffTab('queue'); S.queueView='managed'; renderStaffQueue(); })()`);
+  await page.locator('#mw-name').waitFor();
+}
+
+test.describe('finding riders to put on the staff list', () => {
+  async function bootWithCustomers(page: import('@playwright/test').Page) {
+    await stubSupabase(page, { sessions, queue_entries, desk_waitlist: [], customers });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await openStaffList(page);
+  }
+
+  test('browse lists every addable booking, waitlisted ones first', async ({ page }) => {
+    await bootWithCustomers(page);
+    await page.locator('#mw-browse').click();
+    const rows = page.locator('#mw-suggest .mw-sug');
+    await expect(rows).toHaveCount(2);          // the booking that already rode is not offered
+    await expect(rows.first()).toContainText('Rider 2'); // waitlisted before queued
+    await expect(rows.nth(1)).toContainText('Rider 1');
+  });
+
+  test('picking from the picker parks the booking, and browsing stays open', async ({ page }) => {
+    await bootWithCustomers(page);
+    const rows = watchInserts(page);
+    await page.locator('#mw-browse').click();
+    await page.locator('#mw-suggest .mw-sug').first().click();
+    await expect.poll(() => rows.length).toBe(1);
+    expect(rows[0].booking_id).toBe('e-wl');
+    // still open for the next pick, minus the one just added
+    await expect(page.locator('#mw-suggest .mw-sug')).toHaveCount(1);
+  });
+
+  test('typing a name searches bookings; a customer with no booking is offered too', async ({ page }) => {
+    await bootWithCustomers(page);
+    await page.locator('#mw-name').fill('Salma');
+    const rows = page.locator('#mw-suggest .mw-sug');
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toContainText('Salma Nour');
+    // a customer who is already on the queue is offered as the booking, not twice
+    await page.locator('#mw-name').fill('Rider 1');
+    await expect(page.locator('#mw-suggest .mw-sug')).toHaveCount(1);
+    await expect(page.locator('#mw-suggest .mw-sug')).toContainText('#1');
+  });
+
+  test('adding a customer writes a walk-up style row, not a linked booking', async ({ page }) => {
+    await bootWithCustomers(page);
+    const rows = watchInserts(page);
+    await page.locator('#mw-name').fill('Salma');
+    await page.locator('#mw-suggest .mw-sug').first().click();
+    await expect.poll(() => rows.length).toBe(1);
+    expect(rows[0].name).toBe('Salma Nour');
+    expect(rows[0].kind).toBe('managed');
+    expect(rows[0].booking_id).toBeUndefined();
+    expect(rows[0].bike_type).toBe('Road');
+    await expect(page.locator('#mw-name')).toHaveValue(''); // search resets for the next rider
+  });
+
+  test('nothing to add says so instead of showing an empty box', async ({ page }) => {
+    await bootWithCustomers(page);
+    await page.locator('#mw-name').fill('zzzz');
+    await expect(page.locator('#mw-suggest .mw-sug-empty')).toBeVisible();
+  });
+
+  test('a booking already on the list is not offered again', async ({ page }) => {
+    await stubSupabase(page, {
+      sessions, queue_entries, customers,
+      desk_waitlist: [{ id: 'w1', name: 'Rider 2', phone: '05000002', bike_type: 'Hybrid',
+        status: 'waiting', kind: 'managed', sort_order: 1, booking_id: 'e-wl', created_at: '2099-01-01T10:00:00Z' }],
+    });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await openStaffList(page);
+    await page.locator('#mw-browse').click();
+    const rows = page.locator('#mw-suggest .mw-sug');
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toContainText('Rider 1');
+  });
+});
