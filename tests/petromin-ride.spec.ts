@@ -222,6 +222,23 @@ test.describe('staff side', () => {
     expect(gate?.title).toBe('Petromin Wednesday Ride');
   });
 
+  test('its form asks for bikes, not for a meeting point or a breakfast stop', async ({ page }) => {
+    await stubSupabase(page, fixtures);
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('sessions');S.showAddSession=true;S.newSessEvent='petromin';renderSessions()`);
+    await expect(page.locator('#ns-map')).toHaveCount(0);        // it meets at the circuit
+    await expect(page.locator('#ns-spots')).toHaveCount(0);      // capacity comes from the bikes
+    await expect(page.locator('#ns-title')).toBeVisible();       // but it is still named
+    await expect(page.getByText(/bike fleet composition/i)).toBeVisible(); // the circuit's builder
+
+    // the Saturday ride keeps both, since that is where they belong
+    await page.evaluate(`S.newSessEvent='community';renderSessions()`);
+    await expect(page.locator('#ns-map')).toBeVisible();
+    await expect(page.locator('#ns-spots')).toBeVisible();
+  });
+
   test('creating a Saturday ride is unchanged', async ({ page }) => {
     await stubSupabase(page, fixtures);
     await unlockStaff(page);
