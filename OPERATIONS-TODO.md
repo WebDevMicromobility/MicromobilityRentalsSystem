@@ -3,6 +3,14 @@
 These are the items from the enhancement plan that can't be done in the repo.
 Delete each section when done.
 
+## 0. Close the queue_entries PII hole (highest value, ~10 minutes)
+`supabase/migrations/20260820120000_close_queue_entries_public_read.sql` is written and NOT
+applied. It drops the two policies that let the shipped anon key read ~2,000 riders' names,
+emails and phones. The reason they stayed open — booking used `.insert().select()` — is gone:
+`customer_create_booking()` returns the rows and both call sites use it.
+The file carries a four-step pre-flight and its own rollback. Do not apply it blind, and
+apply it a day after a deploy (the service worker means some devices still run older code).
+
 ## 1. Make CI actually gate deploys (15 min, highest value)
 1. Cloudflare dashboard → My Profile → API Tokens → create token ("Edit Cloudflare Workers" template).
 2. GitHub repo → Settings → Secrets → add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
