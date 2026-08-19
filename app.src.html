@@ -107,7 +107,7 @@
 <div id="loading-screen">
   <img src="brand.png" alt="logo">
   <div class="ld-txt" id="ld-txt">Loading...</div>
-  <script>try{var _ql=new URLSearchParams(location.search).get('lang');var _bl=_ql||localStorage.getItem('cq_lang');if(_bl==='ar'){document.documentElement.dir='rtl';document.documentElement.lang='ar';document.getElementById('ld-txt').textContent='جارٍ التحميل...';}else if(_bl==='es'){document.documentElement.lang='es';document.getElementById('ld-txt').textContent='Cargando...';}}catch(e){}</script>
+  <script>try{var _ql=new URLSearchParams(location.search).get('lang');var _bl=_ql||localStorage.getItem('cq_lang');if(_bl==='ar'){document.documentElement.dir='rtl';document.documentElement.lang='ar';document.getElementById('ld-txt').textContent='جارٍ التحميل...';}else if(_bl==='es'){document.documentElement.lang='es';document.getElementById('ld-txt').textContent='Cargando...';}}catch(e){}try{if(_bl==='ar'||_bl==='es'){window.__langPackCode=_bl;window.__langPack=fetch('lang/'+_bl+'.json'+(window.__LANG_V&&window.__LANG_V[_bl]?'?v='+window.__LANG_V[_bl]:'')).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});}}catch(e){}</script>
 </div>
 <script>
 setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls.style.display!=='none'){ls.style.opacity='0';ls.style.pointerEvents='none';setTimeout(function(){ls.style.display='none';},400);}},5000);
@@ -1148,6 +1148,34 @@ ar:{
   bikeRentalPrice:'سعر الإيجار',bikeCustomPrice:'سعر إيجار مخصص',
 }};
 function t(k){return(LANG[S&&S.lang?S.lang:'en']||LANG.en)[k]||LANG.en[k]||k;}
+// ── Translation packs ────────────────────────────────────────────────────────
+// English ships inline because t() falls through to it; the other languages are files the
+// build extracts (see scripts/build-html.mjs) and this fetches on demand, so a visitor
+// downloads the language they read instead of all three. In the SOURCE every pack is still
+// inline, which is why _langLoaded() asks whether the object has keys rather than assuming.
+// A pack that fails to load is not an error the rider should see: t() keeps answering in
+// English, which is exactly what it did before any of this existed.
+const LANG_PACKS={}; // build stamps {code:contentHash} for cache-busting
+function _langPackUrl(c){return 'lang/'+c+'.json'+(LANG_PACKS[c]?'?v='+LANG_PACKS[c]:'');}
+function _langLoaded(c){return c==='en'||!!(LANG[c]&&Object.keys(LANG[c]).length);}
+const _langFetches={};
+async function loadLangPack(code){
+  if(_langLoaded(code))return true;
+  if(!LANG[code])return false; // unknown language: nothing to fetch
+  try{
+    if(!_langFetches[code]){
+      // window.__langPack is the head's head start: the fetch is kicked off before this
+      // script has even parsed, so a returning Arabic reader waits on nothing extra.
+      _langFetches[code]=(window.__langPack&&window.__langPackCode===code)
+        ?window.__langPack
+        :fetch(_langPackUrl(code)).then(r=>r.ok?r.json():null).catch(()=>null);
+    }
+    const data=await _langFetches[code];
+    if(!data||typeof data!=='object')return false;
+    LANG[code]=data;
+    return true;
+  }catch(e){return false;}
+}
 
 const LANGS=[
   {code:'en',flag:'🇺🇸',short:'ENG',label:'English'},
@@ -1178,6 +1206,9 @@ function _langFromUrl(){
 }
 function setLang(lang,_fromUrl){
   S.lang=lang;
+  // Not loaded yet: draw now in English (the fallback t() already uses) and draw again the
+  // moment the pack arrives. Never block the first paint on a network round trip.
+  if(!_langLoaded(lang))loadLangPack(lang).then(ok=>{if(ok&&S.lang===lang)setLang(lang,true);});
   try{localStorage.setItem('cq_lang',lang);}catch(e){}
   // Keep ?lang in step with the choice so the address stays shareable, without adding a
   // history entry per toggle. Skipped on the initial read, which already matches.
@@ -17307,8 +17338,15 @@ function _refreshView(){
   // language it names, whatever this device last used.
   try{
     const urlLang=_langFromUrl();
-    if(urlLang){setLang(urlLang,true);}
-    else{const savedLang=localStorage.getItem('cq_lang');setLang(LANGS.some(l=>l.code===savedLang)?savedLang:'en',true);}
+    const savedLang=localStorage.getItem('cq_lang');
+    const _boot=urlLang||(LANGS.some(l=>l.code===savedLang)?savedLang:'en');
+    // The splash is still up, so waiting here costs nothing visible and saves a flash of
+    // English on every load for an Arabic or Spanish reader. Capped, because a slow pack
+    // must not hold the whole app hostage — t() falls back to English either way.
+    if(!_langLoaded(_boot)){
+      await Promise.race([loadLangPack(_boot),new Promise(r=>setTimeout(r,2500))]);
+    }
+    setLang(_boot,true);
   }catch(e){setLang('en',true);}
   const ls=document.getElementById('loading-screen');
   if(ls){ls.style.opacity='0';setTimeout(()=>{ls.style.display='none';},400);}

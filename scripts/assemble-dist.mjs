@@ -23,7 +23,8 @@ const FILES = [
 ];
 // Directories copied recursively (functions/ MUST be inside dist for Pages Functions;
 // vendor/ holds the self-hosted libraries; splash/ holds the iOS PWA launch screens).
-const DIRS = ['functions', 'staff', 'vendor', 'splash', 'fonts'];
+// lang/ holds the build-generated translation packs the app fetches at runtime.
+const DIRS = ['functions', 'staff', 'vendor', 'splash', 'fonts', 'lang'];
 
 const exists = async (p) => { try { await access(p); return true; } catch { return false; } };
 

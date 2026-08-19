@@ -3,7 +3,7 @@
 // NOT mangle or compress — the app references global function names as strings
 // inside onclick="fn()" template literals, so renaming identifiers would break it.
 import { minify } from 'html-minifier-terser';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 
 // Modularization foundation: logic can live in separate src/ files and be pulled in
@@ -28,7 +28,7 @@ async function resolveIncludes(text) {
 }
 
 const raw = await readFile(new URL('../app.src.html', import.meta.url), 'utf8');
-const src = await resolveIncludes(raw);
+let src = await resolveIncludes(raw);
 
 // ── Fail loudly on a JavaScript syntax error ────────────────────────────────
 // html-minifier-terser does NOT throw when terser cannot parse an inline <script>; it
@@ -44,6 +44,54 @@ for (const m of src.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>
     throw new Error(`build: inline <script> starting at app.src.html:${line} has a syntax error — ${e.message}`);
   }
 }
+
+// ── Translation packs: ship the language a visitor reads, not all three ──────
+// LANG carries ~1,700 keys in three languages. Inline, that is ~190 KB gzipped of the
+// ~300 KB page — and Arabic alone is 146 KB of it, because every glyph is multi-byte. A
+// visitor reads ONE language, so English (the fallback t() falls through to) stays inline
+// and the other packs become files fetched on demand.
+//
+// The extraction happens HERE rather than in the source: app.src.html keeps all three
+// languages in one object, so translations stay editable side by side and check-i18n.mjs
+// keeps parsing exactly what it always did.
+const INLINE_LANG = 'en';
+function langObjectText(text) {
+  const at = text.indexOf('const LANG={');
+  if (at === -1) throw new Error('build: could not find the LANG object');
+  let i = text.indexOf('{', at), depth = 0, quote = null;
+  for (; i < text.length; i++) {
+    const c = text[i];
+    if (quote) { if (c === '\\') { i++; continue; } if (c === quote) quote = null; continue; }
+    if (c === "'" || c === '"' || c === '`') { quote = c; continue; }
+    if (c === '{') depth++;
+    else if (c === '}' && --depth === 0) break;
+  }
+  return { start: text.indexOf('{', at), end: i + 1 };
+}
+const langSpan = langObjectText(src);
+const LANG_ALL = new Function(`return (${src.slice(langSpan.start, langSpan.end)});`)();
+const packCodes = Object.keys(LANG_ALL).filter((c) => c !== INLINE_LANG);
+const langDir = new URL('../lang/', import.meta.url);
+await mkdir(langDir, { recursive: true });
+const packHash = {};
+for (const code of packCodes) {
+  const json = JSON.stringify(LANG_ALL[code]);
+  packHash[code] = createHash('sha256').update(json).digest('hex').slice(0, 10);
+  await writeFile(new URL(`${code}.json`, langDir), json);
+}
+// Rebuild the object with the fetched languages emptied — the runtime fills them in.
+const trimmedLang = `{${Object.keys(LANG_ALL)
+  .map((c) => (c === INLINE_LANG ? `${c}:${JSON.stringify(LANG_ALL[c])}` : `${c}:{}`))
+  .join(',')}}`;
+src = src.slice(0, langSpan.start) + trimmedLang + src.slice(langSpan.end);
+// Each pack is versioned by its own content, so a translation change busts exactly that
+// file. Two places need it: the loader, and the <head> prefetch that starts before the
+// loader exists.
+const packMap = JSON.stringify(packHash);
+if (!src.includes('const LANG_PACKS={}')) throw new Error('build: LANG_PACKS placeholder missing');
+src = src.replace('const LANG_PACKS={}', `const LANG_PACKS=${packMap}`);
+src = src.replace('<script>try{var _ql=', `<script>window.__LANG_V=${packMap};try{var _ql=`);
+console.log(`build: extracted ${packCodes.join(', ')} to lang/ (${packCodes.length} packs)`);
 
 let out = await minify(src, {
   collapseWhitespace: true,
