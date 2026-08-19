@@ -136,6 +136,25 @@ test.describe('it behaves like a circuit session, not like the Saturday ride', (
     expect(await page.evaluate(`bikeTypeOpts(false,false)`)).not.toContain('Own');       // JCC
   });
 
+  test('a rider on their own bike is seated even when every seat is taken', async ({ page }) => {
+    // Seats allocate Micromobility bikes. Someone who brought their own needs none, so a
+    // full ride still takes them — and they never push a bike-renting rider out either.
+    const taken = Array.from({ length: 10 }, (_, i) => ({
+      id: 'f' + i, session_id: '2099-01-13-pw', session_day: 'Wednesday', session_date: '2099-01-13',
+      queue_num: i + 1, name: 'Rider ' + i, size: 'M', type_preference: 'Road', status: 'waiting',
+      paid: false, price: 75, registered_at: '2099-01-01T10:00:00Z',
+    }));
+    await bootMember(page, { queue_entries: taken });
+    const rows = await captureBookingRows(page);
+    await page.evaluate(
+      `S.selSession='2099-01-13-pw'; S.regQty=1; S.regBikeHeights=[175]; S.regBikeTypes=['Own'];
+       S.regRiderNames=['Spec Rider']; S.promoApplied=null; submitReg();`,
+    );
+    await expect.poll(() => rows.length).toBe(1);
+    expect(rows[0].status).toBe('waiting');   // not bumped to the waitlist
+    expect(rows[0].price).toBe(0);
+  });
+
   test('a full seat count sends the next rider to the waitlist', async ({ page }) => {
     // 10 seats, 10 riders already on it: the client must not seat an 11th.
     const taken = Array.from({ length: 10 }, (_, i) => ({

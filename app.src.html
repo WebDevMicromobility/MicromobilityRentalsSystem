@@ -2290,8 +2290,10 @@ function spotsLeft(sid){
     return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&['waiting','active','done'].includes(e.status)&&!_isOwnBike(e)).length);
   }
   const cap=(sess&&sess.capacity)||12;
-
-  return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed').length);
+  // Own-bike riders never hold a seat on ANY ride, seat-based ones included: the count
+  // allocates Micromobility bikes, and a rider who brought their own takes none. ('Own' is
+  // only ever offered on a community ride, so this changes nothing at the circuit.)
+  return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed'&&!_isOwnBike(e)).length);
 }
 function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid&&e.status!=='cancelled'&&e.status!=='removed').map(e=>e.queueNum||0);return nums.length?nums.reduce((a,b)=>Math.max(a,b),0)+1:1;} // cancelled/removed numbers are recycled (the partial unique index exempts those rows); noshow numbers stay reserved because the rider can come back
 // Staff-only waitlist serial: per-session, monotonic over ALL rows (promoted rows keep
@@ -5727,7 +5729,12 @@ async function submitReg(){
   // staff planning and stay invisible to customers. Only a staff-set 'full' status
   // waitlists them (an explicit close). JCC keeps the capacity-based waitlist.
   const _commSel0=_isApprovalRide(sess0);
-  let bookingStatus=(sess0&&sess0.status==='full')||(!_commSel0&&spotsLeft(S.selSession)<qty)?'waitlist':'waiting';
+  // Seats are counted in Micromobility bikes, so riders who brought their own are outside
+  // the comparison: they neither need a seat nor take one from anybody. (The capacity
+  // trigger applies the same rule server-side.) A session staff marked full still
+  // waitlists everyone — that is an explicit close, not a capacity calculation.
+  const _needSeats=S.regBikeTypes.slice(0,qty).filter(ty=>ty!=='Own').length;
+  let bookingStatus=(sess0&&sess0.status==='full')||(!_commSel0&&_needSeats>0&&spotsLeft(S.selSession)<_needSeats)?'waitlist':'waiting';
   // A capped waitlist can fill up: refuse rather than quietly seating riders past the cap.
   if(bookingStatus==='waitlist'&&waitlistRoom(S.selSession)<qty){
     toast(t('errWaitlistFull'),'error');return;
@@ -5775,7 +5782,7 @@ async function submitReg(){
     // possibly-stale local data, so a session that filled up in the meantime would otherwise
     // over-seat. (Closes the single-stale-client capacity window; the DB capacity trigger in the
     // SQL bundle closes the rarer two-devices-at-once race.)
-    {const _s=allSessions().find(s=>s.id===S.selSession);if((_s&&_s.status==='full')||(!_commSel0&&spotsLeft(S.selSession)<qty))bookingStatus='waitlist';}
+    {const _s=allSessions().find(s=>s.id===S.selSession);if((_s&&_s.status==='full')||(!_commSel0&&_needSeats>0&&spotsLeft(S.selSession)<_needSeats))bookingStatus='waitlist';}
     if(bookingStatus==='waitlist'&&waitlistRoom(S.selSession)<qty){toast(t('errWaitlistFull'),'error');return;}
     const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
     const baseQNum=nextQNum(S.selSession);
@@ -7681,7 +7688,7 @@ function renderSessions(){
     ?[...sessList].sort((a,b)=>new Date(b.session_date||b.id)-new Date(a.session_date||a.id)).slice(0,SESS_LIMIT)
     :sessList;
   const rows=sessList.length?displaySessions.map(s=>{
-    const booked=(_bySession.get(s.id)||[]).filter(e=>e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed'&&!(_isApprovalRide(s)&&_isOwnBike(e))).length;
+    const booked=(_bySession.get(s.id)||[]).filter(e=>e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed'&&!(_isCommunity(s)&&_isOwnBike(e))).length;
     const cap=_isApprovalRide(s)?(s.spots||s.capacity||12):(s.capacity||12);
     const left=Math.max(0,cap-booked);
     const isOpen=s.status==='open';
@@ -7726,7 +7733,7 @@ function renderSessions(){
 
   // ── Two-pane session browser: list (left) + detail (right) on iPad/desktop; master-detail on phone ──
   const _sessD=(s)=>{
-    const booked=(_bySession.get(s.id)||[]).filter(e=>e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed'&&!(_isApprovalRide(s)&&_isOwnBike(e))).length;
+    const booked=(_bySession.get(s.id)||[]).filter(e=>e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed'&&!(_isCommunity(s)&&_isOwnBike(e))).length;
     const cap=_isApprovalRide(s)?(s.spots||s.capacity||12):(s.capacity||12);const left=Math.max(0,cap-booked);
     const slots=parseSlots(s.bike_slots);const fleetInfo=slots?slotsLabel(slots):'';
     let badge,actions;
@@ -9576,7 +9583,7 @@ function renderQRow(e){
       const sDone=q.filter(e=>e.status==='done').length;
       const cap=_isApprovalRide(s)?(s.spots||s.capacity||12):(s.capacity||12);
       // Community fill = renters only: own-bike riders don't hold a spot.
-      const _fillN=_isApprovalRide(s)?q.filter(e=>['waiting','active','done'].includes(e.status)&&!_isOwnBike(e)).length:(sWait+sActive+sDone);
+      const _fillN=_isCommunity(s)?q.filter(e=>['waiting','active','done'].includes(e.status)&&!_isOwnBike(e)).length:(sWait+sActive+sDone);
       const fillPct=Math.round(Math.min(_fillN/cap*100,100));
       const fillClr=fillPct>=100?'#a33b2e':fillPct>80?'#8a5c14':'#0c7a3d'; // red only when truly full, amber above 80%
       const isCurrent=S.sfSession===s.id;
@@ -10747,7 +10754,7 @@ async function doUndoNoShow(id){
 // fresh number if so, keeping the partial unique index satisfied.
 async function doRestoreCancelled(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry||entry.status!=='cancelled')return;
-  if(spotsLeft(entry.sessionId)<=0&&!(_apprSessIds.has(entry.sessionId)&&_isOwnBike(entry))){ // at capacity — confirm before over-filling (own-bike community riders never hold a spot)
+  if(spotsLeft(entry.sessionId)<=0&&!_isOwnBike(entry)){ // at capacity — confirm before over-filling (own-bike community riders never hold a spot)
     confirmDialog({
       title:t('restoreFullTitle'),
       body:t('restoreFullBody'),

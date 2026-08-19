@@ -113,6 +113,13 @@ end$function$;
 -- That is what needs_approval says, and it is the honest test: a community ride
 -- WITHOUT approval sells seats, so the 12th rider into a 10-seat Petromin ride
 -- has to land on the waitlist exactly as they would at the circuit.
+--
+-- Riders on their OWN bike are outside the count entirely, on both sides of it:
+-- a seat allocates a Micromobility bike, and someone who brought their own takes
+-- none. They are never coerced onto the waitlist, and they never push anybody
+-- else onto it. ('Own' is only offered on community rides, so nothing about the
+-- circuit changes.) Without this the client and the database would disagree:
+-- the app seats an owner on a full ride and the trigger would waitlist them.
 create or replace function public._capacity_guard()
 returns trigger
 language plpgsql
@@ -120,13 +127,14 @@ set search_path to 'public'
 as $function$
 declare cap int; live int;
 begin
-  if new.status='waiting' and not is_staff() then
+  if new.status='waiting' and coalesce(new.type_preference,'')<>'Own' and not is_staff() then
     select coalesce(s.capacity,12) into cap from sessions s
       where s.id=new.session_id and coalesce(s.needs_approval,false)=false;
     if cap is not null then
       perform pg_advisory_xact_lock(hashtext('cap:'||new.session_id));
       select count(*) into live from queue_entries q
-        where q.session_id=new.session_id and q.status in ('waiting','active');
+        where q.session_id=new.session_id and q.status in ('waiting','active')
+          and coalesce(q.type_preference,'')<>'Own';
       if live>=cap then new.status:='waitlist'; end if;
     end if;
   end if;
