@@ -2656,7 +2656,7 @@ function genBikeName(type,frame,num,size){
   return `${tc}-${fc}-${pn}-${size||''}`;
 }
 const typeBadge=ty=>`<span class="type-badge ${TYPE_CLS[ty]||'type-any'}">${bikeTypeIcon(ty,12)} ${typeLabel(ty)}</span>`;
-const STATUS_CLS={waiting:'badge-waiting',waitlist:'badge-waiting',active:'badge-active',done:'badge-done',noshow:'badge-noshow',cancelled:'badge-noshow',removed:'badge-noshow'};
+const STATUS_CLS={waiting:'badge-waiting',waitlist:'badge-waitlist',active:'badge-active',done:'badge-done',noshow:'badge-noshow',cancelled:'badge-noshow',removed:'badge-noshow'};
 const STATUS_KEY={waiting:'statusWaiting',waitlist:'statusWaitlist',active:'statusActive',done:'statusDone',noshow:'statusNoshow',cancelled:'statusCancelled',removed:'removedLabel'};
 const statusBadge=s=>`<span class="status-badge ${STATUS_CLS[s]||'badge-done'}">${t(STATUS_KEY[s]||'statusDone')}</span>`;
 function esc(s){return s==null?'':String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
@@ -5293,11 +5293,10 @@ function renderRegister(){
           <div style="font-size:15px;font-weight:800;color:var(--orange);margin-top:10px">${tkt.status==='waitlist'?t('commCueWaitlist'):t('commCuePending')}</div>
         </div>
       </div>`:tkt.status==='waitlist'?`
-      <div class="ticket-top" style="grid-template-columns:1fr">
-        <div>
-          <div class="ticket-num-label">${t('waitlistLabel')}</div>
-          <div style="font-size:15px;font-weight:800;color:var(--orange);margin-top:10px">${t('toastWaitlisted')}</div>
-        </div>
+      <div class="ticket-top">
+        <div class="ticket-num-label wl-loud">${t('waitlistLabel')}${tkt.waitlistNum?` · W${tkt.waitlistNum}`:''}</div>
+        <div class="ticket-num">#${tkt.queueNum}</div>
+        <div class="ticket-qr-wrap">${qrHtml}</div>
       </div>`:`
       <div class="ticket-top">
         <div class="ticket-num-label">${t('queueNumLabel')}</div>
@@ -6046,10 +6045,11 @@ function renderBookingTicket(entries,opts){
   const isConsec=nums.every((q,i)=>i===0||q===nums[i-1]+1);
   // Community events never show the customer a queue number or their order - staff only.
   const _comm=_isApprovalRide(sess);
-  // Waitlisted bookings don't show the customer a number — the number is only meaningful
-  // once a spot is theirs (staff still see it in the queue). The ticket says "Waitlist".
+  // A waitlisted booking used to show the WORD "Waitlist" where its number goes, which left
+  // the rider with nothing to quote at the desk. It keeps its number now, and the waitlisted
+  // state is said in bold beside it instead of replacing it.
   const _allWl=g.length&&g.every(e=>e.status==='waitlist');
-  const numDisplay=(_comm&&!_commPublished(sess))?esc((sess&&sess.title)||t('landCommTitle')):_allWl?t('waitlistLabel'):(n===1?`#${nums[0]}`:isConsec?`#${nums[0]} – #${nums[n-1]}`:nums.map(q=>`#${q}`).join(', '));
+  const numDisplay=(_comm&&!_commPublished(sess))?esc((sess&&sess.title)||t('landCommTitle')):(n===1?`#${nums[0]}`:isConsec?`#${nums[0]} – #${nums[n-1]}`:nums.map(q=>`#${q}`).join(', '));
   const anyActive=g.some(e=>e.status==='active');
   const allDone=g.length&&g.every(e=>e.status==='done');
   const allNoShow=g.length&&g.every(e=>e.status==='noshow');
@@ -6118,7 +6118,9 @@ function renderBookingTicket(entries,opts){
   return`<div class="ticket-card" style="margin-top:0">
     <div class="ticket-header">
       <div class="ticket-num-block">
-        ${(_comm&&!_commPublished(sess))||_allWl?'':`<div class="ticket-num-label">${n>1?n+' '+(t('bike')||'bikes'):t('queueNumLabel')}</div>`}
+        ${(_comm&&!_commPublished(sess))?'':_allWl
+          ?`<div class="ticket-num-label wl-loud">${t('waitlistLabel')}</div>`
+          :`<div class="ticket-num-label">${n>1?n+' '+(t('bike')||'bikes'):t('queueNumLabel')}</div>`}
         <div class="ticket-num" style="font-size:${numFont};letter-spacing:${numDisplay.length<=4?'-3px':'-1px'}">${numDisplay}</div>
       </div>
       <div class="ticket-right">
@@ -9177,7 +9179,7 @@ function renderStaffQueue(_resultsOnly){
     if(!['all','approved','pending','waitlist','rejected','cancelled'].includes(S.sfStatus))S.sfStatus='all';
     if(!['all','Road','Mountain','Hybrid','own'].includes(S.sfBike))S.sfBike='all';
   }else{
-    if(['approved','pending','waitlist','rejected'].includes(S.sfStatus))S.sfStatus='all';
+    if(['approved','pending','rejected'].includes(S.sfStatus))S.sfStatus='all'; // 'waitlist' means the same on both
     if(['Road','Mountain','Hybrid'].includes(S.sfBike))S.sfBike='all';
   }
   let filtered=[...base];
@@ -9221,7 +9223,7 @@ function renderStaffQueue(_resultsOnly){
     sessions.filter(s=>s.status!=='deleted').map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</option>`).join('');
   const qStatusOpts=(_commSel
     ?['all','approved','pending','waitlist','rejected','cancelled']  // approval funnel
-    :['all','waiting','active','done','noshow','cancelled']).map(s=>{ // ride lifecycle
+    :['all','waiting','waitlist','active','done','noshow','cancelled']).map(s=>{ // ride lifecycle
     const l={all:t('filterAll'),waiting:t('statExpected'),active:t('onBikeStat'),done:t('statCompleted'),noshow:t('filterNoshow'),cancelled:t('statusCancelled'),
       approved:t('apprApprovedChip'),pending:t('apprPendingChip'),waitlist:t('waitlistLabel'),rejected:t('filterRejected')}[s];
     return`<option value="${s}"${S.sfStatus===s?' selected':''}>${l}</option>`;}).join('');
@@ -9710,9 +9712,16 @@ function renderQRow(e){
         <div class="stat-card"><div class="stat-num" style="color:var(--text)">${nOwn}</div><div class="stat-label">${t('typeOwn')}</div></div>
       </div>`;
     }
+    // Waitlisted riders were counted nowhere on this row, so a session could be holding a
+    // queue of them with nothing on screen to say so. The card only appears when there ARE
+    // any — an empty "0 waitlisted" on every ordinary session is noise.
+    const nWaitlisted=base.filter(e=>e.status==='waitlist'&&_isLive(e)).length;
     return`<div class="stats-row">
       <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">${t('statNumRiders')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nWait}</div><div class="stat-label">${t('statExpected')}</div></div>
+      ${nWaitlisted?`<div class="stat-card stat-card-clickable" onclick="setSfStatus('waitlist')" role="button" tabindex="0"
+        onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setSfStatus('waitlist')}">
+        <div class="stat-num" style="color:var(--orange)">${nWaitlisted}</div><div class="stat-label">${t('waitlistLabel')}</div></div>`:''}
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nBike}</div><div class="stat-label">${t('onBikeStat')}</div></div>
       <div class="stat-card"><div class="stat-num" style="color:var(--green)">${nDonePaid}</div><div class="stat-label">${t('statCompleted')}</div></div>
     </div>`;
