@@ -203,16 +203,20 @@ test.describe('staff side', () => {
       const b = r.postDataJSON();
       (Array.isArray(b) ? b : [b]).forEach((x: Record<string, unknown>) => writes.push({ ...x, _url: r.url() }));
     });
-    await page.evaluate(`setStaffTab('sessions');S.showAddSession=true;S.newSessEvent='petromin';S.newSessTitle='Petromin Wednesday Ride';S.newSessSpots='10';renderSessions()`);
-    await page.evaluate(`document.getElementById('ns-date').value='2099-01-13';addSession()`);
+    // Built from bikes, exactly like a circuit session: capacity is the composition's sum.
+    await page.evaluate(`setStaffTab('sessions');S.showAddSession=true;S.newSessEvent='petromin';S.newSessTitle='Petromin Wednesday Ride';S.newSessMode='total';S.newSessTotal='10';renderSessions()`);
+    await page.evaluate(`document.getElementById('ns-total').value='10';document.getElementById('ns-date').value='2099-01-13';addSession()`);
 
     await expect.poll(() => writes.length).toBeGreaterThan(1);
     const created = writes.find((w) => w.id);
     expect(created?.id).toBe('2099-01-13-pw'); // a circuit session may share the date
+    expect(created?.capacity).toBe(10);        // from the bikes put out, not a typed seat count
+    expect(JSON.parse(String(created?.bike_slots))._total).toBe(10);
     const gate = writes.find((w) => 'ride_kind' in w);
     expect(gate?.ride_kind).toBe('petromin');
     expect(gate?.paid_ride).toBe(true);
     expect(gate?.needs_approval).toBe(false);  // no approval flow
+    expect(gate?.spots ?? null).toBeNull();    // no spot cap: capacity carries it
     expect(gate?.hide_queue).toBe(false);      // numbers are visible
     expect(gate?.event_kind).toBe('community'); // ...but the members gate still applies
     expect(gate?.title).toBe('Petromin Wednesday Ride');
