@@ -42,13 +42,15 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   const rowFor = (name: string) => panel.locator('tr, .q-card').filter({ hasText: name }).filter({ visible: true });
   await expect(rowFor('Waiting One')).toHaveCount(1);
   await expect(rowFor('Waiting Two')).toHaveCount(1);
-  // Confirmed/checked-in queue bookings never show here — but WAITLIST-status bookings do,
-  // with a Promote action (the #91 case).
+  // Confirmed/checked-in queue bookings never show here — but WAITLIST-status bookings do
+  // (the #91 case), and they carry the same controls a waiting booking does: Promote is gone,
+  // a waitlisted rider is checked in like anybody else.
   await expect(rowFor('Owes Money')).toHaveCount(0);
   await expect(rowFor('Fully Settled')).toHaveCount(0);
   await expect(rowFor('On A Bike')).toHaveCount(0);
   await expect(rowFor('On The List')).toHaveCount(1);
-  await expect(rowFor('On The List').getByRole('button', { name: /Promote/ })).toHaveCount(1);
+  await expect(rowFor('On The List').getByRole('button', { name: /Promote/ })).toHaveCount(0);
+  await expect(rowFor('On The List').getByRole('button', { name: /Check In/i })).toHaveCount(1);
   await expect(rowFor('On The List').getByText('#91')).toBeVisible();
   await expect(rowFor('On The List').locator('input[type="number"]')).toHaveValue('3'); // staff-only W serial, directly editable
 
@@ -134,11 +136,16 @@ test('waitlist view mirrors the queue page, adds via modal, and books resolved r
   await expect.poll(() => mwLink.some((r) => r.kind === 'managed' && r.name === 'Vip One')).toBe(true);
   await expect(rowFor('Vip One')).toHaveCount(1);
   await expect(rowFor('Vip One').locator('input[type="number"]')).toHaveCount(1); // type-a-number ordering
-  // The linked row whose booking is no longer waitlisted: spent — no Check In, no Promote, Remove only.
+  // A row linked to a LIVE booking carries the roster's own controls, so staff can work the
+  // booking without leaving the list. The Check In here is that BOOKING's check-in modal — not
+  // the walk-up one, which would insert a second booking for the same rider.
   await expect(rowFor('Fully Settled')).toHaveCount(1);
-  await expect(rowFor('Fully Settled').getByRole('button', { name: /Check In/i })).toHaveCount(0);
-  await expect(rowFor('Fully Settled').getByRole('button', { name: /Promote/ })).toHaveCount(0);
-  await expect(rowFor('Fully Settled').getByRole('button', { name: /Remove/ })).toHaveCount(1);
+  await expect(rowFor('Fully Settled').getByRole('button', { name: /Check In/i })).toHaveCount(1);
+  await expect(rowFor('Fully Settled').getByRole('button', { name: /Promote/ })).toHaveCount(0); // Promote is gone everywhere
+  await expect(rowFor('Fully Settled').getByRole('button', { name: /Remove/ })).toHaveCount(1); // takes it off the LIST, not the booking
+  // ...proven by what it calls: the booking's check-in, never giveDeskBike (a fresh walk-up row)
+  expect(await rowFor('Fully Settled').getByRole('button', { name: /Check In/i }).getAttribute('onclick'))
+    .toContain("showCheckinModal('qb2')");
   await panel.getByRole('button', { name: 'Waitlist', exact: true }).click(); // back for the remaining checks
 
   // Remove takes a rider off the waiting list (into history) without booking anything.

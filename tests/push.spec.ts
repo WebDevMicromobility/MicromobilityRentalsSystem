@@ -46,9 +46,10 @@ test.describe('promotion tells the rider', () => {
   test('both promotion paths notify the booking owner', async () => {
     const src = await readFile(resolve(__dirname, '../app.src.html'), 'utf8');
     const calls = src.match(/pushNotify\(e\.customerId/g) || [];
-    // manual promoteWaitlist() and _autoPromoteOldestWaitlist() — the auto path especially,
-    // since it fires with nobody watching the staff screen.
-    expect(calls.length).toBe(2);
+    // _autoPromoteOldestWaitlist() — the only promotion left, and the one that most needs a
+    // push, since it fires when a spot frees with nobody watching the staff screen. (The manual
+    // Promote button is gone: staff check a waitlisted rider in like any other booking.)
+    expect(calls.length).toBe(1);
   });
 
   test('a push failure can never block the booth', async () => {

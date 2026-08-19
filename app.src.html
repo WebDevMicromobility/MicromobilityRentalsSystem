@@ -4197,25 +4197,6 @@ async function mwFromBooking(entryId){
   renderStaffQueue();
   }finally{S._mwBusy=false;}
 }
-// Promote the linked booking, then retire the managed row that carried it.
-async function mwPromote(rowId){
-  const w=(S.deskWaitlist||[]).find(x=>x.id===rowId);if(!w||!w.booking_id)return;
-  // A row parked from the main queue already holds its spot; there is nothing to promote,
-  // so retire it rather than calling promoteWaitlist (which only acts on waitlisted rows
-  // and would otherwise leave the button doing nothing at all).
-  const _cur=getQueue().find(x=>x.id===w.booking_id);
-  if(_cur&&_cur.status!=='waitlist'){
-    if(_writeErr(await sb.from('desk_waitlist').update({status:'done',resolved_at:new Date().toISOString()}).eq('id',rowId),'waitlist'))return;
-    w.status='done';renderStaffQueue();return;
-  }
-  await promoteWaitlist(w.booking_id);
-  const fresh=getQueue().find(x=>x.id===w.booking_id);
-  if(fresh&&fresh.status!=='waitlist'){ // promotion actually happened
-    await sb.from('desk_waitlist').update({status:'done',resolved_at:new Date().toISOString()}).eq('id',rowId);
-    w.status='done';
-    renderStaffQueue();
-  }
-}
 // ── Staff list: pull riders in, instead of only pushing them from the queue ──
 // The section could only take a hand-typed name. Everything staff actually want to park
 // there already exists in the app — a booking on the queue, a booking on the waitlist, or
@@ -4300,6 +4281,59 @@ async function mwPickCustomer(custId){
     renderStaffQueue();
   }finally{S._mwBusy=false;_mwClearSearch();}
 }
+// ── A booking's action cluster ────────────────────────────────────────────────
+// Check In, No-Show, Promote, Approve/Reject, Edit, Note, Customer, Cancel — everything the
+// roster offers for a booking, by status. Top level rather than inside renderStaffQueue,
+// because the Staff List shows the same bookings and staff expect the same controls on
+// them; two copies of this would drift the moment one of them gained a button.
+// _opt.noBulk drops the bulk-select checkbox, which only means something in the queue table.
+  function _entryActions(e,_opt){
+    const _editBtn=`<button class="btn-sm btn-muted" onclick="showBookingEditModal('${e.id}')" title="${t('editBookingTitle')}">${ICON_PENCIL} ${t('editBookingBtn')}</button>`;
+    const _nCount=(S.custNotes||[]).filter(n=>(e.customerId&&n.customer_id===e.customerId)||(n.phone&&e.phone&&n.phone===e.phone)).length;
+    // Jump to the ACCOUNT behind the booking (full editor incl. tags/default payment):
+    // linked customer, or a name match for walk-ins that were typed in without linking.
+    const _custId=e.customerId||(((S.customers||[]).find(c=>String(c.name||'').trim().toLowerCase()===String(e.name||'').trim().toLowerCase())||{}).id);
+    const _custBtn=_custId?`<button class="btn-sm btn-muted" onclick="showEditCustomerModal('${_custId}')" title="${t('naEditTitle')}">${_artIcon('person',12)} ${t('custBtn')}</button>`:'';
+    const _noteBtn=`<button class="btn-sm btn-muted" onclick="showBookingNoteModal('${e.id}')" title="${t('notesTitle')}">${_artIcon('note',12)} ${t('noteBtn')}${_nCount?` (${_nCount})`:''}</button>${_custBtn}`;
+    // Community-event reservations: staff select who rides. Pending rows get Approve/Reject,
+    // plus a Waitlist action (usable even with spots free, so staff can park a request
+    // without rejecting it); a waitlist approve = hand-picked promotion into a spot.
+    // LIVE rows still marked 'rejected' (a rejected booking restored from Cancelled)
+    // get the same controls with a red Rejected chip — never a dead end on the roster.
+    const _comm=_apprSessIds.has(e.sessionId);
+    if(_comm&&['pending','rejected'].includes(_apprOf(e))&&(e.status==='waiting'||e.status==='waitlist')){
+      const _rej=_apprOf(e)==='rejected';
+      const chip=`<span style="font-size:10px;font-weight:900;color:${_rej?'var(--red)':'var(--orange)'};border:1px solid rgba(var(${_rej?'--red-rgb':'--warn-rgb'}),.4);border-radius:2px;padding:2px 8px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">${_rej?t('filterRejected'):t('apprPendingChip')}</span>`;
+      const wlBtn=e.status==='waiting'?`<button class="btn-sm btn-muted" onclick="commToWaitlist('${e.id}')" title="${t('waitlistLabel')}">${_artIcon('clock',12)} ${t('waitlistLabel')}</button>`:'';
+      return`${chip}<button class="btn-sm btn-green" onclick="approveEntry('${e.id}')">✓ ${t('apprApproveBtn')}</button><button class="btn-sm btn-red" onclick="rejectEntry('${e.id}')">${t('apprRejectBtn')}</button>${wlBtn}${_editBtn}${_noteBtn}`;
+    }
+    const _apprChip=(_comm&&e.approval==='approved')?`<span style="font-size:10px;font-weight:900;color:var(--green);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">✓ ${t('apprApprovedChip')}</span><button class="btn-sm btn-muted" title="${t('apprUndoBtn')}" onclick="unapproveEntry('${e.id}')">${_artIcon('undo',11)} ${t('apprUndoBtn')}</button>`:'';
+    // Waitlisted and waiting rows carry the SAME controls. A waitlisted rider is a rider
+    // whose place is not held yet, not a different kind of booking: staff check them in, mark
+    // them no-show, edit, note and cancel them exactly the same way. What says they are
+    // waitlisted is the badge and the W position, not a different set of buttons.
+    if(e.status==='waiting'||e.status==='waitlist')return`${_apprChip}${(_opt&&_opt.noBulk)?'':_bulkChk(e)}<button class="btn-sm btn-green" onclick="showCheckinModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button>${(_opt&&_opt.noPark)?'':`<button class="btn-sm btn-muted" onclick="mwFromBooking('${e.id}')">${t('mwMoveBtn')}</button>`}${_editBtn}${_noteBtn}<button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
+    if(e.status==='active')return`${_apprChip}${(_opt&&_opt.noBulk)?'':_bulkChk(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="showCashierModal('${e.id}')">${t('cashierAddBtn')}</button>${_editBtn}${_noteBtn}<button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
+    if(e.status==='done')return`<button class="btn-sm btn-green" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button>${_noteBtn}<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
+    if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button>${_noteBtn}<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
+    if(e.status==='cancelled')return`<button class="btn-sm btn-green" onclick="doRestoreCancelled('${e.id}')">${t('restoreBookingBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
+    return`<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
+  }
+
+  function _bulkChk(e){
+    if(e.status!=='waiting'&&e.status!=='active')return'';
+    const on=S.sfSelected.includes(e.id);
+    return`<button class="btn-sm" title="${t('selectRowTip')}" aria-label="Select booking #${e.queueNum}" onclick="toggleSfSelect('${e.id}')" style="padding:5px 9px;background:${on?'rgba(var(--green-rgb),.18)':'rgba(var(--tint-rgb),.04)'};border:1px solid ${on?'var(--green)':'rgba(var(--tint-rgb),.14)'};color:${on?'var(--green)':'var(--muted)'}">${on?_artIcon('boxOn',13):_artIcon('boxOff',13)}</button>`;
+  }
+
+// The queue's payment pair (toggle + edit price) for a booking shown outside the roster.
+// A complimentary ride has no fare to show, exactly as in the queue.
+function _bkPayCell(e){
+  if(_freeSessIds.has(e.sessionId))return'';
+  const isHouse=e.paid&&(e.price??DEFAULT_PRICE)===0;
+  return`<button class="pay-toggle ${isHouse?'house':e.paid?'paid':'pending'}" onclick="event.stopPropagation();showPayMenu('${e.id}',event)">${isHouse?' '+t('onTheHouseLabel'):e.paid?'\u2713 '+t('paidLabel'):' '+t('pendingLabel')}</button>`
+    +`<button onclick="event.stopPropagation();showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" aria-label="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:6px;min-width:24px;min-height:24px;line-height:1">${ICON_PENCIL}</button>`;
+}
 function renderManagedWl(){
   const el=document.getElementById('mw-host');if(!el)return;
   const mw=_wlManaged();
@@ -4324,8 +4358,15 @@ function renderManagedWl(){
         // A row LINKED to a booking never gets the walk-up Check In (that inserts a brand-new
         // booking = the same rider twice). Waitlist -> Promote; already promoted/cancelled
         // elsewhere -> the row is spent, only Remove is left.
+        // A parked booking is still a booking: it gets the roster's own controls — check in,
+        // no-show, edit, note, cancel, approve/reject — rather than the single Promote button
+        // it used to get, which meant staff had to leave the list to do anything real.
+        // ...but only while the booking is LIVE. A spent one (ridden, cancelled, no-showed) is a
+        // leftover row: it keeps the list's own Remove and nothing else, rather than a second
+        // Remove meaning something different from the first.
+        const _bkLive=bk&&['waiting','waitlist','active'].includes(bk.status);
         const action=w.booking_id
-          ?(bk&&bk.status==='waitlist'?`<button class="btn-sm btn-green" onclick="mwPromote('${w.id}')">${ICON_PROMOTE} ${t('promoteBtn')}</button>`:'')
+          ?(_bkLive?_entryActions(bk,{noBulk:true,noPark:true}):'')
           :`<button class="btn-sm btn-green" onclick="giveDeskBike('${esc(w.id)}')">${t('checkInBtn')}</button>`;
         return`<div class="q-card" style="margin:0;cursor:grab" draggable="true" ondragstart="_mwDragStart(event,'${w.id}')" ondragover="_mwDragOver(event,'${w.id}')" ondrop="_mwDrop(event,'${w.id}')">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
@@ -4336,7 +4377,7 @@ function renderManagedWl(){
             ${w.phone?`<span style="font-size:11px;color:var(--muted)"><bdi>${esc(fmtPhone(w.phone))}</bdi></span>`:''}
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap">
-            ${bk?'':payBtnMw(w)}${w.phone?_contactCell(w.phone,{status:'waiting'}):''}
+            ${bk?_bkPayCell(bk):payBtnMw(w)}${w.phone?_contactCell(w.phone,{status:'waiting'}):''}
             ${action}
             <button class="btn-sm btn-muted" onclick="resolveDeskWaitlist('${w.id}','removed')">${t('wlRemoveBtn')}</button>
           </div>
@@ -4405,8 +4446,7 @@ function renderDeskWaitlist(){
       <td style="vertical-align:middle" onclick="event.stopPropagation()">${bPay(e)}</td>
       <td style="vertical-align:middle">${_contactCell(e.phone,e)}</td>
       <td style="vertical-align:middle"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <button class="btn-sm btn-green" onclick="promoteWaitlist('${e.id}')">${ICON_PROMOTE} ${t('promoteBtn')}</button>
-        <button class="btn-sm btn-muted" onclick="mwFromBooking('${e.id}')">${t('mwMoveBtn')}</button>
+        ${_entryActions(e,{noBulk:true})}
       </div></td>
     </tr>`;};
   let _wp=0;
@@ -4433,7 +4473,7 @@ function renderDeskWaitlist(){
         ${availChip(_wlAvail(ty))}
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">${typeLabel(ty)}${e.phone?` &middot; <bdi>${esc(fmtPhone(e.phone))}</bdi>`:''} &middot; ${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)} &middot; <bdi style="font-weight:800;color:var(--text)">SAR ${e.price??DEFAULT_PRICE}</bdi></div>
-      <div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;align-items:center">${e.waitlistNum?`<input type="number" min="1" value="${e.waitlistNum}" aria-label="W" onclick="event.stopPropagation()" onchange="wlSetPos('${e.id}',this.value)" onkeydown="if(event.key==='Enter')this.blur()" style="width:46px;padding:5px 2px;text-align:center;font-weight:900;font-size:12px;background:var(--s3);border:1px solid rgba(var(--warn-rgb),.4);border-radius:3px;color:var(--orange)">`:''}${bPay(e)}${_contactCell(e.phone,e)}<button class="btn-sm btn-green" onclick="promoteWaitlist('${e.id}')">${ICON_PROMOTE} ${t('promoteBtn')}</button><button class="btn-sm btn-muted" onclick="mwFromBooking('${e.id}')">${t('mwMoveBtn')}</button></div>
+      <div style="display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;align-items:center">${e.waitlistNum?`<input type="number" min="1" value="${e.waitlistNum}" aria-label="W" onclick="event.stopPropagation()" onchange="wlSetPos('${e.id}',this.value)" onkeydown="if(event.key==='Enter')this.blur()" style="width:46px;padding:5px 2px;text-align:center;font-weight:900;font-size:12px;background:var(--s3);border:1px solid rgba(var(--warn-rgb),.4);border-radius:3px;color:var(--orange)">`:''}${bPay(e)}${_contactCell(e.phone,e)}${_entryActions(e,{noBulk:true})}</div>
     </div>`;};
   let _wpc=0;
   const cards=merged.length?merged.map(it=>it.w?walkCard(it.w,++_wpc):bookCard(it.b)).join(''):`<div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('wlEmpty'))}</div>`;
@@ -7318,7 +7358,6 @@ const ICON_PENCIL=_artIcon('pencil',12);
 const ICON_PRINT=_artIcon('print');
 const ICON_EXPORT=_artIcon('download');
 const ICON_RESCHEDULE=_artIcon('cycle');
-const ICON_PROMOTE=_artIcon('promote');
 const ICON_SUN=_artIcon('sun',15);
 const ICON_MOON=_artIcon('moon',15);
 function noShowFlag(e){
@@ -9283,11 +9322,6 @@ function renderStaffQueue(_resultsOnly){
     return'';
   }
 
-  function _bulkChk(e){
-    if(e.status!=='waiting'&&e.status!=='active')return'';
-    const on=S.sfSelected.includes(e.id);
-    return`<button class="btn-sm" title="${t('selectRowTip')}" aria-label="Select booking #${e.queueNum}" onclick="toggleSfSelect('${e.id}')" style="padding:5px 9px;background:${on?'rgba(var(--green-rgb),.18)':'rgba(var(--tint-rgb),.04)'};border:1px solid ${on?'var(--green)':'rgba(var(--tint-rgb),.14)'};color:${on?'var(--green)':'var(--muted)'}">${on?_artIcon('boxOn',13):_artIcon('boxOff',13)}</button>`;
-  }
   function _resTimeShort(e){
     // Community rows show WHEN the spot was reserved; the list is ordered by this.
     if(!e.registeredAt)return'—';
@@ -9295,36 +9329,6 @@ function renderStaffQueue(_resultsOnly){
     if(isNaN(d))return'—';
     return d.toLocaleDateString(undefined,{day:'numeric',month:'short'})+' · '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
   }
-  function _entryActions(e){
-    const _editBtn=`<button class="btn-sm btn-muted" onclick="showBookingEditModal('${e.id}')" title="${t('editBookingTitle')}">${ICON_PENCIL} ${t('editBookingBtn')}</button>`;
-    const _nCount=(S.custNotes||[]).filter(n=>(e.customerId&&n.customer_id===e.customerId)||(n.phone&&e.phone&&n.phone===e.phone)).length;
-    // Jump to the ACCOUNT behind the booking (full editor incl. tags/default payment):
-    // linked customer, or a name match for walk-ins that were typed in without linking.
-    const _custId=e.customerId||(((S.customers||[]).find(c=>String(c.name||'').trim().toLowerCase()===String(e.name||'').trim().toLowerCase())||{}).id);
-    const _custBtn=_custId?`<button class="btn-sm btn-muted" onclick="showEditCustomerModal('${_custId}')" title="${t('naEditTitle')}">${_artIcon('person',12)} ${t('custBtn')}</button>`:'';
-    const _noteBtn=`<button class="btn-sm btn-muted" onclick="showBookingNoteModal('${e.id}')" title="${t('notesTitle')}">${_artIcon('note',12)} ${t('noteBtn')}${_nCount?` (${_nCount})`:''}</button>${_custBtn}`;
-    // Community-event reservations: staff select who rides. Pending rows get Approve/Reject,
-    // plus a Waitlist action (usable even with spots free, so staff can park a request
-    // without rejecting it); a waitlist approve = hand-picked promotion into a spot.
-    // LIVE rows still marked 'rejected' (a rejected booking restored from Cancelled)
-    // get the same controls with a red Rejected chip — never a dead end on the roster.
-    const _comm=_apprSessIds.has(e.sessionId);
-    if(_comm&&['pending','rejected'].includes(_apprOf(e))&&(e.status==='waiting'||e.status==='waitlist')){
-      const _rej=_apprOf(e)==='rejected';
-      const chip=`<span style="font-size:10px;font-weight:900;color:${_rej?'var(--red)':'var(--orange)'};border:1px solid rgba(var(${_rej?'--red-rgb':'--warn-rgb'}),.4);border-radius:2px;padding:2px 8px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">${_rej?t('filterRejected'):t('apprPendingChip')}</span>`;
-      const wlBtn=e.status==='waiting'?`<button class="btn-sm btn-muted" onclick="commToWaitlist('${e.id}')" title="${t('waitlistLabel')}">${_artIcon('clock',12)} ${t('waitlistLabel')}</button>`:'';
-      return`${chip}<button class="btn-sm btn-green" onclick="approveEntry('${e.id}')">✓ ${t('apprApproveBtn')}</button><button class="btn-sm btn-red" onclick="rejectEntry('${e.id}')">${t('apprRejectBtn')}</button>${wlBtn}${_editBtn}${_noteBtn}`;
-    }
-    const _apprChip=(_comm&&e.approval==='approved')?`<span style="font-size:10px;font-weight:900;color:var(--green);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">✓ ${t('apprApprovedChip')}</span><button class="btn-sm btn-muted" title="${t('apprUndoBtn')}" onclick="unapproveEntry('${e.id}')">${_artIcon('undo',11)} ${t('apprUndoBtn')}</button>`:'';
-    if(e.status==='waitlist')return`${_apprChip}<button class="btn-sm btn-green" onclick="promoteWaitlist('${e.id}')">${ICON_PROMOTE} ${t('promoteBtn')}</button><button class="btn-sm btn-muted" onclick="mwFromBooking('${e.id}')">${t('mwMoveBtn')}</button>${_editBtn}${_noteBtn}<button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
-    if(e.status==='waiting')return`${_apprChip}${_bulkChk(e)}<button class="btn-sm btn-green" onclick="showCheckinModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button><button class="btn-sm btn-muted" onclick="mwFromBooking('${e.id}')">${t('mwMoveBtn')}</button>${_editBtn}${_noteBtn}<button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
-    if(e.status==='active')return`${_apprChip}${_bulkChk(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="showCashierModal('${e.id}')">${t('cashierAddBtn')}</button>${_editBtn}${_noteBtn}<button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
-    if(e.status==='done')return`<button class="btn-sm btn-green" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button>${_noteBtn}<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
-    if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button>${_noteBtn}<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
-    if(e.status==='cancelled')return`<button class="btn-sm btn-green" onclick="doRestoreCancelled('${e.id}')">${t('restoreBookingBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
-    return`<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
-  }
-
   const _adChips=e=>{
     if(_freeSessIds.has(e.sessionId))return''; // free community rides have no add-ons
     const ad=addonLineItems(entryAddons(e));
@@ -10679,39 +10683,6 @@ function _promoNudge(e){
     setTimeout(()=>{try{b.remove();}catch(_){}},25000);
   }catch(_){}
 }
-async function promoteWaitlist(id){
-  // Busy-guarded: a double-tap would pass the local status!=='waitlist' check twice (local state
-  // still shows waitlist until loadData) and run _consumeAddonsOnEnter twice, decrementing add-on
-  // stock for one rider twice. Also gate the stock decrement on the write actually succeeding.
-  if(S._promoteBusy)return;S._promoteBusy=true;
-  try{
-    const e=getQueue().find(x=>x.id===id);if(!e||e.status!=='waitlist')return;
-    // The booking KEEPS its original number: queue numbers are assigned at creation and are
-    // stable/never reused (the unique index exempts only cancelled/removed), so no collision.
-    // Status-guarded: another device promoting the same row inside the poll window must be a
-    // no-op here, or the add-on stock below would be consumed twice.
-    const _pq=await sb.from('queue_entries').update({status:'waiting'}).eq('id',id).eq('status','waitlist').select('id');
-    if(_pq&&_pq.error){toast(_pq.error.message||t('errConnection'),'error');return;}
-    if(!(_pq.data&&_pq.data.length)){await loadData();renderStaffQueue();return;} // already promoted elsewhere
-    await _mwRetireLinked(id); // a Staff List row carrying this booking is now spent
-    await loadData();
-    await _consumeAddonsOnEnter(e); // booking is now confirmed, so reserve its add-on stock
-    logAction&&logAction(t('logPromotedFromWaitlist').replace('{0}',e.queueNum).replace('{1}',e.name));
-    toast(t('toastPromoted'));
-    _promoNudge(e);
-    // The rider's own device, not just a banner on ours. Fire-and-forget: a push that
-    // fails must never hold up the booth, and the WhatsApp nudge above still stands.
-    pushNotify(e.customerId,t('pushPromotedTitle'),t('pushPromotedBody').replace('{0}',e.queueNum),'./','booking-'+e.id);
-    pushUndo(`${t('undoPromote')} #${e.queueNum} ${e.name}`,async()=>{
-      // Back onto the waitlist with the same numbers (queue number was kept; the W-number
-      // never left the row, so it reappears). Release the add-on stock the promotion reserved.
-      await sb.from('queue_entries').update({status:'waitlist'}).eq('id',id);
-      await _restockAddonsOnExit(e);
-      await loadDataLight();renderStaffQueue();renderMyRides();
-    });
-    renderStaffQueue();renderMyRides();
-  }finally{S._promoteBusy=false;}
-}
 // When a spot frees up (cancel / no-show), promote the oldest waitlisted rider in that session.
 // Community events NEVER auto-promote: staff hand-pick who comes off the waitlist when a spot
 // frees, a reservation is cancelled, or the allocation is expanded.
@@ -12061,8 +12032,17 @@ async function _reclaimBikes(ids){
 // "Assign specific bike…" leaves the check-in modal, and only confirmCheckinModal() reads
 // S._ciPaid — so the payment the staffer just chose used to be silently discarded. Carry it.
 function _ciCarryPay(){S._ciPayCarry=(S._ciPaid&&S._ciPaid!=='pending')?S._ciPaid:null;}
+// Add-on stock is reserved when a booking takes a real place, and waitlist rows never held
+// any. Promote used to be that moment; with Promote gone, checking a waitlisted rider in IS
+// that moment, so every activation path routes through here. Without it a waitlisted rider's
+// add-ons would be handed out unreserved, and the cancel path would later restock what was
+// never taken — inventory drifting up on every waitlisted no-show.
+async function _addonsOnLeaveWaitlist(entry,wasWaitlist){
+  if(wasWaitlist)await _consumeAddonsOnEnter(entry);
+}
 async function confirmCheckinModal(){
   const e=getQueue().find(x=>x.id===S._ciId);if(!e)return;
+  const _wasWl=e.status==='waitlist'; // a waitlisted rider checks in like any other
   const ty=CUST_TYPES.includes(S._ciType)?S._ciType:(e.typePreference||'Any');
   const comm=_freeSessIds.has(e.sessionId); // only a FREE ride skips the payment step
   const patch={status:'active'};
@@ -12104,7 +12084,7 @@ async function confirmCheckinModal(){
   if(_claim.patch.assigned_bike_id===null){const _rb=getBikes().find(b=>b.id===e.assignedBikeId);toast(`${_rb?_rb.name+': ':''}${t('errBikeUnavailable')}`,'warning');}
   const _unclaim=()=>Promise.all(_claim.claimed.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b))).catch(()=>{});
   // Status-guarded like the classic check-in: if another device beat us to it, don't double up.
-  const _q=await sb.from('queue_entries').update(patch).eq('id',e.id).eq('status','waiting').select('id');
+  const _q=await sb.from('queue_entries').update(patch).eq('id',e.id).in('status',['waiting','waitlist']).select('id');
   if(_writeErr(_q,'check-in',()=>confirmCheckinModal())){await _unclaim();return;}
   if(_scanResume)_scanCount++;
   closeCheckinModal();
@@ -12112,6 +12092,8 @@ async function confirmCheckinModal(){
   if(!comm&&_method!==undefined){try{await sb.from('queue_entries').update({pay_method:_method,card_amount:_card}).eq('id',e.id);}catch(_){}} // tolerant, like togglePayment
   try{await sb.from('queue_entries').update({checked_in_at:new Date().toISOString()}).eq('id',e.id);}catch(_){}
   Object.assign(e,{status:'active',typePreference:ty},patch.paid?{paid:true}:{},patch.price!==undefined?{price:patch.price}:{});
+  await _addonsOnLeaveWaitlist(e,_wasWl);
+  await _mwRetireLinked(e.id); // a Staff List row carrying this booking is spent once they ride
   logAction(`${t('checkInBtn')}: #${e.queueNum} ${e.name}`);
   await loadDataLight();
   toast(`✓ #${e.queueNum} ${e.name}`);
@@ -12550,7 +12532,7 @@ async function confirmAssign(){
     // this rider in, our update hits 0 rows — release the bike we claimed so it isn't left
     // in-use assigned to nobody (orphaned).
     let _q=sb.from('queue_entries').update({status:'active',assigned_bike_id:assignedVal,...priceUpdate}).eq('id',riderId);
-    if(!isReassign)_q=_q.eq('status','waiting');
+    if(!isReassign)_q=_q.in('status',['waiting','waitlist']); // a waitlisted rider can be handed a bike too
     const _ar=await _q.select('id');
     if(_writeErr(_ar,'check-in')){await _relClaimed();await loadData();closeModal();return;} // surface a failed check-in instead of silently closing
     if(!isReassign&&!(_ar.data&&_ar.data.length>0)){
@@ -12590,6 +12572,7 @@ async function confirmAssign(){
     }
   }
   try{await sb.from('queue_entries').update({checked_in_at:new Date().toISOString()}).eq('id',riderId);}catch(_){} // tolerant: exact check-in stamp
+  if(rider&&rider.status==='waitlist'){await _addonsOnLeaveWaitlist(rider,true);await _mwRetireLinked(riderId);} // handed a bike straight off the waitlist
   if(rider&&rider.typePreference==='Any'&&selected.length>0){
     await sb.from('queue_entries').update({type_preference:selected[0].type}).eq('id',riderId);
   }

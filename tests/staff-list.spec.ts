@@ -184,3 +184,53 @@ test.describe('finding riders to put on the staff list', () => {
     await expect(rows.first()).toContainText('Rider 1');
   });
 });
+
+// A parked booking is still a booking. It used to offer a single Promote button, so anything
+// real — check in, take payment, mark a no-show, edit — meant leaving the list for the queue.
+// The rows now carry the roster's own controls, from the same builder the queue uses.
+
+test.describe('a parked booking carries the roster controls', () => {
+  const bookings = [
+    qe('e-wait', 1, { status: 'waiting', paid: false, price: 60 }),
+    qe('e-wl', 2, { status: 'waitlist', paid: false, price: 60, waitlist_num: 1 }),
+    qe('e-done', 3, { status: 'done', paid: true, price: 60 }),
+  ];
+  const park = (id: string, name: string, booking: string) => ({
+    id, name, phone: '0500000000', bike_type: 'Road', status: 'waiting', kind: 'managed',
+    sort_order: 1, booking_id: booking, created_at: '2099-01-01T11:00:00Z',
+  });
+
+  async function openList(page: import('@playwright/test').Page, desk: Record<string, unknown>[]) {
+    await stubSupabase(page, { sessions, queue_entries: bookings, desk_waitlist: desk });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('queue');S.queueView='managed';renderStaffQueue()`);
+    return page.evaluate(`document.getElementById('mw-host').innerHTML`) as Promise<string>;
+  }
+
+  test('a waitlisted one gets check-in, payment and the rest — and no Promote', async ({ page }) => {
+    const html = await openList(page, [park('m1', 'Rider 2', 'e-wl')]);
+    expect(html).toContain(`showCheckinModal('e-wl')`);   // checks in THAT booking
+    expect(html).toContain(`confirmNoShow('e-wl')`);
+    expect(html).toContain(`showPayMenu('e-wl'`);         // payment, as on the queue page
+    expect(html).toContain(`showEditPriceModal('e-wl')`);
+    expect(html).toContain(`showBookingEditModal('e-wl')`);
+    expect(html).toContain(`staffCancelEntry('e-wl')`);
+    expect(html).not.toContain('promoteWaitlist');        // Promote is gone from the app
+    expect(html).not.toContain('mwFromBooking');          // it is already on the list
+  });
+
+  test('a queued one gets the same set', async ({ page }) => {
+    const html = await openList(page, [park('m2', 'Rider 1', 'e-wait')]);
+    expect(html).toContain(`showCheckinModal('e-wait')`);
+    expect(html).toContain(`showPayMenu('e-wait'`);
+  });
+
+  test('a spent booking keeps only the list-side Remove', async ({ page }) => {
+    const html = await openList(page, [park('m3', 'Rider 3', 'e-done')]);
+    expect(html).not.toContain(`showCheckinModal('e-done')`);
+    expect(html).not.toContain(`doReopen('e-done')`);     // no second, different Remove either
+    expect(html).toContain('resolveDeskWaitlist');        // off the list, not out of the booking
+  });
+});
