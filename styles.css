@@ -3190,3 +3190,50 @@
     html[dir="rtl"] body.view-staff .filter-bar-row > span[style*="margin-left"]{
       margin-left:0!important;margin-right:8px;
     }
+
+
+    /* ══ One colour per ride ══════════════════════════════════════════════════
+       Three rides now share the same screens, so each carries its own colour
+       everywhere it appears: the Jeddah Corniche Circuit blue, the Saturday
+       Social Ride green, the Petromin Wednesday Ride red. Every element that
+       belongs to a ride gets an ev-* class, which sets the two tokens below;
+       nothing further down names a colour of its own.
+
+       This block lives at the END of the sheet on purpose: it has to win over
+       both the original "community = blue" rules and the staff reskin layer,
+       which re-tints the same elements green. Same specificity, later wins. */
+    .ev-jcc{--ev:var(--blue);--ev-rgb:var(--blue-rgb);}
+    .ev-saturday{--ev:var(--green);--ev-rgb:var(--green-rgb);}
+    .ev-petromin{--ev:var(--red);--ev-rgb:var(--red-rgb);}
+
+    /* the ride's name, wherever it is stamped on something */
+    body .ev-chip{display:inline-block;font-size:9px;font-weight:900;color:var(--ev);
+      border:1px solid rgba(var(--ev-rgb),.45);border-radius:2px;padding:1px 6px;
+      text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;}
+    body .ev-name{font-size:11px;font-weight:900;color:var(--ev);
+      text-transform:uppercase;letter-spacing:.4px;}
+    body .sess-chip-event{color:var(--ev);}
+
+    /* customer-facing session cards */
+    body .sess-card .sess-comm-chip{color:var(--ev);border-color:rgba(var(--ev-rgb),.45);}
+    body .sess-card.sess-card-comm{border-inline-start-color:var(--ev);}
+    body .sess-card .sess-card-dot{border-color:var(--ev);}
+    body .sess-card .sess-card-dot.on{background:var(--ev);border-color:var(--ev);}
+    body .sess-card.sess-selected{background:rgba(var(--ev-rgb),.08);border-color:rgba(var(--ev-rgb),.45);}
+    body .sess-card:hover:not(.sess-full){background:rgba(var(--ev-rgb),.06);}
+
+    /* staff session browser */
+    body .sess-lc{border-inline-start:3px solid var(--ev);}
+    body .sess-lc.selected{border-color:rgba(var(--ev-rgb),.5);border-inline-start-color:var(--ev);}
+
+    /* the event picker on the new-session form */
+    body .toggle-btn.ev-pick.active{background:rgba(var(--ev-rgb),.14);border-color:var(--ev);color:var(--ev);}
+
+    /* landing cards: the circuit is blue, and the rides card is an umbrella over a green
+       ride and a red one — so its stripe carries both rather than picking a side. */
+    body .landing-event-card.ev-jcc::before{background:var(--blue);}
+    body .landing-event-card.ev-jcc:hover{border-color:rgba(var(--blue-rgb),.55);}
+    body .landing-event-card.ev-jcc .lec-kicker,body .landing-event-card.ev-jcc .lec-arrow{color:var(--blue);}
+    body .landing-event-card.ev-community::before{background:linear-gradient(90deg,var(--green),var(--red));}
+    body .landing-event-card.ev-community:hover{border-color:rgba(var(--green-rgb),.5);}
+    body .landing-event-card.ev-community .lec-kicker,body .landing-event-card.ev-community .lec-arrow{color:var(--green);}

@@ -1,0 +1,237 @@
+import { test, expect } from '@playwright/test';
+import { stubSupabase, loginCustomer, unlockStaff, waitForSb, captureBookingRows } from './helpers/supabase';
+
+// The Petromin Wednesday Ride: a SECOND community ride. It shares exactly one thing with the
+// Saturday Social Ride — only riders holding the community tag may book it — and is an
+// ordinary circuit session in every other respect: real prices, real queue numbers, a seat
+// count that overflows to the waitlist, and groups. Everything the app used to key off the
+// word "community" (free, solo, staff-approved, hidden numbers) is now keyed off the two
+// things that actually vary: paid_ride and needs_approval.
+
+const jcc = { id: 's1', day: 'Sunday', session_date: '2099-01-11', capacity: 12, status: 'open', created_at: 1, location: 'JCC' };
+const sat = {
+  id: '2099-01-10', day: 'Saturday', session_date: '2099-01-10', capacity: 20, status: 'open', created_at: 1,
+  event_kind: 'community', ride_kind: 'saturday', paid_ride: false,
+  needs_approval: true, hide_queue: true, spots: 20, title: 'Saturday Social Ride',
+};
+const petromin = {
+  id: '2099-01-13-pw', day: 'Wednesday', session_date: '2099-01-13', capacity: 10, status: 'open', created_at: 1,
+  event_kind: 'community', ride_kind: 'petromin', paid_ride: true,
+  needs_approval: false, hide_queue: false, spots: null, title: 'Petromin Wednesday Ride',
+};
+const bikes = [{ id: 'b1', name: 'B1', size: 'M', type: 'Road', status: 'available', rental_price: 75 }];
+const fixtures = { sessions: [jcc, sat, petromin], bikes, queue_entries: [] };
+const member = { ...fixtures, 'rpc:community_member': true };
+
+async function bootMember(page: import('@playwright/test').Page, extra: Record<string, unknown> = {}) {
+  await stubSupabase(page, { ...member, ...extra });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`S.selEvent='community';setCustTab('register')`);
+}
+
+/** Click a ride's card and wait for the (async, gate-checked) selection to land. */
+async function pickRide(page: import('@playwright/test').Page, cls: string, id: string) {
+  await page.locator(`.sess-card.${cls}`).click();
+  await page.waitForFunction(`S.selSession===${JSON.stringify(id)}`);
+}
+
+test.describe('who may book it', () => {
+  test('a non-member is stopped at the same members-only dialog', async ({ page }) => {
+    await stubSupabase(page, fixtures); // no community_member fixture = not a member
+    await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`S.selEvent='community';setCustTab('register')`);
+
+    await page.locator('.sess-card.ev-petromin').click();
+    await expect(page.locator('#confirm-modal')).toContainText('Community members only');
+    expect(await page.evaluate('S.selSession')).toBeNull();
+  });
+
+  test('a member gets straight in', async ({ page }) => {
+    await bootMember(page);
+    await pickRide(page, 'ev-petromin', '2099-01-13-pw');
+    await expect(page.locator('#confirm-modal')).toBeHidden();
+  });
+});
+
+test.describe('it behaves like a circuit session, not like the Saturday ride', () => {
+  test('the rides card lists every non-JCC ride, each in its own colour', async ({ page }) => {
+    await bootMember(page);
+    await expect(page.locator('.sess-card')).toHaveCount(2);       // both community rides, no JCC
+    await expect(page.locator('.sess-card.ev-saturday')).toHaveCount(1);
+    await expect(page.locator('.sess-card.ev-petromin')).toHaveCount(1);
+    await expect(page.locator('.sess-card.ev-petromin')).toContainText('Petromin Wednesday Ride');
+  });
+
+  test('riders see a fare, not "Free" — and may book a group', async ({ page }) => {
+    await bootMember(page);
+    await pickRide(page, 'ev-petromin', '2099-01-13-pw');
+    await page.evaluate(`S.regStep=2;renderRegister();setBikeType(0,'Road')`); // riders step: stepper + fare
+    await expect(page.locator('.qty-stepper')).toBeVisible();
+    await expect(page.locator('#price-preview-wrap')).toContainText('SAR 75');
+    await expect(page.locator('#price-preview-wrap')).not.toContainText('Complimentary');
+  });
+
+  test('the Saturday ride shows no stepper and no fare', async ({ page }) => {
+    await bootMember(page);
+    await pickRide(page, 'ev-saturday', '2099-01-10');
+    await page.evaluate(`S.regStep=2;renderRegister();setBikeType(0,'Road')`);
+    await expect(page.locator('.qty-stepper')).toHaveCount(0);
+    await expect(page.locator('#price-preview-wrap')).toContainText('Complimentary');
+  });
+
+  test('the Saturday ride still books one rider at a time', async ({ page }) => {
+    await bootMember(page);
+    await pickRide(page, 'ev-saturday', '2099-01-10');
+    expect(await page.evaluate('S.regQty')).toBe(1);
+    await page.evaluate('changeRegQty(1)');
+    expect(await page.evaluate('S.regQty')).toBe(1); // pinned, whatever the stepper is told
+  });
+
+  test('a group of two books at the real price, with no approval attached', async ({ page }) => {
+    await bootMember(page);
+    const rows = await captureBookingRows(page);
+    await page.evaluate(
+      `S.selSession='2099-01-13-pw'; S.regQty=2; S.regBikeHeights=[175,168]; S.regBikeTypes=['Road','Road'];
+       S.regRiderNames=['Spec Rider','Friend']; S.promoApplied=null; submitReg();`,
+    );
+    await expect.poll(() => rows.length).toBe(2);
+    expect(rows[0].price).toBe(75);
+    expect(rows[1].price).toBe(75);
+    expect(rows[0].approval ?? null).toBeNull(); // not a reservation awaiting staff
+  });
+
+  test('a Saturday booking is still complimentary and pending', async ({ page }) => {
+    await bootMember(page);
+    const rows = await captureBookingRows(page);
+    await page.evaluate(
+      `S.selSession='2099-01-10'; S.regQty=1; S.regBikeHeights=[175]; S.regBikeTypes=['Road'];
+       S.regRiderNames=['Spec Rider']; S.promoApplied=null; submitReg();`,
+    );
+    await expect.poll(() => rows.length).toBe(1);
+    expect(rows[0].price).toBe(0);
+    expect(rows[0].approval).toBe('pending');
+  });
+
+  test('a rider on their own bike pays nothing, on either ride', async ({ page }) => {
+    await bootMember(page);
+    const rows = await captureBookingRows(page);
+    await page.evaluate(
+      `S.selSession='2099-01-13-pw'; S.regQty=1; S.regBikeHeights=[175]; S.regBikeTypes=['Own'];
+       S.regRiderNames=['Spec Rider']; S.promoApplied=null; submitReg();`,
+    );
+    await expect.poll(() => rows.length).toBe(1);
+    expect(rows[0].type_preference).toBe('Own');
+    expect(rows[0].price).toBe(0);
+  });
+
+  test('the bike-type menu: Own on both rides, Road Carbon only where it is paid for', async ({ page }) => {
+    await bootMember(page);
+    expect(await page.evaluate(`bikeTypeOpts(true,true)`)).not.toContain('Road Carbon'); // the free ride
+    expect(await page.evaluate(`bikeTypeOpts(true,false)`)).toContain('Road Carbon');    // the paid one
+    expect(await page.evaluate(`bikeTypeOpts(true,false)`)).toContain('Own');
+    expect(await page.evaluate(`bikeTypeOpts(false,false)`)).not.toContain('Own');       // JCC
+  });
+
+  test('a full seat count sends the next rider to the waitlist', async ({ page }) => {
+    // 10 seats, 10 riders already on it: the client must not seat an 11th.
+    const taken = Array.from({ length: 10 }, (_, i) => ({
+      id: 'e' + i, session_id: '2099-01-13-pw', session_day: 'Wednesday', session_date: '2099-01-13',
+      queue_num: i + 1, name: 'Rider ' + i, size: 'M', type_preference: 'Road', status: 'waiting',
+      paid: false, price: 75, registered_at: '2099-01-01T10:00:00Z',
+    }));
+    await bootMember(page, { queue_entries: taken });
+    const rows = await captureBookingRows(page);
+    await page.evaluate(
+      `S.selSession='2099-01-13-pw'; S.regQty=1; S.regBikeHeights=[175]; S.regBikeTypes=['Road'];
+       S.regRiderNames=['Spec Rider']; S.promoApplied=null; submitReg();`,
+    );
+    await expect.poll(() => rows.length).toBe(1);
+    expect(rows[0].status).toBe('waitlist');
+  });
+});
+
+test.describe('staff side', () => {
+  test('a Petromin booking keeps its number and its money column', async ({ page }) => {
+    const booking = {
+      id: 'p1', session_id: '2099-01-13-pw', session_day: 'Wednesday', session_date: '2099-01-13',
+      queue_num: 4, name: 'Spec Rider', size: 'M', type_preference: 'Road', status: 'waiting',
+      paid: false, price: 75, registered_at: '2099-01-01T10:00:00Z',
+    };
+    await stubSupabase(page, { ...fixtures, queue_entries: [booking] });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('queue');S.sfSession='2099-01-13-pw';renderStaffQueue()`);
+    const html = await page.evaluate(`document.getElementById('tab-queue').innerHTML`) as string;
+    expect(html).toContain('#4');                       // the number is real, not hidden
+    expect(html).toContain('showEditPriceModal');       // and so is the fare
+    expect(html).not.toContain('apprPendingChip');      // nothing to approve
+  });
+
+  test('creating one stamps the ride kind, the price rule and a date-proof id', async ({ page }) => {
+    await stubSupabase(page, fixtures);
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    const writes: Record<string, unknown>[] = [];
+    page.on('request', (r) => {
+      if (r.method() !== 'POST' && r.method() !== 'PATCH') return;
+      if (!r.url().includes('/rest/v1/sessions')) return;
+      const b = r.postDataJSON();
+      (Array.isArray(b) ? b : [b]).forEach((x: Record<string, unknown>) => writes.push({ ...x, _url: r.url() }));
+    });
+    await page.evaluate(`setStaffTab('sessions');S.showAddSession=true;S.newSessEvent='petromin';S.newSessTitle='Petromin Wednesday Ride';S.newSessSpots='10';renderSessions()`);
+    await page.evaluate(`document.getElementById('ns-date').value='2099-01-13';addSession()`);
+
+    await expect.poll(() => writes.length).toBeGreaterThan(1);
+    const created = writes.find((w) => w.id);
+    expect(created?.id).toBe('2099-01-13-pw'); // a circuit session may share the date
+    const gate = writes.find((w) => 'ride_kind' in w);
+    expect(gate?.ride_kind).toBe('petromin');
+    expect(gate?.paid_ride).toBe(true);
+    expect(gate?.needs_approval).toBe(false);  // no approval flow
+    expect(gate?.hide_queue).toBe(false);      // numbers are visible
+    expect(gate?.event_kind).toBe('community'); // ...but the members gate still applies
+    expect(gate?.title).toBe('Petromin Wednesday Ride');
+  });
+
+  test('creating a Saturday ride is unchanged', async ({ page }) => {
+    await stubSupabase(page, fixtures);
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    const writes: Record<string, unknown>[] = [];
+    page.on('request', (r) => {
+      if (r.method() !== 'POST' && r.method() !== 'PATCH') return;
+      if (!r.url().includes('/rest/v1/sessions')) return;
+      const b = r.postDataJSON();
+      (Array.isArray(b) ? b : [b]).forEach((x: Record<string, unknown>) => writes.push(x));
+    });
+    await page.evaluate(`setStaffTab('sessions');S.showAddSession=true;S.newSessEvent='community';S.newSessSpots='20';renderSessions()`);
+    await page.evaluate(`document.getElementById('ns-date').value='2099-01-17';addSession()`);
+
+    await expect.poll(() => writes.length).toBeGreaterThan(1);
+    expect(writes.find((w) => w.id)?.id).toBe('2099-01-17'); // no suffix
+    const gate = writes.find((w) => 'ride_kind' in w);
+    expect(gate?.ride_kind).toBe('saturday');
+    expect(gate?.paid_ride).toBe(false);
+    expect(gate?.needs_approval).toBe(true);
+    expect(gate?.title).toBe('Saturday Social Ride');
+  });
+});
+
+test('the landing card is an umbrella: the shared name, no per-ride blurb', async ({ page }) => {
+  await stubSupabase(page, member);
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate('goLanding()');
+  const card = page.locator('#land-events .landing-event-card.ev-community');
+  await expect(card).toContainText('Micromobility Rides');
+  await expect(card.locator('.lec-meta')).toHaveCount(0); // the description is gone; the logo stays
+  await expect(card.locator('img')).not.toHaveCount(0);
+});
