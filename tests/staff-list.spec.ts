@@ -234,3 +234,83 @@ test.describe('a parked booking carries the roster controls', () => {
     expect(html).toContain('resolveDeskWaitlist');        // off the list, not out of the booking
   });
 });
+
+// Riders arrive as parties. Adding four of them one at a time — and then dragging their four
+// positions back together — was the work this section exists to save, so a party is offered,
+// parked, ordered and removed as ONE entry, while each rider keeps their own controls.
+
+test.describe('parties, not single riders', () => {
+  const party = (id: string, n: number, name: string) => qe(id, n, {
+    status: 'waiting', paid: false, price: 60, group_id: 'grp1', group_name: 'Tamer Group', name,
+  });
+  const withParty = {
+    sessions,
+    queue_entries: [party('g1', 11, 'Tamer A'), party('g2', 12, 'Tamer B'), party('g3', 13, 'Tamer C'),
+      qe('s1', 14, { status: 'waiting', paid: false, price: 60 })],
+    desk_waitlist: [],
+  };
+
+  async function open(page: import('@playwright/test').Page) {
+    await stubSupabase(page, withParty);
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('queue');S.queueView='managed';renderStaffQueue()`);
+  }
+
+  test('the picker offers the party as one line, with its size', async ({ page }) => {
+    await open(page);
+    await page.locator('#mw-browse').click();
+    const rows = page.locator('#mw-suggest .mw-sug');
+    await expect(rows).toHaveCount(2);                       // the party + the solo rider
+    await expect(rows.first()).toContainText('Tamer Group');
+    await expect(rows.first()).toContainText('3 riders');
+  });
+
+  test('picking it parks all three in one write, consecutively', async ({ page }) => {
+    await open(page);
+    const rows = watchInserts(page);
+    await page.locator('#mw-browse').click();
+    await page.locator('#mw-suggest .mw-sug').first().click();
+    await expect.poll(() => rows.length).toBe(3);
+    expect(rows.map((r) => r.booking_id).sort()).toEqual(['g1', 'g2', 'g3']);
+    const orders = rows.map((r) => Number(r.sort_order)).sort((a, b) => a - b);
+    expect(orders[1]).toBe(orders[0] + 1);                   // no gaps: the party stays together
+    expect(orders[2]).toBe(orders[1] + 1);
+  });
+
+  test('parking ONE rider from the roster takes their whole party', async ({ page }) => {
+    await open(page);
+    const rows = watchInserts(page);
+    await page.evaluate(`mwFromBooking('g2')`);
+    await expect.poll(() => rows.length).toBe(3);
+  });
+
+  test('the list shows one card for the party, each rider with their own controls', async ({ page }) => {
+    await open(page);
+    await page.evaluate(`mwFromBooking('g1')`);
+    await expect.poll(async () => page.locator('#mw-host .q-card').count()).toBe(1);
+    const card = page.locator('#mw-host .q-card').first();
+    await expect(card).toContainText('Tamer Group');
+    await expect(card).toContainText('3 riders');
+    await expect(card.locator('input[type="number"]')).toHaveCount(1); // ONE position, for the party
+    const html = await card.innerHTML();
+    for (const id of ['g1', 'g2', 'g3']) expect(html).toContain(`showCheckinModal('${id}')`);
+  });
+
+  test('a position typed against the party moves every rider in it', async ({ page }) => {
+    await open(page);
+    await page.evaluate(`(async()=>{ await mwFromBooking('s1'); await mwFromBooking('g1'); })()`);
+    await expect.poll(async () => page.locator('#mw-host .q-card').count()).toBe(2);
+    // party is second; send it to position 1
+    const partyRow = await page.evaluate(`_mwGroups()[1][0].id`);
+    await page.evaluate(`mwSetPos('${partyRow}',1)`);
+    await expect.poll(async () => (await page.locator('#mw-host .q-card').first().textContent()) || '')
+      .toContain('Tamer Group');
+    // and they are still one contiguous block, in order
+    const orders = await page.evaluate(`_mwGroups().map(g=>g.map(w=>w.sort_order))`) as number[][];
+    expect(orders[0].length).toBe(3);
+    expect(orders[0][1]).toBe(orders[0][0] + 1);
+    expect(orders[0][2]).toBe(orders[0][1] + 1);
+  });
+});
