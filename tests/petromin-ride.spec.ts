@@ -64,6 +64,8 @@ test.describe('it behaves like a circuit session, not like the Saturday ride', (
     await expect(page.locator('.sess-card.ev-saturday')).toHaveCount(1);
     await expect(page.locator('.sess-card.ev-petromin')).toHaveCount(1);
     await expect(page.locator('.sess-card.ev-petromin')).toContainText('Petromin Wednesday Ride');
+    await expect(page.locator('.sess-card.ev-petromin')).not.toContainText(/gathering/i); // circuit-style time
+    await expect(page.locator('.sess-card.ev-saturday')).toContainText(/gathering/i);     // the social ride keeps it
   });
 
   test('riders see a fare, not "Free" — and may book a group', async ({ page }) => {
@@ -230,6 +232,8 @@ test.describe('staff side', () => {
     await waitForSb(page);
     await page.evaluate(`setStaffTab('sessions');S.showAddSession=true;S.newSessEvent='petromin';renderSessions()`);
     await expect(page.locator('#ns-map')).toHaveCount(0);        // it meets at the circuit
+    await expect(page.getByText(/gathering time/i)).toHaveCount(0); // a start-end window, as at the circuit
+    await expect(page.getByText(/^time$/i).first()).toBeVisible();
     await expect(page.locator('#ns-spots')).toHaveCount(0);      // capacity comes from the bikes
     await expect(page.locator('#ns-title')).toBeVisible();       // but it is still named
     await expect(page.getByText(/bike fleet composition/i)).toBeVisible(); // the circuit's builder

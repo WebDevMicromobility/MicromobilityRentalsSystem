@@ -2268,8 +2268,9 @@ function sessionTime(sess){
   if(!sess)return fmt12h('09:00 - 11:00');
   const s=parseSlots(sess.bike_slots);
   const raw=(s&&s._time)||'09:00 - 11:00';
-  // Community events store "gathering - start": label the two times instead of showing a range.
-  if(_isCommunity(sess)){
+  // An approval ride stores "gathering - start": label the two times instead of showing a
+  // range. Every other session, the Petromin ride included, runs to a plain start-end window.
+  if(_isApprovalRide(sess)){
     const parts=raw.split('-').map(x=>x.trim());
     if(parts.length===2)return `${t('commGatherShort')} ${fmt12h(parts[0])} · ${t('commStartShort')} ${fmt12h(parts[1])}`;
   }
@@ -6165,7 +6166,7 @@ function downloadBookingICS(sessionId){
   const raw=((parseSlots(sess.bike_slots)||{})._time)||'09:00 - 11:00';
   const m=raw.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
   const pad=n=>String(n).padStart(2,'0');
-  const _comm=_isCommunity(sess);
+  const _comm=_isApprovalRide(sess);
   let st='090000',en='110000';
   // A community slot is "gathering – ride start", NOT start–end: taking it literally made the
   // calendar event END the moment the ride begins. Start at gathering, end 2h after ride start.
@@ -7411,7 +7412,7 @@ function renderSessions(){
             ${[2,3,4,6,8,12].map(n=>`<option value="${n}"${String(S.newSessRepeat)===String(n)?' selected':''}>${t('repeatWeeksOpt').replace('{0}',n)}</option>`).join('')}
           </select>
         </div>
-        ${_nsComm()?`
+        ${_nsSeats()?`
         <div class="form-group">
           <label>${t('sessGatherTime')}</label>
           <input type="time" id="ns-start" value="${S.newSessStartTime||'06:30'}" oninput="S.newSessStartTime=this.value" style="margin-top:4px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer;max-width:140px;display:block">
@@ -7566,7 +7567,7 @@ function renderSessions(){
               onclick="S.editSessStatus='${st}';renderSessions()">${{closed:t('statusClosed'),open:t('statusOpen'),full:t('statusFull')}[st]}</button>`).join('')}
           </div>
         </div>
-        ${_isCommunity(editSess)?`
+        ${_isApprovalRide(editSess)?`
         <div class="form-group">
           <label>${t('sessGatherTime')}</label>
           <input type="time" id="es-start" value="${S.editSessStartTime||'06:30'}" oninput="S.editSessStartTime=this.value" style="margin-top:4px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer;max-width:140px;display:block">
@@ -7575,10 +7576,9 @@ function renderSessions(){
           <label>${t('sessStartTime')}</label>
           <input type="time" id="es-end" value="${S.editSessEndTime||'07:00'}" oninput="S.editSessEndTime=this.value" style="margin-top:4px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer;max-width:140px;display:block">
         </div>
-        ${_isApprovalRide(editSess)?`
         <div class="form-group"><label>${t('sessMapLabel')}</label>
           <input type="url" id="es-map" inputmode="url" value="${esc(S.editSessMapUrl||'')}" placeholder="${esc(t('sessMapPh'))}" oninput="S.editSessMapUrl=this.value"></div>
-        ${_bfPickerHtml('editSessBfSel','editSessBfName','editSessBfUrl','renderSessions')}`:''}
+        ${_bfPickerHtml('editSessBfSel','editSessBfName','editSessBfUrl','renderSessions')}
         ${''}`:`
         <div class="form-group">
           <label>${t('timeLabel')}</label>
