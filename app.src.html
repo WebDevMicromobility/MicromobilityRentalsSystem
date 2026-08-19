@@ -8094,7 +8094,10 @@ async function saveSessionEdit(){
     // bare, and without them a paid ride would come back complimentary.
     const _ce={event_kind:'community',required_tag_id:null,title:_nameEdit,
       needs_approval:!_paidEdit,hide_queue:_paidEdit?false:(sess.hide_queue!==false),
-      spots:_paidEdit?null:total,ride_kind:_paidEdit?'petromin':'saturday',paid_ride:_paidEdit};
+      spots:_paidEdit?null:total};
+    // Newer columns, written separately so an older database cannot cost a Saturday ride its
+    // gate fields (see addSession). Tolerant on both paths: an existing ride already carries them.
+    try{await sb.from('sessions').update({ride_kind:_paidEdit?'petromin':'saturday',paid_ride:_paidEdit}).eq('id',newId);}catch(e){}
     if(_paidEdit){
       _ce.meet_url=null;_ce.breakfast_name=null;_ce.breakfast_url=null; // no such fields on this ride
     }else{
@@ -8212,17 +8215,25 @@ async function addSession(){
       const _rideName=isPaidSess
         ?((document.getElementById('ns-title')?.value||S.newSessTitle||'').trim().slice(0,60)||t('evPetroName'))
         :t('evSatName');
-      // ride_kind/paid_ride are as load-bearing as the rest of the gate: without them a paid
-      // ride would come back complimentary (the price trigger reads paid_ride), so they are
-      // written in the same all-or-nothing update and roll the session back on failure.
       // The Petromin ride is a circuit session behind a members gate: staff approve nobody,
-      // the queue numbers are real, and the seat count is ordinary capacity that overflows to
-      // the waitlist. Only the Saturday ride keeps the approval/hidden-queue/allocation shape.
+      // the queue numbers are real, and capacity overflows to the waitlist. Only the Saturday
+      // ride keeps the approval/hidden-queue/allocation shape.
       const _gate={event_kind:'community',required_tag_id:null,title:_rideName,
-        needs_approval:!isPaidSess,hide_queue:!isPaidSess,spots:isPaidSess?null:total,
-        ride_kind:isPaidSess?'petromin':'saturday',paid_ride:isPaidSess};
+        needs_approval:!isPaidSess,hide_queue:!isPaidSess,spots:isPaidSess?null:total};
       let _gateErr=null;
       await Promise.all(createdIds.map(async id=>{const r=await sb.from('sessions').update(_gate).eq('id',id);if(r&&r.error)_gateErr=r.error;}));
+      // ride_kind/paid_ride land in a SECOND write, on purpose: they are newer than the
+      // columns above, so a build that reaches a database without them must still be able to
+      // create a Saturday ride — the gate above already describes one completely. For a paid
+      // ride they are load-bearing (the price trigger reads paid_ride, and without it the ride
+      // comes back complimentary), so there the failure rolls the session back like any other.
+      if(!_gateErr){
+        const _kind={ride_kind:isPaidSess?'petromin':'saturday',paid_ride:isPaidSess};
+        await Promise.all(createdIds.map(async id=>{
+          const r=await sb.from('sessions').update(_kind).eq('id',id);
+          if(r&&r.error&&isPaidSess)_gateErr=r.error;
+        }));
+      }
       if(_gateErr){
         await Promise.all(createdIds.map(id=>sb.from('sessions').delete().eq('id',id))).catch(()=>{});
         toast(t('errCommSessGate')+' ['+((_gateErr&&_gateErr.message)||'?')+']','error');

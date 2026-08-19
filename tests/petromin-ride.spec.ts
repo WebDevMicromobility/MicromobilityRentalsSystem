@@ -212,14 +212,15 @@ test.describe('staff side', () => {
     expect(created?.id).toBe('2099-01-13-pw'); // a circuit session may share the date
     expect(created?.capacity).toBe(10);        // from the bikes put out, not a typed seat count
     expect(JSON.parse(String(created?.bike_slots))._total).toBe(10);
-    const gate = writes.find((w) => 'ride_kind' in w);
-    expect(gate?.ride_kind).toBe('petromin');
-    expect(gate?.paid_ride).toBe(true);
-    expect(gate?.needs_approval).toBe(false);  // no approval flow
-    expect(gate?.spots ?? null).toBeNull();    // no spot cap: capacity carries it
-    expect(gate?.hide_queue).toBe(false);      // numbers are visible
-    expect(gate?.event_kind).toBe('community'); // ...but the members gate still applies
-    expect(gate?.title).toBe('Petromin Wednesday Ride');
+    // the gate lands in two writes: the long-standing columns, then the newer pair
+    const gate = Object.assign({}, ...writes.filter((w) => !w.id));
+    expect(gate.ride_kind).toBe('petromin');
+    expect(gate.paid_ride).toBe(true);
+    expect(gate.needs_approval).toBe(false);  // no approval flow
+    expect(gate.spots ?? null).toBeNull();    // no spot cap: capacity carries it
+    expect(gate.hide_queue).toBe(false);      // numbers are visible
+    expect(gate.event_kind).toBe('community'); // ...but the members gate still applies
+    expect(gate.title).toBe('Petromin Wednesday Ride');
   });
 
   test('its form asks for bikes, not for a meeting point or a breakfast stop', async ({ page }) => {
@@ -256,11 +257,60 @@ test.describe('staff side', () => {
 
     await expect.poll(() => writes.length).toBeGreaterThan(1);
     expect(writes.find((w) => w.id)?.id).toBe('2099-01-17'); // no suffix
-    const gate = writes.find((w) => 'ride_kind' in w);
-    expect(gate?.ride_kind).toBe('saturday');
-    expect(gate?.paid_ride).toBe(false);
-    expect(gate?.needs_approval).toBe(true);
-    expect(gate?.title).toBe('Saturday Social Ride');
+    const gate = Object.assign({}, ...writes.filter((w) => !w.id));
+    expect(gate.ride_kind).toBe('saturday');
+    expect(gate.paid_ride).toBe(false);
+    expect(gate.needs_approval).toBe(true);
+    expect(gate.title).toBe('Saturday Social Ride');
+  });
+});
+
+test.describe('a database that has not run the migration yet', () => {
+  /** Refuses exactly the writes that touch the new columns, the way PostgREST would. */
+  async function noNewColumns(page: import('@playwright/test').Page) {
+    await page.route(/\/rest\/v1\/sessions/, async (route) => {
+      const body = route.request().postData() || '';
+      if (route.request().method() === 'PATCH' && body.includes('ride_kind')) {
+        return route.fulfill({
+          status: 400,
+          headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' },
+          body: JSON.stringify({ code: 'PGRST204', message: "Could not find the 'ride_kind' column of 'sessions'" }),
+        });
+      }
+      return route.fallback();
+    });
+  }
+
+  async function create(page: import('@playwright/test').Page, ev: string, date: string) {
+    await stubSupabase(page, fixtures);
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await noNewColumns(page);
+    const writes: Record<string, unknown>[] = [];
+    page.on('request', (r) => {
+      if (!r.url().includes('/rest/v1/sessions')) return;
+      writes.push({ method: r.method(), body: r.postData() || '' });
+    });
+    await page.evaluate(`setStaffTab('sessions');S.showAddSession=true;S.newSessEvent='${ev}';S.newSessMode='total';S.newSessTotal='10';S.newSessSpots='20';renderSessions()`);
+    await page.evaluate(`const _t=document.getElementById('ns-total');if(_t)_t.value='10';document.getElementById('ns-date').value='${date}';addSession()`);
+    return writes;
+  }
+
+  test('a Saturday ride is still created — the older columns describe it completely', async ({ page }) => {
+    const writes = await create(page, 'community', '2099-02-07');
+    await expect.poll(() => writes.some((w) => w.method === 'POST')).toBe(true);
+    // the session is NOT rolled back: no DELETE goes out
+    await page.waitForTimeout(400);
+    expect(writes.some((w) => w.method === 'DELETE')).toBe(false);
+    await expect(page.locator('.toast')).not.toContainText(/ride_kind/i);
+  });
+
+  test('a Petromin ride refuses to be created half-made', async ({ page }) => {
+    const writes = await create(page, 'petromin', '2099-02-11');
+    // without paid_ride the ride would come back complimentary, so it is rolled back and said
+    await expect.poll(() => writes.some((w) => w.method === 'DELETE')).toBe(true);
+    await expect(page.locator('.toast')).toBeVisible();
   });
 });
 
