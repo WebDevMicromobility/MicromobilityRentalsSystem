@@ -4511,6 +4511,45 @@ async function mwRemoveParty(rowId){
     onConfirm:async()=>{ for(const w of g) await resolveDeskWaitlist(w.id,'removed'); },
   });
 }
+// Which bike this rider is waiting for. The quick-add could only ever record 'Any', and
+// nothing could change it afterwards, so a list of people waiting said nothing about what
+// they were waiting FOR — and the bike beside it might be the wrong one. The type sits on the
+// row now, with what is free of that type next to it, because "Road, none free" is the whole
+// decision at the desk.
+function _mwTypeCell(w,bk){
+  const cur=(bk?resolvedType(bk):w.bike_type)||'Any';
+  // A parked booking follows its ride's rules ('Own' on a community ride, no carbon there);
+  // a walk-up belongs to no session, so it gets the ordinary circuit menu.
+  const sess=bk?allSessions().find(x=>x.id===bk.sessionId):null;
+  const opts=bk?bikeTypeOpts(_isCommunity(sess),_isCommunity(sess)):bikeTypeOpts(false,false);
+  const list=opts.includes(cur)?opts:[cur,...opts];
+  return`<select class="mw-type" aria-label="${esc(t('bikeTypeLabel'))}" onchange="mwSetType('${esc(w.id)}',this.value)">
+      ${list.map(ty=>`<option value="${esc(ty)}"${ty===cur?' selected':''}>${esc(typeLabel(ty))}</option>`).join('')}
+    </select>${availChip(_wlAvail(cur))}`;
+}
+/** Set the bike type a parked rider is waiting for. */
+async function mwSetType(rowId,ty){
+  const w=(S.deskWaitlist||[]).find(x=>x.id===rowId);if(!w)return;
+  if(!CUST_TYPES.includes(ty))return;
+  const bk=w.booking_id?getQueue().find(x=>x.id===w.booking_id):null;
+  if(bk){
+    // The BOOKING owns the type — the roster, the ticket and the check-in all read it there,
+    // so writing only the list row would leave two screens disagreeing about the same rider.
+    const patch={type_preference:ty};
+    // The roster's own repricing rule, not a new one: only an unpaid booking still sitting at
+    // the canonical fare for its old type follows the change, so a promo price or a fare staff
+    // set by hand is never silently rewritten.
+    if(!_freeSessIds.has(bk.sessionId)&&!bk.paid&&(bk.price??DEFAULT_PRICE)===priceForType(bk.typePreference||'Any')){
+      patch.price=priceForType(ty);
+    }
+    if(_writeErr(await sb.from('queue_entries').update(patch).eq('id',bk.id),'bike type'))return;
+    bk.typePreference=ty;if(patch.price!==undefined)bk.price=patch.price;
+  }
+  if(_writeErr(await sb.from('desk_waitlist').update({bike_type:ty}).eq('id',rowId),'bike type'))return;
+  w.bike_type=ty;
+  logAction(`${t('bikeTypeLabel')}: ${w.name} \u2192 ${typeLabel(ty)}`);
+  renderStaffQueue();renderMyRides();
+}
 function renderManagedWl(){
   const el=document.getElementById('mw-host');if(!el)return;
   const groups=_mwGroups();
@@ -4558,6 +4597,7 @@ function renderManagedWl(){
               <span style="font-weight:800;font-size:13.5px">${esc(w.name)}</span>
               ${bk?`<span style="font-size:10px;font-weight:900;color:var(--orange);border:1px solid rgba(var(--warn-rgb),.4);border-radius:2px;padding:1px 7px;white-space:nowrap">#${bk.queueNum}${bk.waitlistNum?` \u00b7 W${bk.waitlistNum}`:''}</span>`:''}
               ${(!_party&&w.phone)?`<span style="font-size:11px;color:var(--muted)"><bdi>${esc(fmtPhone(w.phone))}</bdi></span>`:''}
+              ${_mwTypeCell(w,bk)}
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap">
               ${bk?_bkPayCell(bk):payBtnMw(w)}${w.phone?_contactCell(w.phone,{status:'waiting'}):''}
@@ -4584,6 +4624,9 @@ function renderManagedWl(){
   _mwRenderSuggest(); // a background refresh rebuilds this host: put the open picker back
 }
 function payBtnMw(w){const isHouse=w.paid&&_wlRowPrice(w)===0;return`<button class="pay-toggle ${isHouse?'house':w.paid?'paid':'pending'}" onclick="showWlPayMenu('${esc(w.id)}',event)">${isHouse?' '+t('onTheHouseLabel'):w.paid?'\u2713 '+t('paidLabel'):' '+t('pendingLabel')}</button>`;}
+// How many of a type are free right now, as a chip. Shared by the Waitlist page and the Staff
+// List, which ask the same question next to the same decision.
+const availChip=avail=>avail>0?`<span style="font-size:10px;font-weight:800;color:var(--green);border:1px solid rgba(var(--green-rgb),.35);border-radius:2px;padding:1px 7px;white-space:nowrap">${t('wlAvailNow').replace('{0}',avail)}</span>`:`<span style="color:var(--muted)">—</span>`;
 function _wlAvail(ty){const base=PREMIUM_TIERS[ty]||ty;return(S.bikes||[]).filter(b=>b.status==='available'&&(!base||base==='Any'||b.type===base)).length;} // premium tiers count their fulfilling base type (Road Carbon -> Road)
 function _wlElapsed(iso){const m=Math.max(0,Math.round((Date.now()-new Date(iso||Date.now()))/60000));return m<60?m+' '+t('unitMin'):Math.floor(m/60)+' '+t('unitHour')+' '+(m%60)+' '+t('unitMin');}
 function _wlOpenSess(){return allSessions().filter(x=>(x.status==='open'||x.status==='full')&&!_isApprovalRide(x)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));}
@@ -4601,7 +4644,6 @@ function renderDeskWaitlist(){
   const nFree=(S.bikes||[]).filter(b=>b.status==='available').length;
   const _today=todayStr();
   const nGiven=(S.deskWaitlist||[]).filter(w=>w.status==='done'&&String(w.resolved_at||'').slice(0,10)===_today).length;
-  const availChip=avail=>avail>0?`<span style="font-size:10px;font-weight:800;color:var(--green);border:1px solid rgba(var(--green-rgb),.35);border-radius:2px;padding:1px 7px;white-space:nowrap">${t('wlAvailNow').replace('{0}',avail)}</span>`:`<span style="color:var(--muted)">—</span>`;
   const actions=w=>`<button class="btn-sm btn-green" onclick="giveDeskBike('${esc(w.id)}')">${t('checkInBtn')}</button>
       <button class="btn-sm btn-muted" onclick="mwFromWalkup('${esc(w.id)}')">${t('mwMoveBtn')}</button>
       <button class="btn-sm btn-muted" onclick="resolveDeskWaitlist('${esc(w.id)}','removed')">${t('wlRemoveBtn')}</button>`;

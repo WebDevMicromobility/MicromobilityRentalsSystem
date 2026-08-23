@@ -504,3 +504,75 @@ test.describe('the session picker', () => {
     await expect(page.locator('#mw-host .q-card')).toContainText('Walk Up');
   });
 });
+
+// A list of people waiting said nothing about what they were waiting FOR: the quick-add could
+// only record 'Any' and nothing could change it afterwards. The type now sits on the row, and
+// what it writes depends on whether the row carries a booking.
+test.describe('choosing the bike type', () => {
+  async function openWith(page: import('@playwright/test').Page, desk: Record<string, unknown>[], q = queue_entries) {
+    await stubSupabase(page, {
+      sessions, queue_entries: q, desk_waitlist: desk,
+      bikes: [
+        { id: 'b1', name: 'R1', size: 'M', type: 'Road', status: 'available', rental_price: 75 },
+        { id: 'b2', name: 'R2', size: 'M', type: 'Road', status: 'available', rental_price: 75 },
+        { id: 'b3', name: 'H1', size: 'M', type: 'Hybrid', status: 'in-use', rental_price: 60 },
+      ],
+    });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.waitForFunction(`(S.deskWaitlist||[]).length>0||true`);
+    await page.evaluate(`setStaffTab('queue');S.queueView='managed';renderStaffQueue()`);
+  }
+  const walkup = {
+    id: 'm1', name: 'Walk Up', phone: '0500000000', bike_type: 'Any', status: 'waiting',
+    kind: 'managed', sort_order: 1, booking_id: null, created_at: '2099-01-01T11:00:00Z',
+  };
+  const linked = { ...walkup, id: 'm2', name: 'Rider 1', booking_id: 'e-wait' };
+
+  test('a walk-up row records the choice on the list itself', async ({ page }) => {
+    await openWith(page, [walkup]);
+    const writes: { table: string; body: string }[] = [];
+    page.on('request', (r) => {
+      const m = r.url().match(/\/rest\/v1\/([^/?]+)/);
+      if (m && r.method() === 'PATCH') writes.push({ table: m[1], body: r.postData() || '' });
+    });
+    await page.locator('#mw-host .mw-type').first().selectOption('Road');
+    await expect.poll(() => writes.some((w) => w.table === 'desk_waitlist' && /"bike_type":"Road"/.test(w.body))).toBe(true);
+    expect(writes.some((w) => w.table === 'queue_entries')).toBe(false); // there is no booking to touch
+  });
+
+  test('a parked BOOKING gets it written where the rest of the app reads it', async ({ page }) => {
+    // 57.5 is the canonical Hybrid fare, so this booking is still "as priced by the app" —
+    // which is the only case the type change is allowed to reprice.
+    await openWith(page, [linked], [qe('e-wait', 1, { status: 'waiting', paid: false, price: 57.5 })]);
+    const writes: { table: string; body: string }[] = [];
+    page.on('request', (r) => {
+      const m = r.url().match(/\/rest\/v1\/([^/?]+)/);
+      if (m && r.method() === 'PATCH') writes.push({ table: m[1], body: r.postData() || '' });
+    });
+    await page.locator('#mw-host .mw-type').first().selectOption('Road');
+    // the booking is the source of truth for the roster, the ticket and check-in
+    await expect.poll(() => writes.some((w) => w.table === 'queue_entries' && /"type_preference":"Road"/.test(w.body))).toBe(true);
+    // ...and it reprices, because this row is unpaid and still at the canonical fare
+    expect(writes.some((w) => w.table === 'queue_entries' && /"price":75/.test(w.body))).toBe(true);
+    // the list row mirrors it so the two screens cannot disagree
+    await expect.poll(() => writes.some((w) => w.table === 'desk_waitlist' && /"bike_type":"Road"/.test(w.body))).toBe(true);
+  });
+
+  test('a fare staff already settled is not rewritten by a type change', async ({ page }) => {
+    await openWith(page, [{ ...linked, id: 'm3' }], [
+      qe('e-wait', 1, { status: 'waiting', paid: true, price: 40 }), // paid, and at a hand-set price
+    ]);
+    const writes: string[] = [];
+    page.on('request', (r) => { if (r.method() === 'PATCH' && r.url().includes('queue_entries')) writes.push(r.postData() || ''); });
+    await page.locator('#mw-host .mw-type').first().selectOption('Road');
+    await expect.poll(() => writes.some((b) => /"type_preference":"Road"/.test(b))).toBe(true);
+    expect(writes.some((b) => /"price"/.test(b))).toBe(false);
+  });
+
+  test('the row says how many of that type are free', async ({ page }) => {
+    await openWith(page, [{ ...walkup, bike_type: 'Road' }]);
+    await expect(page.locator('#mw-host')).toContainText('2'); // two Road bikes available
+  });
+});
