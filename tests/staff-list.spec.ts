@@ -373,3 +373,62 @@ test.describe('party-level actions', () => {
     await expect(page.locator('#mw-host').getByRole('button', { name: /Check In \(2\)/i })).toHaveCount(1);
   });
 });
+
+// A rider at the desk says a number — "I'm forty-two" — so the number is the fastest thing
+// to type, and typing it should be the whole interaction: digits, Enter, parked.
+test.describe('finding a booking by its number', () => {
+  const many = [
+    qe('e4', 4, { status: 'waiting', paid: false, price: 60, name: 'Four Rider' }),
+    qe('e41', 41, { status: 'waiting', paid: false, price: 60, name: 'Forty One' }),
+    qe('e42', 42, { status: 'waiting', paid: false, price: 60, name: 'Forty Two' }),
+    qe('w7', 7, { status: 'waitlist', paid: false, price: 60, waitlist_num: 3, name: 'Waitlisted One' }),
+  ];
+
+  async function open(page: import('@playwright/test').Page) {
+    await stubSupabase(page, { sessions, queue_entries: many, desk_waitlist: [] });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('queue');S.queueView='managed';renderStaffQueue()`);
+  }
+
+  test('digits match from the first one, with the exact number on top', async ({ page }) => {
+    await open(page);
+    await page.locator('#mw-name').fill('4');
+    const rows = page.locator('#mw-suggest .mw-sug');
+    await expect(rows).toHaveCount(3);                       // #4, #41, #42 — not just an exact hit
+    await expect(rows.first()).toContainText('Four Rider');  // ...and the full match leads
+    await page.locator('#mw-name').fill('42');
+    await expect(page.locator('#mw-suggest .mw-sug')).toHaveCount(1);
+    await expect(page.locator('#mw-suggest .mw-sug').first()).toContainText('Forty Two');
+  });
+
+  test('a # prefix works, and W finds the waitlist position', async ({ page }) => {
+    await open(page);
+    await page.locator('#mw-name').fill('#41');
+    await expect(page.locator('#mw-suggest .mw-sug').first()).toContainText('Forty One');
+    await page.locator('#mw-name').fill('W3');
+    await expect(page.locator('#mw-suggest .mw-sug').first()).toContainText('Waitlisted One');
+  });
+
+  test('Enter parks the top match instead of inventing a rider called "42"', async ({ page }) => {
+    await open(page);
+    const rows = watchInserts(page);
+    await page.locator('#mw-name').fill('42');
+    await page.locator('#mw-name').press('Enter');
+    await expect.poll(() => rows.length).toBe(1);
+    expect(rows[0].booking_id).toBe('e42');       // the booking, not a walk-up row
+    expect(rows[0].name).toBe('Forty Two');
+  });
+
+  test('Enter on a name nobody has still adds it by hand', async ({ page }) => {
+    await open(page);
+    const rows = watchInserts(page);
+    await page.locator('#mw-name').fill('Walk Up Guest');
+    await expect(page.locator('#mw-suggest .mw-sug')).toHaveCount(0);
+    await page.locator('#mw-name').press('Enter');
+    await expect.poll(() => rows.length).toBe(1);
+    expect(rows[0].name).toBe('Walk Up Guest');
+    expect(rows[0].booking_id ?? null).toBeNull();
+  });
+});
