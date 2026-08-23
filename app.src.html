@@ -4516,6 +4516,13 @@ async function mwRemoveParty(rowId){
 // they were waiting FOR — and the bike beside it might be the wrong one. The type sits on the
 // row now, with what is free of that type next to it, because "Road, none free" is the whole
 // decision at the desk.
+// Grow a parked booking into a group without leaving the list. It opens the booking editor —
+// the one place riders are added, so there is one code path and one set of rules — with a
+// blank rider row already waiting, because the staffer clicked the button that says so.
+function mwAddRider(bookingId){
+  showBookingEditModal(bookingId);
+  _beAddRider();
+}
 function _mwTypeCell(w,bk){
   const cur=(bk?resolvedType(bk):w.bike_type)||'Any';
   // A parked booking follows its ride's rules ('Own' on a community ride, no carbon there);
@@ -4601,6 +4608,8 @@ function renderManagedWl(){
             </div>
             <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap">
               ${bk?_bkPayCell(bk):payBtnMw(w)}${w.phone?_contactCell(w.phone,{status:'waiting'}):''}
+              ${(_bkLive&&!_isApprovalRide(allSessions().find(x=>x.id===bk.sessionId)))
+                ?`<button class="btn-sm btn-muted" onclick="mwAddRider('${esc(bk.id)}')" title="${esc(t('beAddRidersLabel'))}">+ ${t('beAddRiderBtn')}</button>`:''}
               ${action}
               <button class="btn-sm btn-muted" onclick="resolveDeskWaitlist('${w.id}','removed')">${t('wlRemoveBtn')}</button>
             </div>
@@ -9422,7 +9431,7 @@ async function saveBookingEdit(){
   if(moving&&e.status==='waitlist')await _addonStockQ(entryAddons(e),-1); // waitlist -> confirmed: reserve the add-ons, like the customer reschedule
   // One entry each with fresh consecutive numbers, same contact + account,
   // exactly like the customer's group booking (waitlist when the session can't fit them).
-  const inserted=[];
+  const inserted=[],insertedEnts=[],parkedRows=[];
   if(newRiders.length){
     const sessT=allSessions().find(s=>s.id===toSessionId);
     const rStatus=((sessT&&sessT.status==='full')||spotsLeft(toSessionId)<newRiders.length+(moving?1:0))?'waitlist':'waiting';
@@ -9441,7 +9450,21 @@ async function saveBookingEdit(){
         r2=await sb.from('queue_entries').insert(entryToDB(ent));
       }
       if(_writeErr(r2,'add rider'))break;
-      inserted.push(ent.id);qn++;
+      inserted.push(ent.id);insertedEnts.push(ent);qn++;
+    }
+  }
+  // If this booking is PARKED on the Staff List, the riders just added join it. The party on
+  // the list has to be the party on the roster: leave them off and staff hand out bikes from a
+  // list that is two riders short, with no sign that anyone is missing. They go on the end;
+  // the list groups by booking, so they appear inside the same card wherever it sits.
+  if(insertedEnts.length&&(S.deskWaitlist||[]).some(w=>w.status==='waiting'&&(w.kind||'')==='managed'&&w.booking_id===e.id)){
+    let _so=_wlManaged().reduce((m,x)=>Math.max(m,x.sort_order||0),0);
+    const _dw=insertedEnts.map(ent=>({id:uid(),name:ent.name||'',phone:ent.phone||'',bike_type:ent.typePreference||'Any',
+      status:'waiting',paid:!!ent.paid,kind:'managed',sort_order:++_so,booking_id:ent.id,
+      author:_opName()||null,created_at:new Date().toISOString()}));
+    if(!_writeErr(await sb.from('desk_waitlist').insert(_dw),'staff list')){
+      S.deskWaitlist=[...(S.deskWaitlist||[]),..._dw];
+      parkedRows.push(..._dw.map(x=>x.id));
     }
   }
   const id=e.id;
@@ -9449,6 +9472,7 @@ async function saveBookingEdit(){
     await sb.from('queue_entries').update(prev).eq('id',id);
     if(moving&&prev.status==='waitlist')await _addonStockQ(entryAddons(e),1); // back to waitlist = release what the move reserved above
     if(inserted.length)await Promise.all(inserted.map(x=>sb.from('queue_entries').delete().eq('id',x))).catch(()=>{});
+    if(parkedRows.length)await Promise.all(parkedRows.map(x=>sb.from('desk_waitlist').delete().eq('id',x))).catch(()=>{}); // ...and off the Staff List with them
     await loadDataLight();renderStaffQueue();
   });
   closeBookingEditModal();

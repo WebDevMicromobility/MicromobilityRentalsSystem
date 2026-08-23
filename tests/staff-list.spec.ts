@@ -576,3 +576,81 @@ test.describe('choosing the bike type', () => {
     await expect(page.locator('#mw-host')).toContainText('2'); // two Road bikes available
   });
 });
+
+// A parked booking can grow into a group from the list itself. The riders are added by the
+// booking editor — one code path, one set of rules — and the half that was missing is that
+// they also join the party ON the list: leave them off and staff hand out bikes from a list
+// that is short by two, with nothing on screen saying so.
+test.describe('growing a parked booking', () => {
+  const parked = {
+    id: 'm1', name: 'Rider 1', phone: '0500000001', bike_type: 'Hybrid', status: 'waiting',
+    kind: 'managed', sort_order: 1, booking_id: 'e-wait', created_at: '2099-01-01T11:00:00Z',
+  };
+
+  async function open(page: import('@playwright/test').Page, desk = [parked]) {
+    await stubSupabase(page, { sessions, queue_entries, desk_waitlist: desk, bikes: [] });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.waitForFunction(`getQueue().length>0`);
+    await page.evaluate(`setStaffTab('queue');S.queueView='managed';renderStaffQueue()`);
+  }
+
+  test('the row offers it, and opens the editor ready to type a name', async ({ page }) => {
+    await open(page);
+    await page.locator('#mw-host').getByRole('button', { name: /Add rider/i }).first().click();
+    await expect(page.locator('#be-nr-name-0')).toBeVisible();
+  });
+
+  test('riders added to a parked booking are parked with it', async ({ page }) => {
+    await open(page);
+    const inserts: { table: string; body: string }[] = [];
+    page.on('request', (r) => {
+      const m = r.url().match(/\/rest\/v1\/([^/?]+)/);
+      if (m && r.method() === 'POST') inserts.push({ table: m[1], body: r.postData() || '' });
+    });
+    await page.evaluate(`(async()=>{ showBookingEditModal('e-wait'); _beAddRider();
+      document.getElementById('be-nr-name-0').value='Second Rider'; await saveBookingEdit(); })()`);
+
+    // the rider joins the booking...
+    await expect.poll(() => inserts.some((i) => i.table === 'queue_entries' && /Second Rider/.test(i.body))).toBe(true);
+    // ...and the Staff List, linked to the NEW booking row rather than the original
+    await expect.poll(() => inserts.some((i) => i.table === 'desk_waitlist' && /Second Rider/.test(i.body))).toBe(true);
+    const dw = inserts.find((i) => i.table === 'desk_waitlist');
+    expect(dw && /"kind":"managed"/.test(dw.body)).toBe(true);
+    expect(dw && /"booking_id":"e-wait"/.test(dw.body)).toBe(false);
+  });
+
+  test('a booking nobody parked stays off the list when it grows', async ({ page }) => {
+    await open(page, []);                       // nothing on the Staff List
+    const inserts: string[] = [];
+    page.on('request', (r) => { if (r.method() === 'POST' && r.url().includes('desk_waitlist')) inserts.push(r.url()); });
+    await page.evaluate(`(async()=>{ showBookingEditModal('e-wait'); _beAddRider();
+      document.getElementById('be-nr-name-0').value='Second Rider'; await saveBookingEdit(); })()`);
+    await page.waitForTimeout(500);
+    expect(inserts).toEqual([]);                 // adding riders does not park anyone by itself
+  });
+
+  test('an approval ride is never offered it — one rider per member', async ({ page }) => {
+    const sat = {
+      id: 'sat1', day: 'Saturday', session_date: '2099-02-14', capacity: 20, status: 'open',
+      created_at: 2, event_kind: 'community', ride_kind: 'saturday', paid_ride: false,
+      needs_approval: true, hide_queue: true, spots: 20, title: 'Saturday Social Ride',
+    };
+    const satBooking = {
+      id: 'sb1', session_id: 'sat1', session_day: 'Saturday', session_date: '2099-02-14',
+      queue_num: 1, name: 'Member', phone: '0500000009', size: 'M', type_preference: 'Road',
+      status: 'waiting', paid: false, price: 0, approval: 'approved', registered_at: '2099-01-01T10:00:00Z',
+    };
+    await stubSupabase(page, {
+      sessions: [...sessions, sat], queue_entries: [satBooking], bikes: [],
+      desk_waitlist: [{ ...parked, id: 'm9', booking_id: 'sb1', name: 'Member' }],
+    });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.waitForFunction(`getQueue().length>0`);
+    await page.evaluate(`setStaffTab('queue');S.queueView='managed';renderStaffQueue()`);
+    await expect(page.locator('#mw-host').getByRole('button', { name: /Add rider/i })).toHaveCount(0);
+  });
+});
