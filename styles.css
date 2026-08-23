@@ -3276,3 +3276,11 @@
     body .analytics-highlight-card.ev-jcc,
     body .analytics-highlight-card.ev-saturday,
     body .analytics-highlight-card.ev-petromin{border-inline-start:3px solid var(--ev);}
+
+    /* ── A confirmation must outrank what raised it ───────────────────────────
+       Every modal shares .modal-backdrop at z-index 200, so stacking fell to DOM order — and
+       #confirm-modal is declared BEFORE #cust-modal, #walkin-modal, #cashier-modal and the
+       rest. Any confirm opened from one of those sat behind it: visible through the blur,
+       impossible to click, and the staffer left thinking the button was broken. It is the
+       only dialog that is always ABOUT another one, so it gets its own layer. */
+    body #confirm-modal .modal-backdrop{z-index:300;}
