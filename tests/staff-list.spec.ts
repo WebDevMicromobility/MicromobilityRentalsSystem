@@ -432,3 +432,75 @@ test.describe('finding a booking by its number', () => {
     expect(rows[0].booking_id ?? null).toBeNull();
   });
 });
+
+// A booth works one ride at a time. The session picker aims the whole screen at that ride:
+// which parked riders are listed, and which bookings the search and browse list can offer.
+test.describe('the session picker', () => {
+  const other = {
+    id: '2099-02-09', day: 'Monday', session_date: '2099-02-09', capacity: 9, status: 'open',
+    created_at: 2, bike_slots: null, location: 'JCC', addons: null,
+  };
+  const otherBooking = {
+    id: 'o1', session_id: other.id, session_day: 'Monday', session_date: other.session_date,
+    queue_num: 7, name: 'Other Session Rider', phone: '0509999999', customer_id: null,
+    type_preference: 'Road', status: 'waiting', paid: false, price: 60,
+    registered_at: '2099-01-01T10:00:00Z',
+  };
+
+  async function open(page: import('@playwright/test').Page) {
+    await stubSupabase(page, {
+      sessions: [...sessions, other],
+      queue_entries: [...queue_entries, otherBooking],
+      desk_waitlist: [],
+    });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('queue');S.queueView='managed';renderStaffQueue()`);
+  }
+
+  test('offers every session taking bookings, plus All Sessions', async ({ page }) => {
+    await open(page);
+    const opts = await page.evaluate(`Array.from(document.getElementById('mw-sess').options).map(o=>o.value)`) as string[];
+    expect(opts[0]).toBe('all');
+    expect(opts).toContain('s0');
+    expect(opts).toContain('2099-02-09');
+  });
+
+  test('narrows the list to that session, and says so when it empties', async ({ page }) => {
+    await open(page);
+    await page.evaluate(`(async()=>{await mwFromBooking('e-wait');await mwFromBooking('o1');})()`);
+    await expect.poll(async () => page.locator('#mw-host .q-card').count()).toBe(2);
+
+    await page.evaluate(`mwSetSess('2099-02-09')`);
+    await expect.poll(async () => page.locator('#mw-host .q-card').count()).toBe(1);
+    await expect(page.locator('#mw-host .q-card')).toContainText('Other Session Rider');
+
+    await page.evaluate(`mwSetSess('s0')`);
+    await expect(page.locator('#mw-host .q-card')).toContainText('Rider 1');
+  });
+
+  test('scopes what can be ADDED, so the wrong ride cannot be parked by mistake', async ({ page }) => {
+    await open(page);
+    await page.evaluate(`mwSetSess('2099-02-09')`);
+    await page.locator('#mw-browse').click();
+    const rows = page.locator('#mw-suggest .mw-sug');
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toContainText('Other Session Rider');
+
+    // Changing the session rebuilds the OPEN picker in place — no second click, and no
+    // stale list of the previous ride's riders left on screen.
+    await page.evaluate(`mwSetSess('all')`);
+    await expect(page.locator('#mw-suggest .mw-sug')).toHaveCount(3); // both sessions' open bookings
+  });
+
+  test('a walk-up row belongs to no session, so it never hides behind the filter', async ({ page }) => {
+    // Someone standing at the desk with no booking is not "on" any ride. Filtering them out
+    // of every session view would lose them while their rider is still waiting.
+    await open(page);
+    await page.evaluate(`S._mwQ='';document.getElementById('mw-name').value='Walk Up';addManagedWl()`);
+    await expect.poll(async () => page.locator('#mw-host .q-card').count()).toBe(1);
+    await page.evaluate(`mwSetSess('2099-02-09')`);
+    await expect(page.locator('#mw-host .q-card')).toContainText('Walk Up');
+  });
+});
