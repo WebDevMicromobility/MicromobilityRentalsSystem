@@ -4977,7 +4977,11 @@ async function giveDeskBike(id){
   // S._wlSess is set by the Waitlist page's session select; landing here straight from the
   // Staff List (which has no selector) must still work — fall back to the first open session.
   const _open=_wlOpenSess();
-  const sess=_open.find(x=>x.id===S._wlSess)||_open[0];
+  // The Staff List has its own session picker; when it is aimed at a ride, a walk-up handed a
+  // bike from there belongs to THAT ride. Falling through to "the first open session" put the
+  // rider on tonight's circuit while staff were working Wednesday's.
+  const _aimed=(S.queueView==='managed'&&S._mwSess&&S._mwSess!=='all')?S._mwSess:S._wlSess;
+  const sess=_open.find(x=>x.id===_aimed)||_open.find(x=>x.id===S._wlSess)||_open[0];
   if(!sess){toast(t('noSessionsAvail'),'warning');return;}
   S._wlSess=sess.id;
   // Same name-match as the Walk-in modal: link a known customer account so it shows in My Rides.
@@ -9484,11 +9488,28 @@ async function saveBookingEdit(){
 }
 // Density preference persists across sessions (operational dashboards best practice).
 function setQueueDensity(d){S.queueDensity=d;try{localStorage.setItem('cq_density',d);}catch(e){}renderStaffQueue();}
+// Hold the scroll position across an in-place rebuild. The one-frame version this replaces
+// restored on the very next frame, which is often BEFORE the new rows have laid out: with the
+// page briefly shorter than it was, the browser clamps the restore and the staffer ends up at
+// the top of a long roster mid-shift. This retries while the page is still too short to hold
+// the old position, for a few frames, then stops rather than fighting a genuinely shorter list.
+function _keepScroll(){
+  const y=window.scrollY;
+  if(y<2)return;
+  let tries=0;
+  const restore=()=>{
+    const max=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);
+    const target=Math.min(y,max);
+    if(Math.abs(window.scrollY-target)>1)window.scrollTo(0,target);
+    if(max<y&&++tries<4)requestAnimationFrame(restore); // content still coming: try again
+  };
+  requestAnimationFrame(restore);
+}
 function renderStaffQueue(_resultsOnly){
   // A background refresh must never wipe a focused search box: destroying the input
   // closes the phone keyboard, and focus() can't reopen it without a user gesture.
   if(!_resultsOnly&&document.activeElement&&document.activeElement.id==='sf-search-input'&&document.getElementById('q-results'))_resultsOnly=true;
-  {const _sy=window.scrollY;requestAnimationFrame(()=>{if(Math.abs(window.scrollY-_sy)>1)window.scrollTo(0,_sy);});} // keep scroll position across the in-place rebuild
+  _keepScroll(); // keep scroll position across the in-place rebuild
   if(!S.dataLoaded){const _el=document.getElementById('tab-queue');if(_el)_el.innerHTML=skeletonList(7);return;}
   if(!isAdmin()&&S.queueView==='sessions')S.queueView='bookings'; // Front Desk has no Sessions view
   const _qvPills=`<div class="filter-row" style="margin-bottom:12px">
@@ -12298,7 +12319,11 @@ function _onScanPayload(raw){
 // bike…"), and remains the tool for Change Bike on active riders and reservations. ──
 function showCheckinModal(id){
   const e=getQueue().find(x=>x.id===id);if(!e)return;
-  if(e.status!=='waiting'){openModal(id);return;} // non-waiting paths keep the classic modal
+  // Waitlisted riders come through here as well. Since Promote was removed, checking in IS how
+  // a rider leaves the waitlist, and bouncing them to the classic bike-picker made the quickest
+  // action at the desk the slowest one — a full-height modal for a rider whose payment and bike
+  // type is all staff need. Everything else (active, done, cancelled) still gets the big modal.
+  if(e.status!=='waiting'&&e.status!=='waitlist'){openModal(id);return;}
   S._ciId=id;S._ciType=resolvedType(e)||'Any';
   S._ciPaid=e.paid?((e.price??DEFAULT_PRICE)===0?'house':e.pay_method==='card'?'card':e.card_amount!=null?'split':'cash'):'pending';
   renderCheckinModal();
@@ -15361,7 +15386,7 @@ function _shareReorderList(){
   try{window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');}catch(e){}
 }
 function renderInventory(){
-  {const _sy=window.scrollY;requestAnimationFrame(()=>{if(Math.abs(window.scrollY-_sy)>1)window.scrollTo(0,_sy);});} // keep scroll position across the in-place rebuild
+  _keepScroll(); // keep scroll position across the in-place rebuild
   const el=document.getElementById('tab-inventory');if(!el)return;
   try{_sanitizeFlavours();}catch(e){}
   const items=[...(S.inventory||[])].sort((a,b)=>(a.category||'').localeCompare(b.category||'')||(a.name||'').localeCompare(b.name||''));
