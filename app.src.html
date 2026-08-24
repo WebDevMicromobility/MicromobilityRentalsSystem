@@ -16846,7 +16846,10 @@ function renderAnalytics(){
   const _waReengage=id=>{const ph=_custPhone(id);if(!ph)return'';
     return`<a class="btn-sm btn-green" style="text-decoration:none" href="https://wa.me/${ph}?text=${encodeURIComponent(t('waMissYouMsg'))}" target="_blank" rel="noopener">WhatsApp</a>`;};
   const _cohorts={};
-  (S.customers||[]).forEach(c=>{const m=(c.created_at||'').slice(0,7);if(!/^\d{4}-\d{2}$/.test(m))return;
+  // String(): created_at is text in the schema and every writer sends an ISO string, but a row
+  // hand-inserted through the dashboard can hold a number — and .slice on one throws, taking
+  // the whole Analytics tab down with it. The sibling sort above already guards this way.
+  (S.customers||[]).forEach(c=>{const m=String(c.created_at||'').slice(0,7);if(!/^\d{4}-\d{2}$/.test(m))return;
     const ent=_cohorts[m]||(_cohorts[m]={month:m,signups:0,rode:0,repeat:0});ent.signups++;
     const rc=custAll[c.id]?custAll[c.id].count:0;if(rc>=1)ent.rode++;if(rc>=2)ent.repeat++;});
   const cohortRows=Object.values(_cohorts).sort((a,b)=>b.month.localeCompare(a.month)).slice(0,6);
