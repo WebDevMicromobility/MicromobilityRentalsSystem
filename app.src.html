@@ -5000,7 +5000,13 @@ async function giveDeskBike(id){
   }
   if(_writeErr(res,'walk-in'))return;
   if(w.pay_method)try{await sb.from('queue_entries').update({pay_method:w.pay_method,card_amount:w.card_amount??null}).eq('id',entry.id);}catch(e){} // tolerant, like togglePayment
-  await sb.from('desk_waitlist').update({status:'done',resolved_at:new Date().toISOString()}).eq('id',id);
+  // Checked, and the local row only follows if it succeeded. Marking it done regardless meant a
+  // refused write (a lapsed staff Auth session is the usual one) showed the rider as served
+  // while the database still had them waiting — so the next refresh put them back on the list
+  // and the booth handed the same person a second bike, with a second booking to match.
+  if(_writeErr(await sb.from('desk_waitlist').update({status:'done',resolved_at:new Date().toISOString()}).eq('id',id),'waitlist')){
+    await loadDataLight();renderStaffQueue();return;
+  }
   w.status='done';
   pushUndo(`${t('undoWl')} · ${w.name}`,async()=>{
     // Only delete the booking while it's still an untouched 'waiting' row: the flow opens the
@@ -14202,7 +14208,7 @@ function showReceipt(id){
   ].join('\n');
   const subject=encodeURIComponent(`MicroMobility: ${t('receiptTitle')} #${e.queueNum} (${shortDate(e.sessionDate)})`);
   const body=encodeURIComponent(lines);
-  const mailtoLink=`mailto:${e.email}?subject=${subject}&body=${body}`;
+  const mailtoLink=`mailto:${encodeURIComponent(e.email||'')}?subject=${subject}&body=${body}`;
   const modal=document.getElementById('receipt-modal');
   modal.style.display='flex';
   modal.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeReceipt()">
@@ -14925,9 +14931,28 @@ async function _bookOutboxFlush(){
   if(_bookBusy||!sb||(typeof navigator!=='undefined'&&navigator.onLine===false))return;
   _bookBusy=true;
   const snap=_bookOutbox();const done=[];const renum={};
+  const _c=S.loggedIn||getSession();
   for(const row of snap){
     try{
-      let res=await sb.from('queue_entries').upsert(row,{ignoreDuplicates:true}); // already landed (a lost response) = done; never overwrite staff changes made since
+      let res;
+      // A booking queued offline lands through customer_create_booking, exactly like an online
+      // one. It used to insert straight into queue_entries — which works only while the anon
+      // "public insert booking" policy exists. The moment that policy is dropped (it is the
+      // last PII hole, and the migration to close it is written), every offline booking would
+      // be refused on flush and retried forever: the rider turns up expecting a bike and the
+      // roster has never heard of them, with nothing on any screen saying so.
+      if(_c&&_c.session_token&&String(row.customer_id||'')===String(_c.id)){
+        const r=await sb.rpc('customer_create_booking',{p_id:_c.id,p_token:_c.session_token,p_entries:[row]});
+        const _m=((r&&r.error&&(r.error.code||''))+' '+((r&&r.error&&r.error.message)||'')).toLowerCase();
+        if(r&&!r.error&&r.data&&r.data.length)res={data:r.data};
+        // The row already landed and we simply never heard the answer: the primary key says so,
+        // and it must count as done or this row jams the queue behind it forever.
+        else if(/23505|duplicate|unique/.test(_m))res={data:[]};
+        // Only a genuinely absent function falls back to the direct insert, same rule as online.
+        else if(_m.includes('pgrst202')||_m.includes('42883')||_m.includes('could not find')||_m.includes('does not exist'))res=null;
+        else res={error:(r&&r.error)||{message:'booking refused'}};
+      }
+      if(!res)res=await sb.from('queue_entries').upsert(row,{ignoreDuplicates:true}); // already landed (a lost response) = done; never overwrite staff changes made since
       // queue_num collides with a booking made on another device while offline: the partial unique
       // index rejects it and it would otherwise retry forever. Take a fresh number and re-upsert
       // (one bump per flush; a further collision resolves on the next flush as data loads).
