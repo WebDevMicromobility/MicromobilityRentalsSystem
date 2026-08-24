@@ -1,48 +1,45 @@
 -- ─────────────────────────────────────────────────────────────────────────────
--- Close the last PII hole: queue_entries stops being world-readable.
+-- Closing the last PII hole on queue_entries, in two stages.
 --
--- `public read using(true)` has been open since the August lockdown, and it is the
--- one remaining place where the anon key shipped in the bundle reads roughly two
--- thousand riders' names, emails and phone numbers. It was not left open by
--- oversight: dropping it broke booking live, because the form did
+-- `public read using(true)` was the one place the anon key shipped in the bundle
+-- could read ~2,700 riders' names, emails and phone numbers. It was not left open
+-- by oversight: dropping it broke booking live in August, because the form did
 -- `.insert(...).select()` and RETURNING applies SELECT policies to the new row.
 --
--- That reason is gone. customer_create_booking() returns the created rows without
--- the caller needing SELECT, both client call sites use it, and non-staff reads go
--- through the PII-free queue_public view.
+-- ── STAGE 1 — APPLIED 2026-08-24, and verified ───────────────────────────────
+-- Reads had already moved: customers get the no-PII queue_public view plus their
+-- own rows through the token-checked my_bookings() RPC, and staff read the table
+-- under is_staff(). Nothing else needs SELECT — supabase-js v2 does not return
+-- rows from an insert unless .select() is chained, so even a stale cached client
+-- does not depend on it.
 --
--- ⚠️ DO NOT APPLY BLIND. Run the checks below first; each one takes a minute, and
--- between them they cover every way this has bitten before.
+--   drop policy if exists "public read" on public.queue_entries;
 --
---   1. Bookings are actually flowing through the RPC, not the direct insert:
---        select count(*) from queue_entries
---         where registered_at::timestamptz > now() - interval '48 hours';
---      then confirm the same window appears in the Postgres logs as
---      customer_create_booking calls rather than INSERTs on the table.
+-- Verified immediately after, impersonating the anon role:
+--   queue_entries → 0 rows        (was ~2,743, with full PII)
+--   queue_public  → 2,743 rows    (no PII; the app keeps working)
 --
---   2. The view really is what customers read, and carries no PII:
---        select * from queue_public limit 1;
+-- ── STAGE 2 — NOT YET APPLIED ────────────────────────────────────────────────
+-- The INSERT policy is deliberately still open. It is not a PII leak: price, paid
+-- and status are all enforced by triggers, and customer_create_booking() is what
+-- new clients use. It matters for one case only — a booking made OFFLINE on a
+-- client older than 2026-08-24, whose outbox still flushes by inserting directly.
+-- Dropping it before those clients have rolled over would refuse that flush
+-- forever: the rider turns up expecting a bike, the roster has never heard of
+-- them, and nothing on any screen says so.
 --
---   3. Every device has had time to pick up the client that calls the RPC. The
---      service worker serves navigations stale-while-revalidate, so a device that
---      has not been opened since the deploy still runs the old code. Wait a day
---      after a deploy, not an hour.
+-- Apply this once the client that flushes through the RPC has been live for a few
+-- days (the service worker serves navigations stale-while-revalidate, so a device
+-- picks it up on its next load):
 --
---   4. Have the rollback ready in another tab (bottom of this file). If booking
---      breaks, restoring takes seconds — the outage in August lasted as long as it
---      took to find the SQL.
+--   drop policy if exists "public insert booking" on public.queue_entries;
 --
--- Then apply, and immediately make one real booking as a signed-out visitor.
--- ─────────────────────────────────────────────────────────────────────────────
-
--- Customers no longer read the table: queue_public (no PII) and the RPCs cover them.
-drop policy if exists "public read" on public.queue_entries;
-
--- Customers no longer insert into it either: customer_create_booking() is SECURITY
--- DEFINER and derives customer_id, paid and price server-side, which is strictly
--- safer than trusting a client insert. Staff insert under their own is_staff() policy.
-drop policy if exists "public insert booking" on public.queue_entries;
-
+-- Then make one real booking as a signed-out visitor, online, to confirm.
+--
 -- ── Rollback, if booking breaks ──────────────────────────────────────────────
 -- create policy "public read" on public.queue_entries for select using (true);
 -- create policy "public insert booking" on public.queue_entries for insert with check (true);
+-- ─────────────────────────────────────────────────────────────────────────────
+
+-- Stage 1, as applied:
+drop policy if exists "public read" on public.queue_entries;

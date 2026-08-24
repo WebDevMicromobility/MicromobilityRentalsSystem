@@ -3,13 +3,23 @@
 These are the items from the enhancement plan that can't be done in the repo.
 Delete each section when done.
 
-## 0. Close the queue_entries PII hole (highest value, ~10 minutes)
-`supabase/migrations/20260820120000_close_queue_entries_public_read.sql` is written and NOT
-applied. It drops the two policies that let the shipped anon key read ~2,000 riders' names,
-emails and phones. The reason they stayed open — booking used `.insert().select()` — is gone:
-`customer_create_booking()` returns the rows and both call sites use it.
-The file carries a four-step pre-flight and its own rollback. Do not apply it blind, and
-apply it a day after a deploy (the service worker means some devices still run older code).
+## 0. queue_entries PII — STAGE 1 DONE (2026-08-24), stage 2 pending
+`public read` is **dropped**. Verified by impersonating the anon role straight after:
+`queue_entries` → 0 rows (was ~2,743 with names, emails and phones), `queue_public` → 2,743
+rows, so the app is unaffected. Reads had already moved to that view plus the token-checked
+`my_bookings()` RPC.
+
+**Stage 2, still open:** `public insert booking` is deliberately left in place. It is not a PII
+leak (price, paid and status are trigger-enforced), and a client older than 2026-08-24 still
+flushes OFFLINE bookings by inserting directly. Once the current client has been live a few
+days, run:
+
+```sql
+drop policy if exists "public insert booking" on public.queue_entries;
+```
+
+then make one real booking as a signed-out visitor. Rollback and full reasoning live in
+`supabase/migrations/20260820120000_close_queue_entries_public_read.sql`.
 
 ## 1. Make CI actually gate deploys (15 min, highest value)
 1. Cloudflare dashboard → My Profile → API Tokens → create token ("Edit Cloudflare Workers" template).
@@ -24,27 +34,33 @@ Cloudflare Pages → Settings → Environment variables: confirm `BREVO_API_KEY`
 get no email. Also confirm `SUPABASE_ANON_KEY` and `DISCORD_WEBHOOK` are set for
 `functions/api/booking-confirm.js` and `functions/api/log-error.js`.
 
-## 2b. Switch on push notifications
-Everything is built and dormant. To activate:
+## 2b. Switch on push notifications — keys generated, dashboard steps left
+A VAPID keypair has been generated in the exact formats this stack needs (raw-point public,
+base64url **PKCS#8** private — what `crypto.subtle.importKey('pkcs8', …)` in
+`functions/api/push-send.js` expects) and round-trip verified. `push_subscriptions` exists in
+production (0 rows, as expected — nobody can subscribe yet).
 
-1. Generate a VAPID keypair (P-256). Any web-push tool does it, e.g.
-   `npx web-push generate-vapid-keys`.
-2. Cloudflare Pages → Settings → Environment variables, add:
-   - `VAPID_PUBLIC_KEY` — the public key (base64url). Not a secret.
-   - `VAPID_PRIVATE_KEY` — the private key as **base64url PKCS#8**, which is what
-     `crypto.subtle.importKey('pkcs8', …)` in `functions/api/push-send.js` expects.
-   - `VAPID_SUBJECT` — `mailto:info@micromobility.sa` (defaulted if unset).
-   - `SUPABASE_SERVICE_KEY` — service-role key; `push_subscriptions` is not readable
-     with the anon key.
-3. Set the same public key as `VAPID_PUBLIC_KEY` in `app.src.html` (one `const`, near
-   `pushSupported()`), then `npm run build:html`. Until it is set the toggle stays
-   hidden and nothing subscribes.
-4. Run `supabase/migrations/20260816130000_push_subscriptions.sql`.
+The private key is NOT in the repo. It is in this session's scratchpad, readable only by you:
+`vapid-keys.json` under `/private/tmp/claude-501/-Users-malik-micromobilityrentals/…/scratchpad/`.
+Copy it somewhere durable (a password manager) before that directory is cleaned up; if it is
+lost, generating a fresh pair is cheap — it only invalidates existing subscriptions, and there
+are none.
 
-Riders opt in from My Account. Manual and automatic waitlist promotions both notify the
-booking owner. The encryption is checked against the RFC 8291 test vector in
-`tests/push.spec.ts`, but nothing has been sent through a live push service yet — send one
-real notification to a test account before relying on it.
+Public key (not a secret, it ships in the bundle):
+`BCWHRc5qLL-3AMO2DDbTo2ftJxKDOBhleOaNW0fzaPfUV4TW4CKTlzWYw1mv_2kQxl10qqR6xTE6ak06DQqNgBQ`
+
+1. Cloudflare Pages → Settings → Environment variables:
+   - `VAPID_PUBLIC_KEY` — the public key above
+   - `VAPID_PRIVATE_KEY` — from the scratchpad file
+   - `VAPID_SUBJECT` — `mailto:info@micromobility.sa`
+   - `SUPABASE_SERVICE_KEY` — service-role key (`push_subscriptions` is not anon-readable)
+2. Then ask me to set `VAPID_PUBLIC_KEY` in `app.src.html` and rebuild — one line. It is left
+   EMPTY on purpose until the server half is in place: setting it first shows riders a
+   subscribe toggle whose notifications would silently never arrive, which is worse than no
+   toggle at all.
+3. Send one real notification to a test account before relying on it. The encryption is checked
+   against the RFC 8291 vector in `tests/push.spec.ts`, but nothing has gone through a live
+   push service yet.
 
 ## 3. Custom domain
 Attach the production domain (per the platform plan: micromobility.sa) to the Pages
