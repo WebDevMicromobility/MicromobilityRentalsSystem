@@ -9953,7 +9953,11 @@ function renderQRow(e){
   
   let rows,emptyRow='';
   let mobileCards='';
-  const _qShown=filtered.slice(0,S.sfLimit||150);
+  // A chosen session is bounded — the busiest ride the booth has run is a little over 200
+  // riders — so it lists in full. Stopping at 150 hid real people standing at the desk, and
+  // nothing on the screen gave the staffer a reason to suspect a roster was incomplete.
+  // The cap stays on the ALL-sessions view, which spans every ride ever run.
+  const _qShown=filtered.slice(0,S.sfSession!=='all'?Infinity:(S.sfLimit||150));
   if(S.sfSession==='all'){
     const orderedSessions=[...allSessions()].sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
     rows=orderedSessions.map(sess=>{
