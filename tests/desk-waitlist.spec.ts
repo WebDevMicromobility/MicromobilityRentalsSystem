@@ -1,156 +1,136 @@
 import { test, expect } from '@playwright/test';
 import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
 
-// Desk waitlist: a third view inside the Bookings tab that mirrors the queue page —
-// section header, stat cards, filter bar (session + search), desktop table + mobile cards,
-// and a Walk-in-style add modal. "Bike given" books the rider into the selected session
-// as a REAL queue entry. Rows render twice (table + cards, one hidden by CSS), so
-// assertions filter to the visible layer.
-test('waitlist view mirrors the queue page, adds via modal, and books resolved riders into the queue', async ({ page }) => {
-  const desk_waitlist = [
-    { id: 'w1', name: 'Waiting One', phone: '0511111111', bike_type: 'Road', status: 'waiting', author: null, created_at: '2099-01-01T10:00:00Z', resolved_at: null },
-    { id: 'w2', name: 'Waiting Two', phone: '0522222222', bike_type: 'Any', status: 'waiting', author: null, created_at: '2099-01-01T10:05:00Z', resolved_at: null },
-    { id: 'w3', name: 'Already Served', phone: '0533333333', bike_type: 'Any', status: 'done', author: null, created_at: '2099-01-01T09:00:00Z', resolved_at: '2099-01-01T09:30:00Z' },
-  ];
-  const bikes = [{ id: 'b1', name: 'R-01', type: 'Road', status: 'available', colors: [] }];
-  const sessions = [{ id: 's0', day: 'Friday', session_date: '2099-02-10', capacity: 12, status: 'open', created_at: 1 },
-    { id: 's1', day: 'Saturday', session_date: '2099-02-17', capacity: 12, status: 'open', created_at: 2 }];
-  // Queue bookings surface on the waitlist too — but ONLY while unpaid and not checked in.
-  const qb = (id: string, qn: number, name: string, status: string, paid: boolean): Record<string, unknown> => ({
-    id, session_id: 's0', session_day: 'Friday', session_date: '2099-02-10', queue_num: qn, name,
-    phone: '05555555' + qn, customer_id: null, type_preference: 'Road', status, paid, price: 30, registered_at: '2099-01-01T09:00:00Z',
-  });
-  const queue_entries = [qb('qb1', 51, 'Owes Money', 'waiting', false), qb('qb2', 52, 'Fully Settled', 'waiting', true), qb('qb3', 53, 'On A Bike', 'active', false),
-    { ...qb('qb4', 91, 'On The List', 'waitlist', false), type_preference: 'Mountain', waitlist_num: 3 },
-    { ...qb('qb5', 92, 'Second List', 'waitlist', false), type_preference: 'Mountain', waitlist_num: 4 },
-    { ...qb('qb6', 21, 'Other Session Rider', 'waitlist', false), session_id: 's1', session_date: '2099-02-17', waitlist_num: 1 },
-    // A premium-tier request is fulfilled with its base type: the free Road bike must light its chip.
-    { ...qb('qb7', 93, 'Carbon Freak', 'waitlist', false), type_preference: 'Road Carbon', waitlist_num: 5 }];
-  // A Staff List row LINKED to a booking that already left the waitlist (promoted elsewhere):
-  // it must never offer the walk-up Check In (that would book the same rider twice).
-  desk_waitlist.push({ id: 'm1', name: 'Fully Settled', phone: '0566666666', bike_type: 'Road', status: 'waiting', author: null, created_at: '2099-01-01T11:00:00Z', resolved_at: null, kind: 'managed', sort_order: 1, booking_id: 'qb2' } as never);
-  await stubSupabase(page, { desk_waitlist, bikes, sessions, queue_entries });
+// There used to be two screens for one question. A "Waitlist" page held walk-ups — people at
+// the desk with no booking — and a separate "Staff List" held riders staff had hand-picked and
+// ordered. Both answered "who is waiting, and who is next". They are one section now, called
+// Waitlist, and these pin what that merge must not lose: a walk-up row cannot become invisible
+// while its rider stands at the desk, the multi-rider add still works, handing over a bike
+// still books a real queue entry, and a waitlisted booking's W position is still editable
+// because auto-promotion picks the next rider by that order.
+
+const sessions = [
+  { id: 's0', day: 'Friday', session_date: '2099-02-10', capacity: 12, status: 'open', created_at: 1 },
+  { id: 's1', day: 'Saturday', session_date: '2099-02-17', capacity: 12, status: 'open', created_at: 2 },
+];
+const bikes = [{ id: 'b1', name: 'R-01', type: 'Road', status: 'available', colors: [] }];
+const qb = (id: string, qn: number, name: string, status: string, extra: Record<string, unknown> = {}) => ({
+  id, session_id: 's0', session_day: 'Friday', session_date: '2099-02-10', queue_num: qn, name,
+  phone: '05555555' + qn, customer_id: null, type_preference: 'Road', status, paid: false,
+  price: 30, registered_at: '2099-01-01T09:00:00Z', ...extra,
+});
+const walkup = (id: string, name: string, extra: Record<string, unknown> = {}) => ({
+  id, name, phone: '0511111111', bike_type: 'Road', status: 'waiting', author: null,
+  created_at: '2099-01-01T10:00:00Z', resolved_at: null, ...extra,
+});
+
+async function openWaitlist(page: import('@playwright/test').Page, fixtures: Record<string, unknown>) {
+  await stubSupabase(page, { sessions, bikes, queue_entries: [], ...fixtures });
   await unlockStaff(page);
   await page.goto('/');
   await waitForSb(page);
-  await page.evaluate(() => {
-    // @ts-expect-error app globals
-    setStaffTab('waitlist'); // deep-link form: maps to the Bookings tab with the waitlist view active
+  await page.waitForFunction(`S.dataLoaded===true`);
+  await page.evaluate(`setStaffTab('queue');S.queueView='managed';renderStaffQueue()`);
+}
+
+test('a walk-up and a hand-picked rider now share one list', async ({ page }) => {
+  await openWaitlist(page, {
+    desk_waitlist: [
+      walkup('w1', 'Walk Up'),                                        // no booking, no kind
+      walkup('m1', 'Picked Rider', { kind: 'managed', sort_order: 1 }),
+      walkup('done1', 'Already Served', { status: 'done', resolved_at: '2099-01-01T09:30:00Z' }),
+    ],
   });
+  const host = page.locator('#mw-host');
+  await expect(host).toContainText('Walk Up');        // would have been invisible after the merge
+  await expect(host).toContainText('Picked Rider');
+  await expect(host).not.toContainText('Already Served'); // resolved rows are history, not a queue
+});
 
-  const panel = page.locator('#tab-queue');
-  const rowFor = (name: string) => panel.locator('tr, .q-card').filter({ hasText: name }).filter({ visible: true });
-  await expect(rowFor('Waiting One')).toHaveCount(1);
-  await expect(rowFor('Waiting Two')).toHaveCount(1);
-  // Confirmed/checked-in queue bookings never show here — but WAITLIST-status bookings do
-  // (the #91 case), and they carry the same controls a waiting booking does: Promote is gone,
-  // a waitlisted rider is checked in like anybody else.
-  await expect(rowFor('Owes Money')).toHaveCount(0);
-  await expect(rowFor('Fully Settled')).toHaveCount(0);
-  await expect(rowFor('On A Bike')).toHaveCount(0);
-  await expect(rowFor('On The List')).toHaveCount(1);
-  await expect(rowFor('On The List').getByRole('button', { name: /Promote/ })).toHaveCount(0);
-  await expect(rowFor('On The List').getByRole('button', { name: /Check In/i })).toHaveCount(1);
-  await expect(rowFor('On The List').getByText('#91')).toBeVisible();
-  await expect(rowFor('On The List').locator('input[type="number"]')).toHaveValue('3'); // staff-only W serial, directly editable
+test('the section is called Waitlist, and the old page is gone', async ({ page }) => {
+  await openWaitlist(page, { desk_waitlist: [walkup('w1', 'Walk Up')] });
+  const pills = await page.evaluate(`Array.from(document.querySelectorAll('#tab-queue .filter-pill')).map(b=>b.textContent.trim())`) as string[];
+  expect(pills).toContain('Waitlist');
+  expect(pills.filter((p) => p === 'Waitlist')).toHaveLength(1); // not two views with one name
+  expect(pills).not.toContain('Staff List');
+  await expect(page.locator('#tab-queue .page-title')).toContainText('Waitlist');
+});
 
-  // Fast reordering: staff REWRITE the W number directly; the row jumps and the session
-  // renumbers 1..n (drag also works — no arrow buttons).
-  const reorders: { url: string; body: Record<string, unknown> }[] = [];
-  page.on('request', (r) => {
-    if (r.method() === 'PATCH' && r.url().includes('/rest/v1/queue_entries')) reorders.push({ url: r.url(), body: r.postDataJSON() });
-  });
-  const wInput = rowFor('On The List').locator('input[type="number"]');
-  await wInput.fill('2');
-  await wInput.press('Enter');
-  // (a browser may fire the change event twice; duplicate identical patches are harmless)
-  await expect.poll(() => reorders.some((p) => p.url.includes('id=eq.qb4') && p.body.waitlist_num === 2)
-    && reorders.some((p) => p.url.includes('id=eq.qb5') && p.body.waitlist_num === 1)).toBe(true);
+test('a device still pointing at the removed view lands on the list, not a blank tab', async ({ page }) => {
+  await openWaitlist(page, { desk_waitlist: [walkup('w1', 'Walk Up')] });
+  await page.evaluate(`S.queueView='waitlist';renderStaffQueue()`);
+  expect(await page.evaluate('S.queueView')).toBe('managed');
+  await expect(page.locator('#mw-host')).toContainText('Walk Up');
+});
 
-  // A waitlisted booking can be sent to the Staff List: a linked managed row is created.
-  const mwLink: Record<string, unknown>[] = [];
+test('the multi-rider add still puts a party on the list', async ({ page }) => {
+  await openWaitlist(page, { desk_waitlist: [] });
+  const rows: Record<string, unknown>[] = [];
   page.on('request', (r) => {
     if (r.method() === 'POST' && r.url().includes('/rest/v1/desk_waitlist')) {
-      const sent = r.postDataJSON();
-      mwLink.push(...(Array.isArray(sent) ? sent : [sent]));
+      const b = r.postDataJSON();
+      (Array.isArray(b) ? b : [b]).forEach((x: Record<string, unknown>) => rows.push(x));
     }
   });
-  await rowFor('Second List').getByRole('button', { name: 'To staff list' }).click();
-  await expect.poll(() => mwLink.some((r) => r.kind === 'managed' && r.booking_id === 'qb5')).toBe(true);
-  // Resolved walk-ups appear in the history section on the same page, not the waiting list.
-  await expect(rowFor('Already Served')).toHaveCount(1);
-  await expect(rowFor('Already Served').getByText(/Bike given/)).toBeVisible();
-  await expect(rowFor('Already Served').getByRole('button', { name: /Remove/ })).toHaveCount(0); // history rows have no actions
-  await expect(panel.getByText('1 available now').filter({ visible: true })).toHaveCount(3); // the free Road bike satisfies the Road walk-up, the Any walk-up AND the Road Carbon booking (premium tier -> Road)
-  await expect(panel.locator('#wl-sess')).toHaveValue('s0'); // choose-session select in the filter bar
-  // The selector FILTERS per session — no cross-session consolidation.
-  await expect(rowFor('Other Session Rider')).toHaveCount(0);
-  await panel.locator('#wl-sess').selectOption('s1');
-  await expect(rowFor('Other Session Rider')).toHaveCount(1);
-  await expect(rowFor('On The List')).toHaveCount(0);
-  await panel.locator('#wl-sess').selectOption('s0');
-  await expect(rowFor('On The List')).toHaveCount(1);
+  await page.locator('#tab-queue').getByRole('button', { name: /Add to waitlist/i }).click();
+  await page.locator('#wl-name').fill('Family Head');
+  await page.locator('#wl-phone').fill('0551234567');   // required: a walk-up needs a contact
+  await page.evaluate(`_wlxAdd()`);                     // re-renders, keeping what was typed
+  await page.locator('#wlx-name-0').fill('Second Rider');
+  await page.evaluate(`addDeskWaitlist()`);
+  await expect.poll(() => rows.length).toBe(2);
+  await expect(page.locator('#mw-host')).toContainText('Family Head');
+});
 
-  // Add a party of two through the modal (writes are echoed as success by the stub):
-  // the second rider row is left unnamed and waits as "New Walkup 2".
-  await panel.getByRole('button', { name: /Add to waitlist/ }).click();
-  const modal = page.locator('#wl-add-modal');
-  await modal.locator('#wl-name').fill('New Walkup');
-  await modal.locator('#wl-phone').fill('0544444444');
-  await modal.getByRole('button', { name: 'Hybrid' }).click();
-  await modal.getByRole('button', { name: /\+ Add rider/ }).click();
-  await modal.getByRole('button', { name: /Add to waitlist \(2\)/ }).click();
-  await expect(modal).toBeHidden();
-  await expect(rowFor('New Walkup 2')).toHaveCount(1);
-  await expect(rowFor('New Walkup')).toHaveCount(2); // both rows carry the shared name prefix
-  await expect(rowFor('New Walkup 2').locator('a[href^="https://wa.me/"]')).toHaveCount(1); // WhatsApp + call per rider
-  await expect(rowFor('New Walkup 2').locator('a[href^="tel:"]')).toHaveCount(1);
-
-  // Payment on the waitlist row: same pay-toggle + menu as a queue booking.
-  await rowFor('Waiting One').getByRole('button', { name: /Pending/ }).click();
-  await page.locator('.pay-menu-popup').getByRole('button', { name: /Paid · Cash/ }).click();
-  await expect(rowFor('Waiting One').getByRole('button', { name: /Paid/ })).toBeVisible();
-
-  // "Check In" books the rider into the selected session, payment state carried over:
-  // capture the queue_entries insert.
-  const posts: Record<string, unknown>[] = [];
+test('handing a rider a bike books a real queue entry and clears them off', async ({ page }) => {
+  await openWaitlist(page, { desk_waitlist: [walkup('w1', 'Walk Up')] });
+  const inserts: Record<string, unknown>[] = [];
   page.on('request', (r) => {
     if (r.method() === 'POST' && r.url().includes('/rest/v1/queue_entries')) {
-      const sent = r.postDataJSON();
-      posts.push(Array.isArray(sent) ? sent[0] : sent);
+      const b = r.postDataJSON();
+      (Array.isArray(b) ? b : [b]).forEach((x: Record<string, unknown>) => inserts.push(x));
     }
   });
-  await rowFor('Waiting One').getByRole('button', { name: /Check In/i }).click();
-  await expect(page.getByText('Bike given to Waiting One')).toBeVisible(); // toast
-  expect(posts).toHaveLength(1);
-  expect(posts[0].name).toBe('Waiting One');
-  expect(posts[0].session_id).toBe('s0');
-  expect(posts[0].status).toBe('waiting');
-  expect(posts[0].paid).toBe(true); // the cash payment taken while waiting
+  const patches: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'PATCH' && r.url().includes('desk_waitlist')) patches.push(r.postData() || '');
+  });
+  await page.evaluate(`giveDeskBike('w1')`);
+  await expect.poll(() => inserts.length).toBe(1);
+  expect(inserts[0].name).toBe('Walk Up');
+  expect(inserts[0].session_id).toBe('s0');
+  // asserted on the WRITE: the stub answers every refetch from the fixture, so local state
+  // reverts and would prove nothing either way
+  await expect.poll(() => patches.some((b) => /"status":"done"/.test(b))).toBe(true);
+});
 
-  // Staff Managed Waitlist: its OWN view via the Staff List pill; quick inline add lands
-  // there with kind 'managed' and an editable position number (no arrows).
-  await panel.getByRole('button', { name: 'Staff List', exact: true }).click();
-  await panel.locator('#mw-name').fill('Vip One');
-  await panel.getByRole('button', { name: /\+ Add$/ }).click();
-  await expect.poll(() => mwLink.some((r) => r.kind === 'managed' && r.name === 'Vip One')).toBe(true);
-  await expect(rowFor('Vip One')).toHaveCount(1);
-  await expect(rowFor('Vip One').locator('input[type="number"]')).toHaveCount(1); // type-a-number ordering
-  // A row linked to a LIVE booking carries the roster's own controls, so staff can work the
-  // booking without leaving the list. The Check In here is that BOOKING's check-in modal — not
-  // the walk-up one, which would insert a second booking for the same rider.
-  await expect(rowFor('Fully Settled')).toHaveCount(1);
-  await expect(rowFor('Fully Settled').getByRole('button', { name: /Check In/i })).toHaveCount(1);
-  await expect(rowFor('Fully Settled').getByRole('button', { name: /Promote/ })).toHaveCount(0); // Promote is gone everywhere
-  await expect(rowFor('Fully Settled').getByRole('button', { name: /Remove/ })).toHaveCount(1); // takes it off the LIST, not the booking
-  // ...proven by what it calls: the booking's check-in, never giveDeskBike (a fresh walk-up row)
-  expect(await rowFor('Fully Settled').getByRole('button', { name: /Check In/i }).getAttribute('onclick'))
-    .toContain("showCheckinModal('qb2')");
-  await panel.getByRole('button', { name: 'Waitlist', exact: true }).click(); // back for the remaining checks
+test("a waitlisted booking's position is still editable, since promotion follows it", async ({ page }) => {
+  await openWaitlist(page, {
+    // reordering needs somebody to reorder against: three waitlisted riders, W1..W3
+    queue_entries: [
+      qb('qb2', 89, 'First Waiting', 'waitlist', { waitlist_num: 1 }),
+      qb('qb3', 90, 'Second Waiting', 'waitlist', { waitlist_num: 2 }),
+      qb('qb4', 91, 'On The List', 'waitlist', { waitlist_num: 3 }),
+    ],
+    desk_waitlist: [walkup('m1', 'On The List', { kind: 'managed', sort_order: 1, booking_id: 'qb4' })],
+  });
+  const box = page.locator('#mw-host input[aria-label="W"]');
+  await expect(box).toHaveValue('3');
+  const patches: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'PATCH' && r.url().includes('queue_entries')) patches.push(r.postData() || '');
+  });
+  await box.fill('1');
+  await box.blur();
+  await expect.poll(() => patches.some((b) => /"waitlist_num":1/.test(b))).toBe(true);
+});
 
-  // Remove takes a rider off the waiting list (into history) without booking anything.
-  await rowFor('Waiting Two').getByRole('button', { name: /Remove/ }).click();
-  await expect(rowFor('Waiting Two').filter({ hasText: 'Removed' })).toHaveCount(1); // now a history row
-  await expect(rowFor('Waiting Two').getByRole('button', { name: /Remove/ })).toHaveCount(0);
-  expect(posts).toHaveLength(1); // still just the one booking
+test('a parked booking still carries the roster controls', async ({ page }) => {
+  await openWaitlist(page, {
+    queue_entries: [qb('qb2', 52, 'Fully Settled', 'waiting', { paid: true })],
+    desk_waitlist: [walkup('m1', 'Fully Settled', { kind: 'managed', sort_order: 1, booking_id: 'qb2' })],
+  });
+  const html = await page.evaluate(`document.getElementById('mw-host').innerHTML`) as string;
+  expect(html).toContain(`showCheckinModal('qb2')`);   // the booking's own check-in
+  expect(html).not.toContain(`giveDeskBike('m1')`);    // never the walk-up one: it would book them twice
 });
