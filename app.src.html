@@ -2311,6 +2311,20 @@ function allSessions(){
   return S.sessions.map(s=>({...s,display:shortDate(s.session_date||s.id)}));
 }
 function openSessions(){return allSessions().filter(s=>s.status==='open');}
+// Does this booking hold one of the session's places?
+//
+// A place is taken the moment it is booked and is given back only when the booking is
+// CANCELLED. Checking a rider in does not give it back; finishing the ride does not; a
+// no-show does not either — the rider took a place and did not turn up, which is a loss, not
+// a vacancy. Any other rule silently lets a session past the number staff put in: as riders
+// checked in and finished, places quietly reappeared and the waitlist kept letting people
+// through, so a 40-bike evening served 50 riders and the waitlist "started late".
+//
+// Own-bike riders are outside it entirely: places allocate Micromobility bikes, and a rider
+// who brought their own takes none.
+function _holdsSpot(e){
+  return !!e&&e.status!=='cancelled'&&e.status!=='removed'&&!_isOwnBike(e);
+}
 function spotsLeft(sid){
   const sess=S.sessions.find(s=>s.id===sid);
   // Community events have a hard staff-set spot cap; a reservation (even pending approval)
@@ -2319,13 +2333,13 @@ function spotsLeft(sid){
     const cap=(sess&&sess.spots)||(sess&&sess.capacity)||12;
     // Own-bike riders don't hold a spot: the cap allocates Micromobility bikes only,
     // so staff can seat any number of bike owners on top of a "full" allocation.
-    return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&['waiting','active','done'].includes(e.status)&&!_isOwnBike(e)).length);
+    return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&_holdsSpot(e)).length);
   }
   const cap=(sess&&sess.capacity)||12;
   // Own-bike riders never hold a seat on ANY ride, seat-based ones included: the count
   // allocates Micromobility bikes, and a rider who brought their own takes none. ('Own' is
   // only ever offered on a community ride, so this changes nothing at the circuit.)
-  return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed'&&!_isOwnBike(e)).length);
+  return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&_holdsSpot(e)).length);
 }
 function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid&&e.status!=='cancelled'&&e.status!=='removed').map(e=>e.queueNum||0);return nums.length?nums.reduce((a,b)=>Math.max(a,b),0)+1:1;} // cancelled/removed numbers are recycled (the partial unique index exempts those rows); noshow numbers stay reserved because the rider can come back
 // Staff-only waitlist serial: per-session, monotonic over ALL rows (promoted rows keep
@@ -8004,7 +8018,7 @@ function renderSessions(){
     ?[...sessList].sort((a,b)=>new Date(b.session_date||b.id)-new Date(a.session_date||a.id)).slice(0,SESS_LIMIT)
     :sessList;
   const rows=sessList.length?displaySessions.map(s=>{
-    const booked=(_bySession.get(s.id)||[]).filter(e=>e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed'&&!(_isCommunity(s)&&_isOwnBike(e))).length;
+    const booked=(_bySession.get(s.id)||[]).filter(e=>e.status!=='cancelled'&&e.status!=='removed'&&!(_isCommunity(s)&&_isOwnBike(e))).length;
     const cap=_isApprovalRide(s)?(s.spots||s.capacity||12):(s.capacity||12);
     const left=Math.max(0,cap-booked);
     const isOpen=s.status==='open';
@@ -8049,7 +8063,7 @@ function renderSessions(){
 
   // ── Two-pane session browser: list (left) + detail (right) on iPad/desktop; master-detail on phone ──
   const _sessD=(s)=>{
-    const booked=(_bySession.get(s.id)||[]).filter(e=>e.status!=='noshow'&&e.status!=='cancelled'&&e.status!=='removed'&&!(_isCommunity(s)&&_isOwnBike(e))).length;
+    const booked=(_bySession.get(s.id)||[]).filter(e=>e.status!=='cancelled'&&e.status!=='removed'&&!(_isCommunity(s)&&_isOwnBike(e))).length;
     const cap=_isApprovalRide(s)?(s.spots||s.capacity||12):(s.capacity||12);const left=Math.max(0,cap-booked);
     const slots=parseSlots(s.bike_slots);const fleetInfo=slots?slotsLabel(slots):'';
     let badge,actions;
@@ -10685,9 +10699,14 @@ async function staffCancelEntry(id){
         const savedQNum=entry.queueNum;
         await sb.from('queue_entries').update({status:'cancelled'}).eq('id',id);
         await _shiftDownAfter(entry.sessionId,savedQNum); // close the number gap
+        // A cancellation is the ONE thing that frees a place, so it is the one thing that
+        // promotes: the place goes to whoever has been waiting longest, rather than sitting
+        // empty while a rider who wanted it stays on the waitlist.
+        const _promoted=await _autoPromoteOldestWaitlist(entry.sessionId);
         await loadData();
         await _restockAddonsOnExit(entry);
-        toast(`#${savedQNum} — ${t('toastBookingCancelled')}`);
+        toast(_promoted?`#${savedQNum} — ${t('toastBookingCancelled')} · ${t('toastPromoted')}`:`#${savedQNum} — ${t('toastBookingCancelled')}`);
+        if(_promoted&&_promoted.phone)_promoNudge(_promoted);
         pushUndo(`${t('undoStaffCancel')} #${savedQNum} ${entry.name}`,async()=>{
           const _u=await sb.from('queue_entries').update({status:'waiting',queue_num:_restoreNum(entry.sessionId,savedQNum,id)}).eq('id',id);
           if(_writeErr(_u,'undo cancel')){await loadData();renderStaffQueue();return;} // failed restore must not consume stock or repaint as restored
@@ -10700,8 +10719,10 @@ async function staffCancelEntry(id){
         bikeIds.forEach(bid=>calls.push(sb.from('bikes').update({status:'available'}).eq('id',bid)));
         await Promise.all(calls);
         await _shiftDownAfter(entry.sessionId,entry.queueNum); // close the number gap
+        const _promoted=await _autoPromoteOldestWaitlist(entry.sessionId); // the freed place goes to the next in line
         await loadData();
         await _restockAddonsOnExit(entry);
+        if(_promoted&&_promoted.phone)_promoNudge(_promoted);
         try{localStorage.removeItem('cq_ct_'+id);}catch(e){}
         toast(`#${entry.queueNum} — ${t('toastBookingCancelled')}`);
         pushUndo(`${t('undoStaffCancel')} #${entry.queueNum} ${entry.name}`,async()=>{
@@ -11087,11 +11108,12 @@ async function doNoShow(id){
   // Everything below (auto-promote, restock) assumes the slot really freed — bail if the write failed.
   const _ns=await sb.from('queue_entries').update({status:'noshow'}).eq('id',id);
   if(_writeErr(_ns,'no-show')){await loadDataLight();renderStaffQueue();return;}
-  const _promoted=await _autoPromoteOldestWaitlist(entry.sessionId);
+  // No auto-promotion here any more. A no-show keeps its place: the rider booked it and did
+  // not come, and handing it to the next person would put the session over the number staff
+  // set. Only a cancellation gives a place back, and that path promotes.
   await loadDataLight(); // queue-only status change: slim re-sync (no photo refetch)
   await _restockAddonsOnExit(entry);
-  toast(_promoted?`${t('toastNoShow')} · ${t('toastPromoted')}`:t('toastNoShow'));
-  if(_promoted&&_promoted.phone)_promoNudge(_promoted);
+  toast(t('toastNoShow'));
   S._flashId=id;S._flashColor='orange';setTimeout(()=>{S._flashId=null;},800);
   pushUndo(`${t('undoNoShow')} #${savedQNum} ${entry.name}`,async()=>{
     const _u=await sb.from('queue_entries').update({status:'waiting',queue_num:_restoreNum(entry.sessionId,savedQNum,id)}).eq('id',id);
