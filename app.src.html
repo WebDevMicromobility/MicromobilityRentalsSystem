@@ -4210,7 +4210,28 @@ function renderNotes(){
 // with walk-ups living on a separate Waitlist page — two screens for one question. The page is
 // gone, so a walk-up row must appear HERE or it would be invisible while its rider stands at
 // the desk. Hand-ordered rows sort by their position; the rest fall in behind by arrival.
-function _wlManaged(){return(S.deskWaitlist||[]).filter(w=>w.status==='waiting').sort((a,b)=>((a.sort_order??9e9)-(b.sort_order??9e9))||(new Date(a.created_at||0)-new Date(b.created_at||0)));}
+// A rider the capacity rule waitlisted on its own has a booking and a W number but NO desk
+// row — so the page named Waitlist had never heard of them, while the Bookings view showed
+// them all along. They are folded in here as rows the renderer already knows how to draw:
+// a row carrying a booking_id gets that booking's own controls. A booking staff ALSO parked
+// by hand keeps its real row and is not doubled.
+function _wlVirtualRows(){
+  const parked=new Set((S.deskWaitlist||[]).filter(w=>w.status==='waiting'&&w.booking_id).map(w=>w.booking_id));
+  return getQueue().filter(e=>e.status==='waitlist'&&!parked.has(e.id)).map(e=>({
+    id:'wlb:'+e.id,booking_id:e.id,name:e.name,phone:e.phone||'',bike_type:resolvedType(e),
+    status:'waiting',kind:'managed',sort_order:null,created_at:e.registeredAt||'',_virtual:true
+  }));
+}
+// Hand-ordered rows lead (staff put them there deliberately); the rest fall in by W number,
+// which is the order promotion actually takes them in, and by arrival after that.
+function _wlManaged(){
+  const rows=[...(S.deskWaitlist||[]).filter(w=>w.status==='waiting'),..._wlVirtualRows()];
+  const wl=new Map(getQueue().filter(e=>e.status==='waitlist').map(e=>[e.id,e.waitlistNum||9e9]));
+  const wnum=w=>(w.booking_id&&wl.has(w.booking_id))?wl.get(w.booking_id):9e9;
+  return rows.sort((a,b)=>((a.sort_order??9e9)-(b.sort_order??9e9))||(wnum(a)-wnum(b))||(new Date(a.created_at||0)-new Date(b.created_at||0)));
+}
+/** A list row by id, the folded-in ones included — they are not in S.deskWaitlist. */
+function _wlRowById(id){return _wlManaged().find(x=>x.id===id)||null;}
 async function addManagedWl(){
   if(S._mwBusy)return;S._mwBusy=true;try{
   const nameEl=document.getElementById('mw-name'),phEl=document.getElementById('mw-phone');
@@ -4229,7 +4250,9 @@ async function addManagedWl(){
 }
 async function _mwApply(order){
   const calls=[];
-  order.forEach((w,i)=>{const n=i+1;if(w.sort_order!==n){w.sort_order=n;calls.push(sb.from('desk_waitlist').update({sort_order:n}).eq('id',w.id));}});
+  // Numbering runs over the rows that really exist in desk_waitlist. Folded-in bookings
+  // carry no row to write, and keep their place by W number rather than by sort_order.
+  (order||[]).filter(w=>!w._virtual).forEach((w,i)=>{const n=i+1;if(w.sort_order!==n){w.sort_order=n;calls.push(sb.from('desk_waitlist').update({sort_order:n}).eq('id',w.id));}});
   renderStaffQueue(); // optimistic (routes to whichever view is on screen)
   if(calls.length){
     const res=await Promise.all(calls);
@@ -4562,7 +4585,12 @@ async function mwPartyPaid(rowId){
 }
 /** Take a whole party off the list in one go — the mirror of adding it in one go. */
 async function mwRemoveParty(rowId){
-  const g=_mwGroups().find(x=>x.some(w=>w.id===rowId));if(!g)return;
+  const _g=_mwGroups().find(x=>x.some(w=>w.id===rowId));if(!_g)return;
+  // Only rows that really sit in desk_waitlist can be taken off the list. A folded-in
+  // booking is on it because its status says waitlist, and that is the booking's business:
+  // it leaves when it is checked in or cancelled, both of which are on the row already.
+  const g=_g.filter(w=>!w._virtual);
+  if(!g.length)return;
   if(g.length===1)return resolveDeskWaitlist(g[0].id,'removed');
   confirmDialog({
     title:t('wlRemoveBtn'),
@@ -4596,7 +4624,7 @@ function _mwTypeCell(w,bk){
 }
 /** Set the bike type a parked rider is waiting for. */
 async function mwSetType(rowId,ty){
-  const w=(S.deskWaitlist||[]).find(x=>x.id===rowId);if(!w)return;
+  const w=_wlRowById(rowId);if(!w)return;
   if(!CUST_TYPES.includes(ty))return;
   const bk=w.booking_id?getQueue().find(x=>x.id===w.booking_id):null;
   if(bk){
@@ -4661,7 +4689,7 @@ function renderManagedWl(){
             :`<button class="btn-sm btn-green" onclick="giveDeskBike('${esc(w.id)}')">${t('checkInBtn')}</button>`;
           return`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap${_party?';padding-top:7px':''}">
             <div style="display:flex;align-items:center;gap:9px;min-width:0;flex-wrap:wrap">
-              ${_party?'':_posBox(w.id)}
+              ${(_party||w._virtual)?'':_posBox(w.id)}
               <span style="font-weight:800;font-size:13.5px">${esc(w.name)}</span>
               ${bk?`<span style="font-size:10px;font-weight:900;color:var(--orange);border:1px solid rgba(var(--warn-rgb),.4);border-radius:2px;padding:1px 7px;white-space:nowrap">#${bk.queueNum}${bk.waitlistNum?` \u00b7 W${bk.waitlistNum}`:''}</span>`:''}
               ${(bk&&bk.status==='waitlist'&&bk.waitlistNum)?`<input type="number" min="1" value="${bk.waitlistNum}" aria-label="W" onclick="event.stopPropagation()" onchange="wlSetPos('${esc(bk.id)}',this.value)" onkeydown="if(event.key==='Enter')this.blur()" style="width:46px;padding:4px 2px;text-align:center;font-weight:900;font-size:12px;background:var(--s3);border:1px solid rgba(var(--warn-rgb),.4);border-radius:3px;color:var(--orange)">`:''}
@@ -4673,13 +4701,16 @@ function renderManagedWl(){
               ${(_bkLive&&!_isApprovalRide(allSessions().find(x=>x.id===bk.sessionId)))
                 ?`<button class="btn-sm btn-muted" onclick="mwAddRider('${esc(bk.id)}')" title="${esc(t('beAddRidersLabel'))}">+ ${t('beAddRiderBtn')}</button>`:''}
               ${action}
-              <button class="btn-sm btn-muted" onclick="resolveDeskWaitlist('${w.id}','removed')">${t('wlRemoveBtn')}</button>
+              ${w._virtual?'':`<button class="btn-sm btn-muted" onclick="resolveDeskWaitlist('${w.id}','removed')">${t('wlRemoveBtn')}</button>`}
             </div>
           </div>`;
         };
-        return`<div class="q-card" style="margin:0;cursor:grab" draggable="true" ondragstart="_mwDragStart(event,'${g[0].id}')" ondragover="_mwDragOver(event,'${g[0].id}')" ondrop="_mwDrop(event,'${g[0].id}')">
+        // Dragging rewrites sort_order on desk rows. A card of folded-in bookings has none,
+        // so it is not draggable — its order is the W order, editable in the W box on the row.
+        const _drag=!g.some(w=>w._virtual);
+        return`<div class="q-card" style="margin:0;cursor:${_drag?'grab':'default'}" draggable="${_drag?'true':'false'}"${_drag?` ondragstart="_mwDragStart(event,'${g[0].id}')" ondragover="_mwDragOver(event,'${g[0].id}')" ondrop="_mwDrop(event,'${g[0].id}')"`:''}>
         ${_party?`<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding-bottom:7px;border-bottom:1px solid rgba(var(--tint-rgb),.08)">
-          ${_posBox(g[0].id)}
+          ${_drag?_posBox(g[0].id):''}
           <span style="font-weight:900;font-size:13.5px">${esc(_mwGroupName(g))}</span>
           <span class="mw-party-chip">${t('mwRidersN').replace('{0}',String(g.length))}</span>
           ${(()=>{const _bk=g.map(w=>w.booking_id&&getQueue().find(x=>x.id===w.booking_id)).filter(Boolean);
@@ -4687,7 +4718,7 @@ function renderManagedWl(){
             const _owed=_bk.filter(e=>!e.paid&&!_freeSessIds.has(e.sessionId)&&['waiting','waitlist','active'].includes(e.status)).length;
             return`${_owed?`<button class="btn-sm btn-muted" onclick="mwPartyPaid('${g[0].id}')">\u2713 ${t('bulkPaidBtn')} (${_owed})</button>`:''}
               ${_in?`<button class="btn-sm btn-green" onclick="mwPartyCheckin('${g[0].id}')">${t('bulkCheckinBtn')} (${_in})</button>`:''}`;})()}
-          <button class="btn-sm btn-muted" style="margin-inline-start:auto" onclick="mwRemoveParty('${g[0].id}')">${t('wlRemoveBtn')}</button>
+          ${g.some(w=>!w._virtual)?`<button class="btn-sm btn-muted" style="margin-inline-start:auto" onclick="mwRemoveParty('${g[0].id}')">${t('wlRemoveBtn')}</button>`:''}
         </div>`:''}
         ${g.map(_row).join('')}
       </div>`;}).join(''):`<div class="empty-state" style="padding:12px;font-size:12.5px">${(S._mwSess&&S._mwSess!=='all')?t('mwEmptyForSess'):t('wlEmpty')}</div>`}

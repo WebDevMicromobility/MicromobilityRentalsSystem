@@ -470,14 +470,17 @@ test.describe('the session picker', () => {
   test('narrows the list to that session, and says so when it empties', async ({ page }) => {
     await open(page);
     await page.evaluate(`(async()=>{await mwFromBooking('e-wait');await mwFromBooking('o1');})()`);
-    await expect.poll(async () => page.locator('#mw-host .q-card').count()).toBe(2);
+    // three cards: the two just parked, plus 'e-wl' — a booking the capacity rule waitlisted,
+    // which belongs on this page whether or not anyone parked it by hand.
+    await expect.poll(async () => page.locator('#mw-host .q-card').count()).toBe(3);
 
     await page.evaluate(`mwSetSess('2099-02-09')`);
     await expect.poll(async () => page.locator('#mw-host .q-card').count()).toBe(1);
     await expect(page.locator('#mw-host .q-card')).toContainText('Other Session Rider');
 
     await page.evaluate(`mwSetSess('s0')`);
-    await expect(page.locator('#mw-host .q-card')).toContainText('Rider 1');
+    // s0 now shows two cards — the parked rider and the waitlisted one — so name the card.
+    await expect(page.locator('#mw-host .q-card').filter({ hasText: 'Rider 1' })).toHaveCount(1);
   });
 
   test('scopes what can be ADDED, so the wrong ride cannot be parked by mistake', async ({ page }) => {
@@ -499,7 +502,7 @@ test.describe('the session picker', () => {
     // of every session view would lose them while their rider is still waiting.
     await open(page);
     await page.evaluate(`S._mwQ='';document.getElementById('mw-name').value='Walk Up';addManagedWl()`);
-    await expect.poll(async () => page.locator('#mw-host .q-card').count()).toBe(1);
+    await expect.poll(async () => page.locator('#mw-host .q-card').count()).toBe(2); // the walk-up + waitlisted 'e-wl'
     await page.evaluate(`mwSetSess('2099-02-09')`);
     await expect(page.locator('#mw-host .q-card')).toContainText('Walk Up');
   });

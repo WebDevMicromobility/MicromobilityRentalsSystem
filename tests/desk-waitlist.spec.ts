@@ -114,7 +114,9 @@ test("a waitlisted booking's position is still editable, since promotion follows
     ],
     desk_waitlist: [walkup('m1', 'On The List', { kind: 'managed', sort_order: 1, booking_id: 'qb4' })],
   });
-  const box = page.locator('#mw-host input[aria-label="W"]');
+  // Every waitlisted booking carries a W box now, folded in or parked by hand — so aim at
+  // the one on this rider's own card rather than at "the" W box on the page.
+  const box = page.locator('#mw-host .q-card').filter({ hasText: 'On The List' }).locator('input[aria-label="W"]');
   await expect(box).toHaveValue('3');
   const patches: string[] = [];
   page.on('request', (r) => {
