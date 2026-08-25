@@ -9,12 +9,16 @@ test('walk-in modal books multiple riders as one group', async ({ page }) => {
   await unlockStaff(page);
   await page.goto('/');
   await waitForSb(page);
+  // showWalkinModal() bails with a toast when no session is loaded yet, so the modal would
+  // silently never open. Wait for the fixture's session to be in memory before opening it.
+  await page.waitForFunction(`allSessions().length>0`);
   await page.evaluate(() => {
     // @ts-expect-error app globals
     showWalkinModal();
   });
 
   const modal = page.locator('#walkin-modal');
+  await expect(modal.locator('#wi-name')).toBeVisible();
   await modal.locator('#wi-name').fill('Tamer');
   await modal.locator('#wi-height').fill('180');
   await modal.getByRole('button', { name: /\+ Add rider/ }).click();
@@ -48,6 +52,9 @@ test('a customer with default payment "on the house" books as paid with price 0'
   await unlockStaff(page);
   await page.goto('/');
   await waitForSb(page);
+  // showWalkinModal() bails with a toast when no session is loaded yet, so the modal would
+  // silently never open. Wait for the fixture's session to be in memory before opening it.
+  await page.waitForFunction(`allSessions().length>0`);
   await page.evaluate(() => {
     // @ts-expect-error app globals
     showWalkinModal();
@@ -61,6 +68,7 @@ test('a customer with default payment "on the house" books as paid with price 0'
     }
   });
   const modal = page.locator('#walkin-modal');
+  await expect(modal.locator('#wi-name')).toBeVisible();
   await modal.locator('#wi-name').fill('House Rider'); // matches the saved customer
   await modal.getByRole('button', { name: /\+ Add rider/ }).click();
   await modal.locator('#wi-r-name-0').fill('House Rider'); // same name, but NOT the first rider
@@ -85,6 +93,9 @@ test('type-restricted "on the house" only applies to the listed bike types', asy
   await unlockStaff(page);
   await page.goto('/');
   await waitForSb(page);
+  // showWalkinModal() bails with a toast when no session is loaded yet, so the modal would
+  // silently never open. Wait for the fixture's session to be in memory before opening it.
+  await page.waitForFunction(`allSessions().length>0`);
 
   const posts: Record<string, unknown>[] = [];
   page.on('request', (r) => {
@@ -96,10 +107,16 @@ test('type-restricted "on the house" only applies to the listed bike types', asy
 
   const modal = page.locator('#walkin-modal');
   const walkIn = async (type: string) => {
+    // The previous cycle's submit closes the modal asynchronously, and closeWalkinModal()
+    // clears its innerHTML. Opening again before that lands would have the late close wipe
+    // the freshly built form, detaching the buttons mid-click.
+    await expect.poll(async () => page.evaluate(
+      `(document.getElementById('walkin-modal').innerHTML||'')===''`)).toBe(true);
     await page.evaluate(() => {
       // @ts-expect-error app globals
       showWalkinModal();
     });
+    await expect(modal.locator('#wi-name')).toBeVisible();
     await modal.locator('#wi-name').fill('Road Only');
     await modal.getByRole('button', { name: type, exact: true }).click();
     await modal.getByRole('button', { name: /Walk/i }).last().click();

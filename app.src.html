@@ -2748,8 +2748,10 @@ function _searchHit(e,q){
   if(!s)return true;
   if(_searchIsNum(s)){
     const n=_searchNum(s);
-    // a numeric query is either a booking number (from the first digit) or part of a phone
-    return _rowNum(e,s).startsWith(n)||String(e.phone||'').includes(n);
+    // A numeric query is a booking number (from the first digit), part of a phone, or —
+    // for 4+ digits — a raw booking id that happens to carry no letters. _matchesRef needs
+    // 4 characters, so a short number can never be dragged into an id match by this.
+    return _rowNum(e,s).startsWith(n)||String(e.phone||'').includes(n)||_matchesRef(e,s);
   }
   return String(e.name||'').toLowerCase().includes(s)
     ||String(e.phone||'').includes(s)

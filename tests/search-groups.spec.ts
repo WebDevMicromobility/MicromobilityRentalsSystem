@@ -21,6 +21,7 @@ const queue_entries = [
   row('g3', 43, 'Party Three', { group_id: 'grp-1' }),
   row('solo', 7, 'Solo Rider'),
   row('dec', 410, 'Decoy Rider'),
+  row('41027bd3', 88, 'Digit Id Rider'),   // id prefix carries no letters
   // a second party, tied by the account rather than an explicit group
   row('a1', 51, 'Account One', { customer_id: 'cust-9' }),
   row('a2', 52, 'Account Two', { customer_id: 'cust-9' }),
@@ -65,6 +66,15 @@ test('a party tied by the account, not a group id, widens too', async ({ page })
 test('a name match widens to the party as well', async ({ page }) => {
   await boot(page);
   expect(await names(page, 'Party Two')).toEqual(['Party Head', 'Party Three', 'Party Two']);
+});
+
+test('a raw booking id still matches even when it happens to be all digits', async ({ page }) => {
+  await boot(page);
+  // _searchHit routes 4+ digit queries through _matchesRef as well as the booking number:
+  // ~1 in 130 booking ids carries no letters in its first four characters, and pasting one
+  // used to find nothing. Short numbers stay out of it — _matchesRef needs four characters.
+  expect(await names(page, '4102')).toEqual(['Digit Id Rider']);
+  expect(await names(page, '41')).not.toContain('Digit Id Rider');
 });
 
 test('a solo rider stays solo — no key, no widening', async ({ page }) => {
