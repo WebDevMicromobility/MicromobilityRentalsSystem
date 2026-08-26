@@ -21,6 +21,26 @@ drop policy if exists "public insert booking" on public.queue_entries;
 then make one real booking as a signed-out visitor. Rollback and full reasoning live in
 `supabase/migrations/20260820120000_close_queue_entries_public_read.sql`.
 
+## 0b. Push the Petromin carbon-fare migration BEFORE the site deploys
+
+`supabase/migrations/20260826160000_carbon_fare_on_the_petromin_ride.sql` has to be applied
+first, not after. The client now offers Road Carbon on the Petromin Wednesday Ride and quotes
+the SAR 175 community fare; until the migration runs, `_comm_no_carbon` still rewrites the
+booking to a Road bike and `_enforce_booking_price` still snaps the price back up to the SAR 250
+in `ride_prices` — so a rider would be quoted 175 on screen and owe 250 at the booth.
+
+```bash
+supabase link --project-ref ariyvnxeywozmwxmylhb   # staging first
+supabase db push
+# book a Road Carbon place on a Petromin session, confirm the row lands as
+#   type_preference='Road Carbon', price=175
+supabase link --project-ref amyqxovbnlreassrqihr   # then prod
+supabase db push
+```
+
+Verify afterwards: `select * from ride_prices where type like 'Road Carbon%';` should show
+`Road Carbon` 250 and `Road Carbon@petromin` 175. Delete this section once prod is pushed.
+
 ## 1. Make CI actually gate deploys (15 min, highest value)
 1. Cloudflare dashboard → My Profile → API Tokens → create token ("Edit Cloudflare Workers" template).
 2. GitHub repo → Settings → Secrets → add `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.

@@ -111,16 +111,26 @@ const DEFAULT_PRICE = 57.5;
 const RIDE_PRICES     = {Road:75, Mountain:57.5, Hybrid:57.5, Any:57.5,  'Road Carbon':250, Own:0};
 const RIDE_PRICES_MAX = {Road:75, Mountain:57.5, Hybrid:57.5, Any:75,    'Road Carbon':250, Own:0};
 const PREMIUM_TIERS   = {'Road Carbon':'Road'};   // tier -> fleet type that fulfils it
+const COMMUNITY_CARBON_PRICE = 175;               // Road Carbon on the Petromin ride
 ```
 
 Server table `ride_prices` holds the same numbers (verified identical in production). **There is
-no `Own` row in `ride_prices`** — that is what lets an own-bike booking stay at 0.
+no `Own` row in `ride_prices`** — that is what lets an own-bike booking stay at 0. The community
+carbon fare is a `ride_prices` row too, under the ride-scoped key `'Road Carbon@petromin'`.
 
 - `Any` displays as a **range** `SAR 57.5 - 75`, because the bike actually handed out decides it
   (`priceDisplay()`, [app.src.html:2258](../app.src.html#L2258)).
 - **`Road Carbon` is a price tier, not a fleet type.** It is fulfilled with a `Road` bike.
   Repricing from the assigned bike would silently drop 250 → 75, so both `_entryFallbackPrice()`
   ([app.src.html:2268](../app.src.html#L2268)) and the bike-assign path check `PREMIUM_TIERS` first.
+- **One fare depends on the ride: `Road Carbon` costs SAR 175 on the Petromin Wednesday Ride**
+  (a community-exclusive price) and SAR 250 everywhere else. Every price call that has a session
+  in hand goes through `priceForTypeIn(ty, sess)` / `priceForTypeOn(ty, sessionId)`; `priceForType()`
+  is the list price and stays session-blind. `priceDisplay(ty, sess)` renders a below-list fare as
+  the list price struck through (`<s class="price-was">`) with the fare beside it (`.price-now`).
+- **A promo code never stacks on the community fare.** A type-restricted code discounts the LIST
+  price and the rider pays whichever is lower, so `MMTEAM` (SAR 75 off Road Carbon) lands on 175 at
+  the circuit and leaves the Petromin fare at 175 rather than cutting it to 100.
 
 ### 3.2 Server price enforcement 🔵 — `_enforce_booking_price`
 
@@ -129,7 +139,9 @@ Fires on INSERT and UPDATE of `queue_entries`:
 1. **staff UPDATE → return unchanged** (staff may price anything);
 2. **community && !paid_ride → `price := 0`**, unconditionally;
 3. if **no bike assigned**, **not paid**, and status ∈ (`waiting`,`waitlist`):
-   - canonical = `ride_prices[type_preference]`;
+   - canonical = `ride_prices['<type_preference>@<ride_kind>']` if such a row exists, else
+     `ride_prices[type_preference]` — the ride-scoped fare wins over the list price, which is how
+     `Road Carbon@petromin` = 175 survives the trigger instead of being pushed back up to 250;
    - with a **valid promo** → `price := least(greatest(sent, 0), canonical)` — a discount is
      allowed, a markup is not;
    - without a promo → `price := canonical` (**the client's number is ignored**);
@@ -406,15 +418,20 @@ function bikeTypeOpts(allowOwn, noCarbon){
 ```
 [app.src.html:2596](../app.src.html#L2596)
 
+The two arguments answer different questions, so callers pass
+`bikeTypeOpts(_isCommunity(sess), _noCarbonRide(sess))` — never the same test twice.
+
 | Context | Call | Result |
 |---|---|---|
 | JCC | `bikeTypeOpts(false,false)` | Any, Road, Hybrid, Mountain, Road Carbon |
-| Any community ride | `bikeTypeOpts(true,true)` | Any, Road, Hybrid, Mountain, **Own** |
+| Saturday Social Ride | `bikeTypeOpts(true,true)` | Any, Road, Hybrid, Mountain, **Own** |
+| Petromin Wednesday Ride | `bikeTypeOpts(true,false)` | Any, Road, Hybrid, Mountain, **Own**, Road Carbon @ SAR 175 |
 
 **`Own` is exclusive to community rides and always free** (`RIDE_PRICES.Own = 0`), including on
-the paid Petromin ride. **`Road Carbon` is withdrawn from every community ride**, paid or not —
-and the DB backs this up: `_comm_no_carbon` silently rewrites `Road Carbon` → `Road` on insert
-into any community session.
+the paid Petromin ride. **`Road Carbon` is withdrawn from the Saturday ride only** — carbon bikes
+do not go out on the social ride, but the Petromin ride sells them at the community fare. The DB
+backs the same split up: `_comm_no_carbon` silently rewrites `Road Carbon` → `Road` on insert into
+a community session whose `ride_kind` is not `'petromin'`.
 
 ---
 

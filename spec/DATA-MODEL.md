@@ -297,6 +297,12 @@ Client: `_tagActive()`. Both must agree.
 | Mountain | 57.5 |
 | Any | 57.5 |
 | Road Carbon | 250 |
+| Road Carbon@petromin | 175 |
+
+`'<type>@<ride_kind>'` is a **ride-scoped fare**, not a bookable type: nothing writes that string
+to `type_preference`, and `_enforce_booking_price` is its only reader (it prefers the scoped row
+over the plain one). `Road Carbon@petromin` is the community-exclusive carbon price on the
+Petromin Wednesday Ride, mirroring `COMMUNITY_CARBON_PRICE` in the client.
 
 There is **no `Own` row** — so the trigger's `canonical is null` branch keeps whatever the
 client sent (clamped 0…1000), which is how a bike-owner booking stays free.
@@ -360,7 +366,7 @@ or `queue_public` (anonymous availability) — never the table.
 | `queue_entries_capacity` / `_upd` | `_capacity_guard` | INSERT / UPDATE | If `status='waiting'`, type ≠ `Own`, and not staff: takes an advisory lock on the session, counts rows whose status is **not** in `('cancelled','removed','noshow')` and type ≠ `Own`; if that count ≥ `capacity`, **rewrites status to `waitlist`**. Skips sessions with `needs_approval=true`. |
 | `queue_entries_community_gate` / `_upd` | `_community_booking_gate` | INSERT / UPDATE | On a `event_kind='community'` session, raises `This ride is for community members only.` unless the row has a `customer_id` holding an **active** tag with slug `saturday`. Staff exempt. |
 | `queue_entries_group_cap` / `_upd` | `_group_ride_cap` | INSERT / UPDATE | On a community session with `needs_approval=false`, raises `Up to 4 riders per booking on this ride.` if the same `customer_id` already has ≥ 4 live rows on that session. Staff exempt. |
-| `queue_entries_comm_no_carbon` | `_comm_no_carbon` | INSERT | On any community session, silently rewrites `type_preference='Road Carbon'` → `'Road'`. |
+| `queue_entries_comm_no_carbon` | `_comm_no_carbon` | INSERT | On a community session whose `ride_kind` is **not** `'petromin'`, silently rewrites `type_preference='Road Carbon'` → `'Road'`. The Petromin ride offers carbon at its own fare, so it is exempt. |
 | `trg_approval_guard` | `_approval_guard` | INSERT / UPDATE | A non-staff caller can never set `approval` to anything but `pending` on insert, and can never change it on update. **This is what stops a customer self-approving.** |
 | `trg_enforce_booking_price` / `_upd` | `_enforce_booking_price` | INSERT / UPDATE | See §4. |
 | `trg_promo_count_ins` / `_upd` | `_promo_count` | INSERT / UPDATE | Increments `promo_codes.uses` on insert; decrements when a booking moves **into** cancelled/removed; re-increments when it moves back out. |

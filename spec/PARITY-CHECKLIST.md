@@ -111,6 +111,9 @@ known defects or inconsistencies in the current system: reproducing them is a de
 - [ ] **[T]** Money is calculated and displayed correctly throughout — `money.spec.ts`.
 - [ ] **[T]** Prices round correctly — `round10.spec.ts`, `round11-chaos.spec.ts`.
 - [ ] **[R]** Road 75, Hybrid 57.5, Mountain 57.5, Any 57.5, Road Carbon 250, Own 0 — and `ride_prices` must match the client.
+- [ ] **[R]** Road Carbon costs **175 on the Petromin Wednesday Ride** and 250 everywhere else; `ride_prices` carries it as `Road Carbon@petromin`.
+- [ ] **[R]** A below-list fare is displayed as the list price struck through **plus** the fare — never as a bare cheaper number.
+- [ ] **[R]** A type-restricted promo does not stack on the community fare (MMTEAM leaves a Petromin carbon booking at 175, not 100).
 - [ ] **[R]** `Any` displays as a range (SAR 57.5 – 75).
 - [ ] **[R]** A client-sent price is **ignored** — the trigger writes the canonical price.
 - [ ] **[R]** A promo can only reduce a price, never increase it.
@@ -234,7 +237,7 @@ known defects or inconsistencies in the current system: reproducing them is a de
 - [ ] **[R]** It has **no approval step**: real queue numbers, seats overflowing to the waitlist, auto-promotion.
 - [ ] **[R]** It is capped at **4 riders per account per session**, enforced client-side and by trigger.
 - [ ] **[R]** Booking twice cannot get around the 4-rider cap.
-- [ ] **[R]** It offers the **Own bike** option, free, and hides **Road Carbon**.
+- [ ] **[R]** It offers the **Own bike** option, free, and — unlike the Saturday ride — offers **Road Carbon**, at the SAR 175 community fare.
 - [ ] **[R]** It uses bike composition, not a seat count; `spots` is explicitly null.
 - [ ] **[R]** It has no meeting-point or breakfast fields.
 - [ ] **[R]** Its session times are plain start–end, not gathering/start.

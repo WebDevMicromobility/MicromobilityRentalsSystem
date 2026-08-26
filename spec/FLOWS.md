@@ -102,8 +102,10 @@ in [SCREENS.md](SCREENS.md).
    - Saturday: **forced to 1** — the control is locked.
 4. Per rider: name (rider 1 defaults to the account holder), height → **[AUTO]** size via
    `heightToSize()`, and bike type.
-   - **[AUTO]** On any community ride a carried-over `Road Carbon` choice is coerced to `Road`
-     (and to `Any` in a second guard); the option is not offered.
+   - **[AUTO]** On the Saturday ride a carried-over `Road Carbon` choice is coerced to `Road`
+     (and to `Any` in a second guard); the option is not offered there. The Petromin ride does
+     offer it, priced at the community fare — the picker carries a `.carbon-deal` line showing
+     SAR 250 struck through beside SAR 175 and `carbonCommPrice`.
    - **[AUTO]** Types listed in `customers.hidden_types` are removed from this customer's picker.
 5. Optional add-ons (stock-capped; sold out becomes a backorder up to 10).
 6. Optional promo code (**JCC only**) → `applyPromoCode()` validates locally and reports
@@ -155,7 +157,7 @@ in [SCREENS.md](SCREENS.md).
   `saturday` tag is held;
 - `_group_ride_cap` raises *"Up to 4 riders per booking on this ride."* past 4 live rows for that
   account on a paid community session;
-- `_comm_no_carbon` rewrites `Road Carbon` → `Road` on community sessions;
+- `_comm_no_carbon` rewrites `Road Carbon` → `Road` on community sessions other than Petromin;
 - `_approval_guard` forces `approval` to `pending` for non-staff;
 - `_enforce_booking_price` sets the canonical price (0 on a free community ride);
 - `_capacity_guard` may rewrite `waiting` → `waitlist`;
@@ -476,7 +478,7 @@ A checklist of everything that happens without a user action.
 | 2 | `waiting` → `waitlist` when capacity is reached | capacity guard, insert/update |
 | 3 | `waitlist_num` assigned | when a row becomes waitlisted |
 | 4 | Price forced to the canonical / zero | price trigger |
-| 5 | `Road Carbon` → `Road` on community sessions | insert trigger |
+| 5 | `Road Carbon` → `Road` on community sessions other than Petromin | insert trigger |
 | 6 | `approval` forced to `pending` for non-staff | approval guard |
 | 7 | Community gate rejection | insert/update on a community session |
 | 8 | 4-rider cap rejection | insert/update on a paid community session |

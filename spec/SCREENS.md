@@ -236,10 +236,10 @@ Header `regStep2Title` / `regStep2Msg`.
 | Quantity stepper | `numBikes`, `.qty-stepper` with `qtyDecLabel` / `qtyIncLabel`. Range **1–10** (JCC), **1–4** on the Petromin ride (hint `groupCapHint` = "Up to {0} riders"), **locked to 1** on the Saturday ride |
 | Per rider: name | `riderName` / `riderNamePlaceholder`. Rider 1 defaults to the account holder |
 | Per rider: height | `heightLabel` + `heightHint`, `heightPlaceholder`, min 100 max 250 cm → **auto-size** XS/S/M/L |
-| Per rider: bike type | `bikeTypePref` — `bikeTypeOpts()`: JCC gets Any/Road/Hybrid/Mountain/Road Carbon; community gets Any/Road/Hybrid/Mountain/**Own** |
+| Per rider: bike type | `bikeTypePref` — `bikeTypeOpts()`: JCC gets Any/Road/Hybrid/Mountain/Road Carbon; the Saturday ride gets Any/Road/Hybrid/Mountain/**Own**; the Petromin ride gets both. On the Petromin ride a `.carbon-deal` line under the pills prices the carbon option: `.price-was` "SAR 250" (struck through), `.price-now` "SAR 175", tag `carbonCommPrice` |
 | Add-ons | `addonsLabel` — inventory items with photos and quantity steppers, stock-capped; sold-out becomes a backorder up to 10 |
 | Promo code | `.reg-promo` + `applyPromoCode()`. **JCC only.** Messages: `promoInvalidMsg`, `promoExpiredMsg`, `promoUsedUpMsg`, `promoNotYoursMsg` |
-| Price preview | Per bike: `pricePerBike`, or per-rider `priceDisplay(ty)`; **`onTheHouseLabel`** when the house perk applies; `freeLabel` on a free ride |
+| Price preview | Per bike: `pricePerBike`, or per-rider `priceDisplay(ty, sess)` (a below-list fare renders as the struck list price + the fare); **`onTheHouseLabel`** when the house perk applies; `freeLabel` on a free ride |
 | Account block | Name / email / phone read-only, with `needToUpdate` → link to `tabAccount` |
 | Footer | `regBackBtn` · `regReviewBtn` |
 
