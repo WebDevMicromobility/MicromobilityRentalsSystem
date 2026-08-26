@@ -5386,27 +5386,6 @@ function renderRegister(){
   const isModifyMode=existingEntries.length>0;
 
   
-  const accountInfoBlock=(cust&&S.regQty===1)?`
-    <div style="background:var(--s3);border:1px solid var(--border);border-radius:4px;padding:14px 16px;margin-bottom:20px">
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 20px">
-        <div>
-          <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">${t('fullName')}</div>
-          <div style="font-size:14px;font-weight:700">${esc(cust.name)}</div>
-        </div>
-        <div>
-          <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">${t('emailAddr')}</div>
-          <div style="font-size:14px;font-weight:700">${esc(cust.email||'-')}</div>
-        </div>
-        <div>
-          <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px">${t('phoneNum')}</div>
-          <div style="font-size:14px;font-weight:700">${esc(cust.phone||'-')}</div>
-        </div>
-      </div>
-      <div style="margin-top:10px;font-size:12px;color:var(--muted)">
-        ${t('needToUpdate')} <button onclick="setCustTab('account')" style="background:none;border:none;color:var(--green);font-family:var(--font-body);font-size:12px;font-weight:700;cursor:pointer;padding:8px 6px;margin:-8px -6px;text-decoration:underline">${t('tabAccount')}</button>
-      </div>
-    </div>`:'';
-
   
   const qNums=existingEntries.map(e=>`#${e.queueNum}`).join(', ');
   const modifyBannerHtml=isModifyMode?`
@@ -5610,7 +5589,6 @@ function renderRegister(){
   const panel2=`
     ${stepHeader(t('regStep2Title'),t('regStep2Msg'))}
     <div class="form-section">
-      ${accountInfoBlock}
       ${modifyBannerHtml}
       ${qtyStepper}
       ${bikeSections}
