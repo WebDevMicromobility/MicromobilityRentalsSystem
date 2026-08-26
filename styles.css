@@ -3283,3 +3283,142 @@
     body .mw-type{width:auto;max-width:150px;flex:0 0 auto;padding:3px 22px 3px 8px;min-height:26px;
       border:1px solid rgba(var(--tint-rgb),.18);border-radius:3px;background:var(--s3);color:var(--text);
       font-family:var(--font-body);font-size:11px;font-weight:800;cursor:pointer;}
+
+    /* ════════════════════════════════════════════════════════════════════════
+       CUSTOMER RESKIN — platform light identity (Rides handoff, theme decision b)
+       Scoped to :not(.view-staff) so the ERP layer is untouched: the two never
+       match the same document. Appended last, so it is the final word on the
+       customer layer above.
+
+       What this changes from the previous customer reskin:
+         · CTAs become pills (999px) filled #077A4B, ink #FBF9F4 — not 6px #00b467
+         · Status/cues become a 7px dot + coloured text — never a filled pill
+         · Notices lose their coloured wash; white/off-white + hairline instead
+         · Ride identity moves from a coloured left edge to a dot + kicker
+         · Toasts become a dark pill with a status dot
+         · Modals: 18px desktop, bottom-sheet under 767px
+         · The Sunlight/Night toggle is gone customer-side (light only)
+       ════════════════════════════════════════════════════════════════════════ */
+
+    /* Light only. The token layer above already forces it (body-level custom
+       properties beat :root[data-theme]), so this just removes the control that
+       implies a choice the customer no longer has. */
+    body:not(.view-staff) #theme-toggle-btn{display:none;}
+
+    /* ── Buttons: pills ─────────────────────────────────────────────────── */
+    body:not(.view-staff) .btn-primary{
+      background:#077A4B;color:#FBF9F4;border-radius:999px;min-height:48px;
+      padding:0 26px;font-size:15px;font-weight:700;letter-spacing:0;
+      display:inline-flex;align-items:center;justify-content:center;
+      box-shadow:none;clip-path:none;}
+    body:not(.view-staff) .btn-primary:hover{background:#06603b;color:#FBF9F4;transform:none;box-shadow:none;}
+    body:not(.view-staff) .btn-primary:active{background:#06603b;transform:scale(.98);}
+    body:not(.view-staff) .btn-secondary{
+      background:#ffffff;color:#1A1919;border:1px solid rgba(26,25,25,.25);
+      border-radius:999px;min-height:44px;padding:0 22px;font-size:14px;font-weight:700;
+      display:inline-flex;align-items:center;justify-content:center;}
+    body:not(.view-staff) .btn-secondary:hover{border-color:rgba(26,25,25,.45);color:#1A1919;transform:none;}
+    body:not(.view-staff) .btn-sm{border-radius:999px;min-height:44px;padding:0 16px;font-size:12.5px;
+      display:inline-flex;align-items:center;justify-content:center;text-transform:none;letter-spacing:0;}
+    body:not(.view-staff) .btn-primary:disabled,
+    body:not(.view-staff) .btn-secondary:disabled,
+    body:not(.view-staff) .btn-sm:disabled{opacity:.4;}
+    /* Destructive stays an outline pill until it is the confirm itself. */
+    body:not(.view-staff) .btn-red{background:#ffffff;color:#a33b2e;border:1px solid rgba(163,59,46,.4);}
+    body:not(.view-staff) .btn-red:hover{background:#a33b2e;border-color:#a33b2e;color:#FBF9F4;}
+
+    /* ── Status is a dot and a word, never a filled pill ─────────────────── */
+    body:not(.view-staff) .status-badge,
+    body:not(.view-staff) .sess-card-spots{
+      background:none!important;border:0!important;padding:0!important;border-radius:0!important;
+      display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;letter-spacing:0;}
+    body:not(.view-staff) .status-badge::before,
+    body:not(.view-staff) .sess-card-spots::before{
+      content:'';width:7px;height:7px;border-radius:50%;background:currentColor;flex:none;}
+    body:not(.view-staff) .badge-waiting,body:not(.view-staff) .spots-low{color:#7a5a10;}
+    body:not(.view-staff) .badge-active,body:not(.view-staff) .spots-green{color:#06603b;}
+    body:not(.view-staff) .badge-done{color:#57605a;}
+    body:not(.view-staff) .badge-noshow,body:not(.view-staff) .spots-red{color:#a33b2e;}
+    body:not(.view-staff) .badge-waitlist{color:#7a5a10;}
+    /* The ticket's waitlist line is the same cue at ticket scale. */
+    body:not(.view-staff) .wl-loud{
+      background:none;border:0;padding:0;color:#7a5a10;
+      display:inline-flex;align-items:center;gap:8px;font-size:17px;font-weight:700;}
+    body:not(.view-staff) .wl-loud::before{
+      content:'';width:8px;height:8px;border-radius:50%;background:#b98a1a;flex:none;}
+
+    /* ── Notices: hairline cards, no coloured wash ───────────────────────── */
+    /* .mm-note is the hook added to the blocks that used to carry an amber or
+       green wash inline (full-session notice, already-booked banner, ticket
+       cues). The colour moves into the dot beside the text. */
+    body:not(.view-staff) .mm-note{
+      background:#FBF9F4;border:1px solid rgba(26,25,25,.10);border-radius:10px;
+      color:#57605a;box-shadow:none;}
+    body:not(.view-staff) .mm-note span[style*="color:var(--orange)"]{color:#7a5a10!important;}
+    /* The one exception the brief keeps: a confirmed cue reads as an action. */
+    body:not(.view-staff) .mm-note-go{border-color:rgba(7,122,75,.45);color:#06603b;}
+
+    /* ── Ride identity: a dot and a kicker, not a coloured edge ──────────── */
+    body:not(.view-staff) .sess-card-comm{border-inline-start:1px solid rgba(26,25,25,.12);padding-inline-start:18px;}
+    body:not(.view-staff) .sess-card{border-radius:12px;}
+    body:not(.view-staff) .sess-comm-chip{
+      background:none;border:0;padding:0;color:var(--ev);
+      display:inline-flex;align-items:center;gap:6px;
+      font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+    body:not(.view-staff) .sess-comm-chip::before{
+      content:'';width:6px;height:6px;border-radius:50%;background:var(--ev);flex:none;}
+    html[lang="ar"] body:not(.view-staff) .sess-comm-chip{text-transform:none;letter-spacing:0;font-size:12px;}
+
+    /* ── Cards ──────────────────────────────────────────────────────────── */
+    body:not(.view-staff) .ticket-card{border-radius:16px;}
+    body:not(.view-staff) .q-card,
+    body:not(.view-staff) .landing-event-card,
+    body:not(.view-staff) .reg-summary-panel{border-radius:12px;}
+    body:not(.view-staff) .ticket-num{font-size:62px;font-weight:700;letter-spacing:-2px;line-height:1;}
+    body:not(.view-staff) .ticket-num-label{
+      color:#077A4B;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.6px;}
+    html[lang="ar"] body:not(.view-staff) .ticket-num-label{text-transform:none;letter-spacing:0;font-size:12px;}
+
+    /* ── Inputs ─────────────────────────────────────────────────────────── */
+    body:not(.view-staff) input[type="text"],body:not(.view-staff) input[type="tel"],
+    body:not(.view-staff) input[type="number"],body:not(.view-staff) input[type="email"],
+    body:not(.view-staff) input[type="date"],body:not(.view-staff) input[type="password"],
+    body:not(.view-staff) select,body:not(.view-staff) textarea{
+      border-radius:10px;min-height:46px;}
+
+    /* ── Toasts: dark pill, status dot ──────────────────────────────────── */
+    body:not(.view-staff) .toast{
+      background:#1A1919;color:#FBF9F4;border:0;border-inline-start:0;border-radius:10px;
+      padding:12px 18px;font-size:13px;font-weight:600;white-space:normal;max-width:86vw;
+      display:inline-flex;align-items:center;gap:9px;
+      box-shadow:0 8px 28px rgba(26,25,25,.30);backdrop-filter:none;}
+    body:not(.view-staff) .toast::before{
+      content:'';width:7px;height:7px;border-radius:50%;background:#03FF89;flex:none;}
+    body:not(.view-staff) .toast.error::before{background:#ff6f66;}
+    body:not(.view-staff) .toast.warning::before{background:#f2b43f;}
+
+    /* ── Modals: 18px, bottom-sheet on a phone ──────────────────────────── */
+    body:not(.view-staff) .modal-backdrop,
+    body:not(.view-staff) .auth-backdrop,
+    body:not(.view-staff) .pin-backdrop{background:rgba(26,25,25,.45);}
+    body:not(.view-staff) .modal-box,
+    body:not(.view-staff) .auth-box{border-radius:18px;border-top:1px solid rgba(26,25,25,.14);}
+    @media(max-width:767px){
+      body:not(.view-staff) .modal-box,
+      body:not(.view-staff) .auth-box{
+        border-radius:18px 18px 0 0;align-self:flex-end;width:100%;max-width:none;max-height:88svh;}
+    }
+
+    /* ── Type ───────────────────────────────────────────────────────────── */
+    body:not(.view-staff) .landing-main-title{
+      font-size:clamp(38px,5vw,62px);line-height:.98;letter-spacing:-1.8px;font-weight:700;}
+    body:not(.view-staff) .page-title{font-size:20px;letter-spacing:-.4px;font-weight:700;}
+    body:not(.view-staff) .landing-eyebrow{
+      color:#077A4B;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2.2px;}
+    html[lang="ar"] body:not(.view-staff) .landing-main-title{letter-spacing:0;line-height:1.25;}
+    html[lang="ar"] body:not(.view-staff) .landing-eyebrow{text-transform:none;letter-spacing:0;font-size:12.5px;}
+    /* Latin digits stay upright and LTR inside Arabic copy. */
+    html[dir="rtl"] body:not(.view-staff) .ticket-num,
+    html[dir="rtl"] body:not(.view-staff) .lat{direction:ltr;unicode-bidi:isolate;}
+
+    body:not(.view-staff) :focus-visible{outline:2px solid #077A4B;outline-offset:2px;}

@@ -5603,7 +5603,7 @@ function renderRegister(){
         const _cs=allSessions().find(s=>s.id===S.selSession);
         if(!_isCommunity(_cs))return'';
         if(_cs.status!=='full')return''; // computed spots never surface to customers
-        return`<div style="display:flex;align-items:flex-start;gap:10px;margin-top:12px;padding:12px 14px;border-radius:4px;background:rgba(var(--warn-rgb),.08);border:1px solid rgba(var(--warn-rgb),.3)">
+        return`<div class="mm-note" style="display:flex;align-items:flex-start;gap:10px;margin-top:12px;padding:12px 14px">
           <span style="width:8px;height:8px;border-radius:50%;background:var(--orange);flex-shrink:0;margin-top:4px"></span>
           <span style="font-size:12.5px;font-weight:700;color:var(--orange);line-height:1.5">${t('commFullWaitlistMsg')}</span>
         </div>`;
@@ -5646,7 +5646,7 @@ function renderRegister(){
   const reviewAddons=_raItems.length?`<div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 0">${t('addonsLabel')} (${_raItems.reduce((s,a)=>s+(a.qty||0),0)})</div>${_raItems.map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">${a.photo?`<img loading="lazy" decoding="async" src="${esc(a.photo)}" alt="${esc(a.name)}" class="addon-thumb addon-thumb-sm" role="button" tabindex="0" aria-label="${esc(a.name)}" onclick="_photoZoom(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_photoZoom(this);}">`:''}<div style="flex:1;min-width:0"><span style="font-weight:800;font-size:14px">${esc(a.name)}</span>${a.qty>1?` <span style="color:var(--muted);font-weight:700">×${a.qty}</span>`:''}${a.brand?`<div style="font-size:11px;color:var(--muted)">${esc(a.brand)}</div>`:''}</div><div style="font-weight:800;font-size:13px;color:var(--green);white-space:nowrap">SAR ${a.lineTotal}</div></div>`).join('')}`:'';
   const alreadyHere=S._alreadyBookedSession===S.selSession&&S.selSession;
   const alreadyBanner=alreadyHere?`
-    <div id="already-booked-banner" style="margin-top:16px;background:rgba(var(--warn-rgb),.08);border:1.5px solid rgba(var(--warn-rgb),.35);border-radius:7px;padding:16px 18px">
+    <div id="already-booked-banner" class="mm-note" style="margin-top:16px;padding:16px 18px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
         <div>
           <div style="font-size:14px;font-weight:800;color:var(--orange)">${t('errAlreadyBooked')}</div>
@@ -6326,13 +6326,13 @@ function renderBookingTicket(entries,opts){
     // "pending" to someone who was in fact rejected (or approved) pre-announces the result.
     const k=!_pub?'commCueUnderReview':(stForBadge==='waitlist'?'commCueWaitlist':(allApproved?'commCueConfirmed':'commCuePending'));
     const col=_pub&&allApproved&&stForBadge!=='waitlist'?'var(--green)':'var(--orange)';
-    cueHtml=`<div style="display:flex;align-items:center;gap:8px;margin:12px 0 0;padding:9px 12px;border-radius:4px;background:rgba(var(--tint-rgb),.04);border:1px solid var(--border)"><span style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></span><span style="font-size:12px;font-weight:800;color:${col}">${t(k)}</span></div>`;
+    cueHtml=`<div class="mm-note" style="display:flex;align-items:center;gap:8px;margin:12px 0 0;padding:9px 12px"><span style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></span><span style="font-size:12px;font-weight:800;color:${col}">${t(k)}</span></div>`;
   } else if(stForBadge==='active'){
-    cueHtml=`<div style="display:flex;align-items:center;gap:8px;margin:12px 0 0;padding:9px 12px;border-radius:4px;background:rgba(var(--green-rgb),.08);border:1px solid rgba(var(--green-rgb),.22)"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></span><span style="font-size:12px;font-weight:800;color:var(--green)">${t('onBikeNow')}</span></div>`;
+    cueHtml=`<div class="mm-note mm-note-go" style="display:flex;align-items:center;gap:8px;margin:12px 0 0;padding:9px 12px"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></span><span style="font-size:12px;font-weight:800;color:var(--green)">${t('onBikeNow')}</span></div>`;
   } else if(stForBadge==='waiting'){
     const isNext=getQueue().filter(o=>o.sessionId===primary.sessionId&&(o.status==='waiting'||o.status==='active')&&o.queueNum<primary.queueNum).length<=0;
     const txt=isNext?t('youreNext'):t('inQueueMsg');
-    cueHtml=`<div style="display:flex;align-items:center;gap:8px;margin:12px 0 0;padding:9px 12px;border-radius:4px;background:rgba(var(--tint-rgb),.04);border:1px solid var(--border)"><span style="font-size:14px">${isNext?'':''}</span><span style="font-size:12px;font-weight:800;color:${isNext?'var(--green)':'var(--text)'}">${txt}</span></div>`;
+    cueHtml=`<div class="mm-note" style="display:flex;align-items:center;gap:8px;margin:12px 0 0;padding:9px 12px"><span style="font-size:14px">${isNext?'':''}</span><span style="font-size:12px;font-weight:800;color:${isNext?'var(--green)':'var(--text)'}">${txt}</span></div>`;
   }
   const riderRows=g.map((e,i)=>{
     const bike=getAssignedBikes(e)[0]||null;
