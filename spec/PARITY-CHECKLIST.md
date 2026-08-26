@@ -75,6 +75,15 @@ known defects or inconsistencies in the current system: reproducing them is a de
 
 ## 4. Booking
 
+- [ ] **[T]** A waiver step sits between the riders and the review, and cannot be walked past — `waiver.spec.ts` *(added 2026-08-26)*.
+- [ ] **[T]** Going back from review lands on the waiver rather than skipping it — `waiver.spec.ts`.
+- [ ] **[T]** The agreement does not survive into the next booking — `waiver.spec.ts`.
+- [ ] **[T]** Every rider on a party booking carries the waiver version, not just the first — `waiver.spec.ts`.
+- [ ] **[T]** The client sends a version (which wording), never a timestamp — `waiver.spec.ts`.
+- [ ] **[R]** `waiver_at` is stamped server-side from `now()`; a caller-chosen time is not evidence.
+- [ ] **[R]** The copy names who is covered: "on behalf of every rider on this booking".
+- [ ] **[⚠]** A walk-in booked at the desk carries no waiver — coverage is customer-side only.
+
 - [ ] **[T]** A booking is created through the `customer_create_booking` RPC — `booking-rpc.spec.ts`.
 - [ ] **[T]** A booking carrying a promo code inserts correctly — `booking-promo-insert.spec.ts`.
 - [ ] **[T]** The three-step wizard renders and advances correctly — `reg-flow-ui.spec.ts`.
