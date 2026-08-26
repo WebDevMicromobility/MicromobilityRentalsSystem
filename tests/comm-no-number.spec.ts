@@ -34,5 +34,13 @@ test('approved community booking exposes no queue number, JCC keeps its ref', as
   // the rendered My Rides card never shows #7 for the Saturday booking
   await page.evaluate(`setCustTab('myrides')`);
   const html = String(await page.evaluate(`document.getElementById('tab-myrides').innerHTML`));
-  expect(html).not.toContain('#7');
+  const text = String(await page.evaluate(`document.getElementById('tab-myrides').innerText`));
+  // What the rider actually reads is the invariant. Checked first, and on its own.
+  expect(text).not.toContain('#7');
+  // The markup is checked too, but hex colours are stripped first: a naive substring
+  // search matches '#7a5a10' — the amber cue colour — and reports a number that is not
+  // on the screen. The JCC booking's real '#3' still has to survive this stripping.
+  const markup = html.replace(/#[0-9a-fA-F]{3,8}\b/g, '');
+  expect(markup).not.toContain('#7');
+  expect(text).toContain('#3');
 });

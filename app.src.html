@@ -5346,7 +5346,7 @@ function renderRegister(){
         <div style="font-size:16px;font-weight:900;margin-bottom:8px">${t('noSessionsAvail')}</div>
         <div style="font-size:13px;color:var(--muted-l);font-weight:600;margin-bottom:18px">${t('noSessionsSocial')}</div>
         <a href="https://www.instagram.com/MicroMobilitySA/" target="_blank" rel="noopener noreferrer"
-          style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:6px;background:rgba(var(--green-rgb),.08);border:1.5px solid rgba(var(--green-rgb),.25);color:var(--green);font-size:13px;font-weight:800;text-decoration:none">
+          style="display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 20px;border-radius:999px;background:#ffffff;border:1px solid rgba(26,25,25,.25);color:var(--text);font-size:13px;font-weight:700;text-decoration:none">
           <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4.5"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
           @MicroMobilitySA
         </a>
@@ -5389,7 +5389,7 @@ function renderRegister(){
   
   const qNums=existingEntries.map(e=>`#${e.queueNum}`).join(', ');
   const modifyBannerHtml=isModifyMode?`
-    <div style="background:rgba(var(--green-rgb),.06);border:1.5px solid rgba(var(--green-rgb),.28);border-radius:7px;padding:16px 18px;margin-bottom:20px">
+    <div class="mm-note mm-note-go" style="padding:16px 18px;margin-bottom:20px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
         <span style="display:inline-flex;align-items:center;color:var(--green)">${ICON_PENCIL}</span>
         <div style="font-size:14px;font-weight:800;color:var(--green)">${t('modifyBookingBtn')}</div>
@@ -5397,7 +5397,7 @@ function renderRegister(){
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${existingEntries.map((e,i)=>`
-          <div style="background:rgba(var(--tint-rgb),.05);border:1px solid rgba(var(--tint-rgb),.09);border-radius:4px;padding:8px 12px;font-size:12px;font-weight:700;flex-shrink:0">
+          <div style="background:#ffffff;border:1px solid rgba(26,25,25,.14);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;flex-shrink:0">
             ${existingEntries.length>1?`<span style="color:var(--muted);font-size:10px;display:block;margin-bottom:2px">${t('bike')} ${i+1}</span>`:''}
             <span style="color:var(--muted)">#${e.queueNum}</span>
             &nbsp;·&nbsp;${typeBadge(resolvedType(e))}
@@ -6310,14 +6310,14 @@ function renderBookingTicket(entries,opts){
   const riderRows=g.map((e,i)=>{
     const bike=getAssignedBikes(e)[0]||null;
     const payBadge=e.paid
-      ?`<span style="font-size:9px;font-weight:900;color:var(--green);background:rgba(var(--green-rgb),.12);border:1px solid rgba(var(--green-rgb),.25);padding:2px 7px;border-radius:9px;white-space:nowrap">${(e.price??DEFAULT_PRICE)===0?'\U0001F3E0 '+t('onTheHouseLabel'):t('paidLabel')+' ✓'}</span>`
-      :`<span style="font-size:9px;font-weight:900;color:var(--muted-l);background:rgba(var(--tint-rgb),.06);border:1px solid rgba(var(--tint-rgb),.13);padding:2px 7px;border-radius:9px;white-space:nowrap">${t('pendingLabel')}</span>`;
+      ?`<span style="display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;color:#06603b;white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;background:#06603b;flex:none"></span>${(e.price??DEFAULT_PRICE)===0?t('onTheHouseLabel'):t('paidLabel')}</span>`
+      :`<span style="display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;color:#7a5a10;white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;background:#b98a1a;flex:none"></span>${t('pendingLabel')}</span>`;
     const bikeLine=bike
       ?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:3px">${esc(bike.name)}${bike.brand?' · '+esc(bike.brand):''}${bike.model?' '+esc(bike.model):''}${bike.groupset?' · '+esc(bike.groupset):''}${bike.speeds?' · '+bike.speeds+'sp':''}</div>`
       :'';
     return`<div style="padding:11px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        ${(_comm&&!_commPublished(sess))?'':e.status==='waitlist'?`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:20px;padding:0 7px;border-radius:9px;background:rgba(var(--warn-rgb),.12);border:1px solid rgba(var(--warn-rgb),.3);color:var(--orange);font-size:10px;font-weight:900;text-transform:uppercase">${t('waitlistLabel')}</span>`:`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:20px;padding:0 7px;border-radius:9px;background:rgba(var(--green-rgb),.12);border:1px solid rgba(var(--green-rgb),.25);color:var(--green);font-size:11px;font-weight:900">#${e.queueNum}</span>`}
+        ${(_comm&&!_commPublished(sess))?'':e.status==='waitlist'?`<span style="display:inline-flex;align-items:center;gap:6px;color:#7a5a10;font-size:10px;font-weight:800;white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;background:#b98a1a;flex:none"></span>W${e.waitlistNum||''}</span>`:`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:22px;padding:0 8px;border-radius:999px;background:#ffffff;border:1px solid rgba(26,25,25,.16);color:var(--text);font-size:11px;font-weight:800">#${e.queueNum}</span>`}
         <span style="font-weight:800;font-size:13px;flex:1;min-width:0">${esc(e.name)}</span>
         ${typeBadge(resolvedType(e))}
       </div>
@@ -6567,7 +6567,7 @@ function printRideReceipt(ids){
     ${addonsHtml}
     <div class="total"><span class="total-chip"><span style="font-weight:800;text-transform:uppercase;font-size:10px;letter-spacing:1px">${t('reviewTotalLabel')}</span><span class="num">SAR ${grandTotal}</span></span></div>
     <div class="foot">${t('receiptSeeYou')}<br><b>Micromobility Co.</b> · Corniche Circuit, Jeddah</div>
-    <button onclick="window.print()" style="display:block;margin:22px auto 0;padding:9px 26px;background:#0c7a3d;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit">${t('receiptPrintBtn')}</button>
+    <button onclick="window.print()" style="display:block;margin:22px auto 0;min-height:44px;padding:0 26px;background:#077A4B;color:#FBF9F4;border:none;border-radius:999px;cursor:pointer;font-size:13px;font-weight:700;font-family:inherit">${t('receiptPrintBtn')}</button>
   </body></html>`;
   const w=window.open('','_blank','width=760,height=900');
   if(!w){toast(t('errConnection'),'error');return;}
