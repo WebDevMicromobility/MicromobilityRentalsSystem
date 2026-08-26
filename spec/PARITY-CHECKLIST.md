@@ -16,6 +16,10 @@ known defects or inconsistencies in the current system: reproducing them is a de
 
 ## 1. Identity and authentication
 
+- [ ] **[T]** A dropped request during password reset or login is retried once before giving up — `release-and-stock.spec.ts` *(added 2026-08-26)*.
+- [ ] **[T]** A genuine refusal (bad password, locked account) is **not** retried — it is the answer.
+- [ ] **[T]** Signup is deliberately **not** retried, so a landed insert is never repeated as a duplicate.
+
 - [ ] **[R]** A customer signs up with first name, last name, email, phone, password, height, gender.
 - [ ] **[R]** A password must be at least 8 characters with at least one uppercase letter and one digit.
 - [ ] **[R]** Signing up with an email or phone that already exists is refused with a duplicate error.
@@ -157,8 +161,8 @@ known defects or inconsistencies in the current system: reproducing them is a de
 - [ ] **[R]** Auto-promotion consumes the promoted booking's add-on stock.
 - [ ] **[R]** Auto-promotion sends a push notification.
 - [ ] **[R]** Approval rides **never** auto-promote.
-- [ ] **[⚠]** A place freed by **removal** does not auto-promote anyone (current behaviour).
-- [ ] **[⚠]** A place freed by the **customer's own cancellation** does not auto-promote anyone (current behaviour).
+- [ ] **[T]** A place freed by a **removal** promotes the next waitlisted rider — `release-and-stock.spec.ts` *(fixed 2026-08-26)*.
+- [ ] **[⚠]** A place freed by the **customer's own cancellation** still promotes nobody — blocked by RLS, needs a server-side fix (BUSINESS-RULES.md §4.7).
 
 ## 8. Queue numbers
 
@@ -185,7 +189,7 @@ known defects or inconsistencies in the current system: reproducing them is a de
 - [ ] **[R]** Checking in a waitlisted rider is where their add-on stock is finally reserved.
 - [ ] **[R]** A payment chosen in the quick modal is carried over into the bike picker, not discarded.
 - [ ] **[R]** `checked_in_at` / `checked_out_at` / `ride_duration` are recorded.
-- [ ] **[⚠]** A bulk check-in stamps `checked_in_at` even on rows whose status write lost the race.
+- [ ] **[T]** A bulk check-in stamps `checked_in_at` only on rows whose status write landed — `release-and-stock.spec.ts` *(fixed 2026-08-26)*.
 - [ ] **[T]** Bike editing works, including colours and identifiers — `bike-edit.spec.ts`.
 - [ ] **[R]** Bikes move `available → in-use` on check-in and back on return, cancel, no-show or removal.
 - [ ] **[R]** Orphan bikes (in-use with no live booking) are reset to available at boot.
@@ -200,8 +204,8 @@ known defects or inconsistencies in the current system: reproducing them is a de
 - [ ] **[T]** A rider cancelled after checking in gives back exactly one — `addon-stock-invariant.spec.ts`.
 - [ ] **[T]** No-show handling and add-ons stay consistent — `noshow-addons.spec.ts`.
 - [ ] **[R]** Stock may go negative (oversell/backorder) on the staff path — clamping would mint phantom stock on refund.
-- [ ] **[⚠]** Staff stock writes send an **absolute** quantity from local state, so two devices lose each other's changes.
-- [ ] **[⚠]** The customer stock RPC clamps at zero, contradicting the deliberate-negative rule.
+- [ ] **[T]** Staff stock writes are a delta under a compare-and-swap, so two tills cannot overwrite each other — `release-and-stock.spec.ts` *(fixed 2026-08-26)*.
+- [ ] **[⚠]** The customer stock RPC still clamps at zero, contradicting the deliberate-negative rule — one-line migration, not applied.
 
 ## 11. Approval workflow
 

@@ -67,13 +67,16 @@ Ambiguities are flagged inline rather than guessed. The main ones:
 - **Layer 1's motorsport visual identity** is largely overridden but not deleted; whether that is
   residue or an unfinished migration is unclear (DESIGN-SPEC.md §10).
 
-## Known defects documented, not fixed
+## Defect status
 
-Per the brief these were documented rather than repaired. They are marked **[⚠]**:
+The defects found while writing this spec were documented first, then fixed on 2026-08-26.
+What changed, and what did not:
 
-1. A place freed by a **removal** or by a **customer's own cancellation** never promotes anyone
-   off the waitlist (BUSINESS-RULES.md §4.7).
-2. **Staff add-on stock writes are absolute**, so two devices lose each other's changes; the
-   customer path uses an atomic delta and additionally clamps at zero, contradicting the
-   deliberate-negative rule (BUSINESS-RULES.md §12.2).
-3. A **bulk check-in stamps `checked_in_at`** even on rows whose status write lost the race.
+| Defect | Status |
+|---|---|
+| A place freed by a **removal** promoted nobody | **Fixed** — `doRemove` now promotes, as cancel and no-show already did |
+| A place freed by the **customer's own cancellation** promotes nobody | **Open.** It cannot be fixed in the client: promotion writes `queue_entries.status`, which is `is_staff()`-only, so a customer's write affects zero rows and returns no error. Three server-side options are set out in BUSINESS-RULES.md §4.7 |
+| **Staff stock writes were absolute**, so two tills overwrote each other | **Fixed** — now a delta under a compare-and-swap, retried against a fresh read when contended, with the on-screen count still moving immediately |
+| The **customer stock RPC clamps at zero**, contradicting the deliberate-negative rule | **Open** — a one-line migration, not yet applied |
+| A **bulk check-in stamped `checked_in_at`** on rows whose status write was refused | **Fixed** — only rows that actually checked in are stamped |
+| Password reset failing with a dropped request, with no retry | **Hardened** — reset and login now retry once on a network-layer failure; signup deliberately does not, so a landed insert is never repeated. Root cause not established |

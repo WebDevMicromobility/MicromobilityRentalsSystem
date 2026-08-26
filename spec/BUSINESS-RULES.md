@@ -265,14 +265,23 @@ database enforces a waitlist size.
 5. **consumes the booking's add-on stock** (a waitlisted booking held none);
 6. sends a **push notification** to the rider.
 
-**It is wired to exactly three events**: staff cancel (two code paths, `staffCancelEntry`) and
-no-show (`doNoShow`).
+**It is wired to four events**: staff cancel (two code paths, `staffCancelEntry`), no-show
+(`doNoShow`), and — since 2026-08-26 — **removal** (`doRemove`), which frees a place on exactly
+the same terms and previously handed it to nobody.
 
-> **⚠ Known gap, verified by test.** Two other paths free a place but do **not** promote:
-> `doRemove()` ([app.src.html:12075](../app.src.html#L12075)) and the customer's own
-> `cancelBooking()` ([app.src.html:10557](../app.src.html#L10557)). There is no server-side
-> promotion trigger, so in both cases the place is freed and nobody on the waitlist is advanced.
-> A new implementation should decide deliberately whether to reproduce this or fix it.
+> **⚠ One gap remains, and it cannot be closed in the client.** The customer's own
+> `cancelBooking()` frees a place and promotes nobody. It is not an oversight that this was
+> never wired: `_autoPromoteOldestWaitlist` promotes by writing `queue_entries.status`, and that
+> table's UPDATE policy is `is_staff()`. A customer's write matches no policy, affects zero rows
+> and returns **no error** — so calling it there would look fixed and silently do nothing.
+> Closing it properly needs one of:
+> 1. a `SECURITY DEFINER` RPC that promotes and consumes the add-on stock server-side, called
+>    from the customer path (no double-promotion risk, staff paths unchanged); or
+> 2. a reconciliation sweep on staff devices — promote whenever an open session has free places
+>    and waiting riders — which self-heals every release path, including capacity increases; or
+> 3. a database trigger, which must then be exempted for `is_staff()` or it will double-promote
+>    against the client-side call that staff paths already make.
+> Option 1 is the narrowest. None is shipped.
 
 ---
 
@@ -570,12 +579,18 @@ Every transition must consume or restock; the pairing is spread across ~20 call 
 Stock **may go negative** — that is deliberate (oversell/backorder). Clamping at 0 while refunds
 add the full quantity back would mint phantom stock.
 
-> **⚠ Inconsistency, verified.** Staff stock writes send an **absolute** qty computed from the
-> device's local copy (`_addonStockQ`, [app.src.html:7384](../app.src.html#L7384)), so two
-> devices lose each other's changes. The customer path uses the **relative, atomic**
-> `customer_addon_stock` RPC (`qty = greatest(qty + delta, 0)`), which additionally **clamps at
-> zero** — contradicting the deliberate-negative rule above. A new implementation should use the
-> delta form on both sides and pick one clamping rule.
+**Staff stock writes are a compare-and-swap** (`_invApplyDelta`): the movement is applied as a
+delta conditional on the row still holding the value this device last saw, retried up to four
+times against a fresh read when another till moved it first. The on-screen count still updates
+immediately and is put back if the write is refused. Until 2026-08-26 this was an **absolute**
+write from local state, so two tills selling the same item overwrote each other and stock
+drifted upward — invisible until stock-take.
+
+> **⚠ One inconsistency remains.** The customer path's `customer_addon_stock` RPC applies
+> `qty = greatest(qty + delta, 0)` — atomic, but it **clamps at zero**, which contradicts the
+> deliberate-negative rule above: a refund then adds the full quantity back onto a floor and
+> mints stock that never existed. Closing it is a one-line migration (drop the `greatest`), not
+> yet applied.
 
 ### 12.3 Payment 🟢
 

@@ -3100,7 +3100,7 @@ async function doResetPassword(){
   try{
     if(CUST_RPC){
       const ph=_normPhone(S.forgotPhoneRaw||'',S.forgotCc||'+966'); // cc+raw kept the trunk 0 ("+9660…") and could never match
-      const{data,error}=await sb.rpc('customer_reset',{p_email:S.forgotEmail,p_phone:ph,p_new_pwd:pwd});
+      const{data,error}=await _rpcResilient('customer_reset',{p_email:S.forgotEmail,p_phone:ph,p_new_pwd:pwd});
       const customer=(data&&data[0])||null;
       if(error&&!/LOCKED/.test((error.message||''))){_authFail('reset',error);return;}
       if(error||!customer){authErr(t('errResetNoMatch'));return;}
@@ -3180,6 +3180,26 @@ function _vBlur(el,kind){
   else if(kind==='height'){const h=parseInt(v);if(isNaN(h)||h<100||h>250)msg=t('errValidHeightCm');}
   if(msg){_fieldErr(el,msg);return false;}
   _fieldOk(el);return true;
+}
+// ── A dropped request is worth one more try ─────────────────────────────────────────────
+// error_log shows riders tapping Reset three to five times in the same minute, every tap
+// another "TypeError: Load failed" — Safari's name for a request that never completed — and
+// every one answered with the same generic connection error. The request never reached
+// Postgres, so it can be repeated safely; only flows where a repeat is harmless use this.
+// Password reset qualifies (setting the same password twice changes nothing) and so does
+// login. SIGNUP deliberately does not: if the first attempt did land and only the reply was
+// lost, a retry would come back "account already exists" and read as a different failure.
+function _isNetErr(e){
+  return /load failed|failed to fetch|networkerror|network error|timed out|timeout/i.test(((e&&e.message)||'')+'');
+}
+async function _rpcResilient(name,args,tries){
+  const max=tries||2;let r=null;
+  for(let i=0;i<max;i++){
+    try{r=await sb.rpc(name,args);}catch(e){r={data:null,error:e};}
+    if(!r||!r.error||!_isNetErr(r.error))return r; // a real refusal (bad password, LOCKED) is the answer, not a retry
+    if(i<max-1)await new Promise(res=>setTimeout(res,400*(i+1)));
+  }
+  return r;
 }
 // Server/connection failure in an auth flow: offline gets an honest message instead of the
 // generic one, and the failure is logged to error_log (code/message only — never credentials).
@@ -3469,7 +3489,7 @@ async function doLogin(){
       // The DB matches phone digits EXACTLY, so "0508…" / "508…" must be normalized to the
       // stored +966… form or phone login always fails with "invalid credentials".
       const ident=identifier.includes('@')?identifier:(_normPhone(rawInput,'+966')||identifier);
-      const{data,error}=await sb.rpc('customer_login',{p_identifier:ident,p_pwd:pwd});
+      const{data,error}=await _rpcResilient('customer_login',{p_identifier:ident,p_pwd:pwd});
       if(error){if(/LOCKED/.test((error.message||'')+(error.hint||'')))authErr(t('errLoginLocked'));else if(/PGRST|Failed to fetch|network/i.test((error.code||'')+(error.message||'')))_authFail('login',error);else authErr(t('errInvalidCredentials'));return;}
       const customer=(data&&data[0])||null;
       if(!customer){authErr(t('errInvalidCredentials'));return;}
@@ -7348,29 +7368,61 @@ function addonSalesFromGroups(groups){
 // Adjust inventory stock for a set of add-on ids by delta (-1 when a booking consumes them, +1 on cancel/no-show). Clamped at 0; tolerant of a missing qty column.
 async function _addonStock(ids,delta){
   if(!ids||!ids.length||!sb)return;
-  await Promise.all(ids.map(async id=>{
-    const it=(S.inventory||[]).find(x=>x.id===id);if(!it)return;
-    const q=(Number(it.qty)||0)+delta;it.qty=q; // may go negative (oversold/backorder) — clamping here while refunds add the full qty back minted phantom stock
-    if(!await _invQtyWrite(id,q))it.qty=q-delta; // write refused: put the local count back rather than show stock that was never saved
-  }));
+  await Promise.all((ids||[]).map(id=>_invApplyDelta(id,delta)));
 }
-// One stock write, reported rather than swallowed. A silently-dropped inventory update used
-// to leave the screen showing a count the database never took, so the next reload appeared
-// to "lose" a sale — the drift only surfaced at stock-take.
-async function _invQtyWrite(id,qty){
+// ── One stock movement, applied as a DELTA rather than an absolute quantity ──────────────
+// The write used to send "what this device last saw, plus the movement", which threw away
+// anything another till had done in between: two desks selling the same gel each wrote their
+// own idea of the total, and the second one won. Stock drifted UPWARD — the system believed it
+// held more than it did — and nothing said so until stock-take.
+//
+// This reads the row, then writes the new value CONDITIONAL on the row still holding what was
+// read; if it does not, another device moved it and we read again and retry. Same
+// compare-and-swap the bike claim uses, and the same reason: an absolute write from stale
+// state is a lost update waiting to happen.
+//
+// A negative result is kept on purpose (oversold / backordered). Clamping at zero here while
+// a refund adds the full quantity back is what mints phantom stock.
+async function _invApplyDelta(id,delta,_depth){
+  if(!sb||!id||!delta)return null;
+  const depth=_depth||0;
+  const it=(S.inventory||[]).find(x=>x.id===id);
+  let was=null;
+  if(depth===0&&it&&it.qty!=null){
+    // The count on screen moves now, not after the round trip — a staffer selling at the desk
+    // should not watch a number lag. `was` is captured BEFORE this, and it is `was` the write
+    // is conditional on, so the optimistic figure never becomes the thing we bet against.
+    was=Number(it.qty)||0;
+    it.qty=was+delta;
+  }
   try{
-    const res=await sb.from('inventory').update({qty,updated_at:new Date().toISOString()}).eq('id',id);
-    if(res&&res.error){
-      const it=(S.inventory||[]).find(x=>x.id===id);
+    if(was===null){
+      // No local copy, or a retry after losing the race: ask the row what it actually holds.
+      const cur=await sb.from('inventory').select('qty').eq('id',id).maybeSingle();
+      if(cur.error||!cur.data)return null; // unreadable: report nothing rather than guess a total
+      was=Number(cur.data.qty)||0;
+    }
+    const next=was+delta;
+    const res=await sb.from('inventory').update({qty:next,updated_at:new Date().toISOString()})
+      .eq('id',id).eq('qty',was).select('id');
+    if(res.error){
+      if(it)it.qty=was; // put the on-screen count back rather than show stock that was never saved
       console.error('stock write failed',id,res.error);
       errorBar(t('errStockWrite').replace('{0}',(it&&it.name)||id),null,res.error.message||'');
-      return false;
+      return null;
     }
-    return true;
+    if(res.data&&res.data.length){if(it)it.qty=next;return next;}
+    // The row is not what we read: another till moved it. Undo the guess and try again from
+    // whatever it holds now, rather than overwriting their movement with ours.
+    if(it)it.qty=was;
+    if(depth<4)return _invApplyDelta(id,delta,depth+1);
+    errorBar(t('errStockWrite').replace('{0}',(it&&it.name)||id),null,'contended');
+    return null;
   }catch(e){
+    if(it&&was!==null)it.qty=was;
     console.error('stock write failed',id,e);
     S._netDown=true;_updateConnUI();
-    return false;
+    return null;
   }
 }
 // Apply stock deltas from a set of receipt/cart lines, SUMMED per unique item so each inventory
@@ -7384,19 +7436,21 @@ async function _addonStockBatch(lines,sign){
 async function _addonStockQ(arr,sign){
   const norm=(arr||[]).map(a=>(a&&typeof a==='object')?{id:a.id,qty:Math.max(1,Number(a.qty)||1)}:{id:a,qty:1}).filter(a=>a.id);
   if(!norm.length||!sb)return;
-  // Update the local copy first so the UI reflects the change immediately.
-  norm.forEach(({id,qty})=>{const it=(S.inventory||[]).find(x=>x.id===id);if(it)it.qty=(Number(it.qty)||0)+sign*qty;}); // may go negative: backordered add-ons owed to bookings; cancel/undo stays symmetric
   if(_asCustomer()){
+    // The customer path applies the change locally first, because the RPC answers only true
+    // or false and there is no authoritative figure to come back to. (May go negative:
+    // backordered add-ons owed to bookings; cancel/undo stays symmetric.)
+    norm.forEach(({id,qty})=>{const it=(S.inventory||[]).find(x=>x.id===id);if(it)it.qty=(Number(it.qty)||0)+sign*qty;});
     // Inventory writes are staff-only after Section 6; a customer's add-on stock
     // change (book/cancel) goes through the token-checked RPC instead.
     const c=S.loggedIn||getSession();
     if(c&&c.session_token){try{await sb.rpc('customer_addon_stock',{p_id:c.id,p_token:c.session_token,p_items:norm.map(({id,qty})=>({id,delta:sign*qty}))});}catch(e){}}
     return;
   }
-  await Promise.all(norm.map(async({id,qty})=>{
-    const it=(S.inventory||[]).find(x=>x.id===id);if(!it)return;
-    if(!await _invQtyWrite(id,it.qty))it.qty=(Number(it.qty)||0)-sign*qty; // revert the optimistic local change
-  }));
+  // Staff path: each movement is applied as a delta under a compare-and-swap, so two tills
+  // selling the same item cannot overwrite each other. The local copy is set from what the
+  // write actually stored, so nothing here needs an optimistic guess to undo.
+  await Promise.all(norm.map(({id,qty})=>_invApplyDelta(id,sign*qty)));
 }
 // Restock a booking's add-ons once, only when its LAST active rider exits (cancel/no-show), so multi-rider bookings don't over-restock.
 async function _restockAddonsOnExit(entry){
@@ -10159,10 +10213,12 @@ async function _checkinMany(idList){
   const ids=(idList||[]).filter(id=>{const e=getQueue().find(x=>x.id===id);return e&&(e.status==='waiting'||e.status==='waitlist');});
   if(!ids.length)return 0;
   const wasWl=new Map(ids.map(id=>[id,(getQueue().find(x=>x.id===id)||{}).status==='waitlist']));
+  const landed=[]; // ids whose status write actually took — see the checked_in_at stamp below
   const res=await Promise.all(ids.map(async id=>{
     const e=getQueue().find(x=>x.id===id);
     const _c=await _claimReservedBikes(e); // reserved bike goes in-use with the rider (or the stale link is dropped)
     const r=await sb.from('queue_entries').update({status:'active',..._c.patch}).eq('id',id).in('status',['waiting','waitlist']).select('id');
+    if(!(r&&r.error)&&(r.data&&r.data.length))landed.push(id);
     if(!(r&&r.error)&&!(r.data&&r.data.length)&&_c.claimed.length)await Promise.all(_c.claimed.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b))).catch(()=>{}); // another device won
     if(!(r&&r.error)&&(r.data&&r.data.length)){
       await _addonsOnLeaveWaitlist(e,!!wasWl.get(id));
@@ -10170,7 +10226,11 @@ async function _checkinMany(idList){
     }
     return r;
   }));
-  try{const _now=new Date().toISOString();await Promise.all(ids.map(id=>sb.from('queue_entries').update({checked_in_at:_now}).eq('id',id)));}catch(_){} // tolerant
+  // Stamp the arrival time only on the rows that actually checked in. The status write is
+  // guarded (.in('status',[...])), so a row another device had already cancelled or checked in
+  // comes back empty — and stamping it anyway gave a cancelled booking a check-in time and
+  // moved an existing one, quietly corrupting the arrival record the reports read.
+  try{const _now=new Date().toISOString();if(landed.length)await Promise.all(landed.map(id=>sb.from('queue_entries').update({checked_in_at:_now}).eq('id',id)));}catch(_){} // tolerant
   const fail=res.find(r=>r&&r.error);
   await loadData();
   if(fail){toast(fail.error.message||t('errConnection'),'error');renderStaffQueue();return 0;}
@@ -12097,9 +12157,15 @@ async function doRemove(id){
   const calls=[sb.from('queue_entries').update({status:'removed',assigned_bike_id:null}).eq('id',id)];
   bikeIds.forEach(bid=>calls.push(sb.from('bikes').update({status:'available'}).eq('id',bid)));
   await Promise.all(calls);
+  // A removal frees the rider's place exactly as a cancellation does — _holdsSpot counts
+  // neither — so it has to hand that place on. Without this the waitlist simply did not move:
+  // the place sat empty until somebody else cancelled, and then only one rider advanced, so
+  // the session ran one short for every removal. Cancel and no-show already do this.
+  const _promoted=await _autoPromoteOldestWaitlist(entry.sessionId);
   await loadData();
   if(restocks)await _restockAddonsOnExit(entry);
-  toast(t('toastRiderRemoved'));
+  toast(_promoted?`${t('toastRiderRemoved')} · ${t('toastPromoted')}`:t('toastRiderRemoved'));
+  if(_promoted&&_promoted.phone)_promoNudge(_promoted);
   renderStaffQueue();renderHistory();
 }
 
