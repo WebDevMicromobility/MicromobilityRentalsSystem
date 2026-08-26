@@ -373,19 +373,19 @@ Families: **Barlow**, **Barlow Condensed**, **IBM Plex Sans Arabic**, **Chakra P
 
 ## 12. Internationalisation delivery
 
-- **English is inline** in the bundle; `ar` and `es` are **extracted to `lang/<code>.json`** by
+- **English is inline** in the bundle; `ar` is **extracted to `lang/ar.json`** by
   [scripts/build-html.mjs](../scripts/build-html.mjs) and fetched at runtime.
 - The build stamps a content hash into `LANG_PACKS` and `window.__LANG_V` for cache-busting.
 - The `<head>` **starts the fetch before the app script parses** (`window.__langPack`), so a
   returning Arabic reader waits on nothing extra.
 - `setLang()` never blocks first paint: it draws in English immediately and redraws when the
   pack lands.
-- `?lang=en|ar|es` selects the language from the URL and is kept in sync with
+- `?lang=en|ar` selects the language from the URL and is kept in sync with
   `history.replaceState` (no history entry per toggle), which is what gives Arabic a crawlable
   address.
 - The middleware denylist has an explicit exemption for `/lang/<code>.json`.
-- **CI gate**: [scripts/check-i18n.mjs](../scripts/check-i18n.mjs) enforces EN/AR/ES key parity —
-  currently **1,734 keys × 3 languages, zero missing**.
+- **CI gate**: [scripts/check-i18n.mjs](../scripts/check-i18n.mjs) enforces EN/AR key parity —
+  currently **1,734 keys × 2 languages, zero missing**.
 
 ---
 

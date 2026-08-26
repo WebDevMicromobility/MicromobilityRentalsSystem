@@ -755,7 +755,7 @@ Cancelled and removed bookings are excluded from the Bookings list base set enti
 9. All money flows are representable in `cashier_sales` without schema changes (negative
    `__discount__` lines, `__cardmeta__` splits, `refunded`/`team`/`house` markers) — and
    aggregations must filter the meta lines.
-10. Every string ships in EN + AR + ES with full RTL; key parity is a CI gate.
+10. Every string ships in EN + AR with full RTL; key parity is a CI gate.
 11. Offline-first: two outboxes with stable-id dedup, the voided-sale guard, the cold-start
     snapshot.
 12. Anything staff-destructive gets an **Undo**.

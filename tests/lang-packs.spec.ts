@@ -9,7 +9,7 @@ const AR = JSON.parse(readFileSync(resolve(__dirname, '../lang/ar.json'), 'utf8'
 
 // Translations used to ship inline in all three languages — ~190 KB of the page for a
 // visitor who reads one of them. English still ships inline, because t() falls through to
-// it and the app must render before any network call; Arabic and Spanish are files the
+// it and the app must render before any network call; Arabic is a file the
 // build extracts and the app fetches when they are actually chosen.
 //
 // The risk this trades for the bytes is a silent fallback: if a pack fails to arrive, every
@@ -80,9 +80,8 @@ test('every key survives the round trip — the packs are the same data, not a s
   await stubSupabase(page, fixtures);
   await page.goto('/');
   await waitForSb(page);
-  await page.evaluate(`(async()=>{await loadLangPack('ar');await loadLangPack('es');})()`);
-  await expect.poll(() => page.evaluate(`_langLoaded('es')`)).toBe(true);
-  const counts = await page.evaluate(`({en:Object.keys(LANG.en).length,ar:Object.keys(LANG.ar).length,es:Object.keys(LANG.es).length})`) as Record<string, number>;
+  await page.evaluate(`(async()=>{await loadLangPack('ar');})()`);
+  await expect.poll(() => page.evaluate(`_langLoaded('ar')`)).toBe(true);
+  const counts = await page.evaluate(`({en:Object.keys(LANG.en).length,ar:Object.keys(LANG.ar).length})`) as Record<string, number>;
   expect(counts.ar).toBe(counts.en);
-  expect(counts.es).toBe(counts.en);
 });

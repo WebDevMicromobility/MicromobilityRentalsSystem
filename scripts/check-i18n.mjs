@@ -50,7 +50,7 @@ try {
 }
 
 const langs = Object.keys(LANG);
-const expected = ['en', 'ar', 'es'];
+const expected = ['en', 'ar'];
 for (const l of expected) {
   if (!langs.includes(l)) {
     console.error(`check-i18n: language "${l}" missing from LANG`);

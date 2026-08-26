@@ -11,7 +11,7 @@ designer and a developer who have never seen this codebase can recreate it exact
 
 | File | What it answers | Size |
 |---|---|---|
-| [SCREENS.md](SCREENS.md) | What is on every screen and modal, what each control does, and the **exact copy in English, Arabic and Spanish** (all 1,734 keys) | ~2,570 lines |
+| [SCREENS.md](SCREENS.md) | What is on every screen and modal, what each control does, and the **exact copy in English and Arabic** (all 1,734 keys) | ~2,570 lines |
 | [FLOWS.md](FLOWS.md) | Every user journey end to end, as numbered steps with branches, and every automatic behaviour | ~500 lines |
 | [BUSINESS-RULES.md](BUSINESS-RULES.md) | Every rule the code enforces, with the file and function that owns it | ~745 lines |
 | [DATA-MODEL.md](DATA-MODEL.md) | Every table, column, type, relationship, RPC, trigger, policy and Pages Function | ~520 lines |

@@ -21,7 +21,7 @@ test.describe('crawlable surface', () => {
 
   test('every language has an address, declared with hreflang', async () => {
     const html = await readFile(resolve(__dirname, '../index.html'), 'utf8');
-    for (const lang of ['en', 'ar', 'es']) {
+    for (const lang of ['en', 'ar']) {
       expect(html).toMatch(new RegExp(`hreflang="${lang}"[^>]*\\?lang=${lang}`));
     }
     expect(html).toContain('hreflang="x-default"');
@@ -47,7 +47,7 @@ test.describe('crawlable surface', () => {
   test('the sitemap lists each language and cross-links the alternates', async () => {
     const xml = await readFile(resolve(__dirname, '../sitemap.xml'), 'utf8');
     expect(xml).toContain('?lang=ar</loc>');
-    expect(xml).toContain('?lang=es</loc>');
+    expect(xml).not.toContain('?lang=es');
     expect(xml).toContain('hreflang="x-default"');
   });
 
@@ -70,10 +70,29 @@ test.describe('?lang addressing', () => {
 
   test('an unknown lang falls back to the remembered choice', async ({ page }) => {
     await stubSupabase(page, {});
-    await page.addInitScript(() => localStorage.setItem('cq_lang', 'es'));
+    await page.addInitScript(() => localStorage.setItem('cq_lang', 'ar'));
     await page.goto('/?lang=zz');
     await waitForSb(page);
-    expect(await page.evaluate('S.lang')).toBe('es');
+    expect(await page.evaluate('S.lang')).toBe('ar');
+  });
+
+  // Spanish was dropped from the product. A device that still remembers it must land on
+  // English rather than on a language the app no longer carries — the boot only accepts a
+  // remembered code that is still in LANGS.
+  test('a device that still remembers Spanish falls back to English', async ({ page }) => {
+    await stubSupabase(page, {});
+    await page.addInitScript(() => localStorage.setItem('cq_lang', 'es'));
+    await page.goto('/');
+    await waitForSb(page);
+    expect(await page.evaluate('S.lang')).toBe('en');
+    expect(await page.evaluate(`LANGS.some(l=>l.code==='es')`)).toBe(false);
+  });
+
+  test('?lang=es is no longer an address the app answers to', async ({ page }) => {
+    await stubSupabase(page, {});
+    await page.goto('/?lang=es');
+    await waitForSb(page);
+    expect(await page.evaluate('S.lang')).toBe('en');
   });
 
   test('switching language writes it back into the URL so the page stays shareable', async ({ page }) => {

@@ -46,7 +46,7 @@ for (const m of src.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>
 }
 
 // ── Translation packs: ship the language a visitor reads, not all three ──────
-// LANG carries ~1,700 keys in three languages. Inline, that is ~190 KB gzipped of the
+// LANG carries ~1,700 keys in two languages. Inline, that is ~190 KB gzipped of the
 // ~300 KB page — and Arabic alone is 146 KB of it, because every glyph is multi-byte. A
 // visitor reads ONE language, so English (the fallback t() falls through to) stays inline
 // and the other packs become files fetched on demand.

@@ -16,21 +16,19 @@ test('shows the no-sessions message when nothing is bookable', async ({ page }) 
   await expect(page.locator('#land-avail-strip')).toContainText('No sessions are currently open');
 });
 
-test('language dropdown switches to arabic and back, and offers spanish', async ({ page }) => {
+test('language dropdown switches to arabic and back', async ({ page }) => {
   await page.locator('#lang-btn').click();
-  await expect(page.locator('.pay-menu-popup')).toContainText('Español'); // three-language menu
+  // Two languages now — Spanish was dropped from the product.
+  await expect(page.locator('.pay-menu-popup')).not.toContainText('Español');
+  await expect(page.locator('.pay-menu-popup button')).toHaveCount(2);
   await page.locator('.pay-menu-popup button', { hasText: 'العربية' }).click();
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   await expect(page.locator('#land-sub')).toHaveText('تأجير الدراجات وجولات مجتمعية في جدة');
   await expect(page.locator('#footer-copy')).toContainText('جميع الحقوق محفوظة');
-  // spanish translates the landing copy (ltr)
-  await page.locator('#lang-btn').click();
-  await page.locator('.pay-menu-popup button', { hasText: 'Español' }).click();
-  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
-  await expect(page.locator('#land-sub')).toContainText('Alquiler de bicicletas');
   // and back to english
   await page.locator('#lang-btn').click();
   await page.locator('.pay-menu-popup button', { hasText: 'English' }).click();
+  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
   await expect(page.locator('#land-sub')).toContainText('Bicycle rentals');
 });
 

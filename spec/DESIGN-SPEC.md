@@ -433,7 +433,7 @@ The staff rail drops letter-spacing and uses 13px.
 
 - Dates: `ar-u-ca-gregory-nu-latn` — **Gregorian calendar with Latin digits**, deliberately not
   Hijri and not Arabic-Indic numerals ([app.src.html:2284](../app.src.html#L2284)).
-- Day names: a hand-written `DAY_NAMES_AR` map (الأحد, الاثنين, …). Spanish likewise.
+- Day names: a hand-written `DAY_NAMES_AR` map (الأحد, الاثنين, …).
 - Times: `fmt12h()` renders `ص` / `م` instead of AM/PM in Arabic.
 - Countries and cities have their own `COUNTRY_AR` / `CITY_AR` maps.
 

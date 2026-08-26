@@ -317,10 +317,10 @@ known defects or inconsistencies in the current system: reproducing them is a de
 ## 19. Internationalisation
 
 - [ ] **[T]** Language packs load and apply correctly — `lang-packs.spec.ts`.
-- [ ] **[R]** English is inline; Arabic and Spanish are fetched as versioned JSON packs.
+- [ ] **[R]** English is inline; Arabic is fetched as a versioned JSON pack.
 - [ ] **[R]** A language switch never blocks first paint — it draws in English and redraws when the pack lands.
 - [ ] **[R]** `?lang=` selects the language and is kept in sync without adding history entries.
-- [ ] **[R]** EN/AR/ES key parity is a build-breaking gate (currently 1,734 keys).
+- [ ] **[R]** EN/AR key parity is a build-breaking gate (currently 1,734 keys). *(Spanish was dropped 2026-08-26.)*
 - [ ] **[R]** Arabic sets `dir="rtl"`, swaps to IBM Plex Sans Arabic, and drops italics, uppercase and letter-spacing.
 - [ ] **[R]** Arabic dates use the Gregorian calendar with Latin digits, not Hijri and not Arabic-Indic numerals.
 - [ ] **[R]** Arabic times use `ص`/`م` rather than AM/PM.
