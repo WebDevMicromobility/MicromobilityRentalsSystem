@@ -1,0 +1,35 @@
+-- ─────────────────────────────────────────────────────────────────────────────
+-- PII lockdown, STAGE 2 — the last open write on queue_entries.
+--
+-- Stage 1 (2026-08-24) dropped the world-readable SELECT policy. This drops the
+-- open INSERT, which is the last thing the anon key can do to this table
+-- directly. It is not a PII leak on its own — price, paid, status and approval
+-- are all trigger-enforced — but it is an untrusted write surface, and nothing
+-- needs it any more:
+--
+--   · customers book through customer_create_booking (SECURITY DEFINER, so RLS
+--     does not apply to it);
+--   · staff insert under the "staff insert" policy;
+--   · a walk-in is a staff insert.
+--
+-- The ONE path it still covered: a booking made OFFLINE on a client older than
+-- 2026-08-24, whose outbox flushes by inserting directly. Newer clients flush
+-- through the RPC and only fall back to a direct insert when the function is
+-- absent, which it is not. The service worker serves navigations
+-- stale-while-revalidate, so a device picks up the new client on its next load.
+--
+-- Before applying, satisfy yourself the fleet has rolled over. At the time of
+-- writing there were 218 bookings in the preceding 48 hours, so the active
+-- devices plainly have. The residual risk is a device that has been offline
+-- with a queued booking since before 2026-08-24 and has not loaded the app
+-- since: its flush would be refused, the rider would arrive expecting a bike,
+-- and no screen would say so.
+--
+-- After applying, make ONE real booking as a signed-in customer to confirm the
+-- RPC path is untouched.
+--
+-- Rollback (restores the old behaviour exactly):
+--   create policy "public insert booking" on public.queue_entries
+--     for insert with check (true);
+-- ─────────────────────────────────────────────────────────────────────────────
+drop policy if exists "public insert booking" on public.queue_entries;
