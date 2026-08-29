@@ -8296,6 +8296,34 @@ function delPromo(id){
   }});
 }
 
+// ── A deleted session still occupies its date ─────────────────────────────
+// Deleting a session is a SOFT delete (status:'deleted') so staff can restore it, but a
+// session id IS its date — so the dead row goes on holding the date's primary key. Creating
+// a session for that date then comes back as a duplicate key, which the UI reported as
+// "a session for that date already exists" even though the only thing there is a session
+// staff themselves deleted, and no amount of retrying could clear it.
+//
+// Asks the database rather than local state on purpose: another device may have created (or
+// restored) a REAL session on that date since this tab last loaded, and that one must never
+// be dropped to make room. Answers false on any read failure, so an unreadable row is left
+// alone and the caller reports the clash as before.
+async function _deletedSessionAt(id){
+  try{
+    const r=await sb.from('sessions').select('id,status').eq('id',id);
+    if(!r||r.error)return false;
+    const row=(r.data||[]).find(x=>x&&x.id===id);
+    return !!row&&row.status==='deleted';
+  }catch(e){return false;}
+}
+// Clear a deleted session out of the way of a new one on the same date. Safe by construction:
+// deleteSession refuses to delete a session that still holds a live booking or an unrefunded
+// sale, so the row being dropped is an empty shell. Returns true when the date is now free.
+async function _clearDeletedSessionAt(id){
+  if(!await _deletedSessionAt(id))return false;
+  const r=await sb.from('sessions').delete().eq('id',id);
+  return !(r&&r.error);
+}
+
 async function saveSessionEdit(){
   const oldId=S.editSessionId;
   const sess=allSessions().find(s=>s.id===oldId);if(!sess)return;
@@ -8349,15 +8377,24 @@ async function saveSessionEdit(){
     if(newId!==oldId){
       
       const existing=allSessions().find(s=>s.id===newId&&s.id!==oldId);
-      if(existing){toast(t('errDateExists'),'error');return;}
+      // A session that was deleted is not a session in the way: its row is dropped below so
+      // the move can land on that date, the same way creating a session there does.
+      if(existing&&existing.status!=='deleted'){toast(t('errDateExists'),'error');return;}
       // Each step gates the next. A silently-failed insert used to be followed by moving
       // every booking onto a session id that does not exist and then deleting the real
       // one — the whole day's bookings orphaned, with a success toast.
-      if(_writeErr(await sb.from('sessions').insert({
+      const _newRow={
         id:newId,day:newDay,session_date:newDate,capacity:total,
         status:newStatus,created_at:sess.created_at||new Date().toISOString(),
         bike_slots:JSON.stringify(slots)
-      }),'move session'))return;
+      };
+      let _ins=await sb.from('sessions').insert(_newRow);
+      // Re-checked against the database rather than trusted from the list above: local state
+      // can be a few minutes stale, so the row on that date is only cleared once the database
+      // itself says it is a deleted one.
+      if(_ins&&_ins.error&&_ins.error.code==='23505'&&await _clearDeletedSessionAt(newId))_ins=await sb.from('sessions').insert(_newRow);
+      if(_ins&&_ins.error&&_ins.error.code==='23505'){toast(t('errDateExists'),'error');return;}
+      if(_writeErr(_ins,'move session'))return;
 
       const _mv=await sb.from('queue_entries').update({
         session_id:newId,session_date:newDate,session_day:newDay
@@ -8497,7 +8534,15 @@ async function addSession(){
   try{
     let created=0,skipped=0,otherErr=null;const createdIds=[];
     for(const row of rows){
-      const{error}=await sb.from('sessions').insert(row);
+      let{error}=await sb.from('sessions').insert(row);
+      // A duplicate key here means the date is taken — but it may be taken by nothing more
+      // than a session staff already deleted, whose row still owns the date. Clear that
+      // shell out of the way and let the new session have its date; anything else is a real
+      // clash and still reports "a session for that date already exists".
+      if(error&&error.code==='23505'&&await _clearDeletedSessionAt(row.id)){
+        const _retry=await sb.from('sessions').insert(row);
+        error=_retry&&_retry.error;
+      }
       if(error){ if(error.code==='23505')skipped++; else otherErr=error; }
       else {created++;createdIds.push(row.id);}
     }
