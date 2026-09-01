@@ -8848,6 +8848,13 @@ function showGroupEditModal(entryId){
   if(members.length<2){showBookingEditModal(entryId);return;} // solo row: the normal editor
   S._geIds=members.map(m=>m.id);
   const primary=members[0];
+  // Adding or removing a rider row re-renders the whole modal, so typed-but-unsaved values are
+  // read back out of the DOM first. Only on a re-render of the SAME group, though: opening a
+  // different group must not inherit the fields (or the pending riders) of the last one.
+  const _rr=S._geRender===entryId;
+  if(!_rr)S._geNew=[];
+  S._geRender=entryId;
+  const keep=id=>{if(!_rr)return null;const el=document.getElementById(id);return el?el.value:null;};
   const comm=_apprSessIds.has(primary.sessionId),own=_commSessIds.has(primary.sessionId),free=_freeSessIds.has(primary.sessionId);
   const mainPhone=(primary.groupPhone||primary.phone||'').trim(); // the responsible person's number when stored
   const open=allSessions().filter(x=>(x.status==='open'||x.status==='full')&&!_isApprovalRide(x)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
@@ -8858,28 +8865,46 @@ function showGroupEditModal(entryId){
     <div class="modal-box" role="dialog" aria-modal="true" style="max-width:540px">
       <div class="modal-title">${t('groupEditTitle')}</div>
       <div class="form-group" style="margin:14px 0 10px"><label for="ge-gname">${t('groupNameLabel')}</label>
-        <input id="ge-gname" type="text" value="${esc(primary.groupName||'')}" maxlength="60" placeholder="${esc(t('groupNamePh'))}"></div>
+        <input id="ge-gname" type="text" value="${esc(keep('ge-gname')??(primary.groupName||''))}" maxlength="60" placeholder="${esc(t('groupNamePh'))}"></div>
       <div style="display:flex;gap:10px">
-        <div class="form-group" style="flex:1;margin-bottom:10px"><label for="ge-cname">${t('contactNameLabel')}</label><input id="ge-cname" type="text" value="${esc(primary.groupContact||'')}" maxlength="60"></div>
-        <div class="form-group" style="flex:1;margin-bottom:10px"><label for="ge-phone">${t('authPhone')}</label><input id="ge-phone" type="tel" value="${esc(mainPhone)}" placeholder="05…"></div>
+        <div class="form-group" style="flex:1;margin-bottom:10px"><label for="ge-cname">${t('contactNameLabel')}</label><input id="ge-cname" type="text" value="${esc(keep('ge-cname')??(primary.groupContact||''))}" maxlength="60"></div>
+        <div class="form-group" style="flex:1;margin-bottom:10px"><label for="ge-phone">${t('authPhone')}</label><input id="ge-phone" type="tel" value="${esc(keep('ge-phone')??mainPhone)}" placeholder="05…"></div>
       </div>
       ${comm?'':`<div class="form-group" style="margin-bottom:10px"><label for="ge-sess">${t('colSession')}</label>
-        <select id="ge-sess">${open.map(x=>`<option value="${x.id}"${primary.sessionId===x.id?' selected':''}>${dayLabel(x.day)} ${shortDate(x.session_date||x.id)} · ${sessionTime(x)}${x.status==='full'?` (${t('statusFull')})`:''}</option>`).join('')}</select></div>`}
+        <select id="ge-sess">${open.map(x=>`<option value="${x.id}"${(keep('ge-sess')||primary.sessionId)===x.id?' selected':''}>${dayLabel(x.day)} ${shortDate(x.session_date||x.id)} · ${sessionTime(x)}${x.status==='full'?` (${t('statusFull')})`:''}</option>`).join('')}</select></div>`}
       <div class="form-group" style="margin-bottom:6px"><label>${t('colRider')} × ${members.length}</label></div>
       ${members.map((r,i)=>`<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
         <span style="flex-shrink:0;font-size:11px;font-weight:900;color:var(--muted);min-width:26px">#${r.queueNum||''}</span>
-        <input id="ge-r-name-${i}" type="text" value="${esc(r.name||'')}" maxlength="60" style="flex:1;min-width:0">
-        <input id="ge-r-ph-${i}" type="tel" placeholder="05…" value="${esc((r.phone||'').trim()===mainPhone?'':(r.phone||''))}" style="width:104px;flex-shrink:0">
-        <input id="ge-r-h-${i}" type="number" min="80" max="230" placeholder="${t('cmUnit')}" value="${esc(r.height||'')}" style="width:66px;flex-shrink:0">
-        <select id="ge-r-type-${i}" aria-label="${t('bikeTypeLabel')}" style="width:104px;flex-shrink:0">${bikeTypeOpts(own,own).map(ty=>`<option value="${ty}"${(r.typePreference||'Any')===ty?' selected':''}>${typeLabel(ty)}</option>`).join('')}</select>
+        <input id="ge-r-name-${i}" type="text" value="${esc(keep('ge-r-name-'+i)??(r.name||''))}" maxlength="60" style="flex:1;min-width:0">
+        <input id="ge-r-ph-${i}" type="tel" placeholder="05…" value="${esc(keep('ge-r-ph-'+i)??((r.phone||'').trim()===mainPhone?'':(r.phone||'')))}" style="width:104px;flex-shrink:0">
+        <input id="ge-r-h-${i}" type="number" min="80" max="230" placeholder="${t('cmUnit')}" value="${esc(keep('ge-r-h-'+i)??(r.height||''))}" style="width:66px;flex-shrink:0">
+        <select id="ge-r-type-${i}" aria-label="${t('bikeTypeLabel')}" style="width:104px;flex-shrink:0">${bikeTypeOpts(own,own).map(ty=>`<option value="${ty}"${(keep('ge-r-type-'+i)||r.typePreference||'Any')===ty?' selected':''}>${typeLabel(ty)}</option>`).join('')}</select>
       </div>`).join('')}
+      ${comm?'':`<div class="form-group" style="margin:12px 0 6px"><label>${t('beAddRidersLabel')}</label></div>
+      ${(S._geNew||[]).map((r,i)=>`<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+        <span style="flex-shrink:0;font-size:13px;font-weight:900;color:var(--green);min-width:26px">+</span>
+        <input id="ge-nr-name-${i}" type="text" list="ge-cust-list" placeholder="${t('beRiderPh')}" value="${esc(r.name||'')}" maxlength="60" style="flex:1;min-width:0">
+        <input id="ge-nr-ph-${i}" type="tel" placeholder="05…" value="${esc(r.phone||'')}" style="width:104px;flex-shrink:0">
+        <input id="ge-nr-h-${i}" type="number" min="80" max="230" placeholder="${t('cmUnit')}" value="${esc(r.height||'')}" style="width:66px;flex-shrink:0">
+        <select id="ge-nr-type-${i}" aria-label="${t('bikeTypeLabel')}" style="width:104px;flex-shrink:0">${bikeTypeOpts(own,own).map(ty=>`<option value="${ty}"${(r.type||'Any')===ty?' selected':''}>${typeLabel(ty)}</option>`).join('')}</select>
+        <button type="button" class="btn-sm btn-muted" onclick="_geRemoveRider(${i})" aria-label="${t('beRemoveRider')}" style="flex-shrink:0">&#x2715;</button>
+      </div>`).join('')}
+      <datalist id="ge-cust-list">${(S.customers||[]).map(c=>`<option value="${esc(c.name||'')}">`).join('')}</datalist>
+      <button type="button" class="btn-secondary" style="width:100%;margin-top:2px" onclick="_geAddRider()">+ ${t('beAddRiderBtn')}</button>`}
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeGroupEditModal()">${t('cancelBtn')}</button>
         <button class="btn-primary" onclick="saveGroupEdit()">${t('saveChangesBtn')}</button>
       </div>
     </div></div>`;
 }
-function closeGroupEditModal(){const m=document.getElementById('group-edit-modal');if(m){m.style.display='none';m.innerHTML='';}S._geIds=null;}
+function closeGroupEditModal(){const m=document.getElementById('group-edit-modal');if(m){m.style.display='none';m.innerHTML='';}S._geIds=null;S._geNew=null;S._geRender=null;}
+// Pending new-rider rows survive the modal's re-renders by syncing DOM -> state first.
+function _geSync(){(S._geNew||[]).forEach((r,i)=>{
+  const n=document.getElementById('ge-nr-name-'+i),p=document.getElementById('ge-nr-ph-'+i),h=document.getElementById('ge-nr-h-'+i),ty=document.getElementById('ge-nr-type-'+i);
+  if(n)r.name=n.value;if(p)r.phone=p.value;if(h)r.height=h.value;if(ty)r.type=ty.value;
+});}
+function _geAddRider(){_geSync();S._geNew=[...(S._geNew||[]),{name:'',phone:'',height:'',type:'Any'}];showGroupEditModal(S._geRender);}
+function _geRemoveRider(i){_geSync();(S._geNew||[]).splice(i,1);showGroupEditModal(S._geRender);}
 async function saveGroupEdit(){
   const members=(S._geIds||[]).map(id=>getQueue().find(e=>e.id===id)).filter(Boolean);
   if(!members.length){closeGroupEditModal();return;}
@@ -8890,15 +8915,33 @@ async function saveGroupEdit(){
   const mainPhone=(document.getElementById('ge-phone')?.value||'').trim();
   const toSessionId=document.getElementById('ge-sess')?.value||primary.sessionId;
   const moving=toSessionId!==primary.sessionId;
+  // Riders added to the party. A row nobody typed into is a "+" the staffer changed their mind
+  // about, so it is dropped; a row with only a height or a phone still holds a bike and takes
+  // the group's name plus its place in the party ("Tamer Group 4"), exactly like "Add group".
+  _geSync();
+  let newRiders=(S._geNew||[])
+    .map(r=>({name:_titleCaseName(r.name||''),phone:(r.phone||'').trim(),height:parseInt(r.height)||null,type:CUST_TYPES.includes(r.type)?r.type:'Any'}))
+    .filter(r=>r.name||r.phone||r.height);
+  // Approval rides book one rider at a time — the modal hides the rows, this guards any stale
+  // or scripted path (including moving the party into one).
+  if(newRiders.length&&(_isApprovalRide(allSessions().find(s=>s.id===toSessionId))||_isApprovalRide(allSessions().find(s=>s.id===primary.sessionId)))){
+    toast(t('commSoloOnly'),'warning');newRiders=[];S._geNew=[];
+  }
   let sessT=null;
   if(moving){
     sessT=allSessions().find(s=>s.id===toSessionId);if(!sessT)return;
     const cap=sessT.capacity||12;
     const taken=getQueue().filter(x=>x.sessionId===toSessionId&&(x.status==='waiting'||x.status==='active')).length;
-    if(cap-taken<members.length){toast(t('rescheduleFull'),'error');return;}
+    if(cap-taken<members.length+newRiders.length){toast(t('rescheduleFull'),'error');return;}
   }
+  // The added riders join THIS party, so the party needs an explicit id: one grouped only by a
+  // shared customer account gets a group_id minted here and stamped on its existing rows too,
+  // otherwise the new rider would be keyed apart from them (_partyKey prefers group_id).
+  let groupId=primary.groupId||null;
+  const mintGroup=!!(newRiders.length&&!groupId);
+  if(mintGroup)groupId=uid();
   const prev=members.map(m=>({id:m.id,name:m.name,phone:m.phone||'',height:m.height||null,size:m.size||'',type_preference:m.typePreference,price:m.price??DEFAULT_PRICE,
-    group_name:m.groupName||null,group_contact:m.groupContact||null,group_phone:m.groupPhone||null,session_id:m.sessionId,session_day:m.sessionDay,session_date:m.sessionDate,queue_num:m.queueNum,status:m.status}));
+    group_id:m.groupId||null,group_name:m.groupName||null,group_contact:m.groupContact||null,group_phone:m.groupPhone||null,session_id:m.sessionId,session_day:m.sessionDay,session_date:m.sessionDate,queue_num:m.queueNum,status:m.status}));
   const base=moving?nextQNum(toSessionId):0;
   for(let i=0;i<members.length;i++){
     const m=members[i];
@@ -8907,6 +8950,7 @@ async function saveGroupEdit(){
     const height=parseInt(document.getElementById('ge-r-h-'+i)?.value)||null;
     const ty=document.getElementById('ge-r-type-'+i)?.value||m.typePreference;
     const patch={name,height,size:height?heightToSize(height):(m.size||''),group_name:gname||null,group_contact:cname||null,group_phone:mainPhone||null};
+    if(mintGroup)patch.group_id=groupId;
     // Own phone wins; members who were on the (old) main phone follow the new main phone.
     patch.phone=ownPhone||((m.phone||'').trim()===oldMain?mainPhone:m.phone||'');
     if(CUST_TYPES.includes(ty)&&ty!==m.typePreference){
@@ -8919,15 +8963,60 @@ async function saveGroupEdit(){
     if(_writeErr(res,'edit booking'))return;
     if(moving&&m.status==='waitlist')await _addonStockQ(entryAddons(m),-1); // waitlist -> confirmed: the row finally reserves its add-on stock (same rule as promote/reschedule)
   }
+  // One entry each, on the end of the session's numbers and under the group's name, contact
+  // and main phone. A name that matches a saved customer links to it, like "Add group"; when
+  // the session cannot fit them they come in waitlisted rather than being refused.
+  const inserted=[],insertedEnts=[],parkedRows=[];
+  if(newRiders.length){
+    const sessN=allSessions().find(s=>s.id===toSessionId);
+    const gLabel=gname||primary.groupName||primary.name||'';
+    const rStatus=((sessN&&sessN.status==='full')||spotsLeft(toSessionId)<newRiders.length)?'waitlist':'waiting';
+    let qn=nextQNum(toSessionId)+(moving?members.length:0); // when moving, the members above already claimed those numbers
+    let wln=rStatus==='waitlist'?nextWlNum(toSessionId):0;
+    for(let i=0;i<newRiders.length;i++){
+      const r=newRiders[i];
+      const _match=r.name?(S.customers||[]).find(c=>String(c.name||'').trim().toLowerCase()===r.name.trim().toLowerCase()):null;
+      const ent=_applyDefaultPay({id:uid(),name:r.name||`${gLabel} ${members.length+i+1}`.trim(),email:(_match&&_match.email)||primary.email||'',
+        phone:r.phone||mainPhone||(_match&&_match.phone)||'',size:r.height?heightToSize(r.height):'',height:r.height,
+        waitlistNum:rStatus==='waitlist'?wln++:null,
+        typePreference:_isCommunity(sessN)&&r.type==='Road Carbon'?'Any':r.type,paid:false,assignedBikeId:null,
+        sessionId:toSessionId,sessionDay:moving?sessT.day:primary.sessionDay,sessionDate:moving?(sessT.session_date||toSessionId):primary.sessionDate,
+        queueNum:qn,status:rStatus,registeredAt:new Date().toISOString(),walkIn:!_match,customerId:(_match&&_match.id)||null,
+        price:_isFreeRide(sessN)?0:priceForType(r.type),approval:_isApprovalRide(sessN)?'approved':null,
+        groupId,groupName:gname||primary.groupName||null,groupContact:cname||null,groupPhone:mainPhone||null},false); // never the party's first rider — no house perk
+      let r2=await sb.from('queue_entries').insert(entryToDB(ent));
+      if(r2&&r2.error&&(String(r2.error.code||r2.error.message).includes('23505')||/duplicate|unique/i.test(r2.error.message||''))){
+        await loadDataLight();qn=nextQNum(toSessionId);ent.queueNum=qn; // another device grabbed the number: take a fresh one and retry once
+        r2=await sb.from('queue_entries').insert(entryToDB(ent));
+      }
+      if(_writeErr(r2,'add rider'))break;
+      inserted.push(ent.id);insertedEnts.push(ent);qn++;
+    }
+  }
+  // If the party is PARKED on the Staff List, the riders just added join it — the party on the
+  // list has to be the party on the roster, or staff hand out bikes from a list that is short.
+  if(insertedEnts.length&&(S.deskWaitlist||[]).some(w=>w.status==='waiting'&&(w.kind||'')==='managed'&&members.some(m=>m.id===w.booking_id))){
+    let _so=_wlManaged().reduce((a,x)=>Math.max(a,x.sort_order||0),0);
+    const _dw=insertedEnts.map(ent=>({id:uid(),name:ent.name||'',phone:ent.phone||'',bike_type:ent.typePreference||'Any',
+      status:'waiting',paid:!!ent.paid,kind:'managed',sort_order:++_so,booking_id:ent.id,
+      author:_opName()||null,created_at:new Date().toISOString()}));
+    if(!_writeErr(await sb.from('desk_waitlist').insert(_dw),'staff list')){
+      S.deskWaitlist=[...(S.deskWaitlist||[]),..._dw];
+      parkedRows.push(..._dw.map(x=>x.id));
+    }
+  }
   pushUndo(`${t('undoEditBooking')} ${gname||primary.groupName||primary.name}`,async()=>{
     await Promise.all(prev.map(p=>sb.from('queue_entries').update(p).eq('id',p.id)));
     for(const p of prev)if(moving&&p.status==='waitlist')await _addonStockQ(entryAddons(members.find(m=>m.id===p.id)||{}),1); // back to waitlist = release what the move consumed
+    if(inserted.length)await Promise.all(inserted.map(x=>sb.from('queue_entries').delete().eq('id',x))).catch(()=>{});
+    if(parkedRows.length)await Promise.all(parkedRows.map(x=>sb.from('desk_waitlist').delete().eq('id',x))).catch(()=>{}); // ...and off the Staff List with them
     await loadDataLight();renderStaffQueue();
   });
   closeGroupEditModal();
-  logAction(`${t('groupEditTitle')}: ${gname||primary.groupName||primary.name} (${members.length})`);
+  logAction(`${t('groupEditTitle')}: ${gname||primary.groupName||primary.name} (${members.length})${inserted.length?` · +${inserted.length} ${t('beRidersAdded')}`:''}`);
   await loadDataLight();
   toast(t('toastBookingUpdated'));
+  if(inserted.length){S._flashId=inserted[0];S._flashColor='green';setTimeout(()=>{S._flashId=null;},800);}
   renderStaffQueue();
 }
 // One tap marks every unpaid member of a group booking as paid (same price rules as the
