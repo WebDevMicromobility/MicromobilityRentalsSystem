@@ -1752,6 +1752,10 @@ const _sbReady=new Promise(res=>{
     if(sb)return; // client already built
     if(window.supabase&&window.supabase.createClient){
       try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);}catch(e){console.error('Supabase init failed:',e.message);}
+      // Any write to a reference table marks the cached copy stale, wherever it comes from.
+      // One wrapper rather than a refDirty() call at twenty-five sites, which the next write
+      // added would quietly forget — and a forgotten one shows a real customer as "not found".
+      try{if(sb&&sb.from)_watchRefWrites(sb);}catch(e){}
       if(!_resolved){_resolved=true;res();}
       return;
     }
@@ -1936,6 +1940,78 @@ async function _pagedAll(makeSel){
   }
   return{data:all,error:null};
 }
+// ── Reference data: loaded once, not on every write ──────────────────────────
+// customers + customer_tags are ~4,300 rows on this database. They used to be refetched
+// after EVERY staff write, and the four fetches awaited one another: eight round trips at a
+// measured ~250ms each, so roughly two seconds added to closing a session — an action that
+// cannot have changed any of them.
+//
+// They now load once and reload only when something actually touches them (refDirty(), called
+// from signup, customer edits and tag changes) or when the copy goes stale. The TTL is the
+// backstop for a change made on ANOTHER device: without it, a rider tagged at the desk would
+// stay invisible on this one until a reload.
+let _refAt=0,_refDirty=true,_refInFlight=null;
+const REF_TTL_MS=5*60*1000;
+function refDirty(){_refDirty=true;}
+function _refNeeded(){return _refDirty||!_refAt||(Date.now()-_refAt)>REF_TTL_MS;}
+// Staff-only: the Sales tab's saved-customer picker needs them. Visitors never download the
+// customer list. Tolerant throughout: RLS may deny the read until the staff Auth session is
+// established, and pre-migration databases have no tags tables at all.
+async function _refFetch(onCustomers){
+  if(typeof localStorage==='undefined'||localStorage.getItem('cq_staff')!=='1')return;
+  if(!_refNeeded()){if(onCustomers&&S.customers&&S.customers.length)onCustomers({data:S.customers,error:null});return;}
+  if(_refInFlight){await _refInFlight;if(onCustomers&&S.customers&&S.customers.length)onCustomers({data:S.customers,error:null});return;}
+  // Paged (PostgREST caps every request at 1000 rows): the customer base and tag list both grow
+  // unbounded, so a single-shot fetch would silently drop rows once past 1000 - staff would see a
+  // real customer as "not found" or a tagged rider as untagged. The four run TOGETHER; only the
+  // pages within each one are sequential.
+  _refInFlight=(async()=>{
+    const [r,rt,rct,rbs]=await Promise.all([
+      _pagedAll(()=>sb.from('customers').select('id,name,email,phone,height,type_preference,gender,birth_date,country,city,created_at,default_pay,hidden_types').order('created_at').order('id')).catch(e=>({data:null,error:e})),
+      sb.from('tags').select('*').then(x=>x,e=>({data:null,error:e})),
+      _pagedAll(()=>sb.from('customer_tags').select('*').order('customer_id').order('tag_id')).catch(e=>({data:null,error:e})),
+      sb.from('breakfast_spots').select('*').then(x=>x,e=>({data:null,error:e})),
+    ]);
+    if(rt&&!rt.error&&rt.data)S.tags=rt.data;
+    if(rct&&!rct.error&&rct.data)S.customerTags=rct.data;
+    if(rbs&&!rbs.error&&rbs.data)S.breakfastSpots=rbs.data;
+    // Only a fully successful pass counts as fresh, or one denied read would silence the
+    // retry for five minutes and leave the picker empty for the rest of the shift.
+    if(r&&!r.error&&r.data){S.customers=r.data;_refAt=Date.now();_refDirty=false;}
+    return r;
+  })();
+  let out=null;
+  try{out=await _refInFlight;}catch(e){}
+  _refInFlight=null;
+  if(onCustomers&&out&&!out.error&&out.data)onCustomers(out);
+  else if(onCustomers&&S.customers&&S.customers.length)onCustomers({data:S.customers,error:null});
+}
+// Inventory + promo codes are optional/error-tolerant (tables may not exist until migration
+// is run). Fetched IN PARALLEL - these used to run serially and added 4 round trips to boot.
+async function _optionalFetch(){
+  await Promise.all([
+    (async()=>{try{const inv=await sb.from('inventory').select('*');if(!inv.error)S.inventory=inv.data||[];}catch(e){}})(),
+    (async()=>{try{const cn=await _pagedAll(()=>sb.from('customer_notes').select('*').order('id'));if(!cn.error)S.custNotes=cn.data||[];}catch(e){}})(),
+    (async()=>{try{const wl=await _pagedAll(()=>sb.from('desk_waitlist').select('*').order('id'));if(!wl.error)S.deskWaitlist=wl.data||[];}catch(e){}})(),
+    (async()=>{try{const pc=await sb.from('promo_codes').select('*');if(!pc.error)S.promoCodes=pc.data||[];}catch(e){}})(),
+    // cashier_sales grows one row per POS sale forever - page it or revenue reports silently under-count past 1000.
+    (async()=>{try{const cs=await _pagedAll(()=>sb.from('cashier_sales').select('*').order('id'));if(!cs.error)S.cashSales=cs.data||[];}catch(e){}})(),
+  ]);
+}
+const REF_TABLES=['customers','tags','customer_tags','breakfast_spots'];
+function _watchRefWrites(client){
+  const _from=client.from.bind(client);
+  client.from=function(table){
+    const qb=_from(table);
+    if(qb&&REF_TABLES.indexOf(table)>=0){
+      ['insert','update','upsert','delete'].forEach(m=>{
+        const orig=qb[m];
+        if(typeof orig==='function')qb[m]=function(){refDirty();return orig.apply(qb,arguments);};
+      });
+    }
+    return qb;
+  };
+}
 async function _queueFetch(windowed){
   const wantSecure=SECURE_AUTH&&!S._staffAuthed;
   if(!wantSecure){
@@ -1979,7 +2055,16 @@ async function _sessionsFetch(){
 }
 
 let _bootDone=false;
+// A burst of actions (a bulk check-in, a fast till) used to stack a full reload per action,
+// each refetching the same rows. A load already in flight is joined instead of duplicated.
+let _loadInFlight=null,_lightInFlight=null;
 async function loadData(showLoader=false){
+  if(!sb){S.dataLoaded=true;return;}
+  if(_loadInFlight)return _loadInFlight;
+  _loadInFlight=_loadDataInner(showLoader);
+  try{return await _loadInFlight;}finally{_loadInFlight=null;}
+}
+async function _loadDataInner(showLoader){
   if(!sb){S.dataLoaded=true;return;}
   if(showLoader){const ls=document.getElementById('loading-screen');if(ls)ls.style.display='flex';}
   const startToken=Date.now();
@@ -1987,6 +2072,12 @@ async function loadData(showLoader=false){
   // download every customer's name/email/phone into every visitor's browser. Staff views
   // already use the denormalized name/phone/email on each queue_entry, so the dump is unneeded.
   let q,b,ses;
+  // Three groups of fetches, none of which depends on another's result. They used to run as
+  // three waves; they now all leave together and are awaited where their results are first
+  // needed, so the round trip is paid once rather than three times over.
+  let c={data:[],error:null};
+  const _refP=_refFetch(r=>{if(r)c=r;});
+  const _optP=_optionalFetch();
   try{
     [q,b,ses]=await Promise.all([
       _queueFetch(true),
@@ -1997,18 +2088,7 @@ async function loadData(showLoader=false){
   // Customers are fetched ONLY on staff devices - the Sales tab's saved-customer picker
   // needs them; visitors never download the customer list. Tolerant: RLS may deny the
   // read until the staff Auth session is established (the post-auth self-heal reloads).
-  let c={data:[],error:null};
-  if(typeof localStorage!=='undefined'&&localStorage.getItem('cq_staff')==='1'){
-    // Paged (PostgREST caps every request at 1000 rows): the customer base and tag list both grow
-    // unbounded, so a single-shot fetch would silently drop rows once past 1000 - staff would see a
-    // real customer as "not found" or a tagged rider as untagged.
-    try{const r=await _pagedAll(()=>sb.from('customers').select('id,name,email,phone,height,type_preference,gender,birth_date,country,city,created_at,default_pay,hidden_types').order('created_at').order('id'));if(!r.error&&r.data)c=r;}catch(e){}
-    // Tags are staff-only (RLS blocks everyone else). Tolerant: pre-migration these tables
-    // don't exist yet, so a failure just leaves the tag UI empty rather than breaking boot.
-    try{const rt=await sb.from('tags').select('*');if(!rt.error&&rt.data)S.tags=rt.data;}catch(e){}
-    try{const rct=await _pagedAll(()=>sb.from('customer_tags').select('*').order('customer_id').order('tag_id'));if(!rct.error&&rct.data)S.customerTags=rct.data;}catch(e){}
-    try{const rbs=await sb.from('breakfast_spots').select('*');if(!rbs.error&&rbs.data)S.breakfastSpots=rbs.data;}catch(e){}
-  }
+  await _refP;
   if(q.error)console.error('loadData queue error:',q.error.message);
   if(b.error)console.error('loadData bikes error:',b.error.message);
   if(c.error)console.error('loadData customers error:',c.error.message);
@@ -2038,16 +2118,7 @@ async function loadData(showLoader=false){
   if(!c.error)S.customers=c.data||[];
   if(!ses.error)S.sessions=ses.data||[];
   S.dataLoaded=true; // first successful load - render real content instead of skeletons
-  // Inventory + promo codes are optional/error-tolerant (tables may not exist until migration
-  // is run). Fetched IN PARALLEL - these used to run serially and added 4 round trips to boot.
-  await Promise.all([
-    (async()=>{try{const inv=await sb.from('inventory').select('*');if(!inv.error)S.inventory=inv.data||[];}catch(e){}})(),
-    (async()=>{try{const cn=await _pagedAll(()=>sb.from('customer_notes').select('*').order('id'));if(!cn.error)S.custNotes=cn.data||[];}catch(e){}})(),
-    (async()=>{try{const wl=await _pagedAll(()=>sb.from('desk_waitlist').select('*').order('id'));if(!wl.error)S.deskWaitlist=wl.data||[];}catch(e){}})(),
-    (async()=>{try{const pc=await sb.from('promo_codes').select('*');if(!pc.error)S.promoCodes=pc.data||[];}catch(e){}})(),
-    // cashier_sales grows one row per POS sale forever - page it or revenue reports silently under-count past 1000.
-    (async()=>{try{const cs=await _pagedAll(()=>sb.from('cashier_sales').select('*').order('id'));if(!cs.error)S.cashSales=cs.data||[];}catch(e){}})(),
-  ]);
+  await _optP;
   try{_outbox().forEach(op=>{if(op.kind==='delete')S.cashSales=(S.cashSales||[]).filter(r=>r.id!==op.id);else{const i=(S.cashSales||[]).findIndex(r=>r.id===op.id);if(i>=0)S.cashSales[i]=op.data;else S.cashSales.push(op.data);}});}catch(e){} // keep unsynced offline sales visible
   try{const _v=_voidedIds();if(_v.length)S.cashSales=(S.cashSales||[]).filter(r=>_v.indexOf(r.id)<0);}catch(e){} // never resurrect a voided sale
   _outboxFlush();
@@ -17780,6 +17851,12 @@ function _updateConnUI(){try{_tickRefreshLabel();}catch(_){}try{_updateConnBanne
 // full loadData() (boot, manual refresh, tab focus), so the poll payload stays tiny.
 async function loadDataLight(){
   if(!sb)return;
+  if(_lightInFlight)return _lightInFlight;
+  _lightInFlight=_loadDataLightInner();
+  try{return await _lightInFlight;}finally{_lightInFlight=null;}
+}
+async function _loadDataLightInner(){
+  if(!sb)return;
   let q,ses,cs,bk,wl;
   try{[q,ses,cs,bk,wl]=await Promise.all([
     _queueFetch(true),
@@ -17798,12 +17875,27 @@ async function loadDataLight(){
     try{const _v=_voidedIds();if(_v.length)S.cashSales=(S.cashSales||[]).filter(r=>_v.indexOf(r.id)<0);}catch(_){}}
   _outboxFlush();
 }
+// What the staff screens actually draw from. Cheap to build for a few hundred rows, and far
+// cheaper than the re-render it avoids.
+function _staffFingerprint(){
+  const q=(S.queue||[]).map(e=>e.id+':'+e.status+':'+e.queueNum+':'+(e.paid?1:0)+':'+(e.assignedBikeId||'')+':'+(e.approval||'')).join('|');
+  const b=(S.bikes||[]).map(x=>x.id+':'+x.status).join('|');
+  const se=(S.sessions||[]).map(x=>x.id+':'+x.status+':'+(x.capacity||'')).join('|');
+  return q+'#'+b+'#'+se+'#'+((S.deskWaitlist||[]).length)+'#'+((S.cashSales||[]).length)+'#'+((S.inventory||[]).map(i=>i.id+':'+i.qty).join('|'));
+}
+let _lastFp=null;
 async function _autoRefresh(full){
   if(typeof window!=='undefined'&&window.__noWiden)return; // tests pin state; no background reload may clobber it (poll / realtime / visibility)
   if(S.view!=='staff')return;
   try{
     await (full?loadData():loadDataLight());
     _lastRefresh=Date.now();
+    // The poll runs every 30s whether or not anything moved. Rebuilding a 200-row roster on a
+    // timer is wasted work that lands in the middle of whatever staff are doing, so a poll that
+    // changed nothing now stops here. Anything a person does re-renders on its own path.
+    const fp=_staffFingerprint();
+    if(_lastFp!==null&&fp===_lastFp)return;
+    _lastFp=fp;
     const tab=S.staffTab; // re-render only the visible tab; switching tabs re-renders fresh anyway
     if(tab==='queue')renderStaffQueue();
     else if(tab==='bikes')renderBikes();
