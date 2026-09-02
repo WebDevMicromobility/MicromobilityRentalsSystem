@@ -1860,6 +1860,14 @@ async function _createBookings(entries){
   return{data:res.map(x=>(x.data&&x.data[0])||null).filter(Boolean)};
 }
 function entryToDB(e){
+  // A session with no bike carries no bike answers, whoever booked it. The wizard already
+  // sends 'None' with an empty size, but the staff paths (add rider, add group, walk-in) fill
+  // these from the customer's saved preference and height, which put a bike type and a frame
+  // size on pool bookings -- one of them 'Own', which counted a swimmer as bringing a bicycle.
+  // Enforced here, where every path converges, rather than at each of them.
+  if(!_needsBike((S.sessions||[]).find(x=>x.id===e.sessionId))){
+    e={...e,typePreference:'None',size:'',height:null,assignedBikeId:null};
+  }
   const row={id:e.id,name:e.name,email:e.email||'',phone:e.phone||'',
     size:e.size,height:e.height||null,type_preference:e.typePreference,paid:e.paid,price:e.price??DEFAULT_PRICE,
     assigned_bike_id:e.assignedBikeId||null,session_id:e.sessionId,
@@ -8831,9 +8839,9 @@ function renderCommAddModal(){
     +'<button type="button" class="toggle-btn'+(S._caDest==='list'?' active':'')+'" style="flex:1" onclick="S._caDest=\'list\';renderCommAddModal()">'+t('commAddDestList')+'</button>'
     +'<button type="button" class="toggle-btn'+(S._caDest==='waitlist'?' active':'')+'" style="flex:1" onclick="S._caDest=\'waitlist\';renderCommAddModal()">'+t('waitlistLabel')+'</button>'
     +'</div></div>'
-    +'<label style="display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:13px;font-weight:700;cursor:pointer;color:var(--green)">'
+    +(_needsBike(cur)?('<label style="display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:13px;font-weight:700;cursor:pointer;color:var(--green)">'
     +'<input type="checkbox"'+(S._caOwn?' checked':'')+' onchange="S._caOwn=this.checked" style="width:16px;height:16px;accent-color:#0c7a3d">'
-    +t('commAddOwnBike')+'</label>'
+    +t('commAddOwnBike')+'</label>'):'') // nobody brings their own bike to a pool session
     +'<div class="form-group" style="margin-bottom:8px"><label for="ca-search">'+t('commAddSearchLbl')+'</label>'
     +'<input id="ca-search" type="text" value="'+esc(_q)+'" placeholder="'+esc(t('commAddSearchPh'))+'" oninput="_caSearchInput(this.value)" autocomplete="off"></div>'
     +'<div id="ca-rows" style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto">'+_caRows()+'</div>'

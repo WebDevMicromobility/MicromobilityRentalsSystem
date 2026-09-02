@@ -238,3 +238,35 @@ test('the staff form calls it a session name, not a ride name', async ({ page })
   await page.evaluate(`S.newSessEvent='petromin';renderSessions()`);
   await expect(form).toContainText('Ride name');
 });
+
+// Five bookings on the first real pool session came through the wizard and carried 'None' with
+// no size. Two were added by staff and carried a bike type, a frame size and a height copied
+// from the customer's saved preference -- one of them 'Own', which counted a swimmer as having
+// brought a bicycle. Enforced in entryToDB, where every write path converges.
+test('a staff-added rider carries no bike answers either', async ({ page }) => {
+  await stubSupabase(page, { sessions, queue_entries: [], bikes: [] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction(`allSessions().length>0`);
+  const row = await page.evaluate(`entryToDB({id:'x',name:'Staff Added',sessionId:'${SWIM}',
+    typePreference:'Own',size:'M',height:174,assignedBikeId:'b1',status:'waiting',paid:false,price:0,
+    queueNum:1,registeredAt:'2099-01-01T00:00:00Z'})`) as Record<string, unknown>;
+  expect(row.type_preference).toBe('None');
+  expect(row.size).toBe('');
+  expect(row.height).toBeNull();
+  expect(row.assigned_bike_id).toBeNull();
+});
+
+test('a ride keeps what staff entered', async ({ page }) => {
+  await stubSupabase(page, { sessions, queue_entries: [], bikes: [] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction(`allSessions().length>0`);
+  const row = await page.evaluate(`entryToDB({id:'y',name:'Rider',sessionId:'${RIDE}',
+    typePreference:'Own',size:'M',height:174,status:'waiting',paid:false,price:0,
+    queueNum:1,registeredAt:'2099-01-01T00:00:00Z'})`) as Record<string, unknown>;
+  expect(row.type_preference).toBe('Own');
+  expect(row.height).toBe(174);
+});
