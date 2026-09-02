@@ -2208,7 +2208,7 @@ extracted pack [lang/ar.json](../lang/ar.json).
 | `eqnNewNum` | New Booking Number | رقم الحجز الجديد |
 | `eqnTitle` | Edit Booking Number | تعديل رقم الحجز |
 | `evJccName` | Jeddah Corniche Circuit | حلبة كورنيش جدة |
-| `evPetroName` | Petromin Wednesday Ride | جولة بترومين الأربعاء |
+| `evPetroName` | Petromin's Wednesdays | أربعاء بترومين |
 | `evSatName` | Saturday Social Ride | جولة السبت الاجتماعية |
 | `expChoose` | Choose a format | اختر الصيغة |
 | `expExcel` | Excel (CSV) | إكسل (CSV) |

@@ -19,7 +19,7 @@ There are **three** kinds of ride, distinguished by two columns.
 |---|---|---|---|---|---|
 | **JCC / Evening Circuit** | NULL or `jcc` | — | false | false | `!_isCommunity(s)` |
 | **Saturday Social Ride** | `community` | `saturday` or NULL | **true** | false | `_rideKind(s)==='saturday'` |
-| **Petromin Wednesday Ride** | `community` | `petromin` | **false** | **true** | `_isGroupRide(s)` |
+| **Petromin's Wednesdays** | `community` | `petromin` | **false** | **true** | `_isGroupRide(s)` |
 | **Triathlon Pool Session** | `community` | `swim` | **true** | false | `!_needsBike(s)` |
 
 ```js
