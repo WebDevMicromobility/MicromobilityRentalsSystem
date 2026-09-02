@@ -99,7 +99,7 @@ Each has a `title` and an `aria-label` ending "(opens in a new tab)".
 
 1. **Evening Circuit Session** — `landJccCardTitle` / `landJccTitle`, meta `landJccMeta`
    ("Sun & Tue · 9-11pm · Road, Hybrid & Mountain"), JCC logo (`jcc.png`, `jcc-white.png` on dark).
-2. **Micromobility Rides** — `landCommTitle`. **Logo only, no description** (this was changed
+2. **Micromobility Experiences** — `landCommTitle`. **Logo only, no description** (this was changed
    deliberately). Umbrella over *every* non-JCC ride.
 
 Clicking sets `S.selEvent` and enters the Reserve wizard. The community card runs the **members
@@ -1463,7 +1463,7 @@ extracted pack [lang/ar.json](../lang/ar.json).
 |---|---|---|
 | `landChooseEvent` | Pick your event | اختر فعاليتك |
 | `landCommSoon` | Details coming soon | التفاصيل قريبًا |
-| `landCommTitle` | Micromobility Rides | جولات مايكروموبيليتي |
+| `landCommTitle` | Micromobility Experiences | جولات مايكروموبيليتي |
 | `landEventCommunity` | Community event | فعالية مجتمعية |
 | `landEventRide` | Circuit ride | جولة الحلبة |
 | `landEyebrow` | Rides & Events | جولات وفعاليات |

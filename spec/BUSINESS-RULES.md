@@ -20,6 +20,7 @@ There are **three** kinds of ride, distinguished by two columns.
 | **JCC / Evening Circuit** | NULL or `jcc` | — | false | false | `!_isCommunity(s)` |
 | **Saturday Social Ride** | `community` | `saturday` or NULL | **true** | false | `_rideKind(s)==='saturday'` |
 | **Petromin Wednesday Ride** | `community` | `petromin` | **false** | **true** | `_isGroupRide(s)` |
+| **Thursday Swim Session** | `community` | `swim` | **true** | false | `!_needsBike(s)` |
 
 ```js
 function _isCommunity(s){return s&&s.event_kind==='community';}                    // app.src.html:3631
@@ -39,6 +40,7 @@ implementation must keep them separate or the Petromin ride breaks:
 | Does it have an approval step? | `_isApprovalRide` | Petromin is community **and** has none |
 | How many riders per booking? | `_isGroupRide` | Saturday is solo, Petromin takes 4 |
 | Does this booking hold a place? | `_holdsSpot` | see §4 |
+| Is there a bike at all? | `_needsBike` | a swim session has no size, no type and no bike to hand over |
 
 > **Rows written before the migration carry `ride_kind = NULL` and must read as Saturday**
 > ([app.src.html:3638](../app.src.html#L3638)). Same for `event_kind`: NULL and `jcc` both mean circuit.

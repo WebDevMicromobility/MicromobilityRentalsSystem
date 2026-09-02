@@ -67,9 +67,9 @@ in [SCREENS.md](SCREENS.md).
 
 ### A2. Browsing sessions
 
-1. On the picker, two cards always show: **Evening Circuit Session** and **Micromobility Rides**.
+1. On the picker, two cards always show: **Evening Circuit Session** and **Micromobility Experiences**.
 2. **Branch — Evening Circuit** → `S.selEvent='jcc'` → Reserve step 1.
-3. **Branch — Micromobility Rides** → the **members gate**:
+3. **Branch — Micromobility Experiences** → the **members gate**:
    1. call `community_member(p_id, p_token)` (cached per customer id);
    2. **member** → `S.selEvent='community'` → Reserve step 1, listing **every non-JCC session**;
    3. **non-member** → the members-only dialog (WhatsApp **+966 53 442 3513**, Instagram,

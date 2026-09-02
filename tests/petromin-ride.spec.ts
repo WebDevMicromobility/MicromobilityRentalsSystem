@@ -370,7 +370,8 @@ test('the landing card is an umbrella: the shared name, no per-ride blurb', asyn
   await waitForSb(page);
   await page.evaluate('goLanding()');
   const card = page.locator('#land-events .landing-event-card.ev-community');
-  await expect(card).toContainText('Micromobility Rides');
+  // renamed 2026-08-26: the umbrella now covers activities that are not rides at all
+  await expect(card).toContainText('Micromobility Experiences');
   await expect(card.locator('.lec-meta')).toHaveCount(0); // the description is gone; the logo stays
   await expect(card.locator('img')).not.toHaveCount(0);
 });

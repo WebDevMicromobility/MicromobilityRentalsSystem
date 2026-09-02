@@ -52,7 +52,7 @@ known defects or inconsistencies in the current system: reproducing them is a de
 - [ ] **[R]** Community sessions are created with `required_tag_id = null` — visible to all, bookable by members.
 - [ ] **[R]** Only sessions with status `open` or `full` are offered for booking.
 - [ ] **[R]** The session list shows only the sessions of the event chosen on the landing page.
-- [ ] **[R]** Choosing "Micromobility Rides" lists **every** non-JCC session, both community ride kinds.
+- [ ] **[R]** Choosing "Micromobility Experiences" lists **every** non-JCC session, both community ride kinds.
 - [ ] **[T]** Session promo settings persist correctly — `sessions-promo.spec.ts`.
 - [ ] **[R]** A session cannot be deleted while it has bookings; a deleted session is restorable.
 - [ ] **[R]** A JCC session can repeat for 1–12 weeks.
@@ -226,6 +226,19 @@ known defects or inconsistencies in the current system: reproducing them is a de
 - [ ] **[R]** A customer can never set or change `approval` — the whitelist excludes it and the guard reverts it.
 - [ ] **[R]** Approving keeps the original queue number.
 - [ ] **[R]** While `hide_queue` is set, riders see only "under review".
+
+## 11b. The Thursday swim session (bike-free community)
+
+- [ ] **[T]** A swim session is `event_kind='community'`, `ride_kind='swim'` and reports `_needsBike` false — `swim-session.spec.ts` *(added 2026-08-26)*.
+- [ ] **[T]** It keeps the Saturday shape: members-only, staff-approved, solo, free, hidden queue.
+- [ ] **[T]** Choosing it skips the riders step entirely — no height, no size, no bike type.
+- [ ] **[T]** Back from the waiver returns to the session list, not to an empty step.
+- [ ] **[T]** The booking carries `type_preference='None'` (a sentinel, not `'Any'`) and an empty size.
+- [ ] **[T]** The swimmer agrees to a **swim** waiver — title, body and the "on behalf of everyone" line all name the activity — stamped `swim-2026-08-v1`.
+- [ ] **[T]** Staff checking a swimmer in are offered no bike picker.
+- [ ] **[T]** It carries its own identity colour (`ev-swim` teal), not the circuit blue.
+- [ ] **[R]** Thursday is just the session's date; no code enforces a weekday.
+- [ ] **[R]** Adding another bike-free activity costs one entry in `BIKELESS_KINDS`.
 
 ## 12. The Petromin (paid group community) ride
 
