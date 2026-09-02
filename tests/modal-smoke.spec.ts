@@ -40,7 +40,6 @@ const fixtures = {
   ],
   tags: [{ id: 'tag_saturday', slug: 'saturday', name: 'Community', color: '#4aa8f8', auto_grant: false, locked: true }],
   customer_tags: [{ customer_id: 'c1', tag_id: 'tag_saturday', starts_at: null, expires_at: null }],
-  customer_notes: [{ id: 'n1', customer_id: 'c1', note: 'Prefers a smaller frame', note_type: 'general', created_at: '2099-01-01T10:00:00Z' }],
   team_members: [{ id: 't1', name: 'Staffer', active: true }],
 };
 
@@ -50,7 +49,6 @@ const MODALS: [string, string][] = [
   ['check-in (waitlisted)', `showCheckinModal('q4')`],
   ['bike picker', `openModal('q1')`],
   ['booking edit', `showBookingEditModal('q1')`],
-  ['booking note', `showBookingNoteModal('q1')`],
   ['edit price', `showEditPriceModal('q1')`],
   ['edit queue number', `showEditQNumModal('q1')`],
   ['group edit', `showGroupEditModal('q6')`],
@@ -108,7 +106,7 @@ test('every staff tab and queue view renders without throwing', async ({ page })
   await page.waitForFunction(`S.dataLoaded===true`);
 
   const broken: string[] = [];
-  for (const tab of ['queue', 'bikes', 'inventory', 'cashier', 'community', 'analytics', 'history', 'notes']) {
+  for (const tab of ['queue', 'bikes', 'inventory', 'cashier', 'community', 'analytics', 'history']) {
     const before = errs.length;
     const thrown = await page.evaluate(`(()=>{try{setStaffTab('${tab}');return '';}catch(e){return String(e&&e.message||e);}})()`) as string;
     await page.waitForTimeout(80);

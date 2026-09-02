@@ -251,7 +251,6 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <button class="tab-btn"        data-stab="analytics" onclick="setStaffTab('analytics')"><span class="snav-ico" aria-hidden="true"></span><span class="snav-lbl">Analytics</span></button>
     <span class="snav-group" data-group="snavSystem" aria-hidden="true">System</span>
     <button class="tab-btn"        data-stab="history"   onclick="setStaffTab('history')"><span class="snav-ico" aria-hidden="true"></span><span class="snav-lbl">History</span></button>
-    <button class="tab-btn"        data-stab="notes"     onclick="setStaffTab('notes')"><span class="snav-ico" aria-hidden="true"></span><span class="snav-lbl">Notes</span></button>
   </nav>
   <div class="view-main">
     <div id="tab-queue"     class="tab-panel active"></div>
@@ -260,7 +259,6 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <div id="tab-community"  class="tab-panel"></div>
     <div id="tab-analytics"  class="tab-panel"></div>
     <div id="tab-history"   class="tab-panel"></div>
-    <div id="tab-notes"     class="tab-panel"></div>
   </div>
 </div>
 
@@ -357,12 +355,11 @@ en:{
   navReserve:'Reserve',sessAllFull:'All sessions are fully booked right now. Check back soon or follow us for new dates.',
   staffAccess:'Staff Access',customerBadge:'Customer',staffBadge:'Staff Panel',
   lockBtn:'Lock',homeBtn:'Home',logOut:'Log Out',
-  tabNotes:'Notes',notesTitle:'Customer Notes',notesSub:'Private staff notes - customers never see these.',
-  noteCustomerLabel:'Customer',noteCustomerPh:'Type or pick a name…',notePhonePh:'Phone (optional)',
-  noteTextLabel:'Note',noteTypeLabel:'Note type',noteTypeStaffComplaint:'Staff complaint',noteTypeCustComplaint:'Customer complaint',noteTypeFeedback:'Feedback',noteTypeComment:'Comment',noteTextPh:'e.g. Prefers a low saddle, paid deposit in cash…',noteAddBtn:'Add note',
-  noteSearchPh:'Search notes by name, phone or text…',notesEmpty:'No notes yet. Add the first one above.',
-  noteDeleteBtn:'Delete',noteSavedToast:'Note saved',noteBtn:'Note',noteForBooking:'Note · #{0} {1}',noteRecentTitle:'Previous notes for this customer',noteBookingChip:'Booking #{0}',noteDeletedToast:'Note deleted',undoDeleteNote:'Delete note',
-  errNoteRequired:'Write a note first.',errNoteCustomer:'Who is this note about?',
+  
+  
+  
+  
+    errNoteRequired:'Write a note first.',errNoteCustomer:'Who is this note about?',
   roleAdmin:'Admin',roleFrontDesk:'Front Desk',switchToFrontDesk:'Front Desk mode',switchToAdmin:'Admin',adminOnlyMsg:'Admin only.',
   authWelcome:'Welcome to MicroMobility',authSub:'Sign in or create an account to track your rides.',
   authLogin:'Log In',authSignup:'Sign Up',authLoginBtn:'Log In',authSignupBtn:'Create Account',genderLabel:'Gender',genderMale:'Male',genderFemale:'Female',errSelectGender:'Please select your gender.',
@@ -763,12 +760,11 @@ ar:{
   navReserve:'احجز',sessAllFull:'جميع الجلسات محجوزة بالكامل حالياً. تحقق لاحقاً أو تابعنا لمعرفة المواعيد الجديدة.',
   staffAccess:'دخول الموظفين',customerBadge:'عميل',staffBadge:'لوحة الموظفين',
   lockBtn:'قفل',homeBtn:'الرئيسية',logOut:'تسجيل الخروج',
-  tabNotes:'ملاحظات',notesTitle:'ملاحظات العملاء',notesSub:'ملاحظات خاصة بالموظفين - لا يراها العملاء أبداً.',
-  noteCustomerLabel:'العميل',noteCustomerPh:'اكتب أو اختر اسماً…',notePhonePh:'الجوال (اختياري)',
-  noteTextLabel:'الملاحظة',noteTypeLabel:'نوع الملاحظة',noteTypeStaffComplaint:'شكوى من الموظفين',noteTypeCustComplaint:'شكوى من عميل',noteTypeFeedback:'ملاحظات وتقييم',noteTypeComment:'تعليق',noteTextPh:'مثال: يفضّل مقعداً منخفضاً، دفع العربون نقداً…',noteAddBtn:'إضافة ملاحظة',
-  noteSearchPh:'ابحث بالاسم أو الجوال أو النص…',notesEmpty:'لا توجد ملاحظات بعد. أضف الأولى أعلاه.',
-  noteDeleteBtn:'حذف',noteSavedToast:'تم حفظ الملاحظة',noteBtn:'ملاحظة',noteForBooking:'ملاحظة · #{0} {1}',noteRecentTitle:'ملاحظات سابقة لهذا العميل',noteBookingChip:'حجز #{0}',noteDeletedToast:'تم حذف الملاحظة',undoDeleteNote:'حذف ملاحظة',
-  errNoteRequired:'اكتب الملاحظة أولاً.',errNoteCustomer:'عن مَن هذه الملاحظة؟',
+  
+  
+  
+  
+    errNoteRequired:'اكتب الملاحظة أولاً.',errNoteCustomer:'عن مَن هذه الملاحظة؟',
   roleAdmin:'مدير',roleFrontDesk:'موظف استقبال',switchToFrontDesk:'وضع الاستقبال',switchToAdmin:'مدير',adminOnlyMsg:'للمدير فقط.',
   authWelcome:'مرحباً بك في مايكرو موبيليتي',authSub:'سجل دخولك أو أنشئ حساباً لتتبع رحلاتك.',
   authLogin:'تسجيل الدخول',authSignup:'إنشاء حساب',authLoginBtn:'تسجيل الدخول',authSignupBtn:'إنشاء الحساب',genderLabel:'الجنس',genderMale:'ذكر',genderFemale:'أنثى',errSelectGender:'الرجاء اختيار جنسك.',
@@ -1256,7 +1252,6 @@ function setLang(lang,_fromUrl){
     if(b.dataset.stab==='cashier')_l.textContent=t('tabCashier');
     if(b.dataset.stab==='inventory'){const _lo=(S.inventory||[]).filter(it=>{const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;return q<=0||(lo>0&&q<=lo);}).length;_l.innerHTML=esc(t('tabInventory'))+(_lo?` <span class="tab-badge" title="${esc(t('invLowAlert').replace('{0}',_lo))}" aria-label="${esc(t('invLowAlert').replace('{0}',_lo))}">${_lo}</span>`:'');}
     if(b.dataset.stab==='community')_l.textContent=t('tabCommunity');
-    if(b.dataset.stab==='notes')_l.textContent=t('tabNotes');
   });
   // ERP sidebar suite labels (presentational chrome only)
   document.querySelectorAll('#staff-tab-nav .snav-group').forEach(s=>{s.textContent=t(s.dataset.group);});
@@ -1652,7 +1647,7 @@ const S={
   custTab:'register',
   staffTab:'queue',
   staffRole:(()=>{try{return localStorage.getItem('cq_role')==='frontdesk'?'frontdesk':'admin';}catch(e){return'admin';}})(),
-  custBranch:'all',newSessLocation:'',custNotes:[],_noteSearch:'',_noteName:'',_notePhone:'',_noteCustId:null,newSessRepeat:'1',sessBranchFilter:'all',newSessAddons:[],editSessAddons:[],regAddons:[],
+  custBranch:'all',newSessLocation:'',newSessRepeat:'1',sessBranchFilter:'all',newSessAddons:[],editSessAddons:[],regAddons:[],
   promoCodes:[],promoApplied:null,_promoMsg:'',
   _pcCode:'',_pcKind:'percent',_pcValue:'',_pcExpires:'',_pcMax:'',_pcCust:'',
   inventory:[],showAddInv:false,editInvId:null,_invName:'',_invCat:'Helmet',_invQty:'',_invLow:'',_invPrice:'',_invFree:false,_invCost:'',_invPhoto:'',invSection:'bikes',
@@ -1999,7 +1994,6 @@ async function _refFetch(onCustomers){
 async function _optionalFetch(){
   await Promise.all([
     (async()=>{try{const inv=await sb.from('inventory').select('*');if(!inv.error)S.inventory=inv.data||[];}catch(e){}})(),
-    (async()=>{try{const cn=await _pagedAll(()=>sb.from('customer_notes').select('*').order('id'));if(!cn.error)S.custNotes=cn.data||[];}catch(e){}})(),
     (async()=>{try{const wl=await _pagedAll(()=>sb.from('desk_waitlist').select('*').order('id'));if(!wl.error)S.deskWaitlist=wl.data||[];}catch(e){}})(),
     (async()=>{try{const pc=await sb.from('promo_codes').select('*');if(!pc.error)S.promoCodes=pc.data||[];}catch(e){}})(),
     // cashier_sales grows one row per POS sale forever - page it or revenue reports silently under-count past 1000.
@@ -4101,7 +4095,6 @@ function setStaffTab(tab){
   else if(tab==='inventory')renderInventory();
   else if(tab==='cashier')renderCashier();
   else if(tab==='community')renderCommunity();
-  else if(tab==='notes')renderNotes();
   _pushNav();
 }
 
@@ -4173,179 +4166,10 @@ function renderStaffTabs(){
   document.getElementById('tab-community') .classList.toggle('active',S.staffTab==='community');
   document.getElementById('tab-history')   .classList.toggle('active',S.staffTab==='history');
   document.getElementById('tab-analytics') .classList.toggle('active',S.staffTab==='analytics');
-  document.getElementById('tab-notes')     .classList.toggle('active',S.staffTab==='notes');
-}
-
-// ── Staff Notes: private text notes on customers (customer_notes table, staff-only RLS) ──
-// Note types: what kind of note this is, picked from a dropdown when writing it.
-const NOTE_TYPES=['staff_complaint','customer_complaint','feedback','comment'];
-const _NOTE_TYPE_COLOR={staff_complaint:'var(--red)',customer_complaint:'var(--orange)',feedback:'var(--green)',comment:'var(--muted)'};
-function _noteTypeLbl(k){return t({staff_complaint:'noteTypeStaffComplaint',customer_complaint:'noteTypeCustComplaint',feedback:'noteTypeFeedback',comment:'noteTypeComment'}[k]||'noteTypeComment');}
-function _noteTypeSelect(id,sel){
-  return `<select id="${id}" style="width:100%;padding:10px 12px;border-radius:4px;border:1px solid var(--border);background:var(--in-bg);color:var(--text);font-family:inherit;font-size:14px">${NOTE_TYPES.map(k=>`<option value="${k}"${(sel||'comment')===k?' selected':''}>${_noteTypeLbl(k)}</option>`).join('')}</select>`;
-}
-function _noteTypeChip(n){
-  const k=n&&n.note_type;if(!k||!NOTE_TYPES.includes(k))return'';
-  const c=_NOTE_TYPE_COLOR[k]||'var(--muted)';
-  return `<span style="font-size:10px;font-weight:800;color:${c};border:1px solid color-mix(in srgb, ${c} 40%, transparent);border-radius:2px;padding:1px 7px;white-space:nowrap;text-transform:uppercase;letter-spacing:.4px">${_noteTypeLbl(k)}</span>`;
-}
-// Insert with note_type, retrying without it if the column hasn't been migrated yet
-// (same tolerant pattern as booking_id).
-async function _noteInsert(row){
-  let res=await sb.from('customer_notes').insert(row);
-  if(res&&res.error&&(String(res.error.code||'')==='42703'||/note_type/.test(res.error.message||''))){
-    const{note_type,...rest}=row;res=await sb.from('customer_notes').insert(rest);
-  }
-  return res;
-}
-function _noteCustomers(){
-  // Every customer the staff has seen: registered accounts (via bookings) + walk-in names.
-  const seen={},out=[];
-  getQueue().forEach(e=>{
-    const key=e.customerId||((e.name||'')+'|'+(e.phone||''));
-    if(!key||seen[key])return;seen[key]=1;
-    out.push({id:e.customerId||null,name:e.name||'',phone:e.phone||''});
-  });
-  return out.sort((a,b)=>a.name.localeCompare(b.name));
-}
-function _notePickCust(){
-  const name=(document.getElementById('note-name')?.value||'').trim();
-  const m=_noteCustomers().find(c=>c.name.toLowerCase()===name.toLowerCase());
-  const ph=document.getElementById('note-phone');
-  if(m&&ph&&!ph.value)ph.value=m.phone||'';
-  S._noteCustId=m?m.id:null;
-}
-async function addCustomerNote(){
-  const name=(document.getElementById('note-name')?.value||'').trim();
-  const phone=(document.getElementById('note-phone')?.value||'').trim();
-  const text=(document.getElementById('note-text')?.value||'').trim();
-  if(!name){const i=document.getElementById('note-name');if(i){_fieldErr(i,t('errNoteCustomer'));i.focus();}return;}
-  if(!text){const i=document.getElementById('note-text');if(i){_fieldErr(i,t('errNoteRequired'));i.focus();}return;}
-  _notePickCust();
-  const noteType=document.getElementById('note-type')?.value||'comment';
-  const row={id:uid(),customer_id:S._noteCustId||null,customer_name:name,phone:phone||null,note:text,note_type:noteType,author:_opName()||null,created_at:new Date().toISOString()};
-  const res=await _noteInsert(row);
-  if(_writeErr(res,'note'))return;
-  S.custNotes=[row,...(S.custNotes||[])];
-  logAction(`${t('noteAddBtn')}: ${name}`);
-  toast(t('noteSavedToast'));
-  S._noteName='';S._notePhone='';S._noteCustId=null;
-  renderNotes();
-}
-async function deleteCustomerNote(id){
-  const n=(S.custNotes||[]).find(x=>x.id===id);if(!n)return;
-  const res=await sb.from('customer_notes').delete().eq('id',id);
-  if(_writeErr(res,'delete note'))return;
-  S.custNotes=(S.custNotes||[]).filter(x=>x.id!==id);
-  pushUndo(`${t('undoDeleteNote')} · ${n.customer_name}`,async()=>{
-    await sb.from('customer_notes').insert(n);
-    S.custNotes=[n,...(S.custNotes||[])];
-    if(S.staffTab==='notes')renderNotes();
-  });
-  toast(t('noteDeletedToast'));
-  renderNotes();
-}
-// Note on a specific booking: prefilled from the entry, saved with a booking reference.
-function showBookingNoteModal(entryId){
-  const e=getQueue().find(x=>x.id===entryId);if(!e)return;
-  const recent=(S.custNotes||[])
-    .filter(n=>(e.customerId&&n.customer_id===e.customerId)||(n.phone&&e.phone&&n.phone===e.phone))
-    .sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0)).slice(0,3);
-  const ar=S.lang==='ar';
-  const m=document.getElementById('booking-note-modal');
-  m.style.display='flex';
-  m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeBookingNoteModal()">
-    <div class="modal-box" role="dialog" aria-modal="true" style="max-width:420px">
-      <div class="modal-title">${t('noteForBooking').replace('{0}',e.queueNum).replace('{1}',esc(e.name))}</div>
-      <div class="modal-sub">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</div>
-      ${recent.length?`<div style="margin:12px 0 2px;font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${t('noteRecentTitle')}</div>
-        ${recent.map(n=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:12.5px;line-height:1.5"><div style="white-space:pre-wrap;word-break:break-word">${esc(n.note)}</div><div style="font-size:10.5px;color:var(--muted);margin-top:3px">${n.created_at?new Date(n.created_at).toLocaleString(ar?'ar-u-ca-gregory-nu-latn':'en-GB',{timeZone:KSA_TZ,day:'numeric',month:'short',year:'numeric'}):''}${n.author?` · ${esc(n.author)}`:''}</div></div>`).join('')}`:''}
-      <div class="form-group" style="margin:14px 0 0"><label for="bn-type">${t('noteTypeLabel')}</label>
-        ${_noteTypeSelect('bn-type')}
-      </div>
-      <div class="form-group" style="margin:12px 0 0"><label for="bn-text">${t('noteTextLabel')} *</label>
-        <textarea id="bn-text" rows="3" maxlength="500" placeholder="${t('noteTextPh')}" style="width:100%;resize:vertical;padding:10px 12px;border-radius:4px;border:1px solid var(--border);background:var(--in-bg);color:var(--text);font-family:inherit;font-size:14px"></textarea>
-      </div>
-      <div class="modal-footer">
-        <button class="btn-secondary" onclick="closeBookingNoteModal()">${t('cancelBtn')}</button>
-        <button class="btn-primary" onclick="saveBookingNote('${e.id}')">+ ${t('noteAddBtn')}</button>
-      </div>
-    </div></div>`;
-  setTimeout(()=>document.getElementById('bn-text')?.focus(),50);
-}
-function closeBookingNoteModal(){const m=document.getElementById('booking-note-modal');if(m){m.style.display='none';m.innerHTML='';}}
-async function saveBookingNote(entryId){
-  const e=getQueue().find(x=>x.id===entryId);if(!e){closeBookingNoteModal();return;}
-  const text=(document.getElementById('bn-text')?.value||'').trim();
-  if(!text){const i=document.getElementById('bn-text');if(i){_fieldErr(i,t('errNoteRequired'));i.focus();}return;}
-  const bnType=document.getElementById('bn-type')?.value||'comment';
-  const row={id:uid(),customer_id:e.customerId||null,customer_name:e.name||'',phone:e.phone||null,note:text,note_type:bnType,author:_opName()||null,created_at:new Date().toISOString(),booking_id:e.id};
-  let res=await _noteInsert(row);
-  // tolerant: booking_id column may not exist yet (alter in add-customer-notes.sql) - retry without it
-  if(res&&res.error&&(String(res.error.code||'')==='42703'||/booking_id/.test(res.error.message||''))){
-    delete row.booking_id;
-    res=await _noteInsert(row);
-  }
-  if(_writeErr(res,'note'))return;
-  S.custNotes=[row,...(S.custNotes||[])];
-  logAction(`${t('noteAddBtn')}: #${e.queueNum} ${e.name}`);
-  closeBookingNoteModal();
-  toast(t('noteSavedToast'));
-  renderStaffQueue();
-}
-function renderNotes(){
-  const el=document.getElementById('tab-notes');if(!el)return;
-  const q=(S._noteSearch||'').toLowerCase();
-  const notes=(S.custNotes||[])
-    .filter(n=>!q||(n.customer_name||'').toLowerCase().includes(q)||(n.phone||'').includes(q)||(n.note||'').toLowerCase().includes(q))
-    .sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
-  const ar=S.lang==='ar';
-  const custOpts=_noteCustomers().map(c=>`<option value="${esc(c.name)}">`).join('');
-  el.innerHTML=`
-    <div class="page-title">${t('notesTitle')}</div>
-    <div class="page-sub">${t('notesSub')}</div>
-    <div class="form-section" style="max-width:680px;margin-top:14px">
-      <div class="form-row">
-        <div class="form-group"><label for="note-name">${t('noteCustomerLabel')} *</label>
-          <input id="note-name" type="text" list="note-cust-list" value="${esc(S._noteName||'')}" placeholder="${t('noteCustomerPh')}" maxlength="60" oninput="S._noteName=this.value" onchange="_notePickCust()">
-          <datalist id="note-cust-list">${custOpts}</datalist>
-        </div>
-        <div class="form-group"><label for="note-phone">${t('authPhone')}</label>
-          <input id="note-phone" type="tel" inputmode="tel" value="${esc(S._notePhone||'')}" placeholder="${t('notePhonePh')}" oninput="S._notePhone=this.value">
-        </div>
-      </div>
-      <div class="form-group"><label for="note-type">${t('noteTypeLabel')}</label>
-        ${_noteTypeSelect('note-type')}
-      </div>
-      <div class="form-group"><label for="note-text">${t('noteTextLabel')} *</label>
-        <textarea id="note-text" rows="3" maxlength="500" placeholder="${t('noteTextPh')}" style="width:100%;resize:vertical;padding:10px 12px;border-radius:4px;border:1px solid var(--border);background:var(--in-bg);color:var(--text);font-family:inherit;font-size:14px"></textarea>
-      </div>
-      <button class="btn-primary" onclick="addCustomerNote()">+ ${t('noteAddBtn')}</button>
-    </div>
-    <div style="max-width:680px;margin-top:22px">
-      <input class="search-input" style="width:100%" type="text" value="${esc(S._noteSearch||'')}" placeholder="${t('noteSearchPh')}" oninput="S._noteSearch=this.value;_debRender('notes',renderNotes)">
-      <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
-        ${notes.length?notes.map(n=>`
-          <div class="q-card" style="margin:0">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px">
-              <div style="display:flex;align-items:center;gap:8px;min-width:0;flex-wrap:wrap">
-                <span style="font-weight:800;font-size:14px">${esc(n.customer_name)}</span>
-                ${_noteTypeChip(n)}
-                ${n.phone?`<span style="font-size:11px;color:var(--muted);direction:ltr;unicode-bidi:isolate">${esc(n.phone)}</span>`:''}
-                ${(()=>{if(!n.booking_id)return'';const be=getQueue().find(x=>x.id===n.booking_id);return be?`<span style="font-size:10px;font-weight:800;color:var(--green);border:1px solid rgba(var(--green-rgb),.3);border-radius:2px;padding:1px 7px;white-space:nowrap">${t('noteBookingChip').replace('{0}',be.queueNum)} · ${shortDate(be.sessionDate)}</span>`:'';})()}
-              </div>
-              <button class="btn-sm btn-muted" onclick="deleteCustomerNote('${esc(n.id)}')">${t('noteDeleteBtn')}</button>
-            </div>
-            <div style="margin-top:7px;font-size:13.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word">${esc(n.note)}</div>
-            <div style="margin-top:8px;font-size:11px;color:var(--muted)">${n.created_at?new Date(n.created_at).toLocaleString(ar?'ar-u-ca-gregory-nu-latn':'en-GB',{timeZone:KSA_TZ,weekday:'short',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):''}${n.author?` · ${esc(n.author)}`:''}</div>
-          </div>`).join('')
-        :`<div class="empty-state">${t('notesEmpty')}</div>`}
-      </div>
-    </div>`;
 }
 
 // ── Desk Waitlist: walk-ups waiting for a bike to free up (desk_waitlist table, staff-only
-// RLS like customer_notes; see desk-waitlist.sql). Staff take name + phone + preferred type
+// RLS: staff-only, see desk-waitlist.sql). Staff take name + phone + preferred type
 // and hand out bikes as they come back. Oldest first; resolved rows keep their record. ──
 // The staff-curated list: ordered purely by staff (sort_order), newest additions last.
 // Everyone waiting, in one list. It used to hold only rows staff had hand-picked ('managed'),
@@ -4658,12 +4482,10 @@ async function mwPickCustomer(custId){
 // _opt.noBulk drops the bulk-select checkbox, which only means something in the queue table.
   function _entryActions(e,_opt){
     const _editBtn=`<button class="btn-sm btn-muted" onclick="showBookingEditModal('${e.id}')" title="${t('editBookingTitle')}">${ICON_PENCIL} ${t('editBookingBtn')}</button>`;
-    const _nCount=(S.custNotes||[]).filter(n=>(e.customerId&&n.customer_id===e.customerId)||(n.phone&&e.phone&&n.phone===e.phone)).length;
     // Jump to the ACCOUNT behind the booking (full editor incl. tags/default payment):
     // linked customer, or a name match for walk-ins that were typed in without linking.
     const _custId=e.customerId||(((S.customers||[]).find(c=>String(c.name||'').trim().toLowerCase()===String(e.name||'').trim().toLowerCase())||{}).id);
     const _custBtn=_custId?`<button class="btn-sm btn-muted" onclick="showEditCustomerModal('${_custId}')" title="${t('naEditTitle')}">${_artIcon('person',12)} ${t('custBtn')}</button>`:'';
-    const _noteBtn=`<button class="btn-sm btn-muted" onclick="showBookingNoteModal('${e.id}')" title="${t('notesTitle')}">${_artIcon('note',12)} ${t('noteBtn')}${_nCount?` (${_nCount})`:''}</button>${_custBtn}`;
     // Community-event reservations: staff select who rides. Pending rows get Approve/Reject,
     // plus a Waitlist action (usable even with spots free, so staff can park a request
     // without rejecting it); a waitlist approve = hand-picked promotion into a spot.
@@ -4674,17 +4496,17 @@ async function mwPickCustomer(custId){
       const _rej=_apprOf(e)==='rejected';
       const chip=`<span style="font-size:10px;font-weight:900;color:${_rej?'var(--red)':'var(--orange)'};border:1px solid rgba(var(${_rej?'--red-rgb':'--warn-rgb'}),.4);border-radius:2px;padding:2px 8px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">${_rej?t('filterRejected'):t('apprPendingChip')}</span>`;
       const wlBtn=e.status==='waiting'?`<button class="btn-sm btn-muted" onclick="commToWaitlist('${e.id}')" title="${t('waitlistLabel')}">${_artIcon('clock',12)} ${t('waitlistLabel')}</button>`:'';
-      return`${chip}<button class="btn-sm btn-green" onclick="approveEntry('${e.id}')">✓ ${t('apprApproveBtn')}</button><button class="btn-sm btn-red" onclick="rejectEntry('${e.id}')">${t('apprRejectBtn')}</button>${wlBtn}${_editBtn}${_noteBtn}`;
+      return`${chip}<button class="btn-sm btn-green" onclick="approveEntry('${e.id}')">✓ ${t('apprApproveBtn')}</button><button class="btn-sm btn-red" onclick="rejectEntry('${e.id}')">${t('apprRejectBtn')}</button>${wlBtn}${_editBtn}${_custBtn}`;
     }
     const _apprChip=(_comm&&e.approval==='approved')?`<span style="font-size:10px;font-weight:900;color:var(--green);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">✓ ${t('apprApprovedChip')}</span><button class="btn-sm btn-muted" title="${t('apprUndoBtn')}" onclick="unapproveEntry('${e.id}')">${_artIcon('undo',11)} ${t('apprUndoBtn')}</button>`:'';
     // Waitlisted and waiting rows carry the SAME controls. A waitlisted rider is a rider
     // whose place is not held yet, not a different kind of booking: staff check them in, mark
     // them no-show, edit, note and cancel them exactly the same way. What says they are
     // waitlisted is the badge and the W position, not a different set of buttons.
-    if(e.status==='waiting'||e.status==='waitlist')return`${_apprChip}${(_opt&&_opt.noBulk)?'':_bulkChk(e)}<button class="btn-sm btn-green" onclick="showCheckinModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button>${(_opt&&_opt.noPark)?'':`<button class="btn-sm btn-muted" onclick="mwFromBooking('${e.id}')">${t('mwMoveBtn')}</button>`}${_editBtn}${_noteBtn}<button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
-    if(e.status==='active')return`${_apprChip}${(_opt&&_opt.noBulk)?'':_bulkChk(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="showCashierModal('${e.id}')">${t('cashierAddBtn')}</button>${_editBtn}${_noteBtn}<button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
-    if(e.status==='done')return`<button class="btn-sm btn-green" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button>${_noteBtn}<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
-    if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button>${_noteBtn}<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
+    if(e.status==='waiting'||e.status==='waitlist')return`${_apprChip}${(_opt&&_opt.noBulk)?'':_bulkChk(e)}<button class="btn-sm btn-green" onclick="showCheckinModal('${e.id}')">${t('checkInBtn')}</button><button class="btn-sm btn-red" onclick="confirmNoShow('${e.id}')">${t('noShowBtn')}</button>${(_opt&&_opt.noPark)?'':`<button class="btn-sm btn-muted" onclick="mwFromBooking('${e.id}')">${t('mwMoveBtn')}</button>`}${_editBtn}${_custBtn}<button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
+    if(e.status==='active')return`${_apprChip}${(_opt&&_opt.noBulk)?'':_bulkChk(e)}<button class="btn-sm btn-green" onclick="openModal('${e.id}')">${t('changeBikeBtn')}</button><button class="btn-sm btn-muted" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button><button class="btn-sm btn-muted" onclick="showCashierModal('${e.id}')">${t('cashierAddBtn')}</button>${_editBtn}${_custBtn}<button class="btn-sm btn-muted" onclick="doUndoCheckin('${e.id}')">${t('undoCheckinBtn')}</button><button class="btn-sm btn-muted" onclick="staffCancelEntry('${e.id}')">${t('cancelBtn')}</button>`;
+    if(e.status==='done')return`<button class="btn-sm btn-green" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button>${_custBtn}<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
+    if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button>${_custBtn}<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
     if(e.status==='cancelled')return`<button class="btn-sm btn-green" onclick="doRestoreCancelled('${e.id}')">${t('restoreBookingBtn')}</button><button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
     return`<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
   }
@@ -9238,7 +9060,6 @@ async function deleteCustomerAccount(id){
       try{
         // Everything needed to put it back, captured before the first write.
         const tags=(S.customerTags||[]).filter(ct=>String(ct.customer_id)===String(id));
-        const notes=(S.custNotes||[]).filter(n=>String(n.customer_id)===String(id));
         const bookingIds=past.map(e=>e.id);
         // 1. Unlink first, or the delete below hits the foreign key.
         if(bookingIds.length){
@@ -9247,7 +9068,6 @@ async function deleteCustomerAccount(id){
         try{await sb.from('cashier_sales').update({customer_id:null}).eq('customer_id',id);}catch(e){} // tolerant: column may predate the FK
         // 2. Everything personal that hangs off the account.
         try{await sb.from('customer_tags').delete().eq('customer_id',id);}catch(e){}
-        try{await sb.from('customer_notes').delete().eq('customer_id',id);}catch(e){}
         try{await sb.from('push_subscriptions').delete().eq('customer_id',id);}catch(e){}
         // 3. The account itself.
         if(_writeErr(await sb.from('customers').delete().eq('id',id),'delete account'))return;
@@ -9258,7 +9078,6 @@ async function deleteCustomerAccount(id){
         pushUndo(`${t('naDelTitle')} · ${c.name||''}`,async()=>{
           await sb.from('customers').insert(c);
           if(tags.length)try{await sb.from('customer_tags').insert(tags);}catch(e){}
-          if(notes.length)try{await sb.from('customer_notes').insert(notes);}catch(e){}
           if(bookingIds.length)await sb.from('queue_entries').update({customer_id:id}).in('id',bookingIds);
           await loadData();renderCommunity();renderStaffQueue();
         });

@@ -57,7 +57,7 @@ test('deletes the account, and unlinks the bookings first so the key holds', asy
   expect(unlink).toBeGreaterThanOrEqual(0);
   expect(unlink).toBeLessThan(del);                    // unlink BEFORE delete, or the FK refuses
   // everything personal goes with it
-  for (const table of ['customer_tags', 'customer_notes', 'push_subscriptions']) {
+  for (const table of ['customer_tags', 'push_subscriptions']) {   // notes were removed from the app
     expect(calls.some((c) => c.table === table && c.method === 'DELETE')).toBe(true);
   }
   // the booking row itself is never deleted — the riding record stays
