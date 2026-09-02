@@ -15,7 +15,7 @@ const sessions = [
   {
     id: SWIM, day: 'Thursday', session_date: '2099-03-05', capacity: 20, status: 'open', created_at: 2,
     event_kind: 'community', ride_kind: 'swim', needs_approval: true, hide_queue: true, paid_ride: false,
-    spots: 20, title: 'Thursday Swim Session', meet_url: 'https://maps.example.test/pool',
+    spots: 20, title: 'Triathlon Pool Session', meet_url: 'https://maps.example.test/pool',
     bike_slots: '{"_time":"18:00 - 19:30","_total":20}',
   },
   {
@@ -129,4 +129,112 @@ test('the swim session carries its own identity colour, not the circuit blue', a
   await asMember(page);
   const cls = await page.evaluate(`_evClass(allSessions().find(s=>s.id==='${SWIM}'))`);
   expect(cls).toBe('ev-swim');
+});
+
+// A pool session ends at the pool. The social ride's breakfast stop is not part of it, so the
+// staff form never asks and the rider's card never shows one — but the MEETING POINT stays,
+// because a pool session still has to say where.
+test('the staff form offers no breakfast spot for a pool session', async ({ page }) => {
+  await stubSupabase(page, { sessions, queue_entries: [], bikes: [] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`setStaffTab('queue');S.queueView='sessions';renderStaffQueue();
+    S.showAddSession=true;S.newSessEvent='swim';renderSessions()`);
+  const form = page.locator('#sess-add-form');
+  await expect(form).not.toContainText('Breakfast spot');
+  await expect(form).toContainText('Meeting point');       // still asked — it happens somewhere
+  // and the social ride is untouched
+  await page.evaluate(`S.newSessEvent='community';renderSessions()`);
+  await expect(form).toContainText('Breakfast spot');
+});
+
+test('the rider card shows no breakfast for a pool session', async ({ page }) => {
+  await asMember(page);
+  const html = await page.evaluate(
+    `_commInfoHtml({...allSessions().find(s=>s.id==='${SWIM}'),breakfast_name:'Brew92',breakfast_url:'https://maps.example.test/cafe'})`) as string;
+  expect(html).toBe('');                                    // even with a spot set on the row
+  const ride = await page.evaluate(
+    `_commInfoHtml({...allSessions().find(s=>s.id==='${RIDE}'),breakfast_name:'Brew92',breakfast_url:'https://maps.example.test/cafe'})`) as string;
+  expect(ride).toContain('Brew92');                         // the social ride still does
+});
+
+// Editing re-asserts the session's identity, because a date change re-inserts the row bare.
+// It used to re-assert a two-kind world (petromin or saturday), so any edit to a pool session
+// turned it into a Saturday Social Ride — bikes, breakfast and all.
+test('editing a pool session does not turn it into a Saturday ride', async ({ page }) => {
+  await stubSupabase(page, { sessions, queue_entries: [], bikes: [] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction(`allSessions().length>0`);
+  const writes: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'PATCH' && r.url().includes('/rest/v1/sessions')) writes.push(r.postData() || '');
+  });
+  await page.evaluate(`S.editSessionId='${SWIM}';S.editSessDate='2099-03-05';S.editSessStatus='open';
+    S.editSessTitle='';S.editSessMapUrl='https://maps.example.test/pool';S.editSessTotal=20;saveSessionEdit()`);
+  await expect.poll(() => writes.some((w) => w.includes('ride_kind')), { timeout: 6000 }).toBe(true);
+  const kindWrite = JSON.parse(writes.find((w) => w.includes('ride_kind'))!);
+  expect(kindWrite.ride_kind).toBe('swim');
+  expect(kindWrite.paid_ride).toBe(false);
+  const ce = writes.map((w) => JSON.parse(w)).find((w) => 'breakfast_name' in w);
+  expect(ce.breakfast_name).toBeNull();                     // no breakfast written onto it
+  expect(ce.meet_url).toBe('https://maps.example.test/pool');   // meeting point survives
+  expect(ce.needs_approval).toBe(true);                     // and it is still an approval ride
+});
+
+// A pool session does not set off together, so "Gathering · Start" is the wrong shape for it.
+// It reads as a plain window, exactly like the Petromin ride — and the staff form asks for the
+// two times the rider is actually shown rather than for a gathering nobody is told about.
+test('the rider sees a plain window, not a gathering time', async ({ page }) => {
+  await asMember(page);
+  const swim = await page.evaluate(`sessionTime(allSessions().find(s=>s.id==='${SWIM}'))`) as string;
+  expect(swim).not.toMatch(/Gathering/i);
+  expect(swim).toBe('6 PM - 7:30 PM');            // fmt12h drops a :00
+  // the Saturday ride still gathers before it starts
+  const ride = await page.evaluate(`sessionTime(allSessions().find(s=>s.id==='${RIDE}'))`) as string;
+  expect(ride).toMatch(/Gathering/i);
+  expect(ride).toContain('Start');
+});
+
+test('the staff form asks for start and end, not gathering', async ({ page }) => {
+  await stubSupabase(page, { sessions, queue_entries: [], bikes: [] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`setStaffTab('queue');S.queueView='sessions';renderStaffQueue();
+    S.showAddSession=true;S.newSessEvent='swim';renderSessions()`);
+  const form = page.locator('#sess-add-form');
+  await expect(form).not.toContainText('Gathering time');
+  await expect(form).toContainText('Start time');
+  await expect(form).toContainText('End time');
+  // the social ride keeps both halves of its gathering
+  await page.evaluate(`S.newSessEvent='community';renderSessions()`);
+  await expect(form).toContainText('Gathering time');
+});
+
+// Ride words on a session that has no bike. The Experiences list can hold a Saturday ride and
+// a pool session at the same time, so its subtitle has to cover both; the circuit keeps "ride".
+test('the session step does not tell a swimmer to pick a day to ride', async ({ page }) => {
+  await asMember(page);
+  const panel = page.locator('#tab-register');
+  await expect(panel).toContainText('Pick the day you would like to join.');
+  await expect(panel).not.toContainText('would like to ride');
+  await page.evaluate(`S.selEvent='jcc';renderRegister()`);
+  await expect(panel).toContainText('would like to ride');   // the circuit is still a ride
+});
+
+test('the staff form calls it a session name, not a ride name', async ({ page }) => {
+  await stubSupabase(page, { sessions, queue_entries: [], bikes: [] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`setStaffTab('queue');S.queueView='sessions';renderStaffQueue();
+    S.showAddSession=true;S.newSessEvent='swim';renderSessions()`);
+  const form = page.locator('#sess-add-form');
+  await expect(form).toContainText('Session name');
+  await expect(form).not.toContainText('Ride name');
+  await page.evaluate(`S.newSessEvent='petromin';renderSessions()`);
+  await expect(form).toContainText('Ride name');
 });
