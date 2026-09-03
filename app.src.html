@@ -2065,10 +2065,25 @@ async function _sessionsFetch(){
 let _bootDone=false;
 // A burst of actions (a bulk check-in, a fast till) used to stack a full reload per action,
 // each refetching the same rows. A load already in flight is joined instead of duplicated.
-let _loadInFlight=null,_lightInFlight=null;
+let _loadInFlight=null,_loadQueued=null,_lightInFlight=null,_lightQueued=null;
+// Handing a late caller the in-flight load was wrong: that fetch left BEFORE whatever they
+// just wrote, so they would render their own change away and not see it until the next poll
+// thirty seconds later. Callers that arrive mid-flight share ONE follow-up load instead, so a
+// burst still costs two round trips rather than N, and nobody is answered with a fetch that
+// predates their write.
+function _coalesce(get,set,run){
+  const q=get();
+  if(q)return q;
+  const p=Promise.resolve().then(()=>run());
+  set(p);
+  return p.finally(()=>{if(get()===p)set(null);});
+}
 async function loadData(showLoader=false){
   if(!sb){S.dataLoaded=true;return;}
-  if(_loadInFlight)return _loadInFlight;
+  if(_loadInFlight){
+    return _coalesce(()=>_loadQueued,v=>{_loadQueued=v;},
+      ()=>_loadInFlight.catch(()=>{}).then(()=>loadData(showLoader)));
+  }
   _loadInFlight=_loadDataInner(showLoader);
   try{return await _loadInFlight;}finally{_loadInFlight=null;}
 }
@@ -17711,7 +17726,10 @@ function _updateConnUI(){try{_tickRefreshLabel();}catch(_){}try{_updateConnBanne
 // full loadData() (boot, manual refresh, tab focus), so the poll payload stays tiny.
 async function loadDataLight(){
   if(!sb)return;
-  if(_lightInFlight)return _lightInFlight;
+  if(_lightInFlight){
+    return _coalesce(()=>_lightQueued,v=>{_lightQueued=v;},
+      ()=>_lightInFlight.catch(()=>{}).then(()=>loadDataLight()));
+  }
   _lightInFlight=_loadDataLightInner();
   try{return await _lightInFlight;}finally{_lightInFlight=null;}
 }

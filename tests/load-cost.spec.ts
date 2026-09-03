@@ -69,22 +69,51 @@ test('the stale copy is picked up without a write, so another till is not invisi
 });
 
 // A burst of actions used to stack one full reload each, all refetching the same rows.
-test('concurrent loads are joined, not duplicated', async ({ page }) => {
+// They are coalesced -- but NOT by handing a late caller the load already in flight. That
+// fetch left before whatever they just wrote, so answering with it renders their own change
+// away until the next poll. Everyone who arrives mid-flight shares ONE follow-up instead:
+// bounded at two round trips for a burst of any size, and never stale.
+test('a burst of loads is bounded, not one fetch each', async ({ page }) => {
   await bootStaff(page);
   await page.waitForTimeout(400);
+  await page.route('**/rest/v1/queue_entries*', async (route) => {
+    await new Promise((r) => setTimeout(r, 250));      // real latency, or no burst can form
+    await route.continue();
+  });
   const hits = counter(page);
-  await page.evaluate(`Promise.all([loadData(),loadData(),loadData()])`);
-  await page.waitForTimeout(500);
-  expect(hits['queue_entries'] || 0).toBe(1);      // three callers, one fetch
+  await page.evaluate(`Promise.all([loadData(),loadData(),loadData(),loadData(),loadData()])`);
+  await page.waitForTimeout(900);
+  expect(hits['queue_entries'] || 0).toBeGreaterThan(0);
+  expect(hits['queue_entries'] || 0).toBeLessThanOrEqual(2);   // five callers, at most two fetches
 });
 
-test('a light load is joined the same way', async ({ page }) => {
+test('a load issued mid-flight is answered by a FRESH fetch, not the one already running', async ({ page }) => {
   await bootStaff(page);
   await page.waitForTimeout(400);
+  await page.route('**/rest/v1/queue_entries*', async (route) => {
+    await new Promise((r) => setTimeout(r, 300));
+    await route.continue();
+  });
   const hits = counter(page);
-  await page.evaluate(`Promise.all([loadDataLight(),loadDataLight(),loadDataLight()])`);
-  await page.waitForTimeout(500);
-  expect(hits['queue_entries'] || 0).toBe(1);
+  // stands in for: a staff write lands while the 30s poll's load is already in the air
+  await page.evaluate(
+    `(async()=>{const a=loadData();await new Promise(r=>setTimeout(r,60));const b=loadData();await Promise.all([a,b]);})()`);
+  await page.waitForTimeout(900);
+  expect(hits['queue_entries'] || 0).toBeGreaterThanOrEqual(2);
+});
+
+test('the light load coalesces the same way', async ({ page }) => {
+  await bootStaff(page);
+  await page.waitForTimeout(400);
+  await page.route('**/rest/v1/queue_entries*', async (route) => {
+    await new Promise((r) => setTimeout(r, 300));
+    await route.continue();
+  });
+  const hits = counter(page);
+  await page.evaluate(
+    `(async()=>{const a=loadDataLight();await new Promise(r=>setTimeout(r,60));const b=loadDataLight();await Promise.all([a,b]);})()`);
+  await page.waitForTimeout(900);
+  expect(hits['queue_entries'] || 0).toBeGreaterThanOrEqual(2);
 });
 
 // The 30s poll used to rebuild the roster whether or not anything had moved, landing in the
