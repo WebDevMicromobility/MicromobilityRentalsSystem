@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubSupabase } from './helpers/supabase';
+import { stubSupabase, waitForSb } from './helpers/supabase';
 
 // Staff can sign in with email OR phone; _staffPhoneE164 normalizes a raw phone entry
 // to E.164 (Saudi default) so it matches the phone stored on the Supabase Auth account.
@@ -23,11 +23,27 @@ test('_staffPhoneE164 normalizes Saudi phone formats to E.164', async ({ page })
 test('_staffLoginEmail resolves every phone format (and email) to the account email', async ({ page }) => {
   await stubSupabase(page);
   await page.goto('/');
-  // All of these map to the same staff account email.
+  await waitForSb(page);
+  // The hardcoded phone map is gone -- three staff personal mobiles were riding in the public
+  // bundle. Resolution now goes through the staff_email_for_phone RPC against the staff_phones
+  // TABLE, so what the client owes is: normalize to E.164, ask, and pass the answer through.
+  await page.evaluate(`sb.rpc=async(name,args)=>{
+    if(name!=='staff_email_for_phone')return {data:null,error:{message:'unexpected '+name}};
+    return {data:args.p_phone==='+966562847777'?'salemb@micromobility.sa':null,error:null};
+  }`);
   for (const p of ['0562847777', '562847777', '966562847777', '00966562847777', '+966562847777', '+966 56 284 7777']) {
     expect(await page.evaluate(`_staffLoginEmail(${JSON.stringify(p)})`)).toBe('salemb@micromobility.sa');
   }
-  // Email passes through (lowercased); unknown phone resolves to null.
+  // Email passes through (lowercased) without touching the RPC; unknown phone resolves to null.
   expect(await page.evaluate(`_staffLoginEmail('SalemB@Micromobility.SA')`)).toBe('salemb@micromobility.sa');
   expect(await page.evaluate(`_staffLoginEmail('0500000000')`)).toBe(null);
+});
+
+test('the personal mobiles are no longer in the shipped page', async ({ page }) => {
+  await stubSupabase(page);
+  const res = await page.goto('/');
+  const html = (await res!.text());
+  expect(html).not.toContain('966562847777');   // salem
+  expect(html).not.toContain('966565834444');   // ahmad
+  // 966566668818 is the PUBLISHED business contact (wa.me links, schema.org) and stays.
 });
