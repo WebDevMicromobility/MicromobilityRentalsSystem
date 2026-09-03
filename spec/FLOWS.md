@@ -153,7 +153,7 @@ in [SCREENS.md](SCREENS.md).
 - `assign_queue_num` stamps the real number;
 - `_community_booking_gate` raises *"This ride is for community members only."* unless an active
   `saturday` tag is held;
-- `_group_ride_cap` raises *"Up to 4 riders per booking on this ride."* past 4 live rows for that
+- `_group_ride_cap` raises *"Up to 2 riders per booking on this ride."* past 2 live rows for that
   account on a paid community session;
 - `_comm_no_carbon` rewrites `Road Carbon` → `Road` on community sessions;
 - `_approval_guard` forces `approval` to `pending` for non-staff;

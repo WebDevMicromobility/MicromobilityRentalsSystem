@@ -245,7 +245,7 @@ known defects or inconsistencies in the current system: reproducing them is a de
 - [ ] **[T]** The paid community ride behaves as specified — `petromin-ride.spec.ts`.
 - [ ] **[R]** It is a community ride (members gate applies) that **charges JCC prices**.
 - [ ] **[R]** It has **no approval step**: real queue numbers, seats overflowing to the waitlist, auto-promotion.
-- [ ] **[R]** It is capped at **4 riders per account per session**, enforced client-side and by trigger.
+- [ ] **[R]** It is capped at **2 riders per account per session** (the member and one guest), enforced client-side and by trigger.
 - [ ] **[R]** Booking twice cannot get around the 4-rider cap.
 - [ ] **[R]** It offers the **Own bike** option, free, and hides **Road Carbon**.
 - [ ] **[R]** It uses bike composition, not a seat count; `spots` is explicitly null.

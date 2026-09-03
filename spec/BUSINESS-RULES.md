@@ -426,12 +426,12 @@ into any community session.
 |---|---|---|
 | JCC | **10** | `_maxRiders()` 🟢, plus `customer_create_booking` rejects a `p_entries` array longer than 10 🔵 |
 | Saturday Social Ride | **1** (solo) | `_isGroupRide` is false → the quantity control is locked 🟢 |
-| Petromin Wednesday | **4** | `GROUP_RIDE_MAX = 4` 🟢 **and** `_group_ride_cap` trigger 🔵 |
+| Petromin Wednesday | **2** | `GROUP_RIDE_MAX = 2` 🟢 **and** `_group_ride_cap` trigger 🔵 |
 
 `_group_ride_cap` counts **live rows for the same `customer_id` on the same session**
 (`status NOT IN ('cancelled','removed','noshow')`), so **booking twice cannot get around it** —
 it is a per-account-per-session cap, not a per-submission one. Message:
-`Up to 4 riders per booking on this ride.` Staff exempt.
+`Up to 2 riders per booking on this ride.` Staff exempt.
 
 ---
 

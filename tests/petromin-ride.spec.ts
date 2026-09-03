@@ -171,16 +171,17 @@ test.describe('it behaves like a circuit session, not like the Saturday ride', (
     expect(rows[0].price).toBe(0);
   });
 
-  test('a party is capped at four riders — the stepper will not go past it', async ({ page }) => {
+  // The member and one guest. Staff are exempt, so the desk can still seat a larger party.
+  test('a party is capped at the member plus one — the stepper will not go past it', async ({ page }) => {
     await bootMember(page);
     await pickRide(page, 'ev-petromin', '2099-01-13-pw');
     await page.evaluate(`S.regStep=2;renderRegister()`);
     for (let i = 0; i < 8; i++) await page.evaluate('changeRegQty(1)');
-    expect(await page.evaluate('S.regQty')).toBe(4);
-    await expect(page.locator('.reg-row').first()).toContainText(/up to 4 riders/i);
+    expect(await page.evaluate('S.regQty')).toBe(2);
+    await expect(page.locator('.reg-row').first()).toContainText(/up to 2 riders/i);
   });
 
-  test('a fifth rider is refused at submit, not quietly trimmed', async ({ page }) => {
+  test('a third rider is refused at submit, not quietly trimmed', async ({ page }) => {
     await bootMember(page);
     const rows = await captureBookingRows(page);
     await page.evaluate(
@@ -188,9 +189,9 @@ test.describe('it behaves like a circuit session, not like the Saturday ride', (
        S.regBikeTypes=['Road','Road','Road','Road','Road'];
        S.regRiderNames=['A','B','C','D','E']; S.promoApplied=null; submitReg();`,
     );
-    await expect(page.locator('.toast')).toContainText(/up to 4 riders/i);
+    await expect(page.locator('.toast')).toContainText(/up to 2 riders/i);
     expect(rows).toHaveLength(0);           // nothing was posted
-    expect(await page.evaluate('S.regQty')).toBe(4);
+    expect(await page.evaluate('S.regQty')).toBe(2);
   });
 
   test('the JCC stepper still goes to ten', async ({ page }) => {
