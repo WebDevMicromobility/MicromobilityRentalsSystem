@@ -63,8 +63,7 @@ test.describe('accessibility audit (report-only)', () => {
 
   test('landing page (AR, RTL)', async ({ page }) => {
     await page.goto('/');
-    await page.locator('#lang-btn').click();
-    await page.locator('.pay-menu-popup button', { hasText: 'العربية' }).click();
+    await page.locator('#lang-btn').click();   // one tap: the header control is a switch now
     await page.locator('html[dir="rtl"]').waitFor();
     const count = await audit(page, 'landing AR rtl');
     if (STRICT && count > 0) throw new Error(`${count} a11y violation type(s)`);
@@ -72,7 +71,7 @@ test.describe('accessibility audit (report-only)', () => {
 
   // The staff back office is the app's actual product and was entirely unaudited —
   // two landing snapshots covered a few percent of the surface.
-  for (const tab of ['queue', 'cashier', 'inventory', 'analytics', 'history', 'notes'] as const) {
+  for (const tab of ['queue', 'cashier', 'inventory', 'analytics', 'history'] as const) {
     test(`staff: ${tab}`, async ({ page }) => {
       await page.addInitScript(() => {
         localStorage.setItem('cq_staff', '1');

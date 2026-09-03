@@ -162,7 +162,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <img id="topbar-logo-img" src="logo.png" alt="MicroMobility">
   </button>
   <div style="display:flex;align-items:center;gap:10px">
-    <button class="lang-toggle" id="lang-btn" onclick="showLangMenu(event)" aria-haspopup="listbox" title="Switch language" aria-label="Switch language">🇺🇸 ENG ▾</button>
+    <button class="lang-toggle" id="lang-btn" onclick="toggleLang()" title="Switch language" aria-label="Switch language">🇸🇦 عربي</button>
     <button type="button" class="topbar-btn" id="theme-toggle-btn" onclick="toggleTheme()" aria-label="Sunlight mode" title="Sunlight mode" style="padding:7px 10px;line-height:0"></button>
     <div class="topbar-right" id="topbar-right"></div>
   </div>
@@ -1181,6 +1181,9 @@ const LANGS=[
   {code:'en',flag:'🇺🇸',short:'ENG',label:'English'},
   {code:'ar',flag:'🇸🇦',short:'عربي',label:'العربية'},
 ];
+// Two languages: the header switches straight between them. showLangMenu stays for the
+// account screen, where the row is a setting that shows the CURRENT language.
+function toggleLang(){setLang(S.lang==='ar'?'en':'ar');}
 function showLangMenu(evt){
   document.querySelectorAll('.pay-menu-popup').forEach(m=>m.remove());
   const menu=document.createElement('div');
@@ -1222,7 +1225,10 @@ function setLang(lang,_fromUrl){
   }
   document.documentElement.dir=lang==='ar'?'rtl':'ltr';
   document.documentElement.lang=lang;
-  {const _lb=document.getElementById('lang-btn');const _l=LANGS.find(x=>x.code===lang)||LANGS[0];_lb.innerHTML=`${_l.flag} ${_l.short} ▾`;_lb.title=t('switchLangTip');_lb.setAttribute('aria-label',t('switchLangTip'));}
+  // The button shows the language it switches TO, not the one you are reading —
+  // with two languages that is the only thing it can usefully say.
+  {const _lb=document.getElementById('lang-btn');const _o=LANGS.find(x=>x.code!==lang)||LANGS[0];
+   if(_lb){_lb.innerHTML=`${_o.flag} ${_o.short}`;_lb.title=t('switchLangTip');_lb.setAttribute('aria-label',t('switchLangTip'));}}
   const lt=document.getElementById('land-title');if(lt)lt.innerHTML=`<span>MicroMobility</span> Rentals`;
   const ls=document.getElementById('land-sub');if(ls)ls.textContent=t('landingSub');
   const leb=document.getElementById('land-eyebrow');if(leb)leb.textContent=t('landEyebrow');

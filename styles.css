@@ -3440,3 +3440,59 @@
        deeper water teal rather than a second blue nobody could tell apart at a glance. */
     .ev-swim{--ev:#0d7d8f;--ev-rgb:13,125,143;}
     :root[data-theme="dark"] .ev-swim{--ev:#3fc9dd;--ev-rgb:63,201,221;}
+
+    /* ── The customer header is white paper, in both themes ──────────────────
+       The art already assumed this: the logo is forced to logo-mark-dark.png in
+       every theme ("the whole app rides the white paper header now"), but the
+       BAR did not. Light mode painted it --foot (dark green, with a whole block
+       of light-on-dark text below), and dark mode painted --s1. So the dark mark
+       sat on a dark band in both.
+       #topbar is doubled here for the same reason it is doubled for staff at
+       line ~2345: the theme recipes are :root[...] #topbar, which outranks a
+       single id, and this has to outrank them.
+       Foreground tokens are re-pointed INSIDE the header only, so every rule
+       that reads --text/--muted/--tint-rgb comes back to light values without
+       being rewritten, and nothing outside the bar moves. Staff keep their own
+       header: all of this is scoped away from body.view-staff. */
+    body:not(.view-staff) #topbar#topbar{
+      background:#fff;
+      border-bottom:1px solid rgba(18,21,15,.10);
+      backdrop-filter:none;-webkit-backdrop-filter:none;
+    }
+    body:not(.view-staff) #topbar#topbar,
+    body:not(.view-staff) #topbar#topbar *{
+      --text:#12150f;
+      --muted:#7a8071;
+      --muted-l:#565c50;
+      --border:rgba(18,21,15,.12);
+      --tint-rgb:18,21,15;
+      --s1:#fff;--s2:#fff;--s3:#f4f2ec;
+    }
+    /* The light-on-dark block that came with the green bar, undone. */
+    body:not(.view-staff) #topbar#topbar .cust-topbar-name{color:#12150f;}
+    body:not(.view-staff) #topbar#topbar .cust-topbar-email{color:#7a8071;}
+    body:not(.view-staff) #topbar#topbar .topbar-brand-name{color:var(--green);}
+    body:not(.view-staff) #topbar#topbar .staff-access-btn{color:#7a8071;}
+
+    /* Ghost buttons: text until you point at one, then a soft tint behind it.
+       No resting border, so the header stops reading as a row of boxes. */
+    body:not(.view-staff) #topbar#topbar .topbar-btn,
+    body:not(.view-staff) #topbar#topbar .lang-toggle{
+      background:transparent;border-color:transparent;box-shadow:none;
+      color:#565c50;
+    }
+    body:not(.view-staff) #topbar#topbar .topbar-btn:hover,
+    body:not(.view-staff) #topbar#topbar .lang-toggle:hover{
+      background:rgba(var(--green-rgb),.09);
+      border-color:transparent;
+      color:#0b6b41;
+    }
+    body:not(.view-staff) #topbar#topbar .topbar-btn.danger{color:#565c50;}
+    body:not(.view-staff) #topbar#topbar .topbar-btn.danger:hover{
+      background:rgba(var(--red-rgb),.09);color:var(--red);border-color:transparent;
+    }
+    /* The tint is the only resting affordance, so the focus ring has to be loud. */
+    body:not(.view-staff) #topbar#topbar .topbar-btn:focus-visible,
+    body:not(.view-staff) #topbar#topbar .lang-toggle:focus-visible{
+      outline:2px solid var(--green);outline-offset:2px;
+    }
