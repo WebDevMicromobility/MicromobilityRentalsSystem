@@ -325,19 +325,58 @@
     #view-staff .view-main{max-width:min(1600px,96vw);}
     
     body.view-staff #app-footer{display:none;}
-    #app-footer{
-      background:var(--foot);border-top:1px solid rgba(252,249,244,.07);
-      display:flex;flex-direction:column;align-items:center;justify-content:center;
-      gap:10px;padding:28px 16px 32px;margin-top:48px;}
-    .footer-social{display:flex;align-items:center;justify-content:center;gap:10px;}
-    .footer-social-link{display:flex;align-items:center;justify-content:center;
-      width:36px;height:36px;border-radius:4px;
-      color:var(--green);background:rgba(var(--green-rgb),.07);
-      border:1px solid rgba(var(--green-rgb),.2);
-      transition:background .22s,color .22s,border-color .22s,transform .22s,box-shadow .22s,opacity .22s;text-decoration:none;flex-shrink:0;}
-    .footer-social-link svg{width:16px;height:16px;}
-    .footer-social-link:hover{background:rgba(var(--green-rgb),.18);border-color:rgba(var(--green-rgb),.55);
-      transform:translateY(-3px);box-shadow:var(--sh-2);}
+    /* ── Mini footer ─────────────────────────────────────────────────────────
+       The rentals pages carry only what a rider booking a session needs: brand,
+       three ways to reach the booth, where and when it is, three policy links,
+       four socials, the legal line. The full footer (newsletter, shop columns,
+       payment logos) belongs to the marketing site, not here.
+       Deliberately DARK on the light site — the dark footer surface is locked
+       design language. Fonts are the site's self-hosted Space Grotesk / IBM
+       Plex Sans Arabic (already loaded; the CSP allows no Google Fonts). */
+    #app-footer.mini-footer{
+      background:#111511;color:#d5dbd6;border-top:1px solid rgba(255,255,255,.12);
+      padding:22px 7vw 14px;margin-top:48px;font-size:13px;}
+    .mf-inner{max-width:1440px;margin:0 auto;display:flex;align-items:center;
+      justify-content:space-between;gap:18px 28px;flex-wrap:wrap;}
+    .mf-brand{display:flex;align-items:center;gap:12px;min-width:0;}
+    .mf-logo{height:36px;width:auto;}
+    .mf-tagline{color:#0FA463;font-weight:700;font-size:13px;letter-spacing:.2px;white-space:nowrap;}
+    .mf-info{display:flex;flex-direction:column;gap:4px;min-width:0;}
+    .mf-contact{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .mf-contact a{color:#d5dbd6;text-decoration:none;font-weight:600;
+      display:inline-flex;align-items:center;min-height:44px;}
+    .mf-contact a:hover{color:#03ff89;}
+    .mf-dot{color:#8a938c;}
+    .mf-addr{color:#8a938c;text-decoration:none;display:inline-flex;align-items:center;min-height:24px;}
+    .mf-addr:hover{color:#03ff89;}
+    .mf-hours{color:#8a938c;}
+    .mf-links{display:flex;align-items:center;gap:4px 18px;flex-wrap:wrap;}
+    .mf-links a{color:#d5dbd6;text-decoration:none;font-weight:600;
+      display:inline-flex;align-items:center;min-height:44px;white-space:nowrap;}
+    .mf-links a:hover{color:#03ff89;}
+    .mf-social{display:flex;align-items:center;gap:4px;}
+    /* 44px touch targets around 40px visual circles: the circle is the look,
+       the anchor is the finger's landing zone. */
+    .mf-social a{display:flex;align-items:center;justify-content:center;
+      width:44px;height:44px;text-decoration:none;flex-shrink:0;}
+    .mf-circle{display:flex;align-items:center;justify-content:center;
+      width:40px;height:40px;border-radius:50%;background:#077A4B;color:#FBF9F4;
+      transition:background .22s,transform .22s;}
+    .mf-circle svg{width:18px;height:18px;}
+    .mf-social a:hover .mf-circle{background:#0FA463;transform:translateY(-2px);}
+    .mf-social a:focus-visible .mf-circle{outline:2px solid #03ff89;outline-offset:2px;}
+    /* Latin-rendered runs (phone, email, VAT) hold their direction inside RTL. */
+    .mf-ltr{direction:ltr;unicode-bidi:embed;}
+    .mf-bottom{max-width:1440px;margin:12px auto 0;padding-top:10px;
+      border-top:1px solid rgba(255,255,255,.12);
+      display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;
+      color:#8a938c;font-size:12px;}
+    .mf-bottom .footer-copy{color:#8a938c;}
+    @media(max-width:767px){
+      #app-footer.mini-footer{padding:18px 16px 12px;}
+      .mf-inner{flex-direction:column;align-items:flex-start;gap:10px;}
+      .mf-contact a{min-height:44px;}
+    }
     .footer-copy{font-size:10.5px;color:var(--muted);font-weight:600;letter-spacing:.2px;}
     .tab-panel{display:none;}
     .tab-panel.active{display:block;}
@@ -3069,9 +3108,11 @@
        LIGHT THEME: white header + white footer (customer and staff).
        The staff bar keeps its ink treatment only in the staff dark theme.
        ════════════════════════════════════════════════════════════════════════ */
-    body #app-footer{background:#ffffff;border-top:1px solid var(--border);}
+    /* The mini footer stays DARK on the light site by design (locked language);
+       the old white override is retired with the old footer. */
+    body #app-footer.mini-footer{background:#111511;border-top:1px solid rgba(255,255,255,.12);}
     body #app-footer::before{background:var(--green);opacity:.85;}
-    body .footer-copy{color:var(--muted);}
+    body .footer-copy{color:#8a938c;}
     /* staff header on paper */
     body.view-staff #topbar#topbar{background:#ffffff;border-bottom:1px solid var(--sf-line);}
     body.view-staff #topbar .lang-toggle,
