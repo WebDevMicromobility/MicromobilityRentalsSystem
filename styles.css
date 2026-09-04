@@ -3507,3 +3507,20 @@
     body:not(.view-staff) #topbar#topbar .lang-toggle:focus-visible{
       outline:2px solid var(--green);outline-offset:2px;
     }
+
+    /* ── The wide tables keep their bearings while scrolling ─────────────────
+       Fourteen columns scroll horizontally; the header row and the identifier
+       column used to scroll away with them, leaving unlabeled cells about
+       nobody. Both are pinned now. Solid backgrounds are what make a pinned
+       cell mask the content sliding beneath it; inline-start not left, so RTL
+       pins the correct edge. */
+    .table-wrapper{position:relative;}
+    .queue-table thead th{position:sticky;top:0;z-index:3;background:var(--s1);}
+    .queue-table thead th:first-child{z-index:4;}
+    .queue-table th:first-child,.queue-table td:first-child{
+      position:sticky;inset-inline-start:0;z-index:2;background:var(--s1);
+      box-shadow:1px 0 0 var(--border);
+    }
+    html[dir="rtl"] .queue-table th:first-child,html[dir="rtl"] .queue-table td:first-child{
+      box-shadow:-1px 0 0 var(--border);
+    }

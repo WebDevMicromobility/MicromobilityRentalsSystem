@@ -16,8 +16,12 @@ test('the Customer button on a queue row opens the account editor', async ({ pag
     S.staffTab = 'queue'; renderStaffQueue();
   });
 
+  // Customer now lives in the row's ⋯ menu — the desk keeps only Check In and No-Show large
   const row = page.locator('#tab-queue').locator('tr, .q-card').filter({ hasText: 'Linked Rider' }).filter({ visible: true });
-  await row.getByRole('button', { name: /Customer/ }).click();
+  await row.getByRole('button', { name: /More actions/ }).click();
+  await page.waitForTimeout(150);   // let the just-positioned menu settle before clicking into it
+  await page.locator('.pay-menu-popup').getByRole('menuitem', { name: /Customer/ }).click();
+  await page.waitForTimeout(200);   // give the tap's handler a beat before asserting
 
   const modal = page.locator('#new-acct-modal');
   await expect(modal.locator('#cf-first')).toHaveValue('Linked');

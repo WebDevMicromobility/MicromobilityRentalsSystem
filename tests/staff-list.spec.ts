@@ -87,9 +87,11 @@ test.describe('adding a booking to the staff list', () => {
     await boot(page);
     await page.evaluate(`setStaffTab('queue')`);
     await page.waitForTimeout(300);
-    const html = await page.evaluate(`document.getElementById('q-results').innerHTML`) as string;
-    expect(html).toContain(`mwFromBooking('e-wait')`);
-    expect(html).toContain(`mwFromBooking('e-wl')`);
+    // "To staff list" folded into the row's ⋯ menu; the offer now lives in the menu registry
+    const runs = await page.evaluate(
+      `JSON.stringify(Object.fromEntries(Object.entries(S._rowMenus||{}).map(([k,v])=>[k,v.map(i=>i.run).join('|')])))`) as string;
+    expect(JSON.parse(runs)['e-wait']).toContain(`mwFromBooking('e-wait')`);
+    expect(JSON.parse(runs)['e-wl']).toContain(`mwFromBooking('e-wl')`);
   });
 });
 
@@ -211,14 +213,17 @@ test.describe('a parked booking carries the roster controls', () => {
 
   test('a waitlisted one gets check-in, payment and the rest — and no Promote', async ({ page }) => {
     const html = await openList(page, [park('m1', 'Rider 2', 'e-wl')]);
-    expect(html).toContain(`showCheckinModal('e-wl')`);   // checks in THAT booking
-    expect(html).toContain(`confirmNoShow('e-wl')`);
+    expect(html).toContain(`showCheckinModal('e-wl')`);   // checks in THAT booking — stays large
+    expect(html).toContain(`confirmNoShow('e-wl')`);      // so does no-show
     expect(html).toContain(`showPayMenu('e-wl'`);         // payment, as on the queue page
     expect(html).toContain(`showEditPriceModal('e-wl')`);
-    expect(html).toContain(`showBookingEditModal('e-wl')`);
-    expect(html).toContain(`staffCancelEntry('e-wl')`);
+    // edit and cancel folded into the ⋯ menu
+    const menu = await page.evaluate(`((S._rowMenus||{})['e-wl']||[]).map(i=>i.run).join('|')`) as string;
+    expect(menu).toContain(`showBookingEditModal('e-wl')`);
+    expect(menu).toContain(`staffCancelEntry('e-wl')`);
     expect(html).not.toContain('promoteWaitlist');        // Promote is gone from the app
     expect(html).not.toContain('mwFromBooking');          // it is already on the list
+    expect(menu).not.toContain('mwFromBooking');          // not in the menu either
   });
 
   test('a queued one gets the same set', async ({ page }) => {

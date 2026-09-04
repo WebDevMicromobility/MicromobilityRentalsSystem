@@ -1,10 +1,10 @@
 
-const CACHE = 'mmcq-3ded6d6e99';
+const CACHE = 'mmcq-511bf5c651';
 const IMG_CACHE = 'mmcq-img'; // Supabase Storage photos; persists across app versions (content-addressed)
 const SHELL = [
   './',
   './index.html',
-  './styles.css?v=3ded6d6e99',
+  './styles.css?v=511bf5c651',
   './manifest.json',
   './logo.png',
   './logo-dark.png',

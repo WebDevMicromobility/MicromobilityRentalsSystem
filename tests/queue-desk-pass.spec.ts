@@ -69,3 +69,68 @@ test('after publish the numbers are public, so the roster shows them too', async
   await page.waitForTimeout(250);
   await expect(page.locator('#tab-queue tbody')).toContainText('#7');
 });
+
+// The row menu: a booking used to carry up to seven buttons over two lines. The two the desk
+// actually presses during an arrival rush stay large; the rest fold into one ⋯ menu.
+test('a waiting row shows Check In, No-Show and one menu — the rest are inside it', async ({ page }) => {
+  await stubSupabase(page, { sessions: [sessions[0]], bikes: [],
+    queue_entries: [rider('a', OLD, 'waiting')] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction(`getQueue().length>0`);
+  await page.evaluate(`setStaffTab('queue');S.queueView='bookings';S.sfSession='${OLD}';renderStaffQueue()`);
+  await page.waitForTimeout(250);
+  const row = page.locator('#tab-queue').locator('tr, .q-card').filter({ hasText: 'R a' }).filter({ visible: true }).first();
+  await expect(row.getByRole('button', { name: /Check In/i })).toBeVisible();
+  await expect(row.getByRole('button', { name: /No-Show/i })).toBeVisible();
+  await expect(row.getByRole('button', { name: /More actions/ })).toBeVisible();
+  await expect(row.getByRole('button', { name: /Cancel/i })).toHaveCount(0);   // folded away
+  await row.getByRole('button', { name: /More actions/ }).click();
+  const menu = page.locator('.pay-menu-popup');
+  await expect(menu.getByRole('menuitem', { name: /Edit/i })).toBeVisible();
+  await expect(menu.getByRole('menuitem', { name: /Cancel/i })).toBeVisible();
+});
+
+test('a menu action actually runs — Edit opens the booking editor', async ({ page }) => {
+  await stubSupabase(page, { sessions: [sessions[0]], bikes: [],
+    queue_entries: [rider('a', OLD, 'waiting')] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction(`getQueue().length>0`);
+  await page.evaluate(`setStaffTab('queue');S.queueView='bookings';S.sfSession='${OLD}';renderStaffQueue()`);
+  await page.waitForTimeout(250);
+  await page.locator('#tab-queue').locator('tr, .q-card').filter({ hasText: 'R a' }).filter({ visible: true }).first()
+    .getByRole('button', { name: /More actions/ }).click();
+  await page.waitForTimeout(150);   // let the just-positioned menu settle before clicking into it
+  await page.locator('.pay-menu-popup').getByRole('menuitem', { name: /Edit/i }).click();
+  // Asserted via state rather than DOM visibility: the click handler sets S._beId and flips
+  // the modal to flex synchronously, and polling the page's own state has proven stable where
+  // locator visibility checks raced the tap on emulated touch.
+  await expect.poll(() => page.evaluate(`S._beId||null`), { timeout: 5000 }).toBe('a');
+  await expect.poll(() => page.evaluate(
+    `(m=>m?getComputedStyle(m).display:'gone')(document.getElementById('booking-edit-modal'))`), { timeout: 5000 }).toBe('flex');
+  await expect(page.locator('.pay-menu-popup')).toHaveCount(0);   // the menu closed itself
+});
+
+// "Who has R-07?" used to be a column scan. The search box already matched names, phones,
+// numbers and parties; now it matches the assigned bike too — assigned only, since a
+// preference is not a bike in somebody's hands.
+test('search finds the rider by their bike', async ({ page }) => {
+  await stubSupabase(page, { sessions: [sessions[0]],
+    bikes: [{ id: 'b7', name: 'R-07', type: 'Road', size: 'M', status: 'in-use', colors: [] }],
+    queue_entries: [
+      rider('a', OLD, 'active', { assigned_bike_id: 'b7', name: 'Bike Holder' }),
+      rider('b', OLD, 'waiting', { queue_num: 8, name: 'Road Fan', type_preference: 'Road' }),
+    ] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction(`getQueue().length>0`);
+  await page.evaluate(`setStaffTab('queue');S.queueView='bookings';S.sfSession='${OLD}';setSfSearch('r-07');renderStaffQueue()`);
+  await page.waitForTimeout(300);
+  const txt = await page.evaluate(`document.getElementById('tab-queue').innerText`) as string;
+  expect(txt).toContain('Bike Holder');
+  expect(txt).not.toContain('Road Fan');    // preferring a Road is not holding R-07
+});
