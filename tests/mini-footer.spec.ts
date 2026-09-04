@@ -23,9 +23,10 @@ test('carries exactly the spec content, and nothing of the full footer', async (
   await expect(f).toContainText('info@micromobility.sa');
   await expect(f).toContainText('Thu Al-Nurayn St, Al Sharafeyah, Jeddah 23218');
   expect(plain(await f.innerText())).toContain('Sat–Thu 14:00–22:00 · Fri 17:00–21:00');
-  await expect(f).toContainText('Help Center');
-  await expect(f).toContainText('Privacy Policy');
-  await expect(f).toContainText('Terms & Conditions');
+  // the three policy links were removed on request — the footer is contact + legal only
+  await expect(f).not.toContainText('Help Center');
+  await expect(f).not.toContainText('Privacy Policy');
+  await expect(f).not.toContainText('Terms & Conditions');
   await expect(f).toContainText('© 2026 MicroMobility. All Rights Reserved');
   await expect(f).toContainText('VAT No. 312555068900003');
   const txt = await f.innerText();
@@ -57,8 +58,6 @@ test('arabic: full translation, phone and VAT stay LTR', async ({ page }) => {
   const f = page.locator('#app-footer');
   await expect(f).toContainText('شارع ذي النورين، الشرفية، جدة 23218');
   expect(plain(await f.innerText())).toContain('السبت–الخميس 14:00–22:00');
-  await expect(f).toContainText('مركز المساعدة');
-  await expect(f).toContainText('الشروط والأحكام');
   await expect(f).toContainText('جميع الحقوق محفوظة');
   await expect(f).toContainText('الرقم الضريبي: 312555068900003');
   const dirs = await page.evaluate(`[...document.querySelectorAll('#app-footer .mf-ltr')].map(e=>getComputedStyle(e).direction)`) as string[];
@@ -69,7 +68,7 @@ test('arabic: full translation, phone and VAT stay LTR', async ({ page }) => {
 test('the spec integration event works: mm-lang flips the language', async ({ page }) => {
   await page.evaluate(`localStorage.setItem('mm_lang','ar');window.dispatchEvent(new Event('mm-lang'))`);
   await page.waitForTimeout(600);
-  await expect(page.locator('#app-footer')).toContainText('مركز المساعدة');
+  await expect(page.locator('#app-footer')).toContainText('شارع ذي النورين');   // the address, in Arabic
 });
 
 test('small screens: one clean column, no dangling dots, no sideways scroll', async ({ page }) => {
@@ -80,7 +79,7 @@ test('small screens: one clean column, no dangling dots, no sideways scroll', as
     `[...document.querySelectorAll('.mf-contact .mf-dot')].filter(d=>getComputedStyle(d).display!=='none').length`);
   expect(dotsVisible).toBe(0);
   // every contact and policy link is a >=44px row
-  const rows = await page.evaluate(`[...document.querySelectorAll('.mf-contact a, .mf-links a')]
+  const rows = await page.evaluate(`[...document.querySelectorAll('.mf-contact a')]
     .map(a=>Math.round(a.getBoundingClientRect().height))`) as number[];
   for (const h of rows) expect(h).toBeGreaterThanOrEqual(44);
   // and nothing pushes the page sideways
