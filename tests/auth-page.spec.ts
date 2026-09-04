@@ -147,6 +147,39 @@ test.describe('forgot password', () => {
     expect(calls[0].p_phone).toBe('+966508727012'); // was "+9660508727012" → could never match
     expect(await page.evaluate('S.loggedIn.id')).toBe('c9');
   });
+
+  // Post-lockdown, step 1 only CAPTURES the email/phone — the real check runs server-side in
+  // customer_reset when the button is pressed. So step 2 must NOT claim "Identity verified":
+  // it once did, unconditionally, producing a green checkmark over a red "no such account".
+  test('step 2 says it is resetting, not that identity was verified, until it actually is', async ({ page }) => {
+    await boot(page);
+    await page.evaluate('switchAuthMode("forgot")');
+    await page.fill('#a-forgot-email', 'nobody@x.com');
+    await page.fill('#a-forgot-phone', '0508727012');
+    await page.press('#a-forgot-phone', 'Enter');
+    const chip = page.locator('#auth-modal').locator('div', { hasText: /Resetting the password for|Identity verified/ }).first();
+    await expect(chip).toContainText('Resetting the password for');
+    await expect(page.locator('#auth-modal')).not.toContainText('Identity verified');
+    await expect(page.locator('#auth-modal')).not.toContainText('✓ Identity');
+  });
+
+  // A failed match returns to step 1 to fix the details, not stranding the user on a password
+  // form that cannot succeed — and never under a stale "verified" chip.
+  test('a non-matching reset bounces back to step 1 with the error', async ({ page }) => {
+    await boot(page);
+    await captureRpc(page, 'customer_reset', []); // RPC returns no row → no match
+    await page.evaluate('switchAuthMode("forgot")');
+    await page.fill('#a-forgot-email', 'nobody@x.com');
+    await page.fill('#a-forgot-phone', '0508727012');
+    await page.press('#a-forgot-phone', 'Enter');
+    await page.fill('#a-reset-pwd', 'Zq8xTselah');
+    await page.fill('#a-reset-pwd2', 'Zq8xTselah');
+    await page.press('#a-reset-pwd2', 'Enter');
+    await page.waitForFunction('S.forgotStep===1'); // bounced back
+    await expect(page.locator('#a-forgot-email')).toBeVisible(); // step 1 fields are shown again
+    await expect(page.locator('#auth-err')).toContainText(/do not match|match an account/i);
+    await expect(page.locator('#auth-modal')).not.toContainText('Identity verified');
+  });
 });
 
 test.describe('google complete-profile', () => {
