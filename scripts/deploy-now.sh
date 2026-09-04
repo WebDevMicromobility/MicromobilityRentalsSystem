@@ -33,7 +33,19 @@ git diff --quiet -- index.html service-worker.js || {
 }
 node scripts/assemble-dist.mjs >/dev/null
 
-npx --yes wrangler@4.128.0 pages deploy dist \
+# Fail fast and helpfully when nothing can authenticate — an unauthenticated wrangler
+# otherwise sits waiting on an interactive prompt, which is the opposite of instant.
+if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] \
+   && [ ! -f "$HOME/Library/Preferences/.wrangler/config/default.toml" ] \
+   && [ ! -f "${XDG_CONFIG_HOME:-$HOME/.config}/.wrangler/config/default.toml" ]; then
+  echo "✗ no Cloudflare auth on this machine. One-time setup, either:" >&2
+  echo "    npx wrangler login          (browser sign-in)" >&2
+  echo "    — or create .env.deploy with CLOUDFLARE_API_TOKEN=... and CLOUDFLARE_ACCOUNT_ID=..." >&2
+  exit 1
+fi
+
+# CI=1 keeps wrangler strictly non-interactive: a broken credential errors instead of prompting.
+CI=1 npx --yes wrangler@4.128.0 pages deploy dist \
   --project-name=micromobilityrentals --branch=main --commit-dirty=true
 
 echo "── live in $(( $(date +%s) - t0 ))s · $(git rev-parse --short HEAD)$(git diff --quiet HEAD -- . ':!dist' || echo ' +dirty') ──"
