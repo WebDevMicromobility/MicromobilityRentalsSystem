@@ -75,7 +75,6 @@ test('the spec integration event works: mm-lang flips the language', async ({ pa
 test('small screens: one clean column, no dangling dots, no sideways scroll', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 });
   await page.evaluate(`document.getElementById('app-footer').scrollIntoView()`);
-  const f = page.locator('#app-footer');
   // the desktop separators disappear when the contacts stack
   const dotsVisible = await page.evaluate(
     `[...document.querySelectorAll('.mf-contact .mf-dot')].filter(d=>getComputedStyle(d).display!=='none').length`);
