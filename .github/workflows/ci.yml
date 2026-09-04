@@ -1,14 +1,29 @@
-# CI: run the Playwright suite on every push and PR.
+# CI: test every push and PR; deploy main to Cloudflare Pages once the suite is green.
 #
-# Deploy gating: Cloudflare Pages currently auto-deploys main via its Git
-# integration, so this workflow starts as an alarm, not a gate. To make tests
-# actually BLOCK deploys:
-#   1. Cloudflare dashboard → Workers & Pages → micromobilityrentals →
-#      Settings → Builds & deployments → disable automatic production deploys.
-#   2. Create an API token (Cloudflare dashboard → My Profile → API Tokens →
-#      "Edit Cloudflare Workers" template works) and add two GitHub repo
-#      secrets: CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID.
-# The deploy job below detects the secrets and takes over automatically.
+# Built for WALL TIME. The old shape ran everything in sequence — one test job for
+# both browser projects, then a deploy job that checked out and REBUILT the site
+# before a wrangler upload that sometimes sat for ten minutes. Typical push-to-live
+# was 12–20 minutes, worst cases 25 with a manual re-run. Now:
+#
+#   · the two Playwright projects run as PARALLEL shards, so the test wall time is
+#     one project's, not both's;
+#   · dist/ is built ONCE, in its own job running alongside the tests, and handed
+#     to deploy as an artifact — the deploy job never installs npm or rebuilds, and
+#     what ships is byte-for-byte what was assembled while the tests ran;
+#   · the wrangler upload is BOUNDED: two attempts of five minutes each, wrangler
+#     pinned, instead of one open-ended call that hangs against the job timeout
+#     (observed repeatedly on Cloudflare's side — the retry has cleared it every
+#     time);
+#   · a newer push CANCELS an in-flight run for the same ref: the old commit's
+#     tests and upload were about to be superseded anyway.
+#
+# Typical push-to-live target: ~5–6 minutes. Worst case (both upload attempts time
+# out) fails loudly in ~12 rather than hanging silently.
+#
+# Deploy gating history: Cloudflare Pages' Git integration used to auto-deploy
+# main; it is disabled now, and this workflow's deploy job — armed by the two
+# repo secrets below — is the only deployer. Without the secrets the deploy job
+# skips itself and says so.
 
 name: CI
 
@@ -16,14 +31,19 @@ on:
   push:
     branches: [main]
   pull_request:
-  # Manual re-run, so a deploy can be retried without an empty commit -- needed the day
+  # Manual re-run, so a deploy can be retried without an empty commit — needed the day
   # Cloudflare's Git integration stopped building and there was nothing to push.
   workflow_dispatch:
 
+# One live run per ref: a new push supersedes the previous run entirely.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,46 +51,83 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Lint (eslint + tsc + i18n key parity)
-        run: npm run lint
-      # index.html is a generated artifact and the tests only ever load the BUILT file.
-      # Without this, editing app.src.html and forgetting `npm run build:html` gives a
-      # green run against stale code — and Pages then deploys that stale artifact.
+      # The stale-build check lives here, next to the artifact it protects: editing
+      # app.src.html and forgetting `npm run build:html` must fail the run, or a green
+      # suite ships stale code.
       - name: index.html is up to date with app.src.html
         run: |
           npm run build:html
           git diff --exit-code -- index.html service-worker.js \
             || { echo '::error::index.html/service-worker.js are stale — run `npm run build:html` and commit the result.'; exit 1; }
-      - name: dist/ assembles with every referenced asset present
+      - name: Assemble dist/ (every referenced asset must be present)
         run: node scripts/assemble-dist.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 3
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [chromium, mobile]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Lint once, not once per shard — it is project-independent.
+      - if: matrix.project == 'chromium'
+        name: Lint (eslint + tsc + i18n key parity)
+        run: npm run lint
+      # Browser binaries cached across runs; the install is a no-op download on a hit
+      # and only the small apt step remains.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: pw-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install --with-deps chromium
-      - run: npm test
+      - run: npx playwright test --project=${{ matrix.project }}
 
   deploy:
-    needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [build, test]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 14
     steps:
       - id: secrets
         name: Check for Cloudflare credentials
         run: echo "present=${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}" >> "$GITHUB_OUTPUT"
       - if: steps.secrets.outputs.present != 'true'
-        name: Skip (no Cloudflare token yet — Pages Git integration is deploying)
+        name: Skip (no Cloudflare token — nothing deploys)
         run: echo "CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set; skipping gated deploy."
       - if: steps.secrets.outputs.present == 'true'
-        uses: actions/checkout@v4
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
       - if: steps.secrets.outputs.present == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - if: steps.secrets.outputs.present == 'true'
-        run: npm ci && npm run build:dist
-      - if: steps.secrets.outputs.present == 'true'
-        name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=micromobilityrentals --branch=main
+        name: Deploy to Cloudflare Pages (bounded, two attempts)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          for attempt in 1 2; do
+            echo "wrangler upload attempt $attempt"
+            if timeout 300 npx --yes wrangler@4.128.0 pages deploy dist \
+                 --project-name=micromobilityrentals --branch=main; then
+              exit 0
+            fi
+            echo "::warning::attempt $attempt failed or timed out after 5 minutes"
+          done
+          echo "::error::both upload attempts failed — Cloudflare side; re-run this job"
+          exit 1
