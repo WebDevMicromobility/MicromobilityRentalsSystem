@@ -9599,20 +9599,43 @@ async function saveBookingEdit(){
 }
 // Density preference persists across sessions (operational dashboards best practice).
 function setQueueDensity(d){S.queueDensity=d;try{localStorage.setItem('cq_density',d);}catch(e){}renderStaffQueue();}
-// Hold the scroll position across an in-place rebuild. The one-frame version this replaces
-// restored on the very next frame, which is often BEFORE the new rows have laid out: with the
-// page briefly shorter than it was, the browser clamps the restore and the staffer ends up at
-// the top of a long roster mid-shift. This retries while the page is still too short to hold
-// the old position, for a few frames, then stops rather than fighting a genuinely shorter list.
+// Hold the scroll position across an in-place rebuild. Restoring on the very next frame is too
+// early: the new rows have not laid out, the page is briefly shorter than it was, the browser
+// clamps the restore, and the staffer ends up at the top of a long roster mid-shift. So this
+// keeps restoring while the page is still growing.
+//
+// The version this replaces gave up after FOUR FRAMES (~67ms). That is a guess about how long a
+// rebuild takes, and it is a guess made on a fast machine: a 200-row roster on a booth phone,
+// re-rendered while a full reload decodes the fleet's photos, does not finish in four frames --
+// and past the fourth one the staffer is dropped at the top with no way to tell why. The budget
+// is now a deadline: stop the moment the position is reachable again, and otherwise keep trying
+// until 700ms says the rows are not coming back. Deliberately NOT "stop once the height settles"
+// -- a rebuild that shrinks, pauses on a fetch, then grows would end the restore during the
+// pause, which is the same bug wearing a smarter hat.
+//
+// A hand on the screen always wins. Restoring for up to 700ms means a staffer who starts
+// scrolling during the rebuild could be yanked back, so any real scroll gesture ends it at once.
+let _ksStop=null;
 function _keepScroll(){
   const y=window.scrollY;
   if(y<2)return;
-  let tries=0;
+  if(_ksStop)_ksStop(); // a newer rebuild supersedes the one still restoring
+  const deadline=Date.now()+700;
+  const bail=()=>{if(_ksStop)_ksStop();};
+  const stop=()=>{
+    if(_ksStop===stop)_ksStop=null;
+    ['wheel','touchstart','keydown'].forEach(ev=>window.removeEventListener(ev,bail));
+  };
+  _ksStop=stop;
+  // Not 'scroll': our own scrollTo fires that. These three are a person, not us.
+  ['wheel','touchstart','keydown'].forEach(ev=>window.addEventListener(ev,bail,{passive:true}));
   const restore=()=>{
+    if(_ksStop!==stop)return; // superseded, or the staffer took over
     const max=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);
     const target=Math.min(y,max);
     if(Math.abs(window.scrollY-target)>1)window.scrollTo(0,target);
-    if(max<y&&++tries<4)requestAnimationFrame(restore); // content still coming: try again
+    if(max>=y||Date.now()>deadline){stop();return;} // back where they were, or out of time
+    requestAnimationFrame(restore);
   };
   requestAnimationFrame(restore);
 }
@@ -18279,7 +18302,34 @@ function _rtApply(){
     }catch(e){console.warn('Realtime refresh error:',e);}
   },350);
 }
-function _onRt(payload){if(payload&&(payload.table==='bikes'||payload.table==='inventory'||payload.table==='customers'))_rtWantFull=true;_rtApply();} // customers only ship in the FULL load
+// Applies a bikes UPDATE straight from the realtime payload, which already carries the whole new
+// row. Returns false for anything it cannot apply confidently -- an insert or a delete (the fleet
+// list itself changed), a payload the server flagged or truncated, a bike this device has never
+// seen -- and the caller falls back to the full reload for those.
+function _rtMergeBike(p){
+  try{
+    if(!p||p.errors)return false;
+    if(String(p.eventType||p.type||'').toUpperCase()!=='UPDATE')return false;
+    const n=p.new;
+    if(!n||n.id==null||n.status==null||!('name'in n))return false; // truncated: not safe to trust
+    const i=(S.bikes||[]).findIndex(b=>b.id===n.id);
+    if(i<0)return false;
+    S.bikes[i]={...S.bikes[i],...n};
+    return true;
+  }catch(_){return false;}
+}
+// customers and inventory only ship in the FULL load, so they still ask for it.
+// Bikes used to as well -- and a check-in flips one bike to 'in-use', so every check-in pulled
+// the ENTIRE fleet back down, every base64 photo with it, on every device at the booth, ~350ms
+// after the staffer tapped Confirm. That is a second and much heavier rebuild of a change this
+// device had already fetched and drawn, and it is the rebuild most likely to outlast the scroll
+// restore above. The event carries the new row, so take it from there and let the light path
+// (which already refreshes bike statuses) do the rest.
+function _onRt(payload){
+  if(payload&&payload.table==='bikes'&&_rtMergeBike(payload)){_rtApply();return;}
+  if(payload&&(payload.table==='bikes'||payload.table==='inventory'||payload.table==='customers'))_rtWantFull=true;
+  _rtApply();
+}
 function setupRealtime(){
   if(!sb||!sb.channel)return;
   try{if(_rtChannel){sb.removeChannel(_rtChannel);_rtChannel=null;}}catch(_){}
