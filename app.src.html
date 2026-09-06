@@ -18306,28 +18306,43 @@ function _rtApply(){
 // row. Returns false for anything it cannot apply confidently -- an insert or a delete (the fleet
 // list itself changed), a payload the server flagged or truncated, a bike this device has never
 // seen -- and the caller falls back to the full reload for those.
-function _rtMergeBike(p){
+function _rtMergeRow(p,table){
   try{
     if(!p||p.errors)return false;
     if(String(p.eventType||p.type||'').toUpperCase()!=='UPDATE')return false;
     const n=p.new;
-    if(!n||n.id==null||n.status==null||!('name'in n))return false; // truncated: not safe to trust
-    const i=(S.bikes||[]).findIndex(b=>b.id===n.id);
-    if(i<0)return false;
-    S.bikes[i]={...S.bikes[i],...n};
+    if(!n||n.id==null||!('name'in n))return false; // an empty or clipped row: not safe to trust
+    const list=table==='bikes'?S.bikes:S.inventory;
+    if(!Array.isArray(list))return false;
+    const i=list.findIndex(r=>r.id===n.id);
+    if(i<0)return false;                           // never seen it: let the full load fetch it
+    list[i]={...list[i],...n};
     return true;
   }catch(_){return false;}
 }
-// customers and inventory only ship in the FULL load, so they still ask for it.
-// Bikes used to as well -- and a check-in flips one bike to 'in-use', so every check-in pulled
-// the ENTIRE fleet back down, every base64 photo with it, on every device at the booth, ~350ms
-// after the staffer tapped Confirm. That is a second and much heavier rebuild of a change this
-// device had already fetched and drawn, and it is the rebuild most likely to outlast the scroll
-// restore above. The event carries the new row, so take it from there and let the light path
-// (which already refreshes bike statuses) do the rest.
+// Three tables used to mean "reload EVERYTHING" -- the whole fleet with its base64 photos, the
+// whole of inventory with its photos, the whole customer base -- because they are the rows the
+// light path does not carry. Each one of those is a change some device had usually already
+// fetched and drawn, arriving back ~350ms later as a second and much heavier rebuild, on every
+// device at the booth. A check-in flips a bike to 'in-use'; a sale decrements an inventory row.
+// Neither should cost the booth its scroll position, and neither has to.
+//
+//   bikes, inventory  the event carries the whole new row, so take it from there. The light
+//                     path (which refetches bike statuses) does the rest.
+//   customers         NOT merged from the payload. That payload is the whole row -- including
+//                     password_hash and the base64 photo -- and loadData deliberately reads a
+//                     narrow column list without either. Customers are reference data with
+//                     their own loader, so mark it dirty and let _refFetch re-read just
+//                     customers and tags, with that same narrow select.
+//
+// Anything that cannot be applied confidently -- an insert or a delete (the list itself
+// changed), a payload the server flagged or clipped, a row this device has never seen -- still
+// falls through to the full reload.
 function _onRt(payload){
-  if(payload&&payload.table==='bikes'&&_rtMergeBike(payload)){_rtApply();return;}
-  if(payload&&(payload.table==='bikes'||payload.table==='inventory'||payload.table==='customers'))_rtWantFull=true;
+  const tbl=payload&&payload.table;
+  if(tbl==='customers'){refDirty();Promise.resolve().then(_refFetch).catch(()=>{});_rtApply();return;}
+  if((tbl==='bikes'||tbl==='inventory')&&_rtMergeRow(payload,tbl)){_rtApply();return;}
+  if(tbl==='bikes'||tbl==='inventory')_rtWantFull=true;
   _rtApply();
 }
 function setupRealtime(){

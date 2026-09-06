@@ -12,9 +12,11 @@ const bikes = [
   { id: 'b1', name: 'B1', size: 'M', type: 'Road', status: 'available', rental_price: 75, photo: null },
   { id: 'b2', name: 'B2', size: 'L', type: 'Road', status: 'available', rental_price: 75, photo: null },
 ];
+const inventory = [{ id: 'i1', name: 'Vitamin Water', category: 'Drinks', qty: 5, price: 10, low_threshold: 1, photo: null }];
+const customers = [{ id: 'c1', name: 'Spec Rider', email: 'spec@example.com', phone: '0500000001', created_at: '2026-01-01' }];
 
 async function boot(page: import('@playwright/test').Page) {
-  await stubSupabase(page, { sessions, bikes, queue_entries: [] });
+  await stubSupabase(page, { sessions, bikes, inventory, customers, queue_entries: [] });
   await unlockStaff(page);
   await page.goto('/');
   await waitForSb(page);
@@ -88,56 +90,97 @@ test.describe('the roster holds its place across a rebuild', () => {
   });
 });
 
-// A check-in flips one bike to 'in-use'. That used to be routed as "bikes changed → reload
-// EVERYTHING", which refetches the whole fleet and every base64 photo, on every device at the
-// booth, ~350ms after Confirm — a second and much heavier rebuild of a change this device had
-// already drawn, and the one most likely to outlast the scroll restore above.
-test.describe('a bike status flip does not drag the whole fleet down', () => {
-  const evt = (over: Record<string, unknown> = {}) => JSON.stringify({
+// A check-in flips one bike to 'in-use'; a sale decrements an inventory row. Both used to be
+// routed as "reload EVERYTHING" — the whole fleet and all of inventory, base64 photos included,
+// on every device at the booth, ~350ms after the tap. A second and much heavier rebuild of a
+// change the device had already drawn, and the one most likely to outlast the scroll restore.
+test.describe('a routine row change does not drag the whole dataset down', () => {
+  const bikeEvt = (over: Record<string, unknown> = {}) => JSON.stringify({
     table: 'bikes', eventType: 'UPDATE',
     new: { id: 'b1', name: 'B1', size: 'M', type: 'Road', status: 'in-use', rental_price: 75, photo: null },
+    ...over,
+  });
+  const invEvt = (over: Record<string, unknown> = {}) => JSON.stringify({
+    table: 'inventory', eventType: 'UPDATE',
+    new: { id: 'i1', name: 'Vitamin Water', category: 'Drinks', qty: 3, price: 10, low_threshold: 1, photo: null },
     ...over,
   });
 
   const wantFullAfter = (page: import('@playwright/test').Page, payload: string) =>
     page.evaluate(`(()=>{_rtWantFull=false;_onRt(${payload});return _rtWantFull;})()`);
 
-  test('a status flip is applied from the event, no full reload asked for', async ({ page }) => {
+  test('a bike status flip is applied from the event, no full reload asked for', async ({ page }) => {
     await boot(page);
-    expect(await wantFullAfter(page, evt())).toBe(false);
+    expect(await wantFullAfter(page, bikeEvt())).toBe(false);
     expect(await page.evaluate(`S.bikes.find(b=>b.id==='b1').status`)).toBe('in-use');
+  });
+
+  test('a stock decrement is applied from the event, no full reload asked for', async ({ page }) => {
+    await boot(page);
+    expect(await wantFullAfter(page, invEvt())).toBe(false);
+    expect(await page.evaluate(`S.inventory.find(i=>i.id==='i1').qty`)).toBe(3);
   });
 
   test('the merged row carries every field the event brought', async ({ page }) => {
     await boot(page);
     // Not just status: skipping the full reload must not leave a rename stale on other devices.
-    await wantFullAfter(page, evt({ new: { id: 'b1', name: 'Renamed', size: 'M', type: 'Road', status: 'in-use', rental_price: 90, photo: null } }));
+    await wantFullAfter(page, bikeEvt({ new: { id: 'b1', name: 'Renamed', size: 'M', type: 'Road', status: 'in-use', rental_price: 90, photo: null } }));
     const b = await page.evaluate(`S.bikes.find(b=>b.id==='b1')`) as { name: string; rental_price: number };
     expect(b.name).toBe('Renamed');
     expect(b.rental_price).toBe(90);
   });
 
-  test('a new or deleted bike still asks for the full reload', async ({ page }) => {
+  test('a new or deleted row still asks for the full reload', async ({ page }) => {
     await boot(page);
-    expect(await wantFullAfter(page, evt({ eventType: 'INSERT' }))).toBe(true);
-    expect(await wantFullAfter(page, evt({ eventType: 'DELETE' }))).toBe(true);
+    expect(await wantFullAfter(page, bikeEvt({ eventType: 'INSERT' }))).toBe(true);
+    expect(await wantFullAfter(page, bikeEvt({ eventType: 'DELETE' }))).toBe(true);
+    expect(await wantFullAfter(page, invEvt({ eventType: 'INSERT' }))).toBe(true);
   });
 
-  test('a bike this device has never seen asks for the full reload', async ({ page }) => {
+  test('a row this device has never seen asks for the full reload', async ({ page }) => {
     await boot(page);
-    expect(await wantFullAfter(page, evt({ new: { id: 'b99', name: 'New', status: 'available' } }))).toBe(true);
+    expect(await wantFullAfter(page, bikeEvt({ new: { id: 'b99', name: 'New', status: 'available' } }))).toBe(true);
+    expect(await wantFullAfter(page, invEvt({ new: { id: 'i99', name: 'New', qty: 1 } }))).toBe(true);
   });
 
-  test('a flagged or truncated payload asks for the full reload', async ({ page }) => {
+  test('a flagged or clipped payload asks for the full reload', async ({ page }) => {
     await boot(page);
-    expect(await wantFullAfter(page, evt({ errors: 'payload too large' }))).toBe(true);
-    expect(await wantFullAfter(page, evt({ new: { id: 'b1', status: 'in-use' } }))).toBe(true); // no name: truncated
+    expect(await wantFullAfter(page, bikeEvt({ errors: 'payload too large' }))).toBe(true);
+    expect(await wantFullAfter(page, bikeEvt({ new: { id: 'b1', status: 'in-use' } }))).toBe(true); // no name
+    expect(await wantFullAfter(page, invEvt({ new: {} }))).toBe(true);
   });
 
-  test('inventory and customers are untouched — they only ship in the full load', async ({ page }) => {
+  test('the tables the light path already carries never asked for one', async ({ page }) => {
     await boot(page);
-    expect(await wantFullAfter(page, JSON.stringify({ table: 'inventory', eventType: 'UPDATE', new: { id: 'i1', qty: 3 } }))).toBe(true);
-    expect(await wantFullAfter(page, JSON.stringify({ table: 'customers', eventType: 'UPDATE', new: { id: 'c1' } }))).toBe(true);
     expect(await wantFullAfter(page, JSON.stringify({ table: 'queue_entries', eventType: 'UPDATE', new: { id: 'q1' } }))).toBe(false);
+    expect(await wantFullAfter(page, JSON.stringify({ table: 'cashier_sales', eventType: 'INSERT', new: { id: 1 } }))).toBe(false);
+  });
+});
+
+// Customers are the one table that must NOT be merged from its payload: that row is the WHOLE
+// row, password_hash and base64 photo included, and loadData deliberately reads a narrow column
+// list without either. They are reference data with their own loader, so a customers change
+// re-reads just customers and tags instead of pulling the fleet and inventory down with them.
+test.describe('a customer edit re-reads customers, not everything', () => {
+  test('it refetches customers and never asks for the full reload', async ({ page }) => {
+    await boot(page);
+    const paths: string[] = [];
+    page.on('request', (r) => { const u = new URL(r.url()); if (u.pathname.startsWith('/rest/v1/')) paths.push(u.pathname + u.search); });
+    const wantFull = await page.evaluate(`(()=>{_rtWantFull=false;_onRt({table:'customers',eventType:'UPDATE',new:{id:'c1',name:'Edited'}});return _rtWantFull;})()`);
+    await page.waitForTimeout(600);
+    expect(wantFull).toBe(false);
+    expect(paths.some((p) => p.startsWith('/rest/v1/customers'))).toBe(true);
+    expect(paths.some((p) => p.startsWith('/rest/v1/bikes') && p.includes('select=*'))).toBe(false);
+    expect(paths.some((p) => p.startsWith('/rest/v1/inventory'))).toBe(false);
+  });
+
+  test('the narrow column list is what gets read — no password_hash, no photo', async ({ page }) => {
+    await boot(page);
+    const reads: string[] = [];
+    page.on('request', (r) => { const u = new URL(r.url()); if (u.pathname === '/rest/v1/customers') reads.push(u.searchParams.get('select') || ''); });
+    await page.evaluate(`_onRt({table:'customers',eventType:'UPDATE',new:{id:'c1',name:'Edited'}})`);
+    await page.waitForTimeout(600);
+    expect(reads.length).toBeGreaterThan(0);
+    expect(reads.every((s) => !s.includes('password_hash') && !s.includes('photo') && s !== '*')).toBe(true);
   });
 });
