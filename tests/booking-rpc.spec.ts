@@ -144,3 +144,55 @@ test.describe('the fallback is narrow on purpose', () => {
     expect(seen).not.toContain('insert');
   });
 });
+
+// A refusal the rider can act on. Before 20260906120000 the RPC turned a booking away by
+// returning no rows, so a device whose stored token had gone stale got the black
+// "booking refused" toast on every attempt, kept looking signed in, and had no way at all
+// to learn what was wrong — which is how it went unnoticed for three weeks in production.
+test.describe('a named refusal reaches the rider in words', () => {
+  const refuse = (page: import('@playwright/test').Page, message: string) =>
+    page.route(/\/rpc\/customer_create_booking/, async (route) => route.fulfill({
+      status: 400,
+      headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' },
+      body: JSON.stringify({ code: 'P0001', message, details: null, hint: null }),
+    }));
+
+  test('a stale session says so and signs the device out', async ({ page }) => {
+    await stubSupabase(page, { sessions, bikes, queue_entries: [] });
+    await loginCustomer(page, { id: 'c1' });
+    await page.goto('/');
+    await waitForSb(page);
+    const seen = await watchTransport(page);
+    await refuse(page, 'STALE_SESSION');
+
+    await book(page);
+    await expect(page.locator('.toast')).toContainText(/sign in again/i);
+    // Left signed in, the next attempt refuses identically and forever.
+    await expect.poll(() => page.evaluate('!S.loggedIn && !localStorage.getItem("cq_session")')).toBe(true);
+    expect(seen).not.toContain('insert'); // still never routes around the RPC
+  });
+
+  test('a closed session says so and leaves the rider signed in', async ({ page }) => {
+    await stubSupabase(page, { sessions, bikes, queue_entries: [] });
+    await loginCustomer(page, { id: 'c1' });
+    await page.goto('/');
+    await waitForSb(page);
+    await refuse(page, 'SESSION_CLOSED');
+
+    await book(page);
+    await expect(page.locator('.toast')).toContainText(/no longer open/i);
+    expect(await page.evaluate('!!S.loggedIn')).toBe(true); // nothing wrong with their account
+  });
+
+  test('the raw server word never reaches the screen', async ({ page }) => {
+    await stubSupabase(page, { sessions, bikes, queue_entries: [] });
+    await loginCustomer(page, { id: 'c1' });
+    await page.goto('/');
+    await waitForSb(page);
+    await refuse(page, 'STALE_SESSION');
+
+    await book(page);
+    await expect(page.locator('.toast')).toBeVisible();
+    await expect(page.locator('.toast')).not.toContainText(/STALE_SESSION/);
+  });
+});

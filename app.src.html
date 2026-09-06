@@ -1864,6 +1864,25 @@ async function _createBookings(entries){
   if(bad)return{error:bad.error};
   return{data:res.map(x=>(x.data&&x.data[0])||null).filter(Boolean)};
 }
+// The booking RPC used to turn a rider away by returning NO ROWS, which reaches the client
+// as HTTP 200 with an empty array and nothing to say about it — that is where the black
+// 'booking refused' toast came from, and a rider whose stored token had gone stale hit it on
+// every attempt forever. It now NAMES the two refusals a rider can act on
+// (20260906120000_a_dead_session_says_so.sql). A database that predates that migration still
+// answers with the empty array, so the old wording stays as the fallback.
+function _bookRefusal(err){
+  const s=((((err&&err.code)||'')+' '+((err&&err.message)||''))+'').toUpperCase();
+  if(s.includes('STALE_SESSION'))return'stale';
+  if(s.includes('SESSION_CLOSED'))return'closed';
+  return null;
+}
+// A dead session is not just reported, it is ENDED: the device is signed in to an account the
+// server no longer recognises, and leaving it "signed in" is exactly what hid this — an empty
+// My Rides and a refused booking, with no screen anywhere saying why.
+function _bookRefusalSay(kind){
+  if(kind==='stale'){doLogout(true);toast(t('errSessionStale'),'error');}
+  else toast(t('errSessionClosed'),'error');
+}
 function entryToDB(e){
   // A session with no bike carries no bike answers, whoever booked it. The wizard already
   // sends 'None' with an empty size, but the staff paths (add rider, add group, walk-in) fill
@@ -6154,6 +6173,10 @@ async function submitReg(){
             _queued=true;_ok=true;_bookOutboxFlush();
           }else{
             const _msg=((err&&(err.code||err.message))||'')+'';
+            // A named refusal is raised BEFORE the first insert, so there is nothing to roll
+            // back and nothing to retry — say which one it is and stop.
+            const _ref=_bookRefusal(err);
+            if(_ref){_bookRefusalSay(_ref);return;}
             const _dup=_msg.includes('23505')||/duplicate|unique/i.test(_msg); // unique (session_id,queue_num) clash
             // Roll back any rows that DID insert before retrying or bailing
             await Promise.all(entries.map(e=>sb.from('queue_entries').delete().eq('id',e.id))).catch(()=>{});
@@ -6308,7 +6331,9 @@ async function submitModifyBooking(){
   if(calls.length>0){
     const res=await Promise.all(calls);
     const fail=res.find(r=>r&&r.error);
-    if(fail){toast(_errMessage(fail.error),'error');return;}
+    // Same two named refusals as a first booking: P0001 would otherwise reach the rider as
+    // the raw word STALE_SESSION, which _errMessage passes through as "written for humans".
+    if(fail){const _ref=_bookRefusal(fail.error);if(_ref){_bookRefusalSay(_ref);return;}toast(_errMessage(fail.error),'error');return;}
     // Added rows: the DB assigns the real number and may capacity-coerce to waitlist —
     // the toast below must follow what actually landed (same rule as submitReg).
     if(addedEntries.length&&_addedRes&&_addedRes.data){
@@ -15292,6 +15317,11 @@ async function _bookOutboxFlush(){
         // Only a genuinely absent function falls back to the direct insert, same rule as online.
         else if(_m.includes('pgrst202')||_m.includes('42883')||_m.includes('could not find')||_m.includes('does not exist'))res=null;
         else res={error:(r&&r.error)||{message:'booking refused'}};
+        // A dead session will refuse this row on every flush from now until the rider signs
+        // in again, so spend the three strikes at once: the REFUSED banner ("show this phone
+        // at the booth") is the only thing standing between them and turning up to a roster
+        // that has never heard of them.
+        if(res&&res.error&&_bookRefusal(res.error)==='stale')row._tries=3;
       }
       if(!res)res=await sb.from('queue_entries').upsert(row,{ignoreDuplicates:true}); // already landed (a lost response) = done; never overwrite staff changes made since
       // queue_num collides with a booking made on another device while offline: the partial unique
