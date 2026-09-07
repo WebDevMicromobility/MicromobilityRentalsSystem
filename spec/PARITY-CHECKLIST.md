@@ -252,6 +252,15 @@ known defects or inconsistencies in the current system: reproducing them is a de
 - [ ] **[T]** Staff creating one get a session name, a spot cap, a meeting point — no breakfast, no gathering — and the row is stamped `-tw`, `open_to_all` load-bearing.
 - [ ] **[R]** It carries its own identity colour (`ev-workshop` burnt orange).
 
+## 11d. The account report builder (Community → Accounts)
+
+- [ ] **[T]** The Accounts panel has an "Account report" button that opens the same builder shape as the Bookings page: column picks, sections, filters, PDF / CSV, Reset — `account-report.spec.ts` *(added 2026-09-07)*.
+- [ ] **[T]** Columns cover everything an account carries: profile (name, email, phone, gender, age, birth date, country, city, height, bike type, joined), tags (names, since, until), riding history aggregated from the queue (bookings, rides completed, community rides, upcoming, no-shows, cancelled, last ride, minutes, spent), default payment, hidden types.
+- [ ] **[T]** Filters: tag (all / any / none / a specific tag — the Community tag among them), gender, age band, country, city, bike type, joined window, rides, last active, upcoming booking, default payment; plus a sort.
+- [ ] **[T]** Opening the builder from a tag pill on the list seeds the tag filter with that pill.
+- [ ] **[R]** Choices persist per device under `cq_acc_rep_opts`, separately from the session report's.
+- [ ] **[T]** Summaries: nine breakdowns of the listed accounts (tags, gender, age bands, city, country, bike preference, sign-ups by month, rides per account, last active), each switchable and drawn as columns / bars / donut / line / table-only. The PDF renders them as inline SVG with a value table beside each; the CSV appends them as blocks.
+
 ## 12. The Petromin (paid group community) ride
 
 - [ ] **[T]** The paid community ride behaves as specified — `petromin-ride.spec.ts`.

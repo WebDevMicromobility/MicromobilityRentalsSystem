@@ -67,6 +67,7 @@ const MODALS: [string, string][] = [
   ['add-on picker', `showAddonPicker('q1')`],
   ['nutrition', `showNutrition('i1')`],
   ['print report options', `showPrintReportOptions()`],
+  ['account report options', `showAccountReportOptions()`],
   ['members-only', `showCommMembersModal(allSessions().find(s=>s.id==='2099-11-07'))`],
 ];
 
