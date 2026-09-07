@@ -247,7 +247,8 @@ known defects or inconsistencies in the current system: reproducing them is a de
 - [ ] **[T]** It lists under its own card only: never under Experiences, and no other ride lists under it.
 - [ ] **[T]** No tag needed: a customer the members RPC says no to still reaches the waiver; the Saturday card still shows them the members dialog.
 - [ ] **[T]** One place per person: the booking carries exactly one rider whatever the stepper held, and a second reservation on the same session is refused (client banner; `_solo_ride_cap` in the DB, staff exempt).
-- [ ] **[T]** The booking carries `type_preference='None'`, an empty size, price 0 and the `workshop-2026-09-v1` waiver.
+- [ ] **[T]** No waiver: the wizard is two steps (day, confirm), Back from the review returns to the day list, and the booking carries no `waiver_version`. Nothing about cycling appears on the review or the ticket: no bike type, no height, "Participants" not "Riders".
+- [ ] **[T]** The booking carries `type_preference='None'`, an empty size and price 0.
 - [ ] **[T]** Staff creating one get a session name, a spot cap, a meeting point — no breakfast, no gathering — and the row is stamped `-tw`, `open_to_all` load-bearing.
 - [ ] **[R]** It carries its own identity colour (`ev-workshop` burnt orange).
 
