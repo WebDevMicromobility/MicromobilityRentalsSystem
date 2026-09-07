@@ -42,7 +42,7 @@ test('it has the Saturday shape, minus the bike and minus the gate', async ({ pa
   expect(await page.evaluate(`_openToAll(allSessions().find(s=>s.id==='${RIDE}'))`)).toBe(false);
 });
 
-test('the landing page features it as a third card, the partner named in a smaller line, no logo', async ({ page }) => {
+test('the landing page features it as a third card, with the partner named in a smaller line', async ({ page }) => {
   await asAnyone(page);
   await page.evaluate(`goLanding()`);
   const cards = page.locator('#land-events .landing-event-card');
@@ -50,7 +50,7 @@ test('the landing page features it as a third card, the partner named in a small
   const ws = page.locator('#land-events .landing-event-card.ev-workshop');
   await expect(ws).toContainText('Micromobility Triathlon Workshop');
   await expect(ws.locator('.lec-partner')).toHaveText('In partnership with Saudi Triathlon Federation');
-  await expect(ws.locator('img')).toHaveCount(0);          // no partner mark on the card, by request
+  await expect(ws.locator('img.lec-partner-logo')).toHaveAttribute('src', 'saudi-triathlon.jpg');
   // the partner line is quieter than the name
   const sizes = await ws.evaluate((el) => {
     const t = el.querySelector('.lec-title') as HTMLElement, p = el.querySelector('.lec-partner') as HTMLElement;

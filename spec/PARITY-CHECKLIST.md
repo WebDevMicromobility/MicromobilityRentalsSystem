@@ -243,7 +243,7 @@ known defects or inconsistencies in the current system: reproducing them is a de
 ## 11c. The Micromobility Triathlon Workshop (open community, bike-free)
 
 - [ ] **[T]** `event_kind='community'`, `ride_kind='workshop'`, `open_to_all=true`; approval, hidden queue, solo, free, no bike — `workshop-session.spec.ts` *(added 2026-09-07)*.
-- [ ] **[T]** The signed-in landing shows a THIRD card for it, beside the circuit and the Experiences umbrella, with "In partnership with Saudi Triathlon Federation" in a smaller line and no logo.
+- [ ] **[T]** The signed-in landing shows a THIRD card for it, beside the circuit and the Experiences umbrella, with the federation mark and "In partnership with Saudi Triathlon Federation" in a smaller line.
 - [ ] **[T]** It lists under its own card only: never under Experiences, and no other ride lists under it.
 - [ ] **[T]** No tag needed: a customer the members RPC says no to still reaches the waiver; the Saturday card still shows them the members dialog.
 - [ ] **[T]** One place per person: the booking carries exactly one rider whatever the stepper held, and a second reservation on the same session is refused (client banner; `_solo_ride_cap` in the DB, staff exempt).

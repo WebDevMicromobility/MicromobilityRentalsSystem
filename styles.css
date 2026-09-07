@@ -3504,27 +3504,29 @@
     body .landing-event-card.ev-workshop:hover{border-color:rgba(var(--ev-rgb),.5);}
     body .landing-event-card.ev-workshop .lec-kicker,body .landing-event-card.ev-workshop .lec-arrow{color:var(--ev);}
     /* "In partnership with …": a quieter line under the name, on the landing card and on the
-       session card. */
+       session card. The partner's mark is a circle, so its square photo is clipped to one. */
     .lec2 .lec-partner{font-size:12px;font-weight:600;font-style:italic;letter-spacing:.2px;color:var(--muted);margin-top:6px;}
     .sess-partner,.ev-partner{display:block;font-size:11px;font-weight:600;font-style:italic;color:var(--muted);margin-top:2px;}
     html[lang="ar"] .lec2 .lec-partner,html[lang="ar"] .sess-partner,html[lang="ar"] .ev-partner{font-style:normal;letter-spacing:0;}
+    .lec2-mm img.lec-partner-logo{border-radius:50%;}
     @media (max-width:560px){.lec2 .lec-partner{font-size:11px;}}
 
     /* Three cards in a row can leave each one too narrow for a 30px title beside an
-       84px mark: the copy column has min-width:0, so a word like MICROMOBILITY ran on
-       under the logo. A narrow card stacks instead — title, then the mark on its own
-       row, right-aligned — and drops a size. Keyed on the CARD's width, not the
-       viewport's, so it follows however many columns the grid managed to fit. The
-       phone layout (one wide card, small mark) is left exactly as it was. */
+       84px mark: the copy column had min-width:0, so a word like MICROMOBILITY ran on
+       under the logo, which never shrank. A narrow card keeps the same shape — copy on
+       the start side, the mark on the end — but the title drops a size, the copy may
+       never be squeezed below its longest word, and it is the MARK that gives way,
+       scaling down inside whatever width is left. Keyed on the card's width, not the
+       viewport's; the phone layout (one wide card, small mark) is untouched. */
     .landing-event-card{container-type:inline-size;}
     @media (min-width:561px){
       @container (max-width:480px){
-        .lec2{flex-direction:column;align-items:stretch;gap:12px;min-height:0;}
-        .lec2 .lec-title{font-size:24px;}
-        html[lang="ar"] .lec2 .lec-title{font-size:20px;}
-        .lec2 .lec-meta{margin-top:6px;}
-        .lec2-logo,.lec2-mm{align-self:flex-end;}
-        .lec2-logo,.lec2-mm img{height:60px;max-width:150px;}
+        .lec2{gap:14px;padding:22px 22px;min-height:112px;}
+        .lec2 .lec-title{font-size:22px;}
+        html[lang="ar"] .lec2 .lec-title{font-size:19px;}
+        .lec2-copy{flex:1 1 0;min-width:auto;} /* fill what the mark leaves; never below the longest word */
+        .lec2-logo,.lec2-mm{flex:0 1 auto;min-width:0;justify-content:flex-end;}
+        .lec2-logo,.lec2-mm img{height:64px;max-width:100%;}
       }
     }
 
