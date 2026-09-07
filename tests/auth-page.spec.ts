@@ -354,19 +354,17 @@ test.describe('round 4: invisible characters & post-login flow', () => {
     expect(loginCalls[0].p_identifier).toBe('x@y.com'); // was "x@y.com\u200F" → invalid credentials forever
   });
 
-  test('email login lands the customer on My Rides with the bottom bar', async ({ page }) => {
+  test('email login lands the customer on the event picker with the sections bar', async ({ page }) => {
     await boot(page, { 'rpc:customer_login': [customer] });
     expect(await page.evaluate('S.view')).toBe('landing');
     await page.fill('#a-identifier', 'x@y.com');
     await page.fill('#a-pwd', 'Zq8xTselah');
     await page.evaluate('doLogin()');
     await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
-    // Straight into the app after signing in: My Rides, with the bottom nav bar ready —
-    // the event picker stays reachable from the Reserve tab / the logo.
-    expect(await page.evaluate('S.view')).toBe('customer');
-    expect(await page.evaluate('S.custTab')).toBe('myrides');
-    await expect(page.locator('#tab-myrides')).toBeVisible(); // My Rides panel on screen
-    // The nav is there in whichever form the viewport uses (bottom bar on mobile, tabs on desktop).
+    // The link opens on PICK YOUR EVENT, so that is where signing in lands too — the three
+    // event cards, with the sections bar ready for My Rides / Account.
+    expect(await page.evaluate('S.view')).toBe('landing');
+    await expect(page.locator('#land-events .landing-event-card')).toHaveCount(3);
     const nav = await page.evaluate(() => {
       const bn = document.querySelector('.cust-bnav-btn');
       const tn = document.querySelector('#customer-tab-nav');

@@ -30,6 +30,16 @@ test('fresh signed-in visit lands on the event picker; Back returns there from t
   await expect(page.locator('#land-events .landing-event-card')).toHaveCount(3);
 });
 
+test('a same-tab reload lands on the event picker too, not the last customer page', async ({ page }) => {
+  await stubSupabase(page, fixtures);
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
+  await page.addInitScript(() => { sessionStorage.setItem('cq_nav', JSON.stringify({ view: 'customer', ctab: 'register', ev: 'jcc', step: 1 })); });
+  await page.goto('/');
+  await waitForSb(page);
+  expect(await page.evaluate('S.view')).toBe('landing');
+  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(3);
+});
+
 test('browser Back returns from the customer page to the landing', async ({ page }) => {
   await stubSupabase(page, fixtures);
   await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });

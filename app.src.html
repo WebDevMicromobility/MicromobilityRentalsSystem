@@ -3259,7 +3259,7 @@ async function doResetPassword(){
       }
       S.rememberMe=true;S.loggedIn=customer;setSession(customer);S.forgotStep=1;S.forgotEmail='';S.forgotVerified=null;S.authMode='login';
       await loadData();
-      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('myrides'); // straight into My Rides (with the bottom bar) after signing in
+      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer'){renderCustomerTabs();goLanding();} // signing in on the link lands on PICK YOUR EVENT, sections bar ready
       logAction(t('logPwdResetSelf')+(customer.email||''));
       toast(t('toastPwReset'));return;
     }
@@ -3271,7 +3271,7 @@ async function doResetPassword(){
     if(error)throw error;
     S.loggedIn=customer;setSession(customer);S.forgotStep=1;S.forgotEmail='';S.forgotVerified=null;S.authMode='login';
     await loadData();
-    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('myrides'); // straight into My Rides (with the bottom bar) after signing in
+    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer'){renderCustomerTabs();goLanding();} // signing in on the link lands on PICK YOUR EVENT, sections bar ready
     logAction(t('logPwdResetSelf')+(customer.email||''));
     toast(t('toastPwReset'));
   }catch(e){authErr(t('errConnection'));}
@@ -3485,7 +3485,7 @@ async function doSignup(){
       S.rememberMe=true; // a brand-new account shouldn't evaporate when the browser closes (matches the Google flow)
       S.loggedIn=safeCustomer;setSession(safeCustomer);
       await loadData();
-      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('myrides'); // straight into My Rides (with the bottom bar) after signing in
+      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer'){renderCustomerTabs();goLanding();} // signing in on the link lands on PICK YOUR EVENT, sections bar ready
       logAction(t('logAcctCreated')+name);
       toast(`${name}! ${t('toastAccountCreated')}`);
       return;
@@ -3501,7 +3501,7 @@ async function doSignup(){
     await loadData();
     const safeCustomer={id:customer.id,name,email,phone:fullPhone,height,type_preference,created_at:customer.created_at};
     S.loggedIn=safeCustomer;setSession(safeCustomer);
-    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('myrides'); // straight into My Rides (with the bottom bar) after signing in
+    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer'){renderCustomerTabs();goLanding();} // signing in on the link lands on PICK YOUR EVENT, sections bar ready
     logAction(t('logAcctCreated')+name);
     toast(`${name}! ${t('toastAccountCreated')}`);
   }catch(e){_authFail('exception',e);}
@@ -3648,7 +3648,7 @@ async function doLogin(){
       if(!customer){authErr(t('errInvalidCredentials'));return;}
       S.loggedIn=customer;setSession(customer);
       await loadData();
-      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('myrides'); // straight into My Rides (with the bottom bar) after signing in
+      closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer'){renderCustomerTabs();goLanding();} // signing in on the link lands on PICK YOUR EVENT, sections bar ready
       logAction(t('logLoggedIn')+customer.name);
       toast(`${t('toastWelcomeBack')}, ${customer.name}!`);
       return;
@@ -3678,7 +3678,7 @@ async function doLogin(){
     delete customer.password_hash;
     S.loggedIn=customer;setSession(customer);
     await loadData();
-    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer')goCustomer('myrides'); // straight into My Rides (with the bottom bar) after signing in
+    closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer'){renderCustomerTabs();goLanding();} // signing in on the link lands on PICK YOUR EVENT, sections bar ready
     logAction(t('logLoggedIn')+customer.name);
     toast(`${t('toastWelcomeBack')}, ${customer.name}!`);
   }catch(e){_authFail('exception',e);}
@@ -18513,10 +18513,11 @@ function _refreshView(){
   } else {
     target=nav&&nav.view;
     if(target==='staff'&&!staffOK)target=null;
-    if(target==='customer'&&!S.loggedIn)target=null;
-    // A fresh visit by a remembered (signed-in) customer lands on the PICK YOUR EVENT
-    // page - never straight into the JCC Reserve list. Only a same-tab reload restores
-    // their previous place (cq_nav lives in sessionStorage, which a new tab starts empty).
+    // The link ALWAYS opens on PICK YOUR EVENT for a customer — a fresh tab and a same-tab
+    // reload alike. The last place is not restored on load (it used to be, which put a
+    // returning customer straight into the JCC Reserve list); browser Back within the
+    // session still walks it. Staff keep their panel across a reload.
+    if(target==='customer')target=null;
     if(!target)target=staffOK?'staff':'landing';
   }
   // A view MUST end up active or the page is a blank header/footer. If the chosen
