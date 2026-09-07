@@ -8,6 +8,8 @@ const SHELL = [
   './manifest.json',
   './logo.png',
   './logo-dark.png',
+  './logo-stacked.png',
+  './logo-stacked-dark.png',
   './jcc.png',
   './jcc-white.png',
   './saudi-triathlon.jpg',
