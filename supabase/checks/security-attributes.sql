@@ -16,6 +16,7 @@ with expected(fname, want_definer, note) as (values
   -- Definer: reaches past the caller's RLS, or calls a locked-down helper.
   ('_enforce_booking_price', true,  'calls _promo_valid, which anon+authenticated cannot execute'),
   ('_group_ride_cap',        true,  'counts queue_entries rows the caller may not be able to see'),
+  ('_solo_ride_cap',         true,  'same: one place per account on an approval session'),
   ('_approval_guard',        true,  'reads sessions/staff beyond the caller'),
   ('_community_booking_gate',true,  'reads customer_tags, staff-only'),
   ('_promo_count',           true,  'writes promo_codes.uses'),

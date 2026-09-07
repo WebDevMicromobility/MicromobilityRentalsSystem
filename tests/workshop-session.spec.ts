@@ -1,0 +1,201 @@
+import { test, expect } from '@playwright/test';
+import { stubSupabase, loginCustomer, unlockStaff, waitForSb } from './helpers/supabase';
+
+// The Micromobility Triathlon Workshop is a community session with the Saturday ride's shape
+// — staff approve the list, the queue stays hidden, one place each, complimentary — that
+// involves no bicycle, and that ANYONE signed in may book: open_to_all on the session lifts
+// the members gate, in the app and in the database alike. It is featured on the landing page
+// as a card of its own, beside the circuit and the Experiences umbrella, not under either.
+
+const WS = '2099-03-10-tw';
+const RIDE = 'ride-1';
+const sessions = [
+  {
+    id: WS, day: 'Tuesday', session_date: '2099-03-10', capacity: 30, status: 'open', created_at: 2,
+    event_kind: 'community', ride_kind: 'workshop', needs_approval: true, hide_queue: true, paid_ride: false,
+    open_to_all: true, spots: 30, title: 'Micromobility Triathlon Workshop',
+    meet_url: 'https://maps.example.test/hq', bike_slots: '{"_time":"18:00 - 20:00","_total":30}',
+  },
+  {
+    id: RIDE, day: 'Saturday', session_date: '2099-03-07', capacity: 20, status: 'open', created_at: 1,
+    event_kind: 'community', ride_kind: 'saturday', needs_approval: true, hide_queue: true, paid_ride: false,
+    spots: 20, bike_slots: '{"_time":"05:30 - 06:00","_total":20}',
+  },
+];
+
+// A customer with NO community tag: the members RPC says no.
+async function asAnyone(page: import('@playwright/test').Page, extra: Record<string, unknown> = {}) {
+  await stubSupabase(page, { sessions, queue_entries: [], bikes: [], 'rpc:community_member': false, ...extra });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Anyone' });
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction(`S.dataLoaded===true`);
+}
+
+test('it has the Saturday shape, minus the bike and minus the gate', async ({ page }) => {
+  await asAnyone(page);
+  const s = await page.evaluate(`(()=>{const x=allSessions().find(s=>s.id==='${WS}');
+    return {kind:_rideKind(x),community:_isCommunity(x),approval:_isApprovalRide(x),free:_isFreeRide(x),
+            group:_isGroupRide(x),bike:_needsBike(x),open:_openToAll(x),cls:_evClass(x)};})()`);
+  expect(s).toEqual({ kind: 'workshop', community: true, approval: true, free: true, group: false, bike: false, open: true, cls: 'ev-workshop' });
+  // the Saturday ride is untouched: still gated
+  expect(await page.evaluate(`_openToAll(allSessions().find(s=>s.id==='${RIDE}'))`)).toBe(false);
+});
+
+test('the landing page features it as a third card, with the partner named in a smaller line', async ({ page }) => {
+  await asAnyone(page);
+  await page.evaluate(`goLanding()`);
+  const cards = page.locator('#land-events .landing-event-card');
+  await expect(cards).toHaveCount(3);
+  const ws = page.locator('#land-events .landing-event-card.ev-workshop');
+  await expect(ws).toContainText('Micromobility Triathlon Workshop');
+  await expect(ws.locator('.lec-partner')).toHaveText('In partnership with Saudi Triathlon Federation');
+  await expect(ws.locator('img.lec-partner-logo')).toHaveAttribute('src', 'saudi-triathlon.jpg');
+  // the partner line is quieter than the name
+  const sizes = await ws.evaluate((el) => {
+    const t = el.querySelector('.lec-title') as HTMLElement, p = el.querySelector('.lec-partner') as HTMLElement;
+    return [parseFloat(getComputedStyle(t).fontSize), parseFloat(getComputedStyle(p).fontSize)];
+  });
+  expect(sizes[1]).toBeLessThan(sizes[0]);
+});
+
+test('its card opens the workshop list without the members dialog', async ({ page }) => {
+  await asAnyone(page);
+  await page.evaluate(`goLanding()`);
+  await page.locator('#land-events .landing-event-card.ev-workshop').click();
+  await expect.poll(() => page.evaluate('S.selEvent')).toBe('workshop');
+  await expect(page.locator('#tab-register')).toContainText('Micromobility Triathlon Workshop');
+  await expect(page.locator('#tab-register .sess-partner')).toHaveText('In partnership with Saudi Triathlon Federation');
+  expect(await page.evaluate(`document.getElementById('confirm-modal').style.display`)).not.toBe('block');
+});
+
+test('it lists under its own card only, and no other ride lists under it', async ({ page }) => {
+  await asAnyone(page);
+  const under = await page.evaluate(`(()=>{const all=allSessions();
+    const ids=ev=>all.filter(s=>_evMatch(s,ev)).map(s=>s.id).sort();
+    return {workshop:ids('workshop'),community:ids('community'),jcc:ids('jcc')};})()`) as Record<string, string[]>;
+  expect(under.workshop).toEqual([WS]);
+  expect(under.community).toEqual([RIDE]);
+  expect(under.jcc).toEqual([]);
+});
+
+test('a customer without the tag reaches the waiver; the Saturday ride still turns them away', async ({ page }) => {
+  await asAnyone(page);
+  await page.evaluate(`S.selEvent='workshop';goCustomer('register');S.regStep=1;renderRegister()`);
+  await page.evaluate(`selectSessCard('${WS}')`);
+  await expect.poll(() => page.evaluate('S.selSession')).toBe(WS);
+  await page.evaluate(`regNextFromSession()`);
+  expect(await page.evaluate('S.regStep')).toBe(2.5);          // straight to the waiver: nothing to ask
+  await expect(page.locator('#tab-register')).toContainText('Workshop waiver');
+  await expect(page.locator('#tab-register')).not.toContainText('Bike Type');
+  // the members gate is exactly where it was for the Saturday ride
+  await page.evaluate(`S.selEvent='community';S.selSession=null;S.regStep=1;renderRegister()`);
+  await page.evaluate(`selectSessCard('${RIDE}')`);
+  await expect(page.locator('#confirm-modal')).toContainText('Community members only');
+  expect(await page.evaluate('S.selSession')).toBeNull();
+});
+
+test('the booking is one person, no bike, free, on the workshop waiver', async ({ page }) => {
+  await asAnyone(page);
+  await page.evaluate(`S.selEvent='workshop';goCustomer('register');S.regStep=1;renderRegister()`);
+  const rpc: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && r.url().includes('/rpc/customer_create_booking')) rpc.push(r.postData() || '');
+  });
+  // a stale quantity from a circuit booking must not turn into three places
+  await page.evaluate(`S.selSession='${WS}';S.regQty=3;ensureBikeSizes();regNextFromSession();toggleWaiver(true);regWaiverContinue();submitReg()`);
+  await expect.poll(() => rpc.length, { timeout: 6000 }).toBeGreaterThan(0);
+  const entries = JSON.parse(rpc[0]).p_entries;
+  expect(entries).toHaveLength(1);
+  expect(entries[0].type_preference).toBe('None');
+  expect(entries[0].size).toBe('');
+  expect(entries[0].price).toBe(0);
+  expect(entries[0].waiver_version).toBe('workshop-2026-09-v1');
+});
+
+test('a second reservation on the same workshop is refused', async ({ page }) => {
+  await asAnyone(page, {
+    queue_entries: [{
+      id: 'q1', session_id: WS, session_day: 'Tuesday', session_date: '2099-03-10', queue_num: 1,
+      name: 'Spec Anyone', type_preference: 'None', size: '', status: 'waiting', paid: false, price: 0,
+      registered_at: '2099-01-01T10:00:00Z', approval: 'pending', customer_id: 'c1',
+    }],
+  });
+  await page.evaluate(`S.selEvent='workshop';goCustomer('register');S.regStep=1;renderRegister()`);
+  const rpc: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'POST' && r.url().includes('/rpc/customer_create_booking')) rpc.push(r.postData() || '');
+  });
+  await page.evaluate(`S.selSession='${WS}';regNextFromSession();toggleWaiver(true);regWaiverContinue();submitReg()`);
+  await expect(page.locator('#already-booked-banner')).toBeVisible();
+  await expect(page.locator('#already-booked-banner')).toContainText('You already have a booking for this session.');
+  expect(rpc).toHaveLength(0);
+});
+
+test('staff see the open-booking hint, a session name and a spot cap; no breakfast, no gathering', async ({ page }) => {
+  await stubSupabase(page, { sessions, queue_entries: [], bikes: [] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`setStaffTab('queue');S.queueView='sessions';renderStaffQueue();
+    S.showAddSession=true;S.newSessEvent='workshop';renderSessions()`);
+  const form = page.locator('#sess-add-form');
+  await expect(form).toContainText('Open to every signed-in customer');
+  await expect(form).toContainText('Session name');
+  await expect(form).toContainText('Spots');
+  await expect(form).toContainText('Meeting point');
+  await expect(form).not.toContainText('Breakfast spot');
+  await expect(form).not.toContainText('Gathering time');
+  await expect(form.locator('#ns-title')).toHaveValue('Micromobility Triathlon Workshop');
+});
+
+test('creating one stamps the kind, lifts the gate, and keeps the approval shape', async ({ page }) => {
+  await stubSupabase(page, { sessions, queue_entries: [], bikes: [] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  const writes: Record<string, unknown>[] = [];
+  page.on('request', (r) => {
+    if (r.method() !== 'POST' && r.method() !== 'PATCH') return;
+    if (!r.url().includes('/rest/v1/sessions')) return;
+    const b = r.postDataJSON();
+    (Array.isArray(b) ? b : [b]).forEach((x: Record<string, unknown>) => writes.push({ ...x }));
+  });
+  await page.evaluate(`setStaffTab('sessions');S.showAddSession=true;S.newSessEvent='workshop';S.newSessSpots='30';renderSessions()`);
+  await page.evaluate(`document.getElementById('ns-date').value='2099-01-13';addSession()`);
+  await expect.poll(() => writes.length).toBeGreaterThan(1);
+  const created = writes.find((w) => w.id);
+  expect(created?.id).toBe('2099-01-13-tw');   // a circuit session may share the date
+  expect(created?.capacity).toBe(30);
+  const gate = Object.assign({}, ...writes.filter((w) => !w.id));
+  expect(gate.event_kind).toBe('community');
+  expect(gate.ride_kind).toBe('workshop');
+  expect(gate.open_to_all).toBe(true);         // the whole point
+  expect(gate.paid_ride).toBe(false);
+  expect(gate.needs_approval).toBe(true);
+  expect(gate.hide_queue).toBe(true);
+  expect(gate.spots).toBe(30);
+  expect(gate.title).toBe('Micromobility Triathlon Workshop');
+});
+
+test('editing one keeps it open, and does not turn it into a Saturday ride', async ({ page }) => {
+  await stubSupabase(page, { sessions, queue_entries: [], bikes: [] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction(`allSessions().length>0`);
+  const writes: string[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'PATCH' && r.url().includes('/rest/v1/sessions')) writes.push(r.postData() || '');
+  });
+  await page.evaluate(`S.editSessionId='${WS}';S.editSessDate='2099-03-10';S.editSessStatus='open';
+    S.editSessTitle='';S.editSessMapUrl='https://maps.example.test/hq';S.editSessTotal=30;saveSessionEdit()`);
+  await expect.poll(() => writes.some((w) => w.includes('ride_kind')), { timeout: 6000 }).toBe(true);
+  const kindWrite = JSON.parse(writes.find((w) => w.includes('ride_kind'))!);
+  expect(kindWrite.ride_kind).toBe('workshop');
+  expect(kindWrite.open_to_all).toBe(true);
+  expect(kindWrite.paid_ride).toBe(false);
+  const ce = writes.map((w) => JSON.parse(w)).find((w) => 'breakfast_name' in w);
+  expect(ce.breakfast_name).toBeNull();
+  expect(ce.needs_approval).toBe(true);
+});

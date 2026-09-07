@@ -19,7 +19,7 @@ test('fresh signed-in visit lands on the event picker; Back returns there from t
 
   // a remembered customer entering the link starts on PICK YOUR EVENT, not the JCC list
   expect(await page.evaluate('S.view')).toBe('landing');
-  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(2);
+  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(3);
 
   // entering an event shows the customer page with its Back button
   await page.locator('#land-events .landing-event-card').first().click();
@@ -27,7 +27,7 @@ test('fresh signed-in visit lands on the event picker; Back returns there from t
   await expect(page.locator('#cust-back-btn')).toBeVisible();
   await page.locator('#cust-back-btn').click();
   await page.waitForFunction(`S.view==='landing'`);
-  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(2);
+  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(3);
 });
 
 test('browser Back returns from the customer page to the landing', async ({ page }) => {
@@ -42,7 +42,7 @@ test('browser Back returns from the customer page to the landing', async ({ page
 
   await page.goBack();
   await page.waitForFunction(`S.view==='landing'`);
-  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(2);
+  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(3);
 });
 
 test('Back walks the Reserve wizard steps (button and browser alike)', async ({ page }) => {

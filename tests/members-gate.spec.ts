@@ -66,14 +66,14 @@ test('member continues into the booking flow with no dialog', async ({ page }) =
   await expect(page.locator('#confirm-modal')).toBeHidden();
 });
 
-test('signed-in landing shows only the two event cards; Reserve lists only the chosen event', async ({ page }) => {
+test('signed-in landing shows only the three event cards; Reserve lists only the chosen event', async ({ page }) => {
   await stubSupabase(page, { ...fixtures, 'rpc:community_member': true });
   await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
   await page.goto('/');
   await waitForSb(page);
   await page.evaluate('goLanding()');
 
-  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(2);
+  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(3);
   await expect(page.locator('.landing-hero-grid')).toBeHidden();     // hero removed for signed-in
   await expect(page.locator('#land-avail-strip')).toBeEmpty();       // availability strip removed
 

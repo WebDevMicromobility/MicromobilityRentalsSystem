@@ -21,6 +21,7 @@ There are **three** kinds of ride, distinguished by two columns.
 | **Saturday Social Ride** | `community` | `saturday` or NULL | **true** | false | `_rideKind(s)==='saturday'` |
 | **Petromin's Wednesdays** | `community` | `petromin` | **false** | **true** | `_isGroupRide(s)` |
 | **Triathlon Pool Session** | `community` | `swim` | **true** | false | `!_needsBike(s)` |
+| **Micromobility Triathlon Workshop** | `community` | `workshop` | **true** | false | `_openToAll(s)` — `open_to_all=true` lifts the members gate; otherwise the Saturday shape, bike-free |
 
 ```js
 function _isCommunity(s){return s&&s.event_kind==='community';}                    // app.src.html:3631
@@ -35,7 +36,7 @@ implementation must keep them separate or the Petromin ride breaks:
 
 | Question | Predicate | Why it is its own test |
 |---|---|---|
-| Who may book? | `_isCommunity` | both community rides share the members gate |
+| Who may book? | `_isCommunity` minus `_openToAll` | the community rides share the members gate; the workshop's `open_to_all` lifts it (the DB trigger reads the same column) |
 | Does it cost money? | `_isFreeRide` | Petromin is community **and** charges |
 | Does it have an approval step? | `_isApprovalRide` | Petromin is community **and** has none |
 | How many riders per booking? | `_isGroupRide` | Saturday is solo, Petromin takes 4 |

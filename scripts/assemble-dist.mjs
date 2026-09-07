@@ -19,7 +19,7 @@ const FILES = [
   'robots.txt', 'sitemap.xml',
   'brand.png', 'hero.webp', 'icon-192.png', 'icon-512.png', 'logo.png', 'apple-touch-icon.png',
   // referenced by the app + service-worker SHELL — missing any of these breaks cache.addAll on install
-  'jcc.png', 'jcc-white.png', 'logo-dark.png', 'logo-mark-dark.png', 'og-image.png',
+  'jcc.png', 'jcc-white.png', 'logo-dark.png', 'logo-mark-dark.png', 'og-image.png', 'saudi-triathlon.jpg',
 ];
 // Directories copied recursively (functions/ MUST be inside dist for Pages Functions;
 // vendor/ holds the self-hosted libraries; splash/ holds the iOS PWA launch screens).
