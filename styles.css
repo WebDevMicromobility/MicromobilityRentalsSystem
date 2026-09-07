@@ -3511,6 +3511,24 @@
     .lec2-mm img.lec-partner-logo{border-radius:50%;}
     @media (max-width:560px){.lec2 .lec-partner{font-size:11px;}}
 
+    /* Three cards in a row can leave each one too narrow for a 30px title beside an
+       84px mark: the copy column has min-width:0, so a word like MICROMOBILITY ran on
+       under the logo. A narrow card stacks instead — title, then the mark on its own
+       row, right-aligned — and drops a size. Keyed on the CARD's width, not the
+       viewport's, so it follows however many columns the grid managed to fit. The
+       phone layout (one wide card, small mark) is left exactly as it was. */
+    .landing-event-card{container-type:inline-size;}
+    @media (min-width:561px){
+      @container (max-width:480px){
+        .lec2{flex-direction:column;align-items:stretch;gap:12px;min-height:0;}
+        .lec2 .lec-title{font-size:24px;}
+        html[lang="ar"] .lec2 .lec-title{font-size:20px;}
+        .lec2 .lec-meta{margin-top:6px;}
+        .lec2-logo,.lec2-mm{align-self:flex-end;}
+        .lec2-logo,.lec2-mm img{height:60px;max-width:150px;}
+      }
+    }
+
     /* ── The customer header is white paper, in both themes ──────────────────
        The art already assumed this: the logo is forced to logo-mark-dark.png in
        every theme ("the whole app rides the white paper header now"), but the
