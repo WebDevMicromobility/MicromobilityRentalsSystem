@@ -97,7 +97,7 @@ Each has a `title` and an `aria-label` ending "(opens in a new tab)".
 
 **Exactly two cards, always both shown**, whatever the session list holds:
 
-1. **Evening Circuit Session** — `landJccCardTitle` / `landJccTitle`, meta `landJccMeta`
+1. **Open Sports Day** — `landJccCardTitle` / `landJccTitle`, meta `landJccMeta`
    ("Sun & Tue · 9-11pm · Road, Hybrid & Mountain"), JCC logo (`jcc.png`, `jcc-white.png` on dark).
 2. **Micromobility Experiences** — `landCommTitle`. **Logo only, no description** (this was changed
    deliberately). Umbrella over *every* non-JCC ride.
@@ -1467,7 +1467,7 @@ extracted pack [lang/ar.json](../lang/ar.json).
 | `landEventCommunity` | Community event | فعالية مجتمعية |
 | `landEventRide` | Circuit ride | جولة الحلبة |
 | `landEyebrow` | Rides & Events | جولات وفعاليات |
-| `landJccCardTitle` | Evening Circuit Session | جلسة الحلبة المسائية |
+| `landJccCardTitle` | Open Sports Day | يوم الرياضة المفتوح |
 | `landJccMeta` | Sun & Tue · 9-11pm · Road, Hybrid & Mountain | الأحد والثلاثاء · 9-11 مساءً · طريق، هجين وجبلي |
 | `landJccTitle` | Jeddah Corniche Circuit | حلبة كورنيش جدة |
 | `landSessionsOpen` | {0} sessions open | {0} جلسات متاحة |

@@ -67,7 +67,7 @@ in [SCREENS.md](SCREENS.md).
 
 ### A2. Browsing sessions
 
-1. On the picker, two cards always show: **Evening Circuit Session** and **Micromobility Experiences**.
+1. On the picker, three cards always show: **Open Sports Day**, **Micromobility Experiences** and **Micromobility Triathlon Workshop**.
 2. **Branch — Evening Circuit** → `S.selEvent='jcc'` → Reserve step 1.
 3. **Branch — Micromobility Experiences** → the **members gate**:
    1. call `community_member(p_id, p_token)` (cached per customer id);
