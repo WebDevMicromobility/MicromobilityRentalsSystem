@@ -444,7 +444,7 @@ Waitlist cap control (`wlCapLabel`, `wlCapCount` / `wlCapPct`) writes `_wl` into
 | `#bike-modal` | `renderModal()` (273 lines, 50 keys) | **Bike picker** — search, size/brand/model filters, sort, preferred-type group then others, availability, add-a-bike inline |
 | `#walkin-modal` | `showWalkinModal()` | Walk-in booking with no account: name (datalist of customers), phone, height, type, session, multi-rider rows. **Bails with a toast if no session is loaded** |
 | `#jcc-group-modal` | `showJccGroupModal()` | Group booking at the desk: group name, contact, phone, per-rider rows |
-| `#comm-add-modal` | `renderCommAddModal()` | Add a rider to a community ride — customer search with a members chip, destination (final list / waitlist), **"rider brings their own bike"** checkbox |
+| `#comm-add-modal` | `renderCommAddModal()` | Add a rider to a community ride — customer search with a members chip, destination (final list / waitlist), **"rider brings their own bike"** checkbox (its label says whether that uses a spot — it does on the Petromin ride) |
 | `#group-edit-modal` | `showGroupEditModal()` | Edit a whole party: group name/contact/phone, move the party to another session, per-member fields |
 | `#booking-edit-modal` | `showBookingEditModal()` | Edit one booking |
 | `#booking-note-modal` | `showBookingNoteModal()` | Staff note against a booking |
@@ -1165,6 +1165,7 @@ extracted pack [lang/ar.json](../lang/ar.json).
 | `commAddGroupTitle` | Add group to a JCC session | إضافة مجموعة إلى جلسة JCC |
 | `commAddNoMatch` | No matching customers. | لا يوجد عملاء مطابقون. |
 | `commAddOwnBike` | Rider brings their own bike (does not use a spot) | الراكب لديه دراجته الخاصة (لا يشغل مقعداً) |
+| `commAddOwnBikeSpot` | Rider brings their own bike (still uses a spot) | الراكب لديه دراجته الخاصة (يشغل مقعداً) |
 | `commAddRiderBtn` | Add rider | إضافة مشارك |
 | `commAddSearchLbl` | Customer | العميل |
 | `commAddSearchPh` | Search name, email or phone… | ابحث بالاسم أو البريد أو الجوال… |

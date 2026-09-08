@@ -235,20 +235,23 @@ inside Bookings; Logs merged into History). Front-desk role sees only Sales + Bo
   No-show/Cancelled), payment filter, **bike filter (All / Bike owner / Rental bike)**,
   search (name/phone/#), sort, live position map, density toggle, desktop table + mobile cards.
 - Community stats row (when one community session selected): Riders / Approved / Pending /
-  Waitlist / **Bike owners** (spots meter rentals only; own-bike riders are unlimited).
+  Waitlist / **Bike owners** (spots meter rentals only, so own-bike riders are unlimited —
+  except on Petromin's Wednesdays, where they are inside the limit).
 - Row actions by status: waiting → Check in (assign bike modal: filtered by size/type,
   busy bikes blocked), No-show, Edit booking, Note, Cancel; active → Change bike, Return
   bike (records duration, frees bike), add POS sale, Undo check-in, Cancel; done → Reopen,
   Remove; noshow → "Customer showed", Remove; cancelled → Restore (with over-capacity
-  confirm; own-bike community restores skip it), Remove.
+  confirm; own-bike community restores skip it, unless it is a Petromin ride), Remove.
 - Community rows: pending → Approve / Reject / move to Waitlist chip set (a missing
   `approval` value = pending); approved → chip + Undo approval; waitlist → hand-picked
   Promote (community NEVER auto-promotes; JCC auto-promotes oldest waitlisted rider when a
   spot frees). Approvals keep the original queue number (numbers are stable & hidden).
 - Walk-in modal (JCC): instant booking without account. **Community "Add rider" modal:**
   pick any customer (search, Saturday-tag chip shown for ACTIVE tags), destination final
-  list (pre-approved) or waitlist, **"Rider brings their own bike (does not use a spot)"
-  checkbox**, spots-left label counts renters only; staff can exceed spots freely.
+  list (pre-approved) or waitlist, **"Rider brings their own bike"** checkbox — the label
+  says *(does not use a spot)*, or *(still uses a spot)* on Petromin's Wednesdays, where bike
+  owners are inside the limit; spots-left counts renters only, plus owners on that ride;
+  staff can exceed spots freely.
 - QR scanner: accepts `MMC-<num>-<id6>` and number-free `MMC-<id6>`; matches by id prefix,
   number only as consistency check; opens check-in for waiting riders.
 - Bulk select: mark paid, bulk check-in. Payments: cash / card / split (card_amount).
@@ -309,6 +312,8 @@ inside Bookings; Logs merged into History). Front-desk role sees only Sales + Bo
    not in wallet passes, not in calendar text.
 3. **Community spots meter RENTAL BIKES only**: own-bike riders never consume a spot and are
    unlimited; customers never see computed fullness — only a staff-set "full" status.
+   **Petromin's Wednesdays is the exception**: its number counts riders, not bikes, so bike
+   owners are inside it and fill it like anybody else.
 4. **Community seats exist only through approval** (pending until staff approve; customers
    cannot self-approve — the booking-update whitelist excludes `approval`).
 5. **Membership = ACTIVE `saturday` tag** (window-aware). Enforced in the RPC (UI), the

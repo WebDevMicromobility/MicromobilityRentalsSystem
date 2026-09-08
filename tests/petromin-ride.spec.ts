@@ -152,9 +152,10 @@ test.describe('it behaves like a circuit session, not like the Saturday ride', (
     expect(rows[0].type_preference).not.toBe('Road Carbon'); // the DB trigger backstops this too
   });
 
-  test('a rider on their own bike is seated even when every seat is taken', async ({ page }) => {
-    // Seats allocate Micromobility bikes. Someone who brought their own needs none, so a
-    // full ride still takes them — and they never push a bike-renting rider out either.
+  // The Wednesday ride's number is how many riders go out, not how many bikes do — so a
+  // rider on their own bike is inside it like anyone else. This is where it parts company
+  // with every other ride, the Saturday one included.
+  test('a rider on their own bike is waitlisted once the limit is reached', async ({ page }) => {
     const taken = Array.from({ length: 10 }, (_, i) => ({
       id: 'f' + i, session_id: '2099-01-13-pw', session_day: 'Wednesday', session_date: '2099-01-13',
       queue_num: i + 1, name: 'Rider ' + i, size: 'M', type_preference: 'Road', status: 'waiting',
@@ -167,8 +168,39 @@ test.describe('it behaves like a circuit session, not like the Saturday ride', (
        S.regRiderNames=['Spec Rider']; S.promoApplied=null; submitReg();`,
     );
     await expect.poll(() => rows.length).toBe(1);
-    expect(rows[0].status).toBe('waiting');   // not bumped to the waitlist
-    expect(rows[0].price).toBe(0);
+    expect(rows[0].status).toBe('waitlist'); // inside the limit, so past it means waiting your turn
+    expect(rows[0].price).toBe(0);           // ...and still free: they brought the bike
+  });
+
+  test('bike owners already on the ride fill it up for everybody else', async ({ page }) => {
+    // Ten places, ten riders on their own bikes: the eleventh is waitlisted whatever they
+    // ride. Before this rule the owners were counted nowhere and the ride read wide open.
+    const taken = Array.from({ length: 10 }, (_, i) => ({
+      id: 'o' + i, session_id: '2099-01-13-pw', session_day: 'Wednesday', session_date: '2099-01-13',
+      queue_num: i + 1, name: 'Owner ' + i, size: 'M', type_preference: 'Own', status: 'waiting',
+      paid: false, price: 0, registered_at: '2099-01-01T10:00:00Z',
+    }));
+    await bootMember(page, { queue_entries: taken });
+    expect(await page.evaluate(`spotsLeft('2099-01-13-pw')`)).toBe(0);
+    const rows = await captureBookingRows(page);
+    await page.evaluate(
+      `S.selSession='2099-01-13-pw'; S.regQty=1; S.regBikeHeights=[175]; S.regBikeTypes=['Road'];
+       S.regRiderNames=['Spec Rider']; S.promoApplied=null; submitReg();`,
+    );
+    await expect.poll(() => rows.length).toBe(1);
+    expect(rows[0].status).toBe('waitlist');
+  });
+
+  test('the Saturday ride is untouched: its owners still take no spot', async ({ page }) => {
+    // 20 spots, 20 riders on their own bikes — the Saturday ride still has all 20 free,
+    // because there a spot allocates a Micromobility bike and an owner needs none.
+    const taken = Array.from({ length: 20 }, (_, i) => ({
+      id: 'so' + i, session_id: '2099-01-10', session_day: 'Saturday', session_date: '2099-01-10',
+      queue_num: i + 1, name: 'Owner ' + i, size: 'M', type_preference: 'Own', status: 'waiting',
+      paid: false, price: 0, registered_at: '2099-01-01T10:00:00Z',
+    }));
+    await bootMember(page, { queue_entries: taken });
+    expect(await page.evaluate(`spotsLeft('2099-01-10')`)).toBe(20);
   });
 
   // The member and one guest. Staff are exempt, so the desk can still seat a larger party.

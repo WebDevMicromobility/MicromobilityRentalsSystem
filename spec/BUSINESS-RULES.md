@@ -178,14 +178,16 @@ VAT is never stored — it is a display transform only.
 ### 4.1 What holds a place 🟣
 
 ```js
-function _holdsSpot(e){
-  return !!e && e.status!=='cancelled' && e.status!=='removed' && e.status!=='noshow' && !_isOwnBike(e);
+function _holdsSpot(e,sess){
+  if(!e || e.status==='cancelled' || e.status==='removed' || e.status==='noshow') return false;
+  return !_isOwnBike(e) || _ownBikeHoldsSpot(sess);   // see §4.2 — Petromin is the exception
 }
 ```
 [app.src.html:2327](../app.src.html#L2327)
 
 The SQL guard counts the identical set:
-`status NOT IN ('cancelled','removed','noshow') AND type_preference <> 'Own'`.
+`status NOT IN ('cancelled','removed','noshow')`, plus `AND type_preference <> 'Own'` on every
+ride but the Petromin one.
 
 **The two must agree or the form and the server disagree about who is next.**
 
@@ -196,11 +198,30 @@ no-show. (Before 2026‑08‑25 the guard counted only `waiting`/`active`, so pl
 reappeared as the evening went on and a 40-bike evening could serve more than 40 people —
 [supabase/migrations/20260825120000_capacity_counts_every_place_taken.sql](../supabase/migrations/20260825120000_capacity_counts_every_place_taken.sql).)
 
-### 4.2 Own-bike riders never consume a place 🟣
+### 4.2 Own-bike riders consume a place on the Petromin ride, and nowhere else 🟣
 
-`type_preference = 'Own'` is outside the count on both sides. Places allocate **Micromobility
-bikes**, and a rider on their own bike takes none. Staff can therefore seat any number of bike
-owners on top of a "full" allocation.
+On the circuit and the Saturday ride, `type_preference = 'Own'` is outside the count on both
+sides. Places allocate **Micromobility bikes**, and a rider on their own bike takes none. Staff
+can therefore seat any number of bike owners on top of a "full" allocation.
+
+**Petromin's Wednesdays is the exception.** Its number is how many riders the ride can take out
+at all — not how many bikes are going out — so a rider on their own bike is **inside** it like
+anyone else: they count towards it, they fill it, and the one past it is waitlisted.
+
+```js
+function _ownBikeHoldsSpot(s){ return _isGroupRide(s); }   // app.src.html:3887
+```
+
+Keyed on `_isGroupRide` (`event_kind='community'` **and** `ride_kind='petromin'`), and the DB
+guard tests those same two columns — **not** `needs_approval = false`, even though that would
+pick out the same session today. `ride_kind` and `paid_ride` land in a second, tolerant write
+(§15.2), so a half-written row keeps `needs_approval = false` while both sides read it as
+Saturday: reading the same column on both sides is what keeps them agreeing then too.
+
+Sites that count places therefore all take the session: `_holdsSpot`, `spotsLeft`, the staff
+session list's `booked`, the queue fill chip, and the over-fill confirm on restore. The staff
+"brings their own bike" checkbox flips its own label to *(still uses a spot)* on that ride
+([supabase/migrations/20260908120000_own_bikes_count_on_the_petromin_ride.sql](../supabase/migrations/20260908120000_own_bikes_count_on_the_petromin_ride.sql)).
 
 ### 4.3 Which number is the cap 🟣
 
@@ -209,10 +230,10 @@ function spotsLeft(sid){
   const sess = S.sessions.find(s=>s.id===sid);
   if(_isApprovalRide(sess)){
     const cap = (sess&&sess.spots) || (sess&&sess.capacity) || 12;   // approval rides prefer `spots`
-    return Math.max(0, cap - getQueue().filter(e=>e.sessionId===sid && _holdsSpot(e)).length);
+    return Math.max(0, cap - getQueue().filter(e=>e.sessionId===sid && _holdsSpot(e,sess)).length);
   }
   const cap = (sess&&sess.capacity) || 12;                            // everything else uses `capacity`
-  return Math.max(0, cap - getQueue().filter(e=>e.sessionId===sid && _holdsSpot(e)).length);
+  return Math.max(0, cap - getQueue().filter(e=>e.sessionId===sid && _holdsSpot(e,sess)).length);
 }
 ```
 [app.src.html:2330](../app.src.html#L2330)
@@ -225,14 +246,18 @@ Default when neither is set: **12**.
 
 ### 4.4 Overflow to the waitlist 🔵
 
-`_capacity_guard` (BEFORE INSERT and UPDATE): if `status='waiting'`, type ≠ `Own`, caller is not
-staff, and the session is not an approval ride — take `pg_advisory_xact_lock(hashtext('cap:'||session_id))`,
-count live places, and if `count >= capacity` **rewrite `status` to `waitlist`**.
+`_capacity_guard` (BEFORE INSERT and UPDATE): if `status='waiting'`, the caller is not staff,
+the session is not an approval ride, and the row holds a place (type ≠ `Own`, **or** the
+session is the Petromin ride — §4.2) — take `pg_advisory_xact_lock(hashtext('cap:'||session_id))`,
+count live places by that same rule, and if `count >= capacity` **rewrite `status` to
+`waitlist`**.
 
-The advisory lock is what makes two simultaneous bookings safe.
+The advisory lock is what makes two simultaneous bookings safe. A promotion is waved through
+via the transaction-local `mm.promoting` flag: the row was counted while it waited.
 
 `customer_create_booking` additionally sets `waitlist` outright when the **session status is
-`full`** — a staff-set flag, independent of the count.
+`full`** — and `_session_fill_status` sets that status from the same count, own-bike rule
+included, so a Wednesday ride filled by bike owners reads Fully Booked like any other.
 
 ### 4.5 Waitlist size cap 🟢
 
@@ -626,7 +651,8 @@ prompt if still unpaid.
 "cannot cancel within N hours" rule. A rider can cancel at any point while the booking is live.
 
 **Cancelled bookings are restorable** by staff (with an over-capacity confirm; own-bike community
-restores skip it), which is why `_restoreNum()` exists.
+restores skip it — but not on the Petromin ride, where the owner holds a place, §4.2), which is
+why `_restoreNum()` exists.
 
 ---
 
@@ -751,7 +777,8 @@ Cancelled and removed bookings are excluded from the Bookings list base set enti
 1. Queue numbers are **stable, never reused, never shifted**; gaps are correct.
 2. Customers never see community queue numbers or order — not in the UI, QR payloads, wallet
    passes, or calendar text.
-3. The spots meter counts **rental bikes only**; own-bike riders are unlimited and invisible to it.
+3. The spots meter counts **rental bikes only**; own-bike riders are unlimited and invisible to it
+   — except on Petromin's Wednesdays, whose number counts riders (§4.2).
 4. Community seats exist only through approval on the Saturday ride; customers cannot self-approve.
 5. Membership = an **active** `saturday` tag, enforced in the RPC (UI), the insert trigger
    (security), and gated-session visibility.

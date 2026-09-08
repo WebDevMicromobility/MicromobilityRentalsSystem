@@ -413,7 +413,9 @@ one claimed atomically.
 1. Community session → **Add rider** (`#comm-add-modal`).
 2. Search any customer; a chip shows whether they hold an **active** community tag.
 3. Choose the destination: **final list** (pre-approved) or **waitlist**.
-4. Optional **"rider brings their own bike (does not use a spot)"**.
+4. Optional **"rider brings their own bike"** — the label reads *(does not use a spot)*, and
+   *(still uses a spot)* on the Petromin ride, where bike owners are inside the limit
+   (BUSINESS-RULES §4.2).
 5. **[AUTO]** Staff-added riders on a community event are pre-approved and, on a free ride, ride
    free. Staff may exceed the spot count freely — the gate and the cap both exempt `is_staff()`.
 

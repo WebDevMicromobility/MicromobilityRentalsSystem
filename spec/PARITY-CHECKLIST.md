@@ -148,7 +148,8 @@ known defects or inconsistencies in the current system: reproducing them is a de
 - [ ] **[T]** A no-show frees a place — `capacity-holds.spec.ts`.
 - [ ] **[T]** An own-bike rider never consumes a place — `own-bike-spots.spec.ts`.
 - [ ] **[R]** Any number of own-bike riders can be seated on top of a full allocation.
-- [ ] **[R]** The client and the database count places identically (`cancelled`/`removed`/`noshow` excluded, `Own` excluded).
+- [ ] **[T]** ...except on Petromin's Wednesdays, where they are inside the limit — `petromin-ride.spec.ts`.
+- [ ] **[R]** The client and the database count places identically (`cancelled`/`removed`/`noshow` excluded; `Own` excluded on every ride but the Petromin one).
 - [ ] **[R]** Approval rides use `spots`; every other session uses `capacity`; the default is 12.
 - [ ] **[R]** The capacity guard exempts approval rides entirely.
 - [ ] **[R]** Two simultaneous bookings for the last place cannot both succeed (advisory lock).
@@ -269,6 +270,7 @@ known defects or inconsistencies in the current system: reproducing them is a de
 - [ ] **[R]** It is capped at **2 riders per account per session** (the member and one guest), enforced client-side and by trigger.
 - [ ] **[R]** Booking twice cannot get around the 4-rider cap.
 - [ ] **[R]** It offers the **Own bike** option, free, and hides **Road Carbon**.
+- [ ] **[R]** Bike owners are **inside** its limit — they fill it, and one past it is waitlisted. (Everywhere else an own-bike rider holds no spot.)
 - [ ] **[R]** It uses bike composition, not a seat count; `spots` is explicitly null.
 - [ ] **[R]** It has no meeting-point or breakfast fields.
 - [ ] **[R]** Its session times are plain start–end, not gathering/start.
@@ -282,7 +284,7 @@ known defects or inconsistencies in the current system: reproducing them is a de
 - [ ] **[R]** Staff cancel of a `waiting`/`active` row requires a confirm; a `waitlist` row cancels immediately; anything else refuses.
 - [ ] **[R]** A no-show frees its place but keeps its queue number reserved.
 - [ ] **[R]** "Customer showed" reverses a no-show and re-reserves add-on stock.
-- [ ] **[R]** A cancelled booking is restorable, with an over-capacity confirm (skipped for own-bike community rows).
+- [ ] **[R]** A cancelled booking is restorable, with an over-capacity confirm (skipped for own-bike community rows, but not on the Petromin ride).
 - [ ] **[R]** A removed booking is restored to `done` if there is ride evidence, else `waiting`.
 - [ ] **[T]** Every destructive staff action offers an Undo — `log-undo.spec.ts`, `undo-double.spec.ts`.
 - [ ] **[T]** An Undo cannot be applied twice — `undo-double.spec.ts`.
