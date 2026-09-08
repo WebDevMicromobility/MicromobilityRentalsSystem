@@ -569,6 +569,11 @@ waitlist ──► waiting  (auto-promotion, or check-in direct)
   and `waitlist`, [app.src.html:10158](../app.src.html#L10158)).
 - Check-in is a **conditional update** `.in('status',['waiting','waitlist']).select('id')`, so
   two devices cannot both check the same rider in.
+- **Paid is not checked in.** Marking a rider or a party paid never changes status; only a
+  check-in (per rider, party **Check in (N)**, Staff List party, bulk bar, or scan) moves a
+  rider to `active`. The On Bike count, "Bikes out" and every ride report count `active`/`done`
+  rows only — a rider paid at the booth and handed a bike without a check-in is invisible to
+  all of them (2026-09-08: 17 such riders on a session of ~100).
 
 ### 12.2 Add-on stock invariant 🟢
 

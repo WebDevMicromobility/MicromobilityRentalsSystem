@@ -9089,6 +9089,20 @@ async function groupMarkPaid(entryId){
   await loadDataLight();
   renderStaffQueue();renderHistory();renderMyRides();
 }
+// The members a party check-in takes: still expected, and not a community request that is
+// waiting on Approve (those rows show Approve/Reject, never Check In).
+function _partyCheckinRows(rows){
+  return rows.filter(m=>(m.status==='waiting'||m.status==='waitlist')&&!(_apprSessIds.has(m.sessionId)&&['pending','rejected'].includes(_apprOf(m))));
+}
+// "The four of them are here" — one tap checks the whole party in, as the Staff List already
+// does. The roster's party card used to offer only "Mark paid" at party level: on the busy
+// Tuesday of 2026-09-08 the desk paid six parties with it, handed out the bikes, and 17
+// riders spent the night as 'waiting' — the On Bike count read 66 for a session of ~100.
+// Payment stays a separate tap (each rider keeps their own price and method).
+async function groupCheckin(entryId){
+  const ids=_partyCheckinRows(_groupMembers(entryId)).map(m=>m.id);
+  if(ids.length)await _checkinMany(ids);
+}
 // ── Staff: create a full customer account (name/email/phone/password/height). Uses the
 // same customer_signup RPC as self-service signup; the returned session token is simply
 // discarded, so the staff device never switches identity. ──
@@ -10008,6 +10022,7 @@ function renderQRow(e){
     const houseAmt=activeGroup.filter(e=>e.paid&&(e.price??DEFAULT_PRICE)===0).length;
     const remaining=_r2g(totalPrice-paidAmt);
     const paidCount=activeGroup.filter(e=>e.paid&&(e.price??DEFAULT_PRICE)>0).length;
+    const _ciN=_partyCheckinRows(group).length; // riders a one-tap party check-in would take
     const priceSpan=_freeSessIds.has(primary.sessionId)?`<span style="color:var(--muted)">—</span>`:`<span style="font-weight:800;white-space:nowrap">SAR ${totalPrice}</span>
       ${adTotal>0?`<div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${t('addonsLabel')}: SAR ${adTotal}</div>`:''}
       <div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${paidCount}/${activeGroup.length} ${t('paidLabel')}${houseAmt>0?` · ${houseAmt} `:''}</div>
@@ -10041,6 +10056,7 @@ function renderQRow(e){
           <td rowspan="${n}" style="min-width:52px;vertical-align:middle">
             <span class="queue-num-cell" style="font-size:15px;line-height:1.25">${(_apprSessIds.has(primary.sessionId)&&!_commPublished(_rowSess(primary)))?'—':qNumDisplay}</span>
             <div style="font-size:10px;color:var(--green);font-weight:800;margin-top:3px">${n} ${t('bike')||'Bikes'}</div>
+            ${(n>1&&_ciN>0)?`<button class="btn-sm btn-green" style="margin-top:4px;white-space:nowrap" onclick="groupCheckin('${primary.id}')">${t('bulkCheckinBtn')} (${_ciN})</button>`:''}
             ${primary.groupName?`<div style="font-size:10px;font-weight:900;color:var(--green);margin-top:2px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(primary.groupName)}">${esc(primary.groupName)}</div>`:''}
             ${(primary.groupContact||primary.groupPhone)?`${primary.groupContact?`<div style="font-size:10px;color:var(--muted);font-weight:700;margin-top:3px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(primary.groupContact)}">${esc(primary.groupContact)}</div>`:''}${primary.groupPhone||entryPhone(primary)?`<div style="margin-top:3px">${_contactCell(primary.groupPhone||entryPhone(primary),primary)}</div>`:''}`:''}
             <button onclick="showEditQNumModal('${primary.id}')" title="${t('editQNumTip')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:11px;padding:6px 8px;min-width:24px;min-height:24px;line-height:1;margin:3px 0 0 -8px;display:block" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">#</button>
@@ -10131,6 +10147,7 @@ function renderQRow(e){
         ${n>1?`<span style="font-size:10px;color:var(--green);font-weight:800">${n} ${t('bike')||'Bikes'}</span>`:''}
         ${primary.groupName?`<span style="font-size:10px;font-weight:900;color:var(--green);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(primary.groupName)}">${esc(primary.groupName)}</span>`:''}
         ${posTag}
+        ${(()=>{const _ciN=n>1?_partyCheckinRows(group).length:0;return _ciN?`<button class="btn-sm btn-green" style="font-size:10px;padding:4px 8px" onclick="groupCheckin('${primary.id}')">${t('bulkCheckinBtn')} (${_ciN})</button>`:'';})()}
         ${(n>1&&!_freeSessIds.has(primary.sessionId)&&group.some(e=>!e.paid&&!['cancelled','noshow'].includes(e.status)))?`<button class="btn-sm btn-green" style="font-size:10px;padding:4px 8px" onclick="groupMarkPaid('${primary.id}')">✓ ${t('bulkPaidBtn')}</button>`:''}
         <button onclick="showEditQNumModal('${primary.id}')" title="${t('editQNumTip')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:6px 8px;min-width:24px;min-height:24px;line-height:1;margin-left:auto" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">#</button>
         ${n>1?`<button onclick="showGroupEditModal('${primary.id}')" title="${t('groupEditTitle')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:6px 8px;min-width:24px;min-height:24px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>`:''}

@@ -384,6 +384,11 @@ payment cell (`.pay-toggle`), status badge, and an actions cell that varies by s
 | community `pending` | **Approve** / **Reject** / move to Waitlist |
 | community `approved` | chip + Undo approval |
 
+**Party rows** (two or more riders booked together) add two one-tap buttons for the whole
+party: **Check in (N)** (`groupCheckin` → `_checkinMany`; N counts the members still
+expected, never a community request awaiting Approve) and **Mark paid** (`groupMarkPaid`).
+Payment and check-in stay separate taps — marking a party paid does not check it in.
+
 **Bulk bar**: select-all checkbox, mark paid, bulk check-in.
 **Keyboard**: `N` checks in the next waiting rider.
 **Roster limit**: 150 rows with "Show N more" **only on All Sessions**; a chosen session lists
