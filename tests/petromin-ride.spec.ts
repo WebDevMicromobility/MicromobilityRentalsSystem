@@ -253,6 +253,64 @@ test.describe('it behaves like a circuit session, not like the Saturday ride', (
   });
 });
 
+// It CLOSES at its limit rather than going Fully Booked, and a close it made itself has to
+// stay apart from a close a person made — only the first re-opens when a place frees.
+test.describe('it closes itself at its limit', () => {
+  const selfClosed = {
+    ...petromin, status: 'closed',
+    bike_slots: JSON.stringify({ _time: '19:00 - 21:00', _total: 10, _ac: true }),
+  };
+  const humanClosed = {
+    ...petromin, status: 'closed',
+    bike_slots: JSON.stringify({ _time: '19:00 - 21:00', _total: 10 }),
+  };
+
+  test('the two closes are told apart by the _ac marker', async ({ page }) => {
+    await stubSupabase(page, { ...fixtures, sessions: [jcc, sat, selfClosed] });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    expect(await page.evaluate(`_selfClosed(S.sessions.find(s=>s.id==='2099-01-13-pw'))`)).toBe(true);
+    expect(await page.evaluate(`_selfClosed(S.sessions.find(s=>s.id==='s1'))`)).toBe(false);
+  });
+
+  test('staff can still seat a rider on a ride that closed itself', async ({ page }) => {
+    await stubSupabase(page, { ...fixtures, sessions: [jcc, sat, selfClosed] });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    expect(await page.evaluate(`_deskPickable(S.sessions.find(s=>s.id==='2099-01-13-pw'))`)).toBe(true);
+    // ...but a close a PERSON made means what it says, and stays out of the desk pickers.
+    await page.evaluate(`S.sessions=S.sessions.map(s=>s.id==='2099-01-13-pw'?${JSON.stringify(humanClosed)}:s)`);
+    expect(await page.evaluate(`_deskPickable(S.sessions.find(s=>s.id==='2099-01-13-pw'))`)).toBe(false);
+  });
+
+  test('customers are not offered it at all — no waitlist booking either', async ({ page }) => {
+    await stubSupabase(page, { ...fixtures, sessions: [jcc, sat, selfClosed], 'rpc:community_member': true });
+    await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`S.selEvent='community';setCustTab('register')`);
+    await expect(page.locator('.sess-card.ev-petromin')).toHaveCount(0);
+  });
+
+  test('a person re-opening it drops the marker, so the close becomes theirs', async ({ page }) => {
+    await stubSupabase(page, { ...fixtures, sessions: [jcc, sat, selfClosed] });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    const writes = await page.evaluate(`(()=>{window.__w=[];const f=sb.from.bind(sb);
+      sb.from=(t)=>{const q=f(t);if(t==='sessions'){const u=q.update.bind(q);
+        q.update=(p)=>{window.__w.push(p);return u(p);};}return q;};return 1;})()`);
+    expect(writes).toBe(1);
+    await page.evaluate(`toggleSession('2099-01-13-pw','open')`);
+    const patch = await page.evaluate(`window.__w[0]`) as Record<string, string>;
+    expect(patch.status).toBe('open');
+    expect(JSON.parse(patch.bike_slots)._ac).toBeUndefined(); // the rule no longer owns it
+    expect(JSON.parse(patch.bike_slots)._time).toBe('19:00 - 21:00'); // other settings survive
+  });
+});
+
 test.describe('staff side', () => {
   test('a Petromin booking keeps its number and its money column', async ({ page }) => {
     const booking = {

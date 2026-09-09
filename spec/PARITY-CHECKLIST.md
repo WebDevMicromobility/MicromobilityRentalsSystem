@@ -271,6 +271,9 @@ known defects or inconsistencies in the current system: reproducing them is a de
 - [ ] **[R]** Booking twice cannot get around the 4-rider cap.
 - [ ] **[R]** It offers the **Own bike** option, free, and hides **Road Carbon**.
 - [ ] **[R]** Bike owners are **inside** its limit — they fill it, and one past it is waitlisted. (Everywhere else an own-bike rider holds no spot.)
+- [ ] **[T]** It **closes** at its limit rather than going Fully Booked — `petromin-ride.spec.ts`.
+- [ ] **[R]** A close the rule made carries `_ac` in `bike_slots` and re-opens itself when a place frees; a close a person made never does.
+- [ ] **[R]** Staff can still seat a rider on a self-closed ride; customers are not offered it at all.
 - [ ] **[R]** It uses bike composition, not a seat count; `spots` is explicitly null.
 - [ ] **[R]** It has no meeting-point or breakfast fields.
 - [ ] **[R]** Its session times are plain start–end, not gathering/start.

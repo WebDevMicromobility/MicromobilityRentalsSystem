@@ -256,8 +256,34 @@ The advisory lock is what makes two simultaneous bookings safe. A promotion is w
 via the transaction-local `mm.promoting` flag: the row was counted while it waited.
 
 `customer_create_booking` additionally sets `waitlist` outright when the **session status is
-`full`** — and `_session_fill_status` sets that status from the same count, own-bike rule
-included, so a Wednesday ride filled by bike owners reads Fully Booked like any other.
+`full`**, and refuses a session that is neither `open` nor `full` — which is what makes §4.6 a
+hard stop rather than a label.
+
+### 4.6 The Petromin ride *closes* at its limit; everything else goes Fully Booked 🟣
+
+Fully Booked still sells: the guard rewrites the booking to `waitlist`. That is right for the
+circuit, where a returned bike is a place someone waiting can have. On Petromin's Wednesdays the
+number is the end of the ride, so `_session_fill_status` sets **`closed`** instead — and
+`customer_create_booking` refuses a closed session outright, waitlist included.
+
+**A self-close and a person's close must never be confused.** `closed` already meant "a person
+closed this", and §15 makes that outrank the rule absolutely. So the rule marks its own:
+**`_ac: true` in the `bike_slots` settings blob**, written with the status in the same UPDATE
+(alongside `_time` and `_wl` — no column needed).
+
+| trigger state | what happens |
+|---|---|
+| live ≥ capacity, not closed | `closed`, `_ac` set |
+| live < capacity, closed **with** `_ac` | `open`, `_ac` cleared — it re-opens itself |
+| live < capacity, closed **without** `_ac` | nothing. A person closed this one. |
+| a person sets the status by hand | `toggleSession()` clears `_ac`; the close is theirs from then on |
+
+Client: `_selfClosed(s)` reads the marker; `_deskPickable(s)` is what staff pickers offer —
+open, full, or self-closed. **Staff can still seat a rider on a self-closed ride** (their writes
+never went through `customer_create_booking`), the same exemption they hold from the capacity
+guard, the members gate and the two-rider cap. A person's close is not offered.
+The session list badges a self-close as **Closed — full** (`statusClosedFull`).
+([supabase/migrations/20260909120000_the_petromin_ride_closes_itself_at_its_limit.sql](../supabase/migrations/20260909120000_the_petromin_ride_closes_itself_at_its_limit.sql))
 
 ### 4.5 Waitlist size cap 🟢
 
