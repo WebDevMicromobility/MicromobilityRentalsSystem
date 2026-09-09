@@ -42,8 +42,12 @@
 --
 -- Rollback: re-apply the body from 20260908120000, then
 --   update sessions set bike_slots = (bike_slots::jsonb - '_ac')::text
---    where bike_slots like '%_ac%';
+--    where coalesce(nullif(bike_slots,'')::jsonb,'{}'::jsonb) ? '_ac';
 --   (sessions the rule had closed stay closed; staff re-open them by hand)
+--
+--   NB the test is `? '_ac'`, not `bike_slots like '%_ac%'`: in LIKE the underscore is a
+--   single-character WILDCARD, so that pattern matches any row with "ac" in its settings and
+--   would cast rows this migration never touched.
 -- ─────────────────────────────────────────────────────────────────────────────
 
 CREATE OR REPLACE FUNCTION public._session_fill_status()
