@@ -1,9 +1,17 @@
 
 const CACHE = 'mmcq-81c047483d';
 const IMG_CACHE = 'mmcq-img'; // Supabase Storage photos; persists across app versions (content-addressed)
+
+// The one key the app shell lives under. './index.html' is deliberately NOT precached and
+// never used as a key: Cloudflare Pages answers /index.html with a 308 to /, so caching it
+// stored a response that carries redirect history — and such a response cannot back a
+// navigation. Safari refuses it by name ("Response served by service worker has
+// redirections"), Chrome fails the load with ERR_FAILED. Because the entry was written at
+// install time, every visit after the worker installed died on it, for good. './' is the
+// canonical shell URL and does not redirect.
+const SHELL_KEY = './';
 const SHELL = [
-  './',
-  './index.html',
+  SHELL_KEY,
   './styles.css?v=81c047483d',
   './manifest.json',
   './logo.png',
@@ -24,9 +32,22 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== IMG_CACHE).map((k) => caches.delete(k))))
+      // Evict the poisoned shell entry left by earlier versions. The cache NAME is the
+      // stylesheet's content hash (scripts/build-html.mjs), so a worker-only fix does not
+      // rotate it — without this delete, a device already broken by the redirected
+      // './index.html' entry would stay broken even after installing this worker.
+      .then(() => caches.open(CACHE).then((c) => c.delete('./index.html')).catch(() => {}))
       .then(() => self.clients.claim())
   );
 });
+
+// A response that followed a redirect cannot be handed to a navigation — the browser rejects
+// the whole load rather than the response. Rebuilding it drops the redirect history while
+// keeping the body, status and headers.
+function navSafe(res) {
+  if (!res || !res.redirected) return res;
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers: res.headers });
+}
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
@@ -50,25 +71,26 @@ self.addEventListener('fetch', (e) => {
   // cached) falls back to the network.
   if (req.mode === 'navigate') {
     e.respondWith(
-      caches.match('./index.html').then((cached) => {
-        const network = fetch(req).then((res) => {
-          // A redirected response can't back a navigation in Safari; only cache/return clean ones.
-          if (res && res.ok && !res.redirected) {
-            const copy = res.clone();
+      caches.match(SHELL_KEY).then((cached) => {
+        const refresh = fetch(req).then((res) => {
+          const safe = navSafe(res); // never store redirect history under the shell key
+          if (safe && safe.ok) {
+            const copy = safe.clone();
             // If the shell actually changed (new deploy), tell open pages so they can refresh
             // themselves — otherwise a stale (possibly buggy) build keeps running for a full visit.
-            const newTag = res.headers.get('etag');
+            const newTag = safe.headers.get('etag');
             const oldTag = cached && cached.headers.get('etag');
             const changed = !!cached && (!newTag || !oldTag || newTag !== oldTag);
-            caches.open(CACHE).then((c) => c.put('./index.html', copy)).then(() => {
+            caches.open(CACHE).then((c) => c.put(SHELL_KEY, copy)).then(() => {
               if (changed) self.clients.matchAll({ type: 'window' }).then((cs) => cs.forEach((c) => c.postMessage({ type: 'shell-updated' })));
             });
           }
-          return res && res.redirected
-            ? new Response(res.body, { status: res.status, statusText: res.statusText, headers: res.headers })
-            : res;
-        }).catch(() => cached);
-        return cached || network;
+          return safe;
+        });
+        // The cached shell answers instantly; the refresh keeps running for next time. With
+        // nothing cached yet, the navigation waits on the network as any first visit does.
+        if (cached) { refresh.catch(() => {}); return navSafe(cached); }
+        return refresh;
       })
     );
     return;
