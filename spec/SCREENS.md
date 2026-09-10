@@ -1953,7 +1953,7 @@ extracted pack [lang/ar.json](../lang/ar.json).
 | `tabHistory` | History | السجل |
 | `tabInventory` | Inventory | المخزون |
 | `tabLogs` | Logs | السجلات |
-| `tabMyRides` | My Rides | رحلاتي |
+| `tabMyRides` | My Bookings | حجوزاتي |
 | `tabNotes` | Notes | ملاحظات |
 | `tabQueue` | Queue | الطابور |
 | `tabReserve` | Reserve | حجز |
@@ -2316,7 +2316,7 @@ extracted pack [lang/ar.json](../lang/ar.json).
 | `myCurrentRides` | Current & upcoming | الحالية والقادمة |
 | `myPastRides` | Past rides | الرحلات السابقة |
 | `myRidesSub` | Your complete rental history. | سجلك الكامل للإيجار. |
-| `myRidesTitle` | My Rides | رحلاتي |
+| `myRidesTitle` | My Bookings | حجوزاتي |
 | `nameLabel` | Name | الاسم |
 | `navReserve` | Reserve | احجز |
 | `needToUpdate` | Need to update? | تريد التحديث؟ |
