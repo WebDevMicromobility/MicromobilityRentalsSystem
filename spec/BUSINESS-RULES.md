@@ -569,6 +569,14 @@ waitlist ──► waiting  (auto-promotion, or check-in direct)
   and `waitlist`, [app.src.html:10158](../app.src.html#L10158)).
 - Check-in is a **conditional update** `.in('status',['waiting','waitlist']).select('id')`, so
   two devices cannot both check the same rider in.
+- **A bike handover is one transaction.** With a bike in the Bike field, check-in goes through
+  `staff_checkin(p_booking_id, p_bike_id)`: booking waiting/waitlist → active, bike available →
+  in-use, `assigned_bike_id` and `checked_in_at` written, and one `bike_assignments` row opened —
+  all under the existing triggers. Idempotent for the same booking + bike; a bike that is out is
+  refused by name. `staff_return` closes the assignment (active → done; damaged → maintenance),
+  `staff_swap_bike` closes it as `swapped` and opens another. `bike_assignments` is history, never
+  read by the roster; `assigned_bike_id` stays the live pointer. Where the RPC is absent the
+  classic status-guarded write runs unchanged (migration 20260911120000).
 - **Paid is not checked in.** Marking a rider or a party paid never changes status; only a
   check-in (per rider, party **Check in (N)**, Staff List party, bulk bar, or scan) moves a
   rider to `active`. The On Bike count, "Bikes out" and every ride report count `active`/`done`

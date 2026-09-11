@@ -45,3 +45,19 @@ The served `index.html` is a **minified build artifact**. The editable source of
 ## Do not expose internal files publicly
 
 Cloudflare Pages serves the repo root, so internal files must be blocked from public serving. The live gate is `functions/_middleware.js` (a **denylist** by extension and path prefix); `_redirects` no longer carries rules. The denylist passes `.html`/`.js`, so a committed prototype directory stays publicly reachable unless its prefix is added — `design_handoff_erp_reskin/` is blocked by prefix for exactly this reason (it contains a real staff mobile number). If you add a new served asset, also add it to `FILES` in `scripts/assemble-dist.mjs` — that script now fails the build when a listed file is missing.
+
+## Three traps in the one-file app (learned 2026-09-11, NFC bike check-in)
+
+- **The dialog focus manager refocuses 40 ms after a modal renders.** `_syncModalFocus` watches
+  the DOM and, when a `.modal-backdrop` newly appears, focuses its first control 40 ms after the
+  mutation. Any focus a modal sets itself must run later than that (the check-in modal waits
+  120 ms), or the first pay toggle wins and your focus is gone.
+- **Boot-time actions must wait for the first data load.** At boot the staff panel opens before
+  `loadData()` has filled `S.bikes` / `S.queue`. Anything triggered from the URL or a parked value
+  must `await (_loadInFlight || loadData())` when `!S.dataLoaded`, or it acts on an empty fleet and
+  silently does nothing (`_bikeArrived` does this).
+- **The staff-auth restore at boot revokes the unlock under secure mode.** `_restoreStaffAuth`
+  removes `cq_staff` when it gets a clean "no session" or "not staff" verdict. Any per-session
+  state that must die with the unlock (the open check-in, for one) has to be cleared INSIDE that
+  same `if(SECURE_AUTH){...}` block, not after it; placed after, it runs on every boot in the
+  test environment (SECURE_AUTH off) and wipes state that a still-valid session depends on.

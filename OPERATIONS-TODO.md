@@ -91,3 +91,33 @@ CI now prints axe-core findings for the landing page (EN and AR/RTL) in the test
 log, report-only. Work the list down; when clean, set `STRICT = true` in
 `tests/a11y.spec.ts` to lock it in, then extend the audit to the booking flow and
 staff views.
+
+## 8. NFC bike tags and bike assignments (JCC Open Sport Days)
+Ship order, because the migration hides ten new `bikes` columns behind column grants and
+the old client's `select('*')` on bikes fails the moment they land:
+1. `supabase db push` on **staging**, then run `supabase/checks/bike-assignments-rpc.sql`
+   (transactional, rolls back) and `supabase/checks/security-attributes.sql`.
+2. Deploy the client (push main). It lists bike columns by name and talks to the RPCs,
+   falling back to the classic check-in while the functions are absent.
+3. `supabase db push` on **production**. Re-run the two checks.
+
+**Provisioning a tag** (one per bike, once; Safari cannot write tags):
+- iPhone, free "NFC Tools" app → Write → Add a record → URL/URI →
+  `https://micromobilityrentals.pages.dev/?bike=042` (the bike's three-digit number, the
+  same one on its sticker) → Write → hold the tag to the top of the phone.
+- Tap it once to check: Safari opens the site; signed-in staff see the bike's card, anyone
+  else sees the staff sign-in and nothing more.
+- Place the tag on the head tube or top tube under a clear sticker, away from the frame's
+  metal where the phone can rest flat; the QR sticker (same URL) goes beside it for iPads.
+- Only URL records trigger iOS; a text record does nothing.
+
+**At the desk:** run the app in **Safari**, not from a Home Screen icon. A Home Screen app
+has its own storage, so the tab iOS opens for a tag would see neither the login nor the
+open check-in. Flow: Scan the booking QR (or tap the booking) → the check-in modal opens →
+tap the bike's tag with the same phone → the new tab shows the modal with the bike filled
+and Confirm focused → Confirm in either tab (the second is a harmless no-op). The open
+check-in expires after 15 minutes or on sign-out. Bluetooth HID readers type the tag UID
+into the Bike field; an unknown UID typed right after a bike number offers "Link this tag".
+
+Still to build: the register's CSV import for the initial fleet and the Return modal with
+condition and notes (returns today still run the classic path).

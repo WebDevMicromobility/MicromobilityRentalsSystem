@@ -389,6 +389,17 @@ party: **Check in (N)** (`groupCheckin` → `_checkinMany`; N counts the members
 expected, never a community request awaiting Approve) and **Mark paid** (`groupMarkPaid`).
 Payment and check-in stay separate taps — marking a party paid does not check it in.
 
+**Check-in modal, Bike field** (`#ci-bike`, `inputmode="numeric"`): one input, four ways in — a
+bike number on the keypad, the NFC tab (`/?bike=042`), a QR sticker through the in-app scanner
+(same URL), or a tag UID typed by a Bluetooth HID reader. Resolved through `staff_resolve_bike`
+(or the loaded fleet where the RPC is absent) into the spec line `042 · Road · Carbon · M · Black ·
+Shimano 105` plus status; a bike that is out (`ciBikeRented`, naming the rider) or in maintenance
+disables Confirm. An unknown UID typed right after a bike number offers **Link this tag to bike
+042** (`staff_link_tag`). Confirm with a bike calls `staff_checkin`; a refusal stays in the modal
+(`#ci-error`). Opening the modal publishes `mm_active_checkin` (localStorage, 15 min) so the tab
+iOS opens for a tag finds it; tabs sync over the `mm-staff` BroadcastChannel. See
+BUSINESS-RULES.md §12.1 and OPERATIONS-TODO §8.
+
 **Bulk bar**: select-all checkbox, mark paid, bulk check-in.
 **Keyboard**: `N` checks in the next waiting rider.
 **Roster limit**: 150 rows with "Show N more" **only on All Sessions**; a chosen session lists
