@@ -25,44 +25,10 @@ async function boot(page: import('@playwright/test').Page, queue_entries: Record
   await page.goto('/');
   await waitForSb(page);
   await page.waitForFunction(`getQueue().length>0`);
-  await page.waitForFunction(`getBikes().length>0`);   // the suggestion reads the fleet
+  await page.waitForFunction(`getBikes().length>0`);   // the Bike field resolves against the fleet
   await page.evaluate(`setStaffTab('queue');S.queueView='bookings';S.sfSession='${S1}';renderStaffQueue()`);
   await page.waitForTimeout(250);
 }
-
-test('the modal suggests the free bike in the rider size', async ({ page }) => {
-  await boot(page, [e('a')]);
-  await page.evaluate(`showCheckinModal('a')`);
-  await expect(page.locator('#checkin-modal')).toContainText('Check in with R-11');   // Road M
-});
-
-test('with the size gone it falls back within the type, never across it', async ({ page }) => {
-  // bM is genuinely out: the app trusts bike status, so the fixture must say in-use itself
-  await boot(page, [e('a'), e('m', { queue_num: 2, status: 'active', assigned_bike_id: 'bM' })],
-    [{ ...bikes[0], status: 'in-use' }, bikes[1], bikes[2]]);
-  await page.evaluate(`showCheckinModal('a')`);
-  await expect(page.locator('#checkin-modal')).toContainText('Check in with R-12');   // Road L, not the Hybrid
-});
-
-test('taking the suggestion claims the bike and checks the rider in on it', async ({ page }) => {
-  await boot(page, [e('a')]);
-  const claims: string[] = [];
-  const qPatches: string[] = [];
-  page.on('request', (r) => {
-    if (r.method() !== 'PATCH') return;
-    if (r.url().includes('/rest/v1/bikes')) claims.push(r.url() + ' ' + (r.postData() || ''));
-    if (r.url().includes('/rest/v1/queue_entries')) qPatches.push(r.postData() || '');
-  });
-  await page.evaluate(`showCheckinModal('a')`);
-  await page.locator('#checkin-modal').getByRole('button', { name: /Check in with R-11/ }).click();
-  await expect.poll(() => claims.length, { timeout: 5000 }).toBeGreaterThan(0);
-  expect(claims[0]).toContain('id=eq.bM');
-  expect(claims[0]).toContain('status=eq.available');   // the compare-and-swap, not a blind write
-  // asserted on the WRITE: the stub echoes fixtures back on the post-confirm reload, so local
-  // state is not a stable witness — the PATCH that left the device is
-  await expect.poll(() => qPatches.some((b) => /"status":"active"/.test(b) && /"assigned_bike_id":"bM"/.test(b)),
-    { timeout: 5000 }).toBe(true);
-});
 
 test('a party chains: confirming one opens the next', async ({ page }) => {
   await boot(page, [
