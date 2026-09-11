@@ -30,35 +30,64 @@ async function boot(page: import('@playwright/test').Page, queue_entries: Record
   await page.waitForTimeout(250);
 }
 
-test('a party chains: confirming one opens the next', async ({ page }) => {
+test('a party shows numbered steps and moves to the next rider after Confirm', async ({ page }) => {
   await boot(page, [
     e('p1', { group_id: 'grp', name: 'First Rider' }),
     e('p2', { group_id: 'grp', name: 'Second Rider', queue_num: 2 }),
     e('solo', { name: 'Solo', queue_num: 3 }),
   ]);
   await page.evaluate(`showCheckinModal('p1')`);
-  await expect(page.locator('#checkin-modal')).toContainText('next rider in this party (1 left)');
-  await page.locator('#checkin-modal').getByRole('button', { name: /Confirm/i }).click();
-  await expect(page.locator('#checkin-modal')).toContainText('Second Rider');   // opened by itself
-  // (what the party line says NOW is fixture-fought: the stub echoes the original queue back
-  // on the post-confirm reload, so p1 reads as expected again. The chain opening is the test.)
+  const modal = page.locator('#checkin-modal');
+  await expect(modal).toContainText('Rider 1 of 2');
+  await expect(modal.getByRole('list', { name: 'Riders in this party' }).getByRole('button')).toHaveCount(2);
+  await modal.getByRole('button', { name: /Confirm/i }).click();
+  await expect(modal).toContainText('Second Rider');   // opened by itself
+  await expect(modal).toContainText('Rider 2 of 2');
 });
 
-test('unticking the chain stops it', async ({ page }) => {
+test('tapping a pending step jumps to that rider', async ({ page }) => {
   await boot(page, [
     e('p1', { group_id: 'grp', name: 'First Rider' }),
     e('p2', { group_id: 'grp', name: 'Second Rider', queue_num: 2 }),
   ]);
   await page.evaluate(`showCheckinModal('p1')`);
-  await page.locator('#checkin-modal input[type="checkbox"]').uncheck();
-  await page.locator('#checkin-modal').getByRole('button', { name: /Confirm/i }).click();
-  await page.waitForTimeout(400);
-  const shown = await page.evaluate(`(document.getElementById('checkin-modal')||{}).style?.display||'none'`);
-  expect(shown).not.toBe('flex');
+  const modal = page.locator('#checkin-modal');
+  await modal.getByRole('list', { name: 'Riders in this party' }).getByRole('button', { name: /2 Second/ }).click();
+  await expect(modal).toContainText('Second Rider');
+  await expect(modal).toContainText('Rider 2 of 2');
+});
+
+test('No-show inside the modal marks the rider and moves on', async ({ page }) => {
+  await boot(page, [
+    e('p1', { group_id: 'grp', name: 'First Rider' }),
+    e('p2', { group_id: 'grp', name: 'Second Rider', queue_num: 2 }),
+  ]);
+  const patches: string[] = [];
+  page.on('request', (r) => { if (r.method() === 'PATCH' && r.url().includes('queue_entries') && r.url().includes('id=eq.p1')) patches.push(r.postData() || ''); });
+  await page.evaluate(`showCheckinModal('p1')`);
+  const modal = page.locator('#checkin-modal');
+  await modal.getByRole('button', { name: 'No-Show' }).click();
+  await expect.poll(() => patches.some((b) => /"status":"noshow"/.test(b))).toBe(true);
+  await expect(modal).toContainText('Second Rider');
+});
+
+test('Cancel booking inside the modal asks once, cancels, and moves on', async ({ page }) => {
+  await boot(page, [
+    e('p1', { group_id: 'grp', name: 'First Rider' }),
+    e('p2', { group_id: 'grp', name: 'Second Rider', queue_num: 2 }),
+  ]);
+  const patches: string[] = [];
+  page.on('request', (r) => { if (r.method() === 'PATCH' && r.url().includes('queue_entries') && r.url().includes('id=eq.p1')) patches.push(r.postData() || ''); });
+  await page.evaluate(`showCheckinModal('p1')`);
+  const modal = page.locator('#checkin-modal');
+  await modal.getByRole('button', { name: 'Cancel booking' }).click();
+  await page.locator('#confirm-modal, .modal-backdrop').last().getByRole('button', { name: 'Cancel booking' }).click();
+  await expect.poll(() => patches.some((b) => /"status":"cancelled"/.test(b))).toBe(true);
+  await expect(modal).toContainText('Second Rider');
 });
 
 test('a solo rider sees no party line', async ({ page }) => {
   await boot(page, [e('a')]);
   await page.evaluate(`showCheckinModal('a')`);
-  await expect(page.locator('#checkin-modal')).not.toContainText('party (');
+  await expect(page.locator('#checkin-modal')).not.toContainText('Rider 1 of');
 });

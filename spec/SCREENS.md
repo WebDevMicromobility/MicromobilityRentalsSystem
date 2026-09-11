@@ -400,6 +400,13 @@ disables Confirm. An unknown UID typed right after a bike number offers **Link t
 iOS opens for a tag finds it; tabs sync over the `mm-staff` BroadcastChannel. See
 BUSINESS-RULES.md §12.1 and OPERATIONS-TODO §8.
 
+**Check-in modal, party steps and outcomes**: a rider booked with others gets a numbered step
+row (`ciPartyLabel`, one button per member: ✓ already in, ✕ out, a number for pending, the
+current one highlighted) and "Rider n of N" in the title; a pending step is tappable. Confirm,
+**No-Show** (one tap, undoable) and **Cancel booking** (its usual confirm) each deal with the
+rider and move the modal to the next member still expected, or close it. The footer's dismiss
+is **Close**. The one-tap bike suggestion is gone; the bike comes from the Bike field.
+
 **Return modal** (`#return-modal`, `renderReturnModal`): every return passes through it —
 condition as a three-way toggle (OK / needs a check / damaged, the last with the
 `retDamagedHint` line) and a notes textarea — then `staff_return(p_booking_id,
