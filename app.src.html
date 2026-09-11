@@ -3431,6 +3431,24 @@ function fmtPhoneInput(el){
 }
 // Compose a clean E.164 phone from whatever the customer typed + the selected country
 // code, WITHOUT doubling the code. Handles +966…, 966…, 00966…, 0562…, 562… → +966562….
+// Link a rider staff typed to the account it belongs to. Phone first (digits compared on their
+// last nine, so +966 5x, 05x and a bare 5x all meet), then email, then the exact name. The name
+// alone used to be the only rule, and "Ahmed" never matched "Ahmed Khoja": the booking carried no
+// customer_id, and My Bookings shows a customer only the rows that carry theirs.
+function _phoneKey(p){const d=_asciiDigits(String(p==null?'':p)).replace(/\D/g,'');return d.length>=9?d.slice(-9):'';}
+function _linkCustomer(name,phone,email){
+  const cs=S.customers||[];
+  const nm=String(name||'').trim().toLowerCase();
+  const pk=_phoneKey(phone);
+  if(pk){
+    const hits=cs.filter(c=>_phoneKey(c.phone)===pk);
+    if(hits.length===1)return hits[0];
+    if(hits.length>1){const h=hits.find(c=>String(c.name||'').trim().toLowerCase()===nm);if(h)return h;} // a family sharing one number: the name decides
+  }
+  const em=String(email||'').trim().toLowerCase();
+  if(em){const h=cs.find(c=>String(c.email||'').trim().toLowerCase()===em);if(h)return h;}
+  return nm?(cs.find(c=>String(c.name||'').trim().toLowerCase()===nm)||null):null;
+}
 function _normPhone(raw,cc){
   cc=cc||'+966';
   const ccd=cc.replace(/\D/g,''); // e.g. "966"
@@ -5149,8 +5167,8 @@ async function giveDeskBike(id){
   const sess=_open.find(x=>x.id===_aimed)||_open.find(x=>x.id===S._wlSess)||_open[0];
   if(!sess){toast(t('noSessionsAvail'),'warning');return;}
   S._wlSess=sess.id;
-  // Same name-match as the Walk-in modal: link a known customer account so it shows in My Rides.
-  const _match=(S.customers||[]).find(c=>String(c.name||'').trim().toLowerCase()===String(w.name||'').trim().toLowerCase());
+  // Link a known customer account (phone, email, then name) so the booking shows in their My Bookings.
+  const _match=_linkCustomer(w.name,w.phone,w.email);
   const ty=CUST_TYPES.includes(w.bike_type)?w.bike_type:'Any';
   const entry=_applyDefaultPay({id:uid(),name:w.name,email:(_match&&_match.email)||'',phone:w.phone||(_match&&_match.phone)||'',
     size:(_match&&_match.height)?heightToSize(Number(_match.height)):'',height:(_match&&_match.height)||null,
@@ -9063,7 +9081,8 @@ async function saveJccGroup(){
   if(!riders.length)return;
   const groupId=uid();
   const mk=()=>{const base=nextQNum(sess.id);return riders.map((r,i)=>{
-    const _match=r.name?(S.customers||[]).find(c=>String(c.name||'').trim().toLowerCase()===r.name.trim().toLowerCase()):null;
+    // The party's main phone belongs to the named contact; it links only the rider of that name.
+    const _match=_linkCustomer(r.name,r.phone||((cname&&r.name&&r.name.trim().toLowerCase()===cname.trim().toLowerCase())?phone:''),null);
     return _applyDefaultPay({id:uid(),name:r.name||gname+' '+(i+1),email:(_match&&_match.email)||'',phone:r.phone||phone||(_match&&_match.phone)||'',
       size:r.height?heightToSize(r.height):'',height:r.height,
       typePreference:r.type,paid:false,assignedBikeId:null,sessionId:sess.id,sessionDay:sess.day,
@@ -9568,9 +9587,9 @@ async function saveWalkin(){
   const riders=[{name,height,type:S._wiType||'Any'},...extras];
   const groupId=riders.length>1?uid():null; // several walk-ups together = one roster group
   const mk=()=>{const base=nextQNum(sessId);return riders.map((r,i)=>{
-    // If the typed name matches a saved customer, link the booking to their account so it
-    // appears in their My Rides (essential for manually-added community-ride riders).
-    const _match=(S.customers||[]).find(c=>String(c.name||'').trim().toLowerCase()===r.name.trim().toLowerCase());
+    // Link the booking to the rider's account (the typed phone belongs to the first walk-up;
+    // extras link by name) so it appears in their My Bookings.
+    const _match=_linkCustomer(r.name,i===0?phone:'',null);
     return _applyDefaultPay({id:uid(),name:r.name,email:(_match&&_match.email)||'',phone:phone||(_match&&_match.phone)||'',size:r.height?heightToSize(r.height):'',height:r.height,
       typePreference:r.type,paid:false,assignedBikeId:null,sessionId:sessId,sessionDay:sess.day,
       sessionDate:sess.session_date||sessId,queueNum:base+i,status:'waiting',
