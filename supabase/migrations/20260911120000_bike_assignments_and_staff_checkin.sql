@@ -219,8 +219,8 @@ begin
   if b.status <> 'available' then
     select e.name into holder from public.bike_assignments ba join public.queue_entries e on e.id = ba.booking_id
       where ba.bike_id = b.id and ba.returned_at is null limit 1;
-    raise exception 'BIKE_UNAVAILABLE: bike % is %%', coalesce(b.bike_number::text, b.name), b.status,
-      case when holder is not null then ' (with ' || holder || ')' else '' end;
+    raise exception 'BIKE_UNAVAILABLE: bike % is %', coalesce(b.bike_number::text, b.name),
+      b.status || case when holder is not null then ' (with ' || holder || ')' else '' end;
   end if;
 
   update public.bikes set status = 'in-use' where id = b.id;
