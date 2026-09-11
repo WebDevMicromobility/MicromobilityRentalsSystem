@@ -119,5 +119,7 @@ and Confirm focused → Confirm in either tab (the second is a harmless no-op). 
 check-in expires after 15 minutes or on sign-out. Bluetooth HID readers type the tag UID
 into the Bike field; an unknown UID typed right after a bike number offers "Link this tag".
 
-Still to build: the register's CSV import for the initial fleet and the Return modal with
-condition and notes (returns today still run the classic path).
+Returns: every Return (roster, bike card, the payment gate) asks for the condition (OK /
+needs a check / damaged, which sends the bike to maintenance) and notes, then calls
+`staff_return`; the classic writes run where the RPC is absent. Still to build: the
+register's CSV import for the initial fleet and editing of the private columns.

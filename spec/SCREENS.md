@@ -400,6 +400,13 @@ disables Confirm. An unknown UID typed right after a bike number offers **Link t
 iOS opens for a tag finds it; tabs sync over the `mm-staff` BroadcastChannel. See
 BUSINESS-RULES.md §12.1 and OPERATIONS-TODO §8.
 
+**Return modal** (`#return-modal`, `renderReturnModal`): every return passes through it —
+condition as a three-way toggle (OK / needs a check / damaged, the last with the
+`retDamagedHint` line) and a notes textarea — then `staff_return(p_booking_id,
+p_return_condition, p_notes)`; where the RPC is absent the classic writes run, honouring a
+damaged condition. Bike-free sessions skip it. The bike card offers **Return bike · #n name**
+while the bike is out.
+
 **Bulk bar**: select-all checkbox, mark paid, bulk check-in.
 **Keyboard**: `N` checks in the next waiting rider.
 **Roster limit**: 150 rows with "Show N more" **only on All Sessions**; a chosen session lists
