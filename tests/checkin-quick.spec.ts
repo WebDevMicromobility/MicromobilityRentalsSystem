@@ -23,7 +23,7 @@ test('quick check-in confirms payment + bike type without picking a bike', async
   page.on('request', (r) => {
     if (r.method() === 'PATCH' && r.url().includes('/rest/v1/queue_entries') && r.url().includes('id=eq.e1')) patches.push(r.postDataJSON());
   });
-  await modal.getByRole('button', { name: /Paid · Cash/ }).click();
+  await modal.getByRole('button', { name: /Paid · Card/ }).click();
   await modal.getByRole('button', { name: 'Road', exact: true }).click();
   await modal.getByRole('button', { name: /Confirm/ }).click();
   await expect(modal).toBeHidden();
@@ -33,7 +33,7 @@ test('quick check-in confirms payment + bike type without picking a bike', async
   expect(patches[0].paid).toBe(true); // payment answered in the same modal
   expect(patches[0].type_preference).toBe('Road'); // type chosen, no assigned_bike_id involved
   expect(patches[0].assigned_bike_id).toBeUndefined();
-  expect(patches[1].pay_method).toBe('cash'); // the chosen pay method is recorded, like the pay menu
+  expect(patches[1].pay_method).toBe('card'); // the chosen pay method is recorded, like the pay menu
 });
 
 // A bike RESERVED while waiting (assigned_bike_id set, bike still 'available') must be
