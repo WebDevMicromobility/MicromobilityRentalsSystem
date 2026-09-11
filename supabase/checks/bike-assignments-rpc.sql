@@ -14,6 +14,8 @@ begin;
 
 -- Fixtures, created as the table owner so RLS is not in the way yet.
 create temp table _t (k text primary key, v text) on commit drop;
+-- The script switches to the API roles below; the fixtures are read by them too.
+grant select on _t to anon, authenticated;
 insert into _t values
   ('staff_uid', (select user_id::text from public.staff limit 1)),
   ('sess', 'chk-' || to_char(now(), 'YYYYMMDDHH24MISS')),
