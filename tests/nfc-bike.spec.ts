@@ -156,8 +156,17 @@ test('the in-app scanner reads a bike sticker into the open modal, and an expire
   const modal = page.locator('#checkin-modal');
   await expect(modal).toHaveCSS('display', 'flex');
   await expect(modal.locator('#ci-bike')).toHaveValue('');
+  // A payment already chosen must survive the arrival of the bike.
+  await modal.getByRole('button', { name: /Paid · Card/ }).click();
   // @ts-expect-error app globals
   await page.evaluate(() => _onScanPayload('https://micromobilityrentals.pages.dev/?bike=42'));
   await expect(modal.locator('#ci-bike')).toHaveValue('42');
   await expect(modal.locator('#ci-bike-spec')).toContainText('Shimano 105');
+  expect(await page.evaluate('S._ciPaid')).toBe('card');
+  // A sticker that holds only the number works too, and the field has its own Scan button.
+  await modal.locator('#ci-bike').fill('');
+  // @ts-expect-error app globals
+  await page.evaluate(() => _onScanPayload('42'));
+  await expect(modal.locator('#ci-bike')).toHaveValue('42');
+  await expect(modal.getByRole('button', { name: 'Scan sticker' })).toBeVisible();
 });
