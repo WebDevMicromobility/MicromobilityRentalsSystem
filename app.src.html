@@ -11972,7 +11972,7 @@ async function _finishReturn(id,markPaid,cond,notes){
   // The classic writes below run where the database predates the RPC.
   let r;try{r=await sb.rpc('staff_return',{p_booking_id:id,p_return_condition:cond||'ok',p_notes:notes});}catch(e){r={error:e};}
   if(r&&r.error&&!_rpcAbsent(r.error)){errorBar(_rpcMessage(r.error),()=>_finishReturn(id,markPaid,cond,notes),(r.error&&r.error.message)||'');await loadData();renderStaffQueue();return;}
-  if(!(r&&r.error)){
+  if(!(r&&r.error)&&r&&r.data&&r.data.ok===true){ // the function's own answer, or the classic writes
     delete updates.status;
     if(Object.keys(updates).length){try{await sb.from('queue_entries').update(updates).eq('id',id);}catch(_){}} // paid / ride duration, tolerant
   }else{
@@ -13532,7 +13532,9 @@ async function confirmCheckinModal(_bikeId){
   if(_bikeId){
     let r;try{r=await sb.rpc('staff_checkin',{p_booking_id:e.id,p_bike_id:_bikeId});}catch(err){r={error:err};}
     if(r&&r.error&&!_rpcAbsent(r.error)){S._ciErr=_rpcMessage(r.error);_ciRenderBikeSpec();await loadDataLight().catch(()=>{});return;}
-    if(!(r&&r.error)){
+    // Only the function's own answer counts as done. Anything else (absent function, an
+    // empty or foreign reply) means the classic path below must do the work.
+    if(!(r&&r.error)&&r&&r.data&&r.data.ok===true){
       _viaRpc=true;
       delete patch.status;delete patch.assigned_bike_id;
       if(Object.keys(patch).length){try{await sb.from('queue_entries').update(patch).eq('id',e.id);}catch(_){}} // type + payment, tolerant like the rest
