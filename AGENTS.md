@@ -61,3 +61,24 @@ Cloudflare Pages serves the repo root, so internal files must be blocked from pu
   state that must die with the unlock (the open check-in, for one) has to be cleared INSIDE that
   same `if(SECURE_AUTH){...}` block, not after it; placed after, it runs on every boot in the
   test environment (SECURE_AUTH off) and wipes state that a still-valid session depends on.
+
+## How the staff panel stays in sync (learned 2026-09-13, performance pass)
+
+- **A realtime event is merged, not fetched.** `_onRt` merges the row a `postgres_changes`
+  event carries (`queue_entries`, `sessions`, `bikes`) straight into `S.*` on a staff device and
+  repaints the visible tab. Reloading the window per event made every phone re-fetch half a
+  megabyte whenever any other phone did anything. Tables with post-processing (inventory,
+  cashier_sales, customers, desk_waitlist) still take the debounced reload.
+- **A device's own write re-syncs only the rows it touched.** `_reloadRows(ids)` reads those
+  ids plus bike states and merges; it filters the answer to the ids asked for. Use it after a
+  single-row write; use `loadDataLight()` only when other rows move too (no-show and cancel
+  promote the waitlist and shift numbers).
+- **The light reload covers two months, merged over what is held.** After the twelve-month
+  window has streamed in, `loadDataLight()` fetches `QUEUE_BOOT_DAYS` of queue rows and sales
+  and merges them over older rows; every tenth background poll is a full reload. A row older
+  than two months edited on another device converges within five minutes, not thirty seconds.
+- **Paint first, reconcile after.** Check-in, bulk check-in, no-show and return set the local
+  row and call `renderStaffQueue()` before awaiting any reload. Keep that order in new actions.
+- **Hot helpers are cached.** `shortDate` memoises per language; `_decidedByPerson()` and
+  `_qBySession()` are per-load indexes keyed on the `S.queue` array identity, so replace the
+  array (`S.queue=q.slice()`) after an in-place mutation you want them to see.

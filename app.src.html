@@ -10829,7 +10829,7 @@ async function _checkinMany(idList){
   try{const _now=new Date().toISOString();if(landed.length)await Promise.all(landed.map(id=>sb.from('queue_entries').update({checked_in_at:_now}).eq('id',id)));}catch(_){} // tolerant
   const fail=res.find(r=>r&&r.error);
   landed.forEach(id=>{const e=getQueue().find(x=>x.id===id);if(e)e.status='active';});renderStaffQueue(); // paint first, reconcile after
-  await loadDataLight();
+  await (fail?loadDataLight():_reloadRows(ids));
   if(fail){toast(fail.error.message||t('errConnection'),'error');renderStaffQueue();return 0;}
   logAction(t('logBulkCheckin').replace('{0}',ids.length));
   toast(`${ids.length} ${t('checkInBtn')}`);
@@ -10944,7 +10944,7 @@ async function togglePayment(id,mode){
   const _pr=await sb.from('queue_entries').update({paid:newPaid,price:newPrice}).eq('id',id);
   if(_writeErr(_pr,'payment')){await loadDataLight();renderStaffQueue();renderHistory();return;} // surface failure and revert the optimistic toggle
   try{await sb.from('queue_entries').update({pay_method:newMethod,card_amount:null}).eq('id',id);}catch(e){} // tolerant: columns may not exist yet
-  await loadDataLight();renderStaffQueue();renderHistory(); // queue-only change: slim re-sync (no photo refetch)
+  await _reloadRows([id]);renderHistory(); // only this row moved
   pushUndo(`${t('undoPayment')} #${entry.queueNum} ${entry.name}`,async()=>{
     await sb.from('queue_entries').update({paid:prevPaid,price:prevPrice}).eq('id',id);
     try{await sb.from('queue_entries').update({pay_method:prevMethod,card_amount:prevCard}).eq('id',id);}catch(e){}
@@ -12064,7 +12064,7 @@ async function _finishReturn(id,markPaid,cond,notes){
   }
   if(cond&&cond!=='ok')logAction(`${t('retTitle')}: #${qn} ${name} · ${cond}${notes?' · '+notes:''}`);
   entry.status='done';S._flashId=id;S._flashColor='blue';renderStaffQueue(); // paint first, reconcile after
-  await loadDataLight();
+  await _reloadRows([id]);
   try{localStorage.removeItem('cq_ct_'+id);}catch(e){}
   toast(markPaid?t('toastBikeReturnedPaid'):t('toastBikeReturned'));
   pushUndo(`${t('undoReturn')} - #${qn} ${name}`,async()=>{
@@ -13686,7 +13686,7 @@ async function confirmCheckinModal(_bikeId){
   await _addonsOnLeaveWaitlist(e,_wasWl);
   await _mwRetireLinked(e.id); // a Staff List row carrying this booking is spent once they ride
   logAction(`${t('checkInBtn')}: #${e.queueNum} ${e.name}`);
-  await loadDataLight();
+  await _reloadRows([e.id]);
   toast(`✓ #${e.queueNum} ${e.name}`);
   S._flashId=e.id;S._flashColor='green';setTimeout(()=>{S._flashId=null;},800);
   renderStaffQueue();
@@ -19054,6 +19054,22 @@ function _updateConnUI(){try{_tickRefreshLabel();}catch(_){}try{_updateConnBanne
 // Slim refresh for the 30s poll: only the volatile, photo-free tables (queue + sessions + sales).
 // Bikes/inventory/promo (which carry base64 photo data-URLs) are NOT refetched here - they load on
 // full loadData() (boot, manual refresh, tab focus), so the poll payload stays tiny.
+// Re-sync only the rows a write touched, plus bike states, instead of the two-month window.
+// The desk's own change is already painted; this confirms it against the database and picks
+// up anything the triggers did to that row (price, waitlist number, assignment).
+async function _reloadRows(ids){
+  ids=(ids||[]).filter(Boolean);
+  if(!ids.length)return;
+  if(!sb||(SECURE_AUTH&&!S._staffAuthed))return loadDataLight(); // no direct read on this device: the window
+  let r,b;
+  try{[r,b]=await Promise.all([sb.from('queue_entries').select('*').in('id',ids),sb.from('bikes').select('id,status')]);}catch(e){return loadDataLight();}
+  if(!r||r.error)return loadDataLight();
+  const want=new Set(ids);const fresh=(r.data||[]).filter(x=>want.has(x.id)).map(entryFromDB); // only the rows asked for, whatever came back
+  S.queue=(S.queue||[]).filter(e=>!want.has(e.id)).concat(fresh); // a row that vanished elsewhere drops out
+  if(b&&!b.error){const _bm=new Map((b.data||[]).map(x=>[x.id,x.status]));S.bikes=(S.bikes||[]).map(x=>(_bm.has(x.id)&&_bm.get(x.id)!==x.status)?{...x,status:_bm.get(x.id)}:x);}
+  _lastRefresh=Date.now();
+  if(S.view==='staff')_renderStaffTab();
+}
 async function loadDataLight(){
   if(!sb)return;
   if(_lightInFlight){
@@ -19076,7 +19092,7 @@ async function _loadDataLightInner(){
   try{[q,ses,cs,bk,wl]=await Promise.all([
     _queueFetch(true,_lightDays),
     _sessionsFetch(),
-    _pagedAll(()=>sb.from('cashier_sales').select('*').order('id')), // paged like loadData: an unpaged poll would re-truncate revenue to 1000 rows every 30s
+    _pagedAll(()=>{let cs=sb.from('cashier_sales').select('*');if(_cut)cs=cs.gte('created_at',_cut);return cs.order('id');}), // paged like loadData; the same two-month window once the year is in
     sb.from('bikes').select('id,status'), // status-only (no photos) so availability stays fresh on the poll without a heavy payload
     sb.from('desk_waitlist').select('*'), // small table; error-tolerant below (pre-migration DBs)
   ]);}catch(e){S._netDown=true;_updateConnUI();return;} // unreachable: keep current state, flag the connection
@@ -19090,7 +19106,9 @@ async function _loadDataLightInner(){
   if(ses&&!ses.error)S.sessions=ses.data||[];
   if(bk&&!bk.error){const _bm=new Map((bk.data||[]).map(r=>[r.id,r.status]));S.bikes=(S.bikes||[]).map(b=>(_bm.has(b.id)&&_bm.get(b.id)!==b.status)?{...b,status:_bm.get(b.id)}:b);} // merge fresh statuses, keep photos/other fields
   if(wl&&!wl.error)S.deskWaitlist=wl.data||[];
-  if(cs&&!cs.error){S.cashSales=cs.data||[];
+  if(cs&&!cs.error){
+    if(_cut){const ids=new Set((cs.data||[]).map(r=>r.id));S.cashSales=(S.cashSales||[]).filter(r=>String(r.created_at||'')<_cut&&!ids.has(r.id)).concat(cs.data||[]);}
+    else S.cashSales=cs.data||[];
     try{_outbox().forEach(op=>{if(op.kind==='delete')S.cashSales=(S.cashSales||[]).filter(r=>r.id!==op.id);else{const i=(S.cashSales||[]).findIndex(r=>r.id===op.id);if(i>=0)S.cashSales[i]=op.data;else S.cashSales.push(op.data);}});}catch(_){}
     try{const _v=_voidedIds();if(_v.length)S.cashSales=(S.cashSales||[]).filter(r=>_v.indexOf(r.id)<0);}catch(_){}}
   _outboxFlush();
@@ -19185,7 +19203,51 @@ function _rtApply(){
     }catch(e){console.warn('Realtime refresh error:',e);}
   },350);
 }
-function _onRt(payload){if(payload&&(payload.table==='bikes'||payload.table==='inventory'||payload.table==='customers'))_rtWantFull=true;_rtApply();} // customers only ship in the FULL load
+// A realtime event carries the row. On a staff device the row is merged in place and the
+// tab on screen repainted - no fetch at all. Before, every event on any device made every
+// other device re-fetch the whole two-month queue, which on a busy night was a reload every
+// few seconds per phone. Tables whose state needs extra processing (inventory, sales,
+// customers, desk list) keep the debounced reload, as does the customer side.
+let _rtPaintT=null;
+function _rtPaint(){
+  if(_rtPaintT)clearTimeout(_rtPaintT);
+  _rtPaintT=setTimeout(()=>{_rtPaintT=null;if(document.hidden)return;try{_renderStaffTab();}catch(e){}},120);
+}
+function _rtMergeRow(payload){
+  const tb=payload.table,ev=payload.eventType,row=payload.new,old=payload.old;
+  if(tb==='queue_entries'){
+    if((ev==='INSERT'||ev==='UPDATE')&&row&&row.id){
+      const e=entryFromDB(row);const q=(S.queue||[]).slice();const i=q.findIndex(x=>x.id===e.id);
+      if(i>=0)q[i]=e;else q.push(e);S.queue=q;return true;
+    }
+    if(ev==='DELETE'&&old&&old.id){S.queue=(S.queue||[]).filter(x=>x.id!==old.id);return true;}
+    return false;
+  }
+  if(tb==='sessions'){
+    if((ev==='INSERT'||ev==='UPDATE')&&row&&row.id){const ss=(S.sessions||[]).slice();const i=ss.findIndex(x=>x.id===row.id);if(i>=0)ss[i]=row;else ss.push(row);S.sessions=ss;return true;}
+    if(ev==='DELETE'&&old&&old.id){S.sessions=(S.sessions||[]).filter(x=>x.id!==old.id);return true;}
+    return false;
+  }
+  if(tb==='bikes'){
+    if((ev==='INSERT'||ev==='UPDATE')&&row&&row.id){
+      const pub={};BIKE_COLS.split(',').forEach(k=>{if(k in row)pub[k]=row[k];}); // the public columns only, as loadData reads them
+      const bs=(S.bikes||[]).slice();const i=bs.findIndex(b=>b.id===row.id);if(i>=0)bs[i]={...bs[i],...pub};else bs.push(pub);S.bikes=bs;return true;
+    }
+    if(ev==='DELETE'&&old&&old.id){S.bikes=(S.bikes||[]).filter(b=>b.id!==old.id);return true;}
+    return false;
+  }
+  return false;
+}
+function _onRt(payload){
+  if(!payload)return _rtApply();
+  if(payload.table==='inventory'||payload.table==='customers')_rtWantFull=true; // these only ship in the FULL load
+  if(S.view==='staff'&&!(typeof window!=='undefined'&&window.__noWiden)){
+    let merged=false;try{merged=_rtMergeRow(payload);}catch(e){merged=false;}
+    if(merged){_rtPaint();return;}
+  }
+  if(payload.table==='bikes')_rtWantFull=true;
+  _rtApply();
+}
 function setupRealtime(){
   if(!sb||!sb.channel)return;
   try{if(_rtChannel){sb.removeChannel(_rtChannel);_rtChannel=null;}}catch(_){}
