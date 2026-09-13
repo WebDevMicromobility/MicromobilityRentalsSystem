@@ -1290,7 +1290,7 @@ function setLang(lang,_fromUrl){
   }catch(e){try{_logError('tab-label render: '+((e&&e.message)||e),'render');}catch(_){}}
   renderTopbarRight();
   if(S.view==='customer'){renderRegister();renderMyRides();if(S.custTab==='account')renderAccount();}
-  else if(S.view==='staff'){renderStaffQueue();renderSessions();renderBikes();renderHistory();if(S.staffTab==='analytics')renderAnalytics();if(S.staffTab==='cashier')renderCashier();}
+  else if(S.view==='staff')_renderStaffTab();
   else if(S.view==='landing')renderLandingAvail();
   if(document.getElementById('auth-modal')?.style.display!=='none')renderAuthModal();
 }
@@ -1813,7 +1813,7 @@ const getQueue=()=>S.queue||[];
 // Generous window so nothing current is affected; raise it if you need older history in the live views.
 const QUEUE_WINDOW_DAYS=365;
 const QUEUE_BOOT_DAYS=60; // cold start fetches a light 60-day window; the full 12 months stream in seconds later (see the _fullWindow timer after boot)
-function _qWindowCut(){return new Date(Date.now()-((S&&S._fullWindow)?QUEUE_WINDOW_DAYS:QUEUE_BOOT_DAYS)*864e5).toISOString().slice(0,10);}
+function _qWindowCut(days){return new Date(Date.now()-(days||((S&&S._fullWindow)?QUEUE_WINDOW_DAYS:QUEUE_BOOT_DAYS))*864e5).toISOString().slice(0,10);}
 // Memoized sessionId -> entries[] map (rebuilds only when the queue array or its length changes;
 // in-place status edits stay live because the map holds entry references). Kills O(n^2) per-session filters.
 let _qbsRef=null,_qbsLen=-1,_qbsMap=null;
@@ -1822,6 +1822,21 @@ function _qBySession(){
   if(_qbsRef===S.queue&&_qbsLen===ql.length&&_qbsMap)return _qbsMap;
   const m=new Map();ql.forEach(e=>{let a=m.get(e.sessionId);if(!a){a=[];m.set(e.sessionId,a);}a.push(e);});
   _qbsRef=S.queue;_qbsLen=ql.length;_qbsMap=m;return m;
+}
+// Decided bookings (done / no-show) per person, newest first, indexed once per load. The
+// roster's no-show chip used to scan and sort the whole queue for every row it drew.
+let _dbpRef=null,_dbpLen=0,_dbpMap=null;
+function _decidedByPerson(){
+  const ql=S.queue||[];
+  if(_dbpRef===S.queue&&_dbpLen===ql.length&&_dbpMap)return _dbpMap;
+  const m=new Map();
+  ql.forEach(x=>{
+    if(x.status!=='done'&&x.status!=='noshow')return;
+    const keys=[];if(x.customerId)keys.push('c:'+x.customerId);if(x.phone)keys.push('p:'+x.phone);
+    keys.forEach(k=>{let a=m.get(k);if(!a){a=[];m.set(k,a);}a.push(x);});
+  });
+  m.forEach(a=>a.sort((a1,b1)=>String(b1.registeredAt||'').localeCompare(String(a1.registeredAt||''))));
+  _dbpRef=S.queue;_dbpLen=ql.length;_dbpMap=m;return m;
 }
 const getBikes=()=>S.bikes||[];
 // The bikes table is public-read, but its NFC / serial / condition columns are readable only
@@ -2045,12 +2060,12 @@ function _watchRefWrites(client){
     return qb;
   };
 }
-async function _queueFetch(windowed){
+async function _queueFetch(windowed,days){
   const wantSecure=SECURE_AUTH&&!S._staffAuthed;
   if(!wantSecure){
     return _pagedAll(()=>{
       let sel=sb.from('queue_entries').select('*');
-      if(windowed)sel=sel.gte('session_date',_qWindowCut());
+      if(windowed)sel=sel.gte('session_date',_qWindowCut(days));
       return sel.order('session_id').order('queue_num');
     });
   }
@@ -2058,7 +2073,7 @@ async function _queueFetch(windowed){
   const [pub,mine]=await Promise.all([
     _pagedAll(()=>{
       let pubSel=sb.from('queue_public').select('*');
-      if(windowed)pubSel=pubSel.gte('session_date',_qWindowCut());
+      if(windowed)pubSel=pubSel.gte('session_date',_qWindowCut(days));
       return pubSel.order('session_id').order('queue_num');
     }),
     (cust&&cust.session_token)?sb.rpc('my_bookings',{p_id:cust.id,p_token:cust.session_token}):Promise.resolve({data:[]}),
@@ -2411,14 +2426,23 @@ function _entryFallbackPrice(entry){
 
 const KSA_TZ='Asia/Riyadh';
 function fmtDate(d){return d.toLocaleDateString('en-CA',{timeZone:KSA_TZ});} 
+// Intl date formatting is slow and a roster asks for the same few dates hundreds of times a
+// render, so the answer is cached per language. The cache is small: a season has a few dates.
+const _shortDateCache=new Map();
 function shortDate(ds){
   if(!ds)return'';
+  const lang=S&&S.lang==='ar'?'ar':'en';
+  const ck=lang+'|'+ds;
+  const hit=_shortDateCache.get(ck);if(hit!==undefined)return hit;
+  let out;
   try{
     const d=new Date(ds+'T12:00:00');
-    
-    const locale=S&&S.lang==='ar'?'ar-u-ca-gregory-nu-latn':'en-GB';
-    return d.toLocaleDateString(locale,{day:'numeric',month:'short',year:'numeric',timeZone:KSA_TZ});
-  }catch{return ds;}
+    const locale=lang==='ar'?'ar-u-ca-gregory-nu-latn':'en-GB';
+    out=d.toLocaleDateString(locale,{day:'numeric',month:'short',year:'numeric',timeZone:KSA_TZ});
+  }catch{out=ds;}
+  if(_shortDateCache.size>2000)_shortDateCache.clear();
+  _shortDateCache.set(ck,out);
+  return out;
 }
 function todayStr(){return new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});}
 function fmt12h(timeStr){
@@ -2674,8 +2698,9 @@ function getAssignedBikeIds(entry){
   
   const fallback=S&&S._extraBikes&&S._extraBikes[entry.id];
   if(fallback)return fallback;
-  if(!entry.assignedBikeId)return[];
-  try{const p=JSON.parse(entry.assignedBikeId);return Array.isArray(p)?p:[p];}catch{return[entry.assignedBikeId];}
+  const v=entry.assignedBikeId;if(!v)return[];
+  if(typeof v!=='string'||v[0]!=='[')return[v]; // the common case: one id, no parse, no thrown exception per row
+  try{const p=JSON.parse(v);return Array.isArray(p)?p:[p];}catch{return[v];}
 }
 function getAssignedBikes(entry){return getAssignedBikeIds(entry).map(id=>bikeById(id)).filter(Boolean);}
 
@@ -4727,10 +4752,9 @@ async function mwPickCustomer(custId){
   // otherwise) over their last five decided bookings anywhere, not just this session. Shown
   // from the second offence: one no-show is a flat tyre, two is a pattern.
   function _noShowChip(e){
-    const key=e.customerId?x=>x.customerId===e.customerId:(e.phone?x=>x.phone===e.phone:null);
-    if(!key)return'';
-    const past=getQueue().filter(x=>x.id!==e.id&&key(x)&&['done','noshow'].includes(x.status))
-      .sort((a,b)=>new Date(b.registeredAt||0)-new Date(a.registeredAt||0)).slice(0,5);
+    const k=e.customerId?'c:'+e.customerId:(e.phone?'p:'+e.phone:null);
+    if(!k)return'';
+    const past=(_decidedByPerson().get(k)||[]).filter(x=>x.id!==e.id).slice(0,5);
     const ns=past.filter(x=>x.status==='noshow').length;
     if(ns<2)return'';
     return `<span title="${t('noShowHistTip')}" style="font-size:10px;font-weight:900;color:var(--orange);border:1px solid rgba(var(--warn-rgb),.4);border-radius:2px;padding:2px 6px;white-space:nowrap">${t('noShowHistChip').replace('{0}',String(ns)).replace('{1}',String(past.length))}</span>`;
@@ -6189,7 +6213,21 @@ function changeRegQty(delta){
   renderRegister();
 }
 
-function set(k,v){S[k]=v;if(S.view==='customer'){renderRegister();renderMyRides();}else if(S.view==='staff'){renderStaffQueue();renderBikes();renderHistory();}}
+function set(k,v){S[k]=v;if(S.view==='customer'){renderRegister();renderMyRides();}else if(S.view==='staff')_renderStaffTab();}
+// Render the staff tab on screen and nothing else. Every tab renders itself on entry
+// (setStaffTab), so painting the hidden ones after each write was pure waste - four
+// rosters' worth of HTML built and thrown away on every check-in.
+function _renderStaffTab(){
+  const tab=S.staffTab;
+  if(tab==='queue')renderStaffQueue();
+  else if(tab==='bikes')renderBikes();
+  else if(tab==='history')renderHistory();
+  else if(tab==='analytics')renderAnalytics();
+  else if(tab==='inventory')renderInventory();
+  else if(tab==='community')renderCommunity();
+  else if(tab==='cashier')renderCashier();
+  else renderStaffQueue();
+}
 
 async function submitReg(){
   if(S.regSubmitting)return;
@@ -10790,7 +10828,8 @@ async function _checkinMany(idList){
   // moved an existing one, quietly corrupting the arrival record the reports read.
   try{const _now=new Date().toISOString();if(landed.length)await Promise.all(landed.map(id=>sb.from('queue_entries').update({checked_in_at:_now}).eq('id',id)));}catch(_){} // tolerant
   const fail=res.find(r=>r&&r.error);
-  await loadData();
+  landed.forEach(id=>{const e=getQueue().find(x=>x.id===id);if(e)e.status='active';});renderStaffQueue(); // paint first, reconcile after
+  await loadDataLight();
   if(fail){toast(fail.error.message||t('errConnection'),'error');renderStaffQueue();return 0;}
   logAction(t('logBulkCheckin').replace('{0}',ids.length));
   toast(`${ids.length} ${t('checkInBtn')}`);
@@ -11658,6 +11697,7 @@ async function doNoShow(id){
   // Everything below (auto-promote, restock) assumes the slot really freed — bail if the write failed.
   const _ns=await sb.from('queue_entries').update({status:'noshow'}).eq('id',id);
   if(_writeErr(_ns,'no-show')){await loadDataLight();renderStaffQueue();return;}
+  entry.status='noshow';S._flashId=id;S._flashColor='orange';renderStaffQueue(); // paint first, reconcile after
   // A no-show releases its place — the rider never took a bike out — so it goes to whoever has
   // waited longest, exactly as a cancellation does.
   const _promoted=await _autoPromoteOldestWaitlist(entry.sessionId);
@@ -12023,7 +12063,8 @@ async function _finishReturn(id,markPaid,cond,notes){
   try{await sb.from('queue_entries').update({checked_out_at:new Date().toISOString()}).eq('id',id);}catch(_){} // tolerant: exact check-out stamp
   }
   if(cond&&cond!=='ok')logAction(`${t('retTitle')}: #${qn} ${name} · ${cond}${notes?' · '+notes:''}`);
-  await loadData();
+  entry.status='done';S._flashId=id;S._flashColor='blue';renderStaffQueue(); // paint first, reconcile after
+  await loadDataLight();
   try{localStorage.removeItem('cq_ct_'+id);}catch(e){}
   toast(markPaid?t('toastBikeReturnedPaid'):t('toastBikeReturned'));
   pushUndo(`${t('undoReturn')} - #${qn} ${name}`,async()=>{
@@ -13641,6 +13682,7 @@ async function confirmCheckinModal(_bikeId){
   if(!comm&&_method!==undefined){try{await sb.from('queue_entries').update({pay_method:_method,card_amount:_card}).eq('id',e.id);}catch(_){}} // tolerant, like togglePayment
   if(!_viaRpc){try{await sb.from('queue_entries').update({checked_in_at:new Date().toISOString()}).eq('id',e.id);}catch(_){}} // the RPC stamps it itself
   Object.assign(e,{status:'active',typePreference:ty},patch.paid?{paid:true}:{},patch.price!==undefined?{price:patch.price}:{});
+  S._flashId=e.id;S._flashColor='green';renderStaffQueue(); // the row moves now; the re-sync below confirms it
   await _addonsOnLeaveWaitlist(e,_wasWl);
   await _mwRetireLinked(e.id); // a Staff List row carrying this booking is spent once they ride
   logAction(`${t('checkInBtn')}: #${e.queueNum} ${e.name}`);
@@ -19024,15 +19066,27 @@ async function loadDataLight(){
 async function _loadDataLightInner(){
   if(!sb)return;
   let q,ses,cs,bk,wl;
+  // After every write the desk re-syncs. Once the full 12-month window has streamed in, that
+  // used to mean re-fetching the whole year in pages on every check-in; the desk only moves
+  // rows from the last two months, so the light reload fetches that window and merges it over
+  // the older rows it already holds. Every tenth background poll is a full reload, so an old
+  // row edited on another device still converges within five minutes.
+  const _lightDays=(S&&S._fullWindow)?QUEUE_BOOT_DAYS:undefined;
+  const _cut=_lightDays?_qWindowCut(_lightDays):null;
   try{[q,ses,cs,bk,wl]=await Promise.all([
-    _queueFetch(true),
+    _queueFetch(true,_lightDays),
     _sessionsFetch(),
     _pagedAll(()=>sb.from('cashier_sales').select('*').order('id')), // paged like loadData: an unpaged poll would re-truncate revenue to 1000 rows every 30s
     sb.from('bikes').select('id,status'), // status-only (no photos) so availability stays fresh on the poll without a heavy payload
     sb.from('desk_waitlist').select('*'), // small table; error-tolerant below (pre-migration DBs)
   ]);}catch(e){S._netDown=true;_updateConnUI();return;} // unreachable: keep current state, flag the connection
   S._netDown=false;_updateConnUI();
-  if(q&&!q.error){S.queue=(q.data||[]).map(entryFromDB);try{_applyBookOutbox();}catch(_){}_bookOutboxFlush();}
+  if(q&&!q.error){
+    const fresh=(q.data||[]).map(entryFromDB);
+    if(_cut){const ids=new Set(fresh.map(e=>e.id));const older=(S.queue||[]).filter(e=>String(e.sessionDate||e.sessionId||'')<_cut&&!ids.has(e.id));S.queue=older.concat(fresh);}
+    else S.queue=fresh;
+    try{_applyBookOutbox();}catch(_){}_bookOutboxFlush();
+  }
   if(ses&&!ses.error)S.sessions=ses.data||[];
   if(bk&&!bk.error){const _bm=new Map((bk.data||[]).map(r=>[r.id,r.status]));S.bikes=(S.bikes||[]).map(b=>(_bm.has(b.id)&&_bm.get(b.id)!==b.status)?{...b,status:_bm.get(b.id)}:b);} // merge fresh statuses, keep photos/other fields
   if(wl&&!wl.error)S.deskWaitlist=wl.data||[];
@@ -19050,9 +19104,11 @@ function _staffFingerprint(){
   return q+'#'+b+'#'+se+'#'+((S.deskWaitlist||[]).length)+'#'+((S.cashSales||[]).length)+'#'+((S.inventory||[]).map(i=>i.id+':'+i.qty).join('|'));
 }
 let _lastFp=null;
+let _pollN=0;
 async function _autoRefresh(full){
   if(typeof window!=='undefined'&&window.__noWiden)return; // tests pin state; no background reload may clobber it (poll / realtime / visibility)
   if(S.view!=='staff')return;
+  if(!full&&(++_pollN%10===0))full=true; // the light reload covers two months; every fifth minute the whole window
   try{
     await (full?loadData():loadDataLight());
     _lastRefresh=Date.now();
