@@ -10596,7 +10596,7 @@ function renderQRow(e){
     <div id="q-results"></div>
     <div class="fab-row">
       <button type="button" class="scan-fab" onclick="openScanModal()" title="${t('scanTitle')}">${_artIcon('camera',16)} ${t('scanBtn')}</button>
-      <button type="button" class="walkin-fab" onclick="showWalkinModal()">＋ ${t('addWalkin')}</button>
+      <button type="button" class="walkin-fab" onclick="showWalkinModal()">${t('addWalkin')}</button>
     </div>`;
   // Results live in their own container so a search keystroke can refresh just this part.
   // Re-rendering the whole panel would destroy the focused search input, and on a phone a
@@ -13542,11 +13542,15 @@ function renderCheckinModal(){
         const tap=!cur&&(pend||m.status==='noshow'); // a no-show can be opened again and brought back
         const mark=done?'✓':out?'✕':String(i+1);
         return `<li><button type="button" class="toggle-btn${cur?' active':''}"${cur?' aria-current="step"':''}${tap?` onclick="showCheckinModal('${m.id}')"`:' disabled'} style="font-size:12px;padding:5px 9px;${out?'text-decoration:line-through;opacity:.6':''}"><b style="margin-inline-end:4px">${mark}</b>${esc(String(m.name||'').split(' ')[0])}</button></li>`;}).join('')}</ol>`:'';
+  // The rider's height (and the size it maps to) sits under the title: on the phone this modal
+  // is where the bike gets picked, so the number staff size a bike by has to be on it.
+  const _hBadge=e.height?`<div style="margin-top:6px"><span class="ci-height" style="display:inline-flex;align-items:center;gap:4px;background:rgba(110,232,154,.12);border:1px solid rgba(110,232,154,.3);border-radius:2px;padding:3px 8px;font-size:12px;font-weight:800;color:var(--green)"><bdi>${esc(String(e.height))} ${t('cmUnit')}${e.size?' · '+esc(String(e.size)):''}</bdi></span></div>`:'';
   if(e.status==='noshow'){
     m.style.display='flex';
     m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeCheckinModal()">
     <div class="modal-box" role="dialog" aria-modal="true" style="max-width:420px">
       <div class="modal-title">${t('checkInBtn')} · #${e.queueNum} ${esc(e.name)}${_party.length>1?` <span style="font-size:12px;font-weight:700;color:var(--muted)">· ${t('ciStepOf').replace('{0}',String(_idx+1)).replace('{1}',String(_party.length))}</span>`:''}</div>
+      ${_hBadge}
       ${_stepsHtml}
       <div role="status" style="margin:14px 0 6px;font-size:13px;font-weight:700;color:var(--orange)">${t('ciNoShowNote').replace('{0}',String(e.queueNum)).replace('{1}',esc(e.name))}</div>
       <div class="modal-footer">
@@ -13565,6 +13569,7 @@ function renderCheckinModal(){
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeCheckinModal()">
     <div class="modal-box" role="dialog" aria-modal="true" style="max-width:420px">
       <div class="modal-title">${t('checkInBtn')} · #${e.queueNum} ${esc(e.name)}${_party.length>1?` <span style="font-size:12px;font-weight:700;color:var(--muted)">· ${t('ciStepOf').replace('{0}',String(_idx+1)).replace('{1}',String(_party.length))}</span>`:''}</div>
+      ${_hBadge}
       ${_stepsHtml}
       ${S._ciNfc?`<div role="status" style="margin-top:8px;font-size:12.5px;font-weight:700;color:var(--green)">${t('ciNfcNotice').replace('{0}',esc(e.name))}</div>`:''}
       ${_bikeless?'':_ciBikeFieldHtml(e)}

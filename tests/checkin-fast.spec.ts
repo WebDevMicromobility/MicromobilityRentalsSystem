@@ -135,3 +135,10 @@ test('a no-show member can be opened again and brought back to be checked in', a
   await expect(modal.locator('#ci-confirm')).toBeVisible();     // back to a normal check-in
   await expect(modal.getByRole('list', { name: 'Riders in this party' }).getByRole('button', { name: /1 First/ })).toBeVisible();
 });
+
+// On the phone this modal is where the bike gets picked, so the rider's height is on it.
+test("the modal shows the rider's height and size", async ({ page }) => {
+  await boot(page, [e('solo', { name: 'Solo', height: 178, size: 'M' })]);
+  await page.evaluate(`showCheckinModal('solo')`);
+  await expect(page.locator('#checkin-modal .ci-height')).toHaveText('178 cm · M');
+});
