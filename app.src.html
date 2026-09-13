@@ -13529,7 +13529,7 @@ function renderCheckinModal(){
       ${_party.length>1?`<ol aria-label="${esc(t('ciPartyLabel'))}" style="display:flex;gap:6px;flex-wrap:wrap;list-style:none;padding:0;margin:8px 0 0">${_party.map((m,i)=>{
         const cur=m.id===e.id,done=m.status==='active'||m.status==='done',out=['noshow','cancelled','removed'].includes(m.status),pend=!cur&&!done&&!out;
         const mark=done?'✓':out?'✕':String(i+1);
-        return `<li><button type="button" class="toggle-btn${cur?' active':''}"${cur?' aria-current="step"':''}${pend?` onclick="showCheckinModal('${m.id}')"`:' disabled'} style="font-size:12px;padding:5px 9px;${out?'text-decoration:line-through;opacity:.6':''}"><b>${mark}</b> ${esc(String(m.name||'').split(' ')[0])}</button></li>`;}).join('')}</ol>`:''}
+        return `<li><button type="button" class="toggle-btn${cur?' active':''}"${cur?' aria-current="step"':''}${pend?` onclick="showCheckinModal('${m.id}')"`:' disabled'} style="font-size:12px;padding:5px 9px;${out?'text-decoration:line-through;opacity:.6':''}"><b style="margin-inline-end:4px">${mark}</b>${esc(String(m.name||'').split(' ')[0])}</button></li>`;}).join('')}</ol>`:''}
       ${S._ciNfc?`<div role="status" style="margin-top:8px;font-size:12.5px;font-weight:700;color:var(--green)">${t('ciNfcNotice').replace('{0}',esc(e.name))}</div>`:''}
       ${free?'':`<div class="form-group" style="margin:14px 0 10px"><label>${t('colPayment')}${!e.paid?` · SAR ${e.price??DEFAULT_PRICE}`:''}</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
