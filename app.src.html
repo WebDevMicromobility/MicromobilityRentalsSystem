@@ -7856,6 +7856,17 @@ function cloneSession(id){
   const s=allSessions().find(x=>x.id===id);if(!s)return;
   const slots=parseSlots(s.bike_slots)||{};
   S.showAddSession=true;S.editSessionId=null;S.newSessDate='';S.newSessRepeat='1';
+  // Everything the form asks for comes across, so a clone is the same session on a new date:
+  // the event kind, its name, seats, meeting point, breakfast stop, add-ons and waitlist rule.
+  // Only the date is left blank. The bike allocation follows below.
+  S.newSessEvent=!_isCommunity(s)?'jcc':(['petromin','swim','workshop'].includes(String(s.ride_kind||''))?String(s.ride_kind):'community');
+  S.newSessTitle=s.title||'';
+  S.newSessSpots=s.spots!=null?String(s.spots):'';
+  S.newSessMapUrl=s.meet_url||'';
+  S.newSessBfName=s.breakfast_name||'';S.newSessBfUrl=s.breakfast_url||'';
+  try{const ad=typeof s.addons==='string'?JSON.parse(s.addons||'[]'):(s.addons||[]);S.newSessAddons=Array.isArray(ad)?ad.slice():[];}catch(e){S.newSessAddons=[];}
+  if(slots._wl&&typeof slots._wl==='object'){S.newSessWlMode=slots._wl.m==='pct'?'pct':'count';S.newSessWlVal=slots._wl.v!=null?String(slots._wl.v):'';}
+  else{S.newSessWlMode='count';S.newSessWlVal='';}
   const m=String((slots._time)||'09:00 - 11:00').match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/);
   if(m){S.newSessStartTime=m[1];S.newSessEndTime=m[2];}
   if(slots._bikes&&slots._bikes.length){
@@ -12454,9 +12465,20 @@ function _accAge(c){
 }
 // The customer's tag rows that are live right now, most relevant first: the filtered tag
 // (when one is chosen) leads, so the "since / until" columns describe THAT tag.
+// customer_tags indexed by customer, rebuilt only when the array itself is replaced by a
+// load. The builder used to scan every tag row for every account on every tap: two thousand
+// accounts times two and a half thousand rows, twice per render, which is what made it lag.
+let _accTagIdxSrc=null,_accTagIdx=null;
+function _accTagRows(cid){
+  if(_accTagIdxSrc!==S.customerTags){
+    _accTagIdxSrc=S.customerTags;_accTagIdx=new Map();
+    (S.customerTags||[]).forEach(ct=>{const a=_accTagIdx.get(ct.customer_id);if(a)a.push(ct);else _accTagIdx.set(ct.customer_id,[ct]);});
+  }
+  return _accTagIdx.get(cid)||[];
+}
 function _accLiveTags(c,o){
   const tm=_tagsById();
-  const rows=(S.customerTags||[]).filter(ct=>ct.customer_id===c.id&&tm[ct.tag_id]&&_tagActive(ct));
+  const rows=_accTagRows(c.id).filter(ct=>tm[ct.tag_id]&&_tagActive(ct));
   const pick=o&&o.fTag&&!['all','any','none'].includes(o.fTag)?o.fTag:null;
   return rows.sort((a,b)=>(b.tag_id===pick?1:0)-(a.tag_id===pick?1:0)||String(tm[a.tag_id].name).localeCompare(String(tm[b.tag_id].name)))
              .map(ct=>({...ct,tag:tm[ct.tag_id]}));
@@ -12535,7 +12557,9 @@ function _accRows(){
   };
   list.sort(srt[o.sort]||srt.name);
   void today;
-  return list.map(c=>({c,st:stats[c.id]||_ACC_EMPTY,cells:_accCells(c,stats[c.id]||_ACC_EMPTY,o)}));
+  // The cells (every column formatted as text) are only needed by the printed sheet and the
+  // CSV; the builder itself needs the count and the summaries. Formatted on first read.
+  return list.map(c=>{const st=stats[c.id]||_ACC_EMPTY;const r={c,st,_cells:null};Object.defineProperty(r,'cells',{get(){return this._cells||(this._cells=_accCells(c,st,o));}});return r;});
 }
 // ── Summaries ──────────────────────────────────────────────────────────────
 // Nine ways to slice the accounts on the list, each a list of {label,value} that the
@@ -12665,6 +12689,7 @@ function showAccountReportOptions(){
     ...(S.tags||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(tg=>[tg.id,tg.name])];
   const _types=['Road','Hybrid','Mountain','Road Carbon','Any','Own'];
   const rows=_accRows();
+  const _keep=m.querySelector('.modal-box');const _scroll=_keep?_keep.scrollTop:0; // a tap must not send the list back to the top
   m.style.display='flex';
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)_closePrintOpts()">
     <div class="modal-box" role="dialog" aria-modal="true" style="max-width:640px">
@@ -12717,6 +12742,7 @@ function showAccountReportOptions(){
       </div>
     </div>
   </div>`;
+  if(_scroll){const _b=m.querySelector('.modal-box');if(_b)_b.scrollTop=_scroll;}
 }
 // The printed document, as a string, so the same HTML can be tested without a popup.
 function _accReportHtml(){
