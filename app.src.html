@@ -2151,10 +2151,15 @@ async function _loadDataInner(showLoader){
   // Customers are fetched ONLY on staff devices - the Sales tab's saved-customer picker
   // needs them; visitors never download the customer list. Tolerant: RLS may deny the
   // read until the staff Auth session is established (the post-auth self-heal reloads).
-  await _refP;
+  // The first paint waits for the queue, the bikes and the sessions only. The customer list,
+  // the tag rows and the sales history are large and none of them is on the roster; on a
+  // cold start they now stream in behind it and repaint the tab on screen when they land.
+  // Every later load waits for them as before, so a refresh is whole.
+  const _firstLoad=!S.dataLoaded;
+  if(!_firstLoad)await _refP;
   if(q.error)console.error('loadData queue error:',q.error.message);
   if(b.error)console.error('loadData bikes error:',b.error.message);
-  if(c.error)console.error('loadData customers error:',c.error.message);
+  if(!_firstLoad&&c.error)console.error('loadData customers error:',c.error.message);
   if(ses.error)console.error('loadData sessions error:',ses.error.message);
   // Total failure = the three core fetches all errored (c starts as a success placeholder, so it
   // can't participate in this test — the old !c.data condition made this branch unreachable).
@@ -2178,10 +2183,29 @@ async function _loadDataInner(showLoader){
   // Error-guarded like queue/sessions: a transient failed refresh must not blank the bikes
   // list or the customer picker mid-shift (and then snapshot the emptiness into cq_snapshot).
   if(!b.error)S.bikes=b.data||[];
-  if(!c.error)S.customers=c.data||[];
+  if(!_firstLoad&&!c.error)S.customers=c.data||[]; // on the first load _refFetch sets it itself when it lands
   if(!ses.error)S.sessions=ses.data||[];
   S.dataLoaded=true; // first successful load - render real content instead of skeletons
+  if(_firstLoad){
+    Promise.all([_refP,_optP]).then(async()=>{
+      try{await _afterOptional();}catch(e){}
+      try{if(S.view==='staff')_renderStaffTab();else if(S.view==='landing')renderLandingAvail();}catch(e){}
+      if(!(SECURE_AUTH&&!S._staffAuthed&&(typeof localStorage!=='undefined'&&localStorage.getItem('cq_staff')==='1')))_cacheSave();
+    }).finally(()=>{_refsLoaded=true;});
+    _lastLoadOk=true; // the core data is in: the boot must not paint the snapshot over it
+    return;
+  }
   await _optP;
+  await _afterOptional();
+  _refsLoaded=true;
+  _lastLoadOk=true;
+  // Don't snapshot a PII-free (queue_public) load on a staff device — restoring it later
+  // would show the staff panel with no names/phones. Only cache full loads.
+  if(!(SECURE_AUTH&&!S._staffAuthed&&(typeof localStorage!=='undefined'&&localStorage.getItem('cq_staff')==='1')))_cacheSave();
+}
+// What the optional lists need once they are in: queued sales applied, voided ones dropped,
+// the MM Team roster merged. Called after the optional fetch on every load.
+async function _afterOptional(){
   try{_outbox().forEach(op=>{if(op.kind==='delete')S.cashSales=(S.cashSales||[]).filter(r=>r.id!==op.id);else{const i=(S.cashSales||[]).findIndex(r=>r.id===op.id);if(i>=0)S.cashSales[i]=op.data;else S.cashSales.push(op.data);}});}catch(e){} // keep unsynced offline sales visible
   try{const _v=_voidedIds();if(_v.length)S.cashSales=(S.cashSales||[]).filter(r=>_v.indexOf(r.id)<0);}catch(e){} // never resurrect a voided sale
   _outboxFlush();
@@ -2190,13 +2214,10 @@ async function _loadDataInner(showLoader){
   // source of truth (plus any names already used in sales, which can never be lost). Falls back to
   // this device's localStorage when the table hasn't been created yet.
   try{const{data,error}=await sb.from('team_members').select('name');if(!error&&Array.isArray(data)){const used=(S.cashSales||[]).map(r=>r.team_name).filter(Boolean);S.teamMembers=[...new Set([...data.map(r=>r.name).filter(Boolean),...used])].sort();try{localStorage.setItem('cq_team',JSON.stringify(S.teamMembers));}catch(e){}}}catch(e){}
-  _lastLoadOk=true;
-  // Don't snapshot a PII-free (queue_public) load on a staff device — restoring it later
-  // would show the staff panel with no names/phones. Only cache full loads.
-  if(!(SECURE_AUTH&&!S._staffAuthed&&(typeof localStorage!=='undefined'&&localStorage.getItem('cq_staff')==='1')))_cacheSave();
 }
 let _bootReadyAt=0;
-let _lastLoadOk=false;
+let _lastLoadOk=false;   // the core data (queue, bikes, sessions) of the last load arrived
+let _refsLoaded=false;   // and the reference lists behind it (customers, tags, sales, team) have too
 // Cold-start resilience: keep a local snapshot of the last good load (photos stripped to stay under quota).
 // On boot, if the network load brought nothing, render last-known data instead of an empty screen.
 function _cacheSave(){try{
@@ -19126,7 +19147,6 @@ let _pollN=0;
 async function _autoRefresh(full){
   if(typeof window!=='undefined'&&window.__noWiden)return; // tests pin state; no background reload may clobber it (poll / realtime / visibility)
   if(S.view!=='staff')return;
-  if(!full&&(++_pollN%10===0))full=true; // the light reload covers two months; every fifth minute the whole window
   try{
     await (full?loadData():loadDataLight());
     _lastRefresh=Date.now();
@@ -19153,7 +19173,11 @@ async function _autoRefresh(full){
 }
 setInterval(()=>{if(!document.hidden)_updateConnUI();},5000);
 try{_updateConnUI();}catch(e){} // reflect connection state on boot (handles starting up already offline)
-setInterval(()=>{if(!document.hidden)_autoRefresh(false);},30000); // light poll, paused while the tab is hidden (_autoRefresh itself no-ops under test)
+// While realtime is connected, events keep the panel current and the poll is only a safety
+// net: a full reload every five minutes. Without realtime, the light poll every 30 seconds
+// with a full reload every tenth tick. Paused while the tab is hidden.
+function _pollPlan(n,connected){if(n%10===0)return 'full';return connected?'skip':'light';}
+setInterval(()=>{if(document.hidden)return;const plan=_pollPlan(++_pollN,!!S._rtConnected);if(plan==='full')_autoRefresh(true);else if(plan==='light')_autoRefresh(false);},30000); // (_autoRefresh itself no-ops under test)
 // ── Keeping the staff session alive ────────────────────────────────────────
 // supabase-js refreshes the access token on its own timer, but that timer does not run
 // while the tab is hidden or the phone is asleep — which at a booth is most of the evening.

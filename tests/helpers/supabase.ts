@@ -208,7 +208,8 @@ export async function loginCustomer(page: Page, cust: Record<string, unknown> = 
 export async function waitForSb(page: Page) {
   await page.waitForFunction(
     'typeof sb !== "undefined" && !!sb && typeof S !== "undefined" && !!S.dataLoaded' +
-      ' && (typeof _lastLoadOk === "undefined" || _lastLoadOk === true)',
+      ' && (typeof _lastLoadOk === "undefined" || _lastLoadOk === true)' +
+      ' && (typeof _refsLoaded === "undefined" || _refsLoaded === true)', // the lists that stream in behind the first paint
     undefined,
     { timeout: 10000 },
   );
