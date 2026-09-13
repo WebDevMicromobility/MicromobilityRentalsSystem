@@ -91,3 +91,47 @@ test('a solo rider sees no party line', async ({ page }) => {
   await page.evaluate(`showCheckinModal('a')`);
   await expect(page.locator('#checkin-modal')).not.toContainText('Rider 1 of');
 });
+
+// Switching between the members of a party keeps what was set for each of them, and a
+// member marked no-show by mistake can be opened again from the step row and brought back.
+test("switching riders keeps each rider's choices", async ({ page }) => {
+  await boot(page, [
+    e('p1', { group_id: 'grp', name: 'First Rider' }),
+    e('p2', { group_id: 'grp', name: 'Second Rider', queue_num: 2 }),
+  ]);
+  await page.evaluate(`showCheckinModal('p1')`);
+  const modal = page.locator('#checkin-modal');
+  await modal.getByRole('button', { name: /Paid · Card/ }).click();
+  await modal.getByRole('button', { name: 'Hybrid', exact: true }).click();
+  await modal.locator('#ci-bike').fill('R-11');
+  await modal.getByRole('list', { name: 'Riders in this party' }).getByRole('button', { name: /2 Second/ }).click();
+  await expect(modal).toContainText('Rider 2 of 2');
+  expect(await page.evaluate('S._ciPaid')).toBe('pending');     // the second rider starts fresh
+  await modal.getByRole('list', { name: 'Riders in this party' }).getByRole('button', { name: /1 First/ }).click();
+  await expect(modal).toContainText('Rider 1 of 2');
+  expect(await page.evaluate('[S._ciPaid,S._ciType]')).toEqual(['card', 'Hybrid']);
+  await expect(modal.locator('#ci-bike')).toHaveValue('R-11');
+});
+
+test('a no-show member can be opened again and brought back to be checked in', async ({ page }) => {
+  const rows = [
+    e('p1', { group_id: 'grp', name: 'First Rider', status: 'noshow' }),
+    e('p2', { group_id: 'grp', name: 'Second Rider', queue_num: 2 }),
+  ];
+  await boot(page, rows);
+  // The stub echoes fixtures on every reload: once the reversal is written, the fixture follows it.
+  await page.route(/\/rest\/v1\/queue_entries\?.*id=eq\.p1/, async (route) => {
+    if (route.request().method() === 'PATCH' && /"status":"waiting"/.test(route.request().postData() || '')) rows[0].status = 'waiting';
+    await route.fallback();
+  });
+  await page.evaluate(`showCheckinModal('p2')`);
+  const modal = page.locator('#checkin-modal');
+  const step1 = modal.getByRole('list', { name: 'Riders in this party' }).getByRole('button', { name: /✕ First/ });
+  await expect(step1).toBeEnabled();
+  await step1.click();
+  await expect(modal).toContainText('is marked no-show');
+  await modal.getByRole('button', { name: 'Customer Showed' }).click();
+  await expect(modal).toContainText('Rider 1 of 2');
+  await expect(modal.locator('#ci-confirm')).toBeVisible();     // back to a normal check-in
+  await expect(modal.getByRole('list', { name: 'Riders in this party' }).getByRole('button', { name: /1 First/ })).toBeVisible();
+});
