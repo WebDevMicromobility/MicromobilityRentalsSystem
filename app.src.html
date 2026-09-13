@@ -10586,15 +10586,18 @@ function renderQRow(e){
           <input id="sf-search-input" class="search-input" aria-label="${esc(t('searchPlaceholder'))}" placeholder="${t('searchPlaceholder')}" value="${esc(S.sfSearch)}"
             oninput="setSfSearch(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();sfSearchEnter();}">
         </div>
-        <button class="btn-sm btn-green" style="margin-left:8px;display:inline-flex;align-items:center;gap:6px" onclick="openScanModal()" title="${t('scanTitle')}" aria-label="${esc(t('scanBtn'))}">
+        <button class="btn-sm btn-green hide-mobile" style="margin-left:8px;display:inline-flex;align-items:center;gap:6px" onclick="openScanModal()" title="${t('scanTitle')}">
           ${_artIcon('camera',14)}
-          <span class="scan-btn-text">${t('scanBtn')}</span>
+          ${t('scanBtn')}
         </button>
       </div>
       <div class="result-count" id="q-result-count">${filtered.length!==base.length?`${filtered.length} ${t('resultOf')} ${base.length} ${t('resultRiders')}`:''}</div>
     </div>
     <div id="q-results"></div>
-    <button type="button" class="walkin-fab" onclick="showWalkinModal()">＋ ${t('addWalkin')}</button>`;
+    <div class="fab-row">
+      <button type="button" class="scan-fab" onclick="openScanModal()" title="${t('scanTitle')}">${_artIcon('camera',16)} ${t('scanBtn')}</button>
+      <button type="button" class="walkin-fab" onclick="showWalkinModal()">＋ ${t('addWalkin')}</button>
+    </div>`;
   // Results live in their own container so a search keystroke can refresh just this part.
   // Re-rendering the whole panel would destroy the focused search input, and on a phone a
   // destroyed input closes the soft keyboard (focus() can't reopen it without a gesture).
