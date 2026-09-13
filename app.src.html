@@ -18907,14 +18907,32 @@ function _refreshView(){
   // Re-render the add-on picker if it's open, so photos/stock appear once fresh data lands.
   try{if(S._addonPickerEntry&&typeof renderAddonPicker==='function')renderAddonPicker();}catch(e){}
 }
+// supabase-js keeps its session under sb-<ref>-auth-token; its presence is what makes a
+// snapshot paint before the auth verdict safe - a device with no session never sees the panel early.
+function _hasStoredAuth(){try{for(let i=0;i<localStorage.length;i++){if(/^sb-.*-auth-token$/.test(localStorage.key(i)||''))return true;}}catch(e){}return false;}
 (async()=>{
+  S.loggedIn=getSession();
+  // A known staff device with a stored auth session paints the last snapshot NOW, before the
+  // deferred supabase-js script and the auth round trip - the two waits that used to stand
+  // between opening the app and seeing the roster. The auth verdict below only ever takes the
+  // panel away: a lapsed session lands on the sign-in through the view selection further down.
+  try{
+    if(!S.dataLoaded&&localStorage.getItem('cq_staff')==='1'&&(!SECURE_AUTH||_hasStoredAuth())){
+      _cacheRestore();
+      if(S.dataLoaded){
+        const nav=_loadNav();let stab=(nav&&nav.stab)||sessionStorage.getItem('cq_nav_stab')||'queue';
+        if(!['queue','inventory','community','history','analytics','cashier','bikes'].includes(stab))stab='queue';
+        S.staffTab=stab;showView('staff');
+        try{renderStaffTabs();}catch(e){}try{_autoSelectSession();}catch(e){}try{_renderStaffTab();}catch(e){}
+      }
+    }
+  }catch(e){}
   await _sbReady; // wait for the deferred supabase-js before any data call
   // Restore the customer session + staff Auth BEFORE the first data load. loadData
   // picks its source from S._staffAuthed / S.loggedIn: an authed staff member reads the
   // full queue_entries (names, phones, emails), while others read the PII-free
   // queue_public view. Loading first meant the first render showed every booking detail
   // as "undefined" until a later reload. (staffAuthRestore is a no-op on non-staff devices.)
-  S.loggedIn=getSession();
   try{await staffAuthRestore();}catch(e){}
   // Stale-while-revalidate: paint the last-known data from the local snapshot IMMEDIATELY
   // so the app never blocks on the network to show content, then refresh in the
