@@ -63,7 +63,7 @@ test.describe('the staff panel', () => {
 
   test('counts them on the stats row, and the count filters to them', async ({ page }) => {
     await staffQueue(page);
-    const stat = page.locator('.stat-card', { hasText: /waitlist/i }).first();
+    const stat = page.locator('.stat-chip', { hasText: /waitlist/i }).first();
     await expect(stat).toContainText('2');
     await stat.click();
     expect(await page.evaluate('S.sfStatus')).toBe('waitlist');
@@ -84,6 +84,6 @@ test.describe('the staff panel', () => {
     await page.goto('/');
     await waitForSb(page);
     await page.evaluate(`setStaffTab('queue');S.sfSession='${sess.id}';renderStaffQueue()`);
-    await expect(page.locator('.stat-card', { hasText: /waitlist/i })).toHaveCount(0);
+    await expect(page.locator('.stat-chip', { hasText: /waitlist/i })).toHaveCount(0);
   });
 });

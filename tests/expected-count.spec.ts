@@ -22,11 +22,11 @@ test('Expected count ignores stale waiting riders from past sessions (all-sessio
   await waitForSb(page);
   await page.evaluate(`S.sfSession='all'; renderStaffQueue();`);
 
-  const expected = await page.evaluate(`[...document.querySelectorAll('#tab-queue .stat-card')].find(c=>/expected/i.test(c.textContent))?.querySelector('.stat-num')?.textContent`);
+  const expected = await page.evaluate(`[...document.querySelectorAll('#tab-queue .stat-chip')].find(c=>/expected/i.test(c.textContent))?.querySelector('b')?.textContent`);
   expect(expected).toBe('1'); // only today's waiting, not the 3 stale past ones
 
   // selecting the past session explicitly still shows its real count (3)
   await page.evaluate(`S.sfSession='sP'; renderStaffQueue();`);
-  const perSession = await page.evaluate(`[...document.querySelectorAll('#tab-queue .stat-card')].find(c=>/expected/i.test(c.textContent))?.querySelector('.stat-num')?.textContent`);
+  const perSession = await page.evaluate(`[...document.querySelectorAll('#tab-queue .stat-chip')].find(c=>/expected/i.test(c.textContent))?.querySelector('b')?.textContent`);
   expect(perSession).toBe('3');
 });

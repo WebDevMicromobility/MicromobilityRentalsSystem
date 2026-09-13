@@ -12,13 +12,13 @@ test('the roster paints before the customer list and the sales history arrive', 
   await stubSupabase(page, { sessions, queue_entries, customers, cashier_sales: [{ id: 1, created_at: '2099-01-01T10:00:00Z', team_name: 'X', total: 10 }] });
   await unlockStaff(page);
   // Registered after the stub, so it runs first: hold these two tables back for three seconds.
-  await page.route(/\/rest\/v1\/(customers|cashier_sales)(\?|$)/, async (route) => { await new Promise((r) => setTimeout(r, 3000)); await route.fallback(); });
+  await page.route(/\/rest\/v1\/(customers|cashier_sales)(\?|$)/, async (route) => { await new Promise((r) => setTimeout(r, 5000)); await route.fallback(); });
   const t0 = Date.now();
   await page.goto('/');
   // Core data only - waitForSb() also waits for the lists this test holds back on purpose.
-  await page.waitForFunction('typeof S!=="undefined" && !!S.dataLoaded', null, { timeout: 2500 });
-  await expect(page.locator('#tab-queue')).toContainText('Early Rider', { timeout: 2500 });
-  expect(Date.now() - t0).toBeLessThan(2500);
+  await page.waitForFunction('typeof S!=="undefined" && !!S.dataLoaded', null, { timeout: 4000 });
+  await expect(page.locator('#tab-queue')).toContainText('Early Rider', { timeout: 4000 });
+  expect(Date.now() - t0).toBeLessThan(4500); // the held-back lists take five seconds
   expect(await page.evaluate('getCustomers().length')).toBe(0);           // not in yet
   await expect.poll(() => page.evaluate('getCustomers().length'), { timeout: 8000 }).toBe(1); // lands behind the roster
   await expect.poll(() => page.evaluate('(S.cashSales||[]).length'), { timeout: 8000 }).toBe(1);

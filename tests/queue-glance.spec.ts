@@ -43,8 +43,8 @@ test('SAR due sums the unpaid and clicking it filters to them', async ({ page })
     e('b', { queue_num: 2, price: 60, paid: true }),         // settled
     e('c', { queue_num: 3, price: 40, status: 'cancelled' }),// gone — owes nothing
   ]);
-  await expect(page.locator('.stat-card', { hasText: 'SAR due' })).toContainText('75');
-  await page.locator('.stat-card', { hasText: 'SAR due' }).click();
+  await expect(page.locator('.stat-chip', { hasText: 'SAR due' })).toContainText('75');
+  await page.locator('.stat-chip', { hasText: 'SAR due' }).click();
   expect(await page.evaluate('S.sfPay')).toBe('pending');
 });
 

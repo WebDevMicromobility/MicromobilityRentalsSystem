@@ -214,11 +214,11 @@ test.describe('a parked booking carries the roster controls', () => {
   test('a waitlisted one gets check-in, payment and the rest — and no Promote', async ({ page }) => {
     const html = await openList(page, [park('m1', 'Rider 2', 'e-wl')]);
     expect(html).toContain(`showCheckinModal('e-wl')`);   // checks in THAT booking — stays large
-    expect(html).toContain(`confirmNoShow('e-wl')`);      // so does no-show
     expect(html).toContain(`showPayMenu('e-wl'`);         // payment, as on the queue page
     expect(html).toContain(`showEditPriceModal('e-wl')`);
-    // edit and cancel folded into the ⋯ menu
+    // no-show, edit and cancel folded into the ⋯ menu
     const menu = await page.evaluate(`((S._rowMenus||{})['e-wl']||[]).map(i=>i.run).join('|')`) as string;
+    expect(menu).toContain(`confirmNoShow('e-wl')`);
     expect(menu).toContain(`showBookingEditModal('e-wl')`);
     expect(menu).toContain(`staffCancelEntry('e-wl')`);
     expect(html).not.toContain('promoteWaitlist');        // Promote is gone from the app

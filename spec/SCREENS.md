@@ -349,7 +349,20 @@ to **three views** via `S.queueView`, chosen by `.filter-pill`s:
 ### 6.1 Bookings view
 
 **Session summary chips** — one `.sess-summary-chip` per open session with waiting / on-bike /
-done counts and a fill bar. Community chips carry the ride colour (customer side) or plain
+done counts and a fill bar.
+
+**Stat strip** (2026-09-13) — the six stat cards became one line of `.stat-chip`s (riders,
+expected, waitlist when any, on bike, completed, SAR due), the clickable ones still applying
+their filter. On phones the strip scrolls sideways; the four narrowing filters (status, pay,
+bike type, size) fold behind a **Filters (n)** button (`sfFiltersBtn`, `S.sfFiltersOpen`), the
+Scan button is icon-only, Walk-in floats bottom-right (`.walkin-fab`, hidden while any dialog
+is open via `body.has-modal`), and the density and reset tools are hidden. The desktop table
+lost its Position, Height and Colour columns: position shows under the booking number while
+waiting, height beside the rider's name, colour swatches beside the bike. Each row carries one
+green action (Check In, or Return Bike when out), a real checkbox for bulk selection, and the
+⋯ menu with everything else (No-Show, Change bike, Booking number…, Party details…, Edit,
+Customer, Cancel). The check-in modal leads with the Bike field; the bike-type row shows only
+until a bike is in, and the type follows the bike (a premium tier keeps its fare). Community chips carry the ride colour (customer side) or plain
 green/ink (staff layer).
 
 **Filter bar**:
@@ -361,7 +374,7 @@ green/ink (staff layer).
 | Payment | `filterPay`: all / paid / pending |
 | Bike | `bikeTypeLabel`: All / **Bike owner** / **Rental bike** / Road / Mountain / Hybrid |
 | Size | `filterSize`: all / XS / S / M / L |
-| Search | `#sf-search-input`, placeholder **`searchPlaceholder`** = "Booking number, name or phone…" |
+| Search | `#sf-search-input`, placeholder **`searchPlaceholder`** = "Number, name or phone" |
 | Scan | `scanBtn` → `openScanModal()` |
 | Density | `.density-btn` — compact / comfortable |
 | Result count | `#q-result-count` — "N `resultOf` M `resultRiders`", shown only when filtered |

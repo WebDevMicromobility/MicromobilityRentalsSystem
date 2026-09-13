@@ -25,7 +25,7 @@ const rider = (id: string, sid: string, name: string) => ({
 });
 const queue_entries = [rider('q1', SWIM, 'Swimmer'), rider('q2', SAT, 'Saturday Rider'), rider('q3', JCC, 'Circuit Rider')];
 
-const BIKE_COLS = ['Height', 'Bike Type', 'Colour', 'Color'];
+const BIKE_COLS = ['Bike Type', 'Bike']; // height now sits under the rider's name; colour beside the bike
 const MONEY_COLS = ['Price', 'Payment'];
 
 async function roster(page: import('@playwright/test').Page, session: string) {
@@ -48,19 +48,19 @@ test('a pool session carries neither the bike columns nor the money ones', async
 
 test('a Saturday ride keeps its bikes but loses the money columns', async ({ page }) => {
   const head = await roster(page, SAT);
-  expect(head).toMatch(/Height/i);
   expect(head).toMatch(/Bike Type/i);
+  expect(head).toMatch(/\bBike\b/i);
   for (const c of MONEY_COLS) expect(head, c).not.toMatch(new RegExp(c, 'i'));
 });
 
 test('a paid circuit session keeps everything', async ({ page }) => {
   const head = await roster(page, JCC);
-  for (const c of ['Height', 'Bike Type', 'Price', 'Payment']) expect(head, c).toMatch(new RegExp(c, 'i'));
+  for (const c of ['Bike Type', 'Price', 'Payment']) expect(head, c).toMatch(new RegExp(c, 'i'));
 });
 
 test('with sessions mixed, one bike ride keeps the columns for everybody', async ({ page }) => {
   const head = await roster(page, 'all');
-  for (const c of ['Height', 'Bike Type', 'Price', 'Payment']) expect(head, c).toMatch(new RegExp(c, 'i'));
+  for (const c of ['Bike Type', 'Price', 'Payment']) expect(head, c).toMatch(new RegExp(c, 'i'));
 });
 
 test('the rows lose the same cells as the header, so nothing shifts', async ({ page }) => {
@@ -127,10 +127,10 @@ test('history follows the same rule', async ({ page }) => {
 // that can only ever be zero where there is no bike.
 test('the bike-owner stat is not counted on a pool session', async ({ page }) => {
   await roster(page, SWIM);
-  const stats = await page.evaluate(`document.querySelector('#tab-queue .stats-row').innerText`) as string;
+  const stats = await page.evaluate(`document.querySelector('#tab-queue .stat-strip').innerText`) as string;
   expect(stats).not.toMatch(/Bike owner/i);
   expect(stats).toMatch(/Approved/i);             // the ones that do apply stay
   await roster(page, SAT);
-  const sat = await page.evaluate(`document.querySelector('#tab-queue .stats-row').innerText`) as string;
+  const sat = await page.evaluate(`document.querySelector('#tab-queue .stat-strip').innerText`) as string;
   expect(sat).toMatch(/Bike owner/i);             // a Saturday rider can still bring their own
 });

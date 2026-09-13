@@ -3611,3 +3611,44 @@
     html[dir="rtl"] .queue-table th:first-child,html[dir="rtl"] .queue-table td:first-child{
       box-shadow:-1px 0 0 var(--border);
     }
+
+/* ── Roster header, 2026-09-13: the figures as one line, the filters folded on phones ── */
+.stat-strip{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+.stat-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px solid var(--border);border-radius:999px;background:var(--s1);font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap;font-family:var(--font-body);line-height:1;}
+.stat-chip b{font-size:15px;font-weight:800;color:var(--text);letter-spacing:-.3px;}
+.stat-chip-clickable{cursor:pointer;transition:border-color .15s,transform .1s;}
+.stat-chip-clickable:hover{border-color:rgba(var(--warn-rgb),.5);}
+.stat-chip-clickable:active{transform:scale(.98);}
+.filter-toggle{display:none;}
+.filter-more{display:contents;}
+.walkin-fab{display:none;}
+.queue-table th{padding:10px 12px;}
+.queue-table td{padding:10px 12px;}
+@media (max-width:767px){
+  .stat-strip{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;}
+  .stat-strip::-webkit-scrollbar{display:none;}
+  .filter-toggle{display:inline-flex;align-items:center;white-space:nowrap;}
+  .filter-more{display:none;}
+  .filter-more.open{display:contents;}
+  .walkin-fab{display:inline-flex;align-items:center;gap:6px;position:fixed;right:16px;bottom:18px;z-index:320;padding:14px 18px;border:none;border-radius:999px;background:var(--green);color:#fff;font-family:var(--font-body);font-size:14px;font-weight:900;box-shadow:0 8px 24px rgba(0,0,0,.35);cursor:pointer;}
+  html[dir="rtl"] .walkin-fab{right:auto;left:16px;}
+  .page-title{font-size:20px;}
+}
+.section-header>div:last-child{flex-wrap:wrap;justify-content:flex-end;}
+@media (max-width:767px){
+  .scan-btn-text{display:none;}
+}
+.row-select{display:inline-flex;align-items:center;padding:0 2px;cursor:pointer;}
+.row-select input{width:18px;height:18px;margin:0;accent-color:var(--green);cursor:pointer;}
+@media (max-width:767px){
+  .filter-row{flex-wrap:wrap;overflow:visible;}
+  .filter-row select.filter-select{flex:1 1 55%;min-width:0 !important;}
+  .filter-row .search-wrap{flex:1 1 60%;min-width:0;margin-left:0 !important;}
+}
+body.has-modal .walkin-fab{display:none !important;}
+/* the roster's action buttons keep their natural width; stretching them made the last column 258px */
+.queue-table .actions-cell{flex-wrap:nowrap;}
+.queue-table .actions-cell .btn-sm{flex:0 0 auto;min-width:0;white-space:nowrap;}
+/* the pane is a grid item; auto margins made it size to its widest child (the no-wrap filter
+   row) and overflow the viewport by ~190px, which is what cut the last column off */
+body.view-staff #view-staff .view-main{margin:0;width:auto;justify-self:stretch;}
