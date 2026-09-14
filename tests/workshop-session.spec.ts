@@ -50,7 +50,7 @@ test('the landing page features it as a third card, with the partner named in a 
   const ws = page.locator('#land-events .landing-event-card.ev-workshop');
   await expect(ws).toContainText('T100 Triathlon Prep');
   await expect(ws.locator('.lec-partner')).toHaveText('In partnership with Saudi Triathlon Federation');
-  await expect(ws.locator('img.lec-partner-logo')).toHaveAttribute('src', 't100.jpg');
+  await expect(ws.locator('img.lec-partner-logo')).toHaveAttribute('src', 't100.png');
   // the partner line is quieter than the name
   const sizes = await ws.evaluate((el) => {
     const t = el.querySelector('.lec-title') as HTMLElement, p = el.querySelector('.lec-partner') as HTMLElement;
