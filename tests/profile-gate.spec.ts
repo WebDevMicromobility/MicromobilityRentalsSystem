@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { stubSupabase, loginCustomer, waitForSb } from './helpers/supabase';
 
-// After a rider's eighth booking that happened (rode or no-show), picking an event brings
-// one page before the session list: birth date and nationality, both required. Cancelled
-// and upcoming bookings don't count; a complete profile never sees it; it never says why.
+// After a rider's eighth booking, picking an event brings one page before the session list:
+// birth date and nationality, both required. Every booking counts except a cancelled one -
+// upcoming and waitlisted included; a complete profile never sees it; it never says why.
 
 const S1 = '2099-01-01';
 const sessions = [{ id: S1, session_date: S1, day: 'Sunday', status: 'open', capacity: 20, created_at: 1, event_kind: 'jcc' }];
@@ -13,7 +13,7 @@ const row = (i: number, status: string) => ({
   name: 'Spec Rider', phone: '0500000001', type_preference: 'Road', size: 'M', status, paid: status !== 'noshow',
   price: 75, registered_at: past(i) + 'T10:00:00Z',
 });
-const eight = [0, 1, 2, 3, 4, 5].map(i => row(i, 'done')).concat([row(6, 'noshow'), row(7, 'noshow')]);
+const eight = [0, 1, 2, 3].map(i => row(i, 'done')).concat([row(4, 'noshow'), row(5, 'active'), row(6, 'waiting'), row(7, 'waitlist')]); // upcoming and waitlisted count too
 
 async function boot(page: import('@playwright/test').Page, bookings: Record<string, unknown>[], profile: Record<string, unknown>, extra: Record<string, unknown> = {}) {
   await stubSupabase(page, {

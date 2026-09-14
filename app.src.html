@@ -4089,12 +4089,12 @@ async function selectEvent(ev){
   S.selEvent=ev;S.selSession=null;goCustomer('register');
 }
 // ── Rider profile gate ────────────────────────────────────────────────────────
-// After a rider's eighth booking that happened (rode, on the bike, or no-show), the next
-// time they pick an event they meet one page before the session list: birth date and
-// nationality, both required, no way past it. Cancelled, upcoming and waitlisted bookings
-// are not counted. Never shown once the account carries both; the page never says why.
+// After a rider's eighth booking, the next time they pick an event they meet one page before
+// the session list: birth date and nationality, both required, no way past it. Every booking
+// on the account counts - ridden, on the bike, no-show, upcoming or waitlisted - except one
+// that was cancelled. Never shown once the account carries both; the page never says why.
 const PROFILE_GATE_AFTER=8;
-function _pgCount(cust){return getQueue().filter(e=>e.customerId===cust.id&&['done','active','noshow'].includes(e.status)).length;}
+function _pgCount(cust){return getQueue().filter(e=>e.customerId===cust.id&&!['cancelled','removed'].includes(e.status)).length;}
 function _pgMissing(c){return !c.birth_date||!c.nationality;}
 function _pgMaxBirth(){const d=new Date();d.setFullYear(d.getFullYear()-5);return d.toISOString().slice(0,10);} // younger than five is a typo
 // Resolves true when the gate took the screen (the caller stops there); false to carry on.
