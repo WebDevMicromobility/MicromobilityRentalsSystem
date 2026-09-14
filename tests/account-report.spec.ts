@@ -206,3 +206,38 @@ test('active in the last 14 days: column, filter, breakdown and count', async ({
   expect(sheet).toContain('Active last 14 days');
   expect(sheet).toContain('Active (14 days)');
 });
+
+// The same yes/no, over 30 days: a rider whose last booking was 20 days ago is out of the
+// 14-day window but inside the 30-day one.
+test('active in the last 30 days: column, filter, breakdown and count', async ({ page }) => {
+  const iso = (d: number) => new Date(now - d * day).toISOString().slice(0, 10);
+  const sess = (d: string) => ({ id: d, day: 'Tuesday', session_date: d, capacity: 12, status: 'closed', created_at: 1, bike_slots: '{"_time":"21:00 - 23:00","_total":12}' });
+  const sessions30 = [sess(iso(3)), sess(iso(20)), sess(iso(40))];
+  const q = [
+    row('a1', 'c1', iso(3), 'done', { registered_at: iso(10) + 'T10:00:00Z' }),    // rode three days ago
+    row('a2', 'c2', iso(20), 'done', { registered_at: iso(25) + 'T10:00:00Z' }),   // rode 20 days ago: 30-day yes, 14-day no
+    row('a3', 'c3', iso(40), 'done', { registered_at: iso(45) + 'T10:00:00Z' }),   // last ride 40 days ago
+    row('a4', 'c4', iso(5), 'cancelled', { registered_at: iso(6) + 'T10:00:00Z' }), // cancelled: not active
+  ];
+  await stubSupabase(page, { customers, tags, customer_tags, sessions: sessions30, queue_entries: q });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction('getCustomers().length>0 && getQueue().length>0');
+  await page.evaluate('localStorage.removeItem("cq_acc_rep_opts"); S._accOpts=null;');
+
+  const cells = await page.evaluate(`_accRows().map(r=>[r.c.id,r.cells.active30+'/'+r.cells.active14])`) as [string, string][];
+  expect(Object.fromEntries(cells)).toEqual({ c1: 'Yes/Yes', c2: 'Yes/No', c3: 'No/No', c4: 'No/No' });
+
+  expect(await page.evaluate(`_accBreakdown('active30',_accRows(),_accOpts())`)).toEqual([{ label: 'Yes', value: 2 }, { label: 'No', value: 2 }]);
+
+  await page.evaluate(`_accSet('fActive','30')`);
+  expect(await page.evaluate(`_accRows().map(r=>r.c.id).sort()`)).toEqual(['c1', 'c2']);
+  await page.evaluate(`_accSet('fActive','30no')`);
+  expect(await page.evaluate(`_accRows().map(r=>r.c.id).sort()`)).toEqual(['c3', 'c4']);
+  await page.evaluate(`_accSet('fActive','all')`);
+
+  const sheet = await page.evaluate(`_accReportHtml()`) as string;
+  expect(sheet).toContain('Active last 30 days');
+  expect(sheet).toContain('Active (30 days)');
+});
