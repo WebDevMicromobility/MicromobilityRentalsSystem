@@ -421,3 +421,19 @@ test.describe('round 5: staff phone formats & remember-me default', () => {
     expect(await page.evaluate(`(localStorage.getItem('cq_session')||'').includes('tok9')`)).toBe(true); // localStorage, not session-only
   });
 });
+
+// Signed out, the sign-in page is the first page: header on top, the box on a plain ground
+// below it, nothing of the landing or the footer showing through.
+test('the auth page is a clean page under the header', async ({ page }) => {
+  await stubSupabase(page, {});
+  await page.goto('/');
+  await waitForSb(page);
+  await expect(page.locator('#auth-modal.as-page .auth-backdrop')).toBeVisible();
+  const bg = await page.locator('#auth-modal .auth-backdrop').evaluate(el => getComputedStyle(el).backgroundColor);
+  expect(bg).not.toMatch(/rgba\(\d+, \d+, \d+, 0\)|transparent/);
+  await expect(page.locator('#app-footer')).toBeHidden();
+  const topbar = await page.locator('#topbar').boundingBox();
+  const box = await page.locator('#auth-modal .auth-box').boundingBox();
+  expect(box!.y).toBeGreaterThanOrEqual(topbar!.y + topbar!.height - 1);
+  await expect(page.locator('#topbar')).toBeVisible();
+});

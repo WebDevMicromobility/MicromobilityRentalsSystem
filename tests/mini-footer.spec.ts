@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubSupabase, waitForSb } from './helpers/supabase';
+import { stubSupabase, loginCustomer, waitForSb } from './helpers/supabase';
 
 // The hours string carries invisible word-joiners (U+2060) and non-breaking spaces so the
 // time ranges never wrap mid-range; normalize them away before matching the readable text.
@@ -10,8 +10,11 @@ const plain = (s: string) => s.replace(/[\u2060\u00a0]/g, (m) => (m === '\u00a0'
 // where and when it is, three policy links, four socials, the legal line with the VAT number.
 // Dark on the light site by design. No newsletter, no shop columns, no payment logos.
 
+// Signed in: for a signed-out visitor the sign-in page is the first page and the footer
+// waits behind it.
 test.beforeEach(async ({ page }) => {
   await stubSupabase(page, { sessions: [], queue_entries: [], bikes: [] });
+  await loginCustomer(page);
   await page.goto('/');
   await waitForSb(page);
 });

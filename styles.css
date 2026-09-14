@@ -431,7 +431,11 @@
     #landing-body.auth-gate #land-events,#landing-body.auth-gate #land-avail-strip,
     #landing-body.auth-gate .landing-footer{display:none;}
     /* Below the topbar (z-100) so language switching and the logo stay usable on the auth page. */
-    #auth-modal.as-page .auth-backdrop{background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;z-index:90;}
+    /* As a page the box sits on the plain page ground, below the header, with nothing of the
+       landing or the footer showing through. --topbar-h is measured when the page opens. */
+    #auth-modal.as-page .auth-backdrop{background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none;z-index:90;top:var(--topbar-h,56px);}
+    #auth-modal.as-page .auth-box{max-height:calc(100dvh - var(--topbar-h,56px) - 40px);}
+    body.auth-page #app-footer{display:none;}
     #auth-modal.as-page .auth-cancel-btn{display:none;}
     #auth-modal.as-page .auth-cancel-btn.auth-keep{display:block;}
     .auth-box{background:var(--s1);border:1px solid var(--border);border-radius:7px;padding:36px 32px;width:100%;max-width:420px;max-height:92dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;box-shadow:0 1px 3px rgba(16,19,18,.06);margin:auto;}

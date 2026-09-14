@@ -4114,7 +4114,9 @@ function renderLandingAvail(){
     // re-rendering an open modal would wipe what the visitor is typing.
     if(am&&am.style.display!=='flex'){renderAuthModal();am.style.display='flex';}
     if(am)am.classList.add('as-page');
-  }else if(am){am.classList.remove('as-page');}
+    document.body.classList.add('auth-page');
+    const tb=document.getElementById('topbar');if(tb)document.documentElement.style.setProperty('--topbar-h',tb.offsetHeight+'px');
+  }else{if(am)am.classList.remove('as-page');document.body.classList.remove('auth-page');}
   const cta=document.getElementById('land-auth-cta');
   if(cta)cta.innerHTML='';
   // Signed-in landing = ONLY the event picker (hero, stripes, ghost and the availability
@@ -4329,7 +4331,7 @@ function goStaff(){
   showView('staff');
   // The signed-out landing keeps the auth page open; entering staff must clear it or the
   // overlay would sit on top of the panel (view is 'staff' now, so the close guard passes).
-  try{const m=document.getElementById('auth-modal');if(m){m.style.display='none';m.classList.remove('as-page');}}catch(e){}
+  try{const m=document.getElementById('auth-modal');if(m){m.style.display='none';m.classList.remove('as-page');}document.body.classList.remove('auth-page');}catch(e){}
   renderStaffTabs();
   _bikeResume(); // a tag tapped before sign-in completes now that the panel is open
   
