@@ -12,8 +12,8 @@ in [SCREENS.md](SCREENS.md).
 
 ### A1. First visit → account
 
-1. Browser requests `/`. The `<head>` script reads `localStorage.cq_theme` **before first
-   paint** and sets `data-theme="dark"` unless it is `light`.
+1. Browser requests `/`. The `<head>` script sets `data-theme="dark"` (the one token set the
+   site renders with) and clears any stored theme preference from earlier builds.
 2. It also reads `?lang=` or `localStorage.cq_lang`; for `ar` it sets `dir="rtl"` immediately and
    **starts fetching `lang/ar.json`** before the app script parses.
 3. `#loading-screen` shows `brand.png` + "Loading…" in the chosen language.

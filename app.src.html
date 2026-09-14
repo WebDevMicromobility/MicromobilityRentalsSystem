@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#08090b">
+  <meta name="theme-color" content="#ffffff">
   <title>MicroMobility Rentals — Bicycle Rentals at the Jeddah Corniche</title>
   <meta name="description" content="Reserve your ride with MicroMobility - bicycle rentals and community rides in Jeddah. Pick a location, choose a session, and skip the queue.">
   <meta property="og:type" content="website">
@@ -100,7 +100,7 @@
   <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1290x2796.png">
   <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="./splash/iphone-1320x2868.png">
   <link rel="stylesheet" href="./styles.css?v=142">
-<script>try{var _th=localStorage.getItem('cq_theme');if(_th==='hc'){_th=null;localStorage.removeItem('cq_theme');}if(_th!=='light')document.documentElement.setAttribute('data-theme','dark');if(localStorage.getItem('cq_staff_theme')==='dark')document.documentElement.setAttribute('data-staff-theme','dark');if(localStorage.getItem('cq_rail')==='hover')document.addEventListener('DOMContentLoaded',function(){document.body.classList.add('rail-hover');});}catch(e){}</script>
+<script>try{document.documentElement.setAttribute('data-theme','dark');localStorage.removeItem('cq_theme');localStorage.removeItem('cq_staff_theme');if(localStorage.getItem('cq_rail')==='hover')document.addEventListener('DOMContentLoaded',function(){document.body.classList.add('rail-hover');});}catch(e){}</script>
 </head>
 <body>
 <div id="loading-screen">
@@ -163,7 +163,6 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
   </button>
   <div style="display:flex;align-items:center;gap:10px">
     <button class="lang-toggle" id="lang-btn" onclick="toggleLang()" title="Switch language" aria-label="Switch language">🇸🇦 عربي</button>
-    <button type="button" class="topbar-btn" id="theme-toggle-btn" onclick="toggleTheme()" aria-label="Sunlight mode" title="Sunlight mode" style="padding:7px 10px;line-height:0"></button>
     <div class="topbar-right" id="topbar-right"></div>
   </div>
 </header>
@@ -5416,46 +5415,13 @@ async function resolveDeskWaitlist(id,status){
   renderStaffQueue(); // routes to whichever view is live (Waitlist page OR Staff List)
 }
 
-// Staff runs its own opt-in dark theme under cq_staff_theme, kept apart from the
-// customer cq_theme: the customer side is light-only, and staff must default to the
-// light ERP paper. Light needs no stored value; only the dark opt-in is persisted.
-function _staffDark(){return document.documentElement.getAttribute('data-staff-theme')==='dark';}
-function toggleStaffTheme(){
-  if(_staffDark()){
-    document.documentElement.removeAttribute('data-staff-theme');
-    try{localStorage.removeItem('cq_staff_theme');}catch(e){}
-  }else{
-    document.documentElement.setAttribute('data-staff-theme','dark');
-    try{localStorage.setItem('cq_staff_theme','dark');}catch(e){}
-  }
-  applyThemeIcon();
-}
-function toggleTheme(){
-  if(S.view==='staff'){toggleStaffTheme();return;} // one topbar button, per-view meaning
-  // Dark is the default: it needs no stored preference. Light is the explicit opt-in, so
-  // only light is persisted — clearing the key must fall back to dark, not light.
-  const cur=document.documentElement.getAttribute('data-theme')||'light';
-  const next=cur==='light'?'dark':'light';
-  if(next==='dark'){document.documentElement.setAttribute('data-theme','dark');try{localStorage.removeItem('cq_theme');}catch(e){}}
-  else{document.documentElement.removeAttribute('data-theme');try{localStorage.setItem('cq_theme','light');}catch(e){}}
-  applyThemeIcon();
-}
+// The site has one look. Its tokens live under the html[data-theme="dark"] block (the name
+// is history: the "light"/"sunlight" alternate with the asphalt topbar is gone), which the
+// head script sets unconditionally. What is left of the switch is the topbar logo art.
 function applyThemeIcon(){
-  const cur=document.documentElement.getAttribute('data-theme')||'light';
-  // Whole app rides the white paper header now (staff included): mark-only dark art
-  // everywhere, in every view and theme state.
   const lg=document.getElementById('topbar-logo-img');
   const _want='logo-mark-dark.png';
   if(lg&&!lg.src.endsWith('/'+_want))lg.src=_want;
-  const b=document.getElementById('theme-toggle-btn');if(!b)return;
-  if(S.view==='staff'){ // the icon shows the theme the tap switches TO
-    const _lbl=_staffDark()?t('themeLight'):t('themeDark');
-    b.innerHTML=_staffDark()?ICON_SUN:ICON_MOON;b.title=_lbl;b.setAttribute('aria-label',_lbl);
-    return;
-  }
-  const next=cur==='light'?'dark':'light';
-  const lbl=next==='light'?t('themeLight'):t('themeDark');
-  b.innerHTML=next==='dark'?ICON_MOON:ICON_SUN;b.title=lbl;b.setAttribute('aria-label',lbl);
 }
 function renderTopbarRight(){
   // Bike shortcut straight to My Rides, shown beside the signed-in customer's avatar.
@@ -7402,7 +7368,7 @@ function renderAccount(){
       <div class="form-row form-row-3">
         <div class="form-group"><label>${t('firstName')}</label>
           <input type="text" id="acc-first" autocapitalize="words" autocomplete="given-name" value="${esc(_n.first)}" placeholder="${t('phFirstName')}"></div>
-        <div class="form-group"><label>${t('middleName')} &nbsp;<span class="label-hint">(${t('optionalLabel')})</span></label>
+        <div class="form-group"><label>${t('middleName')}</label>
           <input type="text" id="acc-middle" autocapitalize="words" autocomplete="additional-name" value="${esc(_n.middle)}" placeholder="${t('phMiddleName')}"></div>
         <div class="form-group"><label>${t('lastName')}</label>
           <input type="text" id="acc-last" autocapitalize="words" autocomplete="family-name" value="${esc(_n.last)}" placeholder="${t('phLastName')}"></div>
@@ -7421,20 +7387,20 @@ function renderAccount(){
           <div class="height-row">
             <input type="number" id="acc-height" value="${esc(String(accH))}" placeholder="${t('heightPlaceholder')}" min="100" max="250">
           </div></div>
-        <div class="form-group"><label>${t('birthDateLabel')} &nbsp;<span class="label-hint">(${t('optionalLabel')})</span></label>
+        <div class="form-group"><label>${t('birthDateLabel')}</label>
           <input type="date" id="acc-birth" value="${esc(accBirth)}" max="2025-12-31"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>${t('countryLabel')} &nbsp;<span class="label-hint">(${t('optionalLabel')})</span></label>
+        <div class="form-group"><label>${t('countryLabel')}</label>
           <select id="acc-country" onchange="onAccCountryChange(this.value)">${countryOpts}</select></div>
-        <div class="form-group"><label>${t('cityLabel')} &nbsp;<span class="label-hint">(${t('optionalLabel')})</span></label>
+        <div class="form-group"><label>${t('cityLabel')}</label>
           <select id="acc-city" ${accCountry?'':'disabled'}>${cityOpts}</select></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>${t('nationalityLabel')} &nbsp;<span class="label-hint">(${t('optionalLabel')})</span></label>
+        <div class="form-group"><label>${t('nationalityLabel')}</label>
           <select id="acc-nationality">${natOpts}</select></div>
       </div>
-      <div class="form-group"><label>${t('socialsLabel')} &nbsp;<span class="label-hint">(${t('optionalLabel')} · ${t('socialsHint')})</span></label>${_socFieldsHtml('acc',cust.socials)}</div>
+      <div class="form-group"><label>${t('socialsLabel')}</label>${_socFieldsHtml('acc',cust.socials)}</div>
       <div class="form-group" style="margin-top:4px">
         <label>${t('bikeTypePref')}</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
@@ -7481,14 +7447,10 @@ function renderAccount(){
       </div>`;
     })()}
     ${(()=>{
-      // v2: settings as hairline rows below the profile card (Language / Appearance / Sign out)
-      const curTheme=document.documentElement.getAttribute('data-theme')||'light';
+      // v2: settings as hairline rows below the profile card (Language / Sign out)
       return`<div class="acc-settings" style="max-width:640px;margin:16px auto 0">
         <button type="button" class="acc-set-row" onclick="showLangMenu(event)">
           <span>${S.lang==='ar'?'اللغة':'Language'}</span><span class="acc-set-val">${(LANGS.find(x=>x.code===S.lang)||LANGS[0]).flag} ${(LANGS.find(x=>x.code===S.lang)||LANGS[0]).label}</span>
-        </button>
-        <button type="button" class="acc-set-row" onclick="toggleTheme();renderAccount()">
-          <span>${S.lang==='ar'?'المظهر':'Appearance'}</span><span class="acc-set-val">${curTheme==='dark'?t('themeDark'):t('themeLight')}</span>
         </button>
         <button type="button" class="acc-set-row" onclick="doLogout()">
           <span style="color:var(--red)">${t('logOut')}</span><span class="acc-set-val"></span>
@@ -8079,8 +8041,6 @@ const ICON_PENCIL=_artIcon('pencil',12);
 const ICON_PRINT=_artIcon('print');
 const ICON_EXPORT=_artIcon('download');
 const ICON_RESCHEDULE=_artIcon('cycle');
-const ICON_SUN=_artIcon('sun',15);
-const ICON_MOON=_artIcon('moon',15);
 function noShowFlag(e){
   const n=customerNoShows(e);
   return n>=3?`<span title="${t('noShowFlagTip').replace('{0}',n)}" style="margin-left:5px;font-size:10px;color:var(--orange);font-weight:800;white-space:nowrap;border:1px solid var(--orange);border-radius:2px;padding:1px 5px">${n}</span>`:'';

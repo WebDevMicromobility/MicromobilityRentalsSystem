@@ -441,9 +441,11 @@ The staff rail drops letter-spacing and uses 13px.
 
 ## 8. Theming mechanics
 
-- `<head>` inline script reads `localStorage.cq_theme` **before first paint** and sets
-  `data-theme="dark"` unless it is `light` (a legacy `hc` value is migrated away). This is what
-  prevents a white flash.
+- The site has **one look**. The `<head>` inline script sets `data-theme="dark"` unconditionally
+  — the token block the look is built on; the name is history — and clears any stored
+  `cq_theme` / `cq_staff_theme` from earlier builds. The `:root:not([data-theme="dark"])` rules
+  (the retired "sunlight" alternate with the asphalt topbar) and the staff `data-staff-theme`
+  night mode never apply.
 - `data-staff-theme="dark"` is a **separate, per-device** toggle for the staff panel only.
 - `cq_rail` = `hover` adds `.rail-hover` on DOMContentLoaded.
 - `theme-color` meta is `#08090b`.

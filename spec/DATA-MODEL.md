@@ -504,7 +504,7 @@ Note `desk_waitlist` **is** in the publication (the older handoff document preda
 | `cq_staff` | `'1'` = this device is unlocked for staff | — |
 | `cq_role` | `admin` \| `frontdesk` | mirrors `staff.role` |
 | `cq_secure_auth` | `'1'`/`'0'` override for SECURE_AUTH | — |
-| `cq_lang`, `cq_theme`, `cq_staff_theme`, `cq_density`, `cq_rail`, `cq_inv_view` | UI preferences | — |
+| `cq_lang`, `cq_density`, `cq_rail`, `cq_inv_view` | UI preferences (`cq_theme` / `cq_staff_theme` are cleared at boot: the site is light only) | — |
 | `cq_inv_cats_eq`, `cq_inv_cats_supp`, `cq_inv_brands_eq`, `cq_inv_brands_supp`, `cq_inv_flavs_by_brand`, `cq_protein_subtypes` | **staff-created inventory categories, brands and flavours** | **none — these exist only on the device that created them** |
 | `cq_bk_locations`, `cq_bk_brands`, `cq_bk_models`, `cq_bk_groupsets` | same, for bikes | **none** |
 | `cq_team` | team roster cache | `team_members` |
