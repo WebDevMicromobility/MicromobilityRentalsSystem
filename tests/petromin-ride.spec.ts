@@ -194,13 +194,13 @@ test.describe('it behaves like a circuit session, not like the Saturday ride', (
     expect(await page.evaluate('S.regQty')).toBe(2);
   });
 
-  test('the JCC stepper still goes to ten', async ({ page }) => {
+  test('the JCC stepper is not pinned to one: it goes up to the account\'s three', async ({ page }) => {
     await bootMember(page);
     await page.evaluate(`S.selEvent='jcc';setCustTab('register')`);
     await page.locator('.sess-card.ev-jcc').click();
     await page.waitForFunction(`S.selSession==='s1'`);
     for (let i = 0; i < 12; i++) await page.evaluate('changeRegQty(1)');
-    expect(await page.evaluate('S.regQty')).toBe(10);
+    expect(await page.evaluate('S.regQty')).toBe(3);   // three riders per account per session (jcc-rider-cap.spec)
   });
 
   test('a full seat count sends the next rider to the waitlist', async ({ page }) => {

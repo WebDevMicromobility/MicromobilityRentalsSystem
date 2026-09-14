@@ -638,7 +638,7 @@ en:{
   errEmailOrPhone:'Please enter at least an email or phone number.',
   errEmailRequired:'Please enter your email address.',errPhoneRequired:'Please enter your phone number.',
   errPasswordRequired:'Please enter your password.',
-  errValidEmail:'Please enter a valid email address.',errGroupCap:'Up to {0} riders per booking on this ride.',groupCapHint:'up to {0} riders',errValidPhone:'Please enter a valid phone number (at least 8 digits).',errFieldRequired:'This field is required.',
+  errValidEmail:'Please enter a valid email address.',errGroupCap:'Up to {0} riders per booking on this ride.',groupCapHint:'up to {0} riders',jccCapNote:'The limit per one account is {0} riders.',errValidPhone:'Please enter a valid phone number (at least 8 digits).',errFieldRequired:'This field is required.',
   errPasswordLen:'Password must be at least 8 characters and include an uppercase letter and a number.',
   
   ticketAddCal:'Add to Calendar',ticketDirections:'Get Directions',opensNewTab:' (opens in a new tab)',ticketLocation:'Location',ticketScanGate:'Scan on arrival',
@@ -1043,7 +1043,7 @@ ar:{
   errEmailOrPhone:'الرجاء إدخال بريد إلكتروني أو رقم هاتف على الأقل.',
   errEmailRequired:'الرجاء إدخال بريدك الإلكتروني.',errPhoneRequired:'الرجاء إدخال رقم هاتفك.',
   errPasswordRequired:'الرجاء إدخال كلمة المرور.',
-  errValidEmail:'الرجاء إدخال بريد إلكتروني صحيح.',errGroupCap:'حتى {0} راكبين لكل حجز في هذه الجولة.',groupCapHint:'حتى {0} راكبين',errValidPhone:'الرجاء إدخال رقم هاتف صحيح (٨ أرقام على الأقل).',errFieldRequired:'هذا الحقل مطلوب.',
+  errValidEmail:'الرجاء إدخال بريد إلكتروني صحيح.',errGroupCap:'حتى {0} راكبين لكل حجز في هذه الجولة.',groupCapHint:'حتى {0} راكبين',jccCapNote:'الحد الأقصى لكل حساب هو {0} راكبين.',errValidPhone:'الرجاء إدخال رقم هاتف صحيح (٨ أرقام على الأقل).',errFieldRequired:'هذا الحقل مطلوب.',
   errPasswordLen:'يجب أن تكون كلمة المرور 8 أحرف على الأقل وتحتوي على حرف كبير ورقم.',
   
   ticketAddCal:'أضف إلى التقويم',ticketDirections:'الاتجاهات',opensNewTab:' (يفتح في تبويب جديد)',ticketLocation:'الموقع',ticketScanGate:'امسح عند الوصول',
@@ -3970,7 +3970,18 @@ function _isGroupRide(s){return _isCommunity(s)&&_rideKind(s)==='petromin';}
 // booking a second time cannot get round it — the two are the same rule.
 // Two = the member and one guest. Staff are exempt, so the desk can still seat a larger party.
 const GROUP_RIDE_MAX=2;
-function _maxRiders(s){return _isGroupRide(s)?GROUP_RIDE_MAX:10;}
+// JCC: three riders per account per SESSION, not per booking - a second booking for the
+// same night draws on the same three. Rows already on the account for that session count
+// (waiting, on the bike, waitlisted); while an existing booking is being modified its
+// waiting rows are the quantity on screen, so only riders already on a bike still count.
+const JCC_ACCOUNT_CAP=3;
+function _jccBooked(s){
+  const cust=S.loggedIn||getSession();if(!cust||!s)return 0;
+  const mine=getQueue().filter(e=>e.customerId===cust.id&&e.sessionId===s.id&&['waiting','active','waitlist'].includes(e.status));
+  const modifying=!!S.modifyEntryId&&mine.some(e=>e.id===S.modifyEntryId);
+  return modifying?mine.filter(e=>e.status==='active').length:mine.length;
+}
+function _maxRiders(s){if(!s)return 10;return _isGroupRide(s)?GROUP_RIDE_MAX:_isCommunity(s)?1:Math.max(1,JCC_ACCOUNT_CAP-_jccBooked(s));}
 // The Saturday ride's SHAPE — staff pick the riders, the queue stays hidden until it is
 // published, the spot cap is an allocation rather than a capacity — is what needs_approval
 // says. The Petromin ride sets it false, and every one of those behaviours falls away: real
@@ -4122,6 +4133,7 @@ async function selectSessCard(id){
   const s=allSessions().find(x=>x.id===id);
   if(_isCommunity(s)&&!_openToAll(s)&&!(await commAccess())){showCommMembersModal(s);return;}
   if(S.selSession!==id)S.regAddons=[]; // add-ons are per-session offerings: a switch must drop picks the new session may not sell
+  S._qtyCapNote=false;
   S.selSession=id;renderRegister();
 }
 async function selectEvent(ev){
@@ -5826,13 +5838,18 @@ function renderRegister(){
   // Carbon road bikes are not offered on the social ride: a selection carried over from a
   // JCC pick (or a profile preference) silently becomes 'Any' here.
   if(_commSel)S.regBikeTypes=S.regBikeTypes.map(ty=>ty==='Road Carbon'?'Any':ty);
+  // A quantity carried over from another night may be past this night's allowance.
+  if(!_commSel&&_selSessObj&&S.regQty>_maxRiders(_selSessObj)){S.regQty=_maxRiders(_selSessObj);ensureBikeSizes();}
   const qtyStepper=(_commSel&&!_grpSel)?'':`
     <div class="reg-row">
       <span class="reg-row-label">${t('numBikes')}${_grpSel?` <span class="label-hint">${t('groupCapHint').replace('{0}',String(GROUP_RIDE_MAX))}</span>`:''}</span>
-      <div class="qty-stepper">
-        <button class="qty-btn" onclick="changeRegQty(-1)" type="button" aria-label="${t('qtyDecLabel')}">-</button>
-        <span class="qty-val">${S.regQty}</span>
-        <button class="qty-btn" onclick="changeRegQty(1)" type="button" aria-label="${t('qtyIncLabel')}">+</button>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <div class="qty-stepper">
+          <button class="qty-btn" onclick="changeRegQty(-1)" type="button" aria-label="${t('qtyDecLabel')}">-</button>
+          <span class="qty-val">${S.regQty}</span>
+          <button class="qty-btn" onclick="changeRegQty(1)" type="button" aria-label="${t('qtyIncLabel')}">+</button>
+        </div>
+        ${S._qtyCapNote&&!_grpSel?`<div class="qty-cap-note" role="status">${t('jccCapNote').replace('{0}',String(JCC_ACCOUNT_CAP))}</div>`:''}
       </div>
     </div>`;
 
@@ -6364,7 +6381,9 @@ function changeRegQty(delta){
   {const _s=allSessions().find(x=>x.id===S.selSession);
    if(_isCommunity(_s)&&!_isGroupRide(_s)){S.regQty=1;renderRegister();return;}}
   {const _s2=allSessions().find(x=>x.id===S.selSession);
-   S.regQty=Math.max(1,Math.min(_maxRiders(_s2),S.regQty+delta));}
+   const _max=_maxRiders(_s2);
+   S._qtyCapNote=delta>0&&S.regQty+delta>_max&&!_isGroupRide(_s2); // the sentence by the stepper: only when + is refused
+   S.regQty=Math.max(1,Math.min(_max,S.regQty+delta));}
   ensureBikeSizes();
   renderRegister();
 }
@@ -6407,8 +6426,8 @@ async function submitReg(){
   // multi-rider (each an approval:'pending', price:0) community booking.
   if(_isCommunity(_selSess0)&&!_isGroupRide(_selSess0)){qty=1;S.regQty=1;}
   // The party cap, restated at submit: the stepper stops at it, but no state path may post past it.
-  if(qty>_maxRiders(_selSess0)){S.regQty=_maxRiders(_selSess0);ensureBikeSizes();
-    toast(t('errGroupCap').replace('{0}',String(GROUP_RIDE_MAX)),'warning');renderRegister();return;}
+  if(qty>_maxRiders(_selSess0)){S.regQty=_maxRiders(_selSess0);ensureBikeSizes();S._qtyCapNote=!_isGroupRide(_selSess0);
+    toast(_isGroupRide(_selSess0)?t('errGroupCap').replace('{0}',String(GROUP_RIDE_MAX)):t('jccCapNote').replace('{0}',String(JCC_ACCOUNT_CAP)),'warning');renderRegister();return;}
   if(_isCommunity(_selSess0))S.regBikeTypes=S.regBikeTypes.map(ty=>ty==='Road Carbon'?'Road':ty); // carbon is off every community ride
   ensureBikeSizes();
   if(!validateRegInputs())return;
