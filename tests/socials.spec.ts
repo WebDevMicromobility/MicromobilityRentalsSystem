@@ -70,15 +70,27 @@ test('staff see the icons on the Community row, edit them on the form, and repor
   await expect(links).toHaveCount(2);
   await expect(links.first()).toHaveAttribute('href', 'https://www.instagram.com/amal.rides');
   await expect(links.nth(1)).toHaveAttribute('href', 'https://www.linkedin.com/in/amal-m');
+  await expect(links.first()).toHaveText('@amal.rides');                 // the username is the link
+  await expect(links.nth(1)).toHaveText('amal-m');
   await expect(page.locator('.am-cust').filter({ hasText: 'Bader Lapsed' }).locator('.soc-link')).toHaveCount(0);
+
+  // the on-screen report links a handle too
+  await page.evaluate(`_accOpts().cols.instagram=1`);
+  expect(await page.evaluate(`_accReportHtml()`)).toContain('<a href="https://www.instagram.com/amal.rides"');
 
   const cells = await page.evaluate(`_accRows().map(r=>[r.c.id,r.cells.instagram+'|'+r.cells.linkedin])`) as [string, string][];
   expect(Object.fromEntries(cells)).toEqual({ c1: 'amal.rides|amal-m', c2: '|' });
 
   const patches: string[] = [];
   page.on('request', r => { if (r.method() === 'PATCH' && /customers/.test(r.url())) patches.push(r.postData() || ''); });
+  // the form: an Open link beside a filled handle, appearing as one is typed
+  await page.evaluate(`showEditCustomerModal('c1')`);
+  await expect(page.locator('#cf-soc-instagram-open')).toHaveAttribute('href', 'https://www.instagram.com/amal.rides');
+  await expect(page.locator('#cf-soc-x-open')).toBeHidden();
   await page.evaluate(`showEditCustomerModal('c2')`);
   await page.fill('#cf-soc-x', '@bader_l');
+  await expect(page.locator('#cf-soc-x-open')).toBeVisible();
+  await expect(page.locator('#cf-soc-x-open')).toHaveAttribute('href', 'https://x.com/bader_l');
   await page.evaluate(`saveCustForm()`);
   await expect.poll(() => patches.length).toBeGreaterThan(0);
   expect(JSON.parse(patches[0]).socials).toEqual({ x: 'bader_l' });
