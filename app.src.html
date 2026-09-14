@@ -4342,6 +4342,7 @@ function goCustomer(tab){
   renderCustomerTabs();
   renderRegister();
   renderMyRides();
+  if(S.custTab==='account')renderAccount(); // the account tab is painted on demand, not on every visit
   _pushNav();
 }
 
@@ -5438,13 +5439,13 @@ function renderTopbarRight(){
         :`<div style="width:32px;height:32px;border-radius:50%;background:rgba(var(--green-rgb),.2);border:1px solid rgba(var(--green-rgb),.4);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--green)">${esc(initials)}</div>`;
       el.innerHTML=`
         ${_ridesBtn}
-        <div style="display:flex;align-items:center;gap:10px">
+        <button type="button" class="cust-topbar-link" onclick="goCustomer('account')" title="${t('tabAccount')}" aria-label="${t('tabAccount')}">
           ${avatar}
-          <div style="min-width:0">
-            <div class="cust-topbar-name">${esc(cust.name.split(' ')[0])}</div>
-            <div class="cust-topbar-email">${esc(cust.email||cust.phone||'')}</div>
-          </div>
-        </div>
+          <span style="min-width:0;display:block">
+            <span class="cust-topbar-name">${esc(cust.name.split(' ')[0])}</span>
+            <span class="cust-topbar-email">${esc(cust.email||cust.phone||'')}</span>
+          </span>
+        </button>
         <button class="topbar-btn danger" onclick="doLogout()">${t('logOut')}</button>`;
     } else {
       el.innerHTML=`
@@ -5462,13 +5463,13 @@ function renderTopbarRight(){
         :`<div style="width:32px;height:32px;border-radius:50%;background:rgba(var(--green-rgb),.2);border:1px solid rgba(var(--green-rgb),.4);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:var(--green)">${esc(initials)}</div>`;
       el.innerHTML=`
         ${_ridesBtn}
-        <div style="display:flex;align-items:center;gap:10px">
+        <button type="button" class="cust-topbar-link" onclick="goCustomer('account')" title="${t('tabAccount')}" aria-label="${t('tabAccount')}">
           ${avatar}
-          <div style="min-width:0">
-            <div class="cust-topbar-name">${esc((cust.name||'').split(' ')[0])}</div>
-            <div class="cust-topbar-email">${esc(cust.email||cust.phone||'')}</div>
-          </div>
-        </div>
+          <span style="min-width:0;display:block">
+            <span class="cust-topbar-name">${esc((cust.name||'').split(' ')[0])}</span>
+            <span class="cust-topbar-email">${esc(cust.email||cust.phone||'')}</span>
+          </span>
+        </button>
         <button class="topbar-btn danger" onclick="doLogout()">${t('logOut')}</button>`;
     }else{
       el.innerHTML=`<button class="btn-primary topbar-reserve" onclick="goCustomer('register')">${t('authLogin')}</button>`;
