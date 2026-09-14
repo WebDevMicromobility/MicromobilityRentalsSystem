@@ -106,6 +106,7 @@ them deliberately.
 | 15 | `default_pay` | text | YES | — | staff | "on the house" rule, see §0.2 |
 | 16 | `hidden_types` | text | YES | — | staff | hides bike types from that customer's picker |
 | 17 | `nationality` | text | YES | — | profile (My Account) or staff form; **never asked at signup**; a `COUNTRY_LIST` name | account report |
+| 18 | `socials` | jsonb | YES | — | profile (My Account, via `customer_set_socials`) or staff form; **never asked at signup**; `{instagram,x,tiktok,linkedin}` bare handles, never URLs; null when none | staff-only: Community row icons, account report |
 
 **Password hash formats accepted** (`_cust_pwd_ok`): bcrypt (`$2…`), legacy salted SHA-256
 (`sha256:<salt>:<hex>`, transparently re-hashed to bcrypt on next successful login), and
@@ -408,7 +409,8 @@ All are `SECURITY DEFINER` and callable by the anon key. Every customer-owned op
 | `customer_oauth_signup` | `p_id,p_name,p_email,p_phone,p_height,p_type_preference,p_gender,p_photo` | `TABLE(id, session_token)` | — | none |
 | `customer_update_profile` | `p_id,p_token,p_name,p_email,p_phone,p_height,p_type_preference,p_birth_date,p_country,p_city` | boolean | — | token |
 | `customer_update_profile` (11-arg) | same + `p_nationality` | boolean | the 10-arg overload stays for older clients | token |
-| `customer_profile` | `p_id,p_token` | `TABLE(id,name,email,phone,height,type_preference,created_at,birth_date,country,city,photo,gender,nationality)` | the login/reset RPCs return a fixed column list without `nationality`; the app asks this once per page life | token |
+| `customer_profile` | `p_id,p_token` | `TABLE(id,name,email,phone,height,type_preference,created_at,birth_date,country,city,photo,gender,nationality,socials)` | the login/reset RPCs return a fixed column list without `nationality`; the app asks this once per page life | token |
+| `customer_set_socials` | `p_id,p_token,p_socials jsonb` | boolean | keeps only the four known keys, trims `@`/slashes, 100 chars each; null when empty | token |
 | `customer_change_password` | `p_id,p_token,p_new_pwd` | boolean | — | token |
 | `customer_set_photo` | `p_id,p_token,p_photo` | boolean | — | token |
 | `my_bookings` | `p_id,p_token` | `SETOF queue_entries` | **the customer's private read** — all their rows, full PII | token |
