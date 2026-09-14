@@ -40,7 +40,7 @@ test('Reserve bike… sits in the menu, opens the picker with the right-size bik
 });
 
 test('a reserved rider gets Release reserved bike instead, and it lets the bike go', async ({ page }) => {
-  const held = row('q1', { assigned_bike_id: 'rM' });
+  const held: Record<string, unknown> = row('q1', { assigned_bike_id: 'rM' });
   await boot(page, [held]);
   // The stub echoes fixtures on every reload: once the release is written, the fixture follows it.
   await page.route(/\/rest\/v1\/queue_entries\?.*id=eq\.q1/, async (route) => {
