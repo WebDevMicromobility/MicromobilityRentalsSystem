@@ -240,7 +240,7 @@ known defects or inconsistencies in the current system: reproducing them is a de
 - [ ] **[R]** Thursday is just the session's date; no code enforces a weekday.
 - [ ] **[R]** Adding another bike-free activity costs one entry in `BIKELESS_KINDS`.
 
-## 11c. The Micromobility Triathlon Workshop (open community, bike-free)
+## 11c. T100 Triathlon Prep, formerly the Micromobility Triathlon Workshop (open community, bike-free)
 
 - [ ] **[T]** `event_kind='community'`, `ride_kind='workshop'`, `open_to_all=true`; approval, hidden queue, solo, free, no bike — `workshop-session.spec.ts` *(added 2026-09-07)*.
 - [ ] **[T]** The signed-in landing shows a THIRD card for it, beside the circuit and the Experiences umbrella, with the federation mark and "In partnership with Saudi Triathlon Federation" in a smaller line.

@@ -48,9 +48,9 @@ test('the landing page features it as a third card, with the partner named in a 
   const cards = page.locator('#land-events .landing-event-card');
   await expect(cards).toHaveCount(3);
   const ws = page.locator('#land-events .landing-event-card.ev-workshop');
-  await expect(ws).toContainText('Micromobility Triathlon Workshop');
+  await expect(ws).toContainText('T100 Triathlon Prep');
   await expect(ws.locator('.lec-partner')).toHaveText('In partnership with Saudi Triathlon Federation');
-  await expect(ws.locator('img.lec-partner-logo')).toHaveAttribute('src', 'saudi-triathlon.jpg');
+  await expect(ws.locator('img.lec-partner-logo')).toHaveAttribute('src', 't100.jpg');
   // the partner line is quieter than the name
   const sizes = await ws.evaluate((el) => {
     const t = el.querySelector('.lec-title') as HTMLElement, p = el.querySelector('.lec-partner') as HTMLElement;
@@ -165,7 +165,7 @@ test('staff see the open-booking hint, a session name and a spot cap; no breakfa
   await expect(form).toContainText('Meeting point');
   await expect(form).not.toContainText('Breakfast spot');
   await expect(form).not.toContainText('Gathering time');
-  await expect(form.locator('#ns-title')).toHaveValue('Micromobility Triathlon Workshop');
+  await expect(form.locator('#ns-title')).toHaveValue('T100 Triathlon Prep');
 });
 
 test('creating one stamps the kind, lifts the gate, and keeps the approval shape', async ({ page }) => {
@@ -194,7 +194,7 @@ test('creating one stamps the kind, lifts the gate, and keeps the approval shape
   expect(gate.needs_approval).toBe(true);
   expect(gate.hide_queue).toBe(true);
   expect(gate.spots).toBe(30);
-  expect(gate.title).toBe('Micromobility Triathlon Workshop');
+  expect(gate.title).toBe('T100 Triathlon Prep');
 });
 
 test('editing one keeps it open, and does not turn it into a Saturday ride', async ({ page }) => {

@@ -21,7 +21,7 @@ There are **three** kinds of ride, distinguished by two columns.
 | **Saturday Social Ride** | `community` | `saturday` or NULL | **true** | false | `_rideKind(s)==='saturday'` |
 | **Petromin's Wednesdays** | `community` | `petromin` | **false** | **true** | `_isGroupRide(s)` |
 | **Triathlon Pool Session** | `community` | `swim` | **true** | false | `!_needsBike(s)` |
-| **Micromobility Triathlon Workshop** | `community` | `workshop` | **true** | false | `_openToAll(s)` — `open_to_all=true` lifts the members gate; otherwise the Saturday shape, bike-free |
+| **T100 Triathlon Prep** (was Micromobility Triathlon Workshop) | `community` | `workshop` | **true** | false | `_openToAll(s)` — `open_to_all=true` lifts the members gate; otherwise the Saturday shape, bike-free |
 
 ```js
 function _isCommunity(s){return s&&s.event_kind==='community';}                    // app.src.html:3631
