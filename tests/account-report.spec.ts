@@ -241,3 +241,31 @@ test('active in the last 30 days: column, filter, breakdown and count', async ({
   expect(sheet).toContain('Active last 30 days');
   expect(sheet).toContain('Active (30 days)');
 });
+
+// Accounts made before signup asked for a gender have none. The Community row offers it in
+// one tap, the Edit form carries the toggle too, and the report can list the ones still unset.
+test('an account with no gender can be given one from the Community row, and listed', async ({ page }) => {
+  const custs = customers.map(c => (c.id === 'c4' ? { ...c, gender: null } : c));
+  await stubSupabase(page, { customers: custs, tags, customer_tags, sessions, queue_entries: [] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction('getCustomers().length>0');
+  await page.evaluate(`localStorage.removeItem('cq_acc_rep_opts');S._accOpts=null;setStaffTab('community');S.communityTab='accounts';renderCommunity()`);
+
+  expect(await page.evaluate(`(()=>{const o=_accOpts();o.fGender='unset';const ids=_accRows().map(r=>r.c.id);o.fGender='all';return ids;})()`)).toEqual(['c4']);
+
+  const ask = page.locator('.am-gender');
+  await expect(ask).toHaveCount(1);
+  await expect(ask).toContainText('Gender not set');
+  const patches: string[] = [];
+  page.on('request', r => { if (r.method() === 'PATCH' && /customers/.test(r.url())) patches.push(r.postData() || ''); });
+  await ask.getByRole('button', { name: 'Male', exact: true }).click();
+  await expect(page.locator('.am-gender')).toHaveCount(0);
+  expect(patches.some(p => /"gender":"male"/.test(p))).toBe(true);
+  expect(await page.evaluate(`getCustomers().find(c=>c.id==='c4').gender`)).toBe('male');
+
+  // The Edit form shows the toggle for an existing account too, with the saved value selected.
+  await page.evaluate(`showEditCustomerModal('c4')`);
+  await expect(page.locator('#cust-form-modal, .modal-box').getByRole('button', { name: 'Male', exact: true })).toHaveClass(/active/);
+});
