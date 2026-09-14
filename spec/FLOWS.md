@@ -67,7 +67,7 @@ in [SCREENS.md](SCREENS.md).
 
 ### A2. Browsing sessions
 
-1. On the picker, three cards always show: **Open Sports Day**, **Micromobility Experiences** and **T100 Triathlon Prep**.
+1. On the picker, two cards always show: **Open Sports Day** and **Micromobility Experiences** (the T100 Triathlon Prep card was removed 2026-09-14; the event kind still exists for staff and direct links).
 2. **Branch — Evening Circuit** → `S.selEvent='jcc'` → Reserve step 1.
 3. **Branch — Micromobility Experiences** → the **members gate**:
    1. call `community_member(p_id, p_token)` (cached per customer id);

@@ -42,27 +42,18 @@ test('it has the Saturday shape, minus the bike and minus the gate', async ({ pa
   expect(await page.evaluate(`_openToAll(allSessions().find(s=>s.id==='${RIDE}'))`)).toBe(false);
 });
 
-test('the landing page features it as a third card, with the partner named in a smaller line', async ({ page }) => {
+test('the landing page no longer offers it as a card', async ({ page }) => {
   await asAnyone(page);
   await page.evaluate(`goLanding()`);
-  const cards = page.locator('#land-events .landing-event-card');
-  await expect(cards).toHaveCount(3);
-  const ws = page.locator('#land-events .landing-event-card.ev-workshop');
-  await expect(ws).toContainText('T100 Triathlon Prep');
-  await expect(ws.locator('.lec-partner')).toHaveText('In partnership with Saudi Triathlon Federation');
-  await expect(ws.locator('img.lec-partner-logo')).toHaveAttribute('src', 't100.png');
-  // the partner line is quieter than the name
-  const sizes = await ws.evaluate((el) => {
-    const t = el.querySelector('.lec-title') as HTMLElement, p = el.querySelector('.lec-partner') as HTMLElement;
-    return [parseFloat(getComputedStyle(t).fontSize), parseFloat(getComputedStyle(p).fontSize)];
-  });
-  expect(sizes[1]).toBeLessThan(sizes[0]);
+  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(2);
+  await expect(page.locator('#land-events .landing-event-card.ev-workshop')).toHaveCount(0);
+  expect(await page.evaluate(`document.getElementById('land-events').textContent`)).not.toMatch(/T100|Triathlon/);
 });
 
-test('its card opens the workshop list without the members dialog', async ({ page }) => {
+test('reached directly, the workshop list still opens without the members dialog', async ({ page }) => {
   await asAnyone(page);
   await page.evaluate(`goLanding()`);
-  await page.locator('#land-events .landing-event-card.ev-workshop').click();
+  await page.evaluate(`selectEvent('workshop')`);
   await expect.poll(() => page.evaluate('S.selEvent')).toBe('workshop');
   await expect(page.locator('#tab-register')).toContainText('Micromobility Triathlon Workshop');
   await expect(page.locator('#tab-register .sess-partner')).toHaveText('In partnership with Saudi Triathlon Federation');

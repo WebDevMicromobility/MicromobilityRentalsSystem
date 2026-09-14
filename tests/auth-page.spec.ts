@@ -364,7 +364,7 @@ test.describe('round 4: invisible characters & post-login flow', () => {
     // The link opens on PICK YOUR EVENT, so that is where signing in lands too — the three
     // event cards, with the sections bar ready for My Rides / Account.
     expect(await page.evaluate('S.view')).toBe('landing');
-    await expect(page.locator('#land-events .landing-event-card')).toHaveCount(3);
+    await expect(page.locator('#land-events .landing-event-card')).toHaveCount(2);
     const nav = await page.evaluate(() => {
       const bn = document.querySelector('.cust-bnav-btn');
       const tn = document.querySelector('#customer-tab-nav');

@@ -73,7 +73,7 @@ test('signed-in landing shows only the three event cards; Reserve lists only the
   await waitForSb(page);
   await page.evaluate('goLanding()');
 
-  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(3);
+  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(2);
   await expect(page.locator('.landing-hero-grid')).toBeHidden();     // hero removed for signed-in
   await expect(page.locator('#land-avail-strip')).toBeEmpty();       // availability strip removed
 
