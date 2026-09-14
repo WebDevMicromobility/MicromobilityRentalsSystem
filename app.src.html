@@ -500,7 +500,7 @@ en:{
   rideHistory:'Ride History',noRides:'No bookings yet.',
   colQueueNum:'#',colSession:'Session',colBike:'Bike',colSizeType:'Size / Type',colColor:'Bike Color',colPayment:'Payment',colStatus:'Status',
   cancelBooking:'Cancel',
-  statusWaiting:'Waiting',statusReserved:'Reserved',statusActive:'On Bike',statusDone:'Complete',statusNoshow:'No-Show',statusCancelled:'Cancelled',statusCancelledByStaff:'Cancelled by Staff',statusCancelledByCustomer:'Cancelled by Customer',
+  statusWaiting:'Waiting',statusReserved:'Reserved',menuReserveBike:'Reserve bike…',menuReleaseBike:'Release reserved bike',bikeReleasedToast:'Reserved bike released',statusActive:'On Bike',statusDone:'Complete',statusNoshow:'No-Show',statusCancelled:'Cancelled',statusCancelledByStaff:'Cancelled by Staff',statusCancelledByCustomer:'Cancelled by Customer',
   colBookingNum:'Booking #',colPosition:'Position',
   staffQueueTitle:'Staff Panel',addWalkin:'+ Walk-in',nextUpLabel:'Next Up',
   posLabel:'Pos.',inLine:'in line',
@@ -913,7 +913,7 @@ ar:{
   rideHistory:'سجل الرحلات',noRides:'لا توجد حجوزات بعد.',
   colQueueNum:'#',colSession:'الجلسة',colBike:'الدراجة',colSizeType:'المقاس / النوع',colColor:'لون الدراجة',colPayment:'الدفع',colStatus:'الحالة',
   cancelBooking:'إلغاء',
-  statusWaiting:'بانتظار',statusReserved:'محجوز',statusActive:'على الدراجة',statusDone:'مكتمل',statusNoshow:'لم يحضر',statusCancelled:'ملغي',statusCancelledByStaff:'ملغي من قِبَل الموظفين',statusCancelledByCustomer:'ملغي من قِبَل العميل',
+  statusWaiting:'بانتظار',statusReserved:'محجوز',menuReserveBike:'حجز دراجة…',menuReleaseBike:'إلغاء حجز الدراجة',bikeReleasedToast:'تم إلغاء حجز الدراجة',statusActive:'على الدراجة',statusDone:'مكتمل',statusNoshow:'لم يحضر',statusCancelled:'ملغي',statusCancelledByStaff:'ملغي من قِبَل الموظفين',statusCancelledByCustomer:'ملغي من قِبَل العميل',
   colBookingNum:'رقم الحجز',colPosition:'الموضع',
   staffQueueTitle:'لوحة الموظفين',addWalkin:'+ زيارة مباشرة',nextUpLabel:'التالي',
   posLabel:'مركز',inLine:'في الطابور',
@@ -2943,6 +2943,32 @@ const statusBadge=s=>`<span class="status-badge ${STATUS_CLS[s]||'badge-done'}">
 // cancelled and the 37 they rejected. Null (anything cancelled before the column existed)
 // reads a plain "Cancelled": unknown is the truth about those, and guessing is the bug.
 function _isReserved(e){return !!e&&e.status==='waiting'&&getAssignedBikeIds(e).length>0;}
+// The bike staff would have scrolled to: free, not held for anyone else, the rider's type,
+// their size first. Null when the fleet has nothing that fits.
+function _bestFreeBike(e){
+  const ty=resolvedType(e);if(ty==='Own')return null;
+  const sz=e.size||(e.height?heightToSize(Number(e.height)):null);
+  const held=new Set();getQueue().forEach(x=>{if(x.id!==e.id&&['waiting','waitlist','active'].includes(x.status))getAssignedBikeIds(x).forEach(b=>held.add(b));});
+  const free=(S.bikes||[]).filter(b=>b.status==='available'&&!held.has(b.id)&&(!ty||ty==='Any'||b.type===ty));
+  return free.find(b=>sz&&b.size===sz)||free[0]||null;
+}
+// From the row's menu: the bike picker opens with the best free bike already selected, so
+// Reserve bike is one tap; with nothing that fits it opens empty for staff to choose.
+function _reserveFromMenu(id){
+  const e=getQueue().find(x=>x.id===id);if(!e)return;
+  openModal(id);
+  if(!S.modalBikes.length){const b=_bestFreeBike(e);if(b){S.modalBikes=[b.id];renderModal();}}
+}
+async function _releaseReserved(id){
+  const e=getQueue().find(x=>x.id===id);if(!e||!_isReserved(e))return;
+  const res=await sb.from('queue_entries').update({assigned_bike_id:null}).eq('id',id);
+  if(_writeErr(res,'reserve'))return;
+  e.assignedBikeId=null;
+  logAction(`${t('menuReleaseBike')}: #${e.queueNum} ${e.name}`);
+  toast(t('bikeReleasedToast'));
+  renderStaffQueue();
+  await _reloadRows([id]);
+}
 function statusBadgeFor(e){
   if(_isReserved(e))return`<span class="status-badge badge-reserved">${t('statusReserved')}</span>`;
   if(!e||e.status!=='cancelled')return statusBadge(e?e.status:'done');
@@ -4956,6 +4982,8 @@ async function mwPickCustomer(custId){
     const _mCust=_custId?{label:`${_artIcon('person',12)} ${t('custBtn')}`,run:`showEditCustomerModal('${_custId}')`,act:()=>showEditCustomerModal(_custId)}:null;
     if(e.status==='waiting'||e.status==='waitlist')return`${_apprChip}${e.status==='waitlist'?_noShowChip(e):''}${(_opt&&_opt.noBulk)?'':_bulkChk(e)}<button class="btn-sm btn-green" onclick="showCheckinModal('${e.id}')">${t('checkInBtn')}</button>${_rowMenu(e.id,[...((_opt&&_opt.extraMenu)||[]),
       {label:t('noShowBtn'),run:`confirmNoShow('${e.id}')`,act:()=>confirmNoShow(e.id)},
+      _isReserved(e)?{label:t('menuReleaseBike'),run:`_releaseReserved('${e.id}')`,act:()=>_releaseReserved(e.id)}
+        :(resolvedType(e)==='Own'?null:{label:t('menuReserveBike'),run:`_reserveFromMenu('${e.id}')`,act:()=>_reserveFromMenu(e.id)}),
       (_opt&&_opt.noPark)?null:{label:t('mwMoveBtn'),run:`mwFromBooking('${e.id}')`,act:()=>mwFromBooking(e.id)},
       _mEdit,_mCust,
       {label:t('cancelBtn'),run:`staffCancelEntry('${e.id}')`,act:()=>staffCancelEntry(e.id),danger:true}])}`;
