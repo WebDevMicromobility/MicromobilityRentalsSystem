@@ -624,7 +624,7 @@ en:{
   registeredLabel:'Registered',nameLabel:'Name',timeLabel:'Time',preferenceLabel:'Preference',
   
   profileInfo:'Profile Information',needToUpdate:'Need to update?',
-  birthDateLabel:'Birth date',countryLabel:'Country',cityLabel:'City',optionalLabel:'optional',selectCountryOpt:'Select country',selectCityOpt:'Select city',selectCountryFirst:'Select a country first',
+  birthDateLabel:'Birth date',countryLabel:'Country',nationalityLabel:'Nationality',selectNationalityOpt:'Select nationality',acrBdNationality:'Nationality',cityLabel:'City',optionalLabel:'optional',selectCountryOpt:'Select country',selectCityOpt:'Select city',selectCountryFirst:'Select a country first',
   
   bikeFleetComp:'Bike Fleet Composition',totalBikesSession:'Total bikes in session',rowLabel:'Row',
   
@@ -1033,7 +1033,7 @@ ar:{
   payAtBooth:' الدفع يتم عند الكشك في دوار الكورنيش. يرجى إحضار رقم طابورك.',
   registeredLabel:'مُسجَّل',nameLabel:'الاسم',timeLabel:'الوقت',preferenceLabel:'التفضيل',
   profileInfo:'معلومات الملف الشخصي',needToUpdate:'تريد التحديث؟',
-  birthDateLabel:'تاريخ الميلاد',countryLabel:'الدولة',cityLabel:'المدينة',optionalLabel:'اختياري',selectCountryOpt:'اختر الدولة',selectCityOpt:'اختر المدينة',selectCountryFirst:'اختر الدولة أولاً',
+  birthDateLabel:'تاريخ الميلاد',countryLabel:'الدولة',nationalityLabel:'الجنسية',selectNationalityOpt:'اختر الجنسية',acrBdNationality:'الجنسية',cityLabel:'المدينة',optionalLabel:'اختياري',selectCountryOpt:'اختر الدولة',selectCityOpt:'اختر المدينة',selectCountryFirst:'اختر الدولة أولاً',
   bikeFleetComp:'تركيبة أسطول الدراجات',totalBikesSession:'إجمالي الدراجات في الجلسة',rowLabel:'الإجمالي',
   sizeMatchLabel:'مقاس مناسب',sessionFleetLabel:'أسطول الجلسة',
   noBikesMatchFleet:'لا توجد دراجات مطابقة لأسطول هذه الجلسة.',
@@ -2016,7 +2016,7 @@ async function _refFetch(onCustomers){
   // pages within each one are sequential.
   _refInFlight=(async()=>{
     const [r,rt,rct,rbs]=await Promise.all([
-      _pagedAll(()=>sb.from('customers').select('id,name,email,phone,height,type_preference,gender,birth_date,country,city,created_at,default_pay,hidden_types').order('created_at').order('id')).catch(e=>({data:null,error:e})),
+      _pagedAll(()=>sb.from('customers').select('id,name,email,phone,height,type_preference,gender,birth_date,country,city,nationality,created_at,default_pay,hidden_types').order('created_at').order('id')).catch(e=>({data:null,error:e})),
       sb.from('tags').select('*').then(x=>x,e=>({data:null,error:e})),
       _pagedAll(()=>sb.from('customer_tags').select('*').order('customer_id').order('tag_id')).catch(e=>({data:null,error:e})),
       sb.from('breakfast_spots').select('*').then(x=>x,e=>({data:null,error:e})),
@@ -3315,7 +3315,7 @@ async function doResetPassword(){
       toast(t('toastPwReset'));return;
     }
     const{data:customer}=await sb.from('customers')
-      .select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city,photo')
+      .select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city,nationality,photo')
       .eq('id',S.forgotVerified).maybeSingle();
     if(!customer){authErr(t('errAccountNotFound'));return;}
     const{error}=await sb.from('customers').update({password_hash:await makePwdHash(pwd)}).eq('id',customer.id);
@@ -3631,12 +3631,12 @@ async function handleGoogleReturn(){
     return 'complete';
   }
   let cust=null;
-  try{const{data}=await sb.from('customers').select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city,photo,default_pay,hidden_types').eq('email',email).maybeSingle();cust=data;}catch(e){}
+  try{const{data}=await sb.from('customers').select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city,nationality,photo,default_pay,hidden_types').eq('email',email).maybeSingle();cust=data;}catch(e){}
   if(cust){
     // Backfill the avatar from Google if they have none yet
     let photo=cust.photo;
     if(!photo&&gphoto){photo=gphoto;try{await sb.from('customers').update({photo:gphoto}).eq('id',cust.id);}catch(e){}}
-    const safe={id:cust.id,name:cust.name,email:cust.email,phone:cust.phone,height:cust.height,type_preference:cust.type_preference,created_at:cust.created_at,birth_date:cust.birth_date,country:cust.country,city:cust.city,photo};
+    const safe={id:cust.id,name:cust.name,email:cust.email,phone:cust.phone,height:cust.height,type_preference:cust.type_preference,created_at:cust.created_at,birth_date:cust.birth_date,country:cust.country,city:cust.city,nationality:cust.nationality||null,photo};
     S.rememberMe=true;S.loggedIn=safe;setSession(safe);
     return 'loggedin';
   }
@@ -3734,7 +3734,7 @@ async function doLogin(){
       candidates.forEach(c=>{if(c&&c.length>=5&&/^[+\d]+$/.test(c))filters.push(`phone.eq.${c}`);});
     }
     const{data:rows}=await sb.from('customers')
-      .select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city,photo,password_hash')
+      .select('id,name,email,phone,height,type_preference,created_at,birth_date,country,city,nationality,photo,password_hash')
       .or(filters.join(','))
       .limit(5);
     let customer=null;
@@ -7199,6 +7199,18 @@ function renderAccount(){
   const accBirth=cust.birth_date||'';
   const accCountry=cust.country||'';
   const accCity=cust.city||'';
+  // Nationality came after the login RPCs were written, and they return the profile without
+  // it. Ask customer_profile once per page life and paint again when it answers.
+  if(CUST_RPC&&cust.nationality===undefined&&cust.session_token&&!S._profHydrating){
+    S._profHydrating=true;
+    sb.rpc('customer_profile',{p_id:cust.id,p_token:cust.session_token}).then(({data})=>{
+      const r=data&&data[0],cur=S.loggedIn||getSession();
+      if(!r||!cur||cur.id!==r.id)return;
+      S.loggedIn={...cur,nationality:r.nationality||null,gender:cur.gender||r.gender||null};setSession(S.loggedIn);renderAccount();
+    }).catch(()=>{});
+  }
+  const accNat=cust.nationality||'';
+  const natOpts=`<option value="">${t('selectNationalityOpt')}</option>`+COUNTRY_LIST.map(c=>`<option value="${esc(c)}"${accNat===c?' selected':''}>${esc(countryLabel(c))}</option>`).join('');
   const countryOpts=`<option value="">${t('selectCountryOpt')}</option>`+COUNTRY_LIST.map(c=>`<option value="${esc(c)}"${accCountry===c?' selected':''}>${esc(countryLabel(c))}</option>`).join('');
   const _cityList=accCountry&&COUNTRY_CITIES[accCountry]?COUNTRY_CITIES[accCountry]:[];
   const cityOpts=`<option value="">${accCountry?t('selectCityOpt'):t('selectCountryFirst')}</option>`+_cityList.map(c=>`<option value="${esc(c)}"${accCity===c?' selected':''}>${esc(cityLabel(c))}</option>`).join('');
@@ -7272,6 +7284,10 @@ function renderAccount(){
           <select id="acc-country" onchange="onAccCountryChange(this.value)">${countryOpts}</select></div>
         <div class="form-group"><label>${t('cityLabel')} &nbsp;<span class="label-hint">(${t('optionalLabel')})</span></label>
           <select id="acc-city" ${accCountry?'':'disabled'}>${cityOpts}</select></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>${t('nationalityLabel')} &nbsp;<span class="label-hint">(${t('optionalLabel')})</span></label>
+          <select id="acc-nationality">${natOpts}</select></div>
       </div>
       <div class="form-group" style="margin-top:4px">
         <label>${t('bikeTypePref')}</label>
@@ -7368,23 +7384,24 @@ async function saveAccount(){
   const birth_date=(document.getElementById('acc-birth')?.value||'')||null;
   const country=(document.getElementById('acc-country')?.value||'')||null;
   const city=(document.getElementById('acc-city')?.value||'')||null;
+  const nationality=(document.getElementById('acc-nationality')?.value||'')||null;
   try{
     const type_preference=S.loggedIn.type_preference||'Any';
     if(CUST_RPC){
-      const{data:ok,error}=await sb.rpc('customer_update_profile',{p_id:cust.id,p_token:cust.session_token,p_name:name,p_email:email,p_phone:fullPhone,p_height:height,p_type_preference:type_preference,p_birth_date:birth_date,p_country:country,p_city:city});
+      const{data:ok,error}=await sb.rpc('customer_update_profile',{p_id:cust.id,p_token:cust.session_token,p_name:name,p_email:email,p_phone:fullPhone,p_height:height,p_type_preference:type_preference,p_birth_date:birth_date,p_country:country,p_city:city,p_nationality:nationality});
       if(error||!ok)throw(error||new Error('denied'));
-      S.loggedIn={...cust,name,email,phone:fullPhone,height,type_preference,birth_date,country,city};
+      S.loggedIn={...cust,name,email,phone:fullPhone,height,type_preference,birth_date,country,city,nationality};
       setSession(S.loggedIn);
       if(height){S._rHeight=String(height);}
       if(type_preference&&S.regBikeTypes.length===0)S.regBikeTypes=[type_preference];
       toast(t('accountSaved'));renderAccount();renderTopbarRight();return;
     }
-    const updates={name,height,type_preference,birth_date,country,city};
+    const updates={name,height,type_preference,birth_date,country,city,nationality};
     if(email!==undefined)updates.email=email;
     if(fullPhone!==undefined)updates.phone=fullPhone;
     const{error}=await sb.from('customers').update(updates).eq('id',cust.id);
     if(error)throw error;
-    S.loggedIn={...cust,name,email,phone:fullPhone,height,type_preference,birth_date,country,city};
+    S.loggedIn={...cust,name,email,phone:fullPhone,height,type_preference,birth_date,country,city,nationality};
     setSession(S.loggedIn);
     
     if(height){S._rHeight=String(height);}
@@ -9321,7 +9338,7 @@ async function groupCheckin(entryId){
 // needs them). Text inputs are read from the DOM at save; only the toggle/select state (gender,
 // bike type, country/city) is tracked in S._cf so nothing needs re-rendering while typing.
 function showNewAcctModal(){
-  S._cf={mode:'create',id:null,first:'',middle:'',last:'',email:'',cc:'+966',phone:'',pwd:'',height:'',gender:'',birth:'',country:'',city:'',type:'Any',defpay:'',defpayTypes:bikeTypeOpts(false),hiddenTypes:[]};
+  S._cf={mode:'create',id:null,first:'',middle:'',last:'',email:'',cc:'+966',phone:'',pwd:'',height:'',gender:'',birth:'',country:'',city:'',nationality:'',type:'Any',defpay:'',defpayTypes:bikeTypeOpts(false),hiddenTypes:[]};
   renderCustFormModal();
 }
 function showEditCustomerModal(id){
@@ -9330,7 +9347,7 @@ function showEditCustomerModal(id){
   let cc='+966',phone='';
   if(c.phone){const m=COUNTRY_CODES.find(([code])=>c.phone.startsWith(code));if(m){cc=m[0];phone=c.phone.slice(m[0].length);}else phone=c.phone;}
   S._cf={mode:'edit',id:c.id,origName:c.name||'',first:n.first,middle:n.middle,last:n.last,email:c.email||'',cc,phone,pwd:'',
-    height:c.height!=null?String(c.height):'',gender:c.gender||'',birth:c.birth_date||'',country:c.country||'',city:c.city||'',type:c.type_preference||'Any',
+    height:c.height!=null?String(c.height):'',gender:c.gender||'',birth:c.birth_date||'',country:c.country||'',city:c.city||'',nationality:c.nationality||'',type:c.type_preference||'Any',
     defpay:_housePayTypes(c)?'house':'',defpayTypes:(h=>h&&h!=='all'?h:bikeTypeOpts(false))(_housePayTypes(c)),origDefPay:c.default_pay||null,hiddenTypes:_hiddenTypes(c),
     origPhone:c.phone||'',origEmail:(c.email||'').toLowerCase()};
   renderCustFormModal();
@@ -9412,6 +9429,7 @@ function renderCustFormModal(){
       <div class="form-group" style="margin-top:8px"><label for="cf-birth">${t('birthDateLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><input id="cf-birth" type="date" value="${esc(d.birth)}" max="2025-12-31"></div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <div class="form-group" style="flex:1"><label for="cf-country">${t('countryLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-country" onchange="_cfCountry(this.value)">${countryOpts}</select></div>
+        <div class="form-group" style="flex:1"><label for="cf-nationality">${t('nationalityLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-nationality"><option value="">${t('selectNationalityOpt')}</option>${COUNTRY_LIST.map(c=>`<option value="${esc(c)}"${d.nationality===c?' selected':''}>${esc(countryLabel(c))}</option>`).join('')}</select></div>
         <div class="form-group" style="flex:1"><label for="cf-city">${t('cityLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-city" ${d.country?'':'disabled'}>${cityOpts}</select></div>
       </div>
       <div class="form-group" style="margin-top:8px"><label>${t('bikeTypePref')}</label><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${bikeTypeOpts(false).map(tBtn).join('')}</div></div>
@@ -9497,6 +9515,7 @@ async function saveCustForm(){
   const birth=val('cf-birth')||null;
   const country=val('cf-country')||null;
   const city=val('cf-city')||null;
+  const nationality=val('cf-nationality')||null;
   const type=d.type||'Any';
   const name=_joinName3(first,middle,last);
   if(_nameErr3(first,middle,last)){toast(t('errEnterName'),'error');return;}
@@ -9523,7 +9542,7 @@ async function saveCustForm(){
       // birth_date / country / city / default_pay aren't customer_signup params — set them directly
       // (staff hold is_staff() access to customers). Tolerant: a failure never undoes the account.
       const _dp=_cfDefPayVal(),_ht=_cfHiddenVal();
-      if(birth||country||city||_dp||_ht){try{await sb.from('customers').update({birth_date:birth,country,city,default_pay:_dp,hidden_types:_ht}).eq('id',newId);}catch(e){}}
+      if(birth||country||city||nationality||_dp||_ht){try{await sb.from('customers').update({birth_date:birth,country,city,nationality,default_pay:_dp,hidden_types:_ht}).eq('id',newId);}catch(e){}}
       logAction(t('logAcctCreated')+name);
       await loadData();closeCustFormModal();toast(name+'! '+t('toastAccountCreated'));renderCommunity();
     }finally{S._cfBusy=false;}
@@ -9544,7 +9563,7 @@ async function saveCustForm(){
         const{data:pwok,error:pwerr}=await sb.rpc('staff_set_customer_password',{p_customer_id:d.id,p_new_pwd:newPwd});
         if(pwerr||pwok!==true){toast((pwerr&&pwerr.message)||t('errConnection'),'error');return;} // e.g. RPC not deployed → run sql/staff-set-password.sql
       }
-      const{error}=await sb.from('customers').update({name,email,phone:fullPhone,height,type_preference:type,birth_date:birth,country,city,default_pay:_cfDefPayVal(),hidden_types:_cfHiddenVal(),...(d.gender?{gender:d.gender}:{})}).eq('id',d.id);
+      const{error}=await sb.from('customers').update({name,email,phone:fullPhone,height,type_preference:type,birth_date:birth,country,city,nationality,default_pay:_cfDefPayVal(),hidden_types:_cfHiddenVal(),...(d.gender?{gender:d.gender}:{})}).eq('id',d.id);
       if(error){if(error.code==='23505')toast(t('errEmailExists'),'error');else toast(error.message||t('errConnection'),'error');return;}
       // Sync the corrected CONTACT info onto the account holder's OWN live bookings only. One account
       // can hold rows for several DIFFERENT people (group bookings, staff-added riders, name-matched
@@ -12444,6 +12463,7 @@ const _ACC_COLS=[
   {k:'age',      key:'acrColAge'},
   {k:'birth',    key:'birthDateLabel'},
   {k:'country',  key:'countryLabel'},
+  {k:'nationality',key:'nationalityLabel'},
   {k:'city',     key:'cityLabel'},
   {k:'height',   key:'heightLabel'},
   {k:'type',     key:'repColType'},
@@ -12467,12 +12487,12 @@ const _ACC_SECTIONS=[
   {k:'tags',    key:'acrSectTags'},
 ];
 function _accDefaults(){
-  return {cols:{name:1,email:1,phone:1,tags:1,tagSince:0,tagUntil:0,gender:1,age:1,birth:0,country:0,city:1,height:0,type:1,
+  return {cols:{name:1,email:1,phone:1,tags:1,tagSince:0,tagUntil:0,gender:1,age:1,birth:0,country:0,nationality:0,city:1,height:0,type:1,
                 joined:1,bookings:0,rides:1,commRides:0,upcoming:0,noshows:0,cancelled:0,lastRide:1,active14:1,active30:1,minutes:0,spent:0,pay:0,hidden:0},
           sections:{summary:1,tags:1},sort:'name',
-          chartsOn:{tags:1,gender:1,age:1,city:0,country:0,type:1,joined:1,rides:1,active:0,active14:1,active30:1},
-          charts:{tags:'donut',gender:'donut',age:'bar',city:'hbar',country:'hbar',type:'bar',joined:'line',rides:'bar',active:'hbar',active14:'hbar',active30:'hbar'},
-          fTag:'all',fGender:'all',fCountry:'all',fCity:'all',fType:'all',fJoined:'all',fRides:'all',fActive:'all',fAge:'all',fPay:'all',fUpcoming:'all'};
+          chartsOn:{tags:1,gender:1,age:1,city:0,country:0,nationality:0,type:1,joined:1,rides:1,active:0,active14:1,active30:1},
+          charts:{tags:'donut',gender:'donut',age:'bar',city:'hbar',country:'hbar',nationality:'hbar',type:'bar',joined:'line',rides:'bar',active:'hbar',active14:'hbar',active30:'hbar'},
+          fTag:'all',fGender:'all',fCountry:'all',fNationality:'all',fCity:'all',fType:'all',fJoined:'all',fRides:'all',fActive:'all',fAge:'all',fPay:'all',fUpcoming:'all'};
 }
 function _accOpts(){
   if(!S._accOpts){
@@ -12565,7 +12585,7 @@ function _accCells(c,st,o){
     tagSince:lead&&lead.added_at?_tagDateFmt(lead.added_at):'',
     tagUntil:lead&&lead.expires_at?_tagDateFmt(lead.expires_at):'',
     gender:_accGender(c.gender),age:age==null?'':String(age),birth:c.birth_date||'',
-    country:c.country||'',city:c.city||'',
+    country:c.country||'',nationality:c.nationality||'',city:c.city||'',
     height:c.height?String(c.height)+' '+t('cmUnit'):'',
     type:c.type_preference?typeLabel(c.type_preference):'',
     joined:c.created_at?shortDate(String(c.created_at).slice(0,10)):'',
@@ -12593,6 +12613,7 @@ function _accRows(){
     if(!['all','any','none'].includes(o.fTag)&&!live.some(x=>x.tag_id===o.fTag))return false;
     if(o.fGender==='unset'){if(c.gender)return false;}else if(o.fGender!=='all'&&String(c.gender||'')!==o.fGender)return false;
     if(o.fCountry!=='all'&&String(c.country||'')!==o.fCountry)return false;
+    if(o.fNationality!=='all'&&String(c.nationality||'')!==o.fNationality)return false;
     if(o.fCity!=='all'&&String(c.city||'')!==o.fCity)return false;
     if(o.fType!=='all'&&String(c.type_preference||'')!==o.fType)return false;
     if(o.fJoined!=='all'&&String(c.created_at||'').slice(0,10)<sinceIso(Number(o.fJoined)))return false;
@@ -12631,7 +12652,7 @@ function _accRows(){
 // Nine ways to slice the accounts on the list, each a list of {label,value} that the
 // chart and the table beside it both read. Long tails (city, country) fold into "Other"
 // after eight entries — a ninth hue is never invented.
-const _ACC_BREAKDOWNS=['tags','gender','age','city','country','type','joined','rides','active','active14','active30'];
+const _ACC_BREAKDOWNS=['tags','gender','age','city','country','nationality','type','joined','rides','active','active14','active30'];
 const _ACC_CHART_TYPES=[['bar','acrChBar'],['hbar','acrChHbar'],['donut','acrChDonut'],['line','acrChLine'],['table','acrChTable']];
 function _accBreakdown(k,rows,o){
   const count=(fn)=>{const m=new Map();rows.forEach(r=>{const lbl=fn(r);if(lbl==null)return;m.set(lbl,(m.get(lbl)||0)+1);});return m;};
@@ -12654,6 +12675,7 @@ function _accBreakdown(k,rows,o){
       return order.filter(l=>m.has(l)).map(label=>({label,value:m.get(label)}));}
     case 'city':return fold(count(r=>String(r.c.city||'').trim()||unk));
     case 'country':return fold(count(r=>String(r.c.country||'').trim()||unk));
+    case 'nationality':return fold(count(r=>String(r.c.nationality||'').trim()||unk));
     case 'type':return fold(count(r=>r.c.type_preference?typeLabel(r.c.type_preference):unk));
     case 'joined':{
       // the last twelve months, every month present even when empty, oldest first
@@ -12677,7 +12699,7 @@ function _accBreakdown(k,rows,o){
   }
   return [];
 }
-function _accBdTitle(k){return t({tags:'acrBdTags',gender:'acrBdGender',age:'acrBdAge',city:'acrBdCity',country:'acrBdCountry',type:'acrBdType',joined:'acrBdJoined',rides:'acrBdRides',active:'acrBdActive',active14:'acrBdActive14',active30:'acrBdActive30'}[k]);}
+function _accBdTitle(k){return t({tags:'acrBdTags',gender:'acrBdGender',age:'acrBdAge',city:'acrBdCity',country:'acrBdCountry',nationality:'acrBdNationality',type:'acrBdType',joined:'acrBdJoined',rides:'acrBdRides',active:'acrBdActive',active14:'acrBdActive14',active30:'acrBdActive30'}[k]);}
 // Static SVG for the printed sheet. Single-series marks wear the brand green; a donut's
 // slices take the categorical hues in fixed order (validated on white, 2026-09-07); the
 // table beside every figure carries the exact values, so no mark needs a number on it.
@@ -12787,6 +12809,7 @@ function showAccountReportOptions(){
         ${fld(t('genderLabel'),sel('acr-f-gender',o.fGender,[['all',t('filterAll')],['male',t('genderMale')],['female',t('genderFemale')],['unset',t('acrGenderUnset')]],"_accSet('fGender',this.value)",t('genderLabel')))}
         ${fld(t('acrFilterAge'),sel('acr-f-age',o.fAge,[['all',t('filterAll')],['u18',t('acrAgeU18')],['18-29',t('acrAge1829')],['30-44',t('acrAge3044')],['45',t('acrAge45')]],"_accSet('fAge',this.value)",t('acrFilterAge')))}
         ${fld(t('countryLabel'),sel('acr-f-country',o.fCountry,[['all',t('filterAll')],...distinct('country').map(x=>[x,x])],"_accSet('fCountry',this.value)",t('countryLabel')))}
+        ${fld(t('nationalityLabel'),sel('acr-f-nationality',o.fNationality,[['all',t('filterAll')],...distinct('nationality').map(x=>[x,countryLabel(x)])],"_accSet('fNationality',this.value)",t('nationalityLabel')))}
         ${fld(t('cityLabel'),sel('acr-f-city',o.fCity,[['all',t('filterAll')],...distinct('city').map(x=>[x,x])],"_accSet('fCity',this.value)",t('cityLabel')))}
         ${fld(t('bikeTypeLabel'),sel('acr-f-type',o.fType,[['all',t('filterAll')],..._types.map(x=>[x,typeLabel(x)])],"_accSet('fType',this.value)",t('bikeTypeLabel')))}
         ${fld(t('acrFilterJoined'),sel('acr-f-joined',o.fJoined,[['all',t('filterAll')],['30',t('acrLastDays').replace('{0}','30')],['90',t('acrLastDays').replace('{0}','90')],['365',t('acrLastDays').replace('{0}','365')]],"_accSet('fJoined',this.value)",t('acrFilterJoined')))}
@@ -12834,7 +12857,7 @@ function _accReportHtml(){
   void tm;
   const filterLine=[o.fTag!=='all'?t('acrFilterTag')+': '+(o.fTag==='any'?t('acrTagAny'):o.fTag==='none'?t('acrTagNone'):((_tagsById()[o.fTag]||{}).name||o.fTag)):'',
     o.fGender!=='all'?t('genderLabel')+': '+_accGender(o.fGender):'',o.fAge!=='all'?t('acrFilterAge')+': '+o.fAge:'',
-    o.fCountry!=='all'?t('countryLabel')+': '+o.fCountry:'',o.fCity!=='all'?t('cityLabel')+': '+o.fCity:'',
+    o.fCountry!=='all'?t('countryLabel')+': '+o.fCountry:'',o.fNationality!=='all'?t('nationalityLabel')+': '+countryLabel(o.fNationality):'',o.fCity!=='all'?t('cityLabel')+': '+o.fCity:'',
     o.fType!=='all'?t('bikeTypeLabel')+': '+typeLabel(o.fType):'',o.fJoined!=='all'?t('acrFilterJoined')+': '+t('acrLastDays').replace('{0}',o.fJoined):'',
     o.fRides!=='all'?t('acrFilterRides')+': '+o.fRides:'',o.fActive!=='all'?t('acrFilterActive')+': '+o.fActive:'',
     o.fUpcoming!=='all'?t('acrFilterUpcoming')+': '+o.fUpcoming:'',o.fPay!=='all'?t('defaultPayLabel')+': '+o.fPay:''].filter(Boolean).join(' · ');
