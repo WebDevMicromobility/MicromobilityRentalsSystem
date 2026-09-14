@@ -60,7 +60,7 @@ test('the Accounts panel offers the report builder, with columns, summaries, fil
   await expect(m).toContainText('Excel (CSV)');
   await expect(m.locator('#acr-count')).toContainText('4 / 4');
   // every profile field, tag field and history figure is on offer as a column
-  for (const lbl of ['Tags', 'Tag since', 'Age', 'Country', 'City', 'Joined', 'Rides completed', 'Community rides', 'Upcoming', 'No-Show', 'Last ride', 'Spent (SAR)', 'Default payment'])
+  for (const lbl of ['Tags', 'Tag since', 'Age', 'Country of residence', 'Nationality', 'City', 'Joined', 'Rides completed', 'Community rides', 'Upcoming', 'No-Show', 'Last ride', 'Spent (SAR)', 'Default payment'])
     await expect(m).toContainText(lbl);
 });
 
