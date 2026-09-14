@@ -500,7 +500,7 @@ en:{
   rideHistory:'Ride History',noRides:'No bookings yet.',
   colQueueNum:'#',colSession:'Session',colBike:'Bike',colSizeType:'Size / Type',colColor:'Bike Color',colPayment:'Payment',colStatus:'Status',
   cancelBooking:'Cancel',
-  statusWaiting:'Waiting',statusActive:'On Bike',statusDone:'Complete',statusNoshow:'No-Show',statusCancelled:'Cancelled',statusCancelledByStaff:'Cancelled by Staff',statusCancelledByCustomer:'Cancelled by Customer',
+  statusWaiting:'Waiting',statusReserved:'Reserved',statusActive:'On Bike',statusDone:'Complete',statusNoshow:'No-Show',statusCancelled:'Cancelled',statusCancelledByStaff:'Cancelled by Staff',statusCancelledByCustomer:'Cancelled by Customer',
   colBookingNum:'Booking #',colPosition:'Position',
   staffQueueTitle:'Staff Panel',addWalkin:'+ Walk-in',nextUpLabel:'Next Up',
   posLabel:'Pos.',inLine:'in line',
@@ -913,7 +913,7 @@ ar:{
   rideHistory:'سجل الرحلات',noRides:'لا توجد حجوزات بعد.',
   colQueueNum:'#',colSession:'الجلسة',colBike:'الدراجة',colSizeType:'المقاس / النوع',colColor:'لون الدراجة',colPayment:'الدفع',colStatus:'الحالة',
   cancelBooking:'إلغاء',
-  statusWaiting:'بانتظار',statusActive:'على الدراجة',statusDone:'مكتمل',statusNoshow:'لم يحضر',statusCancelled:'ملغي',statusCancelledByStaff:'ملغي من قِبَل الموظفين',statusCancelledByCustomer:'ملغي من قِبَل العميل',
+  statusWaiting:'بانتظار',statusReserved:'محجوز',statusActive:'على الدراجة',statusDone:'مكتمل',statusNoshow:'لم يحضر',statusCancelled:'ملغي',statusCancelledByStaff:'ملغي من قِبَل الموظفين',statusCancelledByCustomer:'ملغي من قِبَل العميل',
   colBookingNum:'رقم الحجز',colPosition:'الموضع',
   staffQueueTitle:'لوحة الموظفين',addWalkin:'+ زيارة مباشرة',nextUpLabel:'التالي',
   posLabel:'مركز',inLine:'في الطابور',
@@ -2942,7 +2942,9 @@ const statusBadge=s=>`<span class="status-badge ${STATUS_CLS[s]||'badge-done'}">
 // Customer" because the label hung off the status word alone — including the ones staff
 // cancelled and the 37 they rejected. Null (anything cancelled before the column existed)
 // reads a plain "Cancelled": unknown is the truth about those, and guessing is the bug.
+function _isReserved(e){return !!e&&e.status==='waiting'&&getAssignedBikeIds(e).length>0;}
 function statusBadgeFor(e){
+  if(_isReserved(e))return`<span class="status-badge badge-reserved">${t('statusReserved')}</span>`;
   if(!e||e.status!=='cancelled')return statusBadge(e?e.status:'done');
   const k=e.cancelledBy==='staff'?'statusCancelledByStaff'
     :e.cancelledBy==='customer'?'statusCancelledByCustomer':'statusCancelled';
@@ -10150,6 +10152,8 @@ function renderStaffQueue(_resultsOnly){
     filtered=S.sfSession!=='all'
       ?queue.filter(e=>e.sessionId===S.sfSession&&e.status==='cancelled'&&!(_commSel&&e.approval==='rejected'))
       :queue.filter(e=>e.status==='cancelled');
+  }else if(S.sfStatus==='reserved'){
+    filtered=filtered.filter(_isReserved); // waiting, with a bike held for them
   }else if(S.sfStatus!=='all'){
     filtered=filtered.filter(e=>e.status===S.sfStatus);
   }
@@ -10211,8 +10215,8 @@ function renderStaffQueue(_resultsOnly){
     sessions.filter(s=>s.status!=='deleted').map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</option>`).join('');
   const qStatusOpts=(_commSel
     ?['all','approved','pending','waitlist','rejected','cancelled']  // approval funnel
-    :['all','waiting','waitlist','active','done','noshow','cancelled']).map(s=>{ // ride lifecycle
-    const l={all:t('filterAll'),waiting:t('statExpected'),active:t('onBikeStat'),done:t('statCompleted'),noshow:t('filterNoshow'),cancelled:t('statusCancelled'),
+    :['all','waiting','reserved','waitlist','active','done','noshow','cancelled']).map(s=>{ // ride lifecycle
+    const l={all:t('filterAll'),waiting:t('statExpected'),reserved:t('statusReserved'),active:t('onBikeStat'),done:t('statCompleted'),noshow:t('filterNoshow'),cancelled:t('statusCancelled'),
       approved:t('apprApprovedChip'),pending:t('apprPendingChip'),waitlist:t('waitlistLabel'),rejected:t('filterRejected')}[s];
     return`<option value="${s}"${S.sfStatus===s?' selected':''}>${l}</option>`;}).join('');
   const qPayOpts=['all','paid','pending'].map(p=>{
@@ -10298,7 +10302,7 @@ function _memberCell(e,extra){
 }
 function renderQRow(e){
     const assignedBikes=getAssignedBikes(e);
-    const rowCls=e.status==='active'?'row-active':(e.status==='noshow'||e.status==='cancelled')?'row-noshow-cancel':(e.status==='done'&&e.paid)?'row-done-paid':(e.status==='done')?'row-done':'';
+    const rowCls=e.status==='active'?'row-active':(e.status==='noshow'||e.status==='cancelled')?'row-noshow-cancel':(e.status==='done'&&e.paid)?'row-done-paid':(e.status==='done')?'row-done':_isReserved(e)?'row-reserved':'';
     const wiTag=e.walkIn?`<span class="walk-in-badge">${t('addWalkin').replace(/^\+ /,'')}</span>`:'';
     const allColors=assignedBikes.flatMap(b=>b.colors&&b.colors.length?b.colors:[]);
     const colorSwatches=allColors.length?allColors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join(''):'<span style="color:var(--muted)">—</span>';
@@ -10377,7 +10381,7 @@ function renderQRow(e){
     return group.map((e,i)=>{
       const isFirst=i===0;
       const isLast=i===n-1;
-      const rowCls=e.status==='active'?'row-active':(e.status==='noshow'||e.status==='cancelled')?'row-noshow-cancel':(e.status==='done'&&e.paid)?'row-done-paid':(e.status==='done')?'row-done':groupCls;
+      const rowCls=e.status==='active'?'row-active':(e.status==='noshow'||e.status==='cancelled')?'row-noshow-cancel':(e.status==='done'&&e.paid)?'row-done-paid':(e.status==='done')?'row-done':_isReserved(e)?'row-reserved':groupCls;
       const assignedBikes=getAssignedBikes(e);
       const allColors=assignedBikes.flatMap(b=>b.colors&&b.colors.length?b.colors:[]);
       const colorSwatches=allColors.length
@@ -10471,7 +10475,7 @@ function renderQRow(e){
             <span style="font-weight:800;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px">${esc(e.name)}</span>
             ${e.height?`<span style="font-size:11px;font-weight:800;color:var(--green);flex-shrink:0"><bdi>${e.height} ${t('cmUnit')}</bdi></span>`:''}
           </div>
-          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${e.phone?_contactCell(e.phone,e):''}${statusBadge(e.status)}${payBtn}</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${e.phone?_contactCell(e.phone,e):''}${statusBadgeFor(e)}${payBtn}</div>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px;${indent}">
           ${typeLabel(e.typePreference)}${bikeInfo?` &middot; <span style="color:var(--muted-l)">${esc(bikeInfo)}</span>`:''}${_freeSessIds.has(e.sessionId)?'':` &middot; <bdi style="font-weight:800;color:var(--text)">SAR ${e.price??DEFAULT_PRICE}</bdi>`}
