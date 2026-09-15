@@ -13,13 +13,14 @@ const staff_options = [
 ];
 
 async function boot(page: import('@playwright/test').Page) {
-  await stubSupabase(page, { sessions, queue_entries: [], bikes: [], staff_options });
+  const lists: typeof staff_options = JSON.parse(JSON.stringify(staff_options));   // each test gets its own copy: saves mutate it
+  await stubSupabase(page, { sessions, queue_entries: [], bikes: [], staff_options: lists });
   // The stub answers every read from the fixtures: a saved list must land in them too, or the
   // reference reload that follows a write would hand the old list straight back.
   await page.route(/\/rest\/v1\/staff_options/, async (route) => {
     if (route.request().method() === 'POST') {
       const b = JSON.parse(route.request().postData() || '{}');
-      const row = staff_options.find(r => r.key === b.key); if (row) row.items = b.items; else staff_options.push({ key: b.key, items: b.items });
+      const row = lists.find(r => r.key === b.key); if (row) row.items = b.items; else lists.push({ key: b.key, items: b.items });
     }
     await route.fallback();
   });
@@ -102,4 +103,26 @@ test('Models of a brand and frame types have their own editors', async ({ page }
   // a reference reload may still be in flight from the first save; whatever it returns now
   // carries Bamboo, so re-render and read until the form shows it
   await expect.poll(() => page.evaluate(`(renderBikes(),[...document.querySelectorAll('#bk-frame option')].map(o=>o.value))`)).toContain('Bamboo');
+});
+
+// The bike number is suggested, not imposed: staff may type another; one already on a live
+// bike is called out under the field and refused at save. Kids bikes get the K prefix.
+test('the bike number can be edited; a taken one is called out; Kids names start with K', async ({ page }) => {
+  await stubSupabase(page, { sessions, queue_entries: [], staff_options, bikes: [{ id: 'b1', name: 'R-AL-0001-M', type: 'Road', size: 'M', status: 'available', bike_number: 1, frame_type: 'Aluminum', colors: [] }] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction('getBikes().length>0');
+  await page.evaluate(`setStaffTab('inventory');S.invSection='bikes';renderInventory();S.showAddBike=true;S._bkNumber='';S.addBikeType='Kids';S._bkFrame='Aluminum';renderBikes()`);
+  const num = page.locator('#bk-number');
+  await expect(num).toBeEnabled();
+  await expect(num).toHaveValue('2');                                     // the next free number, suggested
+  await expect(page.locator('#bk-name')).toHaveAttribute('placeholder', /^K-AL-0002-/);
+  await num.fill('7');
+  await expect(page.locator('#bk-name')).toHaveAttribute('placeholder', /^K-AL-0007-/);
+  await expect(page.locator('#bk-number-hint')).toContainText('suggested');
+  await num.fill('1');
+  await expect(page.locator('#bk-number-hint')).toContainText('Already used by R-AL-0001-M');
+  await page.evaluate(`renderBikes()`);                                    // a repaint keeps what was typed
+  await expect(page.locator('#bk-number')).toHaveValue('1');
 });
