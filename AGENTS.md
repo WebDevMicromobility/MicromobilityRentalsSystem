@@ -92,3 +92,6 @@ Cloudflare Pages serves the repo root, so internal files must be blocked from pu
   rows), holding off only for 1.5s after a keystroke in `#ci-bike` (`S._ciTypedAt`).
 - Removing a shell image means three edits: the markup, `service-worker.js` SHELL, and the
   required list in `scripts/assemble-dist.mjs` — CI's "Assemble dist" fails otherwise.
+- `queue_entries.to_reserve` (migration 20260915120000) is a staff mark read straight off the
+  table; `entryFromDB` maps it to `toReserve`. `reserveBike()` sends `to_reserve:false` only when
+  the rider carries the mark, so a client from before the column never sends the field.
