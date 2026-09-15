@@ -235,7 +235,7 @@ test.describe('staff side', () => {
     await page.evaluate(`setStaffTab('queue');S.sfSession='2099-01-13-pw';renderStaffQueue()`);
     const html = await page.evaluate(`document.getElementById('tab-queue').innerHTML`) as string;
     expect(html).toContain('#4');                       // the number is real, not hidden
-    expect(html).toContain('showEditPriceModal');       // and so is the fare
+    expect(html).toContain('showPayMenu');             // and so is the fare (its pill holds Edit price too)
     expect(html).not.toContain('apprPendingChip');      // nothing to approve
   });
 
