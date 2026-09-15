@@ -2943,6 +2943,24 @@ const statusBadge=s=>`<span class="status-badge ${STATUS_CLS[s]||'badge-done'}">
 // cancelled and the 37 they rejected. Null (anything cancelled before the column existed)
 // reads a plain "Cancelled": unknown is the truth about those, and guessing is the bug.
 function _isReserved(e){return !!e&&e.status==='waiting'&&getAssignedBikeIds(e).length>0;}
+// A party reads as one row until it is opened. Which parties are open lives in memory for
+// the page's life; _partyExpandAll opens every one (the print view, specs that drive members).
+function _partyIsOpen(k){return !!S._partyExpandAll||!!(S.sfSearch&&S.sfSearch.trim())||!!(S._partyOpen&&S._partyOpen.has(k));} // a search is looking for someone: every party opens
+function _togglePartyOpen(k){S._partyOpen=S._partyOpen||new Set();if(S._partyOpen.has(k))S._partyOpen.delete(k);else S._partyOpen.add(k);renderStaffQueue();}
+function _partyOpenAll(){S._partyExpandAll=true;renderStaffQueue();}
+// "3 riders · 2 waiting · 1 no-show": the party's shape in one line.
+function _partyCountsLine(group){
+  const c={waiting:0,reserved:0,waitlist:0,active:0,done:0,noshow:0,cancelled:0};
+  group.forEach(e=>{if(_isReserved(e))c.reserved++;else if(c[e.status]!=null)c[e.status]++;});
+  const parts=[[c.waiting,t('statusWaiting')],[c.reserved,t('statusReserved')],[c.waitlist,t('statusWaitlist')],[c.active,t('statusActive')],[c.done,t('statusDone')],[c.noshow,t('statusNoshow')],[c.cancelled,t('statusCancelled')]]
+    .filter(([n])=>n>0).map(([n,l])=>`${n} ${String(l).toLowerCase()}`);
+  return `${t('partyRidersLine').replace('{0}',String(group.length))}${parts.length?' · '+parts.join(' · '):''}`;
+}
+// The finished part of a night, folded to one line: "3 finished · 1 no-show · 1 cancelled".
+function _foldLine(groups){
+  const c={done:0,noshow:0,cancelled:0};groups.forEach(g=>g.forEach(e=>{if(c[e.status]!=null)c[e.status]++;}));
+  return [[c.done,'foldFinished'],[c.noshow,'foldNoShow'],[c.cancelled,'foldCancelled']].filter(([n])=>n>0).map(([n,k])=>t(k).replace('{0}',String(n))).join(' · ');
+}
 // The bike staff would have scrolled to: free, not held for anyone else, the rider's type,
 // their size first. Null when the fleet has nothing that fits.
 function _bestFreeBike(e){
@@ -10424,10 +10442,44 @@ function renderQRow(e){
     const remaining=_r2g(totalPrice-paidAmt);
     const paidCount=activeGroup.filter(e=>e.paid&&(e.price??DEFAULT_PRICE)>0).length;
     const _ciN=_partyCheckinRows(group).length; // riders a one-tap party check-in would take
+    const _pk=_partyKey(primary)||primary.id;
+    const _open=_partyIsOpen(_pk)||_apprSessIds.has(primary.sessionId); // approvals are per rider: those parties never fold
     const priceSpan=_freeSessIds.has(primary.sessionId)?`<span style="color:var(--muted)">—</span>`:`<span style="font-weight:800;white-space:nowrap">SAR ${totalPrice}</span>
       ${adTotal>0?`<div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${t('addonsLabel')}: SAR ${adTotal}</div>`:''}
       <div style="font-size:11px;font-weight:700;margin-top:3px;color:${remaining>0?'var(--orange)':'var(--green)'}">${paidCount}/${activeGroup.length} ${t('paidLabel')}${houseAmt>0?` · ${houseAmt} `:''} · ${remaining>0?`SAR ${remaining} ${t('dueWord')}`:`✓ ${t('settledLabel')}`}</div>`;
 
+    if(!_open){
+      // One row for the whole party: the holder, the shape of the party, the money, the
+      // party's own actions. Members come out on Show riders.
+      const types=[...new Set(group.map(e=>resolvedType(e)))];
+      const bikesHeld=group.flatMap(e=>getAssignedBikes(e).map(b=>b.name));
+      const partyMenu=_rowMenu('party:'+primary.id,[
+        {label:t('menuBookingNum'),run:`showEditQNumModal('${primary.id}')`,act:()=>showEditQNumModal(primary.id)},
+        {label:t('menuPartyDetails'),run:`showGroupEditModal('${primary.id}')`,act:()=>showGroupEditModal(primary.id)},
+        {label:t('partyShowRiders'),run:`_togglePartyOpen('${_pk}')`,act:()=>_togglePartyOpen(_pk)}]);
+      return`<tr class="${groupCls} party-row" style="border-left:2px solid rgba(var(--green-rgb),.2)">
+        <td style="min-width:52px;vertical-align:middle">
+          <span class="queue-num-cell" style="font-size:15px;line-height:1.25">${(_apprSessIds.has(primary.sessionId)&&!_commPublished(_rowSess(primary)))?'—':qNumDisplay}</span>
+          ${primary.status==='waiting'&&lp?`<div style="margin-top:4px">${posCell}</div>`:''}
+          <div style="font-size:10px;color:var(--green);font-weight:800;margin-top:3px">${n} ${t('bike')||'Bikes'}</div>
+          ${primary.groupName?`<div style="font-size:10px;font-weight:900;color:var(--green);margin-top:2px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(primary.groupName)}">${esc(primary.groupName)}</div>`:''}
+        </td>
+        <td style="vertical-align:middle">
+          <div class="rider-name">${esc(primary.name)}${noShowFlag(primary)} ${_noShowChip(primary)}</div>
+          <div class="rider-sub">${_partyCountsLine(group)}</div>
+          <button type="button" class="party-toggle" aria-expanded="false" onclick="_togglePartyOpen('${_pk}')">${t('partyShowRiders')} ▾</button>
+        </td>
+        ${_memberCell(primary,' style="vertical-align:middle"')}
+        ${_qc.bike?`<td style="vertical-align:middle"><div style="display:flex;gap:4px;flex-wrap:wrap">${types.map(ty=>typeBadge(ty)).join('')}</div></td>`:''}
+        ${S.sfSession==='all'?`<td class="hide-mobile" style="vertical-align:middle">${dayLabel(primary.sessionDay)||''} ${shortDate(primary.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
+        ${_qc.bike?`<td style="vertical-align:middle">${bikesHeld.length?bikesHeld.map(b=>`<span style="font-weight:700;font-size:13px">${esc(b)}</span>`).join('<br>'):'<span style="color:var(--muted)">—</span>'}</td>`:''}
+        ${_qc.money?`<td style="vertical-align:middle">${priceSpan}${(!_freeSessIds.has(primary.sessionId)&&remaining>0)?`<button class="btn-sm btn-green" style="margin-top:6px;white-space:nowrap;font-size:11px;padding:4px 9px" onclick="groupMarkPaid('${primary.id}')">✓ ${t('bulkPaidBtn')}</button>`:''}</td>`:''}
+        ${_qc.money?`<td style="vertical-align:middle;font-size:12px;font-weight:700;white-space:nowrap">${_freeSessIds.has(primary.sessionId)?'<span style="color:var(--muted)">—</span>':`${paidCount}/${activeGroup.length} ${t('paidLabel')}`}</td>`:''}
+        <td style="vertical-align:middle;font-size:12px;font-weight:700">${group.some(e=>e.status==='active')?statusBadge('active'):group.some(_isReserved)?`<span class="status-badge badge-reserved">${t('statusReserved')}</span>`:group.some(e=>e.status==='waiting'||e.status==='waitlist')?statusBadge(group.some(e=>e.status==='waiting')?'waiting':'waitlist'):statusBadgeFor(primary)}</td>
+        <td style="vertical-align:middle">${_contactCell(primary.groupPhone||primary.phone,primary)}</td>
+        <td style="vertical-align:middle"><div class="actions-cell">${_ciN>0?`<button class="btn-sm btn-green" style="white-space:nowrap" onclick="groupCheckin('${primary.id}')">${t('bulkCheckinBtn')} (${_ciN})</button>`:''}${partyMenu}</div></td>
+      </tr>`;
+    }
     return group.map((e,i)=>{
       const isFirst=i===0;
       const isLast=i===n-1;
@@ -10459,6 +10511,7 @@ function renderQRow(e){
             ${primary.status==='waiting'&&lp?`<div style="margin-top:4px">${posCell}</div>`:''}
             <div style="font-size:10px;color:var(--green);font-weight:800;margin-top:3px">${n} ${t('bike')||'Bikes'}</div>
             ${(n>1&&_ciN>0)?`<button class="btn-sm btn-green" style="margin-top:4px;white-space:nowrap" onclick="groupCheckin('${primary.id}')">${t('bulkCheckinBtn')} (${_ciN})</button>`:''}
+            ${(n>1&&!S._partyExpandAll)?`<button type="button" class="party-toggle" aria-expanded="true" onclick="_togglePartyOpen('${_pk}')">${t('partyHideRiders')} ▴</button>`:''}
             ${primary.groupName?`<div style="font-size:10px;font-weight:900;color:var(--green);margin-top:2px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(primary.groupName)}">${esc(primary.groupName)}</div>`:''}
             ${(primary.groupContact||primary.groupPhone)?`${primary.groupContact?`<div style="font-size:10px;color:var(--muted);font-weight:700;margin-top:3px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(primary.groupContact)}">${esc(primary.groupContact)}</div>`:''}${primary.groupPhone||entryPhone(primary)?`<div style="margin-top:3px">${_contactCell(primary.groupPhone||entryPhone(primary),primary)}</div>`:''}`:''}
           </td>
@@ -10534,6 +10587,31 @@ function renderQRow(e){
       ${n>1?`<div style="font-size:10px;color:var(--muted);font-weight:700;margin-bottom:4px">${esc(e.name)}</div>`:''}
       <div style="display:flex;gap:6px;flex-wrap:wrap">${_entryActions(e,i===0?{extraMenu:[{label:t('menuBookingNum'),run:`showEditQNumModal('${primary.id}')`,act:()=>showEditQNumModal(primary.id)},n>1?{label:t('menuPartyDetails'),run:`showGroupEditModal('${primary.id}')`,act:()=>showGroupEditModal(primary.id)}:null]}:undefined)}</div>
     </div>`).join('');
+    const _pk=_partyKey(primary)||primary.id;
+    if(n>1&&!_partyIsOpen(_pk)&&!_apprSessIds.has(primary.sessionId)){
+      const pm=_partyMoney(group);
+      return`<div class="q-card party-card${groupCls?' '+groupCls:''}" style="border-left:2px solid rgba(var(--green-rgb),.25)">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:${sessLabel?'4':'6'}px">
+          <span class="queue-num-cell" style="font-size:22px">${(_apprSessIds.has(primary.sessionId)&&!_commPublished(_rowSess(primary)))?'—':qNumDisplay}</span>
+          <span style="font-size:10px;color:var(--green);font-weight:800">${n} ${t('bike')||'Bikes'}</span>
+          ${primary.groupName?`<span style="font-size:10px;font-weight:900;color:var(--green);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(primary.groupName)}">${esc(primary.groupName)}</span>`:''}
+          ${posTag}
+        </div>
+        ${sessLabel}
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div style="min-width:0"><div style="font-weight:800;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(primary.name)}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px">${_partyCountsLine(group)}</div></div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${_contactCell(primary.groupPhone||primary.phone,primary)}</div>
+        </div>
+        ${_freeSessIds.has(primary.sessionId)?'':`<div style="font-size:12px;font-weight:700;margin-top:6px;display:flex;justify-content:space-between;gap:8px"><span><bdi>${_fmtSar(pm.total)}</bdi> · ${pm.paidCount}/${pm.count} ${t('paidLabel')}</span><span style="color:${pm.due>0?'var(--orange)':'var(--green)'}">${pm.due>0?`<bdi>${_fmtSar(pm.due)}</bdi> ${t('dueWord')}`:`✓ ${t('settledLabel')}`}</span></div>`}
+        <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+          ${(()=>{const _ciN=_partyCheckinRows(group).length;return _ciN?`<button class="btn-sm btn-green" onclick="groupCheckin('${primary.id}')">${t('bulkCheckinBtn')} (${_ciN})</button>`:'';})()}
+          ${(!_freeSessIds.has(primary.sessionId)&&pm.due>0)?`<button class="btn-sm btn-green" onclick="groupMarkPaid('${primary.id}')">✓ ${t('bulkPaidBtn')}</button>`:''}
+          <button type="button" class="btn-sm btn-muted" aria-expanded="false" onclick="_togglePartyOpen('${_pk}')">${t('partyShowRiders')} ▾</button>
+          ${_rowMenu('partycard:'+primary.id,[{label:t('menuBookingNum'),run:`showEditQNumModal('${primary.id}')`,act:()=>showEditQNumModal(primary.id)},{label:t('menuPartyDetails'),run:`showGroupEditModal('${primary.id}')`,act:()=>showGroupEditModal(primary.id)}])}
+        </div>
+      </div>`;
+    }
     return`<div class="q-card${groupCls?' '+groupCls:''}" style="${n>1?'border-left:2px solid rgba(var(--green-rgb),.25)':''}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:${sessLabel?'4':'6'}px">
         <span class="queue-num-cell" style="font-size:22px">${(_apprSessIds.has(primary.sessionId)&&!_commPublished(_rowSess(primary)))?'—':qNumDisplay}</span>
@@ -10541,6 +10619,7 @@ function renderQRow(e){
         ${primary.groupName?`<span style="font-size:10px;font-weight:900;color:var(--green);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(primary.groupName)}">${esc(primary.groupName)}</span>`:''}
         ${posTag}
         ${(()=>{const _ciN=n>1?_partyCheckinRows(group).length:0;return _ciN?`<button class="btn-sm btn-green" style="font-size:10px;padding:4px 8px" onclick="groupCheckin('${primary.id}')">${t('bulkCheckinBtn')} (${_ciN})</button>`:'';})()}
+        ${(n>1&&!S._partyExpandAll)?`<button type="button" class="party-toggle" aria-expanded="true" onclick="_togglePartyOpen('${_pk}')">${t('partyHideRiders')} ▴</button>`:''}
         ${(n>1&&!_freeSessIds.has(primary.sessionId)&&group.some(e=>!e.paid&&!['cancelled','noshow'].includes(e.status)))?`<button class="btn-sm btn-green" style="font-size:10px;padding:4px 8px" onclick="groupMarkPaid('${primary.id}')">✓ ${t('bulkPaidBtn')}</button>`:''}
       </div>
       ${sessLabel}
@@ -10697,17 +10776,27 @@ function renderQRow(e){
     }).join('');
     if(!filtered.length)mobileCards=`<div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div>`;
   }else{
-    const _fg=buildQueueGroups(_qShown); // build once, reuse for the table + the mobile cards
+    const _fgAll=buildQueueGroups(_qShown); // build once, reuse for the table + the mobile cards
+    // Tonight's list is the riders who still need something. With no status filter and no
+    // search, parties that are all done / no-show / cancelled fold to one line at the bottom,
+    // opened on tap - and only when there is a live party to put first.
+    const _fin=g=>g.every(e=>['done','noshow','cancelled','removed'].includes(e.status));
+    const _foldable=S.sfStatus==='all'&&!S.sfSearch.trim()&&_fgAll.some(_fin)&&_fgAll.some(g=>!_fin(g));
+    const _fg=_foldable?_fgAll.filter(g=>!_fin(g)):_fgAll;
+    const _fgFin=_foldable?_fgAll.filter(_fin):[];
+    const _foldLbl=_foldable?_foldLine(_fgFin):'';
+    const _foldRow=_foldable?`<tr class="fold-row"><td colspan="10"><button type="button" class="fold-btn" aria-expanded="${S.sfShowFinished?'true':'false'}" onclick="S.sfShowFinished=!S.sfShowFinished;renderStaffQueue()">${S.sfShowFinished?`${t('foldHide')} ▴`:`${_foldLbl} — ${t('foldShow')} ▾`}</button></td></tr>`:'';
+    const _foldCard=_foldable?`<button type="button" class="fold-btn fold-card" aria-expanded="${S.sfShowFinished?'true':'false'}" onclick="S.sfShowFinished=!S.sfShowFinished;renderStaffQueue()">${S.sfShowFinished?`${t('foldHide')} ▴`:`${_foldLbl} — ${t('foldShow')} ▾`}</button>`:'';
     // Chunked paint: on a 200-rider night the single innerHTML parse of every heavy row is a
     // visible freeze on a booth tablet. The first 40 groups paint now; the rest go in on the
     // next frame, guarded by a generation counter so a re-render that has already replaced
     // the tbody is not appended to.
-    const _all=_fg.map(g=>renderGroupRow(g));
+    const _all=_fg.map(g=>renderGroupRow(g)).concat(_foldable?[_foldRow,...(S.sfShowFinished?_fgFin.map(g=>renderGroupRow(g)):[])]:[]);
     const _CHUNK=40;
     rows=_all.slice(0,_CHUNK).join('');
     S._qRowsRest=_all.length>_CHUNK?_all.slice(_CHUNK).join(''):'';
     emptyRow=filtered.length===0?`<tr><td colspan="10"><div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div></td></tr>`:'';
-    mobileCards=_fg.map(g=>renderGroupCard(g)).join('');
+    mobileCards=_fg.map(g=>renderGroupCard(g)).join('')+(_foldable?_foldCard+(S.sfShowFinished?_fgFin.map(g=>renderGroupCard(g)).join(''):''):'');
     if(!filtered.length)mobileCards=`<div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div>`;
   }
   if(!_resultsOnly)document.getElementById('tab-queue').innerHTML=_qvPills+_queueHeader+_sessSummaryBar+`${(()=>{
