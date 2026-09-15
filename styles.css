@@ -1002,7 +1002,7 @@
       /* sticky header ONLY inside the queue's overflow:visible wrapper - inside any
          overflow:auto .table-wrapper (bikes/inventory/sessions) sticky would pin the
          header 64px down INSIDE the box, on top of the first rows */
-      .queue-table-desktop-wrap .queue-table th{position:sticky;top:64px;z-index:5;background:var(--s1);}
+      .queue-table-desktop-wrap .queue-table th{position:sticky;top:var(--topbar-h,64px);z-index:5;background:var(--s1);}
     }
     .queue-table th{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;text-align:left;padding:12px 16px;border-bottom:1px solid var(--line2);white-space:nowrap;background:none;}
     .queue-table td{padding:14px 16px;border-bottom:1px solid rgba(var(--tint-rgb),.04);vertical-align:top;}
@@ -3737,3 +3737,15 @@ body.view-staff .q-card.row-reserved{background:rgba(29,78,216,.04);border-color
 .party-toggle{background:none;border:none;padding:4px 0 0;font-family:var(--font-body);font-size:11px;font-weight:800;color:var(--green);cursor:pointer;white-space:nowrap;}
 .party-toggle:hover{text-decoration:underline;}
 .queue-table tbody tr.party-row td{vertical-align:middle;}
+
+/* tablets: the table scrolls sideways inside its box; the booking number stays put */
+@media (min-width:768px) and (max-width:1023px){
+  .queue-table-desktop-wrap .queue-table th:first-child,.queue-table-desktop-wrap .queue-table td:first-child{position:sticky;left:0;z-index:3;background:var(--s1);box-shadow:1px 0 0 var(--border);}
+}
+/* the chips' delta against the same night last week */
+.stat-delta{font-style:normal;font-size:11px;font-weight:800;margin-inline-start:6px;color:var(--muted-l);}
+.stat-delta.up{color:var(--green);}
+.stat-delta.down{color:var(--orange);}
+/* bikes out past two hours */
+.overdue-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px;padding:9px 14px;background:rgba(var(--warn-rgb),.1);border:1px solid rgba(var(--warn-rgb),.35);border-radius:6px;font-size:13px;font-weight:800;color:var(--orange);}
+.am-missing{color:var(--orange);font-weight:700;}
