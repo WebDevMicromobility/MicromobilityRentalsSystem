@@ -500,7 +500,7 @@ en:{
   rideHistory:'Ride History',noRides:'No bookings yet.',
   colQueueNum:'#',colSession:'Session',colBike:'Bike',colSizeType:'Size / Type',colColor:'Bike Color',colPayment:'Payment',colStatus:'Status',
   cancelBooking:'Cancel',
-  statusWaiting:'Waiting',statusReserved:'Reserved',menuReserveBike:'Reserve bike…',menuReleaseBike:'Release reserved bike',bikeReleasedToast:'Reserved bike released',statusActive:'On Bike',statusDone:'Complete',statusNoshow:'No-Show',statusCancelled:'Cancelled',statusCancelledByStaff:'Cancelled by Staff',statusCancelledByCustomer:'Cancelled by Customer',
+  statusWaiting:'Waiting',statusReserved:'Reserved',statusToReserve:'To be reserved',menuToReserve:'To be reserved',menuClearToReserve:'Clear to be reserved',menuReserveBike:'Reserve bike…',menuReleaseBike:'Release reserved bike',bikeReleasedToast:'Reserved bike released',statusActive:'On Bike',statusDone:'Complete',statusNoshow:'No-Show',statusCancelled:'Cancelled',statusCancelledByStaff:'Cancelled by Staff',statusCancelledByCustomer:'Cancelled by Customer',
   colBookingNum:'Booking #',colPosition:'Position',
   staffQueueTitle:'Staff Panel',addWalkin:'+ Walk-in',nextUpLabel:'Next Up',
   posLabel:'Pos.',inLine:'in line',
@@ -913,7 +913,7 @@ ar:{
   rideHistory:'سجل الرحلات',noRides:'لا توجد حجوزات بعد.',
   colQueueNum:'#',colSession:'الجلسة',colBike:'الدراجة',colSizeType:'المقاس / النوع',colColor:'لون الدراجة',colPayment:'الدفع',colStatus:'الحالة',
   cancelBooking:'إلغاء',
-  statusWaiting:'بانتظار',statusReserved:'محجوز',menuReserveBike:'حجز دراجة…',menuReleaseBike:'إلغاء حجز الدراجة',bikeReleasedToast:'تم إلغاء حجز الدراجة',statusActive:'على الدراجة',statusDone:'مكتمل',statusNoshow:'لم يحضر',statusCancelled:'ملغي',statusCancelledByStaff:'ملغي من قِبَل الموظفين',statusCancelledByCustomer:'ملغي من قِبَل العميل',
+  statusWaiting:'بانتظار',statusReserved:'محجوز',statusToReserve:'بانتظار الحجز',menuToReserve:'بانتظار الحجز',menuClearToReserve:'إلغاء بانتظار الحجز',menuReserveBike:'حجز دراجة…',menuReleaseBike:'إلغاء حجز الدراجة',bikeReleasedToast:'تم إلغاء حجز الدراجة',statusActive:'على الدراجة',statusDone:'مكتمل',statusNoshow:'لم يحضر',statusCancelled:'ملغي',statusCancelledByStaff:'ملغي من قِبَل الموظفين',statusCancelledByCustomer:'ملغي من قِبَل العميل',
   colBookingNum:'رقم الحجز',colPosition:'الموضع',
   staffQueueTitle:'لوحة الموظفين',addWalkin:'+ زيارة مباشرة',nextUpLabel:'التالي',
   posLabel:'مركز',inLine:'في الطابور',
@@ -1916,6 +1916,7 @@ function entryFromDB(e){
     waitlistNum:e.waitlist_num||null, // staff-only waitlist serial (shown only while status is waitlist)
     rideDuration:e.ride_duration||null,
     cancelledBy:e.cancelled_by||null, // 'staff' | 'customer' | null when it predates the column
+    toReserve:!!e.to_reserve, // staff mark: hold a bike for this booking, before one is chosen
     ratingBike:e.rating_bike||null,ratingExp:e.rating_exp||null,feedback:e.feedback||null,checkedInAt:e.checked_in_at||null,checkedOutAt:e.checked_out_at||null,
     promoCode:e.promo_code||null,
     addons:(()=>{try{return e.addons?(Array.isArray(e.addons)?e.addons:JSON.parse(e.addons)):[];}catch(_){return[];}})(),
@@ -2943,6 +2944,18 @@ const statusBadge=s=>`<span class="status-badge ${STATUS_CLS[s]||'badge-done'}">
 // cancelled and the 37 they rejected. Null (anything cancelled before the column existed)
 // reads a plain "Cancelled": unknown is the truth about those, and guessing is the bug.
 function _isReserved(e){return !!e&&e.status==='waiting'&&getAssignedBikeIds(e).length>0;}
+// Marked for a bike to be held, none chosen yet. A held bike outranks the mark.
+function _isToReserve(e){return !!e&&e.status==='waiting'&&!!e.toReserve&&!_isReserved(e);}
+async function _toggleToReserve(id){
+  const e=getQueue().find(x=>x.id===id);if(!e||e.status!=='waiting')return;
+  const on=!e.toReserve;
+  const res=await sb.from('queue_entries').update({to_reserve:on}).eq('id',id);
+  if(_writeErr(res,'reserve'))return;
+  e.toReserve=on;
+  logAction(`${t(on?'menuToReserve':'menuClearToReserve')}: #${e.queueNum} ${e.name}`);
+  renderStaffQueue();
+  await _reloadRows([id]);
+}
 // A party reads as one row until it is opened. Which parties are open lives in memory for
 // the page's life; _partyExpandAll opens every one (the print view, specs that drive members).
 function _partyIsOpen(k){return !!S._partyExpandAll||!!(S.sfSearch&&S.sfSearch.trim())||!!(S._partyOpen&&S._partyOpen.has(k));} // a search is looking for someone: every party opens
@@ -2989,6 +3002,7 @@ async function _releaseReserved(id){
 }
 function statusBadgeFor(e){
   if(_isReserved(e))return`<span class="status-badge badge-reserved">${t('statusReserved')}</span>`;
+  if(_isToReserve(e))return`<span class="status-badge badge-toreserve">${t('statusToReserve')}</span>`;
   if(!e||e.status!=='cancelled')return statusBadge(e?e.status:'done');
   const k=e.cancelledBy==='staff'?'statusCancelledByStaff'
     :e.cancelledBy==='customer'?'statusCancelledByCustomer':'statusCancelled';
@@ -5002,6 +5016,7 @@ async function mwPickCustomer(custId){
       {label:t('noShowBtn'),run:`confirmNoShow('${e.id}')`,act:()=>confirmNoShow(e.id)},
       _isReserved(e)?{label:t('menuReleaseBike'),run:`_releaseReserved('${e.id}')`,act:()=>_releaseReserved(e.id)}
         :(resolvedType(e)==='Own'?null:{label:t('menuReserveBike'),run:`_reserveFromMenu('${e.id}')`,act:()=>_reserveFromMenu(e.id)}),
+      (_isReserved(e)||resolvedType(e)==='Own'||e.status!=='waiting')?null:{label:e.toReserve?t('menuClearToReserve'):t('menuToReserve'),run:`_toggleToReserve('${e.id}')`,act:()=>_toggleToReserve(e.id)},
       (_opt&&_opt.noPark)?null:{label:t('mwMoveBtn'),run:`mwFromBooking('${e.id}')`,act:()=>mwFromBooking(e.id)},
       _mEdit,_mCust,
       {label:t('cancelBtn'),run:`staffCancelEntry('${e.id}')`,act:()=>staffCancelEntry(e.id),danger:true}])}`;
@@ -9499,9 +9514,11 @@ function _partyCheckinRows(rows){
 // Tuesday of 2026-09-08 the desk paid six parties with it, handed out the bikes, and 17
 // riders spent the night as 'waiting' — the On Bike count read 66 for a session of ~100.
 // Payment stays a separate tap (each rider keeps their own price and method).
+// Check in (N) on a party opens the same multi-rider modal a party's ticket opens: the
+// first member still expected, the others as steps, each with their bike and payment.
 async function groupCheckin(entryId){
   const ids=_partyCheckinRows(_groupMembers(entryId)).map(m=>m.id);
-  if(ids.length)await _checkinMany(ids);
+  if(ids.length)showCheckinModal(ids[0]);
 }
 // ── Staff: create a full customer account (name/email/phone/password/height). Uses the
 // same customer_signup RPC as self-service signup; the returned session token is simply
@@ -10236,6 +10253,8 @@ function renderStaffQueue(_resultsOnly){
       :queue.filter(e=>e.status==='cancelled');
   }else if(S.sfStatus==='reserved'){
     filtered=filtered.filter(_isReserved); // waiting, with a bike held for them
+  }else if(S.sfStatus==='toreserve'){
+    filtered=filtered.filter(_isToReserve); // waiting, marked for a bike to be held
   }else if(S.sfStatus!=='all'){
     filtered=filtered.filter(e=>e.status===S.sfStatus);
   }
@@ -10297,8 +10316,8 @@ function renderStaffQueue(_resultsOnly){
     sessions.filter(s=>s.status!=='deleted').map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</option>`).join('');
   const qStatusOpts=(_commSel
     ?['all','approved','pending','waitlist','rejected','cancelled']  // approval funnel
-    :['all','waiting','reserved','waitlist','active','done','noshow','cancelled']).map(s=>{ // ride lifecycle
-    const l={all:t('filterAll'),waiting:t('statExpected'),reserved:t('statusReserved'),active:t('onBikeStat'),done:t('statCompleted'),noshow:t('filterNoshow'),cancelled:t('statusCancelled'),
+    :['all','waiting','reserved','toreserve','waitlist','active','done','noshow','cancelled']).map(s=>{ // ride lifecycle
+    const l={all:t('filterAll'),waiting:t('statExpected'),reserved:t('statusReserved'),toreserve:t('statusToReserve'),active:t('onBikeStat'),done:t('statCompleted'),noshow:t('filterNoshow'),cancelled:t('statusCancelled'),
       approved:t('apprApprovedChip'),pending:t('apprPendingChip'),waitlist:t('waitlistLabel'),rejected:t('filterRejected')}[s];
     return`<option value="${s}"${S.sfStatus===s?' selected':''}>${l}</option>`;}).join('');
   const qPayOpts=['all','paid','pending'].map(p=>{
@@ -10384,7 +10403,7 @@ function _memberCell(e,extra){
 }
 function renderQRow(e){
     const assignedBikes=getAssignedBikes(e);
-    const rowCls=e.status==='active'?'row-active':(e.status==='noshow'||e.status==='cancelled')?'row-noshow-cancel':(e.status==='done'&&e.paid)?'row-done-paid':(e.status==='done')?'row-done':_isReserved(e)?'row-reserved':'';
+    const rowCls=e.status==='active'?'row-active':(e.status==='noshow'||e.status==='cancelled')?'row-noshow-cancel':(e.status==='done'&&e.paid)?'row-done-paid':(e.status==='done')?'row-done':_isReserved(e)?'row-reserved':_isToReserve(e)?'row-toreserve':'';
     const wiTag=e.walkIn?`<span class="walk-in-badge">${t('addWalkin').replace(/^\+ /,'')}</span>`:'';
     const allColors=assignedBikes.flatMap(b=>b.colors&&b.colors.length?b.colors:[]);
     const colorSwatches=allColors.length?allColors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join(''):'<span style="color:var(--muted)">—</span>';
@@ -10496,7 +10515,7 @@ function renderQRow(e){
     return group.map((e,i)=>{
       const isFirst=i===0;
       const isLast=i===n-1;
-      const rowCls=e.status==='active'?'row-active':(e.status==='noshow'||e.status==='cancelled')?'row-noshow-cancel':(e.status==='done'&&e.paid)?'row-done-paid':(e.status==='done')?'row-done':_isReserved(e)?'row-reserved':groupCls;
+      const rowCls=e.status==='active'?'row-active':(e.status==='noshow'||e.status==='cancelled')?'row-noshow-cancel':(e.status==='done'&&e.paid)?'row-done-paid':(e.status==='done')?'row-done':_isReserved(e)?'row-reserved':_isToReserve(e)?'row-toreserve':groupCls;
       const assignedBikes=getAssignedBikes(e);
       const allColors=assignedBikes.flatMap(b=>b.colors&&b.colors.length?b.colors:[]);
       const colorSwatches=allColors.length
@@ -14458,9 +14477,9 @@ async function reserveBike(){
     const h=getQueue().find(e=>e.id!==rider.id&&(e.status==='waiting'||e.status==='waitlist')&&getAssignedBikeIds(e).includes(id));
     if(h&&!await askConfirm({title:t('reserveTakenConfirm').replace('{0}',('#'+(h.queueNum||'')+' '+h.name).trim()),confirmLabel:t('confirmBtn'),confirmClass:'btn-primary'}))return;
   }
-  const res=await sb.from('queue_entries').update({assigned_bike_id:id}).eq('id',rider.id);
+  const res=await sb.from('queue_entries').update({assigned_bike_id:id,...(id&&rider.toReserve?{to_reserve:false}:{})}).eq('id',rider.id); // a held bike answers the mark
   if(_writeErr(res,'reserve'))return;
-  rider.assignedBikeId=id;
+  rider.assignedBikeId=id;if(id)rider.toReserve=false;
   const b=id?bikeById(id):null;
   closeModal();
   toast(id?t('bikeReservedToast').replace('{0}',(b&&b.name)||''):t('bikeReserveCleared'));

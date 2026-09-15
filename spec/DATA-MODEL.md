@@ -186,6 +186,7 @@ explicit check, so a phone duplicate is possible via direct insert.
 | 33 | `group_contact` | text | YES | — | responsible person |
 | 34 | `group_phone` | text | YES | — | their number |
 | 35 | `waitlist_num` | integer | YES | — | staff-visible waitlist position, assigned by `_wl_num_assign` |
+| 36 | `to_reserve` | boolean | NO | `false` | staff mark from the row's ⋯ menu: hold a bike for this booking; cleared when one is reserved | staff queue: To be reserved badge / filter |
 
 **Critical index**: `queue_entries_session_qnum_uniq` — `UNIQUE (session_id, queue_num) WHERE
 status NOT IN ('cancelled','removed','noshow')`. This is the backstop that makes queue numbers

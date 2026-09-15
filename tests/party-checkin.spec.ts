@@ -43,8 +43,17 @@ test('a party row gets a one-tap Check in that activates every expected member',
   });
   await partyBtn.click();
 
-  // Both expected members are written to 'active'; the rider already on a bike and the solo
-  // row are left alone.
-  await expect.poll(() => patched.filter((p) => p.status === 'active').map((p) => p.id).sort()).toEqual(['e1', 'e2']);
+  // It opens the party's check-in modal - the same one its ticket opens - on the first member
+  // still expected, with the others as steps; the rider already on a bike is a tick, not a step.
+  const modal = page.locator('#checkin-modal');
+  await expect(modal).toContainText('Grouped One');
+  await expect(modal).toContainText('Rider 1 of 3');
+  const steps = modal.getByRole('list', { name: 'Riders in this party' }).getByRole('button');
+  await expect(steps).toHaveCount(3);
+  await expect(steps.nth(2)).toContainText('✓');                 // Grouped Three, already riding
+  await expect(steps.nth(2)).toBeDisabled();
+  await modal.getByRole('button', { name: /Confirm/i }).click(); // one member in, the next opens by itself
+  await expect.poll(() => patched.filter((p) => p.status === 'active').map((p) => p.id)).toEqual(['e1']);
+  await expect(modal).toContainText('Grouped Two');
   expect(patched.some((p) => p.id === 'e3' || p.id === 'e4')).toBe(false);
 });
