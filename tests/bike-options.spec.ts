@@ -1,0 +1,105 @@
+import { test, expect } from '@playwright/test';
+import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
+
+// The bike form's lists (brands with their models, groupsets, frame types) are shared rows in
+// staff_options, edited from a ✎ beside each field. Models hang off brands: Model is disabled
+// until a brand is chosen, shows only that brand's models, and a new model lands under it.
+
+const sessions = [{ id: '2099-01-09', day: 'Friday', session_date: '2099-01-09', capacity: 12, status: 'open', created_at: 1 }];
+const staff_options = [
+  { key: 'bike_brands', items: [{ name: 'Giant', models: ['TCR'] }, { name: 'Trek', models: ['Domane', 'Emonda'] }] },
+  { key: 'bike_groupsets', items: ['Shimano 105', 'Ultegra'] },
+  { key: 'bike_frames', items: [] },
+];
+
+async function boot(page: import('@playwright/test').Page) {
+  await stubSupabase(page, { sessions, queue_entries: [], bikes: [], staff_options });
+  // The stub answers every read from the fixtures: a saved list must land in them too, or the
+  // reference reload that follows a write would hand the old list straight back.
+  await page.route(/\/rest\/v1\/staff_options/, async (route) => {
+    if (route.request().method() === 'POST') {
+      const b = JSON.parse(route.request().postData() || '{}');
+      const row = staff_options.find(r => r.key === b.key); if (row) row.items = b.items; else staff_options.push({ key: b.key, items: b.items });
+    }
+    await route.fallback();
+  });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction(`S.staffOptions && S.staffOptions.bike_brands`);
+  await page.evaluate(`setStaffTab('inventory');S.invSection='bikes';renderInventory();S.showAddBike=true;S._bkBrand='';S._bkModel='';renderBikes()`);   // the Bikes UI lives under Inventory > Bikes
+}
+const upserts = (page: import('@playwright/test').Page) => {
+  const out: Record<string, unknown>[] = [];
+  page.on('request', r => { if (r.method() === 'POST' && /staff_options/.test(r.url())) out.push(JSON.parse(r.postData() || '{}')); });
+  return out;
+};
+
+test('Model waits for a Brand, then offers only that brand\'s models', async ({ page }) => {
+  await boot(page);
+  await expect(page.locator('#bk-model')).toBeDisabled();
+  await expect(page.locator('#bk-model')).toContainText('Choose a brand first');
+  expect(await page.evaluate(`[...document.querySelectorAll('#bk-brand option')].map(o=>o.value)`)).toEqual(['', 'Giant', 'Trek', '__add__']);
+  await page.selectOption('#bk-brand', 'Trek');
+  await expect(page.locator('#bk-model')).toBeEnabled();
+  expect(await page.evaluate(`[...document.querySelectorAll('#bk-model option')].map(o=>o.value)`)).toEqual(['', 'Domane', 'Emonda', '__add__']);
+  await page.selectOption('#bk-model', 'Emonda');
+  await page.selectOption('#bk-brand', 'Giant');                      // a new brand drops the model
+  expect(await page.evaluate('S._bkModel')).toBe('');
+  expect(await page.evaluate(`[...document.querySelectorAll('#bk-model option')].map(o=>o.value)`)).toEqual(['', 'TCR', '__add__']);
+});
+
+test('a new model typed in lands under the chosen brand, in the shared list', async ({ page }) => {
+  await boot(page);
+  const posts = upserts(page);
+  await page.selectOption('#bk-brand', 'Trek');
+  await page.selectOption('#bk-model', '__add__');
+  await page.fill('#bk-model', 'Madone');
+  await page.evaluate(`_bkOptSave('bk-model')`);
+  await expect.poll(() => posts.length).toBe(1);
+  expect(posts[0].key).toBe('bike_brands');
+  const trek = (posts[0].items as { name: string; models: string[] }[]).find(b => b.name === 'Trek')!;
+  expect(trek.models).toEqual(['Domane', 'Emonda', 'Madone']);
+  expect(await page.evaluate('S._bkModel')).toBe('Madone');
+});
+
+test('the ✎ beside Brand edits the shared list: rename, remove, add', async ({ page }) => {
+  await boot(page);
+  const posts = upserts(page);
+  await page.locator('.opt-edit[onclick*="brands"]').click();
+  const modal = page.locator('#optlist-modal');
+  await expect(modal).toContainText('Edit Brand');
+  await modal.locator('input[aria-label="Giant"]').fill('Giant Bicycles');
+  await modal.locator('button[aria-label$="Trek"]').click();           // remove Trek
+  await modal.locator('#optlist-add').fill('Specialized');
+  await modal.locator('#optlist-add').press('Enter');
+  await modal.locator('#optlist-save').click();
+  await expect.poll(() => posts.length).toBe(1);
+  const items = posts[0].items as { name: string; models: string[] }[];
+  expect(items.map(b => b.name)).toEqual(['Giant Bicycles', 'Specialized']);
+  expect(items.find(b => b.name === 'Giant Bicycles')!.models).toEqual(['TCR']);   // a rename keeps its models
+  await expect(modal).toBeHidden();
+  expect(await page.evaluate(`[...document.querySelectorAll('#bk-brand option')].map(o=>o.value)`)).toEqual(['', 'Giant Bicycles', 'Specialized', '__add__']);
+});
+
+test('Models of a brand and frame types have their own editors', async ({ page }) => {
+  await boot(page);
+  const posts = upserts(page);
+  await page.selectOption('#bk-brand', 'Trek');
+  await page.locator('.opt-edit[onclick*="models"]').click();
+  await expect(page.locator('#optlist-modal')).toContainText('Edit Models of Trek');
+  await page.locator('#optlist-modal button[aria-label$="Domane"]').click();
+  await page.locator('#optlist-modal #optlist-save').click();
+  await expect.poll(() => posts.length).toBe(1);
+  expect((posts[0].items as { name: string; models: string[] }[]).find(b => b.name === 'Trek')!.models).toEqual(['Emonda']);
+  expect(await page.evaluate(`[...document.querySelectorAll('#bk-frame option')].map(o=>o.value)`)).toEqual(['', 'Steel', 'Aluminum', 'Carbon', 'Titanium']);   // defaults while the list is empty
+  await page.locator('.opt-edit[onclick*="frames"]').click();
+  await page.locator('#optlist-modal #optlist-add').fill('Bamboo');
+  await page.locator('#optlist-modal #optlist-add').press('Enter');
+  await page.locator('#optlist-modal #optlist-save').click();
+  await expect.poll(() => posts.length).toBe(2);
+  expect(posts[1]).toMatchObject({ key: 'bike_frames' });
+  // a reference reload may still be in flight from the first save; whatever it returns now
+  // carries Bamboo, so re-render and read until the form shows it
+  await expect.poll(() => page.evaluate(`(renderBikes(),[...document.querySelectorAll('#bk-frame option')].map(o=>o.value))`)).toContain('Bamboo');
+});

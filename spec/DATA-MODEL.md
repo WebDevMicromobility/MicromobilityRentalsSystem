@@ -394,6 +394,17 @@ tag with `auto_grant=true` (today: `tag_jcc`) to the new account.
 
 ---
 
+
+### `staff_options` (added 2026-09-15)
+
+| Column | Type | Notes |
+|---|---|---|
+| `key` | text PK | `bike_brands`, `bike_groupsets`, `bike_frames` |
+| `items` | jsonb | `bike_brands`: `[{"name","models":[...]}]` — models hang off brands; the others: `["..."]`. Empty `bike_frames` = the app's four defaults |
+| `updated_at` | timestamptz | — |
+
+Staff-only (`is_staff()` for all), loaded with the reference tables into `S.staffOptions`, written by `_optWrite` (upsert). Edited from the ✎ beside each list-backed field on the bike form (`showOptListModal`). Seeded from the fleet's existing brand/model/groupset values. Bike type `Kids` was added to `CUST_TYPES` the same day (priced like Hybrid, SAR 57.5).
+
 ## 4. RPCs — the customer API contract
 
 All are `SECURITY DEFINER` and callable by the anon key. Every customer-owned operation takes
