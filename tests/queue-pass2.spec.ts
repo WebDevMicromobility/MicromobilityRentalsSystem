@@ -46,15 +46,11 @@ test('the check-in modal shows the amount, the party total, and follows a price 
   });
   await page.evaluate(`showCheckinModal('p2')`);
   const money = page.locator('#ci-money');
-  await expect(money).toContainText('Amount · this rider');
-  await expect(money).toContainText('SAR 75');
-  await expect(money).toContainText('Party total · 3 riders');
-  await expect(money).toContainText('SAR 245');            // 75 + 75 + 95
-  await expect(money).toContainText('SAR 75 paid');
-  await expect(money).toContainText('SAR 170 due');
+  const line = () => money.innerText().then(x => x.replace(/\s+/g, ' ').trim());
+  await expect.poll(line).toBe('SAR 75 · party SAR 245 SAR 170 due');       // one line: this rider · the party's total and what is due
+  await expect(money).not.toContainText('paid');                            // p2 has not paid
   await page.evaluate(`saveEditedPrice('p2',105)`);         // staff edit the price while the modal is open
-  await expect(money).toContainText('SAR 275');            // the party total moved with it
-  await expect(money).toContainText('SAR 200 due');
+  await expect.poll(line).toBe('SAR 105 · party SAR 275 SAR 200 due');     // the party total moved with it
   await expect(page.locator('#checkin-modal .pg-box, #checkin-modal .modal-box')).toBeVisible(); // still open
 });
 
