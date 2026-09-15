@@ -85,7 +85,9 @@ Cloudflare Pages serves the repo root, so internal files must be blocked from pu
 
 ### Staff queue: what a repaint has to keep (2026-09-15)
 - `S._partyOpen` (a Set of party keys) and `S.sfShowFinished` are in-memory UI state: a party
-  reads as one row until opened, finished parties fold to one line. `_partyIsOpen(k)` is also
+  reads as one row until opened, no-show / cancelled parties fold to one line. A completed
+  ride never folds: it stays on the queue page, and History's Return to queue (`histToQueue`)
+  sends a done / no-show / cancelled booking back to waiting. `_partyIsOpen(k)` is also
   true while a search is running, and parties never fold on an approval ride (approvals are
   per rider). Specs that drive party members call `_partyOpenAll()` or search first.
 - `renderStaffQueue()` repaints the open check-in modal too (its amounts are read from the

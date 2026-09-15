@@ -1,8 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
 
-// Tonight's list is the riders who still need something: finished parties fold to one line,
-// and a party reads as one row until it is opened.
+// Tonight's list is the riders who still need something: no-show / cancelled parties fold to
+// one line, a completed ride stays on the page, and a party reads as one row until opened.
 
 const S1 = '2099-01-09';
 const sessions = [{ id: S1, day: 'Friday', session_date: S1, capacity: 12, status: 'open', created_at: 1 }];
@@ -24,25 +24,32 @@ async function boot(page: import('@playwright/test').Page, q = rows) {
 }
 const vis = (page: import('@playwright/test').Page, name: string) => page.locator('.queue-table tbody tr:visible, .q-card:visible').filter({ hasText: name });
 
-test('finished riders fold to one line and open on tap', async ({ page }) => {
+test('no-shows fold to one line and open on tap; a completed ride stays on the page', async ({ page }) => {
   await boot(page);
   await expect(vis(page, 'Rider w1')).toHaveCount(1);
-  await expect(vis(page, 'Rider d1')).toHaveCount(0);
+  await expect(vis(page, 'Rider d1')).toHaveCount(1);                     // completed: never folded away
   await expect(vis(page, 'Rider n1')).toHaveCount(0);
   const fold = page.locator('.fold-btn:visible');
-  await expect(fold).toHaveText('1 finished · 1 no-show — Show ▾');   // cancelled rows are not on the roster unless asked for
+  await expect(fold).toHaveText('1 no-show — Show ▾');                    // cancelled rows are not on the roster unless asked for
   await fold.click();
-  await expect(vis(page, 'Rider d1')).toHaveCount(1);
-  await expect(page.locator('.fold-btn:visible')).toHaveText('Hide finished ▴');
-  await page.evaluate(`setSfStatus('done')`);                            // a status filter shows everything it names, no fold
+  await expect(vis(page, 'Rider n1')).toHaveCount(1);
+  await expect(page.locator('.fold-btn:visible')).toHaveText('Hide ▴');
+  await page.evaluate(`setSfStatus('noshow')`);                          // a status filter shows everything it names, no fold
   await expect(page.locator('.fold-btn')).toHaveCount(0);
-  await expect(vis(page, 'Rider d1')).toHaveCount(1);
+  await expect(vis(page, 'Rider n1')).toHaveCount(1);
 });
 
-test('when everyone is finished, nothing folds', async ({ page }) => {
-  await boot(page, [row('d1', 1, { status: 'done' }), row('n1', 2, { status: 'noshow' })]);
+test('when nothing is left to fold, nothing folds', async ({ page }) => {
+  await boot(page, [row('d1', 1, { status: 'done' }), row('d2', 2, { status: 'done', paid: true })]);
   await expect(page.locator('.fold-btn')).toHaveCount(0);
   await expect(vis(page, 'Rider d1')).toHaveCount(1);
+  await expect(vis(page, 'Rider d2')).toHaveCount(1);
+});
+
+test('a night of no-shows alone does not fold either: a fold needs a live party to put first', async ({ page }) => {
+  await boot(page, [row('n1', 1, { status: 'noshow' }), row('n2', 2, { status: 'noshow' })]);
+  await expect(page.locator('.fold-btn')).toHaveCount(0);
+  await expect(vis(page, 'Rider n1')).toHaveCount(1);
 });
 
 test('a party is one row until opened: holder, shape, money, its own actions', async ({ page }) => {
