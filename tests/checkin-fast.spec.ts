@@ -142,3 +142,20 @@ test("the modal shows the rider's height and size", async ({ page }) => {
   await page.evaluate(`showCheckinModal('solo')`);
   await expect(page.locator('#checkin-modal .ci-height')).toHaveText('178 cm · M');
 });
+
+// The amount on the modal follows the bike type picked there, the way Confirm would price it.
+test("changing the bike type in the modal moves the rider's amount and the party total", async ({ page }) => {
+  await boot(page, [
+    e('p1', { group_id: 'grp', name: 'First Rider', price: 75 }),
+    e('p2', { group_id: 'grp', name: 'Second Rider', queue_num: 2, price: 75 }),
+  ]);
+  await page.evaluate(`showCheckinModal('p1')`);
+  const modal = page.locator('#checkin-modal');
+  const line = () => modal.locator('#ci-money').innerText().then(x => x.replace(/\s+/g, ' ').trim());
+  await expect.poll(line).toBe('SAR 75 · party SAR 150 SAR 150 due');
+  await modal.getByRole('button', { name: 'Hybrid', exact: true }).click();          // Road 75 -> Hybrid 57.5
+  await expect.poll(line).toBe('SAR 57.50 · party SAR 132.50 SAR 132.50 due');
+  await expect(modal.locator('label', { hasText: /^Payment/ })).toContainText('SAR 57.50');
+  await modal.getByRole('button', { name: /On the house/ }).click();
+  await expect.poll(line).toBe('SAR 0 ✓ Paid · party SAR 75 SAR 75 due');
+});

@@ -13789,6 +13789,21 @@ function _partyMoney(members){
   return{total,paid,due:r2(total-paid),count:live.length,paidCount:live.filter(e=>e.paid).length};
 }
 function _fmtSar(v){return `SAR ${v%1===0?v:v.toFixed(2)}`;}
+// What Confirm would charge this rider given the type and payment picked in the modal - the
+// same rule confirmCheckinModal applies, read ahead so the amount on screen moves with the
+// bike type. Promo prices survive; a paid row keeps its amount; a covered type rides free.
+function _ciPendingPrice(e){
+  if(_freeSessIds.has(e.sessionId))return 0;
+  const ty=CUST_TYPES.includes(S._ciType)?S._ciType:(e.typePreference||'Any');
+  const mode=S._ciPaid||'pending';
+  const isHouseNow=e.paid&&(e.price??DEFAULT_PRICE)===0;
+  const c=e.customerId?(S.customers||[]).find(x=>x.id===e.customerId):null;
+  const houseForTy=!!(c&&_custHouseFor(c,ty)&&String(c.name||'').trim().toLowerCase()===String(e.name||'').trim().toLowerCase());
+  const typePrice=(e.promoCode||ty===(e.typePreference||'Any'))?(e.price??DEFAULT_PRICE):priceForType(ty);
+  if(mode==='house')return 0;
+  if(mode==='pending')return houseForTy?0:typePrice;
+  return e.paid?(e.price??DEFAULT_PRICE):(houseForTy||isHouseNow)?0:typePrice;
+}
 function _ciPartyAll(e){
   const k=_partyKey(e);if(!k)return[e];
   return getQueue().filter(x=>_partyKey(x)===k).sort((a,b)=>(a.queueNum||0)-(b.queueNum||0));
@@ -13941,13 +13956,15 @@ function renderCheckinModal(){
       ${_bikeless?'':_ciBikeFieldHtml(e)}
       ${_bikeless?'':`<button type="button" style="background:none;border:none;padding:0;margin:-4px 0 6px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;text-decoration:underline;font-family:var(--font-body)" onclick="_ciCarryPay();closeCheckinModal(true);openModal('${e.id}')">${t('assignBikeTitle')}…</button>`}
       ${free?'':(()=>{
-        const mine=_partyMoney([e]),all=_party.length>1?_partyMoney(_party):null;
+        // this rider as the modal would confirm them: the picked type's price, the picked payment
+        const _pend={...e,price:_ciPendingPrice(e),paid:S._ciPaid==='card'||S._ciPaid==='house'};
+        const mine=_partyMoney([_pend]),all=_party.length>1?_partyMoney(_party.map(m=>m.id===e.id?_pend:m)):null;
         // One line: this rider's amount; for a party, the party's total and what is still due.
         return `<div id="ci-money" style="margin:8px 0 0;font-size:12.5px;font-weight:700;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline">
           <b style="font-size:14px"><bdi>${_fmtSar(mine.total)}</bdi></b>${mine.paidCount?`<span style="color:var(--green)">✓ ${t('paidLabel')}</span>`:''}
           ${all?`<span style="color:var(--muted-l)">·</span><span style="color:var(--muted)">${t('ciPartyWord')} <bdi>${_fmtSar(all.total)}</bdi></span><span style="color:${all.due>0?'var(--orange)':'var(--green)'}">${all.due>0?`<bdi>${_fmtSar(all.due)}</bdi> ${t('dueWord')}`:`✓ ${t('settledLabel')}`}</span>`:''}
         </div>`;})()}
-      ${free?'':`<div class="form-group" style="margin:8px 0 10px"><label>${t('colPayment')}${!e.paid?` · SAR ${e.price??DEFAULT_PRICE}`:''}</label>
+      ${free?'':`<div class="form-group" style="margin:8px 0 10px"><label>${t('colPayment')}${!e.paid?` · ${_fmtSar(_ciPendingPrice(e))}`:''}</label>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
           ${payBtn('pending',' '+t('pendingLabel'))}
           ${payBtn('card','✓ '+t('paidLabel')+' · '+t('cashCard'))}
@@ -14042,7 +14059,7 @@ async function confirmCheckinModal(_bikeId){
     const isHouseNow=e.paid&&(e.price??DEFAULT_PRICE)===0;
     const c=e.customerId?(S.customers||[]).find(x=>x.id===e.customerId):null;
     const houseForTy=c&&_custHouseFor(c,ty)&&String(c.name||'').trim().toLowerCase()===String(e.name||'').trim().toLowerCase();
-    const typePrice=()=>e.promoCode?(e.price??DEFAULT_PRICE):priceForType(ty);
+    const typePrice=()=>(e.promoCode||ty===(e.typePreference||'Any'))?(e.price??DEFAULT_PRICE):priceForType(ty); // an edited price stands unless the type changes
     const setPrice=p=>{if((e.price??DEFAULT_PRICE)!==p)patch.price=p;};
     if(mode==='house'){
       if(!e.paid)patch.paid=true;

@@ -28,7 +28,7 @@ async function boot(page: import('@playwright/test').Page) {
   await page.goto('/');
   await waitForSb(page);
   await page.waitForFunction(`S.staffOptions && S.staffOptions.bike_brands`);
-  await page.waitForLoadState('networkidle');   // the boot's reference reload has settled: no repaint will land mid-edit
+  await page.waitForTimeout(300);               // let the boot's reference reload land (the app never goes network-idle: it polls)
   await page.evaluate(`setStaffTab('inventory');S.invSection='bikes';renderInventory();S.showAddBike=true;S._bkBrand='';S._bkModel='';renderBikes()`);   // the Bikes UI lives under Inventory > Bikes
 }
 const upserts = (page: import('@playwright/test').Page) => {
