@@ -28,6 +28,7 @@ async function boot(page: import('@playwright/test').Page) {
   await page.goto('/');
   await waitForSb(page);
   await page.waitForFunction(`S.staffOptions && S.staffOptions.bike_brands`);
+  await page.waitForLoadState('networkidle');   // the boot's reference reload has settled: no repaint will land mid-edit
   await page.evaluate(`setStaffTab('inventory');S.invSection='bikes';renderInventory();S.showAddBike=true;S._bkBrand='';S._bkModel='';renderBikes()`);   // the Bikes UI lives under Inventory > Bikes
 }
 const upserts = (page: import('@playwright/test').Page) => {
@@ -79,8 +80,11 @@ test('the ✎ beside Brand edits the shared list: rename, remove, add', async ({
   const items = posts[0].items as { name: string; models: string[] }[];
   expect(items.map(b => b.name)).toEqual(['Giant Bicycles', 'Specialized']);
   expect(items.find(b => b.name === 'Giant Bicycles')!.models).toEqual(['TCR']);   // a rename keeps its models
+  expect(items.find(b => b.name === 'Specialized')!.models).toEqual([]);            // a new brand starts empty, never another's models
   await expect(modal).toBeHidden();
-  expect(await page.evaluate(`[...document.querySelectorAll('#bk-brand option')].map(o=>o.value)`)).toEqual(['', 'Giant Bicycles', 'Specialized', '__add__']);
+  // a reference reload from boot may still land with the pre-save list; the fixture now holds
+  // the saved one, so re-render and read until the form shows it
+  await expect.poll(() => page.evaluate(`(renderBikes(),[...document.querySelectorAll('#bk-brand option')].map(o=>o.value))`)).toEqual(['', 'Giant Bicycles', 'Specialized', '__add__']);
 });
 
 test('Models of a brand and frame types have their own editors', async ({ page }) => {
@@ -125,4 +129,31 @@ test('the bike number can be edited; a taken one is called out; Kids names start
   await expect(page.locator('#bk-number-hint')).toContainText('Already used by R-AL-0001-M');
   await page.evaluate(`renderBikes()`);                                    // a repaint keeps what was typed
   await expect(page.locator('#bk-number')).toHaveValue('1');
+});
+
+// Specs on the form: wheel size and brakes from editable lists, weight in kg - saved with the
+// bike and shown with it.
+test('wheel size, brakes and weight are on the form, saved with the bike, and listed with it', async ({ page }) => {
+  const lists = JSON.parse(JSON.stringify(staff_options));
+  await stubSupabase(page, { sessions, queue_entries: [], bikes: [], staff_options: lists });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction(`S.staffOptions && S.staffOptions.bike_brands`);
+  await page.evaluate(`setStaffTab('inventory');S.invSection='bikes';renderInventory();S.showAddBike=true;S.addBikeType='Road';S._bkFrame='Aluminum';S.addBikeSize='M';renderBikes()`);
+  await expect(page.locator('#bk-add-form')).toContainText('Category');
+  expect(await page.evaluate(`[...document.querySelectorAll('#bk-wheel option')].map(o=>o.value)`)).toEqual(['', '20"', '24"', '26"', '27.5"', '29"', '700c', '__add__']);
+  expect(await page.evaluate(`[...document.querySelectorAll('#bk-brake option')].map(o=>o.value)`)).toEqual(['', 'Rim', 'Disc — mechanical', 'Disc — hydraulic', '__add__']);
+  await page.selectOption('#bk-wheel', '700c');
+  await page.selectOption('#bk-brake', 'Disc — hydraulic');
+  await page.fill('#bk-weight', '8.75');
+  const posts: Record<string, unknown>[] = [];
+  page.on('request', r => { if (r.method() === 'POST' && /\/rest\/v1\/bikes/.test(r.url())) posts.push(JSON.parse(r.postData() || '{}')); });
+  await page.evaluate(`addBike()`);
+  await expect.poll(() => posts.length).toBe(1);
+  expect(posts[0]).toMatchObject({ wheel_size: '700c', brake_type: 'Disc — hydraulic', weight_kg: 8.8 });   // one decimal
+  // ✎ beside Brakes edits its list too
+  await page.evaluate(`S.showAddBike=true;renderBikes()`);
+  await page.locator('.opt-edit[onclick*="brakes"]').click();
+  await expect(page.locator('#optlist-modal')).toContainText('Edit Brakes');
 });

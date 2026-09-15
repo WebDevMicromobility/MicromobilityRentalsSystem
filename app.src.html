@@ -601,7 +601,7 @@ en:{
   
   helpBody:'Open a session so customers can book it (Sessions tab).\nWhen a rider arrives, check them in from the Bookings tab and assign a bike.\nMark payment with the Paid toggle; use On the House for free rides.\nIn Sessions you can open, close, mark full, clone, or delete sessions.\nPrint or export a session report from the Bookings tab toolbar.\nA  on a rider means they have repeat no-shows.\nUse Lock (top bar) when you step away.',
   custProfileTitle:'Customer profile',custTotalRides:'Completed rides',custTotalSpent:'Total spent',custFavType:'Favorite type',custAvgRating:'Avg rating',custBookingsLabel:'Booking history',custNoBookings:'No bookings.',custMemberSince:'First seen',custWalkIn:'Walk-in (no account)',
-  addToCalendarBtn:'Add to Calendar',autoLabel:'auto',bikeNumberEditHint:'suggested — change it if you need to',bikeNumberTaken:'Already used by {0}',
+  addToCalendarBtn:'Add to Calendar',autoLabel:'auto',bikeCategoryLabel:'Category',bikeWheelSize:'Wheel size',bikeBrakes:'Brakes',bikeWeight:'Weight (kg)',bikeNumberEditHint:'suggested — change it if you need to',bikeNumberTaken:'Already used by {0}',
   aheadOfYou:'{0} ahead of you',youreNext:'You\'re next!',onBikeNow:'On the bike now',inQueueMsg:'You\'re in the queue',
   profilePhotoLabel:'Profile Photo',bikePhotoLabel:'Bike photo',uploadPhotoBtn:'Upload photo',removePhotoBtn:'Remove',photoSavedToast:'Photo updated',photoErrToast:'Could not read that image.',
   rideTierLabel:'Rider tier',ridesToNext:'{0} more rides to {1}',tierNewcomer:'Newcomer',tierRegular:'Regular',tierPro:'Pro',tierElite:'Elite',tierLegend:'Legend',profileCompleteLabel:'Profile {0}% complete',
@@ -1013,7 +1013,7 @@ ar:{
   
   helpBody:'افتح جلسة ليتمكن العملاء من الحجز (تبويب الجلسات).\nعند وصول الراكب، سجّل دخوله من تبويب الحجوزات وخصّص دراجة.\nحدّد الدفع بزر مدفوع؛ استخدم "على الحساب" للرحلات المجانية.\nفي الجلسات يمكنك الفتح والإغلاق والتعليم كممتلئة والنسخ والحذف.\nاطبع أو صدّر تقرير الجلسة من شريط أدوات الحجوزات.\nعلامة  على الراكب تعني تكرار عدم الحضور.\nاستخدم القفل (الشريط العلوي) عند الابتعاد.',
   custProfileTitle:'ملف العميل',custTotalRides:'الرحلات المكتملة',custTotalSpent:'إجمالي الإنفاق',custFavType:'النوع المفضل',custAvgRating:'متوسط التقييم',custBookingsLabel:'سجل الحجوزات',custNoBookings:'لا حجوزات.',custMemberSince:'أول ظهور',custWalkIn:'زائر (بدون حساب)',
-  addToCalendarBtn:'أضف إلى التقويم',autoLabel:'تلقائي',bikeNumberEditHint:'مقترح — غيّره إن لزم',bikeNumberTaken:'مستخدم بالفعل لـ {0}',
+  addToCalendarBtn:'أضف إلى التقويم',autoLabel:'تلقائي',bikeCategoryLabel:'الفئة',bikeWheelSize:'مقاس العجلة',bikeBrakes:'الفرامل',bikeWeight:'الوزن (كجم)',bikeNumberEditHint:'مقترح — غيّره إن لزم',bikeNumberTaken:'مستخدم بالفعل لـ {0}',
   aheadOfYou:'{0} أمامك',youreNext:'أنت التالي!',onBikeNow:'على الدراجة الآن',inQueueMsg:'أنت في قائمة الانتظار',
   profilePhotoLabel:'صورة الملف',bikePhotoLabel:'صورة الدراجة',uploadPhotoBtn:'رفع صورة',removePhotoBtn:'إزالة',photoSavedToast:'تم تحديث الصورة',photoErrToast:'تعذّرت قراءة الصورة.',
   rideTierLabel:'مستوى الراكب',ridesToNext:'{0} رحلات للوصول إلى {1}',tierNewcomer:'مبتدئ',tierRegular:'منتظم',tierPro:'محترف',tierElite:'نخبة',tierLegend:'أسطورة',profileCompleteLabel:'اكتمال الملف {0}%',
@@ -1766,7 +1766,7 @@ const S={
   showAddBike:false,editBikeId:null,bkTypeFilter:'all',
   addBikeType:null,addBikeSize:'M',addBikeColors:['#6ee89a'],addBikeColorNames:[''],_bkName:'',
   _bkBrand:'',_bkModel:'',_bkGroupset:'',_bkSpeeds:'',_bkRentalPrice:'',
-  _bkBrandAdd:false,_bkModelAdd:false,_bkGroupsetAdd:false,
+  _bkBrandAdd:false,_bkModelAdd:false,_bkGroupsetAdd:false,_bkWheel:'',_bkBrake:'',_bkWeight:'',_bkWheelAdd:false,_bkBrakeAdd:false,
   _bkLocation:'Sharafeyah Branch',_bkLocationAdd:false,_bkFrame:'',_bkNumber:'',_bkPhoto:'',
   bkLocations:(()=>{try{let l=JSON.parse(localStorage.getItem('cq_bk_locations'));if(!Array.isArray(l)||!l.length)l=['Sharafeyah Branch','JCC'];if(!l.includes('Sharafeyah Branch'))l.unshift('Sharafeyah Branch');if(!l.includes('JCC'))l.push('JCC');try{localStorage.setItem('cq_bk_locations',JSON.stringify(l));}catch(e){}return l;}catch(e){return['Sharafeyah Branch','JCC'];}})(),
   bkBrands:(()=>{try{return JSON.parse(localStorage.getItem('cq_bk_brands'))||[];}catch(e){return[];}})(),
@@ -1897,7 +1897,7 @@ const getBikes=()=>S.bikes||[];
 // The bikes table is public-read, but its NFC / serial / condition columns are readable only
 // through the staff RPCs (20260911 migration): select('*') would now fail with a permission
 // error for every device, so the fetch lists the public columns by name.
-const BIKE_COLS='id,name,size,type,colors,color_names,status,brand,model,groupset,speeds,rental_price,location,frame_type,bike_number,in_service_date,retired_date,photo,last_serviced_at';
+const BIKE_COLS='id,name,size,type,colors,color_names,status,brand,model,groupset,speeds,rental_price,location,frame_type,bike_number,in_service_date,retired_date,photo,last_serviced_at,wheel_size,brake_type,weight_kg';
 const getCustomers=()=>S.customers||[];
 const uid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36);
 
@@ -13888,7 +13888,7 @@ function _ciSpecHtml(){
   }
   const b=S._ciBike.bike;
   const color=(Array.isArray(b.color_names)&&b.color_names[0])||'';
-  const line=[_ciBikeNum(b),typeLabel(b.type)||b.type,b.frame_type,b.size,color,b.groupset].filter(Boolean).map(x=>esc(String(x))).join(' \u00b7 ');
+  const line=[_ciBikeNum(b),typeLabel(b.type)||b.type,b.frame_type,b.size,color,b.groupset,b.wheel_size,b.brake_type,b.weight_kg!=null?`${b.weight_kg} kg`:''].filter(Boolean).map(x=>esc(String(x))).join(' \u00b7 ');
   const ok=!_ciBikeBlocked();
   const dup=Object.entries(S._ciDrafts||{}).find(([id,d])=>id!==S._ciId&&d&&d.bike&&d.bike.bike&&d.bike.bike.id===b.id);
   const dupName=dup?((getQueue().find(x=>x.id===dup[0])||{}).name||''):'';
@@ -14225,7 +14225,7 @@ function renderModal(){
     const selCell=sel
       ?`<div style="width:22px;height:22px;border-radius:50%;background:var(--green);color:#000;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">${selIdx+1}</div>`
       :`<div style="width:22px;height:22px;border-radius:50%;border:2px solid rgba(var(--tint-rgb),.15);flex-shrink:0"></div>`;
-    const specs=[b.groupset,b.speeds?`${b.speeds}sp`:''].filter(Boolean).join(' · ')||'—';
+    const specs=[b.groupset,b.speeds?`${b.speeds}sp`:'',b.wheel_size,b.brake_type,b.weight_kg!=null?`${b.weight_kg} kg`:''].filter(Boolean).join(' · ')||'—';
     return`<tr style="border-bottom:1px solid rgba(var(--tint-rgb),.05);background:${sel?'rgba(var(--green-rgb),.05)':'transparent'};${unavail?'opacity:.32':'cursor:pointer'};transition:background .12s"
       ${!unavail?`onclick="pickBike('${b.id}')" onmouseover="if(!this.style.background.includes('255,137'))this.style.background='rgba(var(--tint-rgb),.025)'" onmouseout="if(!this.style.background.includes('255,137'))this.style.background='transparent'"`:''}>
       <td style="padding:10px 14px;text-align:center;width:44px">${selCell}</td>
@@ -14741,6 +14741,11 @@ function renderBikes(_resultsOnly){
     </div>
     <div class="form-row">
       <div class="form-group"><label>${t('bikeGroupset')} ${_optEditBtn('groupsets')}</label>${_bkFieldHtml('bk-groupset',S._bkGroupset,S._bkGroupsetAdd,_bkGroupsetList())}</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>${t('bikeWheelSize')} ${_optEditBtn('wheels')}</label>${_bkFieldHtml('bk-wheel',S._bkWheel,S._bkWheelAdd,_bkWheelList())}</div>
+      <div class="form-group"><label>${t('bikeBrakes')} ${_optEditBtn('brakes')}</label>${_bkFieldHtml('bk-brake',S._bkBrake,S._bkBrakeAdd,_bkBrakeList())}</div>
+      <div class="form-group"><label>${t('bikeWeight')}</label><input id="bk-weight" type="number" inputmode="decimal" min="0" step="0.1" value="${esc(S._bkWeight)}" placeholder="—" oninput="S._bkWeight=this.value" style="max-width:120px"></div>
       <div class="form-group"><label>${t('bikeSpeeds')}</label><select id="bk-speeds" style="max-width:140px" onchange="S._bkSpeeds=this.value"><option value="">—</option>${Array.from({length:50},(_,i)=>i+1).map(n=>`<option value="${n}"${S._bkSpeeds===String(n)?' selected':''}>${n}</option>`).join('')}</select></div>
     </div>
     <div class="form-row">
@@ -14765,7 +14770,7 @@ function renderBikes(_resultsOnly){
         })()}
       </div>
     </div>
-    <div class="form-group" style="margin-bottom:16px"><label>${t('bikeTypeLabel')}</label><div class="toggle-group">${bkTypeBtns}</div></div>
+    <div class="form-group" style="margin-bottom:16px"><label>${t('bikeCategoryLabel')}</label><div class="toggle-group">${bkTypeBtns}</div></div>
     <div class="form-group" style="margin-bottom:16px">
       <label>${t('bikeColorsLabel')} &nbsp;<span class="label-hint">${t('colorsHint')}</span></label>
       <div class="color-builder">
@@ -14828,7 +14833,7 @@ function renderBikes(_resultsOnly){
       <td class="bk-cell-name"><div style="display:flex;align-items:center;gap:10px">${b.photo?`<img loading="lazy" decoding="async" src="${esc(b.photo)}" alt="" style="width:38px;height:38px;border-radius:3px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}<button type="button" onclick="openBikeProfile('${b.id}')" title="${esc(b.name)}" style="background:none;border:none;padding:8px 6px;margin:-8px -6px;cursor:pointer;text-align:start;font:inherit;color:var(--text)"><span class="rider-name" style="text-decoration:underline;text-decoration-color:rgba(var(--tint-rgb),.2);text-underline-offset:2px">${esc(b.name)}</span></button></div></td>
       <td data-label="${esc(t('bikeBrand'))}" style="font-weight:700;font-size:13px">${b.brand?esc(b.brand):`<span style="color:var(--muted)">—</span>`}</td>
       <td data-label="${esc(t('bikeModel'))}" style="font-weight:700;font-size:13px">${b.model?esc(b.model):`<span style="color:var(--muted)">—</span>`}</td>
-      <td data-label="${esc(t('bikeGroupset'))}" style="font-weight:700;font-size:13px">${b.groupset?esc(b.groupset):`<span style="color:var(--muted)">—</span>`}</td>
+      <td data-label="${esc(t('bikeGroupset'))}" style="font-weight:700;font-size:13px">${b.groupset?esc(b.groupset):`<span style="color:var(--muted)">—</span>`}${_bkSpecsLine(b)?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:2px">${_bkSpecsLine(b)}</div>`:''}</td>
       <td data-label="${esc(t('bikeSpeeds'))}" style="font-weight:700;font-size:13px;text-align:center">${b.speeds?`${b.speeds}`:`<span style="color:var(--muted)">—</span>`}</td>
       <td data-label="${esc(t('bikeTypeLabel'))}">${typeBadge(b.type)}</td>
       <td data-label="${esc(t('frameSizeLabel'))}" style="font-weight:800">${b.size}</td>
@@ -15110,8 +15115,10 @@ function renderBikes(_resultsOnly){
   if(_bkHost)_bkHost.innerHTML=_bkResults;
 }
 
-function _resetBikeForm(){S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S.addBikeColorNames=[''];S._bkName='';S._bkNameCustom=false;S._bkBrand='';S._bkModel='';S._bkGroupset='';S._bkSpeeds='';S._bkRentalPrice='';S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;S._bkFrame='';S._bkNumber='';S._bkStartDate=_todayISO();S._bkPhoto='';}
+function _resetBikeForm(){S._bkWheel='';S._bkBrake='';S._bkWeight='';S._bkWheelAdd=false;S._bkBrakeAdd=false;S.showAddBike=false;S.editBikeId=null;S.addBikeType=null;S.addBikeSize='M';S.addBikeColors=['#6ee89a'];S.addBikeColorNames=[''];S._bkName='';S._bkNameCustom=false;S._bkBrand='';S._bkModel='';S._bkGroupset='';S._bkSpeeds='';S._bkRentalPrice='';S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;S._bkFrame='';S._bkNumber='';S._bkStartDate=_todayISO();S._bkPhoto='';}
 
+function _bkWeightVal(){const v=parseFloat(document.getElementById('bk-weight')?.value??S._bkWeight);return isNaN(v)||v<=0?null:Math.round(v*10)/10;}
+function _bkSpecsLine(b){return [b.wheel_size,b.brake_type,b.weight_kg!=null?`${b.weight_kg} kg`:''].filter(Boolean).map(x=>esc(String(x))).join(' · ');}
 function _bkNumberTaken(num,exceptId){const n=Number(num);if(!n)return null;return getBikes().find(b=>b.id!==exceptId&&Number(b.bike_number)===n)||null;}
 function _bkNumberHint(v){
   const h=document.getElementById('bk-number-hint'),el=document.getElementById('bk-number');if(!h)return;
@@ -15224,7 +15231,7 @@ async function addBike(){
   const colorNames=S.addBikeColorNames.slice(0,S.addBikeColors.length).map(n=>n||'');
   const rentalPrice=S._bkRentalPrice?parseFloat(S._bkRentalPrice)||null:null;
   const startDate=(document.getElementById('bk-start')?.value||S._bkStartDate||_todayISO());
-  const bike={id:uid(),name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:colorNames,status:'available',brand,model,groupset,speeds,rental_price:rentalPrice,frame_type:S._bkFrame,bike_number:bikeNum,in_service_date:startDate,retired_date:null};
+  const bike={id:uid(),name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:colorNames,status:'available',brand,model,groupset,speeds,rental_price:rentalPrice,frame_type:S._bkFrame,bike_number:bikeNum,in_service_date:startDate,retired_date:null,wheel_size:S._bkWheel||null,brake_type:S._bkBrake||null,weight_kg:_bkWeightVal()};
   let{error:insErr}=await sb.from('bikes').insert(bike);
   // Race/unique-violation guard: another bike grabbed this number — retry once with a fresh number
   if(insErr){
@@ -15255,6 +15262,7 @@ function startEdit(id){
   S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;
   S._bkLocationAdd=false;S._bkFrame=bike.frame_type||'';S._bkNumber=bike.bike_number!=null?String(bike.bike_number):'';
   S._bkStartDate=bike.in_service_date||'';S._bkPhoto=bike.photo||'';
+  S._bkWheel=bike.wheel_size||'';S._bkBrake=bike.brake_type||'';S._bkWeight=bike.weight_kg!=null?String(bike.weight_kg):'';S._bkWheelAdd=false;S._bkBrakeAdd=false;
   _autoSaveBkOpts(bike.brand,bike.model,bike.groupset);
   renderBikes();_scrollToBikeForm();
 }
@@ -15281,7 +15289,7 @@ async function saveBikeEdit(){
   const startDate=(document.getElementById('bk-start')?.value||S._bkStartDate||existing.in_service_date||_todayISO());
   const prev={name:existing.name,size:existing.size,type:existing.type,colors:[...existing.colors],color_names:[...(existing.color_names||[])],status:existing.status,brand:existing.brand||null,model:existing.model||null,groupset:existing.groupset||null,speeds:existing.speeds||null,rental_price:existing.rental_price??null,frame_type:existing.frame_type||null,bike_number:existing.bike_number??null,in_service_date:existing.in_service_date||null};
   const bid=S.editBikeId;
-  const{error}=await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:editColorNames,status:existing.status,brand,model,groupset,speeds,rental_price:rentalPrice,frame_type:S._bkFrame,bike_number:bikeNum,in_service_date:startDate}).eq('id',bid);
+  const{error}=await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:editColorNames,status:existing.status,brand,model,groupset,speeds,rental_price:rentalPrice,frame_type:S._bkFrame,bike_number:bikeNum,in_service_date:startDate,wheel_size:S._bkWheel||null,brake_type:S._bkBrake||null,weight_kg:_bkWeightVal()}).eq('id',bid);
   if(error){toast(error.message||'Save failed','error');return;}
   try{await sb.from('bikes').update({photo:S._bkPhoto||null}).eq('id',bid);}catch(e){}
   await loadData();
@@ -15531,6 +15539,9 @@ async function _optWrite(key,items){
 function _bkBrandNames(){return _optList('bike_brands').map(b=>b&&b.name).filter(Boolean);}
 function _bkModelsFor(brand){const b=_optList('bike_brands').find(x=>x&&x.name===brand);return b&&Array.isArray(b.models)?b.models:[];}
 function _bkGroupsetList(){return _optList('bike_groupsets').filter(x=>typeof x==='string');}
+function _bkWheelList(){const l=_optList('bike_wheels').filter(x=>typeof x==='string');return l.length?l:['20"','24"','26"','27.5"','29"','700c'];}
+function _bkBrakeList(){const l=_optList('bike_brakes').filter(x=>typeof x==='string');return l.length?l:['Rim','Disc — mechanical','Disc — hydraulic'];}
+async function _optAddSimple(key,defaults,v){const cur=_optList(key).filter(x=>typeof x==='string');const l=cur.length?cur:defaults;if(l.includes(v))return true;return _optWrite(key,_srt([...l,v]));}
 function _bkFrameList(){const l=_optList('bike_frames').filter(x=>typeof x==='string');return l.length?l:FRAME_TYPES;}
 function _frameLabel(f){return FRAME_TYPES.includes(f)?t('frame'+f):f;}
 const _srt=a=>[...a].sort((x,y)=>String(x).localeCompare(String(y)));
@@ -15547,21 +15558,21 @@ async function _optAddGroupset(g){const l=_bkGroupsetList();if(l.includes(g))ret
 function showOptListModal(kind){
   if(kind==='models'&&!S._bkBrand){toast(t('bkChooseBrandFirst'),'warning');return;}
   if(S._optEdit&&S._optEdit.kind===kind&&S._optEdit.brand===(S._bkBrand||''))return; // already open: keep what is being edited
-  const items=kind==='brands'?_bkBrandNames():kind==='models'?_bkModelsFor(S._bkBrand):kind==='groupsets'?_bkGroupsetList():_bkFrameList();
-  S._optEdit={kind,brand:S._bkBrand||'',items:[...items],add:''};
+  const items=kind==='brands'?_bkBrandNames():kind==='models'?_bkModelsFor(S._bkBrand):kind==='groupsets'?_bkGroupsetList():kind==='wheels'?_bkWheelList():kind==='brakes'?_bkBrakeList():_bkFrameList();
+  S._optEdit={kind,brand:S._bkBrand||'',items:items.map(v=>({v,orig:v})),add:''}; // orig: which row this was, so a rename keeps what hangs off it
   renderOptListModal();
 }
 function renderOptListModal(){
   const m=document.getElementById('optlist-modal'),o=S._optEdit;if(!m)return;
   if(!o){m.style.display='none';m.innerHTML='';return;}
-  const title=o.kind==='brands'?t('bikeBrand'):o.kind==='models'?t('optModelsOf').replace('{0}',S._bkBrand):o.kind==='groupsets'?t('bikeGroupset'):t('bikeFrameTypeLabel');
+  const title=o.kind==='brands'?t('bikeBrand'):o.kind==='models'?t('optModelsOf').replace('{0}',S._bkBrand):o.kind==='groupsets'?t('bikeGroupset'):o.kind==='wheels'?t('bikeWheelSize'):o.kind==='brakes'?t('bikeBrakes'):t('bikeFrameTypeLabel');
   m.style.display='flex';
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeOptListModal()">
     <div class="modal-box" role="dialog" aria-modal="true" style="max-width:440px">
       <div class="modal-title">${t('optListTitle').replace('{0}',esc(title))}</div>
       <div style="font-size:12px;color:var(--muted);font-weight:600;margin:4px 0 12px">${t('optNote')}</div>
       <div id="optlist-rows" style="display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto">
-        ${o.items.length?o.items.map((v,i)=>`<div style="display:flex;gap:6px;align-items:center"><input type="text" value="${esc(o.kind==='frames'?_frameLabel(v):v)}" aria-label="${esc(v)}" style="flex:1" oninput="S._optEdit.items[${i}]=this.value"><button type="button" class="btn-sm btn-muted" aria-label="${t('deleteBtn')||'Delete'} ${esc(v)}" onclick="S._optEdit.items.splice(${i},1);renderOptListModal()">✕</button></div>`).join(''):`<div style="font-size:13px;color:var(--muted)">${t('optEmpty')}</div>`}
+        ${o.items.length?o.items.map((it,i)=>`<div style="display:flex;gap:6px;align-items:center"><input type="text" value="${esc(o.kind==='frames'?_frameLabel(it.v):it.v)}" aria-label="${esc(it.orig||it.v)}" style="flex:1" oninput="S._optEdit.items[${i}].v=this.value"><button type="button" class="btn-sm btn-muted" aria-label="${t('deleteBtn')||'Delete'} ${esc(it.orig||it.v)}" onclick="S._optEdit.items.splice(${i},1);renderOptListModal()">✕</button></div>`).join(''):`<div style="font-size:13px;color:var(--muted)">${t('optEmpty')}</div>`}
       </div>
       <div style="display:flex;gap:6px;margin-top:10px"><input id="optlist-add" type="text" placeholder="${esc(t('optAddItem'))}" value="${esc(o.add)}" style="flex:1" oninput="S._optEdit.add=this.value" onkeydown="if(event.key==='Enter'){event.preventDefault();_optListAdd();}"><button type="button" class="btn-secondary" onclick="_optListAdd()">+</button></div>
       <div class="modal-footer">
@@ -15570,21 +15581,24 @@ function renderOptListModal(){
       </div>
     </div></div>`;
 }
-function _optListAdd(){const o=S._optEdit;if(!o)return;const v=String(o.add||'').trim();if(!v)return;if(!o.items.includes(v))o.items.push(v);o.add='';renderOptListModal();setTimeout(()=>document.getElementById('optlist-add')?.focus(),60);}
+function _optListAdd(){const o=S._optEdit;if(!o)return;const v=String(o.add||'').trim();if(!v)return;if(!o.items.some(it=>it.v===v))o.items.push({v,orig:null});o.add='';renderOptListModal();setTimeout(()=>document.getElementById('optlist-add')?.focus(),60);}
 function closeOptListModal(){S._optEdit=null;renderOptListModal();}
 async function _optListSave(){
   const o=S._optEdit;if(!o)return;
-  const items=[...new Set(o.items.map(v=>String(v||'').trim()).filter(Boolean))];
+  const seen=new Set();const rows=o.items.map(it=>({v:String(it.v||'').trim(),orig:it.orig})).filter(it=>it.v&&!seen.has(it.v)&&seen.add(it.v));
+  const items=rows.map(it=>it.v);
   let ok=true;
   if(o.kind==='brands'){
     const prev=_optList('bike_brands');
-    ok=await _optWrite('bike_brands',items.map((name,i)=>{const was=prev[i]&&prev.length===o.items.length?prev[i]:prev.find(b=>b.name===name);return{name,models:(was&&Array.isArray(was.models))?was.models:[]};}).sort((a,b)=>a.name.localeCompare(b.name)));
+    ok=await _optWrite('bike_brands',rows.map(it=>{const was=it.orig?prev.find(b=>b.name===it.orig):null;return{name:it.v,models:(was&&Array.isArray(was.models))?was.models:[]};}).sort((a,b)=>a.name.localeCompare(b.name)));
     if(S._bkBrand&&!items.includes(S._bkBrand)){S._bkBrand='';S._bkModel='';}
   }else if(o.kind==='models'){
     const l=_optList('bike_brands').map(b=>b.name===S._bkBrand?{...b,models:_srt(items)}:b);
     ok=await _optWrite('bike_brands',l);
     if(S._bkModel&&!items.includes(S._bkModel))S._bkModel='';
   }else if(o.kind==='groupsets'){ok=await _optWrite('bike_groupsets',_srt(items));if(S._bkGroupset&&!items.includes(S._bkGroupset))S._bkGroupset='';}
+  else if(o.kind==='wheels'){ok=await _optWrite('bike_wheels',items);if(S._bkWheel&&!items.includes(S._bkWheel))S._bkWheel='';}
+  else if(o.kind==='brakes'){ok=await _optWrite('bike_brakes',items);if(S._bkBrake&&!items.includes(S._bkBrake))S._bkBrake='';}
   else{ok=await _optWrite('bike_frames',items);if(S._bkFrame&&!items.includes(S._bkFrame))S._bkFrame='';}
   if(!ok)return;
   closeOptListModal();renderBikes();
@@ -15595,12 +15609,16 @@ function _bkSelChange(id,val){
     if(id==='bk-brand'){S._bkBrand='';S._bkBrandAdd=true;}
     else if(id==='bk-model'){S._bkModel='';S._bkModelAdd=true;}
     else if(id==='bk-groupset'){S._bkGroupset='';S._bkGroupsetAdd=true;}
+    else if(id==='bk-wheel'){S._bkWheel='';S._bkWheelAdd=true;}
+    else if(id==='bk-brake'){S._bkBrake='';S._bkBrakeAdd=true;}
     renderBikes();
     setTimeout(()=>document.getElementById(id)?.focus(),50);
   }else{
     if(id==='bk-brand'){if(S._bkBrand!==val)S._bkModel='';S._bkBrand=val;renderBikes();} // models hang off the brand
     else if(id==='bk-model')S._bkModel=val;
     else if(id==='bk-groupset')S._bkGroupset=val;
+    else if(id==='bk-wheel')S._bkWheel=val;
+    else if(id==='bk-brake')S._bkBrake=val;
   }
 }
 async function _bkOptSave(id){
@@ -15610,12 +15628,16 @@ async function _bkOptSave(id){
   if(id==='bk-brand'){if(!await _optAddBrand(v))return;S._bkBrand=v;S._bkModel='';S._bkBrandAdd=false;}
   else if(id==='bk-model'){if(!S._bkBrand){toast(t('bkChooseBrandFirst'),'warning');return;}if(!await _optAddModel(S._bkBrand,v))return;S._bkModel=v;S._bkModelAdd=false;}
   else if(id==='bk-groupset'){if(!await _optAddGroupset(v))return;S._bkGroupset=v;S._bkGroupsetAdd=false;}
+  else if(id==='bk-wheel'){if(!await _optAddSimple('bike_wheels',_bkWheelList(),v))return;S._bkWheel=v;S._bkWheelAdd=false;}
+  else if(id==='bk-brake'){if(!await _optAddSimple('bike_brakes',_bkBrakeList(),v))return;S._bkBrake=v;S._bkBrakeAdd=false;}
   renderBikes();
 }
 function _bkOptCancel(id){
   if(id==='bk-brand'){S._bkBrandAdd=false;S._bkBrand='';}
   else if(id==='bk-model'){S._bkModelAdd=false;S._bkModel='';}
   else if(id==='bk-groupset'){S._bkGroupsetAdd=false;S._bkGroupset='';}
+  else if(id==='bk-wheel'){S._bkWheelAdd=false;S._bkWheel='';}
+  else if(id==='bk-brake'){S._bkBrakeAdd=false;S._bkBrake='';}
   renderBikes();
 }
 // A bike saved with a brand, model or groupset the lists do not know yet teaches the lists.

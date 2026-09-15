@@ -399,11 +399,11 @@ tag with `auto_grant=true` (today: `tag_jcc`) to the new account.
 
 | Column | Type | Notes |
 |---|---|---|
-| `key` | text PK | `bike_brands`, `bike_groupsets`, `bike_frames` |
+| `key` | text PK | `bike_brands`, `bike_groupsets`, `bike_frames`, `bike_wheels`, `bike_brakes` |
 | `items` | jsonb | `bike_brands`: `[{"name","models":[...]}]` — models hang off brands; the others: `["..."]`. Empty `bike_frames` = the app's four defaults |
 | `updated_at` | timestamptz | — |
 
-Staff-only (`is_staff()` for all), loaded with the reference tables into `S.staffOptions`, written by `_optWrite` (upsert). Edited from the ✎ beside each list-backed field on the bike form (`showOptListModal`). Seeded from the fleet's existing brand/model/groupset values. Bike type `Kids` was added to `CUST_TYPES` the same day (priced like Hybrid, SAR 57.5).
+Staff-only (`is_staff()` for all), loaded with the reference tables into `S.staffOptions`, written by `_optWrite` (upsert). Edited from the ✎ beside each list-backed field on the bike form (`showOptListModal`). Seeded from the fleet's existing brand/model/groupset values. Bike type `Kids` was added to `CUST_TYPES` the same day (priced like Hybrid, SAR 57.5). `bikes.weight_kg` (numeric, migration 20260915140000) joined the fleet columns with `wheel_size` and `brake_type`, which were granted to anon/authenticated the same day; the form's Wheel size and Brakes draw on `bike_wheels` / `bike_brakes`.
 
 ## 4. RPCs — the customer API contract
 
