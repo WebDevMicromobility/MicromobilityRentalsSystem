@@ -1797,10 +1797,10 @@ const S={
   
   showAddSession:false,newSessDate:'',newSessStartTime:'21:00',newSessEndTime:'23:00',
   newSessMode:'counts',  
-  newSessTypeSizes:{Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}},
+  newSessTypeSizes:{Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0},Kids:{XS:0,S:0,M:0,L:0}},
   editSessionId:null,
   editSessAssignedIds:[],
-  editSessMode:'fleet',editSessTypeSizes:{Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}},
+  editSessMode:'fleet',editSessTypeSizes:{Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0},Kids:{XS:0,S:0,M:0,L:0}},
   editSessDate:'',editSessStatus:'closed',editSessStartTime:'21:00',editSessEndTime:'23:00',
   newSessAssignedIds:[],
   _extraBikes:{},
@@ -2814,7 +2814,7 @@ function spotsLeftLabel(n){
   if(S.lang==='ar')return`${n} ${n===1?'مقعد متبقي':'مقاعد متبقية'}`;
   return`${n} spot${n===1?'':'s'} left`;
 }
-const TYPE_CLS={Road:'type-road',Hybrid:'type-hybrid',Mountain:'type-mountain',Gravel:'type-gravel',Any:'type-any','Road Carbon':'type-roadcarbon'};
+const TYPE_CLS={Road:'type-road',Hybrid:'type-hybrid',Mountain:'type-mountain',Kids:'type-kids',Gravel:'type-gravel',Any:'type-any','Road Carbon':'type-roadcarbon'};
 function typeLabel(ty){const m={Road:t('typeRoad'),Hybrid:t('typeHybrid'),Mountain:t('typeMountain'),Kids:t('typeKids'),Gravel:t('typeGravel'),Any:t('typeAny'),'Road Carbon':t('typeRoadCarbon'),Own:t('typeOwn')};return m[ty]||ty||t('typeAny');} // null/legacy rows read as 'Any', never the literal 'undefined'
 // The bike-type preference PILL wording differs from the staff badge for 'Own': customers see
 // "I have my own bike"; staff (typeBadge) see the shorter "Bike owner" via typeLabel above.
@@ -7683,7 +7683,7 @@ function slotsLabel(raw){
   const s=parseSlots(raw);if(!s)return'—';
   const fmt=slotsFormat(s);
   if(fmt==='total')return `${s._total} ${t('bikesWord')||'bikes'}`;
-  const abbr={Road:'Road',Hybrid:'Hybrid',Mountain:'Mtn'};
+  const abbr={Road:'Road',Hybrid:'Hybrid',Mountain:'Mtn',Kids:'Kids'};
   if(fmt==='ids'){
     
     const counts={};
@@ -7725,17 +7725,17 @@ function startEditSession(id){
   if(fmt==='ids'&&slots._bikes){
     S.editSessMode='fleet';
     S.editSessAssignedIds=[...slots._bikes];
-    S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
+    S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0},Kids:{XS:0,S:0,M:0,L:0}};
   } else if(fmt==='total'){
     S.editSessMode='total';
     S.editSessTotal=slots._total||10;
     S.editSessAssignedIds=[];
-    S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
+    S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0},Kids:{XS:0,S:0,M:0,L:0}};
   } else if(fmt==='counts'){
     S.editSessMode='counts';
     S.editSessAssignedIds=[];
-    const ts={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
-    ['Road','Hybrid','Mountain','Kids'].forEach(ty=>{
+    const ts={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0},Kids:{XS:0,S:0,M:0,L:0}};
+    ['Road','Hybrid','Mountain','Kids'].forEach(ty=>{if(!ts[ty])ts[ty]={XS:0,S:0,M:0,L:0};
       if(slots[ty]&&typeof slots[ty]==='object'){
         ['XS','S','M','L'].forEach(sz=>{ts[ty][sz]=slots[ty][sz]||0;});
       } else if(typeof slots[ty]==='number'){
@@ -7747,7 +7747,7 @@ function startEditSession(id){
   } else {
     S.editSessMode='fleet';
     S.editSessAssignedIds=[];
-    S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
+    S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0},Kids:{XS:0,S:0,M:0,L:0}};
   }
   S.editSessAddons=(()=>{try{return sess.addons?(Array.isArray(sess.addons)?sess.addons:JSON.parse(sess.addons)):[];}catch(_){return[];}})();
   renderSessions();
@@ -8138,8 +8138,8 @@ function cloneSession(id){
     S.newSessMode='total';S.newSessTotal=slots._total;
   }else{
     S.newSessMode='counts';
-    const ts={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
-    ['Road','Hybrid','Mountain','Kids'].forEach(ty=>{if(slots[ty])['XS','S','M','L'].forEach(sz=>{ts[ty][sz]=slots[ty][sz]||0;});});
+    const ts={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0},Kids:{XS:0,S:0,M:0,L:0}};
+    ['Road','Hybrid','Mountain','Kids'].forEach(ty=>{if(!ts[ty])ts[ty]={XS:0,S:0,M:0,L:0};if(slots[ty])['XS','S','M','L'].forEach(sz=>{ts[ty][sz]=slots[ty][sz]||0;});});
     S.newSessTypeSizes=ts;
   }
   renderSessions();
@@ -8165,7 +8165,7 @@ function renderSessions(){
   const sessions=allSessions();
   const allBikes=getBikes();
   const types=['Road','Hybrid','Mountain','Kids'];
-  const typeColorHex={Road:'var(--muted)',Hybrid:'var(--muted)',Mountain:'var(--muted)'}; // micro-labels: one quiet color, no per-type accents
+  const typeColorHex={Road:'var(--muted)',Hybrid:'var(--muted)',Mountain:'var(--muted)',Kids:'var(--muted)'}; // micro-labels: one quiet color, no per-type accents
 
   
   const nsAssigned=S.newSessAssignedIds;
@@ -8288,7 +8288,7 @@ function renderSessions(){
               <th style="padding:6px 8px;font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;text-align:center">${t('totalStat')}</th>
             </tr></thead>
             <tbody>${types.map(ty=>{
-              if(!S.newSessTypeSizes)S.newSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
+              if(!S.newSessTypeSizes)S.newSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0},Kids:{XS:0,S:0,M:0,L:0}};
               const rowTot=['XS','S','M','L'].reduce((s,sz)=>s+(S.newSessTypeSizes[ty]?.[sz]||0),0);
               return`<tr style="border-top:1px solid var(--border)">
                 <td style="padding:8px 10px;font-weight:800;font-size:13px">${typeLabel(ty)}</td>
@@ -8321,7 +8321,7 @@ function renderSessions(){
       })()}
       <div style="display:flex;gap:8px;margin-top:16px">
         <button class="btn-primary" onclick="addSession()">${t('createSession')}</button>
-        <button class="btn-secondary" onclick="S.showAddSession=false;S.newSessAssignedIds=[];S.newSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};renderSessions()">${t('cancelBtn')}</button>
+        <button class="btn-secondary" onclick="S.showAddSession=false;S.newSessAssignedIds=[];S.newSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0},Kids:{XS:0,S:0,M:0,L:0}};renderSessions()">${t('cancelBtn')}</button>
       </div>
     </div>`:'';
 
@@ -8431,7 +8431,7 @@ function renderSessions(){
               <th style="padding:6px 8px;font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;text-align:center">${t('totalStat')}</th>
             </tr></thead>
             <tbody>${['Road','Hybrid','Mountain','Kids'].map(ty=>{
-              if(!S.editSessTypeSizes)S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
+              if(!S.editSessTypeSizes)S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0},Kids:{XS:0,S:0,M:0,L:0}};
               const rowTot=['XS','S','M','L'].reduce((s,sz)=>s+(S.editSessTypeSizes[ty]?.[sz]||0),0);
               return`<tr style="border-top:1px solid var(--border)">
                 <td style="padding:8px 10px;font-weight:800;font-size:13px">${typeLabel(ty)}</td>
@@ -8464,7 +8464,7 @@ function renderSessions(){
       })()}
       <div style="display:flex;gap:8px;margin-top:16px">
         <button class="btn-primary" onclick="saveSessionEdit()">${t('saveSessionBtn')}</button>
-        <button class="btn-secondary" onclick="S.editSessionId=null;S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};renderSessions()">${t('cancelBtn')}</button>
+        <button class="btn-secondary" onclick="S.editSessionId=null;S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0},Kids:{XS:0,S:0,M:0,L:0}};renderSessions()">${t('cancelBtn')}</button>
       </div>
     </div>`:'';
 
@@ -8846,7 +8846,7 @@ async function saveSessionEdit(){
     total=['Road','Hybrid','Mountain','Kids'].reduce((sum,ty)=>sum+sizes.reduce((s,sz)=>s+(ts[ty]?.[sz]||0),0),0);
     if(total===0){toast(t('errAddBikeToSession'),'error');return;}
     slots={_time:timeVal};
-    ['Road','Hybrid','Mountain','Kids'].forEach(ty=>{
+    ['Road','Hybrid','Mountain','Kids'].forEach(ty=>{if(!ts[ty])ts[ty]={XS:0,S:0,M:0,L:0};
       const rowTot=sizes.reduce((s,sz)=>s+(ts[ty]?.[sz]||0),0);
       if(rowTot>0)slots[ty]=ts[ty];
     });
@@ -8966,7 +8966,7 @@ async function saveSessionEdit(){
       }
       await loadData();renderSessions();renderStaffQueue();
     });
-    S.editSessionId=null;S.editSessTitle='';S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
+    S.editSessionId=null;S.editSessTitle='';S.editSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0},Kids:{XS:0,S:0,M:0,L:0}};
     renderSessions();renderStaffQueue();
   }catch(e){toast(t('errServerError'),'error');console.error(e);}
 }
@@ -8998,7 +8998,7 @@ async function addSession(){
     total=['Road','Hybrid','Mountain','Kids'].reduce((sum,ty)=>sum+sizes.reduce((s,sz)=>s+(ts[ty]?.[sz]||0),0),0);
     if(total===0){toast(t('errAddBikeToSession'),'error');return;}
     slots={_time:timeVal};
-    ['Road','Hybrid','Mountain','Kids'].forEach(ty=>{
+    ['Road','Hybrid','Mountain','Kids'].forEach(ty=>{if(!ts[ty])ts[ty]={XS:0,S:0,M:0,L:0};
       const rowTot=sizes.reduce((s,sz)=>s+(ts[ty]?.[sz]||0),0);
       if(rowTot>0){
         slots[ty]=ts[ty]; 
@@ -9096,7 +9096,7 @@ async function addSession(){
     }
     await loadData();
     S.showAddSession=false;S.newSessDate='';S.newSessAssignedIds=[];S.newSessStartTime='21:00';S.newSessEndTime='23:00';S.newSessRepeat='1';S.newSessAddons=[];S.newSessEvent='jcc';S.newSessSpots='';S.newSessTitle='';S.newSessMapUrl='';S.newSessBfName='';S.newSessBfUrl='';
-    S.newSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0}};
+    S.newSessTypeSizes={Road:{XS:0,S:0,M:0,L:0},Hybrid:{XS:0,S:0,M:0,L:0},Mountain:{XS:0,S:0,M:0,L:0},Kids:{XS:0,S:0,M:0,L:0}};
     if(created===0&&skipped>0)toast(t('errDateExists'),'error');
     else if(skipped>0)toast(t('someDatesSkipped').replace('{0}',created).replace('{1}',skipped));
     else if(created>1)toast(t('toastRecurringCreated').replace('{0}',created));
@@ -10161,6 +10161,7 @@ function _fleetStripHtml(){
 }
 function renderStaffQueue(_resultsOnly){
   try{const tb=document.getElementById('topbar');if(tb)document.documentElement.style.setProperty('--topbar-h',tb.offsetHeight+'px');}catch(_){}
+  S._qScrollY=window.scrollY; // a repaint replaces the whole tab; the page must not move under the staffer
   // The open check-in modal follows every repaint of the queue - price edits, add-ons,
   // payments, realtime - unless the bike field is being typed in, when a repaint would eat
   // the caret. Its amounts are read from the rows, so they move with them.
@@ -10327,7 +10328,7 @@ function renderStaffQueue(_resultsOnly){
     const l={all:t('filterAll'),paid:t('paidLabel'),pending:t('pendingLabel')}[p];
     return`<option value="${p}"${S.sfPay===p?' selected':''}>${l}</option>`;}).join('');
   const qBikeOpts=(_commSel?['all','Road','Mountain','Hybrid','Kids','own']:['all','own','rental']).map(b=>{
-    const l={all:t('filterAll'),own:t('typeOwn'),rental:t('filterRentalBike'),Road:t('typeRoad'),Mountain:t('typeMountain'),Hybrid:t('typeHybrid')}[b];
+    const l={all:t('filterAll'),own:t('typeOwn'),rental:t('filterRentalBike'),Road:t('typeRoad'),Mountain:t('typeMountain'),Hybrid:t('typeHybrid'),Kids:t('typeKids')}[b];
     return`<option value="${b}"${S.sfBike===b?' selected':''}>${l}</option>`;}).join('');
   // Frame size. The filter branch below has always existed but nothing rendered a control
   // for it, so S.sfSize was permanently pinned to 'all' — this is that missing control.
@@ -10960,8 +10961,10 @@ function renderQRow(e){
     }
   }
   document.getElementById('q-results').innerHTML=_qResultsHtml;
+  _qKeepScroll();
   _qPaintRest();
 }
+function _qKeepScroll(){const y=S._qScrollY;if(y==null)return;if(Math.abs(window.scrollY-y)>1)try{window.scrollTo({top:y,behavior:'auto'});}catch(_){window.scrollTo(0,y);}}
 let _qPaintGen=0;
 function _qPaintRest(){
   const rest=S._qRowsRest;S._qRowsRest='';
@@ -10971,6 +10974,7 @@ function _qPaintRest(){
     if(gen!==_qPaintGen)return;                 // a newer render owns the table now
     const tb=document.getElementById('q-tbody');
     if(tb)tb.insertAdjacentHTML('beforeend',rest);
+    _qKeepScroll();
   });
 }
 // Publish the Saturday results: approved riders start seeing their approval and their
@@ -19425,6 +19429,7 @@ function bikeTypeIcon(type,size=14){
     Road:_artIcon('bike',size),
     Hybrid:_artIcon('bike',size),
     Mountain:_artIcon('bike',size),
+    Kids:_artIcon('bike',size),
     Any:_artIcon('bike',size),
   };
   return icons[type]||icons.Any;
@@ -19923,7 +19928,7 @@ function _syncModalFocus(){
     else if(box){box.setAttribute('tabindex','-1');box.focus();}
   }else if(!modal&&_modalWasOpen){
     const back=_preModalFocus;_preModalFocus=null;
-    if(back&&document.contains(back))try{back.focus();}catch(e){}
+    if(back&&document.contains(back))try{back.focus({preventScroll:true});}catch(e){}
   }
   _modalWasOpen=!!modal;
 }

@@ -108,3 +108,23 @@ test('the phone header folds Add group and Print behind ⋯', async ({ page }, i
     await expect(page.locator('#tab-queue .section-header button', { hasText: 'Add group' })).toBeVisible();
   }
 });
+
+// Closing or confirming a check-in must not move the page: focus goes back without scrolling,
+// and a roster repaint keeps the scroll position, deferred rows included.
+test('the page stays put when a check-in modal closes and the roster repaints', async ({ page }, info) => {
+  test.skip(info.project.name === 'mobile', 'the phone roster is cards; the desktop table is where the jump showed');
+  const many = Array.from({ length: 45 }, (_, i) => row('m' + i, { queue_num: i + 1, phone: '05500' + String(100 + i) }));
+  await boot(page, many);
+  await page.evaluate('window.scrollTo(0, 900)');
+  await page.waitForTimeout(100);
+  const y0 = await page.evaluate('window.scrollY') as number;
+  expect(y0).toBeGreaterThan(500);
+  await page.evaluate(`showCheckinModal('m30')`);
+  await page.waitForTimeout(200);
+  await page.evaluate(`closeCheckinModal()`);
+  await page.waitForTimeout(300);                                        // the focus manager and the deferred rows have had their turn
+  expect(Math.abs((await page.evaluate('window.scrollY') as number) - y0)).toBeLessThan(3);
+  await page.evaluate(`renderStaffQueue()`);
+  await page.waitForTimeout(300);
+  expect(Math.abs((await page.evaluate('window.scrollY') as number) - y0)).toBeLessThan(3);
+});
