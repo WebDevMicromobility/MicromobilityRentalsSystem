@@ -4547,7 +4547,7 @@ function goStaff(){
   if(S._staffAuthed&&S._mustChangePwd)openStaffPwdModal(true);
 }
 function _autoSelectSession(){
-  
+  if(_restoreQueueView()){S._sfDefaulted=true;return;} // this tab remembers where the staffer was: a refresh comes back there
   const today=new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});
   const open=allSessions().filter(s=>s.status==='open'||s.status==='full')
     .sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
@@ -10128,9 +10128,24 @@ function _keepScroll(){
 // default is replaced — once anybody has picked anything (or there is no session today), the
 // choice is theirs. KSA_TZ, not the device clock's zone: the till is in Jeddah even when a
 // tester is not.
+// The queue's view - which session, Bookings / Sessions / Waitlist, the status filter - is
+// remembered for this tab, so a refresh comes back where the staffer was. Restored only if
+// the session still exists; otherwise the default-to-today rule below applies.
+function _saveQueueView(){try{sessionStorage.setItem('cq_queue_view',JSON.stringify({sfSession:S.sfSession,queueView:S.queueView,sfStatus:S.sfStatus}));}catch(e){}}
+function _restoreQueueView(){
+  let st=null;try{st=JSON.parse(sessionStorage.getItem('cq_queue_view')||'null');}catch(e){}
+  if(!st||!st.sfSession)return false;
+  if(st.sfSession!=='all'&&!allSessions().some(x=>x.id===st.sfSession&&x.status!=='deleted'))return false;
+  S.sfSession=st.sfSession;
+  if(['bookings','sessions','managed'].includes(st.queueView))S.queueView=st.queueView;
+  if(typeof st.sfStatus==='string')S.sfStatus=st.sfStatus;
+  return true;
+}
 function _sfDefaultToToday(){
-  if(S._sfDefaulted||S.sfSession!=='all'||!S.dataLoaded)return;
+  if(S._sfDefaulted||!S.dataLoaded)return;
   S._sfDefaulted=true;
+  if(_restoreQueueView())return; // back where the staffer was before the refresh - this tab's memory wins over any boot default
+  if(S.sfSession!=='all')return; // something picked it already (a scan, a link): keep it
   const today=new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});
   const s=allSessions().filter(x=>(x.status==='open'||x.status==='full')&&(x.session_date||x.id)===today)
     .sort((a,b)=>(b.created_at||0)-(a.created_at||0))[0];
@@ -10199,6 +10214,8 @@ function _fleetStripHtml(){
 function renderStaffQueue(_resultsOnly){
   try{const tb=document.getElementById('topbar');if(tb)document.documentElement.style.setProperty('--topbar-h',tb.offsetHeight+'px');}catch(_){}
   S._qScrollY=window.scrollY; // a repaint replaces the whole tab; the page must not move under the staffer
+  _sfDefaultToToday();
+  if(S._sfDefaulted)_saveQueueView(); // here, before any view-specific early return; and not before the restore has had its turn
   // The open check-in modal follows every repaint of the queue - price edits, add-ons,
   // payments, realtime - unless the bike field is being typed in, when a repaint would eat
   // the caret. Its amounts are read from the rows, so they move with them.
