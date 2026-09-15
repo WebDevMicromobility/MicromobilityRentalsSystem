@@ -82,3 +82,13 @@ Cloudflare Pages serves the repo root, so internal files must be blocked from pu
 - **Hot helpers are cached.** `shortDate` memoises per language; `_decidedByPerson()` and
   `_qBySession()` are per-load indexes keyed on the `S.queue` array identity, so replace the
   array (`S.queue=q.slice()`) after an in-place mutation you want them to see.
+
+### Staff queue: what a repaint has to keep (2026-09-15)
+- `S._partyOpen` (a Set of party keys) and `S.sfShowFinished` are in-memory UI state: a party
+  reads as one row until opened, finished parties fold to one line. `_partyIsOpen(k)` is also
+  true while a search is running, and parties never fold on an approval ride (approvals are
+  per rider). Specs that drive party members call `_partyOpenAll()` or search first.
+- `renderStaffQueue()` repaints the open check-in modal too (its amounts are read from the
+  rows), holding off only for 1.5s after a keystroke in `#ci-bike` (`S._ciTypedAt`).
+- Removing a shell image means three edits: the markup, `service-worker.js` SHELL, and the
+  required list in `scripts/assemble-dist.mjs` — CI's "Assemble dist" fails otherwise.
