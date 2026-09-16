@@ -178,3 +178,75 @@ test('the list never shows a price; the billing report CSV carries per-ride pric
   expect(lines[lines.length - 1]).toContain('57.50');
   expect(errs).toEqual([]);
 });
+
+test.describe('walk-in at the desk', () => {
+  test('staff type the form\'s fields; it goes through rider_register and is checked in', async ({ page }) => {
+    await stubSupabase(page, {
+      sessions, queue_entries, rider_registrations,
+      'rpc:rider_register': { ok: true, id: 9, match: 'none', resubmitted: false, booking_no: 'P-004' },
+    });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('riders')`);
+    await expect(page.locator('#tab-riders tbody tr')).toHaveCount(3);
+
+    const calls: Record<string, unknown>[] = [];
+    const patches: { url: string; body: Record<string, unknown> }[] = [];
+    page.on('request', (r) => {
+      if (/rpc\/rider_register/.test(r.url())) calls.push(JSON.parse(r.postData() || '{}'));
+      if (r.method() === 'PATCH' && /rider_registrations/.test(r.url())) patches.push({ url: r.url(), body: JSON.parse(r.postData() || '{}') });
+    });
+
+    await page.locator('#tab-riders button', { hasText: 'Walk-in' }).click();
+    await expect(page.locator('#rider-walkin-modal .modal-box')).toBeVisible();
+    await expect(page.locator('#rw-session')).toHaveValue(SESS);     // tonight's ride is pre-picked
+    await expect(page.locator('#rw-checkin')).toBeChecked();         // a walk-in is standing at the desk
+    await page.locator('#rider-walkin-modal .toggle-btn', { hasText: 'Petromin' }).click();
+    await page.fill('#rw-badge', ' D-78 ');
+    await page.fill('#rw-name', 'Dana  Walkin');
+    await page.fill('#rw-phone', '0500000004');
+    await page.fill('#rw-height', '172');
+    await page.locator('#rider-walkin-modal .toggle-btn', { hasText: 'Hybrid' }).click();
+    await page.click('#rw-submit');
+
+    await expect.poll(() => calls.length).toBe(1);
+    expect(calls[0]).toEqual({
+      p_badge: 'D-78', p_name: 'Dana Walkin', p_height: 172, p_type: 'Hybrid', p_source: 'petromin',
+      p_phone: '+966500000004', p_session_id: SESS, p_company: 'Petromin',
+    });
+    await expect.poll(() => patches.length).toBe(1);                // the check-in, on the new row
+    expect(patches[0].url).toContain('id=eq.9');
+    expect(patches[0].body.checked_in_at).toBeTruthy();
+    await expect(page.locator('#rider-walkin-modal .modal-box')).toHaveCount(0);
+    await expect(page.locator('.toast')).toContainText('P-004');
+  });
+
+  test('a one-word name is refused before anything is sent, and the RPC\'s own verdict is shown', async ({ page }) => {
+    await stubSupabase(page, {
+      sessions, queue_entries, rider_registrations,
+      'rpc:rider_register': { ok: false, error: 'badge' },
+    });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('riders')`);
+    const calls: string[] = [];
+    page.on('request', (r) => { if (/rpc\/rider_register/.test(r.url())) calls.push(r.url()); });
+
+    await page.evaluate(`showRiderWalkin()`);
+    await page.fill('#rw-badge', 'E-90');
+    await page.fill('#rw-name', 'Mononym');
+    await page.fill('#rw-height', '170');
+    await page.locator('#rider-walkin-modal .toggle-btn', { hasText: 'Road' }).click();
+    await page.click('#rw-submit');
+    await expect(page.locator('#rw-err')).toContainText(/full name/i);
+    expect(calls).toHaveLength(0);
+
+    await page.fill('#rw-name', 'Mono Nym');
+    await page.click('#rw-submit');
+    await expect.poll(() => calls.length).toBe(1);
+    await expect(page.locator('#rw-err')).toContainText(/badge/i);   // the server said no; the modal stays open
+    await expect(page.locator('#rider-walkin-modal .modal-box')).toBeVisible();
+  });
+});
