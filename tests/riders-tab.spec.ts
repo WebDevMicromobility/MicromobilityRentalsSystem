@@ -393,3 +393,47 @@ test('scanning a rider QR opens the booking pop-up with a Check in button, and t
   await expect(page.locator('#tab-riders').getByRole('button', { name: 'Scan QR' })).toBeVisible();
   expect(errs).toEqual([]);
 });
+
+test('staff edit a registration from the pop-up: the modal comes filled in and saves to that row, booking number kept', async ({ page }) => {
+  const errs = watch(page);
+  await openRiders(page);
+  const writes: { url: string; body: Record<string, unknown> }[] = [];
+  page.on('request', (r) => { if (r.method() === 'PATCH' && /rest\/v1\/rider_registrations/.test(r.url())) writes.push({ url: r.url(), body: r.postDataJSON() }); });
+
+  await page.evaluate(`_onScanPayload('MMP-P-001')`);
+  await page.locator('#rider-modal .modal-box').getByRole('button', { name: 'Edit' }).click();
+  const modal = page.locator('#rider-walkin-modal .modal-box');
+  await expect(modal).toBeVisible();
+  await expect(modal.locator('#rw-title')).toContainText('Edit booking');
+  await expect(modal.locator('#rw-title')).toContainText('P-001');
+  await expect(modal.locator('#rw-badge')).toHaveValue('A-12');
+  await expect(modal.locator('#rw-name')).toHaveValue('Amal Booked');
+  await expect(modal.locator('#rw-cc')).toHaveValue('+966');
+  await expect(modal.locator('#rw-phone')).toHaveValue('500000001');
+  await expect(modal.locator('#rw-height')).toHaveValue('170');
+  await expect(modal.locator('#rw-session')).toHaveValue(SESS);
+  await expect(modal.locator('.toggle-btn.active', { hasText: 'Hybrid' })).toHaveCount(1);
+  await expect(modal.locator('#rw-checkin')).toHaveCount(0); // an edit never checks in by itself
+
+  await page.fill('#rw-badge', ' A-13 ');
+  await page.fill('#rw-height', '176');
+  await modal.locator('.toggle-btn', { hasText: 'Road' }).click();
+  await modal.getByRole('button', { name: 'Save changes' }).click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0].url).toContain('id=eq.1');
+  expect(writes[0].body).toMatchObject({ badge: 'A-13', name: 'Amal Booked', phone: '+966500000001', height: 176, type_preference: 'Road', session_id: SESS, company: 'Petromin' });
+  expect(writes[0].body).not.toHaveProperty('booking_no');
+  expect(writes[0].body).not.toHaveProperty('matched_entry_id'); // same night: the website match stands
+  await expect(modal).toHaveCount(0);
+  await expect(page.locator('#rider-modal .modal-box')).toContainText('P-001'); // the pop-up comes back with the saved row
+  await page.locator('#rider-modal .modal-box').getByRole('button', { name: 'Close' }).click();
+
+  // A slip is caught before anything is sent.
+  await rows(page).nth(2).getByRole('button', { name: 'Edit' }).click();
+  await expect(page.locator('#rw-title')).toContainText('P-003');
+  await page.fill('#rw-name', 'Mononym');
+  await page.locator('#rider-walkin-modal').getByRole('button', { name: 'Save changes' }).click();
+  await expect(page.locator('#rw-err')).toContainText(/full name/i);
+  expect(writes).toHaveLength(1);
+  expect(errs).toEqual([]);
+});
