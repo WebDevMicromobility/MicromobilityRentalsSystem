@@ -46,7 +46,14 @@ with expected(fname, want_definer, note) as (values
   ('_comm_no_carbon',        false, 'inspects NEW only'),
   ('_wl_num_assign',         false, 'inspects NEW + same-session rows'),
   ('_ctag_active',           false, 'pure date comparison'),
-  ('_cust_pwd_ok',           false, 'pure hash comparison')
+  ('_cust_pwd_ok',           false, 'pure hash comparison'),
+  -- Rider registration (the form at micromobility.sa/petromin)
+  ('rider_register',         true,  'writes rider_registrations for anon; reads queue_entries and customers to match'),
+  ('rider_edit',             true,  'same, for the rider''s own row'),
+  ('rider_sessions',         true,  'reads sessions for anon'),
+  ('_rider_gate',            true,  'writes login_throttle; internal only'),
+  ('_rider_session_open',    false, 'pure status check on the row it is handed'),
+  ('_session_window',        false, 'pure time arithmetic on the row it is handed')
 )
 select e.fname,
        case when p.oid is null then 'MISSING FROM DATABASE'
