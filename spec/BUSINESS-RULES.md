@@ -196,11 +196,19 @@ no-show. (Before 2026‑08‑25 the guard counted only `waiting`/`active`, so pl
 reappeared as the evening went on and a 40-bike evening could serve more than 40 people —
 [supabase/migrations/20260825120000_capacity_counts_every_place_taken.sql](../supabase/migrations/20260825120000_capacity_counts_every_place_taken.sql).)
 
-### 4.2 Own-bike riders never consume a place 🟣
+### 4.2 Own-bike riders never consume a place — except on the Petromin ride 🟣
 
 `type_preference = 'Own'` is outside the count on both sides. Places allocate **Micromobility
 bikes**, and a rider on their own bike takes none. Staff can therefore seat any number of bike
 owners on top of a "full" allocation.
+
+**The Petromin ride is the one exception.** Its places are the track's, not the rack's: the
+venue admits N riders and an owner is one of them, so `Own` rows count against capacity there,
+in the client (`_ownTakesPlace` / `_holdsSpot(e, sess)`) and in both triggers. The fill rule
+also writes `closed` rather than `full` on that ride and leaves an `_ac` marker in `bike_slots`
+so it can undo its own close; staff see such a session as **Fully Booked**, and re-opening it
+by hand only lasts until the next booking write —
+[supabase/migrations/20260916190000_petromin_owners_take_a_place.sql](../supabase/migrations/20260916190000_petromin_owners_take_a_place.sql).
 
 ### 4.3 Which number is the cap 🟣
 
@@ -771,7 +779,7 @@ up. Birth dates in the future or implying an age under five are refused client-s
 1. Queue numbers are **stable, never reused, never shifted**; gaps are correct.
 2. Customers never see community queue numbers or order — not in the UI, QR payloads, wallet
    passes, or calendar text.
-3. The spots meter counts **rental bikes only**; own-bike riders are unlimited and invisible to it.
+3. The spots meter counts **rental bikes only**; own-bike riders are unlimited and invisible to it (the Petromin ride excepted — §4.2).
 4. Community seats exist only through approval on the Saturday ride; customers cannot self-approve.
 5. Membership = an **active** `saturday` tag, enforced in the RPC (UI), the insert trigger
    (security), and gated-session visibility.

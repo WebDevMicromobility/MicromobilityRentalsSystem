@@ -152,9 +152,10 @@ test.describe('it behaves like a circuit session, not like the Saturday ride', (
     expect(rows[0].type_preference).not.toBe('Road Carbon'); // the DB trigger backstops this too
   });
 
-  test('a rider on their own bike is seated even when every seat is taken', async ({ page }) => {
-    // Seats allocate Micromobility bikes. Someone who brought their own needs none, so a
-    // full ride still takes them — and they never push a bike-renting rider out either.
+  test('a rider on their own bike takes a place here: a full ride waitlists them too', async ({ page }) => {
+    // Petromin places are the track's, not the rack's. An owner pays nothing but still
+    // fills one of the N places the venue admits, so a full ride sends them to the waitlist
+    // exactly like a renter (the DB's _capacity_guard counts them the same way).
     const taken = Array.from({ length: 10 }, (_, i) => ({
       id: 'f' + i, session_id: '2099-01-13-pw', session_day: 'Wednesday', session_date: '2099-01-13',
       queue_num: i + 1, name: 'Rider ' + i, size: 'M', type_preference: 'Road', status: 'waiting',
@@ -167,8 +168,30 @@ test.describe('it behaves like a circuit session, not like the Saturday ride', (
        S.regRiderNames=['Spec Rider']; S.promoApplied=null; submitReg();`,
     );
     await expect.poll(() => rows.length).toBe(1);
-    expect(rows[0].status).toBe('waiting');   // not bumped to the waitlist
+    expect(rows[0].status).toBe('waitlist');
     expect(rows[0].price).toBe(0);
+  });
+
+  test('owners already on the ride count toward its places; on the Saturday ride they do not', async ({ page }) => {
+    // 10 places, 7 renters and 3 owners: the meter reads 0 left, and the next renter is
+    // waitlisted. The Saturday ride keeps the old rule — owners are invisible to its meter.
+    const mk = (i: number, type: string, sid: string) => ({
+      id: 'g' + i, session_id: sid, session_day: 'Wednesday', session_date: '2099-01-13',
+      queue_num: i + 1, name: 'Rider ' + i, size: 'M', type_preference: type, status: 'waiting',
+      paid: false, price: 0, registered_at: '2099-01-01T10:00:00Z', approval: 'approved',
+    });
+    const pw = Array.from({ length: 10 }, (_, i) => mk(i, i < 7 ? 'Road' : 'Own', '2099-01-13-pw'));
+    const satRows = Array.from({ length: 3 }, (_, i) => mk(20 + i, 'Own', '2099-01-10'));
+    await bootMember(page, { queue_entries: [...pw, ...satRows] });
+    expect(await page.evaluate(`spotsLeft('2099-01-13-pw')`)).toBe(0);
+    expect(await page.evaluate(`spotsLeft('2099-01-10')`)).toBe(20);
+    const rows = await captureBookingRows(page);
+    await page.evaluate(
+      `S.selSession='2099-01-13-pw'; S.regQty=1; S.regBikeHeights=[175]; S.regBikeTypes=['Road'];
+       S.regRiderNames=['Spec Rider']; S.promoApplied=null; submitReg();`,
+    );
+    await expect.poll(() => rows.length).toBe(1);
+    expect(rows[0].status).toBe('waitlist');
   });
 
   // The member and one guest. Staff are exempt, so the desk can still seat a larger party.

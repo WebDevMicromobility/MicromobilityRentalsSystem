@@ -1717,6 +1717,34 @@ const COUNTRY_LIST=Object.keys(COUNTRY_CITIES);
 const COUNTRY_AR={"Saudi Arabia":"السعودية","United Arab Emirates":"الإمارات","Kuwait":"الكويت","Qatar":"قطر","Bahrain":"البحرين","Oman":"عُمان","Egypt":"مصر","Jordan":"الأردن","Lebanon":"لبنان","Syria":"سوريا","Iraq":"العراق","Yemen":"اليمن","Palestine":"فلسطين","Sudan":"السودان","Morocco":"المغرب","Algeria":"الجزائر","Tunisia":"تونس","Libya":"ليبيا","Turkey":"تركيا","Pakistan":"باكستان","India":"الهند","Bangladesh":"بنغلاديش","Philippines":"الفلبين","Indonesia":"إندونيسيا","United Kingdom":"المملكة المتحدة","United States":"الولايات المتحدة","Canada":"كندا","France":"فرنسا","Germany":"ألمانيا"};
 const CITY_AR={"Riyadh":"الرياض","Jeddah":"جدة","Mecca":"مكة المكرمة","Medina":"المدينة المنورة","Dammam":"الدمام","Khobar":"الخبر","Dhahran":"الظهران","Taif":"الطائف","Tabuk":"تبوك","Buraydah":"بريدة","Khamis Mushait":"خميس مشيط","Abha":"أبها","Hail":"حائل","Najran":"نجران","Jazan":"جازان","Al Hofuf":"الهفوف","Yanbu":"ينبع","Jubail":"الجبيل","Qatif":"القطيف","Hafar Al-Batin":"حفر الباطن","Arar":"عرعر","Sakaka":"سكاكا","Al Bahah":"الباحة","Unaizah":"عنيزة","Al Kharj":"الخرج"};
 function countryLabel(c){return S&&S.lang==='ar'?(COUNTRY_AR[c]||c):c;}
+// ── Nationality: every country, not just the ones with a city list ────────────
+// [ISO 3166-1 alpha-2, English name]. The English name is the stored value - it is what the
+// dropdown always stored, so 'Egypt' stays 'Egypt' in the table and the report - and the code
+// is what lets Intl.DisplayNames label it in the rider's own language. Country of residence
+// keeps COUNTRY_LIST: it is tied to the city picker.
+const NATIONALITIES=[["AF","Afghanistan"],["AL","Albania"],["DZ","Algeria"],["AD","Andorra"],["AO","Angola"],["AG","Antigua and Barbuda"],["AR","Argentina"],["AM","Armenia"],["AU","Australia"],["AT","Austria"],["AZ","Azerbaijan"],["BS","Bahamas"],["BH","Bahrain"],["BD","Bangladesh"],["BB","Barbados"],["BY","Belarus"],["BE","Belgium"],["BZ","Belize"],["BJ","Benin"],["BT","Bhutan"],["BO","Bolivia"],["BA","Bosnia and Herzegovina"],["BW","Botswana"],["BR","Brazil"],["BN","Brunei"],["BG","Bulgaria"],["BF","Burkina Faso"],["BI","Burundi"],["CV","Cabo Verde"],["KH","Cambodia"],["CM","Cameroon"],["CA","Canada"],["CF","Central African Republic"],["TD","Chad"],["CL","Chile"],["CN","China"],["CO","Colombia"],["KM","Comoros"],["CG","Congo"],["CD","Congo (DRC)"],["CR","Costa Rica"],["CI","Côte d\'Ivoire"],["HR","Croatia"],["CU","Cuba"],["CY","Cyprus"],["CZ","Czechia"],["DK","Denmark"],["DJ","Djibouti"],["DM","Dominica"],["DO","Dominican Republic"],["EC","Ecuador"],["EG","Egypt"],["SV","El Salvador"],["GQ","Equatorial Guinea"],["ER","Eritrea"],["EE","Estonia"],["SZ","Eswatini"],["ET","Ethiopia"],["FJ","Fiji"],["FI","Finland"],["FR","France"],["GA","Gabon"],["GM","Gambia"],["GE","Georgia"],["DE","Germany"],["GH","Ghana"],["GR","Greece"],["GD","Grenada"],["GT","Guatemala"],["GN","Guinea"],["GW","Guinea-Bissau"],["GY","Guyana"],["HT","Haiti"],["HN","Honduras"],["HU","Hungary"],["IS","Iceland"],["IN","India"],["ID","Indonesia"],["IR","Iran"],["IQ","Iraq"],["IE","Ireland"],["IL","Israel"],["IT","Italy"],["JM","Jamaica"],["JP","Japan"],["JO","Jordan"],["KZ","Kazakhstan"],["KE","Kenya"],["KI","Kiribati"],["XK","Kosovo"],["KW","Kuwait"],["KG","Kyrgyzstan"],["LA","Laos"],["LV","Latvia"],["LB","Lebanon"],["LS","Lesotho"],["LR","Liberia"],["LY","Libya"],["LI","Liechtenstein"],["LT","Lithuania"],["LU","Luxembourg"],["MG","Madagascar"],["MW","Malawi"],["MY","Malaysia"],["MV","Maldives"],["ML","Mali"],["MT","Malta"],["MH","Marshall Islands"],["MR","Mauritania"],["MU","Mauritius"],["MX","Mexico"],["FM","Micronesia"],["MD","Moldova"],["MC","Monaco"],["MN","Mongolia"],["ME","Montenegro"],["MA","Morocco"],["MZ","Mozambique"],["MM","Myanmar"],["NA","Namibia"],["NR","Nauru"],["NP","Nepal"],["NL","Netherlands"],["NZ","New Zealand"],["NI","Nicaragua"],["NE","Niger"],["NG","Nigeria"],["KP","North Korea"],["MK","North Macedonia"],["NO","Norway"],["OM","Oman"],["PK","Pakistan"],["PW","Palau"],["PS","Palestine"],["PA","Panama"],["PG","Papua New Guinea"],["PY","Paraguay"],["PE","Peru"],["PH","Philippines"],["PL","Poland"],["PT","Portugal"],["QA","Qatar"],["RO","Romania"],["RU","Russia"],["RW","Rwanda"],["KN","Saint Kitts and Nevis"],["LC","Saint Lucia"],["VC","Saint Vincent and the Grenadines"],["WS","Samoa"],["SM","San Marino"],["ST","Sao Tome and Principe"],["SA","Saudi Arabia"],["SN","Senegal"],["RS","Serbia"],["SC","Seychelles"],["SL","Sierra Leone"],["SG","Singapore"],["SK","Slovakia"],["SI","Slovenia"],["SB","Solomon Islands"],["SO","Somalia"],["ZA","South Africa"],["KR","South Korea"],["SS","South Sudan"],["ES","Spain"],["LK","Sri Lanka"],["SD","Sudan"],["SR","Suriname"],["SE","Sweden"],["CH","Switzerland"],["SY","Syria"],["TW","Taiwan"],["TJ","Tajikistan"],["TZ","Tanzania"],["TH","Thailand"],["TL","Timor-Leste"],["TG","Togo"],["TO","Tonga"],["TT","Trinidad and Tobago"],["TN","Tunisia"],["TR","Turkey"],["TM","Turkmenistan"],["TV","Tuvalu"],["UG","Uganda"],["UA","Ukraine"],["AE","United Arab Emirates"],["GB","United Kingdom"],["US","United States"],["UY","Uruguay"],["UZ","Uzbekistan"],["VU","Vanuatu"],["VA","Vatican City"],["VE","Venezuela"],["VN","Vietnam"],["YE","Yemen"],["ZM","Zambia"],["ZW","Zimbabwe"]];
+const _NAT_CODE=Object.fromEntries(NATIONALITIES.map(([c,n])=>[n,c]));
+const _natDN={};
+function nationalityLabel(name){
+  const lang=(S&&S.lang)||'en';
+  if(lang==='en')return name;
+  if(lang==='ar'&&COUNTRY_AR[name])return COUNTRY_AR[name];   // the curated short names win
+  const code=_NAT_CODE[name];if(!code)return name;
+  try{
+    if(!(lang in _natDN))_natDN[lang]=(typeof Intl!=='undefined'&&Intl.DisplayNames)?new Intl.DisplayNames([lang],{type:'region',fallback:'none'}):null;
+    const dn=_natDN[lang];const l=dn&&dn.of(code);
+    return l||name;   // a browser without that language's data (Chromium has no Nepali) falls back to English
+  }catch(e){return name;}
+}
+// The list as the dropdown shows it: alphabetical in the rider's language, Saudi Arabia first.
+function nationalityList(){
+  const lang=(S&&S.lang)||'en';
+  const rest=NATIONALITIES.map(([,n])=>n).filter(n=>n!=='Saudi Arabia');
+  const lab=Object.fromEntries(rest.map(n=>[n,nationalityLabel(n)]));
+  try{rest.sort((a,b)=>lab[a].localeCompare(lab[b],lang));}catch(e){rest.sort((a,b)=>lab[a].localeCompare(lab[b]));}
+  return ['Saudi Arabia',...rest];
+}
+function nationalityOpts(sel){return nationalityList().map(c=>`<option value="${esc(c)}"${sel===c?' selected':''}>${esc(nationalityLabel(c))}</option>`).join('');}
 // ── Social accounts on the profile: bare handles, never URLs ──────────────────
 // [key, label string key, profile URL prefix, handle rule]. Whatever the rider pastes - a
 // full URL, an @ - is reduced to the handle, so a link can always be built from it.
@@ -2610,10 +2638,12 @@ function openSessions(){return allSessions().filter(s=>s.status==='open');}
 // no-show. A rider who never turned up should not hold a bike hostage while someone at the
 // desk wants it, so that place goes back and the next waitlisted rider is promoted into it.
 //
-// Own-bike riders are outside it entirely: places allocate Micromobility bikes, and a rider
-// who brought their own takes none.
-function _holdsSpot(e){
-  return !!e&&e.status!=='cancelled'&&e.status!=='removed'&&e.status!=='noshow'&&!_isOwnBike(e);
+// Own-bike riders are outside it on every ride but one: places allocate Micromobility bikes,
+// and a rider who brought their own takes none. The Petromin ride is the exception - its
+// places are the track's, not the rack's, so an owner holds one there like anybody else
+// (_ownTakesPlace). The DB's _capacity_guard and _session_fill_status apply the same test.
+function _holdsSpot(e,sess){
+  return !!e&&e.status!=='cancelled'&&e.status!=='removed'&&e.status!=='noshow'&&(!_isOwnBike(e)||_ownTakesPlace(sess));
 }
 function spotsLeft(sid){
   const sess=S.sessions.find(s=>s.id===sid);
@@ -2623,13 +2653,12 @@ function spotsLeft(sid){
     const cap=(sess&&sess.spots)||(sess&&sess.capacity)||12;
     // Own-bike riders don't hold a spot: the cap allocates Micromobility bikes only,
     // so staff can seat any number of bike owners on top of a "full" allocation.
-    return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&_holdsSpot(e)).length);
+    return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&_holdsSpot(e,sess)).length);
   }
   const cap=(sess&&sess.capacity)||12;
-  // Own-bike riders never hold a seat on ANY ride, seat-based ones included: the count
-  // allocates Micromobility bikes, and a rider who brought their own takes none. ('Own' is
-  // only ever offered on a community ride, so this changes nothing at the circuit.)
-  return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&_holdsSpot(e)).length);
+  // Own-bike riders hold no seat on a seat-based ride either - the count allocates
+  // Micromobility bikes - except on the Petromin ride, where they do (_ownTakesPlace).
+  return Math.max(0,cap-getQueue().filter(e=>e.sessionId===sid&&_holdsSpot(e,sess)).length);
 }
 function nextQNum(sid){const nums=getQueue().filter(e=>e.sessionId===sid&&e.status!=='cancelled'&&e.status!=='removed').map(e=>e.queueNum||0);return nums.length?nums.reduce((a,b)=>Math.max(a,b),0)+1:1;} // cancelled/removed numbers are recycled (the partial unique index exempts those rows); noshow numbers stay reserved because the rider can come back
 // Staff-only waitlist serial: per-session, monotonic over ALL rows (promoted rows keep
@@ -4150,6 +4179,14 @@ function _partnerHtml(s,cls){return _rideKind(s)==='workshop'?`<span class="${cl
 // Rider brings their own bike ('Own' is exclusive to community rides). Own-bike bookings
 // never consume a session spot: spots meter the Micromobility bikes, not attendance.
 function _isOwnBike(e){return !!e&&e.typePreference==='Own';}
+// Does a rider on their own bike take one of this session's places? Only on the Petromin
+// ride: its places are the track's (the venue admits N riders), not the rack's, so an owner
+// fills one exactly like a renter. Everywhere else places allocate Micromobility bikes and an
+// owner takes none. The two DB triggers key off the same pair (community + petromin).
+function _ownTakesPlace(s){return _rideKind(s)==='petromin';}
+// A Petromin session the fill rule closed itself (it writes 'closed', not 'full', and leaves
+// an _ac marker in the settings blob so it knows the close was its own to undo).
+function _autoClosed(s){return !!s&&s.status==='closed'&&!!(parseSlots(s.bike_slots)||{})._ac;}
 // The landing page's second card is an umbrella over the community rides, so 'community'
 // matches every kind but one: the Triathlon Workshop has a card of its own ('workshop'),
 // featured beside the circuit and the umbrella rather than filed under either.
@@ -4320,7 +4357,7 @@ function renderProfileGate(){
   if(!g){m.style.display='none';m.innerHTML='';document.body.classList.remove('gate-page');return;}
   const tb=document.getElementById('topbar');if(tb)document.documentElement.style.setProperty('--topbar-h',tb.offsetHeight+'px');
   document.body.classList.add('gate-page');
-  const natOpts=`<option value="">${t('pgChooseCountry')}</option>`+COUNTRY_LIST.map(c=>`<option value="${esc(c)}"${g.nat===c?' selected':''}>${esc(countryLabel(c))}</option>`).join('');
+  const natOpts=`<option value="">${t('pgChooseCountry')}</option>`+nationalityOpts(g.nat);
   const ok=!!(g.birth&&g.nat)&&!g.saving;
   m.style.display='flex';
   m.innerHTML=`<div class="auth-backdrop"><form class="pg-box" role="dialog" aria-modal="true" aria-labelledby="pg-title" onsubmit="event.preventDefault();_pgSave()">
@@ -6546,10 +6583,11 @@ async function submitReg(){
   // waitlists them (an explicit close). JCC keeps the capacity-based waitlist.
   const _commSel0=_isApprovalRide(sess0);
   // Seats are counted in Micromobility bikes, so riders who brought their own are outside
-  // the comparison: they neither need a seat nor take one from anybody. (The capacity
-  // trigger applies the same rule server-side.) A session staff marked full still
+  // the comparison: they neither need a seat nor take one from anybody - except on the
+  // Petromin ride, where an owner needs a place like anyone else (_ownTakesPlace). (The
+  // capacity trigger applies the same rule server-side.) A session staff marked full still
   // waitlists everyone — that is an explicit close, not a capacity calculation.
-  const _needSeats=S.regBikeTypes.slice(0,qty).filter(ty=>ty!=='Own').length;
+  const _needSeats=S.regBikeTypes.slice(0,qty).filter(ty=>ty!=='Own'||_ownTakesPlace(sess0)).length;
   let bookingStatus=(sess0&&sess0.status==='full')||(!_commSel0&&_needSeats>0&&spotsLeft(S.selSession)<_needSeats)?'waitlist':'waiting';
   // A capped waitlist can fill up: refuse rather than quietly seating riders past the cap.
   if(bookingStatus==='waitlist'&&waitlistRoom(S.selSession)<qty){
@@ -7458,7 +7496,7 @@ function renderAccount(){
     }).catch(()=>{});
   }
   const accNat=cust.nationality||'';
-  const natOpts=`<option value="">${t('selectNationalityOpt')}</option>`+COUNTRY_LIST.map(c=>`<option value="${esc(c)}"${accNat===c?' selected':''}>${esc(countryLabel(c))}</option>`).join('');
+  const natOpts=`<option value="">${t('selectNationalityOpt')}</option>`+nationalityOpts(accNat);
   const countryOpts=`<option value="">${t('selectCountryOpt')}</option>`+COUNTRY_LIST.map(c=>`<option value="${esc(c)}"${accCountry===c?' selected':''}>${esc(countryLabel(c))}</option>`).join('');
   const _cityList=accCountry&&COUNTRY_CITIES[accCountry]?COUNTRY_CITIES[accCountry]:[];
   const cityOpts=`<option value="">${accCountry?t('selectCityOpt'):t('selectCountryFirst')}</option>`+_cityList.map(c=>`<option value="${esc(c)}"${accCity===c?' selected':''}>${esc(cityLabel(c))}</option>`).join('');
@@ -8571,7 +8609,7 @@ function renderSessions(){
     ?[...sessList].sort((a,b)=>new Date(b.session_date||b.id)-new Date(a.session_date||a.id)).slice(0,SESS_LIMIT)
     :sessList;
   const rows=sessList.length?displaySessions.map(s=>{
-    const booked=(_bySession.get(s.id)||[]).filter(e=>e.status!=='cancelled'&&e.status!=='removed'&&e.status!=='noshow'&&!(_isCommunity(s)&&_isOwnBike(e))).length;
+    const booked=(_bySession.get(s.id)||[]).filter(e=>_holdsSpot(e,s)).length;
     const cap=_isApprovalRide(s)?(s.spots||s.capacity||12):(s.capacity||12);
     const left=Math.max(0,cap-booked);
     const isOpen=s.status==='open';
@@ -8591,7 +8629,7 @@ function renderSessions(){
         <button class="btn-sm btn-green" onclick="toggleSession('${s.id}','open')">${t('reopenBtn')}</button>
         <button class="btn-sm btn-red" onclick="toggleSession('${s.id}','closed')">${t('closeBtn')}</button>`;
     }else{
-      statusBadgeHtml=`<span class="badge-closed">${t('statusClosed')}</span>`;
+      statusBadgeHtml=_autoClosed(s)?`<span class="badge-full">${t('statusFull')}</span>`:`<span class="badge-closed">${t('statusClosed')}</span>`;
       actionBtns=`<button class="btn-sm btn-green" onclick="toggleSession('${s.id}','open')">${t('openBtn')}</button>`;
     }
     return`<tr>
@@ -8616,7 +8654,7 @@ function renderSessions(){
 
   // ── Two-pane session browser: list (left) + detail (right) on iPad/desktop; master-detail on phone ──
   const _sessD=(s)=>{
-    const booked=(_bySession.get(s.id)||[]).filter(e=>e.status!=='cancelled'&&e.status!=='removed'&&e.status!=='noshow'&&!(_isCommunity(s)&&_isOwnBike(e))).length;
+    const booked=(_bySession.get(s.id)||[]).filter(e=>_holdsSpot(e,s)).length;
     const cap=_isApprovalRide(s)?(s.spots||s.capacity||12):(s.capacity||12);const left=Math.max(0,cap-booked);
     const slots=parseSlots(s.bike_slots);const fleetInfo=slots?slotsLabel(slots):'';
     // "Close out": the night is over (dated before today KSA, or closed) but riders are still
@@ -8633,7 +8671,7 @@ function renderSessions(){
     let badge,actions;
     if(s.status==='open'){badge=`<span class="badge-open">${t('statusOpen')}</span>`;actions=`<button class="btn-sm btn-muted" onclick="event.stopPropagation();toggleSession('${s.id}','full')">${t('markFullBtn')}</button><button class="btn-sm btn-red" onclick="event.stopPropagation();toggleSession('${s.id}','closed')">${t('closeBtn')}</button>`;}
     else if(s.status==='full'){badge=`<span class="badge-full">${t('statusFull')}</span>`;actions=`<button class="btn-sm btn-green" onclick="event.stopPropagation();toggleSession('${s.id}','open')">${t('reopenBtn')}</button><button class="btn-sm btn-red" onclick="event.stopPropagation();toggleSession('${s.id}','closed')">${t('closeBtn')}</button>`;}
-    else{badge=`<span class="badge-closed">${t('statusClosed')}</span>`;actions=`<button class="btn-sm btn-green" onclick="event.stopPropagation();toggleSession('${s.id}','open')">${t('openBtn')}</button>`;}
+    else{badge=_autoClosed(s)?`<span class="badge-full">${t('statusFull')}</span>`:`<span class="badge-closed">${t('statusClosed')}</span>`;actions=`<button class="btn-sm btn-green" onclick="event.stopPropagation();toggleSession('${s.id}','open')">${t('openBtn')}</button>`;}
     return{booked,cap,left,fleetInfo,badge,actions:actions+_closeoutBtn+_cancelNightBtn};
   };
   const _listCard=(s)=>{const d=_sessD(s);const pct=d.cap?Math.round(d.booked/d.cap*100):0;const sel=S.selSessionDetail===s.id;
@@ -9690,7 +9728,7 @@ function renderCustFormModal(){
       <div class="form-group" style="margin-top:8px"><label for="cf-birth">${t('birthDateLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><input id="cf-birth" type="date" value="${esc(d.birth)}" max="2025-12-31"></div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <div class="form-group" style="flex:1"><label for="cf-country">${t('countryLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-country" onchange="_cfCountry(this.value)">${countryOpts}</select></div>
-        <div class="form-group" style="flex:1"><label for="cf-nationality">${t('nationalityLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-nationality"><option value="">${t('selectNationalityOpt')}</option>${COUNTRY_LIST.map(c=>`<option value="${esc(c)}"${d.nationality===c?' selected':''}>${esc(countryLabel(c))}</option>`).join('')}</select></div>
+        <div class="form-group" style="flex:1"><label for="cf-nationality">${t('nationalityLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-nationality"><option value="">${t('selectNationalityOpt')}</option>${nationalityOpts(d.nationality)}</select></div>
         <div class="form-group" style="flex:1"><label for="cf-city">${t('cityLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-city" ${d.country?'':'disabled'}>${cityOpts}</select></div>
       </div>
       <div class="form-group" style="margin-top:8px"><label>${t('socialsLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label>${_socFieldsHtml('cf',d.socials,true)}</div>
@@ -10857,8 +10895,8 @@ function renderQRow(e){
       const sActive=q.filter(e=>e.status==='active').length;
       const sDone=q.filter(e=>e.status==='done').length;
       const cap=_isApprovalRide(s)?(s.spots||s.capacity||12):(s.capacity||12);
-      // Community fill = renters only: own-bike riders don't hold a spot.
-      const _fillN=_isCommunity(s)?q.filter(e=>['waiting','active','done'].includes(e.status)&&!_isOwnBike(e)).length:(sWait+sActive+sDone);
+      // Community fill = renters only: own-bike riders don't hold a spot (Petromin excepted).
+      const _fillN=_isCommunity(s)?q.filter(e=>['waiting','active','done'].includes(e.status)&&(!_isOwnBike(e)||_ownTakesPlace(s))).length:(sWait+sActive+sDone);
       const fillPct=Math.round(Math.min(_fillN/cap*100,100));
       const fillClr=fillPct>=100?'#a33b2e':fillPct>80?'#8a5c14':'#0c7a3d'; // red only when truly full, amber above 80%
       const isCurrent=S.sfSession===s.id;
@@ -12229,7 +12267,7 @@ async function doUndoNoShow(id){
 // fresh number if so, keeping the partial unique index satisfied.
 async function doRestoreCancelled(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry||entry.status!=='cancelled')return;
-  if(spotsLeft(entry.sessionId)<=0&&!_isOwnBike(entry)){ // at capacity — confirm before over-filling (own-bike community riders never hold a spot)
+  if(spotsLeft(entry.sessionId)<=0&&_holdsSpot({...entry,status:'waiting'},S.sessions.find(s=>s.id===entry.sessionId))){ // at capacity — confirm before over-filling (own-bike riders hold no spot, Petromin excepted)
     confirmDialog({
       title:t('restoreFullTitle'),
       body:t('restoreFullBody'),
