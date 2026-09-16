@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
+import { stubSupabase, unlockStaff, waitForSb, captureBookingRows } from './helpers/supabase';
 
 // The Riders tab lists self-registrations from the form at micromobility.sa/petromin
 // (rider_registrations). Each row was matched server-side by phone or name: to an open
@@ -180,7 +180,7 @@ test('the list never shows a price; the billing report CSV carries per-ride pric
 });
 
 test.describe('walk-in at the desk', () => {
-  test('staff type the form\'s fields; it goes through rider_register and is checked in', async ({ page }) => {
+  test('staff type the form\'s fields; it goes through rider_register, becomes an ordinary booking too, and is checked in', async ({ page }) => {
     await stubSupabase(page, {
       sessions, queue_entries, rider_registrations,
       'rpc:rider_register': { ok: true, id: 9, match: 'none', resubmitted: false, booking_no: 'P-004' },
@@ -190,6 +190,7 @@ test.describe('walk-in at the desk', () => {
     await waitForSb(page);
     await page.evaluate(`setStaffTab('riders')`);
     await expect(page.locator('#tab-riders tbody tr')).toHaveCount(3);
+    const booked = await captureBookingRows(page);
 
     const calls: Record<string, unknown>[] = [];
     const patches: { url: string; body: Record<string, unknown> }[] = [];
@@ -215,11 +216,45 @@ test.describe('walk-in at the desk', () => {
       p_badge: 'D-78', p_name: 'Dana Walkin', p_height: 172, p_type: 'Hybrid', p_source: 'petromin',
       p_phone: '+966500000004', p_session_id: SESS, p_company: 'Petromin',
     });
-    await expect.poll(() => patches.length).toBe(1);                // the check-in, on the new row
+    // The same rider as an ordinary booking on the night: next number after Amal's #7.
+    await expect.poll(() => booked.length).toBe(1);
+    expect(booked[0]).toMatchObject({
+      session_id: SESS, name: 'Dana Walkin', phone: '+966500000004', height: 172, size: 'S',
+      type_preference: 'Hybrid', status: 'waiting', queue_num: 8, walk_in: true,
+    });
+    // One PATCH on the registration row: linked to that booking, and checked in.
+    await expect.poll(() => patches.length).toBe(1);
     expect(patches[0].url).toContain('id=eq.9');
+    expect(patches[0].body).toMatchObject({ matched_entry_id: booked[0].id, match_kind: 'booking' });
     expect(patches[0].body.checked_in_at).toBeTruthy();
     await expect(page.locator('#rider-walkin-modal .modal-box')).toHaveCount(0);
     await expect(page.locator('.toast')).toContainText('P-004');
+  });
+
+  test('a walk-in the RPC matched to an online booking gets no second booking', async ({ page }) => {
+    await stubSupabase(page, {
+      sessions, queue_entries, rider_registrations,
+      'rpc:rider_register': { ok: true, id: 9, match: 'booking', resubmitted: false, booking_no: 'P-004', booking: { queue_num: 7 } },
+    });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('riders')`);
+    const booked = await captureBookingRows(page);
+    const patches: Record<string, unknown>[] = [];
+    page.on('request', (r) => { if (r.method() === 'PATCH' && /rider_registrations/.test(r.url())) patches.push(JSON.parse(r.postData() || '{}')); });
+
+    await page.evaluate(`showRiderWalkin()`);
+    await page.fill('#rw-badge', 'A-12');
+    await page.fill('#rw-name', 'Amal Booked');
+    await page.fill('#rw-phone', '0500000001');
+    await page.fill('#rw-height', '170');
+    await page.locator('#rider-walkin-modal .toggle-btn', { hasText: 'Hybrid' }).click();
+    await page.click('#rw-submit');
+    await expect.poll(() => patches.length).toBe(1);          // checked in...
+    expect(patches[0].checked_in_at).toBeTruthy();
+    expect(patches[0].matched_entry_id).toBeUndefined();       // ...but the server's match is left alone
+    expect(booked).toHaveLength(0);                            // and Amal keeps her one booking
   });
 
   test('a one-word name is refused before anything is sent, and the RPC\'s own verdict is shown', async ({ page }) => {
