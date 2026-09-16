@@ -3,7 +3,7 @@
 // NOT mangle or compress — the app references global function names as strings
 // inside onclick="fn()" template literals, so renaming identifiers would break it.
 import { minify } from 'html-minifier-terser';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 
 // Modularization foundation: logic can live in separate src/ files and be pulled in
@@ -70,6 +70,16 @@ function langObjectText(text) {
 }
 const langSpan = langObjectText(src);
 const LANG_ALL = new Function(`return (${src.slice(langSpan.start, langSpan.end)});`)();
+// English and Arabic live inline in app.src.html. The other languages are plain JSON files
+// under i18n/ (one per code, pretty-printed, one key per line) so a 2,000-string pack can be
+// reviewed in a diff instead of buried in a 20,000-line HTML file. Merged here, they become
+// packs exactly like Arabic: fetched on demand, versioned by content.
+const i18nDir = new URL('../i18n/', import.meta.url);
+for (const f of (await readdir(i18nDir)).filter((n) => /^[a-z]{2}\.json$/.test(n)).sort()) {
+  const code = f.slice(0, 2);
+  if (LANG_ALL[code]) throw new Error(`build: language "${code}" is defined both inline and in i18n/${f}`);
+  LANG_ALL[code] = JSON.parse(await readFile(new URL(f, i18nDir), 'utf8'));
+}
 const packCodes = Object.keys(LANG_ALL).filter((c) => c !== INLINE_LANG);
 const langDir = new URL('../lang/', import.meta.url);
 await mkdir(langDir, { recursive: true });

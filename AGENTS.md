@@ -24,7 +24,8 @@ The served `index.html` is a **minified build artifact**. The editable source of
 - `supabase/checks/security-attributes.sql` — run it after any migration that touches a function; it prints one row per drift and nothing when clean.
 - `SECURITY-RUNBOOK.md` — the production security model (RLS, RPCs) and staging-first procedure.
 - `tests/` — Playwright suite (`npm test`); all Supabase traffic is stubbed, tests never touch prod. `tests/a11y.spec.ts` is a report-only axe-core audit (flip `STRICT` once clean).
-- `scripts/build-html.mjs` — the minify build. `scripts/check-i18n.mjs` — CI gate enforcing EN/AR/ES key parity in the `LANG` object.
+- `scripts/build-html.mjs` — the minify build. `scripts/check-i18n.mjs` — CI gate: every language in `LANGS` carries every English key (no missing, no extra, no empty, same `{n}` placeholders).
+- **Languages (9):** English and Arabic live inline in `app.src.html` (`const LANG={en:{…},ar:{…}}`); French, Spanish, Portuguese, Urdu, Hindi, Tagalog and Nepali are `i18n/<code>.json` (pretty JSON, one key per line) that the build merges and extracts to `lang/<code>.json` like Arabic. To add a string: add it to `en` and `ar` inline **and** to every `i18n/*.json`, or `npm run lint` fails. To add a language: a `LANGS` entry (native `label`, `locale`, `rtl`), its `i18n/<code>.json`, an `<option>` in `#lang-btn`, a `hreflang` link, `site.config.json` `languages`, and the `_ok` list in the head script. RTL styling is `:is(html[lang="ar"],html[lang="ur"])`; Devanagari (hi/ne) uses the self-hosted Noto Sans Devanagari. Country/city names are translated for Arabic only; other languages show the English names.
 
 ## Backend / Supabase
 

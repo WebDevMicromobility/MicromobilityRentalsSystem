@@ -63,7 +63,7 @@ test.describe('accessibility audit (report-only)', () => {
 
   test('landing page (AR, RTL)', async ({ page }) => {
     await page.goto('/');
-    await page.locator('#lang-btn').click();   // one tap: the header control is a switch now
+    await page.locator('#lang-btn').selectOption('ar');   // the header control is a dropdown
     await page.locator('html[dir="rtl"]').waitFor();
     const count = await audit(page, 'landing AR rtl');
     if (STRICT && count > 0) throw new Error(`${count} a11y violation type(s)`);

@@ -23,7 +23,7 @@ that its render function fills with `innerHTML` and shows with `style.display='f
 | Element | Behaviour |
 |---|---|
 | Logo button (`.topbar-logo`, `#topbar-logo-img`) | `goLanding()`. `aria-label="MicroMobility home"`. Image swaps `logo.png` ⇄ `logo-dark.png` by theme |
-| Language button `#lang-btn` | `showLangMenu(event)` → a floating `role="listbox"` with **🇺🇸 ENG / 🇸🇦 عربي / 🇪🇸 ESP**. Label shows the current flag + short code + ▾ |
+| Language dropdown `#lang-btn` | A native `<select class="lang-toggle">` inside `.lang-wrap` listing all nine languages by their own name (English, العربية, Français, Español, Português, اردو, हिन्दी, Tagalog, नेपाली); `onchange` → `setLang(code)`. Shows the language being read. Boot order: `?lang` → the language this device picked by hand (`cq_lang` + `cq_lang_pick`) → the device language (`navigator.languages`, `pt-BR`→pt, `fil`→tl) → English. Arabic and Urdu flip `dir=rtl` |
 | `#topbar-right` | Rendered by `renderTopbarRight()` — signed-out: a **Sign in** affordance; signed-in customer: name + email (`.cust-topbar-name`, `.cust-topbar-email`, forced LTR); staff: operator name, role segmented control, staff theme toggle, **Lock** |
 
 ### 0.2 Customer navigation

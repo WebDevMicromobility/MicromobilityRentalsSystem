@@ -46,8 +46,7 @@ test.describe('crawlable surface', () => {
 
   test('the sitemap lists each language and cross-links the alternates', async () => {
     const xml = await readFile(resolve(__dirname, '../sitemap.xml'), 'utf8');
-    expect(xml).toContain('?lang=ar</loc>');
-    expect(xml).not.toContain('?lang=es');
+    for (const code of ['ar', 'fr', 'es', 'pt', 'ur', 'hi', 'tl', 'ne']) expect(xml).toContain(`?lang=${code}</loc>`);
     expect(xml).toContain('hreflang="x-default"');
   });
 
@@ -76,23 +75,22 @@ test.describe('?lang addressing', () => {
     expect(await page.evaluate('S.lang')).toBe('ar');
   });
 
-  // Spanish was dropped from the product. A device that still remembers it must land on
-  // English rather than on a language the app no longer carries — the boot only accepts a
-  // remembered code that is still in LANGS.
-  test('a device that still remembers Spanish falls back to English', async ({ page }) => {
+  // A remembered code the app does not carry (here a made-up one) lands on English rather
+  // than on nothing — the boot only accepts a remembered code that is still in LANGS.
+  test('a device that remembers an unknown language falls back to English', async ({ page }) => {
     await stubSupabase(page, {});
-    await page.addInitScript(() => localStorage.setItem('cq_lang', 'es'));
+    await page.addInitScript(() => localStorage.setItem('cq_lang', 'xx'));
     await page.goto('/');
     await waitForSb(page);
     expect(await page.evaluate('S.lang')).toBe('en');
-    expect(await page.evaluate(`LANGS.some(l=>l.code==='es')`)).toBe(false);
   });
 
-  test('?lang=es is no longer an address the app answers to', async ({ page }) => {
+  test('every language has an address: ?lang=es opens Spanish', async ({ page }) => {
     await stubSupabase(page, {});
     await page.goto('/?lang=es');
     await waitForSb(page);
-    expect(await page.evaluate('S.lang')).toBe('en');
+    expect(await page.evaluate('S.lang')).toBe('es');
+    await expect(page.locator('html')).toHaveAttribute('lang', 'es');
   });
 
   test('switching language writes it back into the URL so the page stays shareable', async ({ page }) => {

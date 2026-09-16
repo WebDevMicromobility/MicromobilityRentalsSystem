@@ -37,6 +37,13 @@
        gives each one an address these alternates can point at. -->
   <link rel="alternate" hreflang="en" href="__SITE_ORIGIN__/?lang=en">
   <link rel="alternate" hreflang="ar" href="__SITE_ORIGIN__/?lang=ar">
+  <link rel="alternate" hreflang="fr" href="__SITE_ORIGIN__/?lang=fr">
+  <link rel="alternate" hreflang="es" href="__SITE_ORIGIN__/?lang=es">
+  <link rel="alternate" hreflang="pt" href="__SITE_ORIGIN__/?lang=pt">
+  <link rel="alternate" hreflang="ur" href="__SITE_ORIGIN__/?lang=ur">
+  <link rel="alternate" hreflang="hi" href="__SITE_ORIGIN__/?lang=hi">
+  <link rel="alternate" hreflang="tl" href="__SITE_ORIGIN__/?lang=tl">
+  <link rel="alternate" hreflang="ne" href="__SITE_ORIGIN__/?lang=ne">
   <link rel="alternate" hreflang="x-default" href="__SITE_ORIGIN__/">
   <!-- Structured data for search engines. The origin is substituted at build time from
        site.config.json. TODO(owner): add openingHoursSpecification and geo coordinates —
@@ -106,7 +113,7 @@
 <div id="loading-screen">
   <img src="brand.png" alt="logo">
   <div class="ld-txt" id="ld-txt">Loading...</div>
-  <script>try{var _ql=new URLSearchParams(location.search).get('lang');var _bl=_ql||localStorage.getItem('cq_lang');if(_bl==='ar'){document.documentElement.dir='rtl';document.documentElement.lang='ar';document.getElementById('ld-txt').textContent='جارٍ التحميل...';}}catch(e){}try{if(_bl==='ar'||_bl==='es'){window.__langPackCode=_bl;window.__langPack=fetch('lang/'+_bl+'.json'+(window.__LANG_V&&window.__LANG_V[_bl]?'?v='+window.__LANG_V[_bl]:'')).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});}}catch(e){}</script>
+  <script>try{var _ql=new URLSearchParams(location.search).get('lang');var _ok=['en','ar','fr','es','pt','ur','hi','tl','ne'];var _sv=localStorage.getItem('cq_lang');if(_ok.indexOf(_sv)<0||(_sv==='en'&&localStorage.getItem('cq_lang_pick')!=='1'))_sv='';var _bl=_ok.indexOf(_ql)>=0?_ql:_sv;if(!_bl){var _nl=navigator.languages&&navigator.languages.length?navigator.languages:[navigator.language||''];for(var _i=0;_i<_nl.length&&!_bl;_i++){var _c=String(_nl[_i]||'').toLowerCase();if(_c==='fil'||_c.indexOf('fil-')===0)_c='tl';_c=_c.split('-')[0];if(_ok.indexOf(_c)>=0)_bl=_c;}}if(_bl){document.documentElement.lang=_bl;if(_bl==='ar'||_bl==='ur'){document.documentElement.dir='rtl';document.getElementById('ld-txt').textContent=_bl==='ar'?'جارٍ التحميل...':'لوڈ ہو رہا ہے...';}}}catch(e){}try{if(_bl&&_bl!=='en'){window.__langPackCode=_bl;window.__langPack=fetch('lang/'+_bl+'.json'+(window.__LANG_V&&window.__LANG_V[_bl]?'?v='+window.__LANG_V[_bl]:'')).then(function(r){return r.ok?r.json():null;}).catch(function(){return null;});}}catch(e){}</script>
 </div>
 <script>
 setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls.style.display!=='none'){ls.style.opacity='0';ls.style.pointerEvents='none';setTimeout(function(){ls.style.display='none';},400);}},5000);
@@ -162,7 +169,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <img id="topbar-logo-img" src="logo.png" alt="MicroMobility">
   </button>
   <div style="display:flex;align-items:center;gap:10px">
-    <button class="lang-toggle" id="lang-btn" onclick="toggleLang()" title="Switch language" aria-label="Switch language">عربي</button>
+    <span class="lang-wrap"><select class="lang-toggle" id="lang-btn" onchange="setLang(this.value)" title="Switch language" aria-label="Switch language"><option value="en">English</option><option value="ar">العربية</option><option value="fr">Français</option><option value="es">Español</option><option value="pt">Português</option><option value="ur">اردو</option><option value="hi">हिन्दी</option><option value="tl">Tagalog</option><option value="ne">नेपाली</option></select></span>
     <div class="topbar-right" id="topbar-right"></div>
   </div>
 </header>
@@ -355,7 +362,8 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 <script>
 
 const LANG={
-en:{
+en:{landMainTitleHtml:'Reserve Your <span>Bicycle Now!</span>',spotsFull:'Full',spotsLeft1:'{0} spot left',spotsLeftN:'{0} spots left',settingsLanguage:'Language',proteinWord:'Protein {0}',
+
   commMembersTitle:'Community members only',commMembersMsg:'Our community rides are invite-only, for our community members. Keep riding with us at the Corniche Circuit, and if you would like to join the community, ask our team at the booth or message us on WhatsApp or Instagram.',commMembersOk:'Got it',commMembersIg:'Message us on Instagram',filterRentalBike:'Rental bike',commAddOwnBike:'Rider brings their own bike (does not use a spot)',tagAddTitle:'Add tag',tagPermLabel:'Permanent',tagTempLabel:'Temporary',tagDurationLabel:'Duration',tagDatesLabel:'Start & end date',tagStartDate:'Start date',tagEndDate:'End date',tagTodayLabel:'Today',tagUntil:'until {0}',tagFrom:'from {0}',tagExpired:'expired',tagDur1d:'1 day',tagDur3d:'3 days',tagDur1w:'1 week',tagDur2w:'2 weeks',tagDur1m:'1 month',tagDur3m:'3 months',tagDur6m:'6 months',tagDur1y:'1 year',tagEndRequired:'Choose an end date.',tagEndAfterStart:'The end date must be after the start date.',
   appSub:'Rental and Inventory System',landingTitle:'MicroMobility Rentals',
   landingSub:'Bicycle rentals & community rides in Jeddah',landEyebrow:'Rides & Events',landChooseEvent:'Pick your event',landJccCardTitle:'Open Sports Day',landJccMeta:'Sun & Tue · 9-11pm',landEventRide:'Circuit ride',landJccTitle:'Jeddah Corniche Circuit',landSessionsOpen:'{0} sessions open',landEventCommunity:'Community event',landCommTitle:'Micromobility Experiences',evJccName:'Jeddah Corniche Circuit',evSatName:'Saturday Social Ride',evPetroName:"Petromin's Wednesdays",sessEventPaidHint:'Bike rental for community members only. A circuit session in every other way: same bike composition, same prices, same waitlist once the bikes run out — and no approval step.',sessRideNameLabel:'Ride name',sessRideNameHint:'riders see this on the session card',sessSessNameLabel:'Session name',sessSessNameHint:'members see this on the session card',landCommSoon:'Details coming soon',
@@ -768,7 +776,8 @@ en:{
   toastSessionUpdated:'Session {0} updated.',
   bikeRentalPrice:'Rental Price',bikeCustomPrice:'Custom Rental Price',
 },
-ar:{
+ar:{landMainTitleHtml:'احجز <span>دراجتك الآن!</span>',spotsFull:'ممتلئة',spotsLeft1:'{0} مقعد متبقي',spotsLeftN:'{0} مقاعد متبقية',settingsLanguage:'اللغة',proteinWord:'{0} بروتين',
+
   commMembersTitle:'لأعضاء المجتمع فقط',commMembersMsg:'جولات مجتمعنا بدعوة خاصة لأعضاء المجتمع. واصل الركوب معنا في حلبة الكورنيش، وإذا رغبت في الانضمام إلى المجتمع فاسأل فريقنا في الكشك أو راسلنا عبر واتساب أو إنستغرام.',commMembersOk:'حسناً',commMembersIg:'راسلنا على إنستغرام',filterRentalBike:'دراجة مستأجرة',commAddOwnBike:'الراكب لديه دراجته الخاصة (لا يشغل مقعداً)',tagAddTitle:'إضافة وسم',tagPermLabel:'دائم',tagTempLabel:'مؤقت',tagDurationLabel:'المدة',tagDatesLabel:'تاريخ البداية والنهاية',tagStartDate:'تاريخ البداية',tagEndDate:'تاريخ النهاية',tagTodayLabel:'اليوم',tagUntil:'حتى {0}',tagFrom:'من {0}',tagExpired:'منتهٍ',tagDur1d:'يوم واحد',tagDur3d:'3 أيام',tagDur1w:'أسبوع',tagDur2w:'أسبوعان',tagDur1m:'شهر',tagDur3m:'3 أشهر',tagDur6m:'6 أشهر',tagDur1y:'سنة',tagEndRequired:'اختر تاريخ النهاية.',tagEndAfterStart:'يجب أن يكون تاريخ النهاية بعد تاريخ البداية.',
   appSub:'نظام التأجير والمخزون',landingTitle:'مايكرو موبيليتي للتأجير',
   landingSub:'تأجير الدراجات وجولات مجتمعية في جدة',landEyebrow:'جولات وفعاليات',landChooseEvent:'اختر فعاليتك',landJccCardTitle:'يوم الرياضة المفتوح',landJccMeta:'الأحد والثلاثاء · 9-11 مساءً',landEventRide:'جولة الحلبة',landJccTitle:'حلبة كورنيش جدة',landSessionsOpen:'{0} جلسات متاحة',landEventCommunity:'فعالية مجتمعية',landCommTitle:'تجارب مايكروموبيليتي',evJccName:'حلبة كورنيش جدة',evSatName:'جولة السبت الاجتماعية',evPetroName:'أربعاء بترومين',sessEventPaidHint:'تأجير دراجات لأعضاء المجتمع فقط. وهي في كل ما عداه جلسة حلبة: نفس تشكيلة الدراجات ونفس الأسعار ونفس قائمة الانتظار عند نفادها، وبلا موافقة مسبقة.',sessRideNameLabel:'اسم الجولة',sessRideNameHint:'يظهر للراكبين على بطاقة الجلسة',sessSessNameLabel:'اسم الجلسة',sessSessNameHint:'يظهر للأعضاء على بطاقة الجلسة',landCommSoon:'التفاصيل قريبًا',
@@ -1201,14 +1210,50 @@ async function loadLangPack(code){
   }catch(e){return false;}
 }
 
+// Every language the site speaks. `label` is the language's own name (what the dropdown
+// shows), `locale` drives date/weekday formatting (Latin digits everywhere: bike numbers,
+// prices and booking refs must read the same on every phone), `rtl` flips the layout.
 const LANGS=[
-  {code:'en',short:'ENG',label:'English'},
-  {code:'ar',short:'عربي',label:'العربية'},
+  {code:'en',short:'EN',label:'English',locale:'en-GB'},
+  {code:'ar',short:'عربي',label:'العربية',locale:'ar-u-ca-gregory-nu-latn',rtl:true},
+  {code:'fr',short:'FR',label:'Français',locale:'fr-FR'},
+  {code:'es',short:'ES',label:'Español',locale:'es-ES'},
+  {code:'pt',short:'PT',label:'Português',locale:'pt-BR'},
+  {code:'ur',short:'اردو',label:'اردو',locale:'ur-PK-u-nu-latn',rtl:true},
+  {code:'hi',short:'HI',label:'हिन्दी',locale:'hi-IN-u-nu-latn'},
+  {code:'tl',short:'TL',label:'Tagalog',locale:'fil-PH'},
+  {code:'ne',short:'NE',label:'नेपाली',locale:'ne-NP-u-nu-latn'},
 ];
-// Two languages: the header switches straight between them. showLangMenu stays for the
-// account screen, where the row is a setting that shows the CURRENT language.
-function toggleLang(){setLang(S.lang==='ar'?'en':'ar');}
-try{window.addEventListener('mm-lang',()=>{const v=localStorage.getItem('mm_lang');if(v==='en'||v==='ar')setLang(v);});}catch(e){}
+function _langOf(code){return LANGS.find(l=>l.code===code)||LANGS[0];}
+function _isRtl(code){return !!_langOf(code||(S&&S.lang)||'en').rtl;}
+function _locale(){return _langOf(S&&S.lang).locale;}
+// The device's language, mapped onto the languages we carry: `pt-BR` is Portuguese,
+// `fil` (how iOS and Android name Filipino) is Tagalog. Empty when none of them match.
+function _browserLang(){
+  try{
+    const list=(navigator.languages&&navigator.languages.length)?navigator.languages:[navigator.language||''];
+    for(const raw of list){
+      let c=String(raw||'').toLowerCase();
+      if(c==='fil'||c.startsWith('fil-'))c='tl';
+      c=c.split('-')[0];
+      if(LANGS.some(l=>l.code===c))return c;
+    }
+  }catch(e){}
+  return'';
+}
+// The language this device chose by hand. A remembered 'en' only counts once the visitor
+// actually picked it (cq_lang_pick): before the dropdown existed every boot wrote 'en'
+// back, and that must not pin an Arabic or Hindi phone to English forever.
+function _savedLang(){
+  try{
+    const v=localStorage.getItem('cq_lang');
+    if(!v||!LANGS.some(l=>l.code===v))return'';
+    if(v==='en'&&localStorage.getItem('cq_lang_pick')!=='1')return'';
+    return v;
+  }catch(e){return'';}
+}
+function toggleLang(){const i=LANGS.findIndex(l=>l.code===S.lang);setLang(LANGS[(i+1)%LANGS.length].code);}
+try{window.addEventListener('mm-lang',()=>{const v=localStorage.getItem('mm_lang');if(LANGS.some(l=>l.code===v))setLang(v);});}catch(e){}
 function showLangMenu(evt){
   document.querySelectorAll('.pay-menu-popup').forEach(m=>m.remove());
   const menu=document.createElement('div');
@@ -1236,7 +1281,9 @@ function setLang(lang,_fromUrl){
   // Not loaded yet: draw now in English (the fallback t() already uses) and draw again the
   // moment the pack arrives. Never block the first paint on a network round trip.
   if(!_langLoaded(lang))loadLangPack(lang).then(ok=>{if(ok&&S.lang===lang)setLang(lang,true);});
-  try{localStorage.setItem('cq_lang',lang);}catch(e){}
+  // Remembered only when the visitor chose it: a boot in the device's own language or a
+  // ?lang link must not turn into a permanent choice on this phone.
+  if(!_fromUrl){try{localStorage.setItem('cq_lang',lang);localStorage.setItem('cq_lang_pick','1');}catch(e){}}
   // Keep ?lang in step with the choice so the address stays shareable, without adding a
   // history entry per toggle. Skipped on the initial read, which already matches.
   if(!_fromUrl){
@@ -1248,18 +1295,19 @@ function setLang(lang,_fromUrl){
       }
     }catch(e){}
   }
-  document.documentElement.dir=lang==='ar'?'rtl':'ltr';
+  document.documentElement.dir=_isRtl(lang)?'rtl':'ltr';
   document.documentElement.lang=lang;
-  // The button shows the language it switches TO, not the one you are reading —
-  // with two languages that is the only thing it can usefully say.
-  {const _lb=document.getElementById('lang-btn');const _o=LANGS.find(x=>x.code!==lang)||LANGS[0];
-   if(_lb){_lb.textContent=_o.short;_lb.title=t('switchLangTip');_lb.setAttribute('aria-label',t('switchLangTip'));}}
+  // The header dropdown lists every language by its own name and shows the current one.
+  {const _lb=document.getElementById('lang-btn');
+   if(_lb){
+     if(_lb.options.length!==LANGS.length)_lb.innerHTML=LANGS.map(l=>`<option value="${l.code}" lang="${l.code}">${l.label}</option>`).join('');
+     _lb.value=lang;_lb.title=t('switchLangTip');_lb.setAttribute('aria-label',t('switchLangTip'));}}
   const lt=document.getElementById('land-title');if(lt)lt.innerHTML=`<span>MicroMobility</span> Rentals`;
   const ls=document.getElementById('land-sub');if(ls)ls.textContent=t('landingSub');
   const leb=document.getElementById('land-eyebrow');if(leb)leb.textContent=t('landEyebrow');
   const lmt=document.getElementById('land-main-title');
-  if(lmt)lmt.innerHTML=lang==='ar'?'احجز <span>دراجتك الآن!</span>':'Reserve Your <span>Bicycle Now!</span>';
-  const lca=document.getElementById('land-cta-arrow');if(lca)lca.innerHTML=lang==='ar'?'&#8592;':'&#8594;';
+  if(lmt)lmt.innerHTML=t('landMainTitleHtml');
+  const lca=document.getElementById('land-cta-arrow');if(lca)lca.innerHTML=_isRtl(lang)?'&#8592;':'&#8594;';
   const lsb=document.getElementById('land-staff-btn');if(lsb)lsb.textContent=t('staffAccess');
   const cbb=document.getElementById('cust-back-btn');if(cbb)cbb.innerHTML='<span class="mirror-rtl" aria-hidden="true">&#8249;</span> '+t('regBackBtn');
   const fc=document.getElementById('footer-copy');if(fc)fc.textContent=t('footerCopy');
@@ -2514,14 +2562,13 @@ function fmtDate(d){return d.toLocaleDateString('en-CA',{timeZone:KSA_TZ});}
 const _shortDateCache=new Map();
 function shortDate(ds){
   if(!ds)return'';
-  const lang=S&&S.lang==='ar'?'ar':'en';
+  const lang=(S&&S.lang)||'en';
   const ck=lang+'|'+ds;
   const hit=_shortDateCache.get(ck);if(hit!==undefined)return hit;
   let out;
   try{
     const d=new Date(ds+'T12:00:00');
-    const locale=lang==='ar'?'ar-u-ca-gregory-nu-latn':'en-GB';
-    out=d.toLocaleDateString(locale,{day:'numeric',month:'short',year:'numeric',timeZone:KSA_TZ});
+    out=d.toLocaleDateString(_locale(),{day:'numeric',month:'short',year:'numeric',timeZone:KSA_TZ});
   }catch{out=ds;}
   if(_shortDateCache.size>2000)_shortDateCache.clear();
   _shortDateCache.set(ck,out);
@@ -2530,7 +2577,7 @@ function shortDate(ds){
 function todayStr(){return new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});}
 function fmt12h(timeStr){
   if(!timeStr)return timeStr;
-  const ar=S&&S.lang==='ar';
+  const ar=S&&S.lang==='ar'; // ص/م are Arabic marks; every other language, Urdu included, reads AM/PM
   return timeStr.replace(/(\d{1,2}):(\d{2})/g,(_,h,m)=>{
     const hr=parseInt(h);const suf=hr>=12?(ar?'م':'PM'):(ar?'ص':'AM');const h12=hr%12||12;
     return m==='00'?`${h12} ${suf}`:`${h12}:${m} ${suf}`;
@@ -2812,11 +2859,27 @@ function sizeLabel(sz){return{XS:'XS (166 cm & under)',S:'S (167-172 cm)',M:'M (
 function bikeGradient(c){if(!c||!c.length)return'var(--green)';if(c.length===1)return c[0];return`linear-gradient(135deg,${c.join(',')})`;}
 const DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const DAY_NAMES_AR={Sunday:'الأحد',Monday:'الاثنين',Tuesday:'الثلاثاء',Wednesday:'الأربعاء',Thursday:'الخميس',Friday:'الجمعة',Saturday:'السبت'};
-function dayLabel(day){return S.lang==='ar'?(DAY_NAMES_AR[day]||day):day;}
+// Nepali is the one language Chromium ships no locale data for (Intl falls back to English),
+// so its weekdays are a table like Arabic's.
+const DAY_NAMES_NE={Sunday:'आइतबार',Monday:'सोमबार',Tuesday:'मङ्गलबार',Wednesday:'बुधबार',Thursday:'बिहिबार',Friday:'शुक्रबार',Saturday:'शनिबार'};
+const _dayLabelCache=new Map();
+function dayLabel(day){
+  const lang=S.lang||'en';
+  if(lang==='en')return day;
+  if(lang==='ar')return DAY_NAMES_AR[day]||day;
+  if(lang==='ne')return DAY_NAMES_NE[day]||day;
+  const idx=DAY_NAMES.indexOf(day);if(idx<0)return day;
+  const ck=lang+idx;let v=_dayLabelCache.get(ck);
+  if(!v){
+    // 7 Jan 2024 is a Sunday; the browser's own weekday names, in the visitor's language.
+    try{v=new Date(Date.UTC(2024,0,7+idx,12)).toLocaleDateString(_locale(),{weekday:'long',timeZone:'UTC'});v=v.charAt(0).toUpperCase()+v.slice(1);}catch(e){v=day;}
+    _dayLabelCache.set(ck,v);
+  }
+  return v;
+}
 function spotsLeftLabel(n){
-  if(n===0)return S.lang==='ar'?'ممتلئة':'Full';
-  if(S.lang==='ar')return`${n} ${n===1?'مقعد متبقي':'مقاعد متبقية'}`;
-  return`${n} spot${n===1?'':'s'} left`;
+  if(n===0)return t('spotsFull');
+  return t(n===1?'spotsLeft1':'spotsLeftN').replace('{0}',n);
 }
 const TYPE_CLS={Road:'type-road',Hybrid:'type-hybrid',Mountain:'type-mountain',Kids:'type-kids',Gravel:'type-gravel',Any:'type-any','Road Carbon':'type-roadcarbon'};
 function typeLabel(ty){const m={Road:t('typeRoad'),Hybrid:t('typeHybrid'),Mountain:t('typeMountain'),Kids:t('typeKids'),Gravel:t('typeGravel'),Any:t('typeAny'),'Road Carbon':t('typeRoadCarbon'),Own:t('typeOwn')};return m[ty]||ty||t('typeAny');} // null/legacy rows read as 'Any', never the literal 'undefined'
@@ -7002,7 +7065,7 @@ function printRideReceipt(ids){
   const sess=allSessions().find(s=>s.id===primary.sessionId);
   const total=g.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
   const ref=bookingRef(primary);
-  const ar=(S.lang==='ar');
+  const ar=_isRtl();
   const rows=g.map(e=>{
     const bike=getAssignedBikes(e)[0]||null;
     const paid=e.paid?(t('paidLabel')+' ✓'):(t('pendingLabel')+' ');
@@ -7026,7 +7089,7 @@ function printRideReceipt(ids){
       <td style="text-align:center;white-space:nowrap">×${a.qty}</td>
       <td style="text-align:${ar?'left':'right'};white-space:nowrap">SAR ${a.lineTotal}</td>
     </tr>`).join('')}</tbody></table>`:'';
-  const html=`<!DOCTYPE html><html lang="${ar?'ar':'en'}" dir="${ar?'rtl':'ltr'}"><head><meta charset="UTF-8">
+  const html=`<!DOCTYPE html><html lang="${S.lang}" dir="${ar?'rtl':'ltr'}"><head><meta charset="UTF-8">
     <title>${t('receiptTitle')} ${esc(ref)}</title>
     <link href="/fonts/fonts.css" rel="stylesheet">
     <style>
@@ -7067,7 +7130,7 @@ function printRideReceipt(ids){
       <span><b>${t('receiptRefLabel')}:</b> ${esc(ref)}</span>
       <span><b>${t('colSession')}:</b> ${dayLabel(primary.sessionDay)}, ${shortDate(primary.sessionDate)}</span>
       <span><b>${t('timeLabel')}:</b> ${sessionTime(sess)}</span>
-      <span><b>${t('receiptDateLabel')}:</b> ${new Date().toLocaleString(ar?'ar-u-ca-gregory-nu-latn':'en-GB',{timeZone:KSA_TZ})}</span>
+      <span><b>${t('receiptDateLabel')}:</b> ${new Date().toLocaleString(_locale(),{timeZone:KSA_TZ})}</span>
     </div>
     <div class="dear">${t('receiptDear')} ${esc(primary.name)},<br>${t('receiptThankYou')}</div>
     <table>
@@ -7229,8 +7292,8 @@ function _mrBadgeInfo(i){
   document.body.appendChild(el);
 }
 function _mrMemberCard(cust,completed){
-  const ar=S.lang==='ar';
-  const since=cust.created_at?new Date(cust.created_at).toLocaleDateString(ar?'ar-u-ca-gregory-nu-latn':'en-GB',{month:'short',year:'numeric'}):'—';
+  const ar=_isRtl();
+  const since=cust.created_at?new Date(cust.created_at).toLocaleDateString(_locale(),{month:'short',year:'numeric'}):'—';
   const tier=_mrTier(completed.length);
   return`<div class="mr-cardrow">
     <div class="member-card">
@@ -7401,7 +7464,7 @@ function renderAccount(){
   const typeCount={};myDone.forEach(e=>{typeCount[resolvedType(e)]=(typeCount[resolvedType(e)]||0)+1;});
   const favType=Object.keys(typeCount).sort((a,b)=>typeCount[b]-typeCount[a])[0]||'—';
   const memberSince=cust.created_at
-    ?new Date(cust.created_at).toLocaleDateString(S.lang==='ar'?'ar-u-ca-gregory-nu-latn':'en-GB',{month:'short',year:'numeric'})
+    ?new Date(cust.created_at).toLocaleDateString(_locale(),{month:'short',year:'numeric'})
     :'—';
 
   document.getElementById('tab-account').innerHTML=`
@@ -7503,13 +7566,13 @@ function renderAccount(){
         .sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
       if(!purch.length)return'';
       const ptot=Math.round(purch.reduce((sm,r)=>sm+(Number(r.qty)||0)*(Number(r.price)||0),0)*100)/100;
-      const ar=S.lang==='ar';
+      const ar=_isRtl();
       return`<div class="form-section" style="max-width:640px;margin:16px auto 0">
         <div class="form-title" style="margin-bottom:12px">${t('custPurchTitle')} · <bdi style="color:var(--green)">SAR ${ptot}</bdi></div>
         <div style="max-height:260px;overflow-y:auto">
           ${purch.map(r=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
             <div style="flex:1;min-width:0;font-weight:700;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.name||'')}${Number(r.qty)>1?` <span style="color:var(--muted)">×${r.qty}</span>`:''}</div>
-            <span style="font-size:11px;color:var(--muted);white-space:nowrap">${r.created_at?new Date(r.created_at).toLocaleDateString(ar?'ar-u-ca-gregory-nu-latn':'en-GB',{day:'numeric',month:'short',year:'numeric'}):''}</span>
+            <span style="font-size:11px;color:var(--muted);white-space:nowrap">${r.created_at?new Date(r.created_at).toLocaleDateString(_locale(),{day:'numeric',month:'short',year:'numeric'}):''}</span>
             <bdi style="font-weight:800;font-size:13px;white-space:nowrap">SAR ${Math.round((Number(r.qty)||0)*(Number(r.price)||0)*100)/100}</bdi>
           </div>`).join('')}
         </div>
@@ -7519,7 +7582,7 @@ function renderAccount(){
       // v2: settings as hairline rows below the profile card (Language / Sign out)
       return`<div class="acc-settings" style="max-width:640px;margin:16px auto 0">
         <button type="button" class="acc-set-row" onclick="showLangMenu(event)">
-          <span>${S.lang==='ar'?'اللغة':'Language'}</span><span class="acc-set-val">${(LANGS.find(x=>x.code===S.lang)||LANGS[0]).label}</span>
+          <span>${t('settingsLanguage')}</span><span class="acc-set-val">${(LANGS.find(x=>x.code===S.lang)||LANGS[0]).label}</span>
         </button>
         <button type="button" class="acc-set-row" onclick="doLogout()">
           <span style="color:var(--red)">${t('logOut')}</span><span class="acc-set-val"></span>
@@ -12660,12 +12723,12 @@ function _reportShell(o){
   // the white wordmark + compliance line, neon doc-type label, gradient rule, stat
   // tiles (dark "Collected" variant via .total-item.dark), dark table heads with
   // zebra rows, optional total chip (o.chip) and signature row, fixed footer.
-  const ar=S.lang==='ar';
+  const ar=_isRtl();
   const logoUrl=new URL('logo.png',location.href).href; // white wordmark for the dark banner
   const now=new Date();
   const refNo=o.refNo||('MM-RPT-'+now.toLocaleDateString('en-CA',{timeZone:KSA_TZ}).slice(2).replace(/-/g,''));
   const op=_opName();
-  return`<!DOCTYPE html><html lang="${ar?'ar':'en'}" dir="${ar?'rtl':'ltr'}"><head><meta charset="UTF-8">
+  return`<!DOCTYPE html><html lang="${S.lang}" dir="${ar?'rtl':'ltr'}"><head><meta charset="UTF-8">
   <title>${o.docTitle||o.title}</title>
   <link href="/fonts/fonts.css" rel="stylesheet">
   <style>
@@ -13062,7 +13125,7 @@ function _accBreakdown(k,rows,o){
       const months=[];const d=new Date();d.setDate(1);
       for(let i=11;i>=0;i--){const x=new Date(d.getFullYear(),d.getMonth()-i,1);months.push(x.toISOString().slice(0,7));}
       const m=count(r=>String(r.c.created_at||'').slice(0,7));
-      return months.map(ym=>({label:new Date(ym+'-01T00:00:00').toLocaleDateString(S.lang==='ar'?'ar':'en-GB',{month:'short',year:'2-digit'}),value:m.get(ym)||0}));}
+      return months.map(ym=>({label:new Date(ym+'-01T00:00:00').toLocaleDateString(_locale(),{month:'short',year:'2-digit'}),value:m.get(ym)||0}));}
     case 'rides':{
       const order=[t('acrRidesNone'),t('acrRides14'),t('acrRides59'),t('acrRides10')];
       const m=count(r=>{const n=r.st.rides;return n<1?order[0]:n<5?order[1]:n<10?order[2]:order[3];});
@@ -15725,7 +15788,7 @@ async function _autoSaveBkOpts(brand,model,groupset){
 }
 
 
-function fmtStamp(iso){if(!iso)return'';try{return new Date(iso).toLocaleString(S.lang==='ar'?'ar-u-ca-gregory-nu-latn':'en-GB',{timeZone:KSA_TZ,day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});}catch(_){return'';}}
+function fmtStamp(iso){if(!iso)return'';try{return new Date(iso).toLocaleString(_locale(),{timeZone:KSA_TZ,day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});}catch(_){return'';}}
 function fmtDur(min){if(!min||min<1)return'—';if(min<60)return`${min} min`;return`${Math.floor(min/60)}h ${min%60}m`;}
 
 // Per-customer profile: aggregate a rider's history from queue data (no customers-table read)
@@ -16449,7 +16512,7 @@ function _macroBadge(it,size){
   if(cat==='ProteinSnacks'||_catParent(cat)==='ProteinSnacks'){const nu=_itemNutri(it);g=nu&&nu.protein_g;}
   else if(cat==='EnergyGels'){const nu=_itemNutri(it);g=nu&&nu.carbs_g;}
   if(g==null||g==='')return '';
-  const ar=S&&S.lang==='ar',d=size||36,fs=Math.round(d*.31);
+  const ar=_isRtl(),d=size||36,fs=Math.round(d*.31);
   return`<span title="${esc(String(g))}g" style="position:absolute;top:6px;${ar?'left':'right'}:6px;z-index:2;width:${d}px;height:${d}px;border-radius:50%;background:#000;color:var(--green);font-size:${fs}px;font-weight:900;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 1px 5px rgba(0,0,0,.45)">${esc(String(g))}g</span>`;
 }
 function _invNutriJson(){
@@ -16520,7 +16583,7 @@ function _invResolveCat(){
   return cat;
 }
 const CUSTOM_CAT_AR={'Drinks':'مشروبات','Protein Cookies':'كوكيز بروتين'}; // Arabic display names for user-created categories (stored values stay English)
-function _invCatLabel(c){const b={Helmet:t('catHelmet'),Accessory:t('catAccessory'),ProteinSnacks:t('catProteinSnacks'),ProteinCookies:t('catProteinCookies'),ProteinGummies:t('catProteinGummies'),ProteinMuffins:t('catProteinMuffins'),ProteinBars:t('catProteinBars'),ElectrolyteSachets:t('catElectrolyteSachets'),EnergyGels:t('catEnergyGels'),SparePart:t('catSparePart'),Apparel:t('catApparel'),Other:t('catOther')}[c];if(b)return b;if(_catParent(c)==='ProteinSnacks')return S&&S.lang==='ar'?(_leafSubtype(c)+' بروتين'):('Protein '+_leafSubtype(c));return S&&S.lang==='ar'?(CUSTOM_CAT_AR[c]||c):c;}
+function _invCatLabel(c){const b={Helmet:t('catHelmet'),Accessory:t('catAccessory'),ProteinSnacks:t('catProteinSnacks'),ProteinCookies:t('catProteinCookies'),ProteinGummies:t('catProteinGummies'),ProteinMuffins:t('catProteinMuffins'),ProteinBars:t('catProteinBars'),ElectrolyteSachets:t('catElectrolyteSachets'),EnergyGels:t('catEnergyGels'),SparePart:t('catSparePart'),Apparel:t('catApparel'),Other:t('catOther')}[c];if(b)return b;if(_catParent(c)==='ProteinSnacks')return t('proteinWord').replace('{0}',_leafSubtype(c));return S&&S.lang==='ar'?(CUSTOM_CAT_AR[c]||c):c;}
 // Two-level category nesting: a "Protein<Type>" leaf category (e.g. ProteinCookies) rolls up under the "Protein Snacks" parent group.
 function _catParent(c){return (c&&c!=='ProteinSnacks'&&/^Protein[A-Z]/.test(c))?'ProteinSnacks':null;} // the parent group of a sub-category, or null if it stands alone
 function _catGroup(c){return _catParent(c)||(c==='ProteinSnacks'?'ProteinSnacks':null);} // the top-level group a category rolls into (the parent name maps to itself, catching legacy parent-tagged items)
@@ -17079,15 +17142,15 @@ async function _ctShareReceipt(key){
 function _ctPrintReceipt(rows,cust,at){
   if(!rows||!rows.length)return;
   rows=rows.filter(r=>r.category!=='__cardmeta__'); // drop payment-split metadata from the printed receipt
-  const ar=S.lang==='ar';
+  const ar=_isRtl();
   const logoUrl=new URL('logo.png',location.href).href;
   const total=Math.round(rows.reduce((s,r)=>s+(Number(r.qty)||0)*(Number(r.price)||0),0)*100)/100;
   const sess=allSessions().find(s=>s.id===rows[0].session_id);
   const body=rows.map(r=>`<tr><td>${esc(r.name)}</td><td style="text-align:center">${r.qty}</td><td style="text-align:end">SAR ${Math.round((Number(r.qty)||0)*(Number(r.price)||0)*100)/100}</td></tr>`).join('');
-  const html=`<!DOCTYPE html><html lang="${ar?'ar':'en'}" dir="${ar?'rtl':'ltr'}"><head><meta charset="UTF-8"><title>${t('cashReceiptWord')}</title><link href="/fonts/fonts.css" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:${ar?"'IBM Plex Sans Arabic',":''}'Barlow',system-ui,sans-serif;color:#111512;padding:14px;max-width:320px;margin:0 auto;font-size:13px}.mm-banner{background:#123019;color:#e9f4ec;border-radius:10px;padding:12px 14px;text-align:center}.mm-banner img{height:36px;display:block;margin:0 auto 4px;object-fit:contain}.mm-banner strong{font-size:12.5px;font-weight:800;display:block}.mm-banner .doc{font-size:9.5px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:#03ff89;display:block;margin-top:3px}.mm-rule{height:4px;background:linear-gradient(90deg,#03ff89,#0c7a3d);border-radius:2px;margin:8px 0 10px}.sub{text-align:center;color:#5a635c;font-size:10.5px;margin-bottom:8px;line-height:1.5}table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px}td{padding:6px 5px;border-bottom:1px dashed #cfd6c9;text-align:start;font-weight:700}.tot{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:14px;margin-top:10px;background:#123019;color:#fff;border-radius:8px;padding:9px 12px}.tot span:last-child{color:#03ff89}@media print{button{display:none}}</style></head><body>
+  const html=`<!DOCTYPE html><html lang="${S.lang}" dir="${ar?'rtl':'ltr'}"><head><meta charset="UTF-8"><title>${t('cashReceiptWord')}</title><link href="/fonts/fonts.css" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:${ar?"'IBM Plex Sans Arabic',":''}'Barlow',system-ui,sans-serif;color:#111512;padding:14px;max-width:320px;margin:0 auto;font-size:13px}.mm-banner{background:#123019;color:#e9f4ec;border-radius:10px;padding:12px 14px;text-align:center}.mm-banner img{height:36px;display:block;margin:0 auto 4px;object-fit:contain}.mm-banner strong{font-size:12.5px;font-weight:800;display:block}.mm-banner .doc{font-size:9.5px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:#03ff89;display:block;margin-top:3px}.mm-rule{height:4px;background:linear-gradient(90deg,#03ff89,#0c7a3d);border-radius:2px;margin:8px 0 10px}.sub{text-align:center;color:#5a635c;font-size:10.5px;margin-bottom:8px;line-height:1.5}table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px}td{padding:6px 5px;border-bottom:1px dashed #cfd6c9;text-align:start;font-weight:700}.tot{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:14px;margin-top:10px;background:#123019;color:#fff;border-radius:8px;padding:9px 12px}.tot span:last-child{color:#03ff89}@media print{button{display:none}}</style></head><body>
     <div class="mm-banner"><img src="${logoUrl}" alt="Micromobility"><strong>Micromobility Co.</strong><span class="doc">${t('cashReceiptWord')}</span></div>
     <div class="mm-rule"></div>
-    <div class="sub">${new Date(at).toLocaleString(ar?'ar-u-ca-gregory-nu-latn':'en-SA',{timeZone:KSA_TZ})}${cust?`<br>${esc(cust)}`:''}${sess?`<br>${dayLabel(sess.day)} ${shortDate(sess.session_date||sess.id)}`:''}</div>
+    <div class="sub">${new Date(at).toLocaleString(_locale(),{timeZone:KSA_TZ})}${cust?`<br>${esc(cust)}`:''}${sess?`<br>${dayLabel(sess.day)} ${shortDate(sess.session_date||sess.id)}`:''}</div>
     <table role="presentation"><tbody>${body}</tbody></table>
     <div class="tot"><span>${t('repTotal')}</span><span>SAR ${total}</span></div>
     <br><button onclick="window.print()" style="display:block;margin:0 auto;padding:8px 20px;background:#0c7a3d;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:700;font-family:inherit">${t('repPrintNow')}</button>
@@ -17180,7 +17243,7 @@ function renderCashier(){
   const invItems=(S.inventory||[]).slice().sort((a,b)=>((_salesCnt[b.id]||0)-(_salesCnt[a.id]||0))||(a.name||'').localeCompare(b.name||''));
   const lowItems=(S.inventory||[]).filter(it=>{const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;return q<=0||(lo>0&&q<=lo);});
   const isCustom=S._ctItem==='__custom__';
-  const ar=S.lang==='ar';
+  const ar=_isRtl();
   const cart=S._ctCart||[];
   const cartTot=Math.round(cart.reduce((s,l)=>s+(Number(l.qty)||0)*(Number(l.price)||0),0)*100)/100;
   const cartPaidNum=cart.filter(l=>l.pay==='paid').reduce((s,l)=>s+(Number(l.qty)||0)*(Number(l.price)||0),0);
@@ -17827,7 +17890,7 @@ async function deleteTag(id){
 // window (ms epoch; null = unbounded). Permanent grants have both null. The DB enforces the
 // same window in community_member() and the booking trigger (temporary-tags-migration.sql).
 function _tagActive(ct){const n=Date.now();return !!ct&&(ct.starts_at==null||ct.starts_at<=n)&&(ct.expires_at==null||ct.expires_at>n);}
-function _tagDateFmt(ms){try{return new Date(ms).toLocaleDateString(S.lang==='ar'?'ar':'en-GB',{day:'numeric',month:'short',year:'numeric'});}catch(e){return '';}}
+function _tagDateFmt(ms){try{return new Date(ms).toLocaleDateString(_locale(),{day:'numeric',month:'short',year:'numeric'});}catch(e){return '';}}
 // Gender for an account that has none, straight from the Community row.
 async function _amSetGender(cid,g){
   const c=(S.customers||[]).find(x=>x.id===cid);if(!c||(g!=='male'&&g!=='female'))return;
@@ -18948,7 +19011,7 @@ function renderAnalytics(){
   function deltaBadge(cur,prevVal,invert){
     if(prevM===null)return'';
     if((prevVal||0)===0&&(cur||0)===0)return'';
-    if((prevVal||0)===0)return`<span class="an-delta" style="color:var(--green)" title="${t('anVsPrev')}">▲ ${S.lang==='ar'?'جديد':'new'}</span>`;
+    if((prevVal||0)===0)return`<span class="an-delta" style="color:var(--green)" title="${t('anVsPrev')}">▲ ${t('lbNewLabel')}</span>`;
     const pct=Math.round((cur-prevVal)/Math.abs(prevVal)*100);
     const flat=cur===prevVal;
     const up=cur>prevVal,good=invert?!up:up;
@@ -19675,8 +19738,9 @@ function _hasStoredAuth(){try{for(let i=0;i<localStorage.length;i++){if(/^sb-.*-
   // language it names, whatever this device last used.
   try{
     const urlLang=_langFromUrl();
-    const savedLang=localStorage.getItem('cq_lang');
-    const _boot=urlLang||(LANGS.some(l=>l.code===savedLang)?savedLang:'en');
+    // Then the language this device picked by hand, then the device's own language
+    // (Settings > Language on the phone), then English.
+    const _boot=urlLang||_savedLang()||_browserLang()||'en';
     // The splash is still up, so waiting here costs nothing visible and saves a flash of
     // English on every load for an Arabic reader. Capped, because a slow pack
     // must not hold the whole app hostage — t() falls back to English either way.
