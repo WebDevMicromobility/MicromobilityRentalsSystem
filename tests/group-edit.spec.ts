@@ -23,6 +23,9 @@ test('group edit modal updates group info and every member', async ({ page }) =>
 
   const modal = page.locator('#group-edit-modal');
   await expect(modal.locator('#ge-gname')).toHaveValue('Tamer Group');
+  // The focus manager moves focus into a new modal 40 ms after it appears. Let that land
+  // before typing, or under load it fires between two fills and the phone lands in the name.
+  await page.waitForFunction(() => { const m = document.getElementById('group-edit-modal'); return !!m && m.contains(document.activeElement); });
   await modal.locator('#ge-gname').fill('Falcons');
   await modal.locator('#ge-cname').fill('Tamer');
   await modal.locator('#ge-phone').fill('0599999999'); // new main phone: members on the old one follow
