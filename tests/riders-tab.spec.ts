@@ -231,10 +231,12 @@ test.describe('walk-in at the desk', () => {
     await expect(page.locator('.toast')).toContainText('P-004');
   });
 
-  test('a walk-in the RPC matched to an online booking gets no second booking', async ({ page }) => {
+  test('a walk-in who already holds a place on this session gets no second booking, and is linked to it', async ({ page }) => {
+    // The RPC's own match is ignored on purpose: it can point at another night or a namesake.
+    // The check is local and bound to the chosen session (Amal's e1, by phone).
     await stubSupabase(page, {
       sessions, queue_entries, rider_registrations,
-      'rpc:rider_register': { ok: true, id: 9, match: 'booking', resubmitted: false, booking_no: 'P-004', booking: { queue_num: 7 } },
+      'rpc:rider_register': { ok: true, id: 9, match: 'none', resubmitted: false, booking_no: 'P-004' },
     });
     await unlockStaff(page);
     await page.goto('/');
@@ -253,8 +255,74 @@ test.describe('walk-in at the desk', () => {
     await page.click('#rw-submit');
     await expect.poll(() => patches.length).toBe(1);          // checked in...
     expect(patches[0].checked_in_at).toBeTruthy();
-    expect(patches[0].matched_entry_id).toBeUndefined();       // ...but the server's match is left alone
-    expect(booked).toHaveLength(0);                            // and Amal keeps her one booking
+    expect(patches[0]).toMatchObject({ matched_entry_id: 'e1', match_kind: 'booking' }); // ...and linked to tonight's row
+    expect(booked).toHaveLength(0);                            // Amal keeps her one booking
+  });
+
+  test('a match the RPC found on another night does not cost the walk-in tonight\'s booking', async ({ page }) => {
+    await stubSupabase(page, {
+      sessions, queue_entries, rider_registrations,
+      'rpc:rider_register': { ok: true, id: 9, match: 'booking', resubmitted: false, booking_no: 'P-004', booking: { queue_num: 3, session_date: '2099-02-15' } },
+    });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('riders')`);
+    const booked = await captureBookingRows(page);
+    await page.evaluate(`showRiderWalkin()`);
+    await page.fill('#rw-badge', 'F-01');
+    await page.fill('#rw-name', 'Faris Elsewhere');
+    await page.fill('#rw-height', '175');
+    await page.locator('#rider-walkin-modal .toggle-btn', { hasText: 'Road' }).click();
+    await page.click('#rw-submit');
+    await expect.poll(() => booked.length).toBe(1);
+    expect(booked[0]).toMatchObject({ session_id: SESS, name: 'Faris Elsewhere', status: 'waiting' });
+  });
+
+  test('a failed booking insert keeps the form up, checks nobody in and toasts nothing', async ({ page }) => {
+    await stubSupabase(page, {
+      sessions, queue_entries, rider_registrations,
+      'rpc:rider_register': { ok: true, id: 9, match: 'none', resubmitted: false, booking_no: 'P-004' },
+    }, { table: 'queue_entries', methods: ['POST'] });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('riders')`);
+    const patches: string[] = [];
+    page.on('request', (r) => { if (r.method() === 'PATCH' && /rider_registrations/.test(r.url())) patches.push(r.url()); });
+    await page.evaluate(`showRiderWalkin()`);
+    await page.fill('#rw-badge', 'G-02');
+    await page.fill('#rw-name', 'Ghada Unlucky');
+    await page.fill('#rw-height', '168');
+    await page.locator('#rider-walkin-modal .toggle-btn', { hasText: 'Hybrid' }).click();
+    await page.click('#rw-submit');
+    await expect(page.locator('#rw-err')).toBeVisible();
+    await expect(page.locator('#rider-walkin-modal .modal-box')).toBeVisible();   // still there to retry
+    expect(patches).toHaveLength(0);                                                // not checked in
+    await expect(page.locator('.toast', { hasText: 'P-004' })).toHaveCount(0);            // no success toast
+  });
+
+  test('a pasted number with its own country code is kept, not prefixed with +966', async ({ page }) => {
+    await stubSupabase(page, {
+      sessions, queue_entries, rider_registrations,
+      'rpc:rider_register': { ok: true, id: 9, match: 'none', resubmitted: false, booking_no: 'P-004' },
+    });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('riders')`);
+    const calls: Record<string, unknown>[] = [];
+    page.on('request', (r) => { if (/rpc\/rider_register/.test(r.url())) calls.push(JSON.parse(r.postData() || '{}')); });
+    await captureBookingRows(page);
+    await page.evaluate(`showRiderWalkin()`);
+    await page.fill('#rw-badge', 'H-03');
+    await page.fill('#rw-name', 'Hany Cairo');
+    await page.fill('#rw-phone', '+20 100 123 4567');
+    await page.fill('#rw-height', '180');
+    await page.locator('#rider-walkin-modal .toggle-btn', { hasText: 'Road' }).click();
+    await page.click('#rw-submit');
+    await expect.poll(() => calls.length).toBe(1);
+    expect(calls[0].p_phone).toBe('+201001234567');
   });
 
   test('a one-word name is refused before anything is sent, and the RPC\'s own verdict is shown', async ({ page }) => {

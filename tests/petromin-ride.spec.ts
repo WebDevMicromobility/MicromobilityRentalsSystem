@@ -399,3 +399,42 @@ test('the landing card is an umbrella: the shared name, no per-ride blurb', asyn
   await expect(card.locator('.lec-meta')).toHaveCount(0); // the description is gone; the logo stays
   await expect(card.locator('img')).not.toHaveCount(0);
 });
+
+test.describe('a Petromin night the fill rule closed itself', () => {
+  // The database rule used to write 'closed' plus an _ac marker at capacity. Until the
+  // migration that makes it write 'full' is applied, such a row must still read as Fully
+  // Booked everywhere: bookable to the waitlist, listed in the staff pickers, and a
+  // person's Open or Close drops the marker so the rule cannot undo a real close.
+  const autoClosed = { ...petromin, status: 'closed', bike_slots: JSON.stringify({ _ac: true, _time: '19:00 - 21:00', _total: 10 }) };
+
+  test('customers still see it, as Full, and land on the waitlist', async ({ page }) => {
+    await stubSupabase(page, { ...member, sessions: [jcc, sat, autoClosed] });
+    await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`S.selEvent='community';setCustTab('register')`);
+    await expect(page.locator('.sess-card.ev-petromin')).toBeVisible();
+    const rows = await captureBookingRows(page);
+    await page.evaluate(
+      `S.selSession='2099-01-13-pw'; S.regQty=1; S.regBikeHeights=[175]; S.regBikeTypes=['Road'];
+       S.regRiderNames=['Spec Rider']; S.promoApplied=null; submitReg();`,
+    );
+    await expect.poll(() => rows.length).toBe(1);
+    expect(rows[0].status).toBe('waitlist');
+  });
+
+  test('staff pickers list it, and a manual Open drops the rule\'s marker', async ({ page }) => {
+    await stubSupabase(page, { ...fixtures, sessions: [jcc, sat, autoClosed] });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    expect(await page.evaluate(`_sessLive(allSessions().find(s=>s.id==='2099-01-13-pw'))`)).toBe(true);
+    expect(await page.evaluate(`_sessFull(allSessions().find(s=>s.id==='2099-01-13-pw'))`)).toBe(true);
+    const patches: Record<string, unknown>[] = [];
+    page.on('request', (r) => { if (r.method() === 'PATCH' && /\/sessions/.test(r.url())) patches.push(JSON.parse(r.postData() || '{}')); });
+    await page.evaluate(`toggleSession('2099-01-13-pw','open')`);
+    await expect.poll(() => patches.length).toBe(1);
+    expect(patches[0].status).toBe('open');
+    expect(JSON.parse(String(patches[0].bike_slots))).not.toHaveProperty('_ac');
+  });
+});

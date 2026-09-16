@@ -1741,14 +1741,17 @@ function nationalityLabel(name){
   }catch(e){return name;}
 }
 // The list as the dropdown shows it: alphabetical in the rider's language, Saudi Arabia first.
-function nationalityList(){
-  const lang=(S&&S.lang)||'en';
+// Built once per language (the account form repaints often) and read from the memo after.
+const _natMemo={};
+function _natFor(lang){
+  if(_natMemo[lang])return _natMemo[lang];
   const rest=NATIONALITIES.map(([,n])=>n).filter(n=>n!=='Saudi Arabia');
-  const lab=Object.fromEntries(rest.map(n=>[n,nationalityLabel(n)]));
+  const lab={};NATIONALITIES.forEach(([,n])=>{lab[n]=nationalityLabel(n);});
   try{rest.sort((a,b)=>lab[a].localeCompare(lab[b],lang));}catch(e){rest.sort((a,b)=>lab[a].localeCompare(lab[b]));}
-  return ['Saudi Arabia',...rest];
+  return (_natMemo[lang]={list:['Saudi Arabia',...rest],lab});
 }
-function nationalityOpts(sel){return nationalityList().map(c=>`<option value="${esc(c)}"${sel===c?' selected':''}>${esc(nationalityLabel(c))}</option>`).join('');}
+function nationalityList(){return _natFor((S&&S.lang)||'en').list;}
+function nationalityOpts(sel){const m=_natFor((S&&S.lang)||'en');return m.list.map(c=>`<option value="${esc(c)}"${sel===c?' selected':''}>${esc(m.lab[c]||c)}</option>`).join('');}
 // ── Social accounts on the profile: bare handles, never URLs ──────────────────
 // [key, label string key, profile URL prefix, handle rule]. Whatever the rider pastes - a
 // full URL, an @ - is reduced to the handle, so a link can always be built from it.
@@ -4191,6 +4194,24 @@ function _ownTakesPlace(s){return _rideKind(s)==='petromin';}
 // A Petromin session the fill rule closed itself (it writes 'closed', not 'full', and leaves
 // an _ac marker in the settings blob so it knows the close was its own to undo).
 function _autoClosed(s){return !!s&&s.status==='closed'&&!!(parseSlots(s.bike_slots)||{})._ac;}
+// Live: somewhere a booking can be filed and a customer can still queue for. Open, full, or
+// a Petromin session the fill rule closed itself - which is Full by another name, and must
+// read as Full to every picker, default and card. A close a PERSON made is not live.
+function _sessLive(s){return !!s&&(s.status==='open'||s.status==='full'||_autoClosed(s));}
+function _sessFull(s){return !!s&&(s.status==='full'||_autoClosed(s));}
+// Is the session's window already over, on the KSA clock? rider_register() refuses one that
+// is, so the desk must not offer it. A window that ends past midnight ends tomorrow.
+function _sessEnded(s){
+  const d=String((s&&(s.session_date||s.id))||'').slice(0,10);if(!d)return false;
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});
+  if(d<today)return true;if(d>today)return false;
+  const raw=String((parseSlots(s.bike_slots)||{})._time||'');
+  const m=raw.match(/^\s*(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/);if(!m)return false;
+  const pad=x=>x.length<5?'0'+x:x;const start=pad(m[1]),end=pad(m[2]);
+  if(end<=start)return false; // runs past midnight: still on
+  let now='';try{now=new Intl.DateTimeFormat('en-GB',{timeZone:KSA_TZ,hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date());}catch(e){return false;}
+  return now>=end;
+}
 // The landing page's second card is an umbrella over the community rides, so 'community'
 // matches every kind but one: the Triathlon Workshop has a card of its own ('workshop'),
 // featured beside the circuit and the umbrella rather than filed under either.
@@ -4473,7 +4494,7 @@ function renderLandingAvail(){
   const open=openSessions().filter(s=>!_isCommunity(s)); // strip = public JCC availability only
   if(!open.length){
     // v2: distinguish "everything is booked out" from "nothing scheduled".
-    const anyFull=allSessions().some(s=>s.status==='full'&&!_isCommunity(s));
+    const anyFull=allSessions().some(s=>_sessFull(s)&&!_isCommunity(s));
     strip.innerHTML=`<div class="landing-avail-empty">${anyFull?t('sessAllFull'):t('noSessions')}</div>`;
     return;
   }
@@ -4662,7 +4683,7 @@ function goStaff(){
 function _autoSelectSession(){
   if(_restoreQueueView()){S._sfDefaulted=true;return;} // this tab remembers where the staffer was: a refresh comes back there
   const today=new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});
-  const open=allSessions().filter(s=>s.status==='open'||s.status==='full')
+  const open=allSessions().filter(s=>_sessLive(s))
     .sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
   if(!open.length){S.sfSession='all';return;}
   
@@ -4915,7 +4936,7 @@ function _mwRowKey(w){
 // on it must stay reachable, or its riders drop out of the filter that would find them.
 function _mwSessOpts(){
   const byId=new Map();
-  allSessions().filter(x=>(x.status==='open'||x.status==='full')&&x.status!=='deleted').forEach(x=>byId.set(x.id,x));
+  allSessions().filter(x=>_sessLive(x)).forEach(x=>byId.set(x.id,x));
   _wlManaged().forEach(w=>{
     if(!w.booking_id)return;
     const bk=getQueue().find(x=>x.id===w.booking_id);
@@ -5350,7 +5371,7 @@ function payBtnMw(w){const isHouse=w.paid&&_wlRowPrice(w)===0;return`<button cla
 const availChip=avail=>avail>0?`<span style="font-size:10px;font-weight:800;color:var(--green);border:1px solid rgba(var(--green-rgb),.35);border-radius:2px;padding:1px 7px;white-space:nowrap">${t('wlAvailNow').replace('{0}',avail)}</span>`:`<span style="color:var(--muted)">—</span>`;
 function _wlAvail(ty){const base=PREMIUM_TIERS[ty]||ty;return(S.bikes||[]).filter(b=>b.status==='available'&&(!base||base==='Any'||b.type===base)).length;} // premium tiers count their fulfilling base type (Road Carbon -> Road)
 function _wlElapsed(iso){const m=Math.max(0,Math.round((Date.now()-new Date(iso||Date.now()))/60000));return m<60?m+' '+t('unitMin'):Math.floor(m/60)+' '+t('unitHour')+' '+(m%60)+' '+t('unitMin');}
-function _wlOpenSess(){return allSessions().filter(x=>(x.status==='open'||x.status==='full')&&!_isApprovalRide(x)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));}
+function _wlOpenSess(){return allSessions().filter(x=>_sessLive(x)&&!_isApprovalRide(x)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));}
 // The view mirrors the Bookings queue page: same section header (live indicator, header
 // buttons, density toggle), stat cards, filter bar (session + search), desktop table and
 // mobile cards. Adding goes through a modal, exactly like the queue's Walk-in.
@@ -5884,7 +5905,7 @@ function renderRegister(){
   // Road Carbon is not offered on the social ride; a saved profile preference could still
   // pre-select it (the button set hides it), so coerce any such choice to Road here.
   if(_commSel)S.regBikeTypes=S.regBikeTypes.map(ty=>ty==='Road Carbon'?'Road':ty);
-  let available=allSessions().filter(s=>(s.status==='open'||s.status==='full')&&_evMatch(s,_ev))
+  let available=allSessions().filter(s=>_sessLive(s)&&_evMatch(s,_ev))
     .sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
   ensureBikeSizes();
   // Branch is not shown to customers (staff-only); no branch filter or labels here.
@@ -5893,7 +5914,7 @@ function renderRegister(){
   const sessCards=available.length
     ? available.map(s=>{
         const sel=S.selSession===s.id;
-        const isFull=s.status==='full';
+        const isFull=_sessFull(s);
         const _n=spotsLeft(s.id);
         const _c=_isCommunity(s);
         // An APPROVAL ride never hints at fullness from computed spots - customers only see
@@ -6559,7 +6580,7 @@ async function submitReg(){
     return;
   }
   const _selSess0=allSessions().find(s=>s.id===S.selSession);
-  if(!_selSess0||(_selSess0.status!=='open'&&_selSess0.status!=='full')){toast(t('errSessionClosed'),'error');return;}
+  if(!_sessLive(_selSess0)){toast(t('errSessionClosed'),'error');return;}
   // Members gate, re-checked at submit: the card/event clicks are already gated, but no
   // state path may insert a community booking for a non-member (the DB trigger backstops this).
   if(_isCommunity(_selSess0)&&!_openToAll(_selSess0)&&!(await commAccess())){showCommMembersModal(_selSess0);return;}
@@ -6592,7 +6613,7 @@ async function submitReg(){
   // capacity trigger applies the same rule server-side.) A session staff marked full still
   // waitlists everyone — that is an explicit close, not a capacity calculation.
   const _needSeats=S.regBikeTypes.slice(0,qty).filter(ty=>ty!=='Own'||_ownTakesPlace(sess0)).length;
-  let bookingStatus=(sess0&&sess0.status==='full')||(!_commSel0&&_needSeats>0&&spotsLeft(S.selSession)<_needSeats)?'waitlist':'waiting';
+  let bookingStatus=_sessFull(sess0)||(!_commSel0&&_needSeats>0&&spotsLeft(S.selSession)<_needSeats)?'waitlist':'waiting';
   // A capped waitlist can fill up: refuse rather than quietly seating riders past the cap.
   if(bookingStatus==='waitlist'&&waitlistRoom(S.selSession)<qty){
     toast(t('errWaitlistFull'),'error');return;
@@ -6640,7 +6661,7 @@ async function submitReg(){
     // possibly-stale local data, so a session that filled up in the meantime would otherwise
     // over-seat. (Closes the single-stale-client capacity window; the DB capacity trigger in the
     // SQL bundle closes the rarer two-devices-at-once race.)
-    {const _s=allSessions().find(s=>s.id===S.selSession);if((_s&&_s.status==='full')||(!_commSel0&&_needSeats>0&&spotsLeft(S.selSession)<_needSeats))bookingStatus='waitlist';}
+    {const _s=allSessions().find(s=>s.id===S.selSession);if(_sessFull(_s)||(!_commSel0&&_needSeats>0&&spotsLeft(S.selSession)<_needSeats))bookingStatus='waitlist';}
     if(bookingStatus==='waitlist'&&waitlistRoom(S.selSession)<qty){toast(t('errWaitlistFull'),'error');return;}
     const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
     const baseQNum=nextQNum(S.selSession);
@@ -6779,7 +6800,7 @@ async function submitModifyBooking(){
   }
 
   const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
-  if(sess.status&&sess.status!=='open'&&sess.status!=='full'){toast(t('errSelectSession'),'error');return;} // session closed under them mid-edit
+  if(sess.status&&!_sessLive(sess)){toast(t('errSelectSession'),'error');return;} // session closed under them mid-edit
   const calls=[];
   let _addedRes=null; // rows the booking RPC returns for riders added during this edit
 
@@ -8970,6 +8991,10 @@ async function saveSessionEdit(){
     total=assignedIds.length;
   }
   {const _wl=_readWlCap('es');if(_wl)slots._wl=_wl;} // blank/0 clears the cap
+  // The fill rule's own-close marker is not a form field: an edit that leaves an auto-closed
+  // session closed must carry it over, or the rule reads the row as a person's close and
+  // never reopens it when places free.
+  {const _old=parseSlots(sess.bike_slots);if(_old&&_old._ac&&sess.status==='closed'&&(S.editSessStatus||sess.status)==='closed')slots._ac=true;}
   const newStatus=S.editSessStatus||sess.status;
   const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const newDay=dayNames[new Date(newDate+'T00:00:00').getDay()];
@@ -9226,7 +9251,11 @@ async function toggleSession(id,newStatus){
     const prevStatus=prev?prev.status:'closed';
     // PostgREST resolves with {error} on a denial rather than throwing, so the catch below
     // never saw it and the success toast fired on a write that never happened.
-    if(_writeErr(await sb.from('sessions').update({status:newStatus}).eq('id',id),'session status',()=>toggleSession(id,newStatus)))return;
+    // A person's choice is not the rule's: drop the fill rule's own-close marker so a Close
+    // made here sticks (the trigger only ever undoes a close it marked itself).
+    const _tsPatch={status:newStatus};
+    {const _sl=parseSlots(prev&&prev.bike_slots);if(_sl&&_sl._ac){delete _sl._ac;_tsPatch.bike_slots=JSON.stringify(_sl);}}
+    if(_writeErr(await sb.from('sessions').update(_tsPatch).eq('id',id),'session status',()=>toggleSession(id,newStatus)))return;
     // A free ride has no return step: closing it is the moment its approved riders are done.
     // Riders never selected (pending / rejected) did not ride and are left as they are.
     let _doneIds=[];
@@ -9420,7 +9449,7 @@ async function saveCommAdd(){
 // under ONE group name (e.g. "Tamer Group"). Riders left unnamed become "Tamer Group 1/2/3…";
 // a named rider that matches a saved customer gets linked, exactly like the Walk-in modal. ──
 function showJccGroupModal(){
-  const open=allSessions().filter(x=>(x.status==='open'||x.status==='full')&&!_isApprovalRide(x)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+  const open=allSessions().filter(x=>_sessLive(x)&&!_isApprovalRide(x)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
   if(!open.length){toast(t('noSessionsAvail'),'warning');return;}
   if(!S._jgRiders||!S._jgRiders.length)S._jgRiders=[{name:'',height:'',type:'Any'},{name:'',height:'',type:'Any'}];
   const selId=(S.sfSession!=='all'&&open.find(x=>x.id===S.sfSession))?S.sfSession:open[0].id;
@@ -9438,7 +9467,7 @@ function showJccGroupModal(){
         <div class="form-group" style="flex:1;margin-bottom:10px"><label for="jg-phone">${t('authPhone')}</label><input id="jg-phone" type="tel" value="${esc(_p)}" placeholder="05…"></div>
       </div>
       <div class="form-group" style="margin-bottom:10px"><label for="jg-sess">${t('colSession')}</label>
-        <select id="jg-sess">${open.map(x=>`<option value="${x.id}"${_s===x.id?' selected':''}>${dayLabel(x.day)} ${shortDate(x.session_date||x.id)} · ${sessionTime(x)}${x.status==='full'?` (${t('statusFull')})`:''}</option>`).join('')}</select></div>
+        <select id="jg-sess">${open.map(x=>`<option value="${x.id}"${_s===x.id?' selected':''}>${dayLabel(x.day)} ${shortDate(x.session_date||x.id)} · ${sessionTime(x)}${_sessFull(x)?` (${t('statusFull')})`:''}</option>`).join('')}</select></div>
       <div class="form-group" style="margin-bottom:6px"><label>${t('colRider')} × ${S._jgRiders.length}</label></div>
       ${S._jgRiders.map((r,i)=>`<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
         <input id="jg-r-name-${i}" type="text" list="jg-cust-list" placeholder="${t('nameLabel')} ${i+1}" value="${esc(r.name||'')}" maxlength="60" style="flex:1;min-width:0">
@@ -9515,7 +9544,7 @@ function showGroupEditModal(entryId){
   const primary=members[0];
   const comm=_apprSessIds.has(primary.sessionId),own=_commSessIds.has(primary.sessionId),free=_freeSessIds.has(primary.sessionId);
   const mainPhone=(primary.groupPhone||primary.phone||'').trim(); // the responsible person's number when stored
-  const open=allSessions().filter(x=>(x.status==='open'||x.status==='full')&&!_isApprovalRide(x)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+  const open=allSessions().filter(x=>_sessLive(x)&&!_isApprovalRide(x)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
   if(!open.find(x=>x.id===primary.sessionId)){const cur=allSessions().find(x=>x.id===primary.sessionId);if(cur)open.unshift(cur);}
   const m=document.getElementById('group-edit-modal');if(!m)return;
   m.style.display='flex';
@@ -9529,7 +9558,7 @@ function showGroupEditModal(entryId){
         <div class="form-group" style="flex:1;margin-bottom:10px"><label for="ge-phone">${t('authPhone')}</label><input id="ge-phone" type="tel" value="${esc(mainPhone)}" placeholder="05…"></div>
       </div>
       ${comm?'':`<div class="form-group" style="margin-bottom:10px"><label for="ge-sess">${t('colSession')}</label>
-        <select id="ge-sess">${open.map(x=>`<option value="${x.id}"${primary.sessionId===x.id?' selected':''}>${dayLabel(x.day)} ${shortDate(x.session_date||x.id)} · ${sessionTime(x)}${x.status==='full'?` (${t('statusFull')})`:''}</option>`).join('')}</select></div>`}
+        <select id="ge-sess">${open.map(x=>`<option value="${x.id}"${primary.sessionId===x.id?' selected':''}>${dayLabel(x.day)} ${shortDate(x.session_date||x.id)} · ${sessionTime(x)}${_sessFull(x)?` (${t('statusFull')})`:''}</option>`).join('')}</select></div>`}
       <div class="form-group" style="margin-bottom:6px"><label>${t('colRider')} × ${members.length}</label></div>
       ${members.map((r,i)=>`<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
         <span style="flex-shrink:0;font-size:11px;font-weight:900;color:var(--muted);min-width:26px">#${r.queueNum||''}</span>
@@ -9903,7 +9932,7 @@ async function saveCustForm(){
   }
 }
 function showWalkinModal(){
-  const open=allSessions().filter(x=>(x.status==='open'||x.status==='full')&&!_isApprovalRide(x)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+  const open=allSessions().filter(x=>_sessLive(x)&&!_isApprovalRide(x)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
   if(!open.length){toast(t('noSessionsAvail'),'warning');return;}
   const selId=(S.sfSession!=='all'&&open.find(x=>x.id===S.sfSession))?S.sfSession:open[0].id;
   S._wiType=S._wiType||'Any';
@@ -9938,7 +9967,7 @@ function showWalkinModal(){
       </div>`).join('')}
       <button type="button" class="btn-secondary" style="width:100%;margin:2px 0 12px" onclick="_wiAddRider()">+ ${t('beAddRiderBtn')}</button>
       <div class="form-group" style="margin-bottom:14px"><label>${t('colSession')}</label>
-        <select id="wi-sess">${open.map(x=>`<option value="${x.id}"${_s===x.id?' selected':''}>${dayLabel(x.day)} ${shortDate(x.session_date||x.id)} · ${sessionTime(x)}${x.status==='full'?` (${t('statusFull')})`:''}</option>`).join('')}</select></div>
+        <select id="wi-sess">${open.map(x=>`<option value="${x.id}"${_s===x.id?' selected':''}>${dayLabel(x.day)} ${shortDate(x.session_date||x.id)} · ${sessionTime(x)}${_sessFull(x)?` (${t('statusFull')})`:''}</option>`).join('')}</select></div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeWalkinModal()">${t('cancelBtn')}</button>
         <button class="btn-primary" onclick="saveWalkin()">${t('addWalkinBtn')}${S._wiRiders.length?` (${S._wiRiders.length+1})`:''}</button>
@@ -10175,7 +10204,7 @@ async function saveBookingEdit(){
   const inserted=[],insertedEnts=[],parkedRows=[];
   if(newRiders.length){
     const sessT=allSessions().find(s=>s.id===toSessionId);
-    const rStatus=((sessT&&sessT.status==='full')||spotsLeft(toSessionId)<newRiders.length+(moving?1:0))?'waitlist':'waiting';
+    const rStatus=(_sessFull(sessT)||spotsLeft(toSessionId)<newRiders.length+(moving?1:0))?'waitlist':'waiting';
     let qn=nextQNum(toSessionId)+(moving?1:0); // when moving, the edited entry already took the next number
     let _wln=rStatus==='waitlist'?nextWlNum(toSessionId):0;
     for(const r of newRiders){
@@ -10266,7 +10295,7 @@ function _sfDefaultToToday(){
   if(_restoreQueueView())return; // back where the staffer was before the refresh - this tab's memory wins over any boot default
   if(S.sfSession!=='all')return; // something picked it already (a scan, a link): keep it
   const today=new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});
-  const s=allSessions().filter(x=>(x.status==='open'||x.status==='full')&&(x.session_date||x.id)===today)
+  const s=allSessions().filter(x=>_sessLive(x)&&(x.session_date||x.id)===today)
     .sort((a,b)=>(b.created_at||0)-(a.created_at||0))[0];
   if(s)S.sfSession=s.id;
 }
@@ -10492,7 +10521,7 @@ function renderStaffQueue(_resultsOnly){
   const qSessOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>${t('allSessions')}</option>`+
     // Live sessions only: a closed night is history, not somewhere to file a booking. The one
     // already chosen stays listed so the select never shows "All" while the list is filtered.
-    sessions.filter(s=>s.status==='open'||s.status==='full'||(s.status!=='deleted'&&s.id===S.sfSession)).map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${s.status==='full'?` (${t('statusFull')})`:''}</option>`).join('');
+    sessions.filter(s=>_sessLive(s)||(s.status!=='deleted'&&s.id===S.sfSession)).map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${_sessFull(s)?` (${t('statusFull')})`:''}</option>`).join('');
   const qStatusOpts=(_commSel
     ?['all','approved','pending','waitlist','rejected','cancelled']  // approval funnel
     :['all','waiting','reserved','toreserve','waitlist','active','done','noshow','cancelled']).map(s=>{ // ride lifecycle
@@ -10901,7 +10930,7 @@ function renderQRow(e){
   
   const _sessSummaryBar=(()=>{
     const _td=todayStr();
-    const openSess=allSessions().filter(s=>(s.status==='open'||s.status==='full')&&!(_fd&&_isApprovalRide(s)))
+    const openSess=allSessions().filter(s=>_sessLive(s)&&!(_fd&&_isApprovalRide(s)))
       .sort((a,b)=>(((b.session_date||b.id)===_td)-((a.session_date||a.id)===_td))||(new Date(a.session_date||a.id)-new Date(b.session_date||b.id)));
     if(!openSess.length)return'';
     const chips=openSess.map(s=>{
@@ -15961,14 +15990,13 @@ function exportRidersCsv(){
   const lines=[head.join(',')].concat(rows.map(r=>{const e=_riderEntry(r);
     return [r.booking_no||'',r.badge,r.company||'',r.name,r.phone||'',r.height,r.type_preference,r.session_id||'',r.checked_in_at||'',r.checked_out_at||'',r.source||'',r.match_kind,e?e.queueNum:'',e?e.sessionDate:'',e?e.size:'',e?resolvedType(e):'',r.updated_at,r.submissions].map(_csvCell).join(',');}));
   const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='riders-'+todayStr()+'.csv';document.body.appendChild(a);a.click();a.remove();
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='riders-'+todayStr()+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
 function _ridersFiltered(){
   let rows=(S.riders||[]).slice();
   if(S.ridersFilter==='waiting')rows=rows.filter(r=>!r.checked_in_at);
   else if(S.ridersFilter==='riding')rows=rows.filter(r=>r.checked_in_at&&!r.checked_out_at);
   else if(S.ridersFilter==='returned')rows=rows.filter(r=>!!r.checked_out_at);
-  else if(S.ridersFilter!=='all')rows=rows.filter(r=>r.match_kind===S.ridersFilter);
   if(S.ridersSession&&S.ridersSession!=='all')rows=rows.filter(r=>r.session_id===S.ridersSession);
   const q=(S.ridersSearch||'').trim().toLowerCase().replace(/^#/,'');
   if(q)rows=rows.filter(r=>String(r.badge||'').toLowerCase().includes(q)||String(r.name||'').toLowerCase().includes(q)||String(r.phone||'').includes(q)||String(r.booking_no||'').toLowerCase().includes(q)||String(r.company||'').toLowerCase().includes(q)||(()=>{const e=_riderEntry(r);return !!e&&String(e.queueNum)===q;})());
@@ -15983,8 +16011,7 @@ async function _riderPatch(id,patch){
   const r=(S.riders||[]).find(x=>String(x.id)===String(id));if(!r)return;
   Object.assign(r,patch);S.riders=S.riders.slice();renderRiders(true);_renderRiderModal();
   try{const{error}=await sb.from('rider_registrations').update(patch).eq('id',r.id);if(error)throw error;}
-  catch(e){toast(t('ridersLoadErr'),'error');}
-  await loadRiders();renderRiders(true);_renderRiderModal();
+  catch(e){toast(t('ridersLoadErr'),'error');await loadRiders();renderRiders(true);_renderRiderModal();} // the realtime channel reconciles a success (trigger-set price, updated_at)
 }
 function riderCheckin(id){_riderPatch(id,{checked_in_at:new Date().toISOString(),checked_in_by:_opName()||null});}
 // The booking pop-up: everything on the registration and the desk actions, opened from a scan
@@ -16046,7 +16073,7 @@ function _riderReportRows(){
   rows.sort((a,b)=>String(a.session_id||'').localeCompare(String(b.session_id||''))||String(a.booking_no||'').localeCompare(String(b.booking_no||'')));
   return rows;
 }
-function _riderPrice(r){return r.price!=null?Number(r.price):(r.type_preference==='Road'?75:57.5);}
+function _riderPrice(r){return r.price!=null?Number(r.price):priceForType(r.type_preference);} // same table the Bookings tab prices from
 function exportRidersReportCsv(){
   const rows=_riderReportRows();if(!rows.length){toast(t('ridersReportEmpty'));return;}
   const head=['booking_no','session','company','badge','name','phone','bike_type','checked_in','checked_out','price_sar'];
@@ -16054,7 +16081,7 @@ function exportRidersReportCsv(){
   const total=rows.reduce((s,r)=>s+_riderPrice(r),0);
   lines.push(['','','','','','','','','TOTAL',total.toFixed(2)].map(_csvCell).join(','));
   const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='petromin-report-'+(S.ridersSession!=='all'?S.ridersSession:todayStr())+'.csv';document.body.appendChild(a);a.click();a.remove();
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='petromin-report-'+(S.ridersSession!=='all'?S.ridersSession:todayStr())+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
 function printRidersReport(){
   const rows=_riderReportRows();if(!rows.length){toast(t('ridersReportEmpty'));return;}
@@ -16081,13 +16108,13 @@ function printRidersReport(){
 // height, bike type - and the row goes through the same rider_register() RPC, so it is
 // validated, matched and numbered (P-0NN) exactly like an online registration. The rider
 // then gets what every other rider on the night has as well: an ordinary booking on the
-// session (a #number in the Queue, a bike at check-in, the money column), unless the RPC
-// matched them to a booking they already made online. The registration row is linked to
-// that booking the way an online match is. A walk-in is standing at the desk, so the modal
+// session (a #number in the Queue, a bike at check-in, the money column), unless they already
+// hold one on that session (checked locally, by phone or name - see _rwFinish). The
+// registration row is linked to that booking the way an online match is. A walk-in is standing at the desk, so the modal
 // checks the registration in as well unless staff untick it.
 function _walkinSessions(){
   const today=todayStr();
-  return allSessions().filter(s=>_rideKind(s)==='petromin'&&String(s.session_date||s.id).slice(0,10)>=today&&(s.status==='open'||s.status==='full'||_autoClosed(s)))
+  return allSessions().filter(s=>_rideKind(s)==='petromin'&&String(s.session_date||s.id).slice(0,10)>=today&&_sessLive(s)&&!_sessEnded(s))
     .sort((a,b)=>String(a.session_date||a.id).localeCompare(String(b.session_date||b.id)));
 }
 function showRiderWalkin(){
@@ -16125,7 +16152,8 @@ function renderRiderWalkin(){
 async function submitRiderWalkin(){
   const d=S._rw;if(!d||d.saving)return;
   const badge=String(d.badge||'').trim(),name=String(d.name||'').trim().replace(/\s+/g,' '),h=parseInt(d.height,10);
-  const phoneRaw=String(d.phone||'').replace(/\D/g,'');
+  // Keep a typed '+': a number pasted with its own country code must not get +966 in front.
+  const phoneRaw=String(d.phone||'').trim();
   const phone=phoneRaw?_normPhone(phoneRaw,d.cc||'+966'):null;
   // The same checks rider_register() applies, so the desk hears about a slip before the
   // round trip; the RPC's verdict is still mapped below in case the two ever disagree.
@@ -16147,24 +16175,35 @@ async function submitRiderWalkin(){
     const map={badge:'ridersWalkinErrBadge',name:'ridersWalkinErrName',height:'ridersWalkinErrHeight',type:'ridersWalkinErrType',phone:'ridersWalkinErrPhone',session:'ridersWalkinErrSession',company:'ridersWalkinErrCompany'};
     d.saving=false;d.err=t(map[res&&res.error]||'ridersWalkinErr');renderRiderWalkin();return;
   }
-  closeRiderWalkin();
-  // The booking. Skipped when the rider already booked online (the RPC matched them to it):
-  // one rider, one place on the roster.
-  let entry=null;
-  if(res.match!=='booking'){
-    const entries=await _wiInsertRiders(d.session,[{name,height:h,type:d.type}],phone||'',null);
-    entry=entries&&entries[0]||null;
-    if(entry)logAction(`${t('addWalkinBtn')}: #${entry.queueNum} ${name}`);
+  await _rwFinish(d,res,{name,h,phone});
+}
+// The second half, once the registration row exists: tonight's booking, the link, the check-in.
+// Split out so the error bar's Retry redoes only this half - rider_register() is not called
+// again for a slip in the booking insert. The modal stays up until the booking exists.
+async function _rwFinish(d,res,r){
+  // Does this rider already hold a place on THIS session? The RPC's own match can point at any
+  // upcoming session or at a namesake, so the check is local and bound to the chosen session:
+  // same phone (last nine digits) or the same normalised name, on a live row.
+  const last9=r.phone?r.phone.replace(/\D/g,'').slice(-9):'';
+  const nm=r.name.toLowerCase();
+  let entry=getQueue().find(e=>e.sessionId===d.session&&['waiting','waitlist','active'].includes(e.status)
+    &&((last9&&String(e.phone||'').replace(/\D/g,'').slice(-9)===last9)||String(e.name||'').trim().replace(/\s+/g,' ').toLowerCase()===nm))||null;
+  let created=false;
+  if(!entry){
+    const entries=await _wiInsertRiders(d.session,[{name:r.name,height:r.h,type:d.type}],r.phone||'',null,()=>_rwFinish(d,res,r));
+    if(!entries){d.saving=false;d.err=t('ridersWalkinErr');renderRiderWalkin();return;} // nothing checked in, nothing toasted: the form is still there
+    entry=entries[0];created=true;
+    logAction(`${t('addWalkinBtn')}: #${entry.queueNum} ${r.name}`);
   }
-  const patch={};
-  if(entry){patch.matched_entry_id=entry.id;patch.matched_customer_id=entry.customerId||null;patch.match_kind='booking';}
+  closeRiderWalkin();
+  const patch={matched_entry_id:entry.id,matched_customer_id:entry.customerId||null,match_kind:'booking'};
   if(d.checkin){patch.checked_in_at=new Date().toISOString();patch.checked_in_by=_opName()||null;}
-  if(res.id&&Object.keys(patch).length){
+  if(res.id){
     try{const{error}=await sb.from('rider_registrations').update(patch).eq('id',res.id);if(error)throw error;}
     catch(e){toast(t('ridersLoadErr'),'error');}
   }
-  toast((res.resubmitted?t('ridersWalkinResub'):t('ridersWalkinAdded')).replace('{0}',name).replace('{1}',res.booking_no||''));
-  await Promise.all([loadRiders(),entry?loadDataLight():Promise.resolve()]);
+  toast((res.resubmitted?t('ridersWalkinResub'):t('ridersWalkinAdded')).replace('{0}',r.name).replace('{1}',res.booking_no||''));
+  await Promise.all([loadRiders(),created?loadDataLight():Promise.resolve()]);
   renderRiders();
 }
 
@@ -16174,8 +16213,9 @@ function renderRiders(_resultsOnly){
   if(!_resultsOnly&&document.activeElement&&document.activeElement.id==='riders-search-input'&&document.getElementById('riders-results'))_resultsOnly=true;
   const all=S.riders||[],rows=_ridersFiltered();
   const nOut=all.filter(r=>r.checked_in_at&&!r.checked_out_at).length,nDone=all.filter(r=>r.checked_out_at).length,nWait=all.filter(r=>!r.checked_in_at).length;
+  const _sessById=new Map((S.sessions||[]).map(x=>[x.id,x]));
   const body=rows.map(r=>{
-    const sess=r.session_id?allSessions().find(x=>x.id===r.session_id):null;
+    const sess=r.session_id?(_sessById.get(r.session_id)||null):null;
     return`<tr>
       <td><button type="button" class="status-badge badge-active" style="font-variant-numeric:tabular-nums;font:inherit;font-weight:800;cursor:pointer;border:0" onclick="openRiderModal('${r.id}')">${esc(r.booking_no||'')}</button></td>
       <td><strong>${esc(r.badge)}</strong>${r.company?`<div style="font-size:11px;color:var(--muted)">${esc(r.company)}</div>`:''}</td>

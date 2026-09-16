@@ -53,7 +53,9 @@ with expected(fname, want_definer, note) as (values
   ('rider_sessions',         true,  'reads sessions for anon'),
   ('_rider_gate',            true,  'writes login_throttle; internal only'),
   ('_rider_session_open',    false, 'pure status check on the row it is handed'),
-  ('_session_window',        false, 'pure time arithmetic on the row it is handed')
+  ('_session_window',        false, 'pure time arithmetic on the row it is handed'),
+  ('_rider_price',           false, 'pure price table'),
+  ('_rider_registration_guard', false, 'inspects NEW only; calls _rider_price at return time')
 )
 select e.fname,
        case when p.oid is null then 'MISSING FROM DATABASE'

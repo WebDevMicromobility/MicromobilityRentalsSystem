@@ -3,13 +3,17 @@ import { defineConfig, devices } from '@playwright/test';
 // E2E safety net for the strangler rewrite.
 // All Supabase traffic is stubbed in tests/helpers/supabase.ts —
 // the suite never reads or writes production data.
+// Two checkouts of this repo run their suites at once on this machine; each takes its own
+// port, or the second one silently tests whatever the first one is serving.
+const PORT = process.env.PW_PORT || '4173';
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
-    baseURL: 'http://127.0.0.1:4173',
+    baseURL: `http://127.0.0.1:${PORT}`,
     serviceWorkers: 'block',
     trace: 'on-first-retry',
   },
@@ -18,8 +22,8 @@ export default defineConfig({
     { name: 'mobile', use: { ...devices['Pixel 7'] } },
   ],
   webServer: {
-    command: 'python3 -m http.server 4173',
-    url: 'http://127.0.0.1:4173',
+    command: `python3 -m http.server ${PORT}`,
+    url: `http://127.0.0.1:${PORT}`,
     reuseExistingServer: !process.env.CI,
   },
 });
