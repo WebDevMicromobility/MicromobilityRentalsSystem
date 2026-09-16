@@ -1213,16 +1213,18 @@ async function loadLangPack(code){
 // Every language the site speaks. `label` is the language's own name (what the dropdown
 // shows), `locale` drives date/weekday formatting (Latin digits everywhere: bike numbers,
 // prices and booking refs must read the same on every phone), `rtl` flips the layout.
+// Every locale pins the Gregorian calendar: left to the device, an Arabic phone formats
+// dates on the Hijri calendar, and the calendar and the season are Gregorian.
 const LANGS=[
-  {code:'en',short:'EN',label:'English',locale:'en-GB'},
+  {code:'en',short:'EN',label:'English',locale:'en-GB-u-ca-gregory'},
   {code:'ar',short:'عربي',label:'العربية',locale:'ar-u-ca-gregory-nu-latn',rtl:true},
-  {code:'fr',short:'FR',label:'Français',locale:'fr-FR'},
-  {code:'es',short:'ES',label:'Español',locale:'es-ES'},
-  {code:'pt',short:'PT',label:'Português',locale:'pt-BR'},
-  {code:'ur',short:'اردو',label:'اردو',locale:'ur-PK-u-nu-latn',rtl:true},
-  {code:'hi',short:'HI',label:'हिन्दी',locale:'hi-IN-u-nu-latn'},
-  {code:'tl',short:'TL',label:'Tagalog',locale:'fil-PH'},
-  {code:'ne',short:'NE',label:'नेपाली',locale:'ne-NP-u-nu-latn'},
+  {code:'fr',short:'FR',label:'Français',locale:'fr-FR-u-ca-gregory'},
+  {code:'es',short:'ES',label:'Español',locale:'es-ES-u-ca-gregory'},
+  {code:'pt',short:'PT',label:'Português',locale:'pt-BR-u-ca-gregory'},
+  {code:'ur',short:'اردو',label:'اردو',locale:'ur-PK-u-ca-gregory-nu-latn',rtl:true},
+  {code:'hi',short:'HI',label:'हिन्दी',locale:'hi-IN-u-ca-gregory-nu-latn'},
+  {code:'tl',short:'TL',label:'Tagalog',locale:'fil-PH-u-ca-gregory'},
+  {code:'ne',short:'NE',label:'नेपाली',locale:'ne-NP-u-ca-gregory-nu-latn'},
 ];
 function _langOf(code){return LANGS.find(l=>l.code===code)||LANGS[0];}
 function _isRtl(code){return !!_langOf(code||(S&&S.lang)||'en').rtl;}
@@ -10477,7 +10479,9 @@ function renderStaffQueue(_resultsOnly){
     return`<th class="an-sort-th${active?' an-sort-active':''}${cls?' '+cls:''}" onclick="setSfSort('${col}')">${label}${active?' '+arrow:''}</th>`;
   }
   const qSessOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>${t('allSessions')}</option>`+
-    sessions.filter(s=>s.status!=='deleted').map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}</option>`).join('');
+    // Live sessions only: a closed night is history, not somewhere to file a booking. The one
+    // already chosen stays listed so the select never shows "All" while the list is filtered.
+    sessions.filter(s=>s.status==='open'||s.status==='full'||(s.status!=='deleted'&&s.id===S.sfSession)).map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${s.status==='full'?` (${t('statusFull')})`:''}</option>`).join('');
   const qStatusOpts=(_commSel
     ?['all','approved','pending','waitlist','rejected','cancelled']  // approval funnel
     :['all','waiting','reserved','toreserve','waitlist','active','done','noshow','cancelled']).map(s=>{ // ride lifecycle
@@ -10545,7 +10549,7 @@ function renderStaffQueue(_resultsOnly){
     if(!e.registeredAt)return'—';
     const d=new Date(e.registeredAt);
     if(isNaN(d))return'—';
-    return d.toLocaleDateString(undefined,{day:'numeric',month:'short'})+' · '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+    return d.toLocaleDateString(_locale(),{day:'numeric',month:'short',timeZone:KSA_TZ})+' · '+d.toLocaleTimeString(_locale(),{hour:'2-digit',minute:'2-digit',timeZone:KSA_TZ});
   }
   const _adChips=e=>{
     if(_freeSessIds.has(e.sessionId))return''; // free community rides have no add-ons
@@ -14054,7 +14058,7 @@ function _ciBikeStatusText(d){
   if(b.status==='available')return t('ciBikeAvailable');
   if(b.status==='in-use'){
     const who=(d.rented_to&&d.rented_to.name)||'';
-    let when='';try{if(d.rented_to&&d.rented_to.since)when=new Date(d.rented_to.since).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}catch(e){}
+    let when='';try{if(d.rented_to&&d.rented_to.since)when=new Date(d.rented_to.since).toLocaleTimeString(_locale(),{hour:'2-digit',minute:'2-digit',timeZone:KSA_TZ});}catch(e){}
     return t('ciBikeRented').replace('{0}',who||'\u2014').replace('{1}',when||'\u2014');
   }
   if(b.status==='maintenance')return t('ciBikeMaint');
@@ -15955,7 +15959,7 @@ function _ridersFiltered(){
 }
 // Minutes between check-in and return, shown under the check-out time as 1h 35m.
 function _riderDur(a,b){const ms=new Date(b)-new Date(a);if(!(ms>0))return '';const m=Math.round(ms/60000),h=Math.floor(m/60);return h?`${h}h ${String(m%60).padStart(2,'0')}m`:`${m}m`;}
-function _riderClock(iso){try{return new Date(iso).toLocaleTimeString(S.lang==='ar'?'ar-SA-u-nu-latn':'en-GB',{timeZone:KSA_TZ,hour:'2-digit',minute:'2-digit'});}catch(e){return '';}}
+function _riderClock(iso){try{return new Date(iso).toLocaleTimeString(_locale(),{timeZone:KSA_TZ,hour:'2-digit',minute:'2-digit'});}catch(e){return '';}}
 // Check-in / return: paint first, reconcile after (same order as the queue actions). The price is
 // set by a database trigger at return time and is never rendered in this tab.
 async function _riderPatch(id,patch){
@@ -17420,7 +17424,7 @@ function renderCashier(){
     const cardShown=Math.min(cardAmt,paidNet),cashShown=Math.max(0,Math.round((paidNet-cardShown)*100)/100);
     return`<div style="border:1px solid var(--border);border-radius:4px;padding:10px 12px;margin-bottom:8px${refunded?';opacity:.6':''}">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
-        <div style="font-size:11px;color:var(--muted)">${esc(rc.cust||t('cashWalkup'))}${rc.at?` · ${new Date(rc.at).toLocaleTimeString(ar?'ar':'en-GB',{hour:'2-digit',minute:'2-digit'})}`:''}${refunded?` · <span style="color:var(--orange);font-weight:800">${t('cashRefunded')}</span>`:''}</div>
+        <div style="font-size:11px;color:var(--muted)">${esc(rc.cust||t('cashWalkup'))}${rc.at?` · ${new Date(rc.at).toLocaleTimeString(_locale(),{hour:'2-digit',minute:'2-digit',timeZone:KSA_TZ})}`:''}${refunded?` · <span style="color:var(--orange);font-weight:800">${t('cashRefunded')}</span>`:''}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
           ${refunded?'':`${disp.some(l=>l.pay==='pending')?`<button class="btn-sm btn-green" onclick="_ctMarkReceiptPaid('${rc.key}')">${t('cashMarkPaid')}</button>`:''}<button class="btn-sm btn-muted" onclick="showReceiptEdit('${rc.key}')">${t('cashEditBtn')}</button><button class="btn-sm btn-muted" onclick="_ctReprint('${rc.key}')">${t('repPrintNow')}</button><button class="btn-sm btn-muted" onclick="_ctShareReceipt('${rc.key}')">${t('cashShare')}</button><button class="btn-sm btn-muted" onclick="_ctRefundReceipt('${rc.key}')">${t('cashRefund')}</button>`}
           <button class="btn-sm btn-muted" onclick="_ctVoidReceipt('${rc.key}')" aria-label="${t('cashVoid')}">${t('cashVoid')}</button>
