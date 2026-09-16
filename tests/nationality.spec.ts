@@ -63,3 +63,29 @@ test('staff set it on the account form and the report lists and filters by it', 
   await expect.poll(() => patches.length).toBeGreaterThan(0);
   expect(JSON.parse(patches[0]).nationality).toBe('Pakistan');
 });
+
+test('the list holds every country: Saudi Arabia first, then alphabetical in the rider\'s language', async ({ page }) => {
+  await stubSupabase(page, {
+    sessions, queue_entries: [],
+    'rpc:customer_profile': [{ id: 'c1', name: 'Spec Rider', email: 'spec@example.com', phone: '0500000001', nationality: null, gender: 'male' }],
+  });
+  await loginCustomer(page, { id: 'c1' });
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`setCustTab('account')`);
+  const en = await page.evaluate(`[...document.querySelectorAll('#acc-nationality option')].map(o=>[o.value,o.textContent])`) as [string, string][];
+  expect(en[0][0]).toBe('');                                  // the placeholder
+  expect(en[1]).toEqual(['Saudi Arabia', 'Saudi Arabia']);   // pinned to the top
+  const rest = en.slice(2).map(o => o[1]);
+  expect(rest.length).toBeGreaterThan(190);                   // every country, not the residence shortlist
+  expect(rest).toEqual([...rest].sort((a, b) => a.localeCompare(b, 'en')));
+  expect(rest).toContain('Japan');
+  expect(rest).not.toContain('Saudi Arabia');
+
+  await page.evaluate(`setLang('ar')`);
+  const ar = await page.evaluate(`[...document.querySelectorAll('#acc-nationality option')].map(o=>[o.value,o.textContent])`) as [string, string][];
+  expect(ar[1]).toEqual(['Saudi Arabia', 'السعودية']);       // the value never changes, only the label
+  const arLabels = ar.slice(2).map(o => o[1]);
+  expect(arLabels).toEqual([...arLabels].sort((a, b) => a.localeCompare(b, 'ar')));
+  expect(ar.find(o => o[0] === 'Japan')?.[1]).toBe('اليابان');
+});

@@ -105,7 +105,7 @@ them deliberately.
 | 14 | `session_token` | text | YES | — | 24 random bytes hex, minted at signup/login/reset; **reused across devices** (login only mints when absent) | `_cust_token_ok()` on every customer RPC |
 | 15 | `default_pay` | text | YES | — | staff | "on the house" rule, see §0.2 |
 | 16 | `hidden_types` | text | YES | — | staff | hides bike types from that customer's picker |
-| 17 | `nationality` | text | YES | — | profile (My Account) or staff form; **never asked at signup**; a `COUNTRY_LIST` name | account report |
+| 17 | `nationality` | text | YES | — | profile (My Account) or staff form; **never asked at signup**; an English name from `NATIONALITIES` (every country, Saudi Arabia first, then alphabetical in the rider's language) | account report |
 | 18 | `socials` | jsonb | YES | — | profile (My Account, via `customer_set_socials`) or staff form; **never asked at signup**; `{instagram,x,tiktok,linkedin}` bare handles, never URLs; null when none | staff-only: Community row icons, account report |
 
 **Password hash formats accepted** (`_cust_pwd_ok`): bcrypt (`$2…`), legacy salted SHA-256
