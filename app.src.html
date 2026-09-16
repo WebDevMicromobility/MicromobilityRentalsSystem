@@ -4663,22 +4663,15 @@ function renderStaffTabs(){
 // with walk-ups living on a separate Waitlist page — two screens for one question. The page is
 // gone, so a walk-up row must appear HERE or it would be invisible while its rider stands at
 // the desk. Hand-ordered rows sort by their position; the rest fall in behind by arrival.
-// A rider the capacity rule waitlisted on its own has a booking and a W number but NO desk
-// row — so the page named Waitlist had never heard of them, while the Bookings view showed
-// them all along. They are folded in here as rows the renderer already knows how to draw:
-// a row carrying a booking_id gets that booking's own controls. A booking staff ALSO parked
-// by hand keeps its real row and is not doubled.
-function _wlVirtualRows(){
-  const parked=new Set((S.deskWaitlist||[]).filter(w=>w.status==='waiting'&&w.booking_id).map(w=>w.booking_id));
-  return getQueue().filter(e=>e.status==='waitlist'&&!parked.has(e.id)).map(e=>({
-    id:'wlb:'+e.id,booking_id:e.id,name:e.name,phone:e.phone||'',bike_type:resolvedType(e),
-    status:'waiting',kind:'managed',sort_order:null,created_at:e.registeredAt||'',_virtual:true
-  }));
-}
+// Only what staff put here by hand. A rider the capacity rule waitlisted has a booking and a
+// W number and lives on the Bookings view (Waitlist filter); they used to be folded into this
+// list as virtual rows, which made it read as a second copy of the queue. Since 2026-09-16 the
+// staff list is the staff's own list again - a booking appears here only once staff park it
+// (a desk row carrying its booking_id).
 // Hand-ordered rows lead (staff put them there deliberately); the rest fall in by W number,
 // which is the order promotion actually takes them in, and by arrival after that.
 function _wlManaged(){
-  const rows=[...(S.deskWaitlist||[]).filter(w=>w.status==='waiting'),..._wlVirtualRows()];
+  const rows=(S.deskWaitlist||[]).filter(w=>w.status==='waiting');
   const wl=new Map(getQueue().filter(e=>e.status==='waitlist').map(e=>[e.id,e.waitlistNum||9e9]));
   const wnum=w=>(w.booking_id&&wl.has(w.booking_id))?wl.get(w.booking_id):9e9;
   return rows.sort((a,b)=>((a.sort_order??9e9)-(b.sort_order??9e9))||(wnum(a)-wnum(b))||(new Date(a.created_at||0)-new Date(b.created_at||0)));
