@@ -246,6 +246,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <button class="tab-btn"        data-stab="inventory" onclick="setStaffTab('inventory')"><span class="snav-ico" aria-hidden="true"></span><span class="snav-lbl">Inventory</span></button>
     <span class="snav-group" data-group="snavPeople" aria-hidden="true">People</span>
     <button class="tab-btn"        data-stab="community" onclick="setStaffTab('community')"><span class="snav-ico" aria-hidden="true"></span><span class="snav-lbl">Community</span></button>
+    <button class="tab-btn"        data-stab="riders"    onclick="setStaffTab('riders')"><span class="snav-ico" aria-hidden="true"></span><span class="snav-lbl">Riders</span></button>
     <span class="snav-group" data-group="snavInsights" aria-hidden="true">Insights</span>
     <button class="tab-btn"        data-stab="analytics" onclick="setStaffTab('analytics')"><span class="snav-ico" aria-hidden="true"></span><span class="snav-lbl">Analytics</span></button>
     <span class="snav-group" data-group="snavSystem" aria-hidden="true">System</span>
@@ -256,6 +257,7 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
     <div id="tab-inventory"  class="tab-panel"></div>
     <div id="tab-cashier"   class="tab-panel"></div>
     <div id="tab-community"  class="tab-panel"></div>
+    <div id="tab-riders"     class="tab-panel"></div>
     <div id="tab-analytics"  class="tab-panel"></div>
     <div id="tab-history"   class="tab-panel"></div>
   </div>
@@ -392,7 +394,7 @@ en:{
   logsTitle:'Action Log',logsPermanentNote:'Shared audit trail - actions from every staff device, synced to the database.',logsSearchPh:'Search actions…',logCatPay:'Payment',logCatBook:'Bookings',logCatBike:'Bikes',logCatInv:'Inventory',logCatAuth:'Access',logCatOther:'Other',logToday:'Today',logYesterday:'Yesterday',logsExportBtn:'Export CSV',histRangeLabel:'Range',histRangeToday:'Today',histRange7:'Last 7 days',histRange30:'Last 30 days',histWindowNote:'Showing the last 12 months',histMarkSelPaid:'Mark {0} paid',invSearchPh:'Search items…',invSortCat:'By category',invSortStock:'Lowest stock',invSortSales:'Best sellers',stStartBtn:'Stock-take',stCancelBtn:'Exit stock-take',stHint:'Type the counted quantity for each item - differences are highlighted.',stApplyBtn:'Apply {0} correction(s)',stNoChanges:'No corrections to apply.',logStockAdj:'Stock {0}: {1}',logStockTake:'Stock-take {0}: {1} → {2}',histInLabel:'Check-in',histOutLabel:'Check-out',histTabRides:'Rides',logsColTime:'Time',logsColBy:'By',logsColAction:'Action',logsOperator:'Operator',logsOperatorPh:'Your name (tags the audit log)',opGateTitle:'Who is working?',opGateMsg:'Pick your name — every action is recorded in the log under whoever did it.',opGateBtn:'Continue',logOperatorSet:'Operator changed: {0}',filterRejected:'Rejected',errSessionStale:'Your session has expired — please sign in again.',repGeneratedAt:'Generated',repPreparedBy:'Prepared by',repReviewedBy:'Reviewed by',repVatIncl:'VAT (15%) incl.',logPrintedReport:'Printed session report',lecKickerComm:'Micromobility',commSoloOnly:'Saturday ride bookings are one rider per customer — extra riders cannot be added.',
   authPhone:'Phone Number',authPhoneOpt:'(optional if using email)',
   authPassword:'Password',authPasswordHint:'Min 8 chars, 1 uppercase, 1 number',authConfirmPassword:'Confirm Password',
-  tabReserve:'Reserve',tabMyRides:'My Bookings',tabQueue:'Queue',railPinTip:'Keep sidebar open',railHoverTip:'Collapse sidebar',snavRides:'Rides',snavCommerce:'Commerce',snavPeople:'People',snavInsights:'Insights',snavSystem:'System',tabSessions:'Sessions',tabBikes:'Bikes',tabHistory:'History',tabAnalytics:'Analytics',tabLogs:'Logs',tabInventory:'Inventory',tabCommunity:'Community',
+  tabReserve:'Reserve',tabMyRides:'My Bookings',tabQueue:'Queue',tabRiders:'Riders',ridersTitle:'Rider registrations',ridersSub:'Riders who filled in the registration form on micromobility.sa, matched to bookings by name.',ridersEmpty:'No registrations yet',ridersRefresh:'Refresh',ridersExport:'Export CSV',ridersSearch:'Search badge or name',ridersFilterAll:'All',ridersFilterBooking:'Has booking',ridersFilterCustomer:'Account only',ridersFilterNone:'No match',colBadge:'Badge',colSubmitted:'Submitted',colMatch:'Booking',ridersMatchNone:'No match',ridersMatchCustomer:'Account, no booking',ridersMismatch:'Booked {0}',ridersRemove:'Remove',ridersRemoveConfirm:'Remove this registration?',ridersLoadErr:'Could not load registrations',ridersResub:'Submitted {0} times',railPinTip:'Keep sidebar open',railHoverTip:'Collapse sidebar',snavRides:'Rides',snavCommerce:'Commerce',snavPeople:'People',snavInsights:'Insights',snavSystem:'System',tabSessions:'Sessions',tabBikes:'Bikes',tabHistory:'History',tabAnalytics:'Analytics',tabLogs:'Logs',tabInventory:'Inventory',tabCommunity:'Community',
   tabDashboard:'Dashboard',dashTitle:'Dashboard',dashSub:'Live overview of the booth right now.',dashWaiting:'Waiting',dashOnBikes:'On bikes now',dashOpenSessions:'Open sessions',dashAvailBikes:'Available bikes',dashAlerts:'Alerts',dashOverdueSub:'Ride running long',dashMaintAlert:'{0} bike(s) in maintenance',dashLowBikes:'Only {0} bikes available',dashAllClear:'All clear - nothing needs attention.',sessSelectMsg:'Select a session to see its details and bookings.',sessRidersTitle:'Bookings',sessBackList:'All sessions',sessNoRiders:'No bookings in this session yet.',
   anRevCollected:'Revenue Collected',anRevPending:'Revenue Pending',anRevTotal:'Total Revenue',anAvgPerSession:'Avg / Session',
   anTotalRides:'Completed Rides',anUniqueCustomers:'Unique Customers',anRepeatRiders:'Repeat Riders',
@@ -805,7 +807,7 @@ ar:{
   logsTitle:'سجل الإجراءات',logsPermanentNote:'سجل تدقيق مشترك - إجراءات كل أجهزة الموظفين، متزامنة مع قاعدة البيانات.',logsSearchPh:'ابحث في الإجراءات…',logCatPay:'الدفع',logCatBook:'الحجوزات',logCatBike:'الدراجات',logCatInv:'المخزون',logCatAuth:'الوصول',logCatOther:'أخرى',logToday:'اليوم',logYesterday:'أمس',logsExportBtn:'تصدير CSV',histRangeLabel:'المدة',histRangeToday:'اليوم',histRange7:'آخر 7 أيام',histRange30:'آخر 30 يومًا',histWindowNote:'يعرض آخر 12 شهرًا',histMarkSelPaid:'تحديد {0} كمدفوع',invSearchPh:'ابحث عن العناصر…',invSortCat:'حسب الفئة',invSortStock:'الأقل مخزوناً',invSortSales:'الأكثر مبيعاً',stStartBtn:'جرد المخزون',stCancelBtn:'إنهاء الجرد',stHint:'اكتب الكمية المعدودة لكل عنصر - تُبرز الفروقات.',stApplyBtn:'تطبيق {0} تصحيح',stNoChanges:'لا توجد تصحيحات للتطبيق.',logStockAdj:'المخزون {0}: {1}',logStockTake:'جرد {0}: {1} → {2}',histInLabel:'الدخول',histOutLabel:'الخروج',histTabRides:'الرحلات',logsColTime:'الوقت',logsColBy:'بواسطة',logsColAction:'الإجراء',logsOperator:'الموظف',logsOperatorPh:'اسمك (يوسم سجل التدقيق)',opGateTitle:'من يعمل الآن؟',opGateMsg:'اختر اسمك — يُسجَّل كل إجراء في السجل باسم من قام به.',opGateBtn:'متابعة',logOperatorSet:'تغيير المشغّل: {0}',filterRejected:'مرفوض',errSessionStale:'انتهت صلاحية جلستك — يرجى تسجيل الدخول من جديد.',repGeneratedAt:'أُنشئ',repPreparedBy:'أعدّه',repReviewedBy:'راجعه',repVatIncl:'شامل ضريبة القيمة المضافة (15%)',logPrintedReport:'طُبع تقرير الجلسة',lecKickerComm:'مايكرو موبيليتي',commSoloOnly:'حجز جولة السبت لراكب واحد فقط لكل عميل — لا يمكن إضافة ركاب آخرين.',
   authPhone:'رقم الهاتف',authPhoneOpt:'(اختياري إذا استخدمت البريد)',
   authPassword:'كلمة المرور',authPasswordHint:'8 أحرف كحد أدنى، حرف كبير ورقم',authConfirmPassword:'تأكيد كلمة المرور',
-  tabReserve:'حجز',tabMyRides:'حجوزاتي',tabQueue:'الطابور',railPinTip:'تثبيت القائمة الجانبية',railHoverTip:'طيّ القائمة',snavRides:'الرحلات',snavCommerce:'التجارة',snavPeople:'الأشخاص',snavInsights:'الرؤى',snavSystem:'النظام',tabSessions:'الجلسات',tabBikes:'الدراجات',tabHistory:'السجل',tabAnalytics:'التحليلات',tabLogs:'السجلات',tabInventory:'المخزون',tabCommunity:'المجتمع',
+  tabReserve:'حجز',tabMyRides:'حجوزاتي',tabQueue:'الطابور',tabRiders:'الراكبون',ridersTitle:'تسجيلات الراكبين',ridersSub:'الراكبون الذين أكملوا نموذج التسجيل على micromobility.sa، مطابقون بالحجوزات حسب الاسم.',ridersEmpty:'لا توجد تسجيلات بعد',ridersRefresh:'تحديث',ridersExport:'تصدير CSV',ridersSearch:'ابحث بالبادج أو الاسم',ridersFilterAll:'الكل',ridersFilterBooking:'لديه حجز',ridersFilterCustomer:'حساب فقط',ridersFilterNone:'بدون مطابقة',colBadge:'البادج',colSubmitted:'وقت الإرسال',colMatch:'الحجز',ridersMatchNone:'بدون مطابقة',ridersMatchCustomer:'حساب بدون حجز',ridersMismatch:'حجز {0}',ridersRemove:'حذف',ridersRemoveConfirm:'حذف هذا التسجيل؟',ridersLoadErr:'تعذر تحميل التسجيلات',ridersResub:'أُرسل {0} مرات',railPinTip:'تثبيت القائمة الجانبية',railHoverTip:'طيّ القائمة',snavRides:'الرحلات',snavCommerce:'التجارة',snavPeople:'الأشخاص',snavInsights:'الرؤى',snavSystem:'النظام',tabSessions:'الجلسات',tabBikes:'الدراجات',tabHistory:'السجل',tabAnalytics:'التحليلات',tabLogs:'السجلات',tabInventory:'المخزون',tabCommunity:'المجتمع',
   tabDashboard:'لوحة القيادة',dashTitle:'لوحة القيادة',dashSub:'نظرة حية على الكشك الآن.',dashWaiting:'في الانتظار',dashOnBikes:'على الدراجات الآن',dashOpenSessions:'الجلسات المفتوحة',dashAvailBikes:'الدراجات المتاحة',dashAlerts:'التنبيهات',dashOverdueSub:'الرحلة تطول',dashMaintAlert:'{0} دراجة في الصيانة',dashLowBikes:'تبقّى {0} دراجات متاحة فقط',dashAllClear:'كل شيء على ما يرام - لا شيء يحتاج انتباهاً.',sessSelectMsg:'اختر جلسة لعرض تفاصيلها وحجوزاتها.',sessRidersTitle:'الحجوزات',sessBackList:'كل الجلسات',sessNoRiders:'لا توجد حجوزات في هذه الجلسة بعد.',
   anRevCollected:'الإيرادات المحصلة',anRevPending:'الإيرادات المعلقة',anRevTotal:'إجمالي الإيرادات',anAvgPerSession:'متوسط الجلسة',
   anTotalRides:'الرحلات المكتملة',anUniqueCustomers:'العملاء الفريدون',anRepeatRiders:'الراكبون المتكررون',
@@ -1284,6 +1286,7 @@ function setLang(lang,_fromUrl){
     if(b.dataset.stab==='cashier')_l.textContent=t('tabCashier');
     if(b.dataset.stab==='inventory'){const _lo=(S.inventory||[]).filter(it=>{const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;return q<=0||(lo>0&&q<=lo);}).length;_l.innerHTML=esc(t('tabInventory'))+(_lo?` <span class="tab-badge" title="${esc(t('invLowAlert').replace('{0}',_lo))}" aria-label="${esc(t('invLowAlert').replace('{0}',_lo))}">${_lo}</span>`:'');}
     if(b.dataset.stab==='community')_l.textContent=t('tabCommunity');
+    if(b.dataset.stab==='riders')_l.textContent=t('tabRiders');
   });
   // ERP sidebar suite labels (presentational chrome only)
   document.querySelectorAll('#staff-tab-nav .snav-group').forEach(s=>{s.textContent=t(s.dataset.group);});
@@ -1727,6 +1730,7 @@ const S={
   view:'landing',       
   custTab:'register',
   staffTab:'queue',
+  riders:[],ridersLoaded:false,ridersSearch:'',ridersFilter:'all',
   staffRole:(()=>{try{return localStorage.getItem('cq_role')==='frontdesk'?'frontdesk':'admin';}catch(e){return'admin';}})(),
   custBranch:'all',newSessLocation:'',newSessRepeat:'1',sessBranchFilter:'all',newSessAddons:[],editSessAddons:[],regAddons:[],
   promoCodes:[],promoApplied:null,_promoMsg:'',
@@ -4582,6 +4586,7 @@ function setStaffTab(tab){
   else if(tab==='inventory')renderInventory();
   else if(tab==='cashier')renderCashier();
   else if(tab==='community')renderCommunity();
+  else if(tab==='riders')renderRiders();
   _pushNav();
 }
 
@@ -4610,7 +4615,7 @@ function renderCustomerTabs(){
   const al=document.getElementById('bnav-account-lbl');if(al)al.textContent=t('tabAccount');
 }
 
-const _SNAV_ICON={queue:'bike',cashier:'cart',inventory:'box',community:'people',analytics:'chart',history:'clock',notes:'note'};
+const _SNAV_ICON={queue:'bike',cashier:'cart',inventory:'box',community:'people',riders:'person',analytics:'chart',history:'clock',notes:'note'};
 // Icons make the collapsed hover-rail usable (64px shows art only, labels appear on hover).
 function _fillNavIcons(){
   document.querySelectorAll('#staff-tab-nav .tab-btn').forEach(b=>{
@@ -4651,6 +4656,7 @@ function renderStaffTabs(){
   document.getElementById('tab-inventory') .classList.toggle('active',S.staffTab==='inventory');
   document.getElementById('tab-cashier')   .classList.toggle('active',S.staffTab==='cashier');
   document.getElementById('tab-community') .classList.toggle('active',S.staffTab==='community');
+  document.getElementById('tab-riders')    .classList.toggle('active',S.staffTab==='riders');
   document.getElementById('tab-history')   .classList.toggle('active',S.staffTab==='history');
   document.getElementById('tab-analytics') .classList.toggle('active',S.staffTab==='analytics');
 }
@@ -6429,6 +6435,7 @@ function _renderStaffTab(){
   else if(tab==='inventory')renderInventory();
   else if(tab==='community')renderCommunity();
   else if(tab==='cashier')renderCashier();
+  else if(tab==='riders')renderRiders();
   else renderStaffQueue();
 }
 
@@ -15779,6 +15786,110 @@ function openCustomerProfile(entryId){
 }
 function closeCustomerProfile(){document.getElementById('cust-modal').style.display='none';}
 
+// ── Riders tab: self-registrations from the /register form on micromobility.sa ──
+// The form writes through rider_register() (SECURITY DEFINER); staff read the table
+// directly (RLS: is_staff()). Matching to bookings happened server-side by name and is
+// stored on the row (matched_entry_id / matched_customer_id / match_kind); the tab only
+// joins that against S.queue so it can show the booking number and flag a size/type
+// disagreement between what the rider booked and what they just typed.
+let _ridersLoading=null;
+async function loadRiders(){
+  if(_ridersLoading)return _ridersLoading;
+  _ridersLoading=(async()=>{
+    try{
+      await _sbReady;if(!sb)return;
+      const r=await _pagedAll(()=>sb.from('rider_registrations').select('*').order('updated_at',{ascending:false}));
+      if(r.error)throw r.error;
+      S.riders=r.data||[];S.ridersLoaded=true;
+    }catch(e){console.warn('riders load failed',e);if(!S.ridersLoaded)toast(t('ridersLoadErr'),'error');}
+    finally{_ridersLoading=null;}
+  })();
+  return _ridersLoading;
+}
+let _ridersRtT=null;
+function _onRidersRt(){ // debounce: a burst of submissions at the desk is one reload, not ten
+  if(_ridersRtT)clearTimeout(_ridersRtT);
+  _ridersRtT=setTimeout(async()=>{_ridersRtT=null;await loadRiders();if(S.view==='staff'&&S.staffTab==='riders')renderRiders();},400);
+}
+function setRidersSearch(v){S.ridersSearch=v||'';renderRiders(true);}
+function setRidersFilter(v){S.ridersFilter=v||'all';renderRiders();}
+function _riderEntry(r){return r&&r.matched_entry_id?getQueue().find(e=>e.id===r.matched_entry_id)||null:null;}
+async function refreshRiders(){await loadRiders();renderRiders();}
+function confirmRiderRemove(id){
+  const r=(S.riders||[]).find(x=>String(x.id)===String(id));if(!r)return;
+  confirmDialog({title:t('ridersRemoveConfirm'),body:`${esc(r.badge)} - ${esc(r.name)}`,confirmLabel:t('ridersRemove'),confirmClass:'btn-red',onConfirm:async()=>{
+    S.riders=S.riders.filter(x=>x.id!==r.id);renderRiders(); // paint first, reconcile after
+    try{const{error}=await sb.from('rider_registrations').delete().eq('id',r.id);if(error)throw error;}
+    catch(e){toast(t('ridersLoadErr'),'error');await loadRiders();renderRiders();}
+  }});
+}
+function exportRidersCsv(){
+  const rows=_ridersFiltered();
+  if(!rows.length){toast(t('ridersEmpty'));return;}
+  const head=['badge','name','height_cm','bike_type','source','match','booking_num','session_date','booked_size','booked_type','submitted_at','submissions'];
+  const lines=[head.join(',')].concat(rows.map(r=>{const e=_riderEntry(r);
+    return [r.badge,r.name,r.height,r.type_preference,r.source||'',r.match_kind,e?e.queueNum:'',e?e.sessionDate:'',e?e.size:'',e?resolvedType(e):'',r.updated_at,r.submissions].map(_csvCell).join(',');}));
+  const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='riders-'+todayStr()+'.csv';document.body.appendChild(a);a.click();a.remove();
+}
+function _ridersFiltered(){
+  let rows=(S.riders||[]).slice();
+  if(S.ridersFilter!=='all')rows=rows.filter(r=>r.match_kind===S.ridersFilter);
+  const q=(S.ridersSearch||'').trim().toLowerCase().replace(/^#/,'');
+  if(q)rows=rows.filter(r=>String(r.badge||'').toLowerCase().includes(q)||String(r.name||'').toLowerCase().includes(q)||(()=>{const e=_riderEntry(r);return !!e&&String(e.queueNum)===q;})());
+  return rows;
+}
+function renderRiders(_resultsOnly){
+  const host=document.getElementById('tab-riders');if(!host)return;
+  if(!S.ridersLoaded&&!_ridersLoading){loadRiders().then(()=>{if(S.staffTab==='riders')renderRiders();});}
+  if(!_resultsOnly&&document.activeElement&&document.activeElement.id==='riders-search-input'&&document.getElementById('riders-results'))_resultsOnly=true;
+  const all=S.riders||[],rows=_ridersFiltered();
+  const nB=all.filter(r=>r.match_kind==='booking').length,nC=all.filter(r=>r.match_kind==='customer').length,nN=all.filter(r=>r.match_kind==='none').length;
+  const _fmtWhen=iso=>{try{const d=new Date(iso);return d.toLocaleString(S.lang==='ar'?'ar-SA':'en-GB',{timeZone:KSA_TZ,hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'});}catch(e){return iso||'';}};
+  const body=rows.map(r=>{
+    const e=_riderEntry(r);
+    let match;
+    if(e){
+      const mism=[];
+      if(e.height&&Math.abs(Number(e.height)-Number(r.height))>=5)mism.push(`${e.height} cm`);
+      if(resolvedType(e)&&resolvedType(e)!=='Any'&&resolvedType(e)!==r.type_preference)mism.push(typeLabel(resolvedType(e)));
+      match=`<button class="btn-sm btn-muted" onclick="setStaffTab('queue');setSfSearch('${esc(e.name)}')">#${e.queueNum} · ${shortDate(e.sessionDate)}</button>`+
+        (mism.length?`<div style="font-size:11px;color:var(--orange);margin-top:3px">${esc(t('ridersMismatch').replace('{0}',mism.join(', ')))}</div>`:'');
+    }else if(r.match_kind==='customer')match=`<span style="color:var(--muted)">${t('ridersMatchCustomer')}</span>`;
+    else match=`<span class="status-badge badge-waitlist">${t('ridersMatchNone')}</span>`;
+    return`<tr>
+      <td><strong>${esc(r.badge)}</strong>${r.source?`<div style="font-size:11px;color:var(--muted)">/${esc(r.source)}</div>`:''}</td>
+      <td>${esc(r.name)}${Number(r.submissions)>1?`<div style="font-size:11px;color:var(--muted)">${esc(t('ridersResub').replace('{0}',r.submissions))}</div>`:''}</td>
+      <td>${esc(r.height)} cm</td>
+      <td>${typeBadge(r.type_preference)}</td>
+      <td>${match}</td>
+      <td class="hide-mobile" style="color:var(--muted);font-size:12px">${esc(_fmtWhen(r.updated_at))}</td>
+      <td><button class="btn-sm btn-muted" onclick="confirmRiderRemove('${r.id}')">${t('ridersRemove')}</button></td>
+    </tr>`;
+  }).join('');
+  const emptyRow=rows.length?'':`<tr><td colspan="7"><div style="padding:8px">${emptyIllustration(ILLUS_HISTORY,t('ridersEmpty'))}</div></td></tr>`;
+  const results=`<div tabindex="0" role="group" aria-label="${esc(t('tblScrollLabel'))}" class="table-wrapper"><table class="queue-table">
+    <thead><tr><th>${t('colBadge')}</th><th>${t('colRider')}</th><th>${t('colHeight')}</th><th>${t('bikeTypeLabel')}</th><th>${t('colMatch')}</th><th class="hide-mobile">${t('colSubmitted')}</th><th></th></tr></thead>
+    <tbody>${body}${emptyRow}</tbody></table></div>`;
+  if(_resultsOnly){const el=document.getElementById('riders-results');if(el){el.innerHTML=results;return;}}
+  const pill=(v,label,n)=>`<button class="filter-pill${S.ridersFilter===v?' active':''}" onclick="setRidersFilter('${v}')">${label} <span style="opacity:.7">${n}</span></button>`;
+  host.innerHTML=`
+    <div class="section-header" style="margin-bottom:8px">
+      <div><div class="page-title">${t('ridersTitle')}</div><div class="page-sub" style="margin-bottom:0">${t('ridersSub')}</div></div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0">
+        <button class="btn-sm btn-muted" onclick="exportRidersCsv()">${ICON_EXPORT} ${t('ridersExport')}</button>
+        <button class="btn-sm btn-muted" onclick="refreshRiders()">${_artIcon('cycle',12)} ${t('ridersRefresh')}</button>
+      </div>
+    </div>
+    <div class="filter-bar"><div class="filter-row">
+      <div class="search-wrap" style="flex-shrink:0">${_artIcon('search',13)}
+        <input id="riders-search-input" class="search-input" aria-label="${esc(t('ridersSearch'))}" placeholder="${esc(t('ridersSearch'))}" value="${esc(S.ridersSearch)}" oninput="setRidersSearch(this.value)">
+      </div>
+      ${pill('all',t('ridersFilterAll'),all.length)}${pill('booking',t('ridersFilterBooking'),nB)}${pill('customer',t('ridersFilterCustomer'),nC)}${pill('none',t('ridersFilterNone'),nN)}
+    </div></div>
+    <div id="riders-results">${results}</div>`;
+}
+
 function renderHistory(_resultsOnly){
   if(!_resultsOnly&&document.activeElement&&document.activeElement.id==='hist-search-input'&&document.getElementById('hist-results'))_resultsOnly=true;
   const _hvPills=`<div class="filter-row" style="margin-bottom:12px">
@@ -19904,6 +20015,7 @@ function setupRealtime(){
       .on('postgres_changes',{event:'*',schema:'public',table:'inventory'},_onRt)
       .on('postgres_changes',{event:'*',schema:'public',table:'cashier_sales'},_onRt)
       .on('postgres_changes',{event:'*',schema:'public',table:'customers'},_onRt) // staff edits (default_pay/hidden_types/phone) reach other devices
+      .on('postgres_changes',{event:'*',schema:'public',table:'rider_registrations'},_onRidersRt) // /register form submissions (own tab, own loader)
       .subscribe(status=>{
         // removeChannel() fires the REMOVED channel's callback with CLOSED — reacting to a
         // channel that is no longer ours scheduled a rebuild, whose removeChannel fired the
