@@ -51,8 +51,10 @@ Cloudflare Pages serves the repo root, so internal files must be blocked from pu
 
 - **The dialog focus manager refocuses 40 ms after a modal renders.** `_syncModalFocus` watches
   the DOM and, when a `.modal-backdrop` newly appears, focuses its first control 40 ms after the
-  mutation. Any focus a modal sets itself must run later than that (the check-in modal waits
-  120 ms), or the first pay toggle wins and your focus is gone.
+  LAST mutation, so under load it can land well after 40 ms. Since 2026-09-16 it leaves focus
+  alone when it is already inside the new modal (the check-in modal's own 120 ms focus, or a
+  person already typing); before that, it pulled focus back to the first pay toggle and specs
+  that typed into a fresh modal lost keystrokes to the wrong field.
 - **Boot-time actions must wait for the first data load.** At boot the staff panel opens before
   `loadData()` has filled `S.bikes` / `S.queue`. Anything triggered from the URL or a parked value
   must `await (_loadInFlight || loadData())` when `!S.dataLoaded`, or it acts on an empty fleet and
