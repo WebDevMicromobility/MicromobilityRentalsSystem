@@ -23,17 +23,17 @@ const queue_entries = [{
 const base = { source: 'petromin', session_id: SESS, created_at: '2099-02-08T09:00:00Z', updated_at: '2099-02-08T09:00:00Z', price: null, checked_in_by: null, checked_out_by: null };
 const rider_registrations = [
   {
-    ...base, id: 1, booking_no: 'p-001', badge: 'A-12', company: 'Petromin', name: 'Amal Booked', phone: '+966500000001',
+    ...base, id: 1, booking_no: 'P-001', badge: 'A-12', company: 'Petromin', name: 'Amal Booked', phone: '+966500000001',
     height: 170, type_preference: 'Hybrid', matched_entry_id: 'e1', matched_customer_id: 'c1', match_kind: 'booking',
     submissions: 1, checked_in_at: null, checked_out_at: null,
   },
   {
-    ...base, id: 2, booking_no: 'p-002', badge: 'B-34', company: 'Petrolube', name: 'Bader Account', phone: '+966500000002',
+    ...base, id: 2, booking_no: 'P-002', badge: 'B-34', company: 'Petrolube', name: 'Bader Account', phone: '+966500000002',
     height: 180, type_preference: 'Road', matched_entry_id: null, matched_customer_id: 'c2', match_kind: 'customer',
     submissions: 2, checked_in_at: '2099-02-08T16:05:00Z', checked_out_at: null, checked_in_by: 'Desk One',
   },
   {
-    ...base, id: 3, booking_no: 'p-003', badge: 'C-56', company: 'Petromin', name: 'Cara Nobody', phone: '+966500000003',
+    ...base, id: 3, booking_no: 'P-003', badge: 'C-56', company: 'Petromin', name: 'Cara Nobody', phone: '+966500000003',
     height: 160, type_preference: 'Mountain', matched_entry_id: null, matched_customer_id: null, match_kind: 'none',
     submissions: 1, checked_in_at: '2099-02-08T16:00:00Z', checked_out_at: '2099-02-08T17:35:00Z', checked_in_by: 'Desk One', checked_out_by: 'Desk Two', price: 57.5,
   },
@@ -66,17 +66,17 @@ test('the Riders tab lists every registration with its number, company, phone, s
 
   await expect(page.locator('#tab-riders')).toHaveClass(/active/);
   const r0 = rows(page).nth(0), r1 = rows(page).nth(1), r2 = rows(page).nth(2);
-  await expect(r0).toContainText('p-001');
+  await expect(r0).toContainText('P-001');
   await expect(r0).toContainText('A-12');
   await expect(r0).toContainText('Petromin');
   await expect(r0).toContainText('#7');
   await expect(r0.locator('a[href^="https://wa.me/966500000001"]')).toHaveCount(1);
   await expect(r1).toContainText('B-34');
   await expect(r1).toContainText('Petrolube');
-  await expect(r1).toContainText('Account, no booking');
+  await expect(r1).toContainText('Website account, no booking');
   await expect(r1).toContainText('Submitted 2 times');
   await expect(r2).toContainText('C-56');
-  await expect(r2).toContainText('No match');
+  await expect(r2).toContainText('Not on website');
   await expect(page.locator('#tab-riders select.filter-select')).toContainText('(3)');
 
   // Pill counts reflect the whole list, not the current filter.
@@ -84,7 +84,7 @@ test('the Riders tab lists every registration with its number, company, phone, s
   await expect(pill(page, 'Not arrived')).toContainText('1');
   await expect(pill(page, 'On ride')).toContainText('1');
   await expect(pill(page, 'Returned')).toContainText('1');
-  await expect(pill(page, 'Has booking')).toContainText('1');
+  await expect(pill(page, 'Booked on website')).toContainText('1');
   expect(errs).toEqual([]);
 });
 
@@ -102,12 +102,12 @@ test('the filter pills narrow the list by desk state and by match kind', async (
   await expect(rows(page)).toHaveCount(1);
   await expect(rows(page).first()).toContainText('C-56');
 
-  await pill(page, 'Has booking').click();
+  await pill(page, 'Booked on website').click();
   await expect(rows(page)).toHaveCount(1);
   await expect(rows(page).first()).toContainText('A-12');
-  await pill(page, 'Account only').click();
+  await pill(page, 'Website account').click();
   await expect(rows(page).first()).toContainText('B-34');
-  await pill(page, 'No match').click();
+  await pill(page, 'Not on website').click();
   await expect(rows(page).first()).toContainText('C-56');
   await pill(page, 'All').click();
   await expect(rows(page)).toHaveCount(3);
@@ -184,7 +184,7 @@ test('the list never shows a price; the billing report CSV carries per-ride pric
   const text = await (await import('node:fs/promises')).readFile(await file.path() as string, 'utf8');
   const lines = text.replace(/^\uFEFF/, '').trim().split('\n');
   expect(lines[0]).toContain('price_sar');
-  expect(lines.some((l) => l.includes('p-003') && l.includes('57.50'))).toBe(true);
+  expect(lines.some((l) => l.includes('P-003') && l.includes('57.50'))).toBe(true);
   expect(lines[lines.length - 1]).toContain('TOTAL');
   expect(lines[lines.length - 1]).toContain('57.50');
   expect(errs).toEqual([]);
