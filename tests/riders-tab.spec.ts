@@ -285,3 +285,43 @@ test.describe('walk-in at the desk', () => {
     await expect(page.locator('#rider-walkin-modal .modal-box')).toBeVisible();
   });
 });
+
+test('scanning a rider QR opens the booking pop-up with a Check in button, and the pop-up writes the check-in', async ({ page }) => {
+  const errs = watch(page);
+  await openRiders(page);
+  const writes: Record<string, unknown>[] = [];
+  page.on('request', (r) => { if (r.method() === 'PATCH' && /rest\/v1\/rider_registrations/.test(r.url())) writes.push(r.postDataJSON()); });
+
+  // The QR on the rider's phone holds MMP-<booking number>, the same shape as a rentals ticket.
+  await page.evaluate(`_onScanPayload('MMP-P-001')`);
+  const modal = page.locator('#rider-modal .modal-box'); // the container has no size of its own
+  await expect(modal).toBeVisible();
+  await expect(modal).toContainText('P-001');
+  await expect(modal).toContainText('Amal Booked');
+  await expect(modal).toContainText('A-12');
+  await expect(modal).toContainText('Petromin');
+  await expect(modal).toContainText('170 cm');
+  await expect(modal.locator('.ci-type')).toContainText('Hybrid');
+  await expect(modal).toContainText('Not arrived');
+  await expect(modal.locator('#rider-checkin')).toBeVisible();
+
+  await modal.locator('#rider-checkin').click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(typeof writes[0].checked_in_at).toBe('string');
+  await expect(modal).toBeVisible(); // stays open to show the new state
+
+  // An unknown code says so and opens nothing new.
+  await modal.getByRole('button', { name: 'Close' }).click();
+  await expect(modal).toBeHidden();
+  await page.evaluate(`_onScanPayload('MMP-P-999')`);
+  await expect(modal).toBeHidden();
+
+  // A rider already on the bike gets Return bike; the number in the list opens the same pop-up.
+  await rows(page).nth(1).getByRole('button', { name: 'P-002' }).click();
+  await expect(modal).toBeVisible();
+  await expect(modal).toContainText('On ride');
+  await expect(modal.locator('#rider-return')).toBeVisible();
+  await expect(modal.locator('#rider-checkin')).toHaveCount(0);
+  await expect(page.locator('#tab-riders').getByRole('button', { name: 'Scan QR' })).toBeVisible();
+  expect(errs).toEqual([]);
+});

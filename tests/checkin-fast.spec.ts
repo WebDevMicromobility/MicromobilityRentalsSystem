@@ -143,6 +143,14 @@ test("the modal shows the rider's height and size", async ({ page }) => {
   await expect(page.locator('#checkin-modal .ci-height')).toHaveText('178 cm · M');
 });
 
+test("the modal shows the rider's bike type beside the height, in the same big badge row", async ({ page }) => {
+  await boot(page, [e('typed', { name: 'Typed', height: 178, size: 'M', type_preference: 'Hybrid' })]);
+  await page.evaluate(`showCheckinModal('typed')`);
+  const row = page.locator('#checkin-modal .ci-spec-row');
+  await expect(row.locator('.ci-height')).toHaveText('178 cm · M');
+  await expect(row.locator('.ci-type .type-badge')).toContainText('Hybrid');
+});
+
 // The amount on the modal follows the bike type picked there, the way Confirm would price it.
 test("changing the bike type in the modal moves the rider's amount and the party total", async ({ page }) => {
   await boot(page, [
