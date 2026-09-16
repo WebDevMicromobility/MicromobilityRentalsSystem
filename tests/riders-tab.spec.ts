@@ -3,7 +3,8 @@ import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
 
 // The Riders tab lists self-registrations from the form at micromobility.sa/petromin
 // (rider_registrations). Each row was matched server-side by phone or name: to an open
-// booking, to a customer account with no booking, or to nothing. The desk checks a rider
+// booking, to a customer account with no booking, or to nothing; the tab does not show that
+// match any more, the form registration is a booking in its own right. The desk checks a rider
 // in and takes the bike back from this tab; the price a return fixes is for the billing
 // report only and never appears in the list.
 
@@ -60,7 +61,7 @@ async function openRiders(page: P) {
 const rows = (page: P) => page.locator('#tab-riders tbody tr');
 const pill = (page: P, label: string) => page.locator('#tab-riders .filter-pill', { hasText: label });
 
-test('the Riders tab lists every registration with its number, company, phone, session and match', async ({ page }) => {
+test('the Riders tab lists every registration with its number, company, phone and session', async ({ page }) => {
   const errs = watch(page);
   await openRiders(page);
 
@@ -69,14 +70,11 @@ test('the Riders tab lists every registration with its number, company, phone, s
   await expect(r0).toContainText('P-001');
   await expect(r0).toContainText('A-12');
   await expect(r0).toContainText('Petromin');
-  await expect(r0).toContainText('#7');
   await expect(r0.locator('a[href^="https://wa.me/966500000001"]')).toHaveCount(1);
   await expect(r1).toContainText('B-34');
   await expect(r1).toContainText('Petrolube');
-  await expect(r1).toContainText('Website account, no booking');
   await expect(r1).toContainText('Submitted 2 times');
   await expect(r2).toContainText('C-56');
-  await expect(r2).toContainText('Not on website');
   await expect(page.locator('#tab-riders select.filter-select')).toContainText('(3)');
 
   // Pill counts reflect the whole list, not the current filter.
@@ -84,11 +82,10 @@ test('the Riders tab lists every registration with its number, company, phone, s
   await expect(pill(page, 'Not arrived')).toContainText('1');
   await expect(pill(page, 'On ride')).toContainText('1');
   await expect(pill(page, 'Returned')).toContainText('1');
-  await expect(pill(page, 'Booked on website')).toContainText('1');
   expect(errs).toEqual([]);
 });
 
-test('the filter pills narrow the list by desk state and by match kind', async ({ page }) => {
+test('the filter pills narrow the list by desk state', async ({ page }) => {
   const errs = watch(page);
   await openRiders(page);
 
@@ -100,14 +97,6 @@ test('the filter pills narrow the list by desk state and by match kind', async (
   await expect(rows(page).first()).toContainText('B-34');
   await pill(page, 'Returned').click();
   await expect(rows(page)).toHaveCount(1);
-  await expect(rows(page).first()).toContainText('C-56');
-
-  await pill(page, 'Booked on website').click();
-  await expect(rows(page)).toHaveCount(1);
-  await expect(rows(page).first()).toContainText('A-12');
-  await pill(page, 'Website account').click();
-  await expect(rows(page).first()).toContainText('B-34');
-  await pill(page, 'Not on website').click();
   await expect(rows(page).first()).toContainText('C-56');
   await pill(page, 'All').click();
   await expect(rows(page)).toHaveCount(3);
@@ -187,17 +176,5 @@ test('the list never shows a price; the billing report CSV carries per-ride pric
   expect(lines.some((l) => l.includes('P-003') && l.includes('57.50'))).toBe(true);
   expect(lines[lines.length - 1]).toContain('TOTAL');
   expect(lines[lines.length - 1]).toContain('57.50');
-  expect(errs).toEqual([]);
-});
-
-test("the booking row's button opens the Bookings tab on that rider", async ({ page }) => {
-  const errs = watch(page);
-  await openRiders(page);
-
-  await rows(page).nth(0).locator('button', { hasText: '#7' }).click();
-  await expect(page.locator('#tab-queue')).toHaveClass(/active/);
-  await expect(page.locator('#tab-riders')).not.toHaveClass(/active/);
-  expect(await page.evaluate(`S.staffTab`)).toBe('queue');
-  expect(await page.evaluate(`S.sfSearch`)).toBe('Amal Booked');
   expect(errs).toEqual([]);
 });
