@@ -232,6 +232,73 @@ test.describe('walk-in at the desk', () => {
     await expect(page.locator('.toast')).toContainText('P-004');
   });
 
+  test('a walk-in with two companions: one party call, one grouped booking of three, the employee linked and checked in', async ({ page }) => {
+    await stubSupabase(page, {
+      sessions, queue_entries, rider_registrations,
+      'rpc:rider_register': { ok: true, id: 9, match: 'none', resubmitted: false, booking_no: 'P-004', riders: 3 },
+    });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('riders')`);
+    const booked = await captureBookingRows(page);
+    const calls: Record<string, unknown>[] = [];
+    const patches: { url: string; body: Record<string, unknown> }[] = [];
+    page.on('request', (r) => {
+      if (/rpc\/rider_register/.test(r.url())) calls.push(JSON.parse(r.postData() || '{}'));
+      if (r.method() === 'PATCH' && /rider_registrations/.test(r.url())) patches.push({ url: r.url(), body: JSON.parse(r.postData() || '{}') });
+    });
+    await page.evaluate(`showRiderWalkin()`);
+    await page.fill('#rw-badge', 'K-11');
+    await page.fill('#rw-name', 'Khalid Lead');
+    await page.fill('#rw-height', '178');
+    await page.locator('#rider-walkin-modal .toggle-btn', { hasText: 'Road' }).click();
+    await page.click('#rw-add-rider');
+    await page.fill('#rw-r-name-0', 'Khalid Junior');
+    await page.fill('#rw-r-h-0', '150');
+    await page.selectOption('#rw-r-type-0', 'Hybrid');
+    await page.click('#rw-add-rider');
+    await page.fill('#rw-r-name-1', 'Khalid Friend');
+    await page.fill('#rw-r-h-1', '182');
+    await page.selectOption('#rw-r-type-1', 'Mountain');
+    await page.click('#rw-submit');
+
+    await expect.poll(() => calls.length).toBe(1);
+    expect(calls[0].p_riders).toEqual([{ name: 'Khalid Junior', height: 150, type: 'Hybrid' }, { name: 'Khalid Friend', height: 182, type: 'Mountain' }]);
+    await expect.poll(() => booked.length).toBe(3);                 // one insert, three rows
+    expect(booked.map(b => b.name)).toEqual(['Khalid Lead', 'Khalid Junior', 'Khalid Friend']);
+    expect(booked.map(b => b.queue_num)).toEqual([8, 9, 10]);       // consecutive, after Amal's #7
+    expect(new Set(booked.map(b => b.group_id)).size).toBe(1);      // one roster group
+    expect(booked[0].group_id).toBeTruthy();
+    await expect.poll(() => patches.length).toBe(1);               // the employee's row (companions' rows are not in the stub)
+    expect(patches[0].url).toContain('id=eq.9');
+    expect(patches[0].body).toMatchObject({ matched_entry_id: booked[0].id, match_kind: 'booking' });
+    expect(patches[0].body.checked_in_at).toBeTruthy();
+    await expect(page.locator('.toast')).toContainText('P-004');
+  });
+
+  test('a companion missing a height is refused before anything is sent, naming the rider', async ({ page }) => {
+    await stubSupabase(page, { sessions, queue_entries, rider_registrations, 'rpc:rider_register': { ok: true, id: 9, booking_no: 'P-004' } });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('riders')`);
+    const calls: string[] = [];
+    page.on('request', (r) => { if (/rpc\/rider_register/.test(r.url())) calls.push(r.url()); });
+    await page.evaluate(`showRiderWalkin()`);
+    await page.fill('#rw-badge', 'K-12');
+    await page.fill('#rw-name', 'Lina Lead');
+    await page.fill('#rw-height', '165');
+    await page.locator('#rider-walkin-modal .toggle-btn', { hasText: 'Hybrid' }).click();
+    await page.click('#rw-add-rider');
+    await page.fill('#rw-r-name-0', 'Lina Kid');
+    await page.selectOption('#rw-r-type-0', 'Hybrid');
+    await page.click('#rw-submit');
+    await expect(page.locator('#rw-err')).toContainText(/Rider 2/);
+    await expect(page.locator('#rw-err')).toContainText(/height/i);
+    expect(calls).toHaveLength(0);
+  });
+
   test('a walk-in who already holds a place on this session gets no second booking, and is linked to it', async ({ page }) => {
     // The RPC's own match is ignored on purpose: it can point at another night or a namesake.
     // The check is local and bound to the chosen session (Amal's e1, by phone).
@@ -395,46 +462,132 @@ test('scanning a rider QR opens the booking pop-up with a Check in button, and t
   expect(errs).toEqual([]);
 });
 
-test('staff edit a registration from the pop-up: the modal comes filled in and saves to that row, booking number kept', async ({ page }) => {
-  const errs = watch(page);
-  await openRiders(page);
-  const writes: { url: string; body: Record<string, unknown> }[] = [];
-  page.on('request', (r) => { if (r.method() === 'PATCH' && /rest\/v1\/rider_registrations/.test(r.url())) writes.push({ url: r.url(), body: r.postDataJSON() }); });
+test.describe('editing a registration', () => {
+  test('Edit in the pop-up opens the form pre-filled; saving patches the row and the linked booking', async ({ page }) => {
+    await openRiders(page);
+    const writes: { url: string; body: Record<string, unknown> }[] = [];
+    page.on('request', (r) => {
+      if (r.method() === 'PATCH' && /rest\/v1\/(rider_registrations|queue_entries)/.test(r.url())) writes.push({ url: r.url(), body: r.postDataJSON() });
+    });
+    await page.evaluate(`openRiderModal(1)`);
+    await page.locator('#rider-modal button', { hasText: 'Edit' }).click();
+    await expect(page.locator('#rider-walkin-modal .modal-box')).toBeVisible();
+    await expect(page.locator('#rw-badge')).toHaveValue('A-12');
+    await expect(page.locator('#rw-name')).toHaveValue('Amal Booked');
+    await expect(page.locator('#rw-cc')).toHaveValue('+966');
+    await expect(page.locator('#rw-phone')).toHaveValue('500000001');
+    await expect(page.locator('#rw-height')).toHaveValue('170');
+    await expect(page.locator('#rw-checkin')).toHaveCount(0);                 // no check-in box when editing
+    await page.fill('#rw-name', 'Amal Edited');
+    await page.fill('#rw-height', '175');
+    await page.locator('#rider-walkin-modal .toggle-btn', { hasText: 'Mountain' }).click();
+    await page.click('#rw-submit');
+    await expect.poll(() => writes.length).toBe(2);
+    const reg = writes.find(w => /rider_registrations/.test(w.url))!;
+    const bk = writes.find(w => /queue_entries/.test(w.url))!;
+    expect(reg.url).toContain('id=eq.1');
+    expect(reg.body).toEqual({ name: 'Amal Edited', height: 175, type_preference: 'Mountain' });   // only what changed
+    expect(bk.url).toContain('id=eq.e1');                                                          // Amal's booking follows
+    expect(bk.body).toEqual({ name: 'Amal Edited', height: 175, size: 'M', type_preference: 'Mountain' }); // price 60 is not the type default, so it is left alone
+    await expect(page.locator('#rider-walkin-modal .modal-box')).toHaveCount(0);
+    await expect(page.locator('.toast')).toContainText('Amal Edited');
+  });
 
-  await page.evaluate(`_onScanPayload('MMP-P-001')`);
-  await page.locator('#rider-modal .modal-box').getByRole('button', { name: 'Edit' }).click();
-  const modal = page.locator('#rider-walkin-modal .modal-box');
-  await expect(modal).toBeVisible();
-  await expect(modal.locator('#rw-title')).toContainText('Edit booking');
-  await expect(modal.locator('#rw-title')).toContainText('P-001');
-  await expect(modal.locator('#rw-badge')).toHaveValue('A-12');
-  await expect(modal.locator('#rw-name')).toHaveValue('Amal Booked');
-  await expect(modal.locator('#rw-cc')).toHaveValue('+966');
-  await expect(modal.locator('#rw-phone')).toHaveValue('500000001');
-  await expect(modal.locator('#rw-height')).toHaveValue('170');
-  await expect(modal.locator('#rw-session')).toHaveValue(SESS);
-  await expect(modal.locator('.toggle-btn.active', { hasText: 'Hybrid' })).toHaveCount(1);
-  await expect(modal.locator('#rw-checkin')).toHaveCount(0); // an edit never checks in by itself
+  test('a badge already used on that session is refused with its own message, and the form stays up', async ({ page }) => {
+    await stubSupabase(page, { sessions, queue_entries, rider_registrations },
+      { table: 'rider_registrations', methods: ['PATCH'], status: 409, code: '23505', message: 'duplicate key value violates unique constraint "rider_registrations_badge_session"' });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('riders')`);
+    await expect(page.locator('#tab-riders tbody tr')).toHaveCount(3);
+    await page.evaluate(`showRiderEdit(3)`);
+    await page.fill('#rw-badge', 'A-12');
+    await page.click('#rw-submit');
+    await expect(page.locator('#rw-err')).toContainText(/badge/i);
+    await expect(page.locator('#rider-walkin-modal .modal-box')).toBeVisible();
+  });
 
-  await page.fill('#rw-badge', ' A-13 ');
-  await page.fill('#rw-height', '176');
-  await modal.locator('.toggle-btn', { hasText: 'Road' }).click();
-  await modal.getByRole('button', { name: 'Save changes' }).click();
-  await expect.poll(() => writes.length).toBe(1);
-  expect(writes[0].url).toContain('id=eq.1');
-  expect(writes[0].body).toMatchObject({ badge: 'A-13', name: 'Amal Booked', phone: '+966500000001', height: 176, type_preference: 'Road', session_id: SESS, company: 'Petromin' });
-  expect(writes[0].body).not.toHaveProperty('booking_no');
-  expect(writes[0].body).not.toHaveProperty('matched_entry_id'); // same night: the website match stands
-  await expect(modal).toHaveCount(0);
-  await expect(page.locator('#rider-modal .modal-box')).toContainText('P-001'); // the pop-up comes back with the saved row
-  await page.locator('#rider-modal .modal-box').getByRole('button', { name: 'Close' }).click();
+  // Opened from a scanned QR rather than the list, and refusing a slip before it is sent.
+  test('the pop-up from a scan opens the editor, the number is never rewritten, and a bad name is caught', async ({ page }) => {
+    const errs = watch(page);
+    await openRiders(page);
+    const writes: { url: string; body: Record<string, unknown> }[] = [];
+    page.on('request', (r) => { if (r.method() === 'PATCH' && /rest\/v1\/rider_registrations/.test(r.url())) writes.push({ url: r.url(), body: r.postDataJSON() }); });
 
-  // A slip is caught before anything is sent.
-  await rows(page).nth(2).getByRole('button', { name: 'Edit' }).click();
-  await expect(page.locator('#rw-title')).toContainText('P-003');
-  await page.fill('#rw-name', 'Mononym');
-  await page.locator('#rider-walkin-modal').getByRole('button', { name: 'Save changes' }).click();
-  await expect(page.locator('#rw-err')).toContainText(/full name/i);
-  expect(writes).toHaveLength(1);
-  expect(errs).toEqual([]);
+    await page.evaluate(`_onScanPayload('MMP-P-001')`);
+    await page.locator('#rider-modal .modal-box').getByRole('button', { name: 'Edit' }).click();
+    const modal = page.locator('#rider-walkin-modal .modal-box');
+    await expect(modal).toBeVisible();
+    await expect(modal.locator('#rw-title')).toContainText('P-001');          // which booking is being edited
+    await expect(modal.locator('#rw-session')).toHaveValue(SESS);
+    await expect(modal.locator('.toggle-btn.active', { hasText: 'Hybrid' })).toHaveCount(1);
+    await page.fill('#rw-badge', ' A-13 ');
+    await modal.getByRole('button', { name: 'Save' }).click();
+    await expect.poll(() => writes.length).toBe(1);
+    expect(writes[0].url).toContain('id=eq.1');
+    expect(writes[0].body).toEqual({ badge: 'A-13' });                        // only what changed
+    expect(writes[0].body).not.toHaveProperty('booking_no');                  // the number is the rider's, never rewritten
+    expect(writes[0].body).not.toHaveProperty('matched_entry_id');            // same night: the booking link stands
+    await expect(modal).toHaveCount(0);
+    await expect(page.locator('#rider-modal .modal-box')).toContainText('P-001'); // the pop-up comes back with the saved row
+
+    await page.evaluate(`showRiderEdit(3)`);
+    await page.fill('#rw-name', 'Mononym');
+    await page.locator('#rider-walkin-modal').getByRole('button', { name: 'Save' }).click();
+    await expect(page.locator('#rw-err')).toContainText(/full name/i);
+    expect(writes).toHaveLength(1);
+    expect(errs).toEqual([]);
+  });
+
+  test('a checked-in rider keeps their session: the picker is disabled', async ({ page }) => {
+    await openRiders(page);
+    await page.evaluate(`showRiderEdit(2)`);                                     // Bader is on a bike
+    await expect(page.locator('#rw-session')).toBeDisabled();
+    await expect(page.locator('#rw-session')).toHaveValue(SESS);
+    await page.evaluate(`showRiderEdit(1)`);                                     // Amal is waiting
+    await expect(page.locator('#rw-session')).toBeEnabled();
+  });
+});
+
+test.describe('a party under one booking number', () => {
+  // The form can send companions: each is a row of their own under the employee's badge and
+  // booking number, party_no 2..N. The tab shows who is with whom; the number opens the employee.
+  const party = [
+    { ...base, id: 5, booking_no: 'P-005', party_no: 1, badge: 'E-90', company: 'Petromin', name: 'Dana Lead', phone: '+966500000005', height: 170, type_preference: 'Road', match_kind: 'none', submissions: 1, checked_in_at: null, checked_out_at: null, updated_at: '2099-02-08T10:00:00Z' },
+    { ...base, id: 6, booking_no: 'P-005', party_no: 2, badge: 'E-90', company: 'Petromin', name: 'Dana Kid', phone: null, height: 150, type_preference: 'Hybrid', match_kind: 'none', submissions: 1, checked_in_at: null, checked_out_at: null, updated_at: '2099-02-08T10:00:00Z' },
+    { ...base, id: 7, booking_no: 'P-005', party_no: 3, badge: 'E-90', company: 'Petromin', name: 'Dana Friend', phone: null, height: 180, type_preference: 'Mountain', match_kind: 'none', submissions: 1, checked_in_at: null, checked_out_at: null, updated_at: '2099-02-08T10:00:00Z' },
+  ];
+  async function boot(page: P) {
+    await stubSupabase(page, { sessions, queue_entries, rider_registrations: [...rider_registrations, ...party] });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('riders')`);
+    await expect(page.locator('#tab-riders tbody tr')).toHaveCount(6);
+  }
+
+  test('the list keeps the party together and says who is with whom', async ({ page }) => {
+    await boot(page);
+    const rows = page.locator('#tab-riders tbody tr', { hasText: 'P-005' });
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(0)).toContainText('Dana Lead');
+    await expect(rows.nth(0)).toContainText('Rider 1 of 3');
+    await expect(rows.nth(1)).toContainText('Dana Kid');
+    await expect(rows.nth(1)).toContainText('Rider 2 of 3');
+    await expect(rows.nth(1)).toContainText('with Dana Lead');
+    await expect(rows.nth(2)).toContainText('Rider 3 of 3');
+    await expect(page.locator('#tab-riders tbody tr', { hasText: 'P-001' })).not.toContainText('Rider 1 of');   // a solo row says nothing
+  });
+
+  test('scanning the number opens the employee; a companion cannot change the shared badge', async ({ page }) => {
+    await boot(page);
+    await page.evaluate(`_scanRider('P-005', ()=>{})`);
+    expect(await page.evaluate(`S._riderModalId`)).toBe('5');
+    await expect(page.locator('#rider-modal .modal-box')).toContainText('Rider 1 of 3');
+    await page.evaluate(`showRiderEdit(6)`);
+    await expect(page.locator('#rw-badge')).toBeDisabled();
+    await expect(page.locator('#rw-badge')).toHaveValue('E-90');
+    await expect(page.locator('#rw-name')).toHaveValue('Dana Kid');
+  });
 });
