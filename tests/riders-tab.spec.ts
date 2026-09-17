@@ -123,7 +123,7 @@ test('check-in and check-out times show in their own columns, with who stamped t
   await expect(r1.locator('td.rider-time').nth(1)).not.toContainText(':');
   await expect(r1.getByRole('button', { name: 'Return bike' })).toBeVisible();
   await expect(r1.getByRole('button', { name: 'Check in' })).toHaveCount(0);
-  await expect(r1.locator('a', { hasText: 'undo' })).toHaveCount(1);
+  await expect(r1.getByRole('button', { name: 'Undo check-in' })).toHaveCount(1);
 
   // Returned: both times, the ride time between them, and only an undo left.
   const r2 = rows(page).nth(2);
@@ -131,7 +131,8 @@ test('check-in and check-out times show in their own columns, with who stamped t
   await expect(r2.locator('td.rider-time').nth(1)).toContainText('20:35');
   await expect(r2.locator('td.rider-time').nth(1)).toContainText('Ride 1h 35m');
   await expect(r2.locator('td.rider-time').nth(1)).toContainText('by Desk Two');
-  await expect(r2.getByRole('button', { name: /Check in|Return bike/ })).toHaveCount(0);
+  await expect(r2.getByRole('button', { name: /^Check in$|Return bike/ })).toHaveCount(0);
+  await expect(r2.getByRole('button', { name: 'Undo return' })).toHaveCount(1);
   expect(errs).toEqual([]);
 });
 
