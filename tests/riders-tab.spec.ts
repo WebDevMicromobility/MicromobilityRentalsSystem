@@ -574,6 +574,9 @@ test.describe('a party under one booking number', () => {
     await page.goto('/');
     await waitForSb(page);
     await page.evaluate(`setStaffTab('riders')`);
+    // The party folds to one row until opened, as on the Bookings tab.
+    await expect(page.locator('#tab-riders tbody tr')).toHaveCount(4);
+    await page.locator('#tab-riders tbody tr.party-row').getByRole('button', { name: /Show riders/ }).click();
     await expect(page.locator('#tab-riders tbody tr')).toHaveCount(6);
   }
 
@@ -614,7 +617,19 @@ test('one QR opens the whole party: every rider listed with their own Check in, 
   await page.goto('/');
   await waitForSb(page);
   await page.evaluate(`setStaffTab('riders')`);
+  // The party folds to one row, as on the Bookings tab: its size, its counts, Show riders.
+  await expect(page.locator('#tab-riders tbody tr')).toHaveCount(3);
+  const folded = page.locator('#tab-riders tbody tr.party-row');
+  await expect(folded).toHaveCount(1);
+  await expect(folded).toContainText('3 riders');
+  await expect(folded).toContainText('2 not arrived');
+  await expect(folded).toContainText('1 returned');
+  await expect(folded.getByRole('button', { name: 'Check in all' })).toBeVisible();
+  await folded.getByRole('button', { name: /Show riders/ }).click();
   await expect(page.locator('#tab-riders tbody tr')).toHaveCount(5);
+  await expect(page.locator('#tab-riders tbody tr.party-row')).toHaveCount(3);
+  await page.locator('#tab-riders tbody tr.party-row').first().getByRole('button', { name: /Hide riders/ }).click();
+  await expect(page.locator('#tab-riders tbody tr')).toHaveCount(3);
   const writes: { url: string; body: Record<string, unknown> }[] = [];
   page.on('request', (r) => { if (r.method() === 'PATCH' && /rest\/v1\/rider_registrations/.test(r.url())) writes.push({ url: r.url(), body: r.postDataJSON() }); });
 
@@ -649,7 +664,7 @@ test('staff edit a party: companions come filled in, one is changed, one removed
   await page.goto('/');
   await waitForSb(page);
   await page.evaluate(`setStaffTab('riders')`);
-  await expect(page.locator('#tab-riders tbody tr')).toHaveCount(5);
+  await expect(page.locator('#tab-riders tbody tr')).toHaveCount(3); // P-001's party folds to one row; its Edit covers the party
   const reqs: { method: string; url: string; body: Record<string, unknown> | null }[] = [];
   page.on('request', (r) => { if (/rest\/v1\/(rider_registrations|rpc\/rider_party_add)/.test(r.url()) && r.method() !== 'GET') reqs.push({ method: r.method(), url: r.url(), body: r.postData() ? r.postDataJSON() : null }); });
 
