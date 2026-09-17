@@ -1,4 +1,12 @@
 import { test, expect } from '@playwright/test';
+
+/** The birth date is three selects (day, month, year) over a hidden YYYY-MM-DD input. */
+async function pickBirth(page: import('@playwright/test').Page, id: string, iso: string) {
+  const [y, m, d] = iso.split('-');
+  await page.selectOption(`#${id}-y`, y);
+  await page.selectOption(`#${id}-m`, String(+m));
+  await page.selectOption(`#${id}-d`, String(+d));
+}
 import { stubSupabase, loginCustomer, waitForSb } from './helpers/supabase';
 
 // After a rider's eighth booking, picking an event brings one page before the session list:
@@ -34,12 +42,13 @@ test('eight bookings and a bare profile: the gate takes the event pick, saves bo
   const box = page.locator('#profile-gate .pg-box');
   await expect(box).toBeVisible();
   await expect(box).toContainText('Two details to finish your profile');
-  expect(await box.innerText()).not.toMatch(/\b8\b|eight/i);          // the page never says why
+  // the page never says why (the day/year selects hold every number, so read the prose only)
+  expect(await box.evaluate(el => { const c = el.cloneNode(true) as HTMLElement; c.querySelectorAll('select').forEach(s => s.remove()); return c.textContent || ''; })).not.toMatch(/\b8\b|eight/i);
   expect(await page.evaluate('S.selEvent')).toBe('none');               // the event did not open
   await expect(page.locator('#app-footer')).toBeHidden();
   await expect(page.locator('#pg-save')).toBeDisabled();
 
-  await page.fill('#pg-birth', '1996-03-14');
+  await pickBirth(page, 'pg-birth', '1996-03-14');
   await expect(page.locator('#pg-save')).toBeDisabled();             // one of two
   await page.selectOption('#pg-nat', 'Egypt');
   await expect(page.locator('#pg-save')).toBeEnabled();
@@ -80,19 +89,21 @@ test('a birth date that cannot be right is refused before anything is sent', asy
   const calls: string[] = [];
   page.on('request', r => { if (/rpc\/customer_update_profile/.test(r.url())) calls.push(r.url()); });
   await page.evaluate(`selectEvent('jcc')`);
-  await page.fill('#pg-birth', '2099-01-01');
+  // The chooser cannot even offer a future year; a stale device value still gets refused.
+  expect(await page.evaluate(`[...document.querySelectorAll('#pg-birth-y option')].some(o=>o.value==='2099')`)).toBe(false);
+  await page.evaluate(`_pgBirth('2099-01-01')`);
   await page.selectOption('#pg-nat', 'Egypt');
   await page.evaluate(`_pgSave()`);
   await expect(page.locator('#profile-gate .pg-msg')).toHaveText('Enter your birth date to continue.');
   expect(calls).toHaveLength(0);
-  await page.fill('#pg-birth', '1996-03-14');                        // typing clears the error
+  await pickBirth(page, 'pg-birth', '1996-03-14');                   // picking clears the error
   await expect(page.locator('#profile-gate .pg-msg')).toHaveCount(0);
 });
 
 test('a failed save keeps the values and says so', async ({ page }) => {
   await boot(page, eight, { nationality: null, birth_date: null }, { 'rpc:customer_update_profile': { __rpcError: { status: 500, code: 'XX000', message: 'boom' } } });
   await page.evaluate(`S.selEvent='none';selectEvent('jcc')`);
-  await page.fill('#pg-birth', '1996-03-14');
+  await pickBirth(page, 'pg-birth', '1996-03-14');
   await page.selectOption('#pg-nat', 'Egypt');
   await page.click('#pg-save');
   await expect(page.locator('#profile-gate .pg-net')).toContainText('Couldn’t save');
@@ -100,4 +111,21 @@ test('a failed save keeps the values and says so', async ({ page }) => {
   await expect(page.locator('#pg-nat')).toHaveValue('Egypt');
   await expect(page.locator('#pg-save')).toBeEnabled();
   expect(await page.evaluate('S.selEvent')).toBe('none');
+});
+
+test('the birth chooser: month names in the rider\'s language, and the day list follows the month', async ({ page }) => {
+  await boot(page, eight, { nationality: null, birth_date: null });
+  await page.evaluate(`selectEvent('jcc')`);
+  const months = await page.evaluate(`[...document.querySelectorAll('#pg-birth-m option')].map(o=>o.textContent)`) as string[];
+  expect(months.slice(1)).toEqual(['January','February','March','April','May','June','July','August','September','October','November','December']);
+  await page.selectOption('#pg-birth-y', '1996');
+  await page.selectOption('#pg-birth-m', '1');
+  await page.selectOption('#pg-birth-d', '31');
+  await expect(page.locator('#pg-birth')).toHaveValue('1996-01-31');
+  await page.selectOption('#pg-birth-m', '2');                     // February 1996 has 29 days
+  expect(await page.evaluate(`document.querySelectorAll('#pg-birth-d option').length - 1`)).toBe(29);
+  await expect(page.locator('#pg-birth')).toHaveValue('1996-02-29'); // the 31st was clamped, not dropped
+  await page.evaluate(`setLang('ar')`);
+  const ar = await page.evaluate(`document.querySelector('#pg-birth-m option[value="1"]').textContent`);
+  expect(ar).toBe('يناير');
 });

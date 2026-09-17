@@ -637,7 +637,7 @@ en:{landMainTitleHtml:'Reserve Your <span>Bicycle Now!</span>',spotsFull:'Full',
   registeredLabel:'Registered',nameLabel:'Name',timeLabel:'Time',preferenceLabel:'Preference',
   
   profileInfo:'Profile Information',needToUpdate:'Need to update?',
-  birthDateLabel:'Birth date',countryLabel:'Country of residence',nationalityLabel:'Nationality',selectNationalityOpt:'Select nationality',acrBdNationality:'Nationality',cityLabel:'City',optionalLabel:'optional',selectCountryOpt:'Select country of residence',selectCityOpt:'Select city',selectCountryFirst:'Select a country first',
+  birthDateLabel:'Birth date',dobDay:'Day',dobMonth:'Month',dobYear:'Year',countryLabel:'Country of residence',nationalityLabel:'Nationality',selectNationalityOpt:'Select nationality',acrBdNationality:'Nationality',cityLabel:'City',optionalLabel:'optional',selectCountryOpt:'Select country of residence',selectCityOpt:'Select city',selectCountryFirst:'Select a country first',
   
   bikeFleetComp:'Bike Fleet Composition',totalBikesSession:'Total bikes in session',rowLabel:'Row',
   
@@ -1047,7 +1047,7 @@ ar:{landMainTitleHtml:'احجز <span>دراجتك الآن!</span>',spotsFull:'
   payAtBooth:' الدفع يتم عند الكشك في دوار الكورنيش. يرجى إحضار رقم طابورك.',
   registeredLabel:'مُسجَّل',nameLabel:'الاسم',timeLabel:'الوقت',preferenceLabel:'التفضيل',
   profileInfo:'معلومات الملف الشخصي',needToUpdate:'تريد التحديث؟',
-  birthDateLabel:'تاريخ الميلاد',countryLabel:'بلد الإقامة',nationalityLabel:'الجنسية',selectNationalityOpt:'اختر الجنسية',acrBdNationality:'الجنسية',cityLabel:'المدينة',optionalLabel:'اختياري',selectCountryOpt:'اختر بلد الإقامة',selectCityOpt:'اختر المدينة',selectCountryFirst:'اختر الدولة أولاً',
+  birthDateLabel:'تاريخ الميلاد',dobDay:'اليوم',dobMonth:'الشهر',dobYear:'السنة',countryLabel:'بلد الإقامة',nationalityLabel:'الجنسية',selectNationalityOpt:'اختر الجنسية',acrBdNationality:'الجنسية',cityLabel:'المدينة',optionalLabel:'اختياري',selectCountryOpt:'اختر بلد الإقامة',selectCityOpt:'اختر المدينة',selectCountryFirst:'اختر الدولة أولاً',
   bikeFleetComp:'تركيبة أسطول الدراجات',totalBikesSession:'إجمالي الدراجات في الجلسة',rowLabel:'الإجمالي',
   sizeMatchLabel:'مقاس مناسب',sessionFleetLabel:'أسطول الجلسة',
   noBikesMatchFleet:'لا توجد دراجات مطابقة لأسطول هذه الجلسة.',
@@ -4358,6 +4358,42 @@ const PROFILE_GATE_AFTER=8;
 function _pgCount(cust){return getQueue().filter(e=>e.customerId===cust.id&&!['cancelled','removed'].includes(e.status)).length;}
 function _pgMissing(c){return !c.birth_date||!c.nationality;}
 function _pgMaxBirth(){const d=new Date();d.setFullYear(d.getFullYear()-5);return d.toISOString().slice(0,10);} // younger than five is a typo
+// ── Birth date chooser ────────────────────────────────────────────────────────
+// A native date box makes a rider scroll back through decades on a phone, and shows the
+// month in whatever calendar the device fancies. Three selects instead: day, month by name
+// in the rider's own language (Gregorian everywhere), and year from five years ago back a
+// century. A hidden input under the caller's id carries YYYY-MM-DD, so every place that
+// read the date box before reads this the same way. Changing month or year trims the day
+// list to that month's length and clamps a day that no longer exists.
+const _DOB_MIN_AGE=5,_DOB_MAX_AGE=100;
+function _dobMonths(){
+  try{const f=new Intl.DateTimeFormat(_locale(),{month:'long'});return Array.from({length:12},(_,i)=>f.format(new Date(2000,i,1)));}
+  catch(e){return ['January','February','March','April','May','June','July','August','September','October','November','December'];}
+}
+function _dobDayOpts(dim,cur){return `<option value="">${esc(t('dobDay'))}</option>`+Array.from({length:dim},(_,i)=>i+1).map(n=>`<option value="${n}"${n===cur?' selected':''}>${n}</option>`).join('');}
+// opts: {onchange:'globalFnName'} called with the new YYYY-MM-DD ('' while incomplete); {disabled:true}
+function dobFieldHtml(id,value,opts){
+  const o=opts||{};const v=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value||''));
+  const y=v?+v[1]:0,m=v?+v[2]:0,d=v?+v[3]:0;
+  const yMax=new Date().getFullYear()-_DOB_MIN_AGE,yMin=new Date().getFullYear()-_DOB_MAX_AGE;
+  const dim=(y&&m)?new Date(y,m,0).getDate():31;
+  const dis=o.disabled?' disabled':'';
+  const sel=(part,options,cur,ph)=>`<select id="${id}-${part}" class="dob-part dob-${part}${cur?'':' ph'}" aria-label="${esc(ph)}" onchange="_dobSync('${id}')"${dis}>${options}</select>`;
+  const mos=`<option value="">${esc(t('dobMonth'))}</option>`+_dobMonths().map((nm,i)=>`<option value="${i+1}"${i+1===m?' selected':''}>${esc(nm)}</option>`).join('');
+  let yrs=`<option value="">${esc(t('dobYear'))}</option>`;for(let yy=yMax;yy>=yMin;yy--)yrs+=`<option value="${yy}"${yy===y?' selected':''}>${yy}</option>`;
+  return `<div class="dob-row" id="${id}-row">${sel('d',_dobDayOpts(dim,d),d,t('dobDay'))}${sel('m',mos,m,t('dobMonth'))}${sel('y',yrs,y,t('dobYear'))}<input type="hidden" id="${id}" value="${esc(v?value:'')}"${o.onchange?` data-onchange="${esc(o.onchange)}"`:''}></div>`;
+}
+function _dobSync(id){
+  const g=p=>document.getElementById(id+'-'+p);const hid=document.getElementById(id);if(!hid)return;
+  const m=+(g('m')&&g('m').value)||0,y=+(g('y')&&g('y').value)||0;
+  const dsel=g('d');
+  if(dsel){const dim=(y&&m)?new Date(y,m,0).getDate():31;
+    if(dsel.options.length-1!==dim){const cur=+dsel.value||0;dsel.innerHTML=_dobDayOpts(dim,Math.min(cur,dim));}}
+  const d=+(dsel&&dsel.value)||0;
+  ['d','m','y'].forEach(p=>{const el=g(p);if(el)el.classList.toggle('ph',!el.value);});
+  hid.value=(y&&m&&d)?`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`:'';
+  const cb=hid.dataset.onchange;if(cb&&typeof window[cb]==='function')window[cb](hid.value);
+}
 // Resolves true when the gate took the screen (the caller stops there); false to carry on.
 async function _profileGate(next){
   const cust=S.loggedIn||getSession();if(!cust||!cust.id)return false;
@@ -4389,7 +4425,7 @@ function renderProfileGate(){
     <div class="pg-kicker">${t('pgKicker')}</div>
     <h2 id="pg-title" class="pg-title">${t('pgTitle')}</h2>
     <p class="pg-sub">${t('pgSub')}</p>
-    <div class="pg-field pg-first${g.errBirth?' err':''}"><label for="pg-birth">${t('birthDateLabel')}</label><input id="pg-birth" type="date" value="${esc(g.birth)}" max="${_pgMaxBirth()}" oninput="_pgInput('birth',this.value)"${g.saving?' disabled':''}>${g.errBirth?`<div class="pg-msg" role="alert">${esc(g.errBirth)}</div>`:''}</div>
+    <div class="pg-field pg-first${g.errBirth?' err':''}"><label for="pg-birth-d">${t('birthDateLabel')}</label>${dobFieldHtml('pg-birth',g.birth,{onchange:'_pgBirth',disabled:!!g.saving})}${g.errBirth?`<div class="pg-msg" role="alert">${esc(g.errBirth)}</div>`:''}</div>
     <div class="pg-field${g.errNat?' err':''}"><label for="pg-nat">${t('nationalityLabel')}</label><select id="pg-nat" class="${g.nat?'':'ph'}" onchange="_pgInput('nat',this.value)"${g.saving?' disabled':''}>${natOpts}</select>${g.errNat?`<div class="pg-msg" role="alert">${esc(g.errNat)}</div>`:''}</div>
     <p class="pg-note">${t('pgNote')}</p>
     ${g.net?`<div class="pg-net" role="alert">${t('pgErrNet')}</div>`:''}
@@ -4398,6 +4434,7 @@ function renderProfileGate(){
 }
 // Typing must not repaint the form (a date being keyed in would lose its caret), so an
 // input only updates its own field: the value, its error, and whether Save is on.
+function _pgBirth(v){_pgInput('birth',v);}
 function _pgInput(k,v){
   const g=S._pg;if(!g)return;
   if(k==='birth'){g.birth=v;g.errBirth='';}else{g.nat=v;g.errNat='';}
@@ -4410,7 +4447,7 @@ async function _pgSave(){
   const g=S._pg,cust=S.loggedIn||getSession();if(!g||g.saving||!cust)return;
   g.errBirth=(!g.birth||g.birth>_pgMaxBirth())?t('pgErrBirth'):'';
   g.errNat=g.nat?'':t('pgErrNat');
-  if(g.errBirth||g.errNat){renderProfileGate();setTimeout(()=>{const f=document.getElementById(g.errBirth?'pg-birth':'pg-nat');if(f)f.focus();},120);return;}
+  if(g.errBirth||g.errNat){renderProfileGate();setTimeout(()=>{const f=document.getElementById(g.errBirth?'pg-birth-d':'pg-nat');if(f)f.focus();},120);return;}
   g.saving=true;g.net=false;renderProfileGate();
   try{
     if(CUST_RPC){
@@ -7587,8 +7624,8 @@ function renderAccount(){
           <div class="height-row">
             <input type="number" id="acc-height" value="${esc(String(accH))}" placeholder="${t('heightPlaceholder')}" min="100" max="250">
           </div></div>
-        <div class="form-group"><label>${t('birthDateLabel')}</label>
-          <input type="date" id="acc-birth" value="${esc(accBirth)}" max="2025-12-31"></div>
+        <div class="form-group"><label for="acc-birth-d">${t('birthDateLabel')}</label>
+          ${dobFieldHtml('acc-birth',accBirth)}</div>
       </div>
       <div class="form-row">
         <div class="form-group"><label>${t('countryLabel')}</label>
@@ -9758,7 +9795,7 @@ function renderCustFormModal(){
         <div class="form-group" style="width:120px;flex-shrink:0"><label for="cf-height">${t('heightLabel')} (${t('cmUnit')})</label><input id="cf-height" type="number" min="100" max="250" value="${esc(d.height)}"></div>
       </div>
       <div class="form-group" style="margin-top:8px"><label>${t('genderLabel')}${!isCreate&&!d.gender?` <span class="label-hint" style="color:var(--orange)">(${t('amGenderAsk')})</span>`:''}</label><div style="display:flex;gap:6px;margin-top:4px">${gBtn('male',t('genderMale'))}${gBtn('female',t('genderFemale'))}</div></div>
-      <div class="form-group" style="margin-top:8px"><label for="cf-birth">${t('birthDateLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><input id="cf-birth" type="date" value="${esc(d.birth)}" max="2025-12-31"></div>
+      <div class="form-group" style="margin-top:8px"><label for="cf-birth-d">${t('birthDateLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label>${dobFieldHtml('cf-birth',d.birth)}</div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <div class="form-group" style="flex:1"><label for="cf-country">${t('countryLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-country" onchange="_cfCountry(this.value)">${countryOpts}</select></div>
         <div class="form-group" style="flex:1"><label for="cf-nationality">${t('nationalityLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-nationality"><option value="">${t('selectNationalityOpt')}</option>${nationalityOpts(d.nationality)}</select></div>
