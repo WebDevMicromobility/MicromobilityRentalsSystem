@@ -12951,8 +12951,17 @@ function _repOpts(){
   return S._repOpts;
 }
 function _repSave(){try{localStorage.setItem('cq_rep_opts',JSON.stringify(_repOpts()));}catch(e){}}
-function _repToggle(kind,k){const o=_repOpts();o[kind][k]=o[kind][k]?0:1;_repSave();showPrintReportOptions();}
-function _repSetFilter(k,v){_repOpts()[k]=v;_repSave();showPrintReportOptions();}
+// A tap on a builder row repaints that row alone: rebuilding the dialog sent it back to the
+// top, replayed its entrance and dropped focus, which read as the whole thing refreshing.
+function _repPaintRow(kind,k,on,rebuild){
+  const b=document.querySelector(`#print-opts-modal [data-rep="${kind}:${k}"]`);
+  if(!b){rebuild();return;}
+  const svg=b.querySelector('svg');if(svg)svg.outerHTML=on?_artIcon('boxOn',15):_artIcon('boxOff',15);
+  b.setAttribute('aria-pressed',on?'true':'false');
+  const sel=b.parentElement&&b.parentElement.querySelector('select');if(sel)sel.disabled=!on; // a chart's type picker follows its switch
+}
+function _repToggle(kind,k){const o=_repOpts();o[kind][k]=o[kind][k]?0:1;_repSave();_repPaintRow(kind,k,o[kind][k],showPrintReportOptions);}
+function _repSetFilter(k,v){_repOpts()[k]=v;_repSave();} // the select already shows the pick; nothing else in the dialog depends on it
 function _repReset(){S._repOpts=_repDefaults();_repSave();showPrintReportOptions();}
 // Rows the report should carry, after the builder's filters
 function _repFilter(list){
@@ -12971,7 +12980,7 @@ function showPrintReportOptions(){
   const m=document.getElementById('print-opts-modal');
   const o=_repOpts();
   const chk=(on)=>on?_artIcon('boxOn',15):_artIcon('boxOff',15);
-  const row=(kind,k,label)=>`<button type="button" onclick="_repToggle('${kind}','${k}')" style="display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border:none;background:none;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--text);text-align:start">${chk(o[kind][k])}<span>${esc(label)}</span></button>`;
+  const row=(kind,k,label)=>`<button type="button" data-rep="${kind}:${k}" aria-pressed="${o[kind][k]?'true':'false'}" onclick="_repToggle('${kind}','${k}')" style="display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border:none;background:none;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--text);text-align:start">${chk(o[kind][k])}<span>${esc(label)}</span></button>`;
   const _types=['Road','Hybrid','Mountain','Gravel','Road Carbon'];
   const sel=(id,val,opts,onchg,lbl)=>`<select class="filter-select" aria-label="${esc(lbl||id)}" style="width:100%" onchange="${onchg}">${opts.map(op=>`<option value="${esc(op[0])}"${val===op[0]?' selected':''}>${esc(op[1])}</option>`).join('')}</select>`;
   m.style.display='flex';
@@ -13078,9 +13087,11 @@ function _accOpts(){
   return S._accOpts;
 }
 function _accSave(){try{localStorage.setItem('cq_acc_rep_opts',JSON.stringify(_accOpts()));}catch(e){}}
-function _accToggle(kind,k){const o=_accOpts();o[kind][k]=o[kind][k]?0:1;_accSave();showAccountReportOptions();}
-function _accSet(k,v){_accOpts()[k]=v;_accSave();showAccountReportOptions();}
-function _accSetChart(k,v){_accOpts().charts[k]=v;_accSave();showAccountReportOptions();}
+function _accToggle(kind,k){const o=_accOpts();o[kind][k]=o[kind][k]?0:1;_accSave();_repPaintRow(kind,k,o[kind][k],showAccountReportOptions);}
+function _accSet(k,v){_accOpts()[k]=v;_accSave();_accPaintCount();}
+function _accSetChart(k,v){_accOpts().charts[k]=v;_accSave();}
+// The one thing a filter pick changes on the dialog: how many accounts are on the list.
+function _accPaintCount(){const el=document.getElementById('acr-count');if(!el)return;el.innerHTML=`${t('acrOnList')}: <span style="color:var(--text)">${_accRows().length}</span> / ${getCustomers().length}`;}
 function _accReset(){S._accOpts=_accDefaults();_accSave();showAccountReportOptions();}
 // Riding history per account, aggregated once from the queue. A "ride" is a booking that
 // reached 'done'; bookings count everything the customer ever made except rows staff removed.
@@ -13344,7 +13355,7 @@ function showAccountReportOptions(){
   // Opening from a tag pill carries that pill into the builder, so the report matches the list.
   if(S.amTagFilter&&S._accSeedTag!==S.amTagFilter){o.fTag=S.amTagFilter;S._accSeedTag=S.amTagFilter;}
   const chk=(on)=>on?_artIcon('boxOn',15):_artIcon('boxOff',15);
-  const row=(kind,k,label)=>`<button type="button" onclick="_accToggle('${kind}','${k}')" style="display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border:none;background:none;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:700;color:var(--text);text-align:start">${chk(o[kind][k])}<span>${esc(label)}</span></button>`;
+  const row=(kind,k,label)=>`<button type="button" data-rep="${kind}:${k}" aria-pressed="${o[kind][k]?'true':'false'}" onclick="_accToggle('${kind}','${k}')" style="display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border:none;background:none;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:700;color:var(--text);text-align:start">${chk(o[kind][k])}<span>${esc(label)}</span></button>`;
   const sel=(id,val,opts,onchg,lbl)=>`<select class="filter-select" aria-label="${esc(lbl||id)}" style="width:100%" onchange="${onchg}">${opts.map(op=>`<option value="${esc(op[0])}"${val===op[0]?' selected':''}>${esc(op[1])}</option>`).join('')}</select>`;
   const fld=(lbl,html)=>`<label style="display:flex;flex-direction:column;gap:4px">${esc(lbl)}${html}</label>`;
   const distinct=k=>[...new Set(getCustomers().map(c=>String(c[k]||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
@@ -13373,7 +13384,7 @@ function showAccountReportOptions(){
       <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${t('acrSectChartsHint')}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:2px 10px;margin-bottom:14px">
         ${_ACC_BREAKDOWNS.map(k=>`<div style="display:flex;align-items:center;gap:6px">
-          <button type="button" onclick="_accToggle('chartsOn','${k}')" style="display:flex;align-items:center;gap:9px;flex:1;min-width:0;padding:8px 10px;border:none;background:none;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:700;color:var(--text);text-align:start">${chk(o.chartsOn[k])}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(_accBdTitle(k))}</span></button>
+          <button type="button" data-rep="chartsOn:${k}" aria-pressed="${o.chartsOn[k]?'true':'false'}" onclick="_accToggle('chartsOn','${k}')" style="display:flex;align-items:center;gap:9px;flex:1;min-width:0;padding:8px 10px;border:none;background:none;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:700;color:var(--text);text-align:start">${chk(o.chartsOn[k])}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(_accBdTitle(k))}</span></button>
           <select class="filter-select" aria-label="${esc(_accBdTitle(k))}" style="width:104px;flex:none" onchange="_accSetChart('${k}',this.value)"${o.chartsOn[k]?'':' disabled'}>${_ACC_CHART_TYPES.map(([v,key])=>`<option value="${v}"${o.charts[k]===v?' selected':''}>${t(key)}</option>`).join('')}</select>
         </div>`).join('')}
       </div>
