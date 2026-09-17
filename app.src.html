@@ -10519,9 +10519,14 @@ function renderStaffQueue(_resultsOnly){
     return`<th class="an-sort-th${active?' an-sort-active':''}${cls?' '+cls:''}" onclick="setSfSort('${col}')">${label}${active?' '+arrow:''}</th>`;
   }
   const qSessOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>${t('allSessions')}</option>`+
-    // Live sessions only: a closed night is history, not somewhere to file a booking. The one
-    // already chosen stays listed so the select never shows "All" while the list is filtered.
-    sessions.filter(s=>_sessLive(s)||(s.status!=='deleted'&&s.id===S.sfSession)).map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${_sessFull(s)?` (${t('statusFull')})`:''}</option>`).join('');
+    // Every session, closed and finished nights included, so a past night can be reviewed
+    // or printed from here: what is coming first (soonest at the top), then the past,
+    // most recent first. Closed nights say so beside the date.
+    (()=>{const today=todayStr();const key=s=>String(s.session_date||s.id).slice(0,10);
+      const live=sessions.filter(s=>s.status!=='deleted');
+      const up=live.filter(s=>key(s)>=today).sort((a,b)=>key(a).localeCompare(key(b))||String(a.id).localeCompare(String(b.id)));
+      const past=live.filter(s=>key(s)<today).sort((a,b)=>key(b).localeCompare(key(a))||String(b.id).localeCompare(String(a.id)));
+      return up.concat(past);})().map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${_sessFull(s)?` (${t('statusFull')})`:s.status==='closed'?` (${t('statusClosed')})`:''}</option>`).join('');
   const qStatusOpts=(_commSel
     ?['all','approved','pending','waitlist','rejected','cancelled']  // approval funnel
     :['all','waiting','reserved','toreserve','waitlist','active','done','noshow','cancelled']).map(s=>{ // ride lifecycle
