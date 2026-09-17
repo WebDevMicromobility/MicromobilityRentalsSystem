@@ -277,26 +277,36 @@ test.describe('walk-in at the desk', () => {
     await expect(page.locator('.toast')).toContainText('P-004');
   });
 
-  test('a companion missing a height is refused before anything is sent, naming the rider', async ({ page }) => {
-    await stubSupabase(page, { sessions, queue_entries, rider_registrations, 'rpc:rider_register': { ok: true, id: 9, booking_no: 'P-004' } });
+  test('a companion needs nothing but a place in the party: blanks take the employee\'s first name and bike type, no height; a wrong height is still refused', async ({ page }) => {
+    await stubSupabase(page, { sessions, queue_entries, rider_registrations, 'rpc:rider_register': { ok: true, id: 9, booking_no: 'P-004', riders: 3 } });
     await unlockStaff(page);
     await page.goto('/');
     await waitForSb(page);
     await page.evaluate(`setStaffTab('riders')`);
-    const calls: string[] = [];
-    page.on('request', (r) => { if (/rpc\/rider_register/.test(r.url())) calls.push(r.url()); });
+    const calls: Record<string, unknown>[] = [];
+    page.on('request', (r) => { if (/rpc\/rider_register/.test(r.url())) calls.push(JSON.parse(r.postData() || '{}')); });
     await page.evaluate(`showRiderWalkin()`);
     await page.fill('#rw-badge', 'K-12');
     await page.fill('#rw-name', 'Lina Lead');
     await page.fill('#rw-height', '165');
     await page.locator('#rider-walkin-modal .toggle-btn', { hasText: 'Hybrid' }).click();
     await page.click('#rw-add-rider');
-    await page.fill('#rw-r-name-0', 'Lina Kid');
-    await page.selectOption('#rw-r-type-0', 'Hybrid');
+    await page.fill('#rw-r-name-0', 'Lina Kid');   // name only
+    await page.click('#rw-add-rider');             // nothing at all
+    await page.click('#rw-add-rider');
+    await page.fill('#rw-r-h-2', '50');            // a height that is typed must be a real one
     await page.click('#rw-submit');
-    await expect(page.locator('#rw-err')).toContainText(/Rider 2/);
+    await expect(page.locator('#rw-err')).toContainText(/Rider 4/);
     await expect(page.locator('#rw-err')).toContainText(/height/i);
     expect(calls).toHaveLength(0);
+    await page.fill('#rw-r-h-2', '');
+    await page.click('#rw-submit');
+    await expect.poll(() => calls.length).toBe(1);
+    expect(calls[0].p_riders).toEqual([
+      { name: 'Lina Kid', height: null, type: 'Hybrid' },
+      { name: 'Lina 3', height: null, type: 'Hybrid' },
+      { name: 'Lina 4', height: null, type: 'Hybrid' },
+    ]);
   });
 
   test('a walk-in who already holds a place on this session gets no second booking, and is linked to it', async ({ page }) => {
@@ -634,7 +644,7 @@ test('staff edit a party: companions come filled in, one is changed, one removed
     { ...base, id: 4, booking_no: 'P-001', party_no: 2, badge: 'A-12', company: 'Petromin', name: 'Amal Friend', phone: '+966500000001', height: 150, type_preference: 'Hybrid', matched_entry_id: null, matched_customer_id: null, match_kind: 'none', submissions: 1, checked_in_at: null, checked_out_at: null },
     { ...base, id: 5, booking_no: 'P-001', party_no: 3, badge: 'A-12', company: 'Petromin', name: 'Amal Cousin', phone: '+966500000001', height: 168, type_preference: 'Mountain', matched_entry_id: null, matched_customer_id: null, match_kind: 'none', submissions: 1, checked_in_at: null, checked_out_at: null },
   ];
-  await stubSupabase(page, { sessions, queue_entries, rider_registrations: party, 'rpc:rider_party_add': { ok: true, ids: [9], riders: 4 } });
+  await stubSupabase(page, { sessions, queue_entries, rider_registrations: party, 'rpc:rider_party_add': { ok: true, ids: [9, 10], riders: 5 } });
   await unlockStaff(page);
   await page.goto('/');
   await waitForSb(page);
@@ -656,6 +666,7 @@ test('staff edit a party: companions come filled in, one is changed, one removed
   await page.fill('#rw-r-name-1', 'Amal Niece');
   await page.fill('#rw-r-h-1', '140');
   await page.selectOption('#rw-r-type-1', 'Hybrid');
+  await modal.locator('#rw-add-rider').click();                // and one the desk knows nothing about yet
   await modal.getByRole('button', { name: /save/i }).click();
   await expect(modal).toHaveCount(0);
 
@@ -665,7 +676,8 @@ test('staff edit a party: companions come filled in, one is changed, one removed
   expect(reqs.filter((q) => q.method === 'DELETE' && q.url.includes('id=eq.5'))).toHaveLength(1);
   const add = reqs.filter((q) => q.url.includes('rider_party_add'));
   expect(add).toHaveLength(1);
-  expect(add[0].body).toEqual({ p_id: 1, p_riders: [{ name: 'Amal Niece', height: 140, type: 'Hybrid' }] });
-  expect(reqs.filter((q) => q.method === 'PATCH' && q.url.includes('id=eq.1'))).toHaveLength(0); // the employee's own row was untouched
+  // The blank one gets the employee's first name and the next number in the party, the employee's bike type, and no height.
+  expect(add[0].body).toEqual({ p_id: 1, p_riders: [{ name: 'Amal Niece', height: 140, type: 'Hybrid' }, { name: 'Amal 5', height: null, type: 'Hybrid' }] });
+  expect(reqs.filter((q) => q.method === 'PATCH' && /id=eq\.1(&|$)/.test(q.url))).toHaveLength(0); // the employee's own row was untouched
   expect(errs).toEqual([]);
 });

@@ -16235,13 +16235,20 @@ function _rwValidate(d){
   else if(!(h>=100&&h<=250))d.err=t('ridersWalkinErrHeight');
   else if(!['Road','Hybrid','Mountain'].includes(d.type))d.err=t('ridersWalkinErrType');
   // Companions: name, height and bike type each, the same rules rider_register() applies.
-  const riders=(d.riders||[]).map(r=>({id:r.id||null,locked:!!r.locked,name:String(r.name||'').trim().replace(/\s+/g,' '),height:parseInt(r.height,10),type:r.type||''}));
+  // Companions: every field optional at the desk. A blank name becomes the employee's first
+  // name and the rider's number, a blank type follows the employee's, a blank height stays
+  // unknown; a height that IS typed must be a real one.
+  const first=(name||'').split(' ')[0]||'';
+  const partyMax=d.editId?Math.max(1,...(_riderParty((S.riders||[]).find(x=>String(x.id)===d.editId)||{}).map(_riderPartyNo))):1;
+  let nextNo=partyMax;
+  const riders=(d.riders||[]).map(r=>{
+    const hRaw=String(r.height||'').trim(),h=hRaw?parseInt(hRaw,10):null;
+    const no=r.id?null:++nextNo; // a saved companion keeps its number; a new one takes the next
+    return {id:r.id||null,locked:!!r.locked,name:String(r.name||'').trim().replace(/\s+/g,' ')||`${first} ${no||''}`.trim(),height:h,type:r.type||d.type,hRaw};
+  });
   if(!d.err&&riders.length>4)d.err=t('ridersWalkinErrRiders');
   if(!d.err)riders.some((r,i)=>{
-    const n=i+2;
-    if(!r.name)d.err=t('ridersWalkinRiderN').replace('{0}',n).replace('{1}',t('ridersWalkinErrName'));
-    else if(!(r.height>=100&&r.height<=250))d.err=t('ridersWalkinRiderN').replace('{0}',n).replace('{1}',t('ridersWalkinErrHeight'));
-    else if(!['Road','Hybrid','Mountain'].includes(r.type))d.err=t('ridersWalkinRiderN').replace('{0}',n).replace('{1}',t('ridersWalkinErrType'));
+    if(r.hRaw&&!(r.height>=100&&r.height<=250))d.err=t('ridersWalkinRiderN').replace('{0}',i+2).replace('{1}',t('ridersWalkinErrHeight'));
     return !!d.err;
   });
   return d.err?null:{badge,name,h,phone,riders};
@@ -16291,7 +16298,7 @@ async function saveRiderEdit(){
     const ex=(S.riders||[]).find(x=>String(x.id)===String(c.id));if(!ex)continue;
     const cp={};
     if(c.name!==ex.name)cp.name=c.name;
-    if(c.height!==Number(ex.height))cp.height=c.height;
+    if((c.height??null)!==(ex.height??null))cp.height=c.height;
     if(c.type!==ex.type_preference)cp.type_preference=c.type;
     if(patch.badge!==undefined)cp.badge=badge;
     if(patch.company!==undefined)cp.company=d.company||null;
@@ -16419,7 +16426,7 @@ function renderRiders(_resultsOnly){
       <td><button type="button" class="status-badge badge-active" style="font-variant-numeric:tabular-nums;font:inherit;font-weight:800;cursor:pointer;border:0" onclick="openRiderModal('${r.id}')">${esc(r.booking_no||'')}</button>${_ps>1?`<div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(t('ridersPartyOf').replace('{0}',_pn).replace('{1}',_ps))}</div>`:''}</td>
       <td><strong>${esc(r.badge)}</strong>${r.company?`<div style="font-size:11px;color:var(--muted)">${esc(r.company)}</div>`:''}</td>
       <td>${esc(r.name)}${r.phone?`<div style="font-size:12px"><a href="https://wa.me/${esc(String(r.phone).replace(/\D/g,''))}" target="_blank" rel="noopener" dir="ltr" style="color:var(--green)">${esc(r.phone)}</a></div>`:''}${_lead?`<div style="font-size:11px;color:var(--muted)">${esc(t('ridersWith').replace('{0}',_lead.name||''))}</div>`:''}${Number(r.submissions)>1?`<div style="font-size:11px;color:var(--muted)">${esc(t('ridersResub').replace('{0}',r.submissions))}</div>`:''}</td>
-      <td>${esc(r.height)} cm</td>
+      <td>${r.height?`${esc(String(r.height))} ${t('cmUnit')}`:`<span style="color:var(--muted)">·</span>`}</td>
       <td>${typeBadge(r.type_preference)}</td>
       <td>${r.session_id?`${shortDate(r.session_id.slice(0,10))}${sess?`<div style="font-size:11px;color:var(--muted)">${esc(sessionTime(sess))}</div>`:''}`:`<span style="color:var(--muted)">·</span>`}</td>
       <td class="rider-time" style="white-space:nowrap">${r.checked_in_at?`<strong dir="ltr">${esc(_riderClock(r.checked_in_at))}</strong>${r.checked_in_by?`<div style="font-size:11px;color:var(--muted)">${esc(t('ridersBy').replace('{0}',r.checked_in_by))}</div>`:''}`:`<span style="color:var(--muted)">·</span>`}</td>
