@@ -591,3 +591,38 @@ test.describe('a party under one booking number', () => {
     await expect(page.locator('#rw-name')).toHaveValue('Dana Kid');
   });
 });
+
+test('one QR opens the whole party: every rider listed with their own Check in, and Check in all does the rest', async ({ page }) => {
+  const errs = watch(page);
+  const party: Record<string, unknown>[] = [
+    ...rider_registrations.map((r) => ({ ...r, party_no: 1 })),
+    { ...base, id: 4, booking_no: 'P-003', party_no: 2, badge: 'C-56', company: 'Petromin', name: 'Cara Friend', phone: '+966500000003', height: 150, type_preference: 'Hybrid', matched_entry_id: null, matched_customer_id: null, match_kind: 'none', submissions: 1, checked_in_at: null, checked_out_at: null },
+    { ...base, id: 5, booking_no: 'P-003', party_no: 3, badge: 'C-56', company: 'Petromin', name: 'Cara Cousin', phone: '+966500000003', height: 168, type_preference: 'Mountain', matched_entry_id: null, matched_customer_id: null, match_kind: 'none', submissions: 1, checked_in_at: null, checked_out_at: null },
+  ];
+  await stubSupabase(page, { sessions, queue_entries, rider_registrations: party });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`setStaffTab('riders')`);
+  await expect(page.locator('#tab-riders tbody tr')).toHaveCount(5);
+  const writes: { url: string; body: Record<string, unknown> }[] = [];
+  page.on('request', (r) => { if (r.method() === 'PATCH' && /rest\/v1\/rider_registrations/.test(r.url())) writes.push({ url: r.url(), body: r.postDataJSON() }); });
+
+  await page.evaluate(`_onScanPayload('MMP-P-003')`);
+  const modal = page.locator('#rider-modal .modal-box');
+  await expect(modal).toBeVisible();
+  const rows3 = modal.locator('#rider-party .rider-party-row');
+  await expect(rows3).toHaveCount(3);
+  await expect(rows3.nth(0)).toContainText('Cara Nobody');
+  await expect(rows3.nth(0)).toContainText('Returned'); // the employee's row is already back in the fixture
+  await expect(rows3.nth(1)).toContainText('Cara Friend');
+  await expect(rows3.nth(1)).toContainText('150 cm');
+  await expect(rows3.nth(1).getByRole('button', { name: 'Check in' })).toBeVisible();
+  await expect(rows3.nth(2)).toContainText('Cara Cousin');
+
+  await modal.locator('#rider-checkin-all').click();
+  await expect.poll(() => writes.length).toBe(2);
+  expect(writes.map((w) => (w.url.match(/id=eq\.(\d+)/) || [])[1]).sort()).toEqual(['4', '5']);
+  for (const w of writes) expect(typeof w.body.checked_in_at).toBe('string');
+  expect(errs).toEqual([]);
+});
