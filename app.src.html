@@ -16168,7 +16168,9 @@ function showRiderEdit(id){
   const r=(S.riders||[]).find(x=>String(x.id)===String(id));if(!r)return;
   const ph=_splitPhone(r.phone);
   S._rw={editId:String(r.id),session:r.session_id||'',company:r.company||'',badge:r.badge||'',name:r.name||'',cc:ph.cc,phone:ph.local,
-    height:r.height?String(r.height):'',type:r.type_preference||'',checkin:false,err:'',saving:false,locked:!!r.checked_in_at,badgeLocked:_riderPartyNo(r)>1,bookingNo:r.booking_no||''};
+    height:r.height?String(r.height):'',type:r.type_preference||'',checkin:false,err:'',saving:false,locked:!!r.checked_in_at,badgeLocked:_riderPartyNo(r)>1,bookingNo:r.booking_no||'',
+    // the companions already on this number, editable in place; a removed one is remembered for the save
+    riders:_riderParty(r).filter(x=>_riderPartyNo(x)>1).map(x=>({id:x.id,name:x.name||'',height:x.height?String(x.height):'',type:x.type_preference||'',locked:!!x.checked_in_at})),removed:[]};
   // The pop-up sits above the form and would take the taps; dismiss it without the
   // scanner-resume that its Close button carries.
   {const pm=document.getElementById('rider-modal');if(pm){pm.style.display='none';pm.innerHTML='';}S._riderModalId=null;}
@@ -16181,7 +16183,7 @@ function _rwInput(k,v){if(S._rw)S._rw[k]=v;}
 // adding or removing a row repaints, so a fast typist is never interrupted.
 function _rwRider(i,k,v){const d=S._rw;if(d&&d.riders&&d.riders[i])d.riders[i][k]=v;}
 function _rwAddRider(){const d=S._rw;if(!d)return;d.riders=d.riders||[];if(d.riders.length>=4)return;d.riders.push({name:'',height:'',type:''});renderRiderWalkin();setTimeout(()=>{const el=document.getElementById('rw-r-name-'+(d.riders.length-1));if(el)el.focus();},0);}
-function _rwRemoveRider(i){const d=S._rw;if(!d||!d.riders)return;d.riders.splice(i,1);renderRiderWalkin();}
+function _rwRemoveRider(i){const d=S._rw;if(!d||!d.riders)return;const c=d.riders[i];if(c&&c.locked)return;if(c&&c.id){d.removed=d.removed||[];d.removed.push(c.id);}d.riders.splice(i,1);renderRiderWalkin();}
 function renderRiderWalkin(){
   const m=document.getElementById('rider-walkin-modal');const d=S._rw;if(!m||!d)return;
   const edit=!!d.editId;
@@ -16204,15 +16206,15 @@ function renderRiderWalkin(){
     <div class="form-group"><label for="rw-phone">${t('phoneNum')} <span class="label-hint">(${t('optionalLabel')})</span></label><div style="display:flex;gap:6px"><select id="rw-cc" style="width:92px;flex-shrink:0" onchange="_rwInput('cc',this.value)">${ccOpts}</select><input id="rw-phone" type="tel" value="${esc(d.phone)}" style="flex:1" oninput="_rwInput('phone',this.value)" autocomplete="off"></div></div>
     <div class="form-group"><label for="rw-height">${t('colHeight')} (cm)</label><input id="rw-height" type="number" inputmode="numeric" min="100" max="250" value="${esc(d.height)}" oninput="_rwInput('height',this.value)"></div>
     <div class="form-group"><label>${t('bikeTypeLabel')}</label><div style="display:flex;gap:6px">${typeBtns}</div></div>
-    ${edit?'':`<div class="form-group"><label>${t('ridersWalkinRiders')} <span class="label-hint">(${t('optionalLabel')})</span></label>
+    <div class="form-group"><label>${t('ridersWalkinRiders')} <span class="label-hint">(${t('optionalLabel')})</span></label>
       ${(d.riders||[]).map((r,i)=>`<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
         <input id="rw-r-name-${i}" type="text" placeholder="${esc(t('nameLabel'))} ${i+2}" value="${esc(r.name||'')}" maxlength="120" style="flex:1;min-width:0" oninput="_rwRider(${i},'name',this.value)" autocomplete="off">
         <input id="rw-r-h-${i}" type="number" inputmode="numeric" min="100" max="250" placeholder="${esc(t('cmUnit'))}" value="${esc(r.height||'')}" style="width:72px;flex-shrink:0" oninput="_rwRider(${i},'height',this.value)">
         <select id="rw-r-type-${i}" aria-label="${esc(t('bikeTypeLabel'))}" style="width:110px;flex-shrink:0" onchange="_rwRider(${i},'type',this.value)"><option value="">${esc(t('bikeTypeLabel'))}</option>${['Road','Hybrid','Mountain'].map(ty=>`<option value="${ty}"${r.type===ty?' selected':''}>${typeLabel(ty)}</option>`).join('')}</select>
-        <button type="button" class="btn-sm btn-muted" onclick="_rwRemoveRider(${i})" title="${esc(t('removeBtn'))}" style="flex-shrink:0">${_artIcon('close',11)}</button>
+        <button type="button" class="btn-sm btn-muted" onclick="_rwRemoveRider(${i})" title="${esc(t('removeBtn'))}" style="flex-shrink:0"${r.locked?' disabled':''}>${_artIcon('close',11)}</button>
       </div>`).join('')}
       ${(d.riders||[]).length<4?`<button type="button" id="rw-add-rider" class="btn-secondary" style="width:100%" onclick="_rwAddRider()">+ ${t('beAddRiderBtn')}</button>`:''}</div>
-    <label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-weight:600;cursor:pointer"><input id="rw-checkin" type="checkbox"${d.checkin?' checked':''} onchange="_rwInput('checkin',this.checked)"> ${t('ridersWalkinCheckinNow')}</label>`}
+    ${edit?'':`<label style="display:flex;align-items:center;gap:8px;margin:10px 0;font-weight:600;cursor:pointer"><input id="rw-checkin" type="checkbox"${d.checkin?' checked':''} onchange="_rwInput('checkin',this.checked)"> ${t('ridersWalkinCheckinNow')}</label>`}
     ${d.err?`<div class="pg-msg" role="alert" id="rw-err">${esc(d.err)}</div>`:''}
     <div class="modal-footer"><button type="button" class="btn-muted" onclick="closeRiderWalkin()">${t('cancelBtn')}</button><button type="button" id="rw-submit" class="btn-green" onclick="${edit?'saveRiderEdit()':'submitRiderWalkin()'}"${d.saving||!sess.length?' disabled':''}>${d.saving?t('pgSaving'):edit?t('saveBtn'):t('ridersWalkinAdd')}</button></div>
   </div></div>`;
@@ -16233,7 +16235,7 @@ function _rwValidate(d){
   else if(!(h>=100&&h<=250))d.err=t('ridersWalkinErrHeight');
   else if(!['Road','Hybrid','Mountain'].includes(d.type))d.err=t('ridersWalkinErrType');
   // Companions: name, height and bike type each, the same rules rider_register() applies.
-  const riders=(d.editId?[]:(d.riders||[])).map(r=>({name:String(r.name||'').trim().replace(/\s+/g,' '),height:parseInt(r.height,10),type:r.type||''}));
+  const riders=(d.riders||[]).map(r=>({id:r.id||null,locked:!!r.locked,name:String(r.name||'').trim().replace(/\s+/g,' '),height:parseInt(r.height,10),type:r.type||''}));
   if(!d.err&&riders.length>4)d.err=t('ridersWalkinErrRiders');
   if(!d.err)riders.some((r,i)=>{
     const n=i+2;
@@ -16283,7 +16285,23 @@ async function saveRiderEdit(){
     }
     if(!Object.keys(ePatch).length)ePatch=null;
   }
-  if(!Object.keys(patch).length&&!ePatch){closeRiderWalkin();return;}
+  // Companions: what changed on the saved ones, which were dropped, which are new.
+  const compUpd=[];
+  for(const c of v.riders.filter(c=>c.id)){
+    const ex=(S.riders||[]).find(x=>String(x.id)===String(c.id));if(!ex)continue;
+    const cp={};
+    if(c.name!==ex.name)cp.name=c.name;
+    if(c.height!==Number(ex.height))cp.height=c.height;
+    if(c.type!==ex.type_preference)cp.type_preference=c.type;
+    if(patch.badge!==undefined)cp.badge=badge;
+    if(patch.company!==undefined)cp.company=d.company||null;
+    if(patch.phone!==undefined)cp.phone=phone;
+    if(moving)cp.session_id=d.session;
+    if(Object.keys(cp).length)compUpd.push([ex.id,cp]);
+  }
+  const compDel=(d.removed||[]).slice(),compNew=v.riders.filter(c=>!c.id);
+  const compWork=compUpd.length||compDel.length||compNew.length;
+  if(!Object.keys(patch).length&&!ePatch&&!compWork){closeRiderWalkin();return;}
   d.saving=true;d.err='';renderRiderWalkin();
   if(Object.keys(patch).length){
     const res=await sb.from('rider_registrations').update(patch).eq('id',r.id);
@@ -16296,6 +16314,24 @@ async function saveRiderEdit(){
   if(ePatch){
     const res=await sb.from('queue_entries').update(ePatch).eq('id',e.id);
     if(_writeErr(res,'edit booking',()=>saveRiderEdit())){d.saving=false;renderRiderWalkin();return;}
+  }
+  let compErr=null;
+  for(const [id,cp] of compUpd){const res=await sb.from('rider_registrations').update(cp).eq('id',id);if(res.error)compErr=res.error;}
+  for(const id of compDel){const res=await sb.from('rider_registrations').delete().eq('id',id).is('checked_in_at',null);if(res.error)compErr=res.error;}
+  if(compNew.length&&!compErr){
+    const {data,error}=await sb.rpc('rider_party_add',{p_id:r.id,p_riders:compNew.map(c=>({name:c.name,height:c.height,type:c.type}))});
+    if(error||!data||!data.ok)compErr=error||data||{};
+    else if(e&&['waiting','waitlist','active'].includes(e.status)){
+      // They ride tonight with the employee: a booking each, like a walk-in party, linked back.
+      const entries=await _wiInsertRiders(e.sessionId,compNew.map(c=>({name:c.name,height:c.height,type:c.type})),phone||'',null);
+      const ids=Array.isArray(data.ids)?data.ids:[];
+      for(let i=0;i<ids.length;i++){const en=entries&&entries[i];if(en)await sb.from('rider_registrations').update({matched_entry_id:en.id,matched_customer_id:en.customerId||null,match_kind:'booking'}).eq('id',ids[i]);}
+    }
+  }
+  if(compErr){
+    console.warn('companions save failed',compErr);
+    const map={riders:'ridersWalkinErrRiders',rider_name:'ridersWalkinErrName',rider_height:'ridersWalkinErrHeight',rider_type:'ridersWalkinErrType'};
+    d.saving=false;d.err=t(map[compErr.error]||'ridersWalkinErr');await loadRiders();renderRiderWalkin();return;
   }
   closeRiderWalkin();
   logAction(`${t('ridersEditTitle')}: ${r.booking_no||''} ${name}`);

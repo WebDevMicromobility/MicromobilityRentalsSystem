@@ -50,6 +50,7 @@ with expected(fname, want_definer, note) as (values
   -- Rider registration (the form at micromobility.sa/petromin)
   ('rider_register',         true,  'writes rider_registrations for anon; reads queue_entries and customers to match'),
   ('rider_edit',             true,  'same, for the rider''s own row'),
+  ('rider_party_add',        true,  'inserts companions for staff; the table grants no insert'),
   ('rider_sessions',         true,  'reads sessions for anon'),
   ('_rider_gate',            true,  'writes login_throttle; internal only'),
   ('_rider_session_open',    false, 'pure status check on the row it is handed'),
