@@ -54,7 +54,7 @@ test('published and approved: a loud confirmation, and the code appears', async 
   const banner = card.locator('.appr-ok');
   await expect(banner).toBeVisible();
   await expect(banner).toContainText('Your spot is confirmed!');
-  await expect(banner).toContainText(/Show this code at the booth/i);
+  await expect(banner).toContainText(/Show this code at the gathering point/i);
   await expect(banner.locator('.appr-ok-tick')).toBeVisible();
   const box = await banner.locator('.appr-ok-tick').boundingBox();
   expect(box!.height).toBeGreaterThan(30);                       // an indicator, not a sentence
