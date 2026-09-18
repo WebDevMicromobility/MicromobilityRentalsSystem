@@ -78,7 +78,7 @@ test('a burst of loads is bounded, not one fetch each', async ({ page }) => {
   await page.waitForTimeout(400);
   await page.route('**/rest/v1/queue_entries*', async (route) => {
     await new Promise((r) => setTimeout(r, 250));      // real latency, or no burst can form
-    await route.continue();
+    await route.fallback();                            // to the stub, not to the network
   });
   const hits = counter(page);
   await page.evaluate(`Promise.all([loadData(),loadData(),loadData(),loadData(),loadData()])`);
@@ -92,7 +92,7 @@ test('a load issued mid-flight is answered by a FRESH fetch, not the one already
   await page.waitForTimeout(400);
   await page.route('**/rest/v1/queue_entries*', async (route) => {
     await new Promise((r) => setTimeout(r, 300));
-    await route.continue();
+    await route.fallback();
   });
   const hits = counter(page);
   // stands in for: a staff write lands while the 30s poll's load is already in the air
@@ -107,7 +107,7 @@ test('the light load coalesces the same way', async ({ page }) => {
   await page.waitForTimeout(400);
   await page.route('**/rest/v1/queue_entries*', async (route) => {
     await new Promise((r) => setTimeout(r, 300));
-    await route.continue();
+    await route.fallback();
   });
   const hits = counter(page);
   await page.evaluate(
