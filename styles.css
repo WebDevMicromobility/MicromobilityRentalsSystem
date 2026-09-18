@@ -3838,3 +3838,39 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
        but plainly not on offer. Tapping it explains rather than opening the form. */
     .sess-card.sess-card-rej{opacity:.6;}
     .sess-card-spots.spots-rej{color:var(--muted);font-weight:700;}
+
+    /* ── The language control is a globe ──────────────────────────────────────
+       The word used to sit in the header and change width with every language,
+       which pushed everything beside it around. The wrapper is the button now:
+       a globe the size of the other header buttons, with the real <select> laid
+       invisibly over it so the language still changes the way it always did and
+       a phone still opens its own picker. */
+    #topbar .lang-wrap{
+      position:relative;display:inline-flex;align-items:center;justify-content:center;
+      width:38px;height:34px;flex:none;border-radius:8px;
+      border:1px solid rgba(var(--tint-rgb),.14);background:rgba(var(--tint-rgb),.04);
+      color:var(--text);transition:border-color .15s,background .15s,color .15s;
+    }
+    #topbar .lang-wrap:hover{border-color:rgba(var(--green-rgb),.45);color:var(--green);background:rgba(var(--green-rgb),.06);}
+    /* On the customer side the header is a row of ghost buttons - no resting border, a
+       tint only under the pointer. The globe is one of them, so it wears the same nothing. */
+    body:not(.view-staff) #topbar#topbar .lang-wrap{background:transparent;border-color:transparent;color:#565c50;}
+    body:not(.view-staff) #topbar#topbar .lang-wrap:hover{background:rgba(var(--green-rgb),.09);border-color:transparent;color:#0b6b41;}
+    #topbar .lang-wrap::after{display:none;}          /* the chevron belonged to the word */
+    #topbar .lang-globe{width:18px;height:18px;flex:none;pointer-events:none;}
+    #topbar select.lang-toggle{
+      position:absolute;inset:0;width:100%;height:100%;min-height:0!important;
+      margin:0;padding:0!important;border:0;background:none;opacity:0;cursor:pointer;
+      max-width:none;font-size:16px;                  /* 16px: iOS must not zoom on focus */
+    }
+    #topbar .lang-wrap:focus-within{outline:2px solid var(--green);outline-offset:2px;}
+
+    /* The header's right-hand group: one row, one gap, everything the same height,
+       and it stays hard against the end edge in both directions. */
+    #topbar > div:last-child{display:flex;align-items:center;gap:8px;margin-inline-start:auto;}
+    #topbar .topbar-right{gap:8px;}
+    @media(max-width:767px){
+      #topbar .lang-wrap{width:34px;height:32px;}
+      #topbar .lang-globe{width:16px;height:16px;}
+      #topbar > div:last-child,#topbar .topbar-right{gap:6px;}
+    }
