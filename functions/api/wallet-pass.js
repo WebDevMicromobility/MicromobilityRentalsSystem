@@ -18539,8 +18539,24 @@ async function onRequestPost(context) {
   if (!b) return json({ ok: false, error: "not found" }, 404);
   let group = groupIds.length ? rows.filter((r) => groupIds.includes(r.id)) : [b];
   if (!group.some((r) => r.id === b.id)) group = [b];
+  // The booking rows carry no session times - queue_entries holds the date and the day, not
+  // the clock - so the pass had none, and every pass expired at midnight. Read the session
+  // itself, through the same door the rider's own app uses: list_sessions answers with what
+  // THIS customer may see, so a tag-gated ride still resolves and nothing else leaks.
+  let sess = null;
   try {
-    const pkpass = await buildPkpass(b, { p12b64, p12pw, passTypeId, teamId, addons, group });
+    const sr = await fetch(`${SUPA}/rest/v1/rpc/list_sessions`, {
+      method: "POST",
+      headers: { apikey: ANON, Authorization: `Bearer ${ANON}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ p_id: customerId, p_token: token })
+    });
+    if (sr.ok) {
+      const all = await sr.json();
+      if (Array.isArray(all)) sess = all.find((x) => x && x.id === b.session_id) || null;
+    }
+  } catch (e) { /* the pass is still worth issuing without it */ }
+  try {
+    const pkpass = await buildPkpass(b, { p12b64, p12pw, passTypeId, teamId, addons, group, sess });
     return new Response(pkpass, {
       headers: {
         "Content-Type": "application/vnd.apple.pkpass",
@@ -18562,8 +18578,19 @@ async function buildPkpass(b, cfg) {
   const numsDisplay = _numsDisplay(nums) || `#${primaryNum}`;
   const when = `${b.session_day || ""} ${b.session_date || ""}`.trim();
   const shortWhen = _shortWhen(b.session_day, b.session_date);
-  const time = b.session_time || "";
-  const dates = _sessionDates(b);
+  const sess = cfg.sess || null;
+  const ride = _rideOf(sess);
+  const skin = RIDES[ride] || RIDES.jcc;
+  const clock = _sessTimes(sess);
+  const collectStr = clock ? _hhmm(clock.collectMin) : "";
+  const startStr = clock ? _hhmm(clock.startMin) : "";
+  const rideName = (sess && sess.title) || skin.venue;
+  const time = _sessClock(sess) || b.session_time || "";
+  const dates = _sessionDates(b, clock);
+  // A booking that is over, or was called off, must not read as a live ticket. Apple cannot
+  // take a pass off a phone - only the rider can delete one - but a pass built for a booking
+  // that is no longer live is marked void, so it shows as void rather than as a ticket.
+  const dead = ["done", "cancelled", "noshow", "removed"].includes(String(b.status || ""));
   const ridersValue = single ? b.name || "" : `${group.length} riders`;
   const types = [...new Set(group.map((r) => _bikeLabel(r.type_preference)).filter(Boolean))];
   const bikeType = types.length === 1 ? types[0] : types.length > 1 ? "Mixed" : "";
@@ -18572,8 +18599,14 @@ async function buildPkpass(b, cfg) {
   const addonSum = addons.reduce((s, a) => s + (Number(a.p) || 0), 0);
   const grand = Math.round((rentalSum + addonSum) * 100) / 100;
   const priceStr = rentalSum || addonSum ? `SAR ${grand}` : "";
+  // The two times lead: they are what a rider opens the pass to check. The queue number
+  // keeps a line of its own beside them, still big enough to read out at the desk.
+  const primary = [];
+  if (collectStr) primary.push({ key: "collect", label: "COLLECT FROM", value: collectStr });
+  if (startStr) primary.push({ key: "start", label: "RIDE STARTS", value: startStr });
+  if (!primary.length) primary.push({ key: "queue", label: single ? "QUEUE" : "QUEUE NUMBERS", value: numsDisplay });
   const secondary = [];
-  if (time) secondary.push({ key: "time", label: "TIME", value: time });
+  if (primary[0].key !== "queue") secondary.push({ key: "queue", label: single ? "QUEUE" : "QUEUE NUMBERS", value: numsDisplay });
   if (ridersValue) secondary.push({ key: "riders", label: single ? "RIDER" : "RIDERS", value: ridersValue });
   const auxiliary = [];
   if (bikeType) auxiliary.push({ key: "bike", label: "BIKE", value: bikeType });
@@ -18590,21 +18623,23 @@ async function buildPkpass(b, cfg) {
     teamIdentifier: cfg.teamId,
     serialNumber: String(b.id),
     organizationName: "MicroMobility Rentals",
-    description: `Booking ${numsDisplay} - Jeddah Corniche Circuit`,
+    description: `Booking ${numsDisplay} - ${rideName}`,
     foregroundColor: "rgb(242,245,242)",
-    backgroundColor: "rgb(7,9,11)",
-    labelColor: "rgb(0,229,133)",
+    backgroundColor: skin.bg,
+    labelColor: skin.label,
     sharingProhibited: true,
-    // Surface on the lock screen around the ride time, and grey out after it ends.
-    ...dates ? { relevantDate: dates.start, expirationDate: dates.end } : {},
+    // Surface on the lock screen when bikes start going out, and expire when the night ends:
+    // an expired pass leaves the stack and files itself away on its own.
+    ...dates ? { relevantDate: dates.collect || dates.start, expirationDate: dates.end } : {},
+    ...dead ? { voided: true } : {},
     barcodes: [{ format: "PKBarcodeFormatQR", message: barcodeMsg, messageEncoding: "iso-8859-1", altText: numsDisplay }],
     // keep the legacy single-barcode field too for older iOS
     barcode: { format: "PKBarcodeFormatQR", message: barcodeMsg, messageEncoding: "iso-8859-1", altText: numsDisplay },
     locations: [{ latitude: 21.6266, longitude: 39.1099, relevantText: "Your ride is nearby - the Circuit is just ahead" }],
     // Semantic tags let iOS drive Live Activities, lock-screen relevance and the event guide.
     semantics: {
-      eventName: "Jeddah Corniche Circuit ride",
-      venueName: "Jeddah Corniche Circuit",
+      eventName: rideName,
+      venueName: skin.venue,
       venueLocation: { latitude: 21.6266, longitude: 39.1099 },
       eventType: "PKEventTypeGeneric",
       ...dates ? { eventStartDate: dates.start, eventEndDate: dates.end } : {}
@@ -18613,13 +18648,14 @@ async function buildPkpass(b, cfg) {
       // Header is the ONLY field visible when the pass is collapsed in the stack — put the
       // most useful glance value (the date) here so a rider can find this pass among others.
       headerFields: [{ key: "date", label: "SESSION", value: shortWhen || "Circuit" }],
-      primaryFields: [{ key: "queue", label: single ? "QUEUE" : "QUEUE NUMBERS", value: numsDisplay }],
+      primaryFields: primary,
       secondaryFields: secondary,
       auxiliaryFields: auxiliary,
       backFields: [
         { key: "when", label: "Session", value: `${when}${time ? " \xB7 " + time : ""}`.trim() },
-        { key: "venue", label: "Venue", value: "Jeddah Corniche Circuit" },
-        { key: "directions", label: "Directions", value: `<a href="${DIRECTIONS}">Open in Maps</a>` },
+        ...collectStr ? [{ key: "collect_b", label: "Collect your bike", value: `From ${collectStr}${startStr ? ` \xB7 the ride leaves at ${startStr}` : ""}` }] : [],
+        { key: "venue", label: "Venue", value: skin.venue },
+        { key: "directions", label: "Directions", value: `<a href="${_meetUrl(sess)}">Open in Maps</a>` },
         ...ridersBack,
         ...addonsBack,
         { key: "pay", label: "Payment", value: "Pay at the booth \u2014 cash, mada or STC Pay." },
@@ -18652,7 +18688,11 @@ function _shortWhen(day, date) {
   return `${d} ${dt}`.trim();
 }
 var _MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
-function _sessionDates(b) {
+function _meetUrl(sess) {
+  const u = sess && sess.meet_url ? String(sess.meet_url) : "";
+  return /^https:\/\//.test(u) ? u : DIRECTIONS;
+}
+function _sessionDates(b, clock) {
   try {
     const md = String(b.session_date || "").match(/(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4})/);
     if (!md) return null;
@@ -18670,10 +18710,19 @@ function _sessionDates(b) {
       if (!pm && h === 12) h = 0;
       return iso(h, min);
     };
+    if (clock) {
+      const at = (min) => iso(Math.floor(min / 60), min % 60);
+      return {
+        collect: clock.collectMin != null ? at(clock.collectMin) : null,
+        start: at(clock.startMin),
+        // A ride with no end on its clock (the ones staff approve) runs out at the end of its day.
+        end: clock.endMin != null ? at(clock.endMin) : iso(23, 59)
+      };
+    }
     const times = String(b.session_time || "").match(/\d{1,2}(?::\d{2})?\s*[AaPp][Mm]/g) || [];
     const start = times.length ? parseT(times[0]) : iso(0, 0);
     const end = times.length >= 2 ? parseT(times[times.length - 1]) : iso(23, 59);
-    return { start, end };
+    return { collect: null, start, end };
   } catch (e) {
     return null;
   }
@@ -18685,6 +18734,52 @@ function _cleanAddons(a) {
     q: Math.max(1, Math.min(99, parseInt(x2 && x2.q, 10) || 1)),
     p: Math.max(0, Math.min(1e5, Math.round((Number(x2 && x2.p) || 0) * 100) / 100))
   })).filter((x2) => x2.n);
+}
+// What the rider needs to know about when: the moment bikes start going out, and the moment
+// the ride leaves. A ride staff approve stores its clock as "gathering - start", so both
+// numbers are already there and both are read straight off it. Every other ride stores
+// "start - end": the ride leaves at the first, and bikes go out 45 minutes before it, which
+// is a quarter past eight for the nine o'clock circuit sessions.
+var COLLECT_BEFORE_MIN = 45;
+function _sessTimes(sess) {
+  const raw = _sessClock(sess);
+  const parts = String(raw).split("-").map((x) => x.trim()).filter(Boolean);
+  if (parts.length < 1) return null;
+  const approval = _isApproval(sess);
+  const toMin = (t) => { const m = /^(\d{1,2}):(\d{2})$/.exec(t); return m ? (+m[1]) * 60 + (+m[2]) : null; };
+  const startMin = toMin(approval ? parts[1] || parts[0] : parts[0]);
+  if (startMin == null) return null;
+  const collectMin = approval ? toMin(parts[0]) : Math.max(0, startMin - COLLECT_BEFORE_MIN);
+  const endMin = approval ? null : toMin(parts[1] || "");
+  return { collectMin, startMin, endMin };
+}
+function _sessClock(sess) {
+  try {
+    const slots = sess && sess.bike_slots ? JSON.parse(sess.bike_slots) : null;
+    return (slots && slots._time) || "";
+  } catch (e) { return ""; }
+}
+function _isApproval(sess) {
+  return !!sess && sess.event_kind === "community" && sess.needs_approval !== false;
+}
+// Each ride is told apart in a crowded Wallet by its own colour, and named by its own words.
+var RIDES = {
+  saturday: { bg: "rgb(9,40,26)", label: "rgb(61,220,150)", venue: "Saturday Social Ride" },
+  petromin: { bg: "rgb(46,14,11)", label: "rgb(240,138,120)", venue: "Petromin Wednesday Ride" },
+  swim:     { bg: "rgb(10,30,46)", label: "rgb(122,190,240)", venue: "Triathlon Pool Session" },
+  workshop: { bg: "rgb(30,22,48)", label: "rgb(183,162,240)", venue: "T100 Triathlon Prep" },
+  jcc:      { bg: "rgb(7,9,11)",   label: "rgb(0,229,133)",   venue: "Jeddah Corniche Circuit" }
+};
+function _rideOf(sess) {
+  if (!sess || sess.event_kind !== "community") return "jcc";
+  const k = sess.ride_kind;
+  return k === "petromin" || k === "swim" || k === "workshop" ? k : "saturday";
+}
+function _hhmm(min) {
+  if (min == null) return "";
+  const h24 = Math.floor(min / 60) % 24, m = min % 60;
+  const h = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${h}:${String(m).padStart(2, "0")} ${h24 < 12 ? "AM" : "PM"}`;
 }
 function _bikeLabel(t) {
   const k = String(t || "").trim().toLowerCase().replace(/[\s_-]+/g, "");
