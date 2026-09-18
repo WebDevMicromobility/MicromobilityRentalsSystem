@@ -60,6 +60,10 @@ test('eight bookings and a bare profile: the gate takes the event pick, saves bo
   expect(body.p_nationality).toBe('Egypt');
   expect(body.p_name).toBe('Spec Rider');                            // the rest of the profile carried through
   expect(await page.evaluate('[S.selEvent,S.loggedIn.nationality,S.loggedIn.birth_date]')).toEqual(['jcc', 'Egypt', '1996-03-14']);
+  // The gate hides the footer while it is up; afterwards the page is whole again. The footer
+  // itself only exists on a desk screen, so check it where it exists.
+  expect(await page.evaluate(`document.body.classList.contains('gate-page')`)).toBe(false);
+  await page.setViewportSize({ width: 1280, height: 900 });
   await expect(page.locator('#app-footer')).toBeVisible();
 });
 

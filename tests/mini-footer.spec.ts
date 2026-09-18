@@ -12,7 +12,10 @@ const plain = (s: string) => s.replace(/[\u2060\u00a0]/g, (m) => (m === '\u00a0'
 
 // Signed in: for a signed-out visitor the sign-in page is the first page and the footer
 // waits behind it.
+// The footer is a desk-sized thing and is hidden below 768px (see the last test), so every
+// test about its content and look measures it at a width where it exists.
 test.beforeEach(async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
   await stubSupabase(page, { sessions: [], queue_entries: [], bikes: [] });
   await loginCustomer(page);
   await page.goto('/');
@@ -74,19 +77,18 @@ test('the spec integration event works: mm-lang flips the language', async ({ pa
   await expect(page.locator('#app-footer')).toContainText('شارع ذي النورين');   // the address, in Arabic
 });
 
-test('small screens: one clean column, no dangling dots, no sideways scroll', async ({ page }) => {
+test('small screens: the footer is not there at all', async ({ page }) => {
+  // On a phone the footer was a screen of its own that a rider scrolled past to reach
+  // nothing, and the bottom bar already carries the way around. Everything it holds - the
+  // address, the phone, the hours - is on the contact card and the meeting-point link.
   await page.setViewportSize({ width: 360, height: 800 });
-  await page.evaluate(`document.getElementById('app-footer').scrollIntoView()`);
-  // the desktop separators disappear when the contacts stack
-  const dotsVisible = await page.evaluate(
-    `[...document.querySelectorAll('.mf-contact .mf-dot')].filter(d=>getComputedStyle(d).display!=='none').length`);
-  expect(dotsVisible).toBe(0);
-  // every contact and policy link is a >=44px row
-  const rows = await page.evaluate(`[...document.querySelectorAll('.mf-contact a')]
-    .map(a=>Math.round(a.getBoundingClientRect().height))`) as number[];
-  for (const h of rows) expect(h).toBeGreaterThanOrEqual(44);
-  // and nothing pushes the page sideways
-  const overflow = await page.evaluate(
-    `document.getElementById('app-footer').scrollWidth - document.getElementById('app-footer').clientWidth`);
+  await expect(page.locator('#app-footer')).toBeHidden();
+  // and the page below it does not scroll sideways in its absence
+  const overflow = await page.evaluate(`document.documentElement.scrollWidth - document.documentElement.clientWidth`);
   expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test('it is still there on a desk screen', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(page.locator('#app-footer')).toBeVisible();
 });

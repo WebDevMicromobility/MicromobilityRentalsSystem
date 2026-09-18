@@ -18749,9 +18749,19 @@ function _sessTimes(sess) {
   const toMin = (t) => { const m = /^(\d{1,2}):(\d{2})$/.exec(t); return m ? (+m[1]) * 60 + (+m[2]) : null; };
   const startMin = toMin(approval ? parts[1] || parts[0] : parts[0]);
   if (startMin == null) return null;
-  const collectMin = approval ? toMin(parts[0]) : Math.max(0, startMin - COLLECT_BEFORE_MIN);
+  // Staff set the collection time on the session itself. A ride they approve keeps its
+  // gathering time as that moment; anything with no time set falls back to three quarters
+  // of an hour before the ride leaves.
+  const set = toMin(_sessSlot(sess, "_collect"));
+  const collectMin = approval ? toMin(parts[0]) : (set != null ? set : Math.max(0, startMin - COLLECT_BEFORE_MIN));
   const endMin = approval ? null : toMin(parts[1] || "");
   return { collectMin, startMin, endMin };
+}
+function _sessSlot(sess, key) {
+  try {
+    const slots = sess && sess.bike_slots ? JSON.parse(sess.bike_slots) : null;
+    return (slots && slots[key]) || "";
+  } catch (e) { return ""; }
 }
 function _sessClock(sess) {
   try {
