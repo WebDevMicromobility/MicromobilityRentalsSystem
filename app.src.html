@@ -4248,6 +4248,15 @@ function _apprOf(e){return (e&&e.approval)||'pending';}
 // see only "under review" — never an approved/pending verdict, never a queue number.
 // Publishing clears hide_queue (community sessions are created with it set).
 function _commPublished(sess){return !!sess&&_isCommunity(sess)&&sess.hide_queue===false;}
+// May these riders carry a wallet pass? The pass shows the booking number, which on a ride
+// staff approve is theirs to announce: it stays off until the list is published and these
+// riders are on it. A pending, waitlisted or rejected rider gets nothing, and neither does
+// anyone before the list goes out - the same line the QR code on the card is drawn at.
+// Every other ride is unchanged.
+function _walletOk(sess,entries){
+  if(!_isApprovalRide(sess))return true;
+  return _commPublished(sess)&&(entries||[]).every(e=>e&&e.approval==='approved');
+}
 function _commPublishedById(sid){return _commPublished((S.sessions||[]).find(s=>s.id===sid));}
 // Saturday Social Ride membership: a rider is a member when their customer record
 // carries an active Saturday tag. Top level — the queue, the roster report and the
@@ -6206,7 +6215,7 @@ function renderRegister(){
           ${_commT?t('meetPointLbl'):t('ticketDirections')}
         </a>
       </div>
-      ${(_hasWallet()&&!_commT)?`<div class="wallet-slot" style="padding:0 24px 18px"><button type="button" class="btn-wallet" onclick="addBookingToWallet('${tkt.id}',this)" aria-label="${t('addToWallet')}">${WALLET_GLYPH} ${t('addToWallet')}</button></div>`:''}
+      ${(_hasWallet()&&_walletOk(_sess,[tkt]))?`<div class="wallet-slot" style="padding:0 24px 18px"><button type="button" class="btn-wallet" onclick="addBookingToWallet('${tkt.id}',this)" aria-label="${t('addToWallet')}">${WALLET_GLYPH} ${t('addToWallet')}</button></div>`:''}
     </div>`;
   }
   const tickets=S.lastTickets||[];
@@ -7006,8 +7015,8 @@ function renderBookingTicket(entries,opts){
   const total=g.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
   const canEdit=opts.actions&&g.some(e=>e.status==='waiting'||e.status==='waitlist');
   // Wallet pass is only meaningful for a live booking - never on completed, cancelled or
-  // no-show, and never for community events (the pass would reveal the queue number).
-  const isLive=!_comm&&g.some(e=>e.status==='waiting'||e.status==='active'||e.status==='waitlist');
+  // no-show - and on a ride staff approve, only once the list is out (_walletOk).
+  const isLive=_walletOk(sess,g)&&g.some(e=>e.status==='waiting'||e.status==='active'||e.status==='waitlist');
   // Live position cue (how many waiting riders are ahead in this session)
   let cueHtml='';
   if(_comm&&['waiting','waitlist'].includes(stForBadge)){

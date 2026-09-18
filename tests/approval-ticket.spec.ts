@@ -88,3 +88,32 @@ test('a booking already on a bike still shows its status at the top', async ({ p
   await expect(card.locator('.status-badge')).toHaveCount(1);
   await expect(card.locator('.status-badge')).toContainText('On Bike');
 });
+
+// The wallet pass shows the booking number, which on a ride staff approve is theirs to
+// announce. It follows the same line the QR code is drawn at.
+const wallet = (p: import('@playwright/test').Page) => p.locator('#tab-myrides .btn-wallet');
+
+test('the wallet pass waits for the list, then appears for an approved rider', async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, 'userAgent', { get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' }));
+
+  await myBookings(page, [satur()], [row()]);                        // pending, list not out
+  await expect(wallet(page)).toHaveCount(0);
+
+  await myBookings(page, [satur()], [row({ approval: 'approved' })]); // approved, list not out
+  await expect(wallet(page)).toHaveCount(0);
+
+  await myBookings(page, [satur({ hide_queue: false })], [row({ approval: 'rejected', status: 'cancelled' })]);
+  await expect(wallet(page)).toHaveCount(0);                         // list out, but not on it
+
+  await myBookings(page, [satur({ hide_queue: false })], [row({ approval: 'approved' })]);
+  await expect(wallet(page)).toHaveCount(1);                         // list out and on it
+});
+
+test('an ordinary ride still offers the pass straight away', async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, 'userAgent', { get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1' }));
+  await myBookings(page, [jcc], [row({
+    id: 'bk9', session_id: '2099-01-11', session_day: 'Sunday', session_date: '2099-01-11',
+    queue_num: 7, price: 57.5, approval: null,
+  })]);
+  await expect(wallet(page)).toHaveCount(1);
+});
