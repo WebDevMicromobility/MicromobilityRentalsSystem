@@ -269,3 +269,102 @@ test('an account with no gender can be given one from the Community row, and lis
   await page.evaluate(`showEditCustomerModal('c4')`);
   await expect(page.locator('#cust-form-modal, .modal-box').getByRole('button', { name: 'Male', exact: true })).toHaveClass(/active/);
 });
+
+// ── Nationality: how many, and which ─────────────────────────────────────────
+// A rider base drawn from thirty countries says nothing at seven named rows, so the
+// nationality breakdown carries its own depth and the rest folds into one Other. Beside it,
+// the plain count of how many different nationalities the list holds.
+
+test.describe('the nationality breakdown', () => {
+  // 25 nationalities: the first twenty at descending weights, five more with one rider each.
+  const NATS = ['Saudi Arabia', 'Egypt', 'India', 'Pakistan', 'Sudan', 'Yemen', 'Syria', 'Jordan', 'Philippines', 'Bangladesh',
+    'Nepal', 'Nigeria', 'Morocco', 'Tunisia', 'Lebanon', 'Palestine', 'Somalia', 'Turkey', 'Indonesia', 'Sri Lanka',
+    'Kenya', 'Ghana', 'Ethiopia', 'Uganda', 'Chad'];
+  const many: Record<string, unknown>[] = [];
+  NATS.forEach((nat, i) => {
+    const n = i < 20 ? 21 - i : 1;                       // 21, 20, 19 … down to 2, then five singles
+    for (let k = 0; k < n; k++) many.push({ id: `n${i}_${k}`, name: `Rider ${i}-${k}`, email: `n${i}_${k}@example.test`, nationality: nat, created_at: '2026-08-20T10:00:00Z' });
+  });
+  many.push({ id: 'nBlank', name: 'No Nationality', email: 'blank@example.test', nationality: '', created_at: '2026-08-20T10:00:00Z' });
+
+  async function open(page: import('@playwright/test').Page) {
+    await stubSupabase(page, { sessions, queue_entries: [], bikes: [], customers: many, tags: [], customer_tags: [] });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.waitForFunction(`getCustomers().length===${many.length}`);
+    await page.evaluate(`localStorage.removeItem('cq_acc_rep_opts');S._accOpts=null;setStaffTab('community');S.communityTab='accounts';renderCommunity()`);
+  }
+
+  test('names the top twenty and folds the rest into one Other', async ({ page }) => {
+    await open(page);
+    const items = await page.evaluate(`_accBreakdown('nationality',_accRows(),_accOpts())`) as { label: string; value: number }[];
+    expect(items).toHaveLength(21);                       // twenty named, then Other
+    expect(items[0]).toEqual({ label: 'Saudi Arabia', value: 21 });
+    expect(items[19].label).toBe('Sri Lanka');
+    expect(items[20].label).toBe('Other');
+    // Other is the five one-rider nationalities plus the account with none recorded
+    expect(items[20].value).toBe(6);
+    expect(items.reduce((s, x) => s + x.value, 0)).toBe(many.length);
+  });
+
+  test('the depth is a choice: ten, fifty or all of them', async ({ page }) => {
+    await open(page);
+    const at = async (n: number) => {
+      await page.evaluate(`_accSetNatTop(${n})`);
+      return page.evaluate(`_accBreakdown('nationality',_accRows(),_accOpts()).map(x=>x.label)`) as Promise<string[]>;
+    };
+    expect(await at(10)).toHaveLength(11);
+    expect((await at(10))[10]).toBe('Other');
+    expect(await at(50)).toHaveLength(26);                // 25 nationalities + the unknown
+    expect(await at(50)).not.toContain('Other');          // nothing left to fold
+    expect(await at(0)).toHaveLength(26);                 // all of them
+  });
+
+  test('the count of different nationalities is its own tile, and rides along in the CSV', async ({ page }) => {
+    await open(page);
+    expect(await page.evaluate(`_accNatCount(_accRows())`)).toBe(25);   // the blank is not a nationality
+    // Off by default, so an existing report is unchanged
+    expect(await page.evaluate(`_accOpts().sections.natCount`)).toBeFalsy();
+    expect(await page.evaluate(`_accReportHtml()`)).not.toContain('Nationalities</span>');
+    await page.evaluate(`_accToggle('sections','natCount')`);
+    const sheet = await page.evaluate(`_accReportHtml()`) as string;
+    expect(sheet).toContain('>25</span><span class="total-lbl">Nationalities</span>');
+    const csv = await page.evaluate(`(()=>{let out='';const _B=window.Blob;window.Blob=function(p){out=p.join('');return new _B(p,{type:'text/plain'});};
+      const _a=document.createElement.bind(document);document.createElement=(t)=>t==='a'?{click(){},set href(v){},set download(v){}}:_a(t);
+      const _c=URL.createObjectURL;URL.createObjectURL=()=>'blob:x';
+      exportAccountsCsv();window.Blob=_B;document.createElement=_a;URL.createObjectURL=_c;return out;})()`) as string;
+    expect(csv).toContain('Nationalities,25');
+  });
+
+  test('the builder offers all three: the count, the depth and the pie', async ({ page }) => {
+    await open(page);
+    await page.getByRole('button', { name: /Account report/ }).click();
+    const m = page.locator('#print-opts-modal');
+    await expect(m.getByRole('button', { name: 'Nationality count' })).toBeVisible();
+    const depth = m.locator('#acr-nat-top');
+    await expect(depth).toBeDisabled();                          // no nationality chart, nothing to deepen
+    await m.locator('[data-rep="chartsOn:nationality"]').click();
+    await expect(depth).toBeEnabled();
+    await expect(depth).toHaveValue('20');
+    await expect(m).toContainText('Nationalities named before Other');
+    await expect(m.locator('[aria-label="Nationality"] option', { hasText: 'Pie' })).toHaveCount(1);
+    await depth.selectOption('50');
+    expect(await page.evaluate(`_accOpts().natTop`)).toBe(50);
+  });
+
+  test('a pie is one of the shapes, and every slice has a colour of its own', async ({ page }) => {
+    await open(page);
+    await page.evaluate(`_accToggle('chartsOn','nationality');_accSetChart('nationality','pie')`);
+    const svg = await page.evaluate(`_accSvg('pie',_accBreakdown('nationality',_accRows(),_accOpts()))`) as string;
+    expect(svg.startsWith('<svg')).toBe(true);
+    const fills = [...svg.matchAll(/fill="([^"]+)"/g)].map(m => m[1]);
+    expect(fills).toHaveLength(21);                       // one wedge per row of the table
+    expect(new Set(fills).size).toBe(21);                 // and no two the same
+    // The printed figure pairs it with the table that carries the names and the shares.
+    const fig = await page.evaluate(`_accFigure('nationality',_accBreakdown('nationality',_accRows(),_accOpts()),'pie')`) as string;
+    expect(fig).toContain('Saudi Arabia');
+    expect(fig).toContain('Other');
+    expect(fig.match(/<tr>/g) || []).toHaveLength(22);   // the header, then a row per slice
+  });
+});
