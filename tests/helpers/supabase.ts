@@ -164,10 +164,14 @@ export async function captureBookingRows(page: Page, opts: { rpcMissing?: boolea
   });
 
   await page.route(/\/rest\/v1\/queue_entries/, async (route) => {
-    if (route.request().method() === 'POST') {
-      const b = route.request().postDataJSON();
-      (Array.isArray(b) ? b : [b]).forEach((r: Record<string, unknown>) => rows.push(r));
-    }
+    // Writes are what this helper is for. A READ has to fall through to stubSupabase and
+    // come back with the fixture rows: answering it with [] here told the app the session
+    // was empty, so any code that checks the server before writing - the desk walk-in's
+    // duplicate check - saw nothing and wrote anyway, and the spec could not tell that
+    // apart from a real bug. fallback(), not continue(): continue() goes to the network.
+    if (route.request().method() !== 'POST') return route.fallback();
+    const b = route.request().postDataJSON();
+    (Array.isArray(b) ? b : [b]).forEach((r: Record<string, unknown>) => rows.push(r));
     return route.fulfill({ status: 201, headers: head, body: '[]' });
   });
 

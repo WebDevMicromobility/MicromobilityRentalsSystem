@@ -380,6 +380,196 @@ test.describe('walk-in at the desk', () => {
     await expect(page.locator('.toast', { hasText: 'P-004' })).toHaveCount(0);            // no success toast
   });
 
+  // ── Who is this? ──────────────────────────────────────────────────────────
+  // The desk's duplicate check reads the session from the server, not from this tab's copy
+  // of it: a rider who booked on their own phone on the way in is a realtime message away
+  // from being in that copy, and a copy one message behind books them twice. A mobile on
+  // both sides settles who they are; a name on its own does not, so the form asks.
+
+  test('the check reads the session from the server, not the tab\'s copy of it', async ({ page }) => {
+    await stubSupabase(page, {
+      sessions, queue_entries: [], rider_registrations,   // the tab loads an empty session...
+      'rpc:rider_register': { ok: true, id: 9, match: 'none', resubmitted: false, booking_no: 'P-004' },
+    });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('riders')`);
+    const created: Record<string, unknown>[] = [];
+    const head = { 'access-control-allow-origin': '*', 'content-type': 'application/json' };
+    // ...and while the form is open, the rider's own booking lands on the server
+    await page.route(/\/rest\/v1\/queue_entries/, async (route) => {
+      if (route.request().method() === 'POST') {
+        const b = route.request().postDataJSON();
+        (Array.isArray(b) ? b : [b]).forEach((r: Record<string, unknown>) => created.push(r));
+        return route.fulfill({ status: 201, headers: head, body: '[]' });
+      }
+      return route.fulfill({ status: 200, headers: { ...head, 'content-range': '0-0/1' }, body: JSON.stringify(queue_entries) });
+    });
+    const patches: Record<string, unknown>[] = [];
+    page.on('request', (r) => { if (r.method() === 'PATCH' && /rider_registrations/.test(r.url())) patches.push(JSON.parse(r.postData() || '{}')); });
+
+    await page.evaluate(`showRiderWalkin()`);
+    await page.fill('#rw-badge', 'A-12');
+    await page.fill('#rw-name', 'Amal Booked');
+    await page.fill('#rw-phone', '0500000001');
+    await page.fill('#rw-height', '170');
+    await page.locator('#rider-walkin-modal .toggle-btn', { hasText: 'Hybrid' }).click();
+    await page.click('#rw-submit');
+    await expect.poll(() => patches.length).toBe(1);
+    expect(created).toHaveLength(0);                                              // no second booking
+    expect(patches[0]).toMatchObject({ matched_entry_id: 'e1', match_kind: 'booking' });
+  });
+
+  test('a name with no mobile to confirm it is a question, not a merge', async ({ page }) => {
+    await stubSupabase(page, {
+      sessions, queue_entries, rider_registrations,
+      'rpc:rider_register': { ok: true, id: 9, match: 'none', resubmitted: false, booking_no: 'P-004' },
+    });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('riders')`);
+    const booked = await captureBookingRows(page);
+    await page.evaluate(`showRiderWalkin()`);
+    await page.fill('#rw-badge', 'A-99');
+    await page.fill('#rw-name', 'Amal Booked');      // the same name, and no mobile typed
+    await page.fill('#rw-height', '170');
+    await page.locator('#rider-walkin-modal .toggle-btn', { hasText: 'Hybrid' }).click();
+    await page.click('#rw-submit');
+    await expect(page.locator('#rw-dup')).toContainText('#7');                 // the booking it found
+    await expect(page.locator('#rw-submit')).toBeDisabled();                   // and no way past it
+    expect(booked).toHaveLength(0);
+    await page.locator('#rw-dup button', { hasText: /add a booking/i }).click();
+    await expect.poll(() => booked.length).toBe(1);                            // a namesake keeps their own
+    expect(booked[0]).toMatchObject({ name: 'Amal Booked', session_id: SESS, status: 'waiting' });
+  });
+
+  test('the same question answered the other way gives the rider the booking they hold', async ({ page }) => {
+    await stubSupabase(page, {
+      sessions, queue_entries, rider_registrations,
+      'rpc:rider_register': { ok: true, id: 9, match: 'none', resubmitted: false, booking_no: 'P-004' },
+    });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('riders')`);
+    const booked = await captureBookingRows(page);
+    const patches: Record<string, unknown>[] = [];
+    page.on('request', (r) => { if (r.method() === 'PATCH' && /rider_registrations/.test(r.url())) patches.push(JSON.parse(r.postData() || '{}')); });
+    await page.evaluate(`showRiderWalkin()`);
+    await page.fill('#rw-badge', 'A-99');
+    await page.fill('#rw-name', 'Amal Booked');
+    await page.fill('#rw-height', '170');
+    await page.locator('#rider-walkin-modal .toggle-btn', { hasText: 'Hybrid' }).click();
+    await page.click('#rw-submit');
+    await page.locator('#rw-dup button', { hasText: /same rider/i }).click();
+    await expect.poll(() => patches.length).toBe(1);
+    expect(patches[0]).toMatchObject({ matched_entry_id: 'e1', match_kind: 'booking' });
+    expect(booked).toHaveLength(0);
+  });
+
+  test('two different mobiles are two people, and neither is asked about', async ({ page }) => {
+    await stubSupabase(page, {
+      sessions, queue_entries, rider_registrations,
+      'rpc:rider_register': { ok: true, id: 9, match: 'none', resubmitted: false, booking_no: 'P-004' },
+    });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('riders')`);
+    const booked = await captureBookingRows(page);
+    await page.evaluate(`showRiderWalkin()`);
+    await page.fill('#rw-badge', 'A-98');
+    await page.fill('#rw-name', 'Amal Booked');
+    await page.fill('#rw-phone', '0500000009');       // same name, a different number
+    await page.fill('#rw-height', '170');
+    await page.locator('#rider-walkin-modal .toggle-btn', { hasText: 'Hybrid' }).click();
+    await page.click('#rw-submit');
+    await expect.poll(() => booked.length).toBe(1);
+    await expect(page.locator('#rw-dup')).toHaveCount(0);
+  });
+
+  test('a failed insert leaves one way forward, and the retry does not register the rider twice', async ({ page }) => {
+    await stubSupabase(page, {
+      sessions, queue_entries, rider_registrations,
+      'rpc:rider_register': { ok: true, id: 9, match: 'none', resubmitted: false, booking_no: 'P-004' },
+    }, { table: 'queue_entries', methods: ['POST'], once: true });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('riders')`);
+    const registers: string[] = [];
+    page.on('request', (r) => { if (/rpc\/rider_register/.test(r.url())) registers.push(r.url()); });
+    await page.evaluate(`showRiderWalkin()`);
+    await page.fill('#rw-badge', 'G-02');
+    await page.fill('#rw-name', 'Ghada Unlucky');
+    await page.fill('#rw-height', '168');
+    await page.locator('#rider-walkin-modal .toggle-btn', { hasText: 'Hybrid' }).click();
+    await page.click('#rw-submit');
+    await expect(page.locator('#rw-err')).toBeVisible();
+    await expect(page.locator('#rw-submit')).toHaveText(/try again/i);   // the one button, and it resumes
+    expect(registers).toHaveLength(1);
+    await page.click('#rw-submit');
+    await expect(page.locator('#rider-walkin-modal .modal-box')).toHaveCount(0);   // done
+    expect(registers).toHaveLength(1);                                             // and registered once
+  });
+
+  test('an insert whose reply was lost is not sent a second time', async ({ page }) => {
+    await stubSupabase(page, {
+      sessions, queue_entries: [], rider_registrations,
+      'rpc:rider_register': { ok: true, id: 9, match: 'none', resubmitted: false, booking_no: 'P-004' },
+    });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('riders')`);
+    // The rows land; the reply never comes back. To the client that is indistinguishable
+    // from a refusal, so the retry has to look before it writes.
+    const created: Record<string, unknown>[] = [];
+    const head = { 'access-control-allow-origin': '*', 'content-type': 'application/json' };
+    let swallowNext = true;
+    await page.route(/\/rest\/v1\/queue_entries/, async (route) => {
+      if (route.request().method() === 'POST') {
+        const b = route.request().postDataJSON();
+        (Array.isArray(b) ? b : [b]).forEach((r: Record<string, unknown>) => created.push(r));
+        if (swallowNext) { swallowNext = false; return route.fulfill({ status: 503, headers: head, body: JSON.stringify({ code: '503', message: 'gateway' }) }); }
+        return route.fulfill({ status: 201, headers: head, body: '[]' });
+      }
+      return route.fulfill({ status: 200, headers: { ...head, 'content-range': `0-${created.length}/${created.length}` }, body: JSON.stringify(created) });
+    });
+    await page.evaluate(`showRiderWalkin()`);
+    await page.fill('#rw-badge', 'L-07');
+    await page.fill('#rw-name', 'Layla Lost');
+    await page.fill('#rw-phone', '0500000077');
+    await page.fill('#rw-height', '166');
+    await page.locator('#rider-walkin-modal .toggle-btn', { hasText: 'Road' }).click();
+    await page.click('#rw-submit');
+    await expect(page.locator('#rw-submit')).toHaveText(/try again/i);
+    expect(created).toHaveLength(1);
+    await page.click('#rw-submit');
+    await expect(page.locator('#rider-walkin-modal .modal-box')).toHaveCount(0);
+    expect(created).toHaveLength(1);                                  // still one booking, not two
+  });
+
+  test('a session whose window has ended is not offered, because the server would refuse it', async ({ page }) => {
+    await stubSupabase(page, { sessions, queue_entries, rider_registrations });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    const today = await page.evaluate(`new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ})`);
+    const now = await page.evaluate(`new Intl.DateTimeFormat('en-GB',{timeZone:KSA_TZ,hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date())`);
+    // An end written before its start is over, the way _session_window() reads it - it does
+    // not run past midnight into tomorrow.
+    expect(await page.evaluate(`_sessEnded({session_date:'${today}',bike_slots:JSON.stringify({_time:'23:59 - 00:30'})})`)).toBe(true);
+    // And no readable window at all is the server's 09:00 - 11:00 default, not "never ends".
+    expect(await page.evaluate(`_sessEnded({session_date:'${today}',bike_slots:'{}'})`)).toBe(String(now) >= '11:00');
+    const listed = await page.evaluate(
+      `(()=>{S.sessions=[{id:'${today}-pw',day:'Wednesday',session_date:'${today}',capacity:35,status:'open',event_kind:'community',ride_kind:'petromin',paid_ride:true,bike_slots:JSON.stringify({_time:'23:59 - 00:30'})}];return _walkinSessions().length;})()`,
+    );
+    expect(listed).toBe(0);
+  });
+
   test('a pasted number with its own country code is kept, not prefixed with +966', async ({ page }) => {
     await stubSupabase(page, {
       sessions, queue_entries, rider_registrations,
@@ -440,6 +630,14 @@ test('scanning a rider QR opens the booking pop-up with a Check in button, and t
 
   // The QR on the rider's phone holds MMP-<booking number>, the same shape as a rentals ticket.
   await page.evaluate(`_onScanPayload('MMP-P-001')`);
+  // The toast names the rider and their number and nothing else. It used to borrow the
+  // queue's message and cut the '#' off the front of the placeholder, which only worked in
+  // the languages that write a number sign - Spanish, French and Portuguese print 'N.º', so
+  // the substitution missed and the toast read a literal {0}.
+  const toast = page.locator('.toast', { hasText: 'P-001' });
+  await expect(toast).toBeVisible();
+  await expect(toast).toContainText('Amal Booked');
+  await expect(toast).not.toContainText('{0}');
   const modal = page.locator('#rider-modal .modal-box'); // the container has no size of its own
   await expect(modal).toBeVisible();
   await expect(modal).toContainText('P-001');
