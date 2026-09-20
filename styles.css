@@ -4034,14 +4034,14 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
       --bg:var(--snd-bg); --s1:var(--snd-surface); --s2:#003C41; --s3:#004449; --in-bg:#00343A;
       --green:var(--snd-lime-lt); --green-h:#A4E86B; --green-d:var(--snd-lime-lt);
       --ac-fill:var(--snd-green); --ac-fill-h:var(--snd-green-br); --acink:#FFFFFF;
-      --red:#CB3878; --orange:#D8B36A; --blue:#277BD7; --purple:#A4A1ED;
-      --text:var(--snd-ink); --muted:var(--snd-mut); --muted-l:#7FAF9A;
+      --red:#FF7BA3; --orange:#D8B36A; --blue:#79C0FF; --purple:#A4A1ED;
+      --text:var(--snd-ink); --muted:var(--snd-mut); --muted-l:#8FBFA8;
       --border:rgba(255,255,255,.18); --line2:rgba(255,255,255,.3);
       --accent2:rgba(140,220,70,.45); --warn:rgba(255,255,255,.4);
       --acsoft:rgba(0,137,74,.2); --photo-bg:#00343A;
       --foot:var(--snd-deep); --footink:#FFFFFF; --footmut:var(--snd-mut);
-      --green-rgb:140,220,70; --tint-rgb:255,255,255; --red-rgb:203,56,120;
-      --warn-rgb:216,179,106; --orange-rgb:216,179,106; --purple-rgb:164,161,237; --blue-rgb:39,123,215;
+      --green-rgb:140,220,70; --tint-rgb:255,255,255; --red-rgb:255,123,163;
+      --warn-rgb:216,179,106; --orange-rgb:216,179,106; --purple-rgb:164,161,237; --blue-rgb:121,192,255;
       --sh-2:0 1px 3px rgba(0,0,0,.4); --sh-3:0 14px 34px rgba(0,0,0,.5);
       color-scheme:dark;
       color:var(--snd-ink);
@@ -4149,3 +4149,31 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
     body .ticket-card.ev-snd96 .qr-hold{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:var(--snd-mut);}
     /* The QR keeps its white tile: a scanner needs the contrast, whatever the skin. */
     body .ticket-card.ev-snd96 .ticket-qr-wrap{background:#fff;border-radius:8px;}
+
+    /* ── Status inks ─────────────────────────────────────────────────────────
+       The customer reskin writes these as dark literals rather than as tokens,
+       because on paper they are the only readable pair. A literal is out of the
+       takeover's reach, so "Available", "Pending" and the waitlist cue were
+       still being drawn in near-black green and brown on the green field. Named
+       again here at the reskin's own weight, and last, so they resolve to the
+       light-on-dark half of the same palette. */
+    body.snd96 .badge-active,body.snd96 .spots-green{color:var(--snd-lime-lt);}
+    body.snd96 .badge-waiting,body.snd96 .badge-waitlist,body.snd96 .spots-low{color:var(--orange);}
+    body.snd96 .badge-noshow,body.snd96 .spots-red{color:var(--red);}
+    body.snd96 .badge-done{color:var(--muted);}
+    body.snd96 .wl-loud{color:var(--orange);}
+    body.snd96 .wl-loud::before{background:var(--orange);}
+    body.snd96 .mm-note-go{border-color:rgba(140,220,70,.45);color:var(--snd-lime-lt);}
+    /* The reskin forces every inline amber inside a notice to its paper value with
+       !important; only an equal weight, later, brings it back. */
+    body.snd96 .mm-note span[style*="color:var(--orange)"]{color:var(--orange)!important;}
+    /* The error bar fills with --red and writes on it in white, which the lighter
+       red above no longer carries. The fill is the light half now, so the ink is
+       the dark one. */
+    body.snd96 .err-bar .undo-bar-action{color:#2B0A14;}
+
+    /* The ride's own token is Saudi green — a fill colour, and the right one on the
+       white event picker. Inside the takeover it is only ever ink (the ride's name
+       on a session card, its dot, its hairlines), so on the green field it becomes
+       the lime. Staff keep the fill colour: their browser is still on paper. */
+    body.snd96:not(.view-staff) .ev-snd96{--ev:var(--snd-lime-lt);--ev-rgb:140,220,70;}

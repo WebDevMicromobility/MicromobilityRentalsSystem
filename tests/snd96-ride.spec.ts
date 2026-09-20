@@ -319,3 +319,62 @@ test('saving a numbered session does not read as a date change', async ({ page }
   expect(writes.some((w) => w.id)).toBe(false);   // nothing was re-inserted: it never moved
   expect(deletes).toEqual([]);                    // and the session is still there
 });
+
+// ── The federation's form is what actually puts a rider on the start line ────
+// Booking a bike here is not entering the ride: entry is a separate form on sacf.sa that we
+// cannot see or check. So the confirmation says so, in bold, and the popup holds itself shut
+// long enough to be read rather than dismissed on reflex.
+const FORM_URL = 'https://sacf.sa/?page_id=11138';
+
+// The event has to be picked as well as the session: a rider reaches a session through its
+// card, and renderRegister drops a selection that is not in the picked event's own list.
+async function bookInto(page: Page, event: string, sessionId: string) {
+  await page.evaluate(`S.selEvent='${event}';S.selSession='${sessionId}';S.regQty=1;S.regBikeHeights=[175];
+    S.regBikeTypes=['Road'];S.regRiderNames=['Spec Rider'];S.promoApplied=null;submitReg();`);
+}
+
+test('booking it asks for the sign-up form, and will not be dismissed at once', async ({ page }) => {
+  const plain = { ...snd, event_kind: null };
+  await stubSupabase(page, { sessions: [jcc, plain, sat], bikes: [], queue_entries: [] });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok' });
+  await page.goto('/');
+  await waitForSb(page);
+  await bookInto(page, 'snd96', 'snd1');
+
+  const box = page.locator('#booth-popup');
+  await expect(box).toBeVisible();
+  // it replaces the pay-at-the-booth cue rather than joining it
+  await expect(page.locator('#booth-popup-msg')).not.toContainText('booth');
+  const link = page.locator('#booth-popup-msg a');
+  await expect(link).toHaveAttribute('href', FORM_URL);
+  await expect(link).toHaveAttribute('target', '_blank');
+  // the warning is bold, and it is the warning that is bold
+  await expect(page.locator('#booth-popup-extra strong'))
+    .toHaveText('You will not be able to take part unless you complete the form.');
+
+  const close = page.locator('.booth-popup-close');
+  await expect(close).toBeDisabled();          // a reflex tap does nothing
+  await expect(close).toHaveText('5');         // and says why
+  await page.evaluate(`closeBoothPopup()`);    // nor does anything else reaching for it
+  await expect(box).toBeVisible();
+
+  await expect(close).toBeEnabled({ timeout: 9000 });
+  await close.click();
+  await expect(box).toBeHidden();
+});
+
+test('a circuit booking still gets the pay-at-the-booth cue, closable straight away', async ({ page }) => {
+  await stubSupabase(page, { sessions: [jcc], bikes: [], queue_entries: [] });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok' });
+  await page.goto('/');
+  await waitForSb(page);
+  await bookInto(page, 'jcc', 's1');
+
+  const box = page.locator('#booth-popup');
+  await expect(box).toBeVisible();
+  await expect(page.locator('#booth-popup-msg a')).toHaveCount(0);
+  const close = page.locator('.booth-popup-close');
+  await expect(close).toBeEnabled();
+  await close.click();
+  await expect(box).toBeHidden();
+});

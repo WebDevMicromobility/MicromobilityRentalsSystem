@@ -802,6 +802,11 @@ en:{landMainTitleHtml:'Reserve Your <span>Bicycle Now!</span>',spotsFull:'Full',
   payAtBoothTitle:'Payment Info',
   payAtBoothMsg:'Payment is collected at the booth at the Corniche Circuit. Please have your queue number ready when you arrive.',
   payAtBoothFCFS:'Bikes are assigned on a First Come, First Serve basis. Come early to get the bike type you chose.',
+  snd96FormTitle:'One more step',
+  snd96FormMsg:'The National Day ride is entered through the federation\'s own sign-up form. Your bike is booked, but you still have to fill that form in.',
+  snd96FormLink:'Open the sign-up form',
+  snd96FormWarn:'You will not be able to take part unless you complete the form.',
+  popupHoldWait:'Closes in {0}s',
   noSessionsAvail:'No sessions are available right now.',
   noSessionsSocial:'Follow us on social media for updates on upcoming sessions!',
   editPriceBtn:'Edit Price',editPriceTitle:'Edit Payment Amount',editPriceCustom:'Custom Amount',
@@ -1205,6 +1210,11 @@ ar:{landMainTitleHtml:'احجز <span>دراجتك الآن!</span>',spotsFull:'
   payAtBoothTitle:'معلومات الدفع',
   payAtBoothMsg:'يتم الدفع عند الكشك في حلبة الكورنيش. يرجى إحضار رقم طابورك عند وصولك.',
   payAtBoothFCFS:'يتم توزيع الدراجات على أساس الأول فالأول. تعال مبكراً للحصول على نوع الدراجة الذي اخترته.',
+  snd96FormTitle:'خطوة أخيرة',
+  snd96FormMsg:'التسجيل في مسيرة اليوم الوطني يتم عبر نموذج الاتحاد الخاص بها. دراجتك محجوزة، لكن يبقى عليك تعبئة ذلك النموذج.',
+  snd96FormLink:'افتح نموذج التسجيل',
+  snd96FormWarn:'لن تتمكن من المشاركة ما لم تُكمل النموذج.',
+  popupHoldWait:'يُغلق خلال {0} ثانية',
   noSessionsAvail:'لا توجد جلسات متاحة الآن.',
   noSessionsSocial:'تابعنا على وسائل التواصل الاجتماعي للاطلاع على الجلسات القادمة!',
   editPriceBtn:'تعديل السعر',editPriceTitle:'تعديل مبلغ الدفع',editPriceCustom:'مبلغ مخصص',
@@ -6265,7 +6275,7 @@ function renderRegister(){
         <div style="font-size:16px;font-weight:900;margin-bottom:8px">${t('noSessionsAvail')}</div>
         <div style="font-size:13px;color:var(--muted-l);font-weight:600;margin-bottom:18px">${t('noSessionsSocial')}</div>
         <a href="https://www.instagram.com/MicroMobilitySA/" target="_blank" rel="noopener noreferrer"
-          style="display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 20px;border-radius:999px;background:#ffffff;border:1px solid rgba(26,25,25,.25);color:var(--text);font-size:13px;font-weight:700;text-decoration:none">
+          style="display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 20px;border-radius:999px;background:var(--s1);border:1px solid var(--line2);color:var(--text);font-size:13px;font-weight:700;text-decoration:none">
           <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4.5"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>
           @MicroMobilitySA
         </a>
@@ -6316,7 +6326,7 @@ function renderRegister(){
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         ${existingEntries.map((e,i)=>`
-          <div style="background:#ffffff;border:1px solid rgba(26,25,25,.14);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;flex-shrink:0">
+          <div style="background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;flex-shrink:0">
             ${existingEntries.length>1?`<span style="color:var(--muted);font-size:10px;display:block;margin-bottom:2px">${t('bike')} ${i+1}</span>`:''}
             <span style="color:var(--muted)">#${e.queueNum}</span>
             &nbsp;·&nbsp;${typeBadge(resolvedType(e))}
@@ -6586,8 +6596,8 @@ function renderRegister(){
   const panelWaiver=`
     ${stepHeader(_waiverCopy(_selSessObj).title,t('waiverSub'))}
     <div class="form-section">
-      <div style="background:#ffffff;border:1px solid rgba(26,25,25,.12);border-radius:12px;padding:18px 20px;max-height:260px;overflow-y:auto;font-size:13.5px;line-height:1.65;color:var(--muted)" tabindex="0" role="region" aria-label="${esc(_waiverCopy(_selSessObj).title)}">${esc(_waiverCopy(_selSessObj).body)}</div>
-      <label class="mm-waiver-agree" style="display:flex;align-items:center;gap:12px;background:#ffffff;border:1.5px solid ${S.waiverOk?'#077A4B':'rgba(26,25,25,.14)'};border-radius:12px;padding:15px 18px;margin-top:12px;cursor:pointer;min-height:52px;box-sizing:border-box">
+      <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:18px 20px;max-height:260px;overflow-y:auto;font-size:13.5px;line-height:1.65;color:var(--muted)" tabindex="0" role="region" aria-label="${esc(_waiverCopy(_selSessObj).title)}">${esc(_waiverCopy(_selSessObj).body)}</div>
+      <label class="mm-waiver-agree" style="display:flex;align-items:center;gap:12px;background:var(--s1);border:1.5px solid ${S.waiverOk?'var(--green)':'var(--border)'};border-radius:12px;padding:15px 18px;margin-top:12px;cursor:pointer;min-height:52px;box-sizing:border-box">
         <input type="checkbox" ${S.waiverOk?'checked':''} onchange="toggleWaiver(this.checked)" style="width:20px;height:20px;flex:none">
         <span style="font-size:13.5px;font-weight:600">${_waiverCopy(_selSessObj).agree}</span>
       </label>
@@ -7128,7 +7138,7 @@ async function submitReg(){
     if(_isCommBooking)toast(bookingStatus==='waitlist'?t('commCueWaitlist'):t('commCuePending'));
     else toast(bookingStatus==='waitlist'?`${t('toastWaitlisted')} ${numStr}`:`${t('toastRegistered')} ${numStr}`);
     renderRegister();renderMyRides();
-    if(!_isCommBooking&&bookingStatus!=='waitlist')showBoothPopup(); // no pay-at-booth cue for a spot they don't hold yet
+    if(!_isCommBooking&&bookingStatus!=='waitlist'){_rideKind(sess)==='snd96'?showSnd96FormPopup():showBoothPopup();} // no pay-at-booth cue for a spot they don't hold yet
   }finally{
     S.regSubmitting=false;
     renderRegister();
@@ -7318,14 +7328,14 @@ function renderBookingTicket(entries,opts){
   const riderRows=g.map((e,i)=>{
     const bike=getAssignedBikes(e)[0]||null;
     const payBadge=e.paid
-      ?`<span style="display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;color:#06603b;white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;background:#06603b;flex:none"></span>${(e.price??DEFAULT_PRICE)===0?t('onTheHouseLabel'):t('paidLabel')}</span>`
-      :`<span style="display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;color:#7a5a10;white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;background:#b98a1a;flex:none"></span>${t('pendingLabel')}</span>`;
+      ?`<span style="display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;color:var(--green-h);white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;background:var(--green-h);flex:none"></span>${(e.price??DEFAULT_PRICE)===0?t('onTheHouseLabel'):t('paidLabel')}</span>`
+      :`<span style="display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:800;color:var(--orange);white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;background:var(--orange);flex:none"></span>${t('pendingLabel')}</span>`;
     const bikeLine=bike
       ?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:3px">${esc(bike.name)}${bike.brand?' · '+esc(bike.brand):''}${bike.model?' '+esc(bike.model):''}${bike.groupset?' · '+esc(bike.groupset):''}${bike.speeds?' · '+bike.speeds+'sp':''}</div>`
       :'';
     return`<div style="padding:11px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        ${(_comm&&!_commPublished(sess))?'':e.status==='waitlist'?`<span style="display:inline-flex;align-items:center;gap:6px;color:#7a5a10;font-size:10px;font-weight:800;white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;background:#b98a1a;flex:none"></span>W${e.waitlistNum||''}</span>`:`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:22px;padding:0 8px;border-radius:999px;background:#ffffff;border:1px solid rgba(26,25,25,.16);color:var(--text);font-size:11px;font-weight:800">#${e.queueNum}</span>`}
+        ${(_comm&&!_commPublished(sess))?'':e.status==='waitlist'?`<span style="display:inline-flex;align-items:center;gap:6px;color:var(--orange);font-size:10px;font-weight:800;white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;background:var(--orange);flex:none"></span>W${e.waitlistNum||''}</span>`:`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:22px;padding:0 8px;border-radius:999px;background:var(--s1);border:1px solid var(--line2);color:var(--text);font-size:11px;font-weight:800">#${e.queueNum}</span>`}
         <span style="font-weight:800;font-size:13px;flex:1;min-width:0">${esc(e.name)}</span>
         ${_needsBike(sess)?typeBadge(resolvedType(e)):''}
       </div>
@@ -17435,15 +17445,51 @@ function showReceipt(id){
 }
 function closeReceipt(){document.getElementById('receipt-modal').style.display='none';}
 
+// The National Day ride is entered through the federation's own form, which is not ours and
+// cannot be checked from here. A booking alone does not put a rider on the start line, so the
+// popup says so plainly and holds itself shut for a few seconds: this is the one thing on the
+// confirmation screen a rider cannot afford to dismiss on reflex.
+const SND96_FORM_URL='https://sacf.sa/?page_id=11138';
+const POPUP_HOLD_SEC=5;
 function showBoothPopup(){
-  document.getElementById('booth-popup-title').textContent=t('payAtBoothTitle')||'Payment at the Booth';
-  document.getElementById('booth-popup-msg').textContent=t('payAtBoothMsg')||t('payAtBooth');
+  _showPopup(t('payAtBoothTitle')||'Payment at the Booth',esc(t('payAtBoothMsg')||t('payAtBooth')),
+    `<span style="font-size:16px"></span> ${esc(t('payAtBoothFCFS'))}`);
+}
+function showSnd96FormPopup(){
+  _showPopup(t('snd96FormTitle'),
+    `${esc(t('snd96FormMsg'))}<div style="margin-top:16px"><a href="${SND96_FORM_URL}" target="_blank" rel="noopener" class="btn-primary" style="display:inline-flex;align-items:center;justify-content:center;text-decoration:none;padding:11px 18px">${esc(t('snd96FormLink'))}</a></div>`,
+    `<strong style="color:var(--orange)">${esc(t('snd96FormWarn'))}</strong>`,
+    POPUP_HOLD_SEC);
+}
+// holdSec > 0 keeps the close button out of reach until the seconds are up, counting down on
+// the button itself so the wait reads as deliberate rather than as a popup that is stuck.
+function _showPopup(title,msgHtml,extraHtml,holdSec){
+  document.getElementById('booth-popup-title').textContent=title||'';
+  document.getElementById('booth-popup-msg').innerHTML=msgHtml||'';
   const extra=document.getElementById('booth-popup-extra');
-  if(extra)extra.innerHTML=`<span style="font-size:16px"></span> ${t('payAtBoothFCFS')}`;
+  if(extra){extra.innerHTML=extraHtml||'';extra.style.display=extraHtml?'':'none';}
   const el=document.getElementById('booth-popup');
+  const btn=el&&el.querySelector('.booth-popup-close');
+  if(S._popupTick){clearInterval(S._popupTick);S._popupTick=null;}
+  if(btn){
+    const _free=()=>{btn.disabled=false;btn.textContent='\u2715';btn.style.fontSize='';btn.setAttribute('aria-label',t('cancelBtn'));};
+    let left=Math.max(0,parseInt(holdSec,10)||0);
+    if(left>0){
+      btn.disabled=true;btn.style.fontSize='13px';
+      const _paint=()=>{btn.textContent=String(left);btn.setAttribute('aria-label',t('popupHoldWait').replace('{0}',String(left)));};
+      _paint();
+      S._popupTick=setInterval(()=>{left--;if(left>0){_paint();return;}clearInterval(S._popupTick);S._popupTick=null;_free();},1000);
+    }else _free();
+  }
   el.style.display='flex';
 }
-function closeBoothPopup(){document.getElementById('booth-popup').style.display='none';}
+function closeBoothPopup(){
+  const el=document.getElementById('booth-popup');
+  const btn=el&&el.querySelector('.booth-popup-close');
+  if(btn&&btn.disabled)return; // still holding itself open
+  if(S._popupTick){clearInterval(S._popupTick);S._popupTick=null;}
+  if(el)el.style.display='none';
+}
 
 
 function _uid(){return Math.random().toString(36).slice(2,7);}
