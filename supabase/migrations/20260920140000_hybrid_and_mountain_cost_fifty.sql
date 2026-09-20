@@ -1,8 +1,8 @@
 -- ============================================================================
 -- Hybrid and Mountain drop from SAR 57.50 to SAR 50. Road stays at 75.
 --
--- NOT YET APPLIED. Run in the SQL editor, then:
---   supabase migration repair --status applied 20260920140000
+-- APPLIED AND VERIFIED 2026-09-20. ride_prices reads 50 for Hybrid/Mountain/Any/Kids, 75 for
+-- Road, 250 for Road Carbon; _rider_price returns 50 and 75. History recorded.
 --
 -- Two places price a ride and both have to agree, or the roster and the billing
 -- report quote different numbers for the same bike:

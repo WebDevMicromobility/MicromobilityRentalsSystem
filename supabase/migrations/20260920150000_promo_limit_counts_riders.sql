@@ -1,8 +1,7 @@
 -- ============================================================================
 -- A promo code's limit counts RIDERS, and now says so.
 --
--- NOT YET APPLIED. Run in the SQL editor, then:
---   supabase migration repair --status applied 20260920150000
+-- APPLIED AND VERIFIED 2026-09-20: both column comments name riders. History recorded.
 --
 -- Nothing about the behaviour changes: _promo_count has always fired per queue_entries row,
 -- so a party of three on one code has always spent three of its uses. That is the rule the
