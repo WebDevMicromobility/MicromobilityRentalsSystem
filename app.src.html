@@ -2323,12 +2323,19 @@ async function _queueFetch(windowed,days){
     });
   }
   const cust=S.loggedIn||getSession();
+  // A CUSTOMER only needs other people's bookings to know how full a night is and where a
+  // waitlist stands, and both are questions about nights you can still book. Their own past
+  // rides arrive separately, from my_bookings, and the leaderboard that wants everybody's
+  // history is staff-only and reads queue_entries down the other branch.
+  //
+  // This used to ask for the whole window: 5,017 rows and about 1.25 MB of JSON on every
+  // visit, to show a rider their own handful. Today onward is 214 rows and 55 kB. That is
+  // the difference between comfortably inside the free egress allowance and over it.
+  //
+  // One day back, not today, so a session that runs past midnight is still there at 00:30.
+  const _pubCut=new Date(Date.now()-864e5).toLocaleDateString('en-CA',{timeZone:KSA_TZ});
   const [pub,mine]=await Promise.all([
-    _pagedAll(()=>{
-      let pubSel=sb.from('queue_public').select('*');
-      if(windowed)pubSel=pubSel.gte('session_date',_qWindowCut(days));
-      return pubSel.order('session_id').order('queue_num');
-    }),
+    _pagedAll(()=>sb.from('queue_public').select('*').gte('session_date',_pubCut).order('session_id').order('queue_num')),
     (cust&&cust.session_token)?sb.rpc('my_bookings',{p_id:cust.id,p_token:cust.session_token}):Promise.resolve({data:[]}),
   ]);
   const mineRows=(mine&&!mine.error&&mine.data)||[];
