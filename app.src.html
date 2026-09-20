@@ -112,7 +112,6 @@
 </head>
 <body>
 <div id="loading-screen" class="mm-loading" role="status" aria-live="polite" aria-label="Loading">
-  <div class="mm-loading__field" aria-hidden="true"></div>
   <div class="mm-loading__spinner" aria-hidden="true">
     <span class="mm-loading__ring"></span>
     <span class="mm-loading__mark"></span>
@@ -126,42 +125,17 @@
 </div>
 <script>
 // ── The brand loading state ──────────────────────────────────────────────────
-// It lives here rather than in the app script because the watermark has to be in the DOM
-// for the FIRST paint, and the app script is a megabyte behind it. Every later full-screen
-// wait (route changes, the staff panel boot, the bike-tag resolve) goes through
-// window.mmLoading, so there is one show/hide with one set of timings.
+// It lives here rather than in the app script because the screen has to be on the FIRST
+// paint and the app script is a megabyte behind it. Every later full-screen wait (route
+// changes, the staff panel boot, the bike-tag resolve) goes through window.mmLoading, so
+// there is one show/hide with one set of timings.
 window.mmLoading=(function(){
-  var MARK_AR=360/408;      // the mark's own aspect: height per unit of width
   var FADE=180, MIN_ON=250; // a fast load must not produce a flash
-  // Fixed seed: the field is scattered, never gridded, and identical on every paint.
-  function seeded(seed){return function(){seed=seed+0x6D2B79F5|0;var t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
-  // Density, not count. The field box is 120% of the viewport each way and takes one mark
-  // per ~230x110 px of it, scaled with the marks themselves - so a desktop canvas does not
-  // go sparse and a phone does not go crowded. Marks are upright: 0deg, no exceptions.
-  function field(el){
-    if(!el)return;
-    var vw=window.innerWidth||360,vh=window.innerHeight||640;
-    var scale=vw<=400?.8:(vw>=1025?1.25:1);
-    var cols=Math.max(3,Math.min(12,Math.round(vw*1.2/(230*scale))));
-    var rows=Math.max(5,Math.min(20,Math.round(vh*1.2/(110*scale))));
-    var cw=100/cols, ch=100/rows, r=seeded(0x4D4D2609), out='', x, y;
-    for(y=0;y<rows;y++){
-      var stagger=(y%2)?.5:0; // every other row sits half a column over, so no two rows line up
-      for(x=0;x<cols;x++){
-        var w=(42+r()*22)*scale;
-        var left=cw*(x+stagger)+(r()-.5)*cw*.36+1.5;
-        var top=ch*y+(r()-.5)*ch*.36+1.5;
-        out+='<i style="left:'+left.toFixed(2)+'%;top:'+top.toFixed(2)+'%;width:'+w.toFixed(1)+'px;height:'+(w*MARK_AR).toFixed(1)+'px"></i>';
-      }
-    }
-    el.innerHTML=out;
-  }
-  var shownAt=Date.now(), fadeT=0, holdT=0, rzT=0;
+  var shownAt=Date.now(), fadeT=0, holdT=0;
   function root(el){return el||document.getElementById('loading-screen');}
   function show(el){
     var n=root(el); if(!n)return;
     clearTimeout(holdT); clearTimeout(fadeT);
-    field(n.querySelector('.mm-loading__field'));
     n.style.display='flex'; n.style.pointerEvents='';
     void n.offsetWidth; n.style.opacity='1';
     shownAt=Date.now();
@@ -174,16 +148,9 @@ window.mmLoading=(function(){
       fadeT=setTimeout(function(){n.style.display='none';},FADE);
     },Math.max(0,MIN_ON-(Date.now()-shownAt)));
   }
-  field(document.querySelector('#loading-screen .mm-loading__field'));
-  // Re-lay the field when the canvas changes size. Same seed, so the pattern does not
-  // reshuffle - it just fits the new box.
-  window.addEventListener('resize',function(){clearTimeout(rzT);rzT=setTimeout(function(){
-    var n=document.getElementById('loading-screen');
-    if(n&&n.style.display!=='none')field(n.querySelector('.mm-loading__field'));
-  },200);});
   // Boot can stall (a blocked CDN, a dead network). The screen still comes down.
   setTimeout(function(){hide();},5000);
-  return{show:show,hide:hide,field:field};
+  return{show:show,hide:hide};
 })();
 </script>
 
@@ -9678,8 +9645,8 @@ function _contactCell(phone,entry){
 }
 
 
-// The in-panel wait. It is the same component as the full-screen one, minus the ground and
-// the watermark, so a tab that is still fetching reads as the brand rather than as grey bars.
+// The in-panel wait. It is the same component as the full-screen one, minus the ground, so a
+// tab that is still fetching reads as the brand rather than as grey bars.
 function skeletonList(){return`<div class="mm-loading mm-loading--inline" role="status" aria-live="polite" aria-label="${esc(t('loadingLabel'))}"><div class="mm-loading__spinner" aria-hidden="true"><span class="mm-loading__ring"></span><span class="mm-loading__mark"></span></div></div>`;}
 // ── Staff walk-in: create a queue entry on the spot (no customer account) so walk-ups can rent bikes and buy items ──
 
@@ -21323,10 +21290,10 @@ function _syncModalFocus(){
 }
 try{
   const _mfo=new MutationObserver(recs=>{
-    // Ignore the loading state. It rewrites its own subtree (the watermark field) and its own
-    // style twice on the way out, up to 430 ms after a modal may have opened underneath it.
-    // Those are not a dialog changing, and letting them reset this debounce pushes the pass
-    // past the modal's own focus call under load - the trap AGENTS.md describes.
+    // Ignore the loading state. It writes its own style twice on the way out, up to 430 ms
+    // after a modal may have opened underneath it. Those are not a dialog changing, and
+    // letting them reset this debounce pushes the pass past the modal's own focus call
+    // under load - the trap AGENTS.md describes.
     if(recs.every(r=>{const n=r.target;return n&&n.nodeType===1&&n.closest&&n.closest('#loading-screen');}))return;
     clearTimeout(window.__mfT);window.__mfT=setTimeout(_syncModalFocus,40);
   });

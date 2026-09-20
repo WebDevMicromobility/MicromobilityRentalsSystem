@@ -1015,18 +1015,12 @@
     .queue-table tbody tr.row-noshow-cancel td{border-bottom-color:rgba(var(--red-rgb),.12)!important;}
     .queue-table tbody tr.row-done-paid{background:rgba(var(--green-rgb),.05);}
     /* ── Brand loading state ──────────────────────────────────────────────────
-       Three layers on one full-bleed container: the ground, an upright watermark
-       field of the M mark, and a neon mark inside a rotating ring. The mark is a
-       CSS MASK over a white single-colour asset - that is what tints it green, and
-       it is why the ring and the mark size independently of each other. The field
-       is laid out in JS (mmLoading.field) from a fixed seed, so it is scattered
-       rather than gridded and identical on every paint. */
+       A flat ground with a neon mark inside a rotating ring. The mark is a CSS MASK
+       over a white single-colour asset - that is what tints it green, and it is why
+       the ring and the mark size independently of each other. */
     .mm-loading{--mm-mark:url('assets/brand-mark-white.svg');
       position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
       background:#1A1919;overflow:hidden;z-index:9999;transition:opacity .18s linear;}
-    .mm-loading__field{position:absolute;inset:-10%;opacity:.085;pointer-events:none;}
-    .mm-loading__field i{position:absolute;display:block;background:#FBF9F4;
-      -webkit-mask:var(--mm-mark) center/contain no-repeat;mask:var(--mm-mark) center/contain no-repeat;}
     .mm-loading__spinner{position:relative;width:132px;height:132px;display:inline-flex;align-items:center;justify-content:center;}
     .mm-loading__ring{position:absolute;inset:0;border-radius:50%;border:3px solid rgba(251,249,244,.12);border-top-color:#03FF89;animation:mmSpin 1s linear infinite;}
     .mm-loading__mark{width:88px;height:88px;background:#03FF89;
@@ -1040,9 +1034,9 @@
       .mm-loading__spinner{width:160px;height:160px;}
       .mm-loading__mark{width:106px;height:106px;}
     }
-    /* Landscape phone: the spinner stays centred and the field bleeds. Never scroll,
-       never letterbox - the container is fixed and clipped, so there is nothing to do
-       but keep the ring inside a 480px-tall window. */
+    /* Landscape phone: the spinner stays centred. Never scroll, never letterbox - the
+       container is fixed and clipped, so there is nothing to do but keep the ring
+       inside a 480px-tall window. */
     @media (max-height:480px){
       .mm-loading__spinner{width:96px;height:96px;}
       .mm-loading__mark{width:64px;height:64px;}
@@ -1052,9 +1046,9 @@
     @media (prefers-reduced-motion: reduce){
       .mm-loading__ring{animation:none;border-color:#03FF89;opacity:.4;}
     }
-    /* Inline variant - the in-panel wait that replaced the shimmer skeletons. It drops
-       the ground and the watermark because it sits inside a staff panel that is white in
-       one theme and near-black in the other, so it borrows the panel's own tint instead. */
+    /* Inline variant - the in-panel wait that replaced the shimmer skeletons. It drops the
+       ground because it sits inside a staff panel that is white in one theme and near-black
+       in the other, so it borrows the panel's own tint instead. */
     .mm-loading--inline{position:relative;inset:auto;z-index:0;background:none;min-height:220px;padding:36px 16px;}
     .mm-loading--inline .mm-loading__spinner{width:92px;height:92px;}
     /* A fixed neutral track, not a themed one: this block is injected into the staff panel,

@@ -16,9 +16,8 @@ in [SCREENS.md](SCREENS.md).
    site renders with) and clears any stored theme preference from earlier builds.
 2. It also reads `?lang=` or `localStorage.cq_lang`; for `ar` it sets `dir="rtl"` immediately and
    **starts fetching `lang/ar.json`** before the app script parses.
-3. `#loading-screen` shows the brand loading state: the `#1A1919` ground, an upright watermark
-   field of the M mark, and a neon-green mark inside a rotating ring. No text — the chosen
-   language only sets the container's `aria-label`.
+3. `#loading-screen` shows the brand loading state: the `#1A1919` ground and a neon-green mark
+   inside a rotating ring. No text — the chosen language only sets the container's `aria-label`.
    - **[AUTO]** If boot stalls, the loading screen force-hides after **5 seconds**.
    - It stays up for at least **250 ms** and fades out over **180 ms**, so a fast load does not flash.
 4. `_sbReady` waits for supabase-js.
