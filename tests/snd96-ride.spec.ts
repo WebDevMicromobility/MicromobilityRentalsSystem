@@ -272,3 +272,50 @@ test('moving its date keeps its mark, so the move cannot land on another ride', 
   await expect.poll(() => writes.some((w) => w.id)).toBe(true);
   expect(writes.find((w) => w.id)?.id).toBe('2099-01-21-nd');
 });
+
+// ── A date holds as many sessions as staff put on it ─────────────────────────
+// The id is still the date plus the ride's mark, because that is what every screen reads.
+// A second session of the same kind on the same date takes the next number after it.
+test('a second session on the same date is numbered, not refused', async ({ page }) => {
+  const nd = { ...snd, id: '2099-01-14-nd', session_date: '2099-01-14', event_kind: null };
+  await stubSupabase(page, { sessions: [nd], queue_entries: [], bikes: [] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  // the stub answers a repeated id the way Postgres does, so the client has to find the gap
+  await page.route('**/rest/v1/sessions*', async (route) => {
+    const r = route.request();
+    if (r.method() === 'POST' && String(r.postData() || '').includes('"2099-01-14-nd"')) {
+      return route.fulfill({ status: 409, contentType: 'application/json',
+        body: JSON.stringify({ code: '23505', message: 'duplicate key value violates unique constraint' }) });
+    }
+    await route.fallback();
+  });
+  const writes = sessionWrites(page);
+  await page.evaluate(`setStaffTab('sessions');S.showAddSession=true;S.newSessEvent='snd96';S.newSessMode='total';S.newSessTotal='12';renderSessions()`);
+  await page.evaluate(`document.getElementById('ns-date').value='2099-01-14';addSession()`);
+
+  await expect.poll(() => writes.filter((w) => w.id).length).toBe(2);
+  expect(writes.filter((w) => w.id).map((w) => w.id)).toEqual(['2099-01-14-nd', '2099-01-14-nd-2']);
+  // and the one that stuck is the one that got its event fields
+  const gate = Object.assign({}, ...writes.filter((w) => !w.id));
+  expect(gate.ride_kind).toBe('snd96');
+});
+
+test('saving a numbered session does not read as a date change', async ({ page }) => {
+  // Its id carries a number, so rebuilding the id from the date alone would drop it: the save
+  // would copy the session onto the FIRST session's id and delete this one.
+  const nd2 = { ...snd, id: '2099-01-14-nd-2', session_date: '2099-01-14', event_kind: null };
+  await stubSupabase(page, { sessions: [nd2], queue_entries: [], bikes: [] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction(`allSessions().length>0`);
+  const writes = sessionWrites(page);
+  const deletes: string[] = [];
+  page.on('request', (r) => { if (r.method() === 'DELETE' && r.url().includes('/rest/v1/sessions')) deletes.push(r.url()); });
+  await page.evaluate(`S.editSessionId='2099-01-14-nd-2';S.editSessDate='2099-01-14';S.editSessStatus='open';S.editSessMode='total';S.editSessTotal=20;saveSessionEdit()`);
+  await expect.poll(() => writes.length).toBeGreaterThan(0);
+  expect(writes.some((w) => w.id)).toBe(false);   // nothing was re-inserted: it never moved
+  expect(deletes).toEqual([]);                    // and the session is still there
+});
