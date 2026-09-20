@@ -4348,11 +4348,22 @@ function _nsSeats(){return S.newSessEvent==='community'||S.newSessEvent==='swim'
 // ride except Petromin, which hands bikes out from the rack across a window. Which two names
 // they carry then follows the kind's gathering trait.
 function _nsTwoTimes(){return _nsComm()&&S.newSessEvent!=='petromin';}
+// The ride kind the form is about to create. The picker names the EVENT, and for the
+// umbrella that is not the same word as the kind: 'community' builds a Saturday ride.
+function _nsKind(){const e=S.newSessEvent;return e==='community'?'saturday':(e||'jcc');}
 // ── One colour per ride ──────────────────────────────────────────────────────
 // Three rides now share the same screens, so each carries its own colour wherever it
 // appears: the circuit blue, the Saturday social ride green, the Petromin ride red. The
 // class is the whole styling contract (styles.css owns the palette).
 function _evClass(s){return 'ev-'+_rideKind(s);}
+// A session's id is its DATE, which allows exactly one session per day — so a date that
+// holds two rides needs a mark to tell them apart, or the second insert hits the primary
+// key, comes back 23505, and is counted as a date that already exists. The circuit night
+// owns the bare date and every kind that can share one carries its own mark. The National
+// Day ride used to borrow the Petromin mark, being paid like one, which meant the two could
+// never share a date: 23 September already held a Petromin ride, so the National Day ride
+// on it was silently skipped.
+function _sessIdSuffix(kind){return kind==='petromin'?'-pw':kind==='workshop'?'-tw':kind==='snd96'?'-nd':'';}
 // What to call a session. A named ride is whatever staff called it; the fallbacks are the
 // ride names, never the umbrella one (that names the landing card, not a ride). Every kind
 // but the circuit has a name of its own — the National Day ride is ridden on the circuit's
@@ -9323,10 +9334,9 @@ async function saveSessionEdit(){
   const oldId=S.editSessionId;
   const sess=allSessions().find(s=>s.id===oldId);if(!sess)return;
   const newDate=S.editSessDate||(sess.session_date||oldId);
-  // A Petromin ride's id carries a '-pw' suffix so it can share a date with a circuit
-  // session; the id it MOVES to has to keep it, or every save would read as a date change
-  // (and the move could land on the JCC session's id).
-  const newId=newDate+(_rideKind(sess)==='petromin'?'-pw':'');
+  // A ride whose id carries a mark (see _sessIdSuffix) has to keep it when it MOVES, or
+  // every save reads as a date change and the move lands on another ride's id.
+  const newId=newDate+_sessIdSuffix(_rideKind(sess));
   const esStart=S.editSessStartTime||document.getElementById('es-start')?.value||'21:00';
   const esEnd=S.editSessEndTime||document.getElementById('es-end')?.value||'23:00';
   const timeVal=`${esStart} - ${esEnd}`;
@@ -9542,7 +9552,7 @@ async function addSession(){
     const dt=new Date(base);dt.setDate(base.getDate()+i*7);const ds=_iso(dt);
     // Session ids are the plain date, which allows exactly ONE session per day. A Petromin
     // ride may well share its date with a circuit session, so it carries a suffix.
-    rows.push({id:ds+_locSlug+(isPaidSess?'-pw':isWorkshopSess?'-tw':''),day:dayNames[dt.getDay()],session_date:ds,capacity:total,status:'closed',
+    rows.push({id:ds+_locSlug+_sessIdSuffix(_nsKind()),day:dayNames[dt.getDay()],session_date:ds,capacity:total,status:'closed',
       bike_slots:JSON.stringify(slots),created_at:new Date().toISOString()});
   }
   try{

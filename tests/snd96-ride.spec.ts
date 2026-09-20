@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { stubSupabase, loginCustomer, waitForSb } from './helpers/supabase';
+import { stubSupabase, loginCustomer, waitForSb, unlockStaff } from './helpers/supabase';
 
 // The Saudi National Day 96 ride: a public, paid community ride with its own card on the
 // event picker and its own skin on the Reserve flow. What is checked here is what would
@@ -216,4 +216,59 @@ test('the circuit, the Saturday ride and Petromin are untouched', async ({ page 
   // Petromin still runs start-to-end with a bike collection time 45 minutes before the off.
   expect(await page.evaluate(`_gathersTime(allSessions().find(x=>x.id==='p1'))`)).toBe(false);
   expect(await page.evaluate(`sessionCollectTime(allSessions().find(x=>x.id==='p1'))`)).toBe('18:15');
+});
+
+// ── One date, two rides ──────────────────────────────────────────────────────
+// A session's id is its date, so a date holds one session unless the ride carries a mark.
+// The National Day ride borrowed the Petromin mark, being paid like one — so the two could
+// never share a date. 23 September 2026 already held a Petromin ride, and the National Day
+// ride staff tried to put on it was skipped as a date that already exists.
+const pw = {
+  id: '2099-01-14-pw', day: 'Wednesday', session_date: '2099-01-14', capacity: 35, status: 'closed',
+  created_at: 1, event_kind: 'community', ride_kind: 'petromin', paid_ride: true, needs_approval: false,
+  bike_slots: JSON.stringify({ _time: '19:00 - 21:00', _total: 35 }),
+};
+
+function sessionWrites(page: Page) {
+  const writes: Record<string, unknown>[] = [];
+  page.on('request', (r) => {
+    if (r.method() !== 'POST' && r.method() !== 'PATCH') return;
+    if (!r.url().includes('/rest/v1/sessions')) return;
+    const b = r.postDataJSON();
+    (Array.isArray(b) ? b : [b]).forEach((x: Record<string, unknown>) => writes.push({ ...x }));
+  });
+  return writes;
+}
+
+test('it can be put on a date a Petromin ride already holds', async ({ page }) => {
+  await stubSupabase(page, { sessions: [pw], queue_entries: [], bikes: [] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  const writes = sessionWrites(page);
+  await page.evaluate(`setStaffTab('sessions');S.showAddSession=true;S.newSessEvent='snd96';S.newSessMode='total';S.newSessTotal='40';renderSessions()`);
+  await page.evaluate(`document.getElementById('ns-date').value='2099-01-14';addSession()`);
+  await expect.poll(() => writes.length).toBeGreaterThan(1);
+
+  const created = writes.find((w) => w.id);
+  expect(created?.id).toBe('2099-01-14-nd');   // its own mark, not the Petromin one
+  expect(created?.capacity).toBe(40);
+  const gate = Object.assign({}, ...writes.filter((w) => !w.id));
+  expect(gate.event_kind).toBe(null);          // a circuit night, not an employer ride
+  expect(gate.ride_kind).toBe('snd96');
+  expect(gate.paid_ride).toBe(true);
+  expect(gate.needs_approval).toBe(false);
+});
+
+test('moving its date keeps its mark, so the move cannot land on another ride', async ({ page }) => {
+  const nd = { ...snd, id: '2099-01-14-nd', session_date: '2099-01-14', event_kind: null };
+  await stubSupabase(page, { sessions: [pw, nd], queue_entries: [], bikes: [] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction(`allSessions().length>1`);
+  const writes = sessionWrites(page);
+  await page.evaluate(`S.editSessionId='2099-01-14-nd';S.editSessDate='2099-01-21';S.editSessStatus='open';S.editSessMode='total';S.editSessTotal=40;saveSessionEdit()`);
+  await expect.poll(() => writes.some((w) => w.id)).toBe(true);
+  expect(writes.find((w) => w.id)?.id).toBe('2099-01-21-nd');
 });
