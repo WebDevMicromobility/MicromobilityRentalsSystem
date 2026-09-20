@@ -806,7 +806,6 @@ en:{landMainTitleHtml:'Reserve Your <span>Bicycle Now!</span>',spotsFull:'Full',
   snd96FormMsg:'The National Day ride is entered through the federation\'s own sign-up form. Your bike is booked, but you still have to fill that form in.',
   snd96FormLink:'Open the sign-up form',
   snd96FormWarn:'You will not be able to take part unless you complete the form.',
-  popupHoldWait:'Closes in {0}s',
   noSessionsAvail:'No sessions are available right now.',
   noSessionsSocial:'Follow us on social media for updates on upcoming sessions!',
   editPriceBtn:'Edit Price',editPriceTitle:'Edit Payment Amount',editPriceCustom:'Custom Amount',
@@ -1214,7 +1213,6 @@ ar:{landMainTitleHtml:'احجز <span>دراجتك الآن!</span>',spotsFull:'
   snd96FormMsg:'التسجيل في مسيرة اليوم الوطني يتم عبر نموذج الاتحاد الخاص بها. دراجتك محجوزة، لكن يبقى عليك تعبئة ذلك النموذج.',
   snd96FormLink:'افتح نموذج التسجيل',
   snd96FormWarn:'لن تتمكن من المشاركة ما لم تُكمل النموذج.',
-  popupHoldWait:'يُغلق خلال {0} ثانية',
   noSessionsAvail:'لا توجد جلسات متاحة الآن.',
   noSessionsSocial:'تابعنا على وسائل التواصل الاجتماعي للاطلاع على الجلسات القادمة!',
   editPriceBtn:'تعديل السعر',editPriceTitle:'تعديل مبلغ الدفع',editPriceCustom:'مبلغ مخصص',
@@ -17496,8 +17494,9 @@ function showSnd96FormPopup(){
     `<strong style="color:var(--orange)">${esc(t('snd96FormWarn'))}</strong>`,
     POPUP_HOLD_SEC);
 }
-// holdSec > 0 keeps the close button out of reach until the seconds are up, counting down on
-// the button itself so the wait reads as deliberate rather than as a popup that is stuck.
+// holdSec > 0 keeps the close button out of reach until the seconds are up. It dims rather
+// than counting down: a number ticking on the button invites watching the number instead of
+// reading what the popup says, which is the whole reason for holding it open.
 function _showPopup(title,msgHtml,extraHtml,holdSec){
   document.getElementById('booth-popup-title').textContent=title||'';
   document.getElementById('booth-popup-msg').innerHTML=msgHtml||'';
@@ -17505,16 +17504,13 @@ function _showPopup(title,msgHtml,extraHtml,holdSec){
   if(extra){extra.innerHTML=extraHtml||'';extra.style.display=extraHtml?'':'none';}
   const el=document.getElementById('booth-popup');
   const btn=el&&el.querySelector('.booth-popup-close');
-  if(S._popupTick){clearInterval(S._popupTick);S._popupTick=null;}
+  if(S._popupHold){clearTimeout(S._popupHold);S._popupHold=null;}
   if(btn){
-    const _free=()=>{btn.disabled=false;btn.textContent='\u2715';btn.style.fontSize='';btn.setAttribute('aria-label',t('cancelBtn'));};
-    let left=Math.max(0,parseInt(holdSec,10)||0);
-    if(left>0){
-      btn.disabled=true;btn.style.fontSize='13px';
-      const _paint=()=>{btn.textContent=String(left);btn.setAttribute('aria-label',t('popupHoldWait').replace('{0}',String(left)));};
-      _paint();
-      S._popupTick=setInterval(()=>{left--;if(left>0){_paint();return;}clearInterval(S._popupTick);S._popupTick=null;_free();},1000);
-    }else _free();
+    const _free=()=>{S._popupHold=null;btn.disabled=false;btn.style.opacity='';};
+    btn.setAttribute('aria-label',t('cancelBtn'));
+    const wait=Math.max(0,parseInt(holdSec,10)||0);
+    if(wait>0){btn.disabled=true;btn.style.opacity='.35';S._popupHold=setTimeout(_free,wait*1000);}
+    else _free();
   }
   el.style.display='flex';
 }
@@ -17522,7 +17518,7 @@ function closeBoothPopup(){
   const el=document.getElementById('booth-popup');
   const btn=el&&el.querySelector('.booth-popup-close');
   if(btn&&btn.disabled)return; // still holding itself open
-  if(S._popupTick){clearInterval(S._popupTick);S._popupTick=null;}
+  if(S._popupHold){clearTimeout(S._popupHold);S._popupHold=null;}
   if(el)el.style.display='none';
 }
 

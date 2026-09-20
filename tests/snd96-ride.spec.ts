@@ -353,7 +353,7 @@ test('booking it asks for the sign-up form, and will not be dismissed at once', 
 
   const close = page.locator('.booth-popup-close');
   await expect(close).toBeDisabled();          // a reflex tap does nothing
-  await expect(close).toHaveText('5');         // and says why
+  await expect(close).toHaveText('\u2715');    // it dims, it does not count down
   await page.evaluate(`closeBoothPopup()`);    // nor does anything else reaching for it
   await expect(box).toBeVisible();
 
