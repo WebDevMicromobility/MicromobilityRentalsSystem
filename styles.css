@@ -1019,27 +1019,28 @@
        over a white single-colour asset - that is what tints it green, and it is why
        the ring and the mark size independently of each other. */
     .mm-loading{--mm-mark:url('assets/brand-mark-white.svg');
+      /* --mm-ratio is the mark's share of the ring, and the only number that decides how big
+         the logo looks. Every size below sets the RING alone and the mark follows, so the five
+         variants can never drift out of proportion with each other again. */
+      --mm-ratio:.52;
       position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
       background:#1A1919;overflow:hidden;z-index:9999;transition:opacity .18s linear;}
-    .mm-loading__spinner{position:relative;width:132px;height:132px;display:inline-flex;align-items:center;justify-content:center;}
+    .mm-loading__spinner{--mm-ring:132px;position:relative;width:var(--mm-ring);height:var(--mm-ring);display:inline-flex;align-items:center;justify-content:center;}
     .mm-loading__ring{position:absolute;inset:0;border-radius:50%;border:3px solid rgba(251,249,244,.12);border-top-color:#03FF89;animation:mmSpin 1s linear infinite;}
-    .mm-loading__mark{width:88px;height:88px;background:#03FF89;
+    .mm-loading__mark{width:calc(var(--mm-ring)*var(--mm-ratio));height:calc(var(--mm-ring)*var(--mm-ratio));background:#03FF89;
       -webkit-mask:var(--mm-mark) center/contain no-repeat;mask:var(--mm-mark) center/contain no-repeat;}
     @keyframes mmSpin{to{transform:rotate(360deg);}}
     @media (max-width:400px){
-      .mm-loading__spinner{width:112px;height:112px;}
-      .mm-loading__mark{width:74px;height:74px;}
+      .mm-loading__spinner{--mm-ring:112px;}
     }
     @media (min-width:1025px){
-      .mm-loading__spinner{width:160px;height:160px;}
-      .mm-loading__mark{width:106px;height:106px;}
+      .mm-loading__spinner{--mm-ring:160px;}
     }
     /* Landscape phone: the spinner stays centred. Never scroll, never letterbox - the
        container is fixed and clipped, so there is nothing to do but keep the ring
        inside a 480px-tall window. */
     @media (max-height:480px){
-      .mm-loading__spinner{width:96px;height:96px;}
-      .mm-loading__mark{width:64px;height:64px;}
+      .mm-loading__spinner{--mm-ring:96px;}
     }
     /* Reduced motion: no rotation. The ring reads as a complete green circle at 40%
        so the screen still says "loading" rather than "finished". */
@@ -1050,12 +1051,12 @@
        ground because it sits inside a staff panel that is white in one theme and near-black
        in the other, so it borrows the panel's own tint instead. */
     .mm-loading--inline{position:relative;inset:auto;z-index:0;background:none;min-height:220px;padding:36px 16px;}
-    .mm-loading--inline .mm-loading__spinner{width:92px;height:92px;}
+    .mm-loading--inline .mm-loading__spinner{--mm-ring:92px;}
     /* A fixed neutral track, not a themed one: this block is injected into the staff panel,
        the customer views and the landing, and each carries a different --tint. Mid-grey at 28%
        reads on white and on near-black alike. */
     .mm-loading--inline .mm-loading__ring{border-width:2px;border-color:rgba(128,130,128,.28);border-top-color:var(--green);}
-    .mm-loading--inline .mm-loading__mark{width:60px;height:60px;background:var(--green);}
+    .mm-loading--inline .mm-loading__mark{background:var(--green);}
     .queue-table tbody tr.sess-group-hdr td{
       background:var(--s2);border-top:2px solid rgba(var(--green-rgb),.18);border-bottom:1px solid rgba(var(--tint-rgb),.06);
       padding:10px 16px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.2px;}
