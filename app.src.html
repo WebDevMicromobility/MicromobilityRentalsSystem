@@ -2674,12 +2674,23 @@ function _waiverCopy(s){return _needsBike(s)
   ?{title:t('waiverTitle'),body:t('waiverBody'),agree:t('waiverAgree')}
   :{title:t('swimWaiverTitle'),body:t('swimWaiverBody'),agree:t('swimWaiverAgree')};}
 
-const RIDE_PRICES={Road:75,Mountain:50,Hybrid:50,Kids:50,Any:50,'Road Carbon':250,Own:0}; // Own = rider brings their own bike, no rental charge
-const RIDE_PRICES_MAX={Road:75,Mountain:50,Hybrid:50,Kids:50,Any:75,'Road Carbon':250,Own:0};
+const RIDE_PRICES={Road:75,Mountain:57.5,Hybrid:57.5,Kids:57.5,Any:57.5,'Road Carbon':250,Own:0}; // Own = rider brings their own bike, no rental charge
+const RIDE_PRICES_MAX={Road:75,Mountain:57.5,Hybrid:57.5,Kids:57.5,Any:75,'Road Carbon':250,Own:0};
+// Petromin employees keep the old fare on the types that moved. The DATABASE is the authority
+// here - _enforce_booking_price reads ride_prices_by_kind and overwrites whatever a client
+// sends - and this table mirrors it so the desk never quotes a number the row will not carry.
+// Any other ride kind falls through to RIDE_PRICES.
+const KIND_PRICES={petromin:{Mountain:50,Hybrid:50,Kids:50,Any:50}};
 // Premium tiers are explicitly-priced products with no separate fleet type (a Road Carbon
 // booking is fulfilled with a Road bike): check-in must NOT reprice them from the bike.
 const PREMIUM_TIERS={'Road Carbon':'Road'}; // tier -> fleet type it is fulfilled with
 function priceForType(ty){return RIDE_PRICES[ty]??DEFAULT_PRICE;}
+// The fare for a type ON A GIVEN SESSION. Use this wherever a session is in hand; priceForType
+// alone answers for the circuit and would overcharge a Petromin employee by 7.5.
+function priceForSessionType(sess,ty){
+  const k=KIND_PRICES[_rideKind(sess)];
+  return(k&&k[ty]!=null)?k[ty]:priceForType(ty);
+}
 function priceForTypeMax(ty){return RIDE_PRICES_MAX[ty]??DEFAULT_PRICE;}
 function priceDisplay(ty){
   const lo=priceForType(ty),hi=priceForTypeMax(ty);
@@ -9795,7 +9806,7 @@ async function saveCommAdd(){
     typePreference:ty,paid:false,assignedBikeId:null,
     sessionId:sess.id,sessionDay:sess.day,sessionDate:sess.session_date||sess.id,
     queueNum:base+i,status:toWaitlist?'waitlist':'waiting',
-    registeredAt:new Date().toISOString(),walkIn:false,customerId:c.id,price:free?0:priceForType(ty),groupId,
+    registeredAt:new Date().toISOString(),walkIn:false,customerId:c.id,price:free?0:priceForSessionType(sess,ty),groupId,
     approval:comm?(toWaitlist?'pending':'approved'):null};});}; // community: final list = selected, waitlist = awaiting selection
   let entries=mkEntries();
   let res=await sb.from('queue_entries').insert(entries.map(entryToDB));
@@ -10427,7 +10438,7 @@ async function _wiInsertRiders(sessId,riders,phone,custId,retry){
     return _applyDefaultPay({id:uid(),name:r.name,email:(_match&&_match.email)||'',phone:phone||(_match&&_match.phone)||'',size:r.height?heightToSize(r.height):'',height:r.height,
       typePreference:r.type,paid:false,assignedBikeId:null,sessionId:sessId,sessionDay:sess.day,
       sessionDate:sess.session_date||sessId,queueNum:base+i,status:'waiting',
-      registeredAt:new Date().toISOString(),walkIn:!_match,customerId:(_match&&_match.id)||null,price:_isFreeRide(sess)?0:priceForType(r.type),
+      registeredAt:new Date().toISOString(),walkIn:!_match,customerId:(_match&&_match.id)||null,price:_isFreeRide(sess)?0:priceForSessionType(sess,r.type),
       approval:_isApprovalRide(sess)?'approved':null,groupId},i===0);});}; // staff-added riders on a community event are pre-selected (and ride free)
   let entries=mk();_wiAttempted=entries;
   let res=await sb.from('queue_entries').insert(entries.map(entryToDB));
