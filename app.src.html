@@ -697,7 +697,7 @@ en:{landMainTitleHtml:'Reserve Your <span>Bicycle Now!</span>',spotsFull:'Full',
   errValidEmail:'Please enter a valid email address.',errGroupCap:'Up to {0} riders per booking on this ride.',groupCapHint:'up to {0} riders',jccCapNote:'The limit per one account is {0} riders.',errValidPhone:'Please enter a valid phone number (at least 8 digits).',errFieldRequired:'This field is required.',
   errPasswordLen:'Password must be at least 8 characters and include an uppercase letter and a number.',
   
-  ticketAddCal:'Add to Calendar',ticketCollectAt:'Collect bikes from {0}',ticketDirections:'Get Directions',opensNewTab:' (opens in a new tab)',ticketLocation:'Location',ticketScanGate:'Scan on arrival',
+  ticketAddCal:'Add to Calendar',ticketCollectAt:'Collect bikes from {0}',ticketGatherAt:'Gathering at {0}',ticketDirections:'Get Directions',opensNewTab:' (opens in a new tab)',ticketLocation:'Location',ticketScanGate:'Scan on arrival',
   errPasswordMatch:'Passwords do not match.',
   errEmailExists:'An account with this email already exists.',
   errPhoneExists:'An account with this phone number already exists.',
@@ -1103,7 +1103,7 @@ ar:{landMainTitleHtml:'احجز <span>دراجتك الآن!</span>',spotsFull:'
   errValidEmail:'الرجاء إدخال بريد إلكتروني صحيح.',errGroupCap:'حتى {0} راكبين لكل حجز في هذه الجولة.',groupCapHint:'حتى {0} راكبين',jccCapNote:'الحد الأقصى لكل حساب هو {0} راكبين.',errValidPhone:'الرجاء إدخال رقم هاتف صحيح (٨ أرقام على الأقل).',errFieldRequired:'هذا الحقل مطلوب.',
   errPasswordLen:'يجب أن تكون كلمة المرور 8 أحرف على الأقل وتحتوي على حرف كبير ورقم.',
   
-  ticketAddCal:'أضف إلى التقويم',ticketCollectAt:'استلام الدراجات من {0}',ticketDirections:'الاتجاهات',opensNewTab:' (يفتح في تبويب جديد)',ticketLocation:'الموقع',ticketScanGate:'امسح عند الوصول',
+  ticketAddCal:'أضف إلى التقويم',ticketCollectAt:'استلام الدراجات من {0}',ticketGatherAt:'التجمع في {0}',ticketDirections:'الاتجاهات',opensNewTab:' (يفتح في تبويب جديد)',ticketLocation:'الموقع',ticketScanGate:'امسح عند الوصول',
   errPasswordMatch:'كلمتا المرور غير متطابقتين.',
   errEmailExists:'يوجد حساب بهذا البريد الإلكتروني مسبقاً.',
   errPhoneExists:'يوجد حساب بهذا الرقم مسبقاً.',
@@ -2744,7 +2744,7 @@ function _minToHhmm(n){return n==null?'':`${String(Math.floor(n/60)%24).padStart
 function sessionCollectTime(sess){
   const sl=parseSlots(sess&&sess.bike_slots)||{};
   const parts=String(sl._time||'').split('-').map(x=>x.trim());
-  if(_isApprovalRide(sess)&&_gathers(sess))return parts[0]||'';
+  if(_gathersTime(sess))return parts[0]||''; // the gathering IS the moment to turn up
   if(sl._collect)return sl._collect;
   const st=_hhmmToMin(parts[0]);
   return st==null?'':_minToHhmm(Math.max(0,st-COLLECT_BEFORE_MIN));
@@ -2755,7 +2755,7 @@ function sessionTime(sess){
   const raw=(s&&s._time)||'09:00 - 11:00';
   // An approval ride stores "gathering - start": label the two times instead of showing a
   // range. Every other session, the Petromin ride included, runs to a plain start-end window.
-  if(_isApprovalRide(sess)&&_gathers(sess)){
+  if(_gathersTime(sess)){
     const parts=raw.split('-').map(x=>x.trim());
     if(parts.length===2)return `${t('commGatherShort')} ${fmt12h(parts[0])} · ${t('commStartShort')} ${fmt12h(parts[1])}`;
   }
@@ -4245,7 +4245,7 @@ function _rideKind(s){
 // ride, so the three things a Saturday ride quietly implied — a bike to size, a breakfast
 // stop afterwards, a gathering time before the start — each have to be asked rather than
 // assumed. Anything absent from the table answers yes, so adding a kind costs one row.
-const KIND_TRAITS={swim:{bike:false,breakfast:false,gathering:false},workshop:{bike:false,breakfast:false,gathering:false,waiver:false},snd96:{breakfast:false}};
+const KIND_TRAITS={swim:{bike:false,breakfast:false,gathering:false},workshop:{bike:false,breakfast:false,gathering:false,waiver:false},petromin:{gathering:false},snd96:{breakfast:false}};
 function _kindHas(k,trait){const tr=KIND_TRAITS[k];return !tr||tr[trait]!==false;}
 function _needsBike(s){return _kindHas(_rideKind(s),'bike');}
 // Does the activity ask the customer to sign anything? The workshop does not.
@@ -4261,6 +4261,18 @@ function _kindHasBf(k){return _kindHas(k,'breakfast');}
 function _hasBreakfast(s){return _kindHas(_rideKind(s),'breakfast');}
 // A gathering time only means something where the group sets off together.
 function _gathers(s){return _kindHas(_rideKind(s),'gathering');}
+// Does this session store its times as "gather, then set off" rather than "starts, ends"?
+// A gathering ride has no end time to ask for and no bike collection time either: the
+// gathering IS when to turn up. Every caller used to write `_isApprovalRide(s) && _gathers(s)`,
+// which read as if needing staff approval were what made a ride gather. It is not - snd96
+// gathers and is open to all - so the question has one name now, and the ride kinds say
+// which of them gather.
+function _gathersTime(s){return _isCommunity(s)&&_gathers(s);}
+// Sessions whose form counts SPOTS rather than a bike fleet, and so asks for two named times
+// instead of a window plus a bike collection time. Every community ride but Petromin, which
+// is the one that hands out bikes from the rack. The two time labels then follow _gathers:
+// "Gathering / Start" for the ones that gather, "Start / End" for the pool and the workshop.
+function _seatsSess(s){return _isCommunity(s)&&_rideKind(s)!=='petromin';}
 // Charging is a property of the SESSION, never of "community": the price trigger in the
 // database reads the very same paid_ride flag, so the two can't drift apart.
 function _isFreeRide(s){return _isCommunity(s)&&!(s&&s.paid_ride);}
@@ -4305,7 +4317,10 @@ function _nsComm(){return S.newSessEvent==='community'||S.newSessEvent==='petrom
 // ...and which of them is described by a plain cap. An APPROVAL ride allocates places, so
 // one number says everything about it. Every other session — the circuit and the Petromin
 // ride alike — is described by the bikes it actually puts out, and its capacity is their sum.
-function _nsSeats(){return S.newSessEvent==='community'||S.newSessEvent==='swim'||S.newSessEvent==='workshop';}
+// The new-session form's half of _seatsSess: it works off the picked kind, before a session
+// row exists. snd96 belongs here — it gathers, so it has a gathering time and a start time,
+// and neither an end time nor a bike collection time to ask for.
+function _nsSeats(){return S.newSessEvent==='community'||S.newSessEvent==='swim'||S.newSessEvent==='workshop'||S.newSessEvent==='snd96';}
 // ── One colour per ride ──────────────────────────────────────────────────────
 // Three rides now share the same screens, so each carries its own colour wherever it
 // appears: the circuit blue, the Saturday social ride green, the Petromin ride red. The
@@ -6376,9 +6391,12 @@ function renderRegister(){
     const _sess=allSessions().find(s=>s.id===tkt.sessionId);
     const _commT=_isApprovalRide(_sess); // a reservation-style ticket: no number, meet point instead of directions
     const sessTime=sessionTime(_sess);
-    // When bikes start going out. It was on the Wallet pass and nowhere else, so a rider
-    // without an iPhone had to be told. Only where there is a bike to collect.
-    const _collect=_needsBike(_sess)?fmt12h(sessionCollectTime(_sess)):'';
+    // When to turn up. On a ride that hands out bikes that is when they start going out; on
+    // one that gathers it is the gathering itself, and the label has to say which. It was on
+    // the Wallet pass and nowhere else, so a rider without an iPhone had to be told.
+    const _gth=_gathersTime(_sess);
+    const _collect=(_needsBike(_sess)||_gth)?fmt12h(sessionCollectTime(_sess)):'';
+    const _collectLbl=_gth?t('sessGatherTime'):t('sessCollectTime');
     const label=total>1?`${t('bike')} ${idx+1} / ${total}`:'';
     return`<div class="ticket-card ${_evClass(_sess)}" style="${idx>0?'margin-top:16px':''}">
       ${label?`<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;padding:14px 24px 0;text-align:center">${label}</div>`:''}
@@ -6401,7 +6419,7 @@ function renderRegister(){
       </div>`}
       <div class="ticket-cols">
         <div class="ticket-col"><div class="ticket-label">${t('colSession')}</div><div class="ticket-value">${dayLabel(tkt.sessionDay)} ${shortDate(tkt.sessionDate)}</div></div>
-        ${_collect?`<div class="ticket-col"><div class="ticket-label">${t('sessCollectTime')}</div><div class="ticket-value">${esc(_collect)}</div></div>`:''}
+        ${_collect?`<div class="ticket-col"><div class="ticket-label">${esc(_collectLbl)}</div><div class="ticket-value">${esc(_collect)}</div></div>`:''}
         <div class="ticket-col"><div class="ticket-label">${t('timeLabel')}</div><div class="ticket-value">${sessTime}</div></div>
         <div class="ticket-col"><div class="ticket-label">${t('nameLabel')}</div><div class="ticket-value">${esc(tkt.name)}</div></div>
       </div>
@@ -7305,7 +7323,7 @@ function renderBookingTicket(entries,opts){
       <div class="ticket-right">
         ${(stForBadge==='waiting'||(_comm&&!_commPublished(sess)))?'':(stForBadge==='cancelled'?statusBadgeFor(primary):statusBadge(stForBadge))}
         ${_qrReady?ticketQR(bookingRef(primary),132):`<div class="qr-hold" style="width:132px"><span>${t('ticketQrHold')}</span></div>`}
-        <div style="font-size:10px;color:var(--muted);font-weight:700;text-align:right;line-height:1.4">${dayLabel(primary.sessionDay)}<br>${shortDate(primary.sessionDate)}<br>${sessTime}${(()=>{const c=_needsBike(sess)?fmt12h(sessionCollectTime(sess)):'';return c?`<br><span style="color:var(--green)">${esc(t('ticketCollectAt').replace('{0}',c))}</span>`:'';})()}</div>
+        <div style="font-size:10px;color:var(--muted);font-weight:700;text-align:right;line-height:1.4">${dayLabel(primary.sessionDay)}<br>${shortDate(primary.sessionDate)}<br>${sessTime}${(()=>{const g=_gathersTime(sess);const c=(_needsBike(sess)||g)?fmt12h(sessionCollectTime(sess)):'';return c?`<br><span style="color:var(--green)">${esc((g?t('ticketGatherAt'):t('ticketCollectAt')).replace('{0}',c))}</span>`:'';})()}</div>
       </div>
     </div>
     <div style="padding:2px 18px 0">
@@ -8825,7 +8843,7 @@ function renderSessions(){
               onclick="S.editSessStatus='${st}';renderSessions()">${{closed:t('statusClosed'),open:t('statusOpen'),full:t('statusFull')}[st]}</button>`).join('')}
           </div>
         </div>
-        ${_isApprovalRide(editSess)?`
+        ${_seatsSess(editSess)?`
         <div class="form-group">
           <label>${_gathers(editSess)?t('sessGatherTime'):t('sessStartTime')}</label>
           <input type="time" id="es-start" value="${S.editSessStartTime||'06:30'}" oninput="S.editSessStartTime=this.value" style="margin-top:4px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer;max-width:140px;display:block">
@@ -9310,7 +9328,7 @@ async function saveSessionEdit(){
     total=assignedIds.length;
   }
   {const _wl=_readWlCap('es');if(_wl)slots._wl=_wl;} // blank/0 clears the cap
-  if(esCollect&&!_isApprovalRide(sess))slots._collect=esCollect;
+  if(esCollect&&!_seatsSess(sess))slots._collect=esCollect; // a gathering ride has no bike collection time
   const newStatus=S.editSessStatus||sess.status;
   const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const newDay=dayNames[new Date(newDate+'T00:00:00').getDay()];

@@ -18628,7 +18628,12 @@ async function buildPkpass(b, cfg) {
   primary.push({ key: "queue", label: single ? "QUEUE" : "QUEUE NUMBERS", value: numsDisplay });
   if (startStr) primary.push({ key: "start", label: "RIDE STARTS", value: startStr });
   const secondary = [];
-  if (collectStr) secondary.push({ key: "collect", label: "BIKE COLLECTION START TIME", value: collectStr });
+  // A ride that gathers has no bikes to collect: that time is when to turn up.
+  if (collectStr) secondary.push({
+    key: "collect",
+    label: _gathersTime(sess) ? "GATHERING TIME" : "BIKE COLLECTION START TIME",
+    value: collectStr,
+  });
   if (ridersValue) secondary.push({ key: "riders", label: single ? "RIDER" : "RIDERS", value: ridersValue });
   const auxiliary = [];
   if (bikeType) auxiliary.push({ key: "bike", label: "BIKE", value: bikeType });
@@ -18799,9 +18804,11 @@ function _sessClock(sess) {
 // window, so the pass printed the session's END as the moment the ride leaves, and dropped
 // the end time entirely, leaving the pass live for hours after the session was over.
 // The app keys this off KIND_TRAITS.gathering; this is the same table.
-var GATHERS = { saturday: true, petromin: false, swim: false, workshop: false, jcc: false };
+var GATHERS = { saturday: true, snd96: true, petromin: false, swim: false, workshop: false, jcc: false };
 function _gathersTime(sess) {
-  return !!sess && sess.event_kind === "community" && sess.needs_approval !== false && GATHERS[_rideOf(sess)] === true;
+  // Needing staff approval is NOT what makes a ride gather: the National Day ride gathers
+  // and is open to all. The ride kind decides, exactly as KIND_TRAITS does in the app.
+  return !!sess && sess.event_kind === "community" && GATHERS[_rideOf(sess)] === true;
 }
 // Each ride is told apart in a crowded Wallet by its own colour, and named by its own words.
 var RIDES = {

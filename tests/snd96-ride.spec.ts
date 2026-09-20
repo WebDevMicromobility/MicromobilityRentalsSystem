@@ -75,3 +75,57 @@ test('one account seats a party of three, and the ticket carries the ride', asyn
     renderRegister();`);
   await expect(page.locator('.ticket-card.ev-snd96')).toBeVisible();
 });
+
+// ── Its times gather, they do not run to an end ──────────────────────────────
+// The National Day ride gathers and then sets off, so its two times are "gathering" and
+// "start": there is no end time to ask for and no bike collection time either. That used to
+// be inferred from needing staff approval, which this ride does not, so the two ideas had to
+// come apart: the ride KIND decides now.
+
+test('its stored times read as gathering then start, and Petromin still reads start then end', async ({ page }) => {
+  await stubSupabase(page, fixtures);
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok' });
+  await page.goto('/');
+  await waitForSb(page);
+
+  expect(await page.evaluate(`_gathersTime(allSessions().find(s=>s.id==='snd1'))`)).toBe(true);
+  // 20:00 - 22:00 on a gathering ride means gather at 8 and set off at 10 — no end time.
+  expect(await page.evaluate(`sessionCollectTime(allSessions().find(s=>s.id==='snd1'))`)).toBe('20:00');
+  expect(await page.evaluate(`sessionTime(allSessions().find(s=>s.id==='snd1'))`)).toMatch(/8 PM.*10 PM/);
+
+  // The Saturday ride gathers too, and always did.
+  expect(await page.evaluate(`_gathersTime(allSessions().find(s=>s.id==='comm1'))`)).toBe(true);
+
+  // Petromin does NOT: it hands bikes out, so its window is start-to-end and its collection
+  // time is 45 minutes before the off. This is the regression the trait change could cause.
+  const petro = `{id:'p1',day:'Wednesday',session_date:'2099-09-30',status:'open',capacity:35,
+    event_kind:'community',ride_kind:'petromin',paid_ride:true,needs_approval:false,
+    bike_slots:JSON.stringify({_time:'19:00 - 21:00',_total:35})}`;
+  expect(await page.evaluate(`_gathersTime(${petro})`)).toBe(false);
+  expect(await page.evaluate(`sessionCollectTime(${petro})`)).toBe('18:15');
+  expect(await page.evaluate(`_gathersTime(allSessions().find(s=>s.id==='s1'))`)).toBe(false);
+});
+
+test('the ticket names the gathering, not a bike collection', async ({ page }) => {
+  await stubSupabase(page, fixtures);
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok' });
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`S.lastTickets=[{id:'t1',queueNum:4,name:'Spec Rider',sessionId:'snd1',
+    sessionDay:'Wednesday',sessionDate:'2099-09-23',status:'waiting'}];S.regStep=4;setCustTab('register')`);
+  const card = page.locator('.ticket-card').first();
+  await expect(card).toContainText('8 PM');
+  await expect(card).toContainText(/Gathering time/i);
+  await expect(card).not.toContainText(/collection/i);
+});
+
+test('the session form asks for a gathering and a start, with no end and no collection time', async ({ page }) => {
+  await stubSupabase(page, fixtures);
+  await page.addInitScript(() => localStorage.setItem('cq_staff', '1'));
+  await page.goto('/');
+  await waitForSb(page);
+  expect(await page.evaluate(`(()=>{S.newSessEvent='snd96';return _nsSeats();})()`)).toBe(true);
+  expect(await page.evaluate(`(()=>{S.newSessEvent='petromin';return _nsSeats();})()`)).toBe(false);
+  expect(await page.evaluate(`_seatsSess(allSessions().find(s=>s.id==='snd1'))`)).toBe(true);
+  expect(await page.evaluate(`_gathers(allSessions().find(s=>s.id==='snd1'))`)).toBe(true);
+});
