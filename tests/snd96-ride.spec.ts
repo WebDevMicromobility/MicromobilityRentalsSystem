@@ -40,8 +40,8 @@ test('the ride is open to everyone: no members gate between the card and the ses
   await page.locator('.landing-event-card.ev-snd96').click();
   // the gate that answers a community click never opens for this ride
   await expect(page.locator('#comm-members-modal, .comm-members-box')).toHaveCount(0);
-  await expect(page.locator('.sess-card')).toHaveCount(1);
-  await expect(page.locator('.sess-card')).toContainText('Saudi National Day 96 Ride');
+  // one date, so the ride is shown rather than offered as a choice
+  await expect(page.locator('.sess-solo')).toContainText('Saudi National Day 96 Ride');
   // there is no gate to open: the umbrella never covers this ride, even on this row, which
   // carries the old 'community' stamp
   expect(await page.evaluate(`_isCommunity(allSessions().find(s=>s.id==='snd1'))`)).toBe(false);
@@ -70,7 +70,6 @@ test('one account seats a party of three, and the ticket carries the ride', asyn
   await boot(page);
   expect(await page.evaluate(`_maxRiders(allSessions().find(s=>s.id==='snd1'))`)).toBe(3);
   await page.locator('.landing-event-card.ev-snd96').click();
-  await page.locator('.sess-card').first().click();
   await page.evaluate(`
     S.lastTickets=[{id:'bk1',queueNum:12,status:'waiting',sessionId:'snd1',sessionDay:'Wednesday',
       sessionDate:'23 Sep 2099',name:'Spec Rider',typePreference:'Road',price:60,paid:false}];
@@ -377,4 +376,54 @@ test('a circuit booking still gets the pay-at-the-booth cue, closable straight a
   await expect(close).toBeEnabled();
   await close.click();
   await expect(box).toBeHidden();
+});
+
+// ── One date, so nothing to pick ─────────────────────────────────────────────
+// The National Day ride is a single night. Step one used to be a list holding one card that
+// had to be tapped before Continue would light up; now picking the event opens the ride.
+test('picking the event opens the ride itself, not a list of one', async ({ page }) => {
+  const plain = { ...snd, event_kind: null };
+  await stubSupabase(page, { sessions: [jcc, plain, sat], bikes: [], queue_entries: [] });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok' });
+  await page.goto('/');
+  await waitForSb(page);
+  await page.locator('.landing-event-card.ev-snd96').click();
+
+  await expect(page.locator('.sess-solo')).toBeVisible();
+  await expect(page.locator('.sess-card')).toHaveCount(0);        // no picker
+  await expect(page.locator('.sess-solo')).toContainText('Saudi National Day 96 Ride');
+  await expect(page.locator('.sess-solo')).toContainText('Wednesday');
+  await expect(page.locator('.sess-solo')).toContainText('Gathering 8 PM');
+  await expect(page.locator('.sess-solo')).toContainText('Start 10 PM');
+  // the ride is already chosen, so Continue is live without a tap
+  expect(await page.evaluate(`S.selSession`)).toBe('snd1');
+  await expect(page.locator('.mm-reg-foot .btn-primary')).toBeEnabled();
+  await page.locator('.mm-reg-foot .btn-primary').click();
+  expect(await page.evaluate(`S.regStep`)).toBe(2);
+});
+
+test('a second National Day date brings the picker back', async ({ page }) => {
+  const a = { ...snd, event_kind: null };
+  const b = { ...snd, id: 'snd2', event_kind: null, session_date: '2099-09-24', day: 'Thursday' };
+  await stubSupabase(page, { sessions: [a, b], bikes: [], queue_entries: [] });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok' });
+  await page.goto('/');
+  await waitForSb(page);
+  await page.locator('.landing-event-card.ev-snd96').click();
+
+  await expect(page.locator('.sess-solo')).toHaveCount(0);
+  await expect(page.locator('.sess-card')).toHaveCount(2);
+  expect(await page.evaluate(`S.selSession`)).toBe(null);   // a real choice, so nothing is chosen
+});
+
+test('the circuit still asks which night', async ({ page }) => {
+  const b = { ...jcc, id: 's2', session_date: '2099-09-28', day: 'Monday' };
+  await stubSupabase(page, { sessions: [jcc, b], bikes: [], queue_entries: [] });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok' });
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`selectEvent('jcc')`);
+  await expect(page.locator('.sess-card')).toHaveCount(2);
+  await expect(page.locator('.sess-solo')).toHaveCount(0);
+  expect(await page.evaluate(`S.selSession`)).toBe(null);
 });

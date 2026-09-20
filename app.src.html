@@ -529,7 +529,7 @@ en:{landMainTitleHtml:'Reserve Your <span>Bicycle Now!</span>',spotsFull:'Full',
   riderDetails:'Rider Details',fullName:'Full Name',firstName:'First Name',middleName:'Middle Name',lastName:'Last Name',phFirstName:'Your first name',phMiddleName:'Your middle name',phLastName:'Your last name',emailAddr:'Email Address',
   phoneNum:'Phone Number',heightLabel:'Height',heightHint:'- frame size auto-selected',
   bikeTypePref:'Bike Type Preference',numBikes:'Number of Bikes',joinQueue:'Join Queue',stepConfirm:'Confirmation',
-  regProg1:'Session',regProg2:'Riders',regProg3:'Confirm',regStep1Title:'Choose your session',regStep1Msg:'Pick the day you would like to ride.',regStep1MsgJoin:'Pick the day you would like to join.',
+  regProg1:'Session',regProg2:'Riders',regProg3:'Confirm',regStep1Title:'Choose your session',regStep1TitleOne:'Your ride',regStep1MsgOne:'Here is what you are booking.',regStep1Msg:'Pick the day you would like to ride.',regStep1MsgJoin:'Pick the day you would like to join.',
   regStep2Title:'Rider details',regStep2Msg:'Tell us who is riding and their bike preference.',
   regStep3Title:'Review & confirm',regStep3Msg:'Check everything below, then confirm your booking.',
   regBackBtn:'Back',regContinueBtn:'Continue',regReviewBtn:'Review booking',regConfirmBtn:'Confirm booking',regBookAnotherBtn:'Book another ride',
@@ -947,7 +947,7 @@ ar:{landMainTitleHtml:'احجز <span>دراجتك الآن!</span>',spotsFull:'
   riderDetails:'بيانات الراكب',fullName:'الاسم الكامل',firstName:'الاسم الأول',middleName:'الاسم الأوسط',lastName:'اسم العائلة',phFirstName:'اسمك الأول',phMiddleName:'اسمك الأوسط',phLastName:'اسم عائلتك',emailAddr:'البريد الإلكتروني',
   phoneNum:'رقم الهاتف',heightLabel:'الطول',heightHint:'- يتم اختيار المقاس تلقائياً',
   bikeTypePref:'تفضيل نوع الدراجة',numBikes:'عدد الدراجات',joinQueue:'انضم للطابور',stepConfirm:'تأكيد',
-  regProg1:'الجلسة',regProg2:'الركّاب',regProg3:'التأكيد',regStep1Title:'اختر جلستك',regStep1Msg:'اختر اليوم الذي ترغب بالركوب فيه.',regStep1MsgJoin:'اختر اليوم الذي ترغب بالانضمام فيه.',
+  regProg1:'الجلسة',regProg2:'الركّاب',regProg3:'التأكيد',regStep1Title:'اختر جلستك',regStep1TitleOne:'مشاركتك',regStep1MsgOne:'هذه تفاصيل ما ستحجزه.',regStep1Msg:'اختر اليوم الذي ترغب بالركوب فيه.',regStep1MsgJoin:'اختر اليوم الذي ترغب بالانضمام فيه.',
   regStep2Title:'بيانات الراكب',regStep2Msg:'أخبرنا من سيركب وتفضيل الدراجة.',
   regStep3Title:'المراجعة والتأكيد',regStep3Msg:'تحقق من التفاصيل أدناه ثم أكّد حجزك.',
   regBackBtn:'رجوع',regContinueBtn:'متابعة',regReviewBtn:'مراجعة الحجز',regConfirmBtn:'تأكيد الحجز',regBookAnotherBtn:'حجز رحلة أخرى',
@@ -4381,6 +4381,30 @@ function _evName(s){return _evNamed(s)
   ?((s&&s.title)||(_rideKind(s)==='petromin'?t('evPetroName'):_rideKind(s)==='swim'?t('evSwimName'):_rideKind(s)==='workshop'?t('evWorkshopName'):_rideKind(s)==='snd96'?t('evSnd96Name'):t('evSatName')))
   :t('evJccName');}
 function _evChip(s){return _evNamed(s)?`<span class="ev-chip ${_evClass(s)}">${esc(_evName(s))}</span>`:'';}
+// The single bookable session of a one-date event, or null: more than one and the rider has
+// a real choice to make, none and there is nothing to show. Only the National Day ride is
+// treated this way; every other event runs to a calendar of dates.
+const SOLE_SESSION_EVENTS=['snd96'];
+function _soleSessionFor(ev){
+  if(!SOLE_SESSION_EVENTS.includes(ev))return null;
+  const open=allSessions().filter(s=>_sessLive(s)&&!_sessPastDay(s)&&_evMatch(s,ev));
+  return (open.length===1&&!_wasRejectedFor(open[0].id))?open[0]:null;
+}
+// What a rider is booking, shown in place of a picker when there is only one of it: the
+// ride's own name and colour, the date, its times, and whether places are left.
+function _soleSessHtml(s){
+  const full=_sessFull(s);
+  const row=(k,v,cls)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--border)">
+    <span style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${esc(k)}</span>
+    <span style="font-size:14px;font-weight:800;text-align:end${cls||''}">${esc(v)}</span></div>`;
+  return `<div class="sess-solo ${_evClass(s)}" style="border:1px solid var(--border);border-inline-start:3px solid var(--ev,var(--green));border-radius:6px;padding:16px 18px;background:rgba(var(--tint-rgb),.03)">
+    <div style="font-size:17px;font-weight:900;letter-spacing:-.3px">${esc(_evName(s))}</div>
+    ${_partnerHtml(s,'ev-partner')}
+    ${row(t('colSession'),`${dayLabel(s.day)} \u00b7 ${shortDate(s.session_date||s.id)}`)}
+    ${row(t('timeLabel'),sessionTime(s))}
+    ${row(t('colStatus'),full?t('waitlistLabel'):t('availLabel'),`;color:var(--${full?'orange':'green'})`)}
+  </div>`;
+}
 // The workshop runs with a partner, and says so in a quieter line wherever a customer sees its name.
 function _partnerHtml(s,cls){return _rideKind(s)==='workshop'?`<span class="${cls||'ev-partner'}">${t('partnerStf')}</span>`:'';}
 // Rider brings their own bike ('Own' is exclusive to community rides). Own-bike bookings
@@ -4614,7 +4638,13 @@ async function selectEvent(ev){
     const next=(S.sessions||[]).filter(s=>_isCommunity(s)&&!_openToAll(s)&&s.status!=='deleted').sort((a,b)=>String(a.session_date||a.id).localeCompare(String(b.session_date||b.id)))[0];
     showCommMembersModal(next);return;
   }
-  S.selEvent=ev;S.selSession=null;goCustomer('register');
+  S.selEvent=ev;S.selSession=null;
+  // A one-date event has nothing to choose between. The National Day ride is a single night,
+  // so picking its card opens the ride itself rather than a list holding one of it — and if
+  // a second one is ever put on, the list comes back on its own.
+  const _one=_soleSessionFor(ev);
+  if(_one)S.selSession=_one.id;
+  goCustomer('register');
 }
 // ── Rider profile gate ────────────────────────────────────────────────────────
 // After a rider's eighth booking, the next time they pick an event they meet one page before
@@ -6281,6 +6311,10 @@ function renderRegister(){
         </a>
       </div>`;
   if(S.selSession&&!available.find(s=>s.id===S.selSession))S.selSession=null;
+  // Coming back to step one, or arriving by any path other than the event card, still lands
+  // on the ride rather than on a list of one.
+  const _soleSess=_soleSessionFor(_ev);
+  if(_soleSess&&!S.selSession)S.selSession=_soleSess.id;
 
   
   let existingEntries=[];
@@ -6510,11 +6544,12 @@ function renderRegister(){
   const _isReturning=cust&&cust.id&&(cust.height||cust.type_preference)&&getQueue().some(e=>e.customerId===cust.id&&(e.status==='done'||e.status==='waiting'||e.status==='active'));
   const usualBtn=(_isReturning&&available.some(s=>s.status==='open'))?`<button class="btn-secondary" style="width:100%;margin-bottom:16px;display:flex;align-items:center;justify-content:center;gap:6px" onclick="bookMyUsual()">↻ ${t('bookUsualBtn')}</button>`:'';
   const panel1=`
-    ${stepHeader(t('regStep1Title'),t((S.selEvent==='community'||S.selEvent==='workshop')?'regStep1MsgJoin':'regStep1Msg'))}
+    ${_soleSess?stepHeader(t('regStep1TitleOne'),t('regStep1MsgOne'))
+               :stepHeader(t('regStep1Title'),t((S.selEvent==='community'||S.selEvent==='workshop')?'regStep1MsgJoin':'regStep1Msg'))}
     ${usualBtn}
     ${branchFilter}
     <div class="session-picker-wrap" id="session-picker-wrap">
-      <div class="session-cards-grid">${sessCards}</div>
+      ${_soleSess?_soleSessHtml(_soleSess):`<div class="session-cards-grid">${sessCards}</div>`}
       ${(()=>{ // community ride staff-marked FULL: reservations still work but land on the waitlist - say so up front
         if(!S.selSession)return'';
         const _cs=allSessions().find(s=>s.id===S.selSession);
