@@ -586,7 +586,7 @@ en:{landMainTitleHtml:'Reserve Your <span>Bicycle Now!</span>',spotsFull:'Full',
   editSessionTitle:'Edit Session',saveSessionBtn:'Save Changes',editBtn2:'Edit',dateWarning:'Changing the date will update all existing bookings for this session.',
   bikesTitle:'Fleet',addBike:'+ Add Bike',editBikeTitle:'Edit Bike',addBikeTitle:'Add New Bike',
   bikeNameLabel:'Bike Name',frameSizeLabel:'Frame Size',bikeTypeLabel:'Bike Type',
-  bikeLocationLabel:'Location',bikeFrameTypeLabel:'Frame Type',bikeNumberLabel:'Bike Number',bikeAutoName:'Auto Name',bikeStartDate:'In-Service Date',bikeEndDate:'Retired Date',lifespanLabel:'Lifespan',daysLabel:'days',frameSteel:'Steel',frameAluminum:'Aluminum',frameCarbon:'Carbon',frameTitanium:'Titanium',errBikeFrameReq:'Please select a frame type.',errBikeLocationReq:'Please select a location.',errBikeNumberReq:'Please enter a bike number.',errBikeNumberDup:'That bike number is already in use.',addLocationLabel:'Add new location...',
+  bikeLocationLabel:'Location',bikeFrameTypeLabel:'Frame Type',bikeNumberLabel:'Bike Number',bikeAutoName:'Auto Name',bikeStartDate:'In-Service Date',bikeEndDate:'Retired Date',lifespanLabel:'Lifespan',daysLabel:'days',frameSteel:'Steel',frameAluminum:'Aluminum',frameCarbon:'Carbon',frameTitanium:'Titanium',errBikeFrameReq:'Please select a frame type.',errBikeLocationReq:'Please select a location.',errBikeNumberReq:'Please enter a bike number.',errBikeNumberDup:'That bike number is already in use.',bkNumChangeTitle:'Change this bike\u2019s number?',bkNumChangeBody:'The sticker and NFC tag on the frame still read {0}. After this they will open the page for {1} instead, so change the number only if you are moving the sticker to that bike too.',bkNumChangeYes:'Change the number',addLocationLabel:'Add new location...',
   bikeColorsLabel:'Bike Color(s)',colorsHint:'1 required - up to 4',
   saveBikeBtn:'Save Changes',addBikeBtn:'Add Bike',
   bikeNameLabel:'Bike Name',bikeNameHint:'(edit to rename)',bikeNameAuto:'Auto',
@@ -1001,7 +1001,7 @@ ar:{landMainTitleHtml:'احجز <span>دراجتك الآن!</span>',spotsFull:'
   sessionAddonsLabel:'الإضافات المتاحة',sessionAddonsHint:'عناصر من المخزون يمكن للعملاء إضافتها إلى الحجز',addonStepTitle:'أضف إلى حجزك',addonStepSub:'إضافات اختيارية متاحة لهذه الجلسة',addonNone:'لا توجد إضافات متاحة لهذه الجلسة.',addonsLabel:'الإضافات',addonsSelectedToast:'تم حفظ الإضافات مع حجزك',addonEditTitle:'تعديل الإضافات',addonAddBtn:'الإضافات',stockLeft:'متبقٍ',outOfStock:'نفد المخزون',dashAddonsToday:'إضافات اليوم',coReconOk:'البطاقة + النقد متوازنان',coReconOff:'غير محتسب',
   bikesTitle:'الأسطول',addBike:'+ إضافة دراجة',editBikeTitle:'تعديل الدراجة',addBikeTitle:'إضافة دراجة جديدة',
   bikeNameLabel:'اسم الدراجة',frameSizeLabel:'مقاس الإطار',bikeTypeLabel:'نوع الدراجة',
-  bikeLocationLabel:'الموقع',bikeFrameTypeLabel:'نوع الإطار',bikeNumberLabel:'رقم الدراجة',bikeAutoName:'الاسم التلقائي',bikeStartDate:'تاريخ بدء الاستخدام',bikeEndDate:'تاريخ التقاعد',lifespanLabel:'مدة الخدمة',daysLabel:'يوم',frameSteel:'فولاذ',frameAluminum:'ألمنيوم',frameCarbon:'كربون',frameTitanium:'تيتانيوم',errBikeFrameReq:'الرجاء اختيار نوع الإطار.',errBikeLocationReq:'الرجاء اختيار الموقع.',errBikeNumberReq:'الرجاء إدخال رقم الدراجة.',errBikeNumberDup:'رقم الدراجة مستخدم بالفعل.',addLocationLabel:'إضافة موقع جديد...',
+  bikeLocationLabel:'الموقع',bikeFrameTypeLabel:'نوع الإطار',bikeNumberLabel:'رقم الدراجة',bikeAutoName:'الاسم التلقائي',bikeStartDate:'تاريخ بدء الاستخدام',bikeEndDate:'تاريخ التقاعد',lifespanLabel:'مدة الخدمة',daysLabel:'يوم',frameSteel:'فولاذ',frameAluminum:'ألمنيوم',frameCarbon:'كربون',frameTitanium:'تيتانيوم',errBikeFrameReq:'الرجاء اختيار نوع الإطار.',errBikeLocationReq:'الرجاء اختيار الموقع.',errBikeNumberReq:'الرجاء إدخال رقم الدراجة.',errBikeNumberDup:'رقم الدراجة مستخدم بالفعل.',bkNumChangeTitle:'تغيير رقم هذه الدراجة؟',bkNumChangeBody:'الملصق وشريحة NFC على الهيكل ما زالا يحملان الرقم {0}. بعد هذا التغيير سيفتحان صفحة {1} بدلاً منها، لذا غيّر الرقم فقط إذا كنت ستنقل الملصق إلى تلك الدراجة أيضاً.',bkNumChangeYes:'تغيير الرقم',addLocationLabel:'إضافة موقع جديد...',
   bikeColorsLabel:'لون الدراجة',colorsHint:'مطلوب 1 - حتى 4',
   saveBikeBtn:'حفظ التغييرات',addBikeBtn:'إضافة دراجة',
   bikeNameLabel:'اسم الدراجة',bikeNameHint:'(عدّل لإعادة التسمية)',bikeNameAuto:'تلقائي',
@@ -15937,6 +15937,14 @@ async function saveBikeEdit(){
   const name=(document.getElementById('bk-name')?.value||'').trim()||genBikeName(S.addBikeType,S._bkFrame,bikeNum,size);
   _autoSaveBkOpts(brand,model,groupset);
   const b=getBikes();const existing=b.find(x=>x.id===S.editBikeId);if(!existing)return;
+  // The number is not just a label: it is what the sticker on the frame says, and the NFC
+  // tag opens micromobility.sa/b/<number>. Handing the number to another bike silently
+  // repoints a sticker that is already stuck on this one, so it is the single edit here
+  // that is worth stopping for.
+  if(existing.bike_number!=null&&Number(existing.bike_number)!==bikeNum){
+    const ok=await askConfirm({title:t('bkNumChangeTitle'),body:t('bkNumChangeBody').replace('{0}',String(existing.bike_number)).replace('{1}',String(bikeNum)),confirmLabel:t('bkNumChangeYes'),confirmClass:'btn-red'});
+    if(!ok)return;
+  }
   const editColorNames=S.addBikeColorNames.slice(0,S.addBikeColors.length).map(n=>n||'');
   const rentalPrice=S._bkRentalPrice?parseFloat(S._bkRentalPrice)||null:null;
   const startDate=(document.getElementById('bk-start')?.value||S._bkStartDate||existing.in_service_date||_todayISO());
