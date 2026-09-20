@@ -554,7 +554,7 @@ en:{landMainTitleHtml:'Reserve Your <span>Bicycle Now!</span>',spotsFull:'Full',
   anLapsedTitle:'Lapsed riders',anLapsedSub:'no ride in 30+ days',
   anCohortTitle:'Signup cohorts',anCohortSub:'new signups who became riders',anCohortColMonth:'Month',anCohortColNew:'New',anCohortColRode:'Rode',anCohortColRepeat:'Repeat',
   anLapsedColRider:'Rider',anLapsedColLast:'Last ride',anLapsedColRides:'Rides',
-  anDemandTitle:'Demand',anAvgFill:'Avg fill rate',anSoldOut:'Sold-out sessions',anAddCapacityHint:'Consider adding capacity',anSoldOutNone:'No sessions sold out',anFillBySession:'Fill rate by session',anFillBySessionSub:'Booked vs capacity (busiest first)',anPromoTitle:'Promo redemptions',anPromoSub:'Bookings that used a promo code (this range)',anPromoCol:'Code',anPromoUses:'Bookings',anNoPromo:'No promo codes used in this range.',
+  anDemandTitle:'Demand',anAvgFill:'Avg fill rate',anSoldOut:'Sold-out sessions',anAddCapacityHint:'Consider adding capacity',anSoldOutNone:'No sessions sold out',anFillBySession:'Fill rate by session',anFillBySessionSub:'Booked vs capacity (busiest first)',anPromoTitle:'Promo redemptions',anPromoSub:'Riders who rode on a promo code (this range)',anPromoCol:'Code',anPromoUses:'Riders',anNoPromo:'No promo codes used in this range.',
   anColDay2:'Day',anColTopType2:'Top Type',
   regTitle:'Reserve Your Spot',regSub:'Pick an available session, fill in your details, and join the queue.',
   availSessions:'Available Sessions',
@@ -968,7 +968,7 @@ ar:{landMainTitleHtml:'احجز <span>دراجتك الآن!</span>',spotsFull:'
   anLapsedTitle:'عملاء متوقفون',anLapsedSub:'لم يركبوا منذ أكثر من 30 يوماً',
   anCohortTitle:'مجموعات التسجيل',anCohortSub:'المسجلون الجدد الذين أصبحوا ركاباً',anCohortColMonth:'الشهر',anCohortColNew:'جدد',anCohortColRode:'ركبوا',anCohortColRepeat:'متكرر',
   anLapsedColRider:'الراكب',anLapsedColLast:'آخر رحلة',anLapsedColRides:'الرحلات',
-  anDemandTitle:'الطلب',anAvgFill:'متوسط نسبة الإشغال',anSoldOut:'جلسات ممتلئة',anAddCapacityHint:' فكّر في زيادة السعة',anSoldOutNone:'لا توجد جلسات ممتلئة',anFillBySession:'نسبة الإشغال لكل جلسة',anFillBySessionSub:'المحجوز مقابل السعة (الأكثر ازدحاماً أولاً)',anPromoTitle:'استخدام رموز الخصم',anPromoSub:'الحجوزات التي استخدمت رمز خصم (هذا النطاق)',anPromoCol:'الرمز',anPromoUses:'الحجوزات',anNoPromo:'لم تُستخدم أي رموز خصم في هذا النطاق.',
+  anDemandTitle:'الطلب',anAvgFill:'متوسط نسبة الإشغال',anSoldOut:'جلسات ممتلئة',anAddCapacityHint:' فكّر في زيادة السعة',anSoldOutNone:'لا توجد جلسات ممتلئة',anFillBySession:'نسبة الإشغال لكل جلسة',anFillBySessionSub:'المحجوز مقابل السعة (الأكثر ازدحاماً أولاً)',anPromoTitle:'استخدام رموز الخصم',anPromoSub:'الركاب الذين استخدموا رمز خصم (هذا النطاق)',anPromoCol:'الرمز',anPromoUses:'الركاب',anNoPromo:'لم تُستخدم أي رموز خصم في هذا النطاق.',
   anColDay2:'اليوم',anColTopType2:'النوع الأكثر',
   regTitle:'احجز دراجتك',regSub:'اختر جلسة متاحة، أدخل بياناتك، وانضم إلى الطابور.',
   availSessions:'الجلسات المتاحة',
@@ -20128,12 +20128,15 @@ function renderAnalytics(){
   const demandSoldOut=demandRows.filter(r=>r.soldOut).length;
   const demandAvgFill=demandRows.length?Math.round(demandRows.reduce((x,r)=>x+r.fill,0)/demandRows.length):0;
 
-  // ── Promo redemptions (within range): count once per booking ──
-  const _pseen=new Set();const _promoTally={};let promoBookings=0;
+  // ── Promo redemptions (within range): count every RIDER who rode on a code ──
+  // A code's limit counts riders, because that is what a discount is given to: a party of
+  // three on one code is three discounts. The database counter (_promo_count, one per
+  // queue_entries row) has always worked this way. This panel used to dedupe to one per
+  // booking, so the admin table and this table reported different numbers for the same code.
+  const _promoTally={};let promoRiders=0;
   queue.forEach(e=>{
-    if(!e.promoCode)return;const key=(e.customerId||e.id)+'|'+e.sessionId;
-    if(_pseen.has(key))return;_pseen.add(key);
-    _promoTally[e.promoCode]=(_promoTally[e.promoCode]||0)+1;promoBookings++;
+    if(!e.promoCode)return;
+    _promoTally[e.promoCode]=(_promoTally[e.promoCode]||0)+1;promoRiders++;
   });
   const promoRows=Object.entries(_promoTally).sort((a,b)=>b[1]-a[1]);
 
