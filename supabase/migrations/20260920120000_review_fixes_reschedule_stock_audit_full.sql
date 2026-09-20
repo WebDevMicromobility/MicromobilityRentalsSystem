@@ -255,32 +255,9 @@ create trigger sessions_status_by_hand
   before update of status on public.sessions
   for each row execute function public._session_status_by_hand();
 
--- ── 7. A push subscription cannot be taken over by knowing its endpoint ────
--- push_subscribe upserted on endpoint alone and reassigned customer_id to the caller, so a
--- customer who learned another's endpoint took ownership of their subscription row. Push is
--- dormant (VAPID was declined), so this is closing a door on an unused room, cheaply.
-do $$
-begin
-  if exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-              where n.nspname = 'public' and p.proname = 'push_subscribe') then
-    execute $fn$
-      create or replace function public.push_subscribe(p_id text, p_token text, p_endpoint text, p_keys jsonb)
-       returns boolean language plpgsql security definer set search_path to 'public', 'extensions'
-      as $body$
-      begin
-        if not _cust_token_ok(p_id, p_token) then return false; end if;
-        -- Someone else's endpoint is someone else's row: refuse rather than reassign.
-        if exists(select 1 from push_subscriptions
-                   where endpoint = p_endpoint and customer_id is distinct from p_id) then
-          return false;
-        end if;
-        insert into push_subscriptions(customer_id, endpoint, keys)
-        values (p_id, p_endpoint, p_keys)
-        on conflict (endpoint) do update
-          set keys = excluded.keys, customer_id = excluded.customer_id
-        where push_subscriptions.customer_id = p_id;
-        return true;
-      end $body$;
-    $fn$;
-  end if;
-end $$;
+-- ── 7. push_subscribe: nothing to do here ─────────────────────────────────
+-- The review flagged that push_subscribe upserted on endpoint alone and reassigned
+-- customer_id to the caller, so a customer who learned another's endpoint took ownership of
+-- their subscription row. Checked against this database: the function does not exist. Push
+-- and VAPID were declined in September 2026 and the RPC was never deployed, so there is
+-- nothing to fix. If push is ever revived, the conflict target must include customer_id.
