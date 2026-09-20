@@ -12,9 +12,7 @@
 --
 -- _session_fill_status(): see the block below.
 --
--- NOT YET APPLIED TO PRODUCTION. Run in the SQL editor, then:
---   supabase migration repair --status applied 20260916200000
--- After running: supabase/checks/security-attributes.sql must print nothing.
+-- APPLIED AND VERIFIED (history recorded; security-attributes.sql prints nothing).
 -- Rollback: re-run 20260916193000 (rider_register) and 20260916190000 (_session_fill_status).
 -- ============================================================================
 

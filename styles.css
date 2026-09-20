@@ -1014,10 +1014,54 @@
     .queue-table tbody tr.row-noshow-cancel{background:rgba(var(--red-rgb),.06);opacity:.75;}
     .queue-table tbody tr.row-noshow-cancel td{border-bottom-color:rgba(var(--red-rgb),.12)!important;}
     .queue-table tbody tr.row-done-paid{background:rgba(var(--green-rgb),.05);}
-    #loading-screen{display:flex;position:fixed;inset:0;background:#111;z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:20px;transition:opacity .4s;}
-    #loading-screen img{height:90px;width:auto;object-fit:contain;}
-    #loading-screen .ld-txt{font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.6px;animation:ldpulse 1.4s ease-in-out infinite;}
-    @keyframes ldpulse{0%,100%{opacity:.4;}50%{opacity:1;}}
+    /* ── Brand loading state ──────────────────────────────────────────────────
+       Three layers on one full-bleed container: the ground, an upright watermark
+       field of the M mark, and a neon mark inside a rotating ring. The mark is a
+       CSS MASK over a white single-colour asset - that is what tints it green, and
+       it is why the ring and the mark size independently of each other. The field
+       is laid out in JS (mmLoading.field) from a fixed seed, so it is scattered
+       rather than gridded and identical on every paint. */
+    .mm-loading{--mm-mark:url('assets/brand-mark-white.svg');
+      position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+      background:#1A1919;overflow:hidden;z-index:9999;transition:opacity .18s linear;}
+    .mm-loading__field{position:absolute;inset:-10%;opacity:.085;pointer-events:none;}
+    .mm-loading__field i{position:absolute;display:block;background:#FBF9F4;
+      -webkit-mask:var(--mm-mark) center/contain no-repeat;mask:var(--mm-mark) center/contain no-repeat;}
+    .mm-loading__spinner{position:relative;width:132px;height:132px;display:inline-flex;align-items:center;justify-content:center;}
+    .mm-loading__ring{position:absolute;inset:0;border-radius:50%;border:3px solid rgba(251,249,244,.12);border-top-color:#03FF89;animation:mmSpin 1s linear infinite;}
+    .mm-loading__mark{width:88px;height:88px;background:#03FF89;
+      -webkit-mask:var(--mm-mark) center/contain no-repeat;mask:var(--mm-mark) center/contain no-repeat;}
+    @keyframes mmSpin{to{transform:rotate(360deg);}}
+    @media (max-width:400px){
+      .mm-loading__spinner{width:112px;height:112px;}
+      .mm-loading__mark{width:74px;height:74px;}
+    }
+    @media (min-width:1025px){
+      .mm-loading__spinner{width:160px;height:160px;}
+      .mm-loading__mark{width:106px;height:106px;}
+    }
+    /* Landscape phone: the spinner stays centred and the field bleeds. Never scroll,
+       never letterbox - the container is fixed and clipped, so there is nothing to do
+       but keep the ring inside a 480px-tall window. */
+    @media (max-height:480px){
+      .mm-loading__spinner{width:96px;height:96px;}
+      .mm-loading__mark{width:64px;height:64px;}
+    }
+    /* Reduced motion: no rotation. The ring reads as a complete green circle at 40%
+       so the screen still says "loading" rather than "finished". */
+    @media (prefers-reduced-motion: reduce){
+      .mm-loading__ring{animation:none;border-color:#03FF89;opacity:.4;}
+    }
+    /* Inline variant - the in-panel wait that replaced the shimmer skeletons. It drops
+       the ground and the watermark because it sits inside a staff panel that is white in
+       one theme and near-black in the other, so it borrows the panel's own tint instead. */
+    .mm-loading--inline{position:relative;inset:auto;z-index:0;background:none;min-height:220px;padding:36px 16px;}
+    .mm-loading--inline .mm-loading__spinner{width:92px;height:92px;}
+    /* A fixed neutral track, not a themed one: this block is injected into the staff panel,
+       the customer views and the landing, and each carries a different --tint. Mid-grey at 28%
+       reads on white and on near-black alike. */
+    .mm-loading--inline .mm-loading__ring{border-width:2px;border-color:rgba(128,130,128,.28);border-top-color:var(--green);}
+    .mm-loading--inline .mm-loading__mark{width:60px;height:60px;background:var(--green);}
     .queue-table tbody tr.sess-group-hdr td{
       background:var(--s2);border-top:2px solid rgba(var(--green-rgb),.18);border-bottom:1px solid rgba(var(--tint-rgb),.06);
       padding:10px 16px;font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.2px;}
@@ -1205,10 +1249,6 @@
     .confirm-box{background:var(--s2);border:1px solid rgba(var(--tint-rgb),.1);border-radius:6px;padding:24px;width:min(92vw,420px);animation:modalSlideUp .18s ease;}
 
     .empty-state{text-align:center;padding:52px 24px;color:var(--muted);font-size:14px;font-weight:600;letter-spacing:.1px;}
-    /* Skeleton loaders shown while the first data fetch is in flight (reuses the shimmer keyframe) */
-    .sk-wrap{padding:16px;display:flex;flex-direction:column;gap:10px;}
-    .sk-row{height:54px;border-radius:6px;border:1px solid var(--border);background:linear-gradient(100deg,var(--s1) 30%,var(--s2) 50%,var(--s1) 70%);background-size:200% 100%;animation:shimmer 1.3s linear infinite;}
-    .sk-row.tall{height:74px;}
     .cashier-grid{display:grid;}
     @media(max-width:820px){.cashier-grid{grid-template-columns:1fr!important;}}
 
@@ -1223,7 +1263,6 @@
     ::-webkit-scrollbar-thumb:hover{background:rgba(var(--green-rgb),.45);}
     @keyframes tabFadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:none;}}
     @keyframes heroFloat{0%,100%{transform:translateY(0) rotate(0deg);}33%{transform:translateY(-9px) rotate(.3deg);}66%{transform:translateY(-4px) rotate(-.2deg);}}
-    @keyframes shimmer{0%{background-position:200% center;}100%{background-position:-200% center;}}
     .tab-panel.active{animation:tabFadeIn .22s ease;}
 
     
@@ -2033,10 +2072,6 @@
     ::-webkit-scrollbar-thumb:hover{background:var(--muted-l);}
     ::-webkit-scrollbar-track{background:transparent;}
 
-    /* Boot loader on asphalt with a timing-label pulse */
-    #loading-screen{background:#08090b;}
-    #loading-screen .ld-txt{font-family:'Chakra Petch','IBM Plex Sans Arabic',sans-serif;text-transform:uppercase;letter-spacing:3px;color:var(--green);}
-    :is(html[lang="ar"],html[lang="ur"]) #loading-screen .ld-txt{text-transform:none;letter-spacing:0;}
 
     /* ── Add-on product photos: big enough to actually see, biggest on phones ── */
     .addon-thumb{width:52px;height:52px;border-radius:4px;object-fit:contain;background:var(--photo-bg);border:1px solid var(--border);flex-shrink:0;}
@@ -2839,9 +2874,8 @@
     body.view-staff .queue-mobile-view .q-card{background:var(--sf-card);border:1px solid var(--sf-line2);border-radius:10px;}
     body.view-staff .q-card.row-active{background:rgba(12,122,61,.04);border-color:rgba(12,122,61,.25);}
 
-    /* ── Empty states / skeletons ── */
+    /* ── Empty states ── */
     body.view-staff .rides-empty,body.view-staff .no-sessions-msg{background:var(--sf-card);border:1px dashed var(--sf-ctl);border-radius:10px;}
-    body.view-staff .sk-row{border:1px solid var(--sf-sep);background:linear-gradient(100deg,#fff 30%,var(--sf-head) 50%,#fff 70%);background-size:200% 100%;}
     body.view-staff .empty-illus-title,body.view-staff .empty-illus-sub{color:var(--muted);}
 
     /* ── Scrollbars & selection: quiet, professional ── */
@@ -3040,9 +3074,6 @@
     html[data-staff-theme="dark"] body.view-staff .btn-red:hover{background:#a33b2e;border-color:#a33b2e;color:#fff;}
     html[data-staff-theme="dark"] body.view-staff .badge-open{color:#25d184;}
     html[data-staff-theme="dark"] body.view-staff .type-badge svg{color:#25d184;}
-    /* skeleton shimmer was built from white stops */
-    html[data-staff-theme="dark"] body.view-staff .sk-row{
-      background:linear-gradient(100deg,#101318 30%,#181c23 50%,#101318 70%);background-size:200% 100%;}
     /* selected pills already sit on #123019 — lift the neon so they read as active */
     html[data-staff-theme="dark"] body.view-staff .filter-pill.active,
     html[data-staff-theme="dark"] body.view-staff .sort-pill.active,
@@ -3940,3 +3971,186 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
        whole list. The wrapper carries no layout of its own — the row and its tag picker keep
        their own borders and spacing. */
     .am-row{display:contents;}
+
+    /* ════════════════════════════════════════════════════════════════════════
+       SAUDI NATIONAL DAY 96 — "عزّنا بطبعنا"
+       Straight from the official SND-96 brand guideline (Jul 2026): the deep
+       green field #002628, the dark teal surface #00343A, Saudi green #00894A,
+       the lime #5ABA1C and its tint #8CDC46, and the checkered weave that
+       frames the logo. IBM Plex Sans Arabic is the guideline's own secondary
+       face and is already loaded for Arabic here, so the Arabic reads right.
+
+       Two scopes, and only two:
+         .ev-snd96   — the ride's colour token, wherever a session is stamped
+                       with the ride (chips, cards, the staff browser).
+         body.snd96  — the full takeover. Set only while the Reserve flow is on
+                       the National Day ride (_sndOn in app.src.html), it
+                       redefines the customer surface tokens, so every panel,
+                       button and field follows without knowing about the ride.
+       Last block in the sheet, like the ev-* palette above it: same
+       specificity as the customer reskin, and it has to win.
+       ════════════════════════════════════════════════════════════════════════ */
+    :root{
+      --snd-bg:#002628; --snd-surface:#00343A; --snd-deep:#001A1D;
+      --snd-green:#00894A; --snd-green-br:#07A62D;
+      --snd-lime:#5ABA1C; --snd-lime-lt:#8CDC46;
+      --snd-ink:#FFFFFF; --snd-mut:#9FC9B4;
+      /* the logo's own weave, reusable as a texture at any scale */
+      --snd-weave:repeating-conic-gradient(rgba(0,137,74,.14) 0% 25%, rgba(0,0,0,0) 0% 50%);
+    }
+    .ev-snd96{--ev:var(--snd-green);--ev-rgb:0,137,74;}
+
+    /* ── The card on the event picker ─────────────────────────────────────── */
+    body .landing-event-card.ev-snd96{
+      background-color:var(--snd-bg);
+      background-image:var(--snd-weave);
+      background-size:32px 32px;
+      border:1px solid rgba(0,137,74,.55);
+      box-shadow:0 1px 3px rgba(0,0,0,.28);
+      color:var(--snd-ink);
+      gap:18px;
+    }
+    body .landing-event-card.ev-snd96:hover{
+      border-color:var(--snd-green);transform:none;
+      box-shadow:0 8px 24px rgba(0,0,0,.38);}
+    body .landing-event-card.ev-snd96::before{display:none;}
+    body .landing-event-card.ev-snd96 .lec-title{color:var(--snd-ink);}
+    body .landing-event-card.ev-snd96 .lec-meta{color:var(--snd-lime-lt);font-weight:700;}
+    body .landing-event-card.ev-snd96 .lec-kicker,
+    body .landing-event-card.ev-snd96 .lec-arrow{color:var(--snd-lime-lt);}
+    /* The lockup is the hero of the card: sized by height so the wordmark never
+       squashes, and never given a max-width to fight (it is a wide lockup). */
+    .lec2-snd{display:inline-flex;align-items:center;flex-shrink:0;}
+    .lec2-snd img{height:74px;width:auto;max-width:none;object-fit:contain;display:block;}
+    @media(max-width:640px){
+      .lec2-snd img{height:50px;}
+      body .landing-event-card.ev-snd96{gap:14px;background-size:24px 24px;}
+    }
+    /* Once the picker is a row of narrow columns the lockup and the title stop fitting
+       side by side, and the title breaks over three lines. The card turns into a poster
+       there instead: lockup across the top, name and date beneath it. */
+    @media(min-width:641px){
+      body .landing-event-card.ev-snd96{flex-direction:column;align-items:flex-start;justify-content:center;gap:16px;}
+      .lec2-snd img{height:62px;}
+    }
+
+    /* ── The full takeover, while the flow is on the National Day ride ────── */
+    body.snd96{
+      --bg:var(--snd-bg); --s1:var(--snd-surface); --s2:#003C41; --s3:#004449; --in-bg:#00343A;
+      --green:var(--snd-lime-lt); --green-h:#A4E86B; --green-d:var(--snd-lime-lt);
+      --ac-fill:var(--snd-green); --ac-fill-h:var(--snd-green-br); --acink:#FFFFFF;
+      --red:#CB3878; --orange:#D8B36A; --blue:#277BD7; --purple:#A4A1ED;
+      --text:var(--snd-ink); --muted:var(--snd-mut); --muted-l:#7FAF9A;
+      --border:rgba(255,255,255,.18); --line2:rgba(255,255,255,.3);
+      --accent2:rgba(140,220,70,.45); --warn:rgba(255,255,255,.4);
+      --acsoft:rgba(0,137,74,.2); --photo-bg:#00343A;
+      --foot:var(--snd-deep); --footink:#FFFFFF; --footmut:var(--snd-mut);
+      --green-rgb:140,220,70; --tint-rgb:255,255,255; --red-rgb:203,56,120;
+      --warn-rgb:216,179,106; --orange-rgb:216,179,106; --purple-rgb:164,161,237; --blue-rgb:39,123,215;
+      --sh-2:0 1px 3px rgba(0,0,0,.4); --sh-3:0 14px 34px rgba(0,0,0,.5);
+      color-scheme:dark;
+      color:var(--snd-ink);
+      background-color:var(--snd-bg);
+      background-image:var(--snd-weave);
+      background-size:40px 40px;
+      background-attachment:fixed;
+    }
+    /* Chrome around the flow follows it, or the page reads as two halves. */
+    /* The white customer bar is written as `body:not(.view-staff) #topbar#topbar` - two
+       ids and a class - and it re-points the foreground tokens INSIDE the bar as well as
+       painting it. Both have to be answered, at its own weight, or the header stays white
+       above a deep green page. */
+    body.snd96:not(.view-staff) #topbar#topbar{
+      background:var(--snd-deep);
+      border-bottom:1px solid rgba(0,137,74,.45);
+      box-shadow:none;}
+    body.snd96:not(.view-staff) #topbar#topbar,
+    body.snd96:not(.view-staff) #topbar#topbar *{
+      --text:#FFFFFF;
+      --muted:var(--snd-mut);
+      --muted-l:#7FAF9A;
+      --border:rgba(255,255,255,.16);
+      --tint-rgb:255,255,255;
+      --s1:var(--snd-deep);--s2:#00343A;--s3:#00343A;}
+    body.snd96:not(.view-staff) #topbar#topbar .cust-topbar-name{color:#FFFFFF;}
+    body.snd96:not(.view-staff) #topbar#topbar .cust-topbar-email{color:var(--snd-mut);}
+    body.snd96:not(.view-staff) #topbar#topbar .topbar-brand-name{color:var(--snd-lime-lt);}
+    body.snd96:not(.view-staff) #topbar#topbar .staff-access-btn{color:var(--snd-mut);}
+    body.snd96:not(.view-staff) #topbar#topbar .topbar-btn,
+    body.snd96:not(.view-staff) #topbar#topbar .lang-toggle{color:#DCEFE4;}
+    body.snd96:not(.view-staff) #topbar#topbar .topbar-btn:hover,
+    body.snd96:not(.view-staff) #topbar#topbar .lang-toggle:hover{
+      background:rgba(140,220,70,.16);color:#FFFFFF;}
+    body.snd96:not(.view-staff) #topbar#topbar .topbar-btn.danger{color:#DCEFE4;}
+    /* The mark is dark ink, drawn for the white bar; on the green field it reads as the
+       logo's own white variant rather than as a hole. */
+    body.snd96 #topbar-logo-img{filter:brightness(0) invert(1);}
+    body.snd96 .cust-back-btn{color:#DCEFE4;}
+    html body.snd96 #cust-bottom-nav{background:var(--snd-deep);border-top:1px solid rgba(0,137,74,.45);box-shadow:none;}
+    html body.snd96 .cust-bnav-btn{color:var(--snd-mut);}
+    html body.snd96 .cust-bnav-btn.active{color:var(--snd-lime-lt);}
+    html body.snd96 .cust-bnav-btn.active svg{color:var(--snd-lime-lt);}
+
+    /* Controls: the reskin pins these to white ink on white paper, so each one
+       that names a literal colour has to be named again here. */
+    body.snd96 .btn-primary{color:#fff;}
+    body.snd96 .btn-secondary{background:rgba(255,255,255,.06);color:#fff;border-color:rgba(255,255,255,.32);}
+    body.snd96 .btn-secondary:hover{background:rgba(255,255,255,.12);}
+    body.snd96 .toggle-btn{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.2);color:#fff;}
+    body.snd96 .toggle-btn.active{background:var(--snd-green);border-color:var(--snd-green);color:#fff;}
+    body.snd96 .toggle-btn.active::before{background:var(--snd-lime-lt);}
+    body.snd96 input[type="text"],body.snd96 input[type="tel"],
+    body.snd96 input[type="number"],body.snd96 input[type="email"],
+    body.snd96 input[type="date"],body.snd96 input[type="password"],
+    body.snd96 input[type="url"],body.snd96 select,body.snd96 textarea{
+      background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.22);color:#fff;}
+    body.snd96 input::placeholder,body.snd96 textarea::placeholder{color:rgba(255,255,255,.45);}
+    body.snd96 input:focus,body.snd96 select:focus,body.snd96 textarea:focus{
+      border-color:var(--snd-lime-lt);box-shadow:inset 0 0 0 1px var(--snd-lime-lt);}
+    body.snd96 input[type="checkbox"]{accent-color:var(--snd-green);}
+    body.snd96 :focus-visible{outline-color:var(--snd-lime-lt);}
+    body.snd96 select option{background:var(--snd-surface);color:#fff;}
+
+    /* Panels and cards sit on the weave, so they carry a flat teal of their own. */
+    body.snd96 .form-section,body.snd96 .reg-summary-panel,body.snd96 .mm-note,
+    body.snd96 .addon-row,body.snd96 .sess-card,body.snd96 .q-card,
+    body.snd96 .modal-box,body.snd96 .session-picker-wrap{
+      background:var(--snd-surface);border-color:rgba(255,255,255,.14);color:#fff;}
+    body.snd96 .sess-card:hover:not(.sess-full){background:#004449;}
+    body.snd96 .sess-card.sess-selected{background:rgba(0,137,74,.3);border-color:var(--snd-green);}
+    body.snd96 .addon-row.sel{background:rgba(0,137,74,.22);}
+    body.snd96 .addon-check.on{background:var(--snd-green);border-color:var(--snd-green);color:#fff;}
+    body.snd96 .page-title,body.snd96 .form-title{color:#fff;}
+    body.snd96 .page-sub{color:var(--snd-mut);}
+    body.snd96 .mm-reg-foot{background:transparent;}
+    body.snd96 .qr-hold{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.2);color:var(--snd-mut);}
+
+    /* ── The lockup at the head of the flow ──────────────────────────────── */
+    .snd-flow-head{
+      display:flex;flex-direction:column;align-items:center;gap:10px;
+      margin:0 0 20px;padding:18px 16px 16px;border-radius:12px;
+      background-color:#001F22;background-image:var(--snd-weave);background-size:26px 26px;
+      border:1px solid rgba(0,137,74,.5);}
+    .snd-flow-logo{height:78px;width:auto;max-width:100%;object-fit:contain;display:block;}
+    .snd-flow-name{
+      font-size:11px;font-weight:900;letter-spacing:1.4px;text-transform:uppercase;
+      color:var(--snd-lime-lt);text-align:center;}
+    :is(html[lang="ar"],html[lang="ur"]) .snd-flow-name{letter-spacing:0;font-family:'IBM Plex Sans Arabic',sans-serif;}
+    @media(max-width:640px){.snd-flow-logo{height:58px;}.snd-flow-head{padding:14px 12px 12px;}}
+    @media(min-width:900px){.snd-flow-logo{height:104px;}.snd-flow-head{padding:26px 20px 22px;}}
+
+    /* ── The booking card, wherever the rider meets it again ─────────────── */
+    body .ticket-card.ev-snd96{
+      background-color:var(--snd-bg);
+      background-image:var(--snd-weave);background-size:30px 30px;
+      border:1px solid rgba(0,137,74,.55);color:var(--snd-ink);}
+    body .ticket-card.ev-snd96 .ticket-num,
+    body .ticket-card.ev-snd96 .ticket-value,
+    body .ticket-card.ev-snd96 .ticket-header{color:var(--snd-ink);}
+    body .ticket-card.ev-snd96 .ticket-num-label,
+    body .ticket-card.ev-snd96 .ticket-label{color:var(--snd-lime-lt);}
+    body .ticket-card.ev-snd96 .ticket-cols,
+    body .ticket-card.ev-snd96 .ticket-col{border-color:rgba(255,255,255,.18);}
+    body .ticket-card.ev-snd96 .qr-hold{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:var(--snd-mut);}
+    /* The QR keeps its white tile: a scanner needs the contrast, whatever the skin. */
+    body .ticket-card.ev-snd96 .ticket-qr-wrap{background:#fff;border-radius:8px;}

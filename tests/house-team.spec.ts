@@ -3,7 +3,7 @@ import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
 
 const fixtures = {
   sessions: [{ id: 's1', day: 'Friday', session_date: '2099-01-09', capacity: 12, status: 'open', created_at: 1 }],
-  bikes: [{ id: 'b1', name: 'Bike 1', size: 'M', type: 'Hybrid', status: 'available', rental_price: 57.5 }],
+  bikes: [{ id: 'b1', name: 'Bike 1', size: 'M', type: 'Hybrid', status: 'available', rental_price: 50 }],
   queue_entries: [
     { id: 'qh', name: 'House Guest', session_id: 's1', session_day: 'Friday', session_date: '2099-01-09',
       queue_num: 1, status: 'waiting', paid: true, price: 0, registered_at: '2099-01-09T10:00:00Z' }, // on the house
@@ -28,7 +28,7 @@ test('checking in an on-the-house booking keeps it on the house (no reprice in t
   await expect.poll(() => patches.some((p) => p.status === 'active')).toBe(true);
   const checkin = patches.find((p) => p.status === 'active')!;
   expect(checkin.assigned_bike_id).toBe('b1');
-  expect('price' in checkin).toBe(false); // was price:57.5 — flipped the house ride to a paid one
+  expect('price' in checkin).toBe(false); // was price:50 — flipped the house ride to a paid one
 });
 
 test('a normal booking still gets repriced from the assigned bike at check-in', async ({ page }) => {
@@ -44,7 +44,7 @@ test('a normal booking still gets repriced from the assigned bike at check-in', 
   await page.evaluate(`openModal('qp'); S.modalBikes=['b1'];`);
   await page.evaluate('confirmAssign()');
   await expect.poll(() => patches.some((p) => p.status === 'active')).toBe(true);
-  expect(patches.find((p) => p.status === 'active')!.price).toBe(57.5);
+  expect(patches.find((p) => p.status === 'active')!.price).toBe(50); // Hybrid's fare, 2026-09-20
 });
 
 test('MM Team sale lines carry no customer name (paid lines keep it)', async ({ page }) => {

@@ -1,8 +1,7 @@
 -- ============================================================================
 -- Review fixes, 2026-09-20. Six things, all found by reading the code against
--- the live database. NOT YET APPLIED — run this in the SQL editor, then:
---   supabase migration repair --status applied 20260920120000
--- Afterwards supabase/checks/security-attributes.sql must still print nothing.
+-- the live database. APPLIED AND VERIFIED 2026-09-20: every object below is live, the
+-- migration history records it, and supabase/checks/security-attributes.sql prints nothing.
 -- ============================================================================
 
 -- ── 1. Customers can move their own booking to another night ────────────────

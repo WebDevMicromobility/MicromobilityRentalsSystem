@@ -17,7 +17,7 @@ test.describe('booking flow', () => {
     await loginCustomer(page);
     await page.goto('/');
     await waitForSb(page);
-    await page.locator('#land-events .landing-event-card').first().click();
+    await page.locator('#land-events .landing-event-card.ev-jcc').click();
 
     // Step 1 — pick the open session (the click auto-waits for the card to render)
     await page.locator('.sess-card').first().click();

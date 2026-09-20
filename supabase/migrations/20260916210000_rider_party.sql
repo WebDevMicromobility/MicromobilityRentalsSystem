@@ -21,10 +21,8 @@
 --   errors: 'riders' (more than four), 'rider_name' / 'rider_height' / 'rider_type' with
 --   'rider': N (which one, counting the employee as 1)
 --
--- NOT YET APPLIED TO PRODUCTION. Apply via the Supabase MCP (apply_migration) or the CLI;
--- the dashboard SQL editor is the fallback while `supabase db push` is blocked by history
--- drift. Then: supabase migration repair --status applied 20260916210000
--- After running: supabase/checks/security-attributes.sql must print nothing.
+-- APPLIED AND VERIFIED (history recorded; security-attributes.sql prints nothing). The form
+-- at micromobility.sa/petromin sends p_riders and real parties exist, up to three riders.
 -- Rollback: re-run 20260916200000 (rider_register) and 20260916191500 (rider_edit); the
 -- column and the two indexes can stay.
 -- ============================================================================

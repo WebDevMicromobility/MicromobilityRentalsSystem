@@ -1,5 +1,5 @@
 
-const CACHE = 'mmcq-d020f3e812';
+const CACHE = 'mmcq-645fec7b26';
 const IMG_CACHE = 'mmcq-img'; // Supabase Storage photos; persists across app versions (content-addressed)
 
 // The one key the app shell lives under. './index.html' is deliberately NOT precached and
@@ -12,13 +12,15 @@ const IMG_CACHE = 'mmcq-img'; // Supabase Storage photos; persists across app ve
 const SHELL_KEY = './';
 const SHELL = [
   SHELL_KEY,
-  './styles.css?v=2a8b034eeb',
+  './styles.css?v=edeb56e48e',
   './manifest.json',
   './logo.png',
   './logo-dark.png',
   './jcc.png',
   './jcc-white.png',
   './brand.png',
+  './assets/brand-mark-white.svg', // the loading state's mask - the boot screen needs it offline
+  './assets/snd96-logo.svg', // the National Day lockup - on the event picker, the first screen in
   './hero.webp',
   './icon-192.png',
   './icon-512.png',

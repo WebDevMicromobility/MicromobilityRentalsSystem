@@ -551,9 +551,10 @@ test.describe('choosing the bike type', () => {
   });
 
   test('a parked BOOKING gets it written where the rest of the app reads it', async ({ page }) => {
-    // 57.5 is the canonical Hybrid fare, so this booking is still "as priced by the app" —
+    // 50 is the canonical Hybrid fare (since 2026-09-20), so this booking is still "as priced
+    // by the app" — a row left at the OLD 57.50 would read as hand-edited and must NOT reprice,
     // which is the only case the type change is allowed to reprice.
-    await openWith(page, [linked], [qe('e-wait', 1, { status: 'waiting', paid: false, price: 57.5 })]);
+    await openWith(page, [linked], [qe('e-wait', 1, { status: 'waiting', paid: false, price: 50 })]);
     const writes: { table: string; body: string }[] = [];
     page.on('request', (r) => {
       const m = r.url().match(/\/rest\/v1\/([^/?]+)/);

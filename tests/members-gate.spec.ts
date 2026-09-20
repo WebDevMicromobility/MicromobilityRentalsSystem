@@ -73,7 +73,7 @@ test('signed-in landing shows only the three event cards; Reserve lists only the
   await waitForSb(page);
   await page.evaluate('goLanding()');
 
-  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(2);
+  await expect(page.locator('#land-events .landing-event-card:not(.ev-snd96)')).toHaveCount(2);
   await expect(page.locator('.landing-hero-grid')).toBeHidden();     // hero removed for signed-in
   await expect(page.locator('#land-avail-strip')).toBeEmpty();       // availability strip removed
 
@@ -86,7 +86,7 @@ test('signed-in landing shows only the three event cards; Reserve lists only the
   await expect(page.locator('#pin-modal .pin-box')).toBeHidden();
 
   // picking the JCC event lists ONLY the JCC session (no Saturday card mixed in)
-  await page.locator('#land-events .landing-event-card').first().click();
+  await page.locator('#land-events .landing-event-card.ev-jcc').click();
   await page.waitForFunction(`S.view==='customer'`);
   await expect(page.locator('.sess-card')).toHaveCount(1);
   await expect(page.locator('.sess-card-comm')).toHaveCount(0);

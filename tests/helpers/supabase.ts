@@ -27,6 +27,24 @@ export async function stubSupabase(page: Page, fixtures: Fixtures = {}, failWrit
   await page.addInitScript(() => localStorage.setItem('cq_secure_auth', '0'));
   // Disable the boot's background "widen" refresh so it can't overwrite state a test sets.
   await page.addInitScript(() => { (window as unknown as { __noWiden?: boolean }).__noWiden = true; });
+  // Nothing in the app should FETCH these: wa.me and maps links are places a person is sent,
+  // not resources a page loads. Chromium preconnects to them anyway when it renders the
+  // links, and wa.me answers 429 once a machine has run the suite enough times in a day —
+  // which the console-error specs then report as an app failure. Cut them off so a run says
+  // something about this code and nothing about the network it happens to be on.
+  // Answered, not aborted: an abort surfaces as net::ERR_FAILED, which the console-error
+  // specs report just as loudly as the 429 this is here to prevent.
+  // api.open-meteo.com too: the weather chip really does fetch it, and a run that reaches the
+  // internet fails the console-error specs the moment that host is slow, down or rate-limited.
+  // An empty forecast is a shape the chip already handles (it renders nothing). A spec that
+  // wants a REAL forecast registers its own route AFTER this call, and Playwright consults
+  // the most recently registered handler first, so that one wins.
+  await page.route(/api\.open-meteo\.com/, (r) => r.fulfill({
+    status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' },
+    body: JSON.stringify({ daily: { time: [], temperature_2m_max: [] } }),
+  }));
+  await page.route(/(^|\.)wa\.me\/|cloudflareinsights\.com|maps\.app\.goo\.gl/,
+    (r) => r.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*' }, body: '' }));
   await page.route('**://*.supabase.co/**', async (route) => {
     const req = route.request();
     const url = new URL(req.url());

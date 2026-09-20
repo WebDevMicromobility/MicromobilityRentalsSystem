@@ -19,7 +19,12 @@
 --   queue_entries → 0 rows        (was ~2,743, with full PII)
 --   queue_public  → 2,743 rows    (no PII; the app keeps working)
 --
--- ── STAGE 2 — NOT YET APPLIED ────────────────────────────────────────────────
+-- ── STAGE 2 — APPLIED, verified 2026-09-20 ──────────────────────────────────
+-- queue_entries now carries exactly one INSERT policy and it requires is_staff(); no open
+-- insert remains. The caveat below is kept because it explains WHY the drop waited, and what
+-- to watch: a client older than 2026-08-24 flushing an offline booking by direct insert will
+-- now be refused. _bookOutboxFlush tries customer_create_booking() first, so a current client
+-- is unaffected.
 -- The INSERT policy is deliberately still open. It is not a PII leak: price, paid
 -- and status are all enforced by triggers, and customer_create_booking() is what
 -- new clients use. It matters for one case only — a booking made OFFLINE on a

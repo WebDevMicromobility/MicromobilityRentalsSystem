@@ -17,9 +17,9 @@ const rider = (n: number) => ({
   size: 'M', status: 'waiting', paid: false, price: 75, registered_at: '2099-01-01T10:00:00Z' });
 
 test('the chip shows the forecast, amber when it bites, silent when absent', async ({ page }) => {
+  await stubSupabase(page, { sessions, queue_entries: [rider(1)], bikes: [] });
   await page.route('**/api.open-meteo.com/**', (route) => route.fulfill({ json: {
     daily: { time: [D1, D2], temperature_2m_max: [43.2, 33.1], wind_speed_10m_max: [12, 31] } } }));
-  await stubSupabase(page, { sessions, queue_entries: [rider(1)], bikes: [] });
   await unlockStaff(page);
   await page.goto('/');
   await waitForSb(page);
@@ -33,8 +33,8 @@ test('the chip shows the forecast, amber when it bites, silent when absent', asy
 });
 
 test('no forecast, no problem — the strip renders bare', async ({ page }) => {
-  await page.route('**/api.open-meteo.com/**', (route) => route.abort());
   await stubSupabase(page, { sessions, queue_entries: [rider(1)], bikes: [] });
+  await page.route('**/api.open-meteo.com/**', (route) => route.abort());
   await unlockStaff(page);
   await page.goto('/');
   await waitForSb(page);
