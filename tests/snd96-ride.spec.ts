@@ -139,3 +139,57 @@ test('the session form asks for a gathering and a start, with no end and no coll
   expect(await page.evaluate(`(()=>{S.newSessEvent='swim';return [_nsSeats(),_nsTwoTimes()];})()`)).toEqual([true, true]);
   expect(await page.evaluate(`_kindHas('swim','gathering')`)).toBe(false);
 });
+
+// ── It is a circuit night, not a community event ─────────────────────────────
+// It never needed the umbrella: no members tag, no staff approval, circuit prices, an
+// ordinary bike fleet. The flag only decided where staff found it, and it quietly carried
+// the ride's identity, because _rideKind answered "jcc" for anything outside the umbrella.
+
+test('it is stamped as a circuit night and still keeps its own identity', async ({ page }) => {
+  const plain = { ...snd, event_kind: null };
+  await stubSupabase(page, { sessions: [jcc, plain, sat], bikes: [], queue_entries: [] });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok' });
+  await page.goto('/');
+  await waitForSb(page);
+  const s = `allSessions().find(x=>x.id==='snd1')`;
+
+  expect(await page.evaluate(`_isCommunity(${s})`)).toBe(false);   // out of the umbrella
+  expect(await page.evaluate(`_rideKind(${s})`)).toBe('snd96');    // ...but still itself
+  expect(await page.evaluate(`_evMatch(${s},'snd96')`)).toBe(true); // its own card
+  expect(await page.evaluate(`_maxRiders(${s})`)).toBe(3);          // its own rider cap
+  expect(await page.evaluate(`_gathersTime(${s})`)).toBe(true);     // and its gathering time
+  expect(await page.evaluate(`sessionCollectTime(${s})`)).toBe('20:00');
+  // It is not filed with the employer rides, and has no employee registration desk.
+  expect(await page.evaluate(`_evMatch(${s},'community')`)).toBe(false);
+  expect(await page.evaluate(`allSessions().filter(x=>_isCommunity(x)).map(x=>x.id)`)).not.toContain('snd1');
+});
+
+test('a session stamped the old way still behaves the same', async ({ page }) => {
+  // Rows created before this change carry event_kind 'community'. The ride kind is read off
+  // the row first, so they keep their card, their cap and their gathering time.
+  await stubSupabase(page, { sessions: [jcc, snd, sat], bikes: [], queue_entries: [] });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok' });
+  await page.goto('/');
+  await waitForSb(page);
+  const s = `allSessions().find(x=>x.id==='snd1')`;
+  expect(await page.evaluate(`_rideKind(${s})`)).toBe('snd96');
+  expect(await page.evaluate(`_gathersTime(${s})`)).toBe(true);
+  expect(await page.evaluate(`_maxRiders(${s})`)).toBe(3);
+});
+
+test('the circuit, the Saturday ride and Petromin are untouched', async ({ page }) => {
+  const pet = { id: 'p1', day: 'Wednesday', session_date: '2099-09-30', capacity: 35, status: 'open',
+    created_at: 1, event_kind: 'community', ride_kind: 'petromin', paid_ride: true, needs_approval: false,
+    bike_slots: JSON.stringify({ _time: '19:00 - 21:00', _total: 35 }) };
+  await stubSupabase(page, { sessions: [jcc, sat, pet], bikes: [], queue_entries: [] });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok' });
+  await page.goto('/');
+  await waitForSb(page);
+  const kind = (id: string) => page.evaluate(`_rideKind(allSessions().find(x=>x.id==='${id}'))`);
+  expect(await kind('s1')).toBe('jcc');
+  expect(await kind('comm1')).toBe('saturday');
+  expect(await kind('p1')).toBe('petromin');
+  // Petromin still runs start-to-end with a bike collection time 45 minutes before the off.
+  expect(await page.evaluate(`_gathersTime(allSessions().find(x=>x.id==='p1'))`)).toBe(false);
+  expect(await page.evaluate(`sessionCollectTime(allSessions().find(x=>x.id==='p1'))`)).toBe('18:15');
+});

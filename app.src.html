@@ -4231,9 +4231,14 @@ function _isCommunity(s){return s&&s.event_kind==='community';}
 // approval, the hidden queue, the spot cap) is identical, so they share event_kind and
 // differ only in ride_kind. Rows written before the migration carry none, and are Saturday.
 function _rideKind(s){
-  if(!_isCommunity(s))return 'jcc';
   const k=s&&s.ride_kind;
-  return k==='petromin'?'petromin':k==='swim'?'swim':k==='workshop'?'workshop':k==='snd96'?'snd96':'saturday';
+  // The National Day ride is the first kind that is NOT a community event: no members tag, no
+  // approval, circuit prices, an ordinary bike fleet. It still has to be recognisable, because
+  // its card, its colours, its rider cap and its gathering time all hang off this answer, so
+  // it is read from the row before the community question is asked.
+  if(k==='snd96')return 'snd96';
+  if(!_isCommunity(s))return 'jcc';
+  return k==='petromin'?'petromin':k==='swim'?'swim':k==='workshop'?'workshop':'saturday';
 }
 // ── Does this session involve a bike at all? ─────────────────────────────────
 // The sixth question the code asks about a session, and the first that is not about
@@ -4267,13 +4272,13 @@ function _gathers(s){return _kindHas(_rideKind(s),'gathering');}
 // which read as if needing staff approval were what made a ride gather. It is not - snd96
 // gathers and is open to all - so the question has one name now, and the ride kinds say
 // which of them gather.
-function _gathersTime(s){return _isCommunity(s)&&_gathers(s);}
+function _gathersTime(s){return _gathers(s)&&_rideKind(s)!=='jcc';}
 // Sessions whose times are two named moments rather than a window plus a bike collection
 // time: every community ride but Petromin, which hands bikes out from the rack across a
 // window. The two labels then follow _gathers — "Gathering / Start" for the ones that
 // gather, "Start / End" for the pool and the workshop. This says nothing about whether the
 // ride rents bikes: the National Day ride is two named times AND a full bike fleet.
-function _twoTimesSess(s){return _isCommunity(s)&&_rideKind(s)!=='petromin';}
+function _twoTimesSess(s){const k=_rideKind(s);return k!=='jcc'&&k!=='petromin';}
 // Charging is a property of the SESSION, never of "community": the price trigger in the
 // database reads the very same paid_ride flag, so the two can't drift apart.
 function _isFreeRide(s){return _isCommunity(s)&&!(s&&s.paid_ride);}
@@ -9395,7 +9400,7 @@ async function saveSessionEdit(){
       ||(_sndEdit?t('evSnd96Name'):_paidEdit?t('evPetroName'):_swimEdit?t('evSwimName'):_wsEdit?t('evWorkshopName'):t('evSatName'));
     // ride_kind and paid_ride are re-asserted with the rest: a date move re-inserts the row
     // bare, and without them a paid ride would come back complimentary.
-    const _ce={event_kind:'community',required_tag_id:null,title:_nameEdit,
+    const _ce={event_kind:_sndEdit?null:'community',required_tag_id:null,title:_nameEdit,
       needs_approval:!_paidEdit,hide_queue:_paidEdit?false:(sess.hide_queue!==false),
       spots:_paidEdit?null:total};
     // Newer columns, written separately so an older database cannot cost a Saturday ride its
@@ -9545,7 +9550,10 @@ async function addSession(){
       // The Petromin ride is a circuit session behind a members gate: staff approve nobody,
       // the queue numbers are real, and capacity overflows to the waitlist. Only the Saturday
       // ride keeps the approval/hidden-queue/allocation shape.
-      const _gate={event_kind:'community',required_tag_id:null,title:_rideName,
+      // The National Day ride is stamped as an ordinary circuit night: no event_kind, so no
+      // members gate, no community grouping, and none of the machinery built for employer
+      // rides. Its own ride_kind below is what gives it its card, its colours and its times.
+      const _gate={event_kind:isSndSess?null:'community',required_tag_id:null,title:_rideName,
         needs_approval:!isPaidSess,hide_queue:!isPaidSess,spots:isPaidSess?null:total};
       let _gateErr=null;
       await Promise.all(createdIds.map(async id=>{const r=await sb.from('sessions').update(_gate).eq('id',id);if(r&&r.error)_gateErr=r.error;}));
