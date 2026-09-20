@@ -459,7 +459,7 @@ test('Petromin keeps the old fare while the circuit moves to 57.5', async ({ pag
   await page.goto('/');
   await waitForSb(page);
 
-  const fares = await page.evaluate(`(() => {
+  const fares = await page.evaluate<string>(`(() => {
     const circuit = S.sessions.find(s => s.id === 's1');
     const petro   = S.sessions.find(s => s.id === '2099-01-13-pw');
     const read = (s) => ['Hybrid','Mountain','Kids','Any','Road'].reduce(

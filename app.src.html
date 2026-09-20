@@ -3172,9 +3172,15 @@ const FRAME_TYPES=['Steel','Aluminum','Carbon','Titanium'];
 const _BIKE_TYPE_CODE={Road:'R',Hybrid:'H',Mountain:'M',Kids:'K',Gravel:'G'};
 const _FRAME_CODE={Steel:'ST',Aluminum:'AL',Carbon:'C',Titanium:'T'};
 
+// The next free number, counted from where the fleet actually starts rather than from 1.
+// A fleet numbered in a high block (9001, 9002, ...) would otherwise be told the next bike
+// is number 1, and the first one added at the desk would fall out of the block. Gaps inside
+// the block are still offered first, which is what filling from the bottom was for.
 function _nextBikeNumber(){
-  const used=getBikes().filter(b=>b.bike_number!=null).map(b=>Number(b.bike_number));
-  let n=1;while(used.includes(n))n++;return n;
+  const used=getBikes().filter(b=>b.bike_number!=null).map(b=>Number(b.bike_number)).filter(n=>n>0);
+  let n=used.length?Math.min(...used):1;
+  while(used.includes(n))n++;
+  return n;
 }
 
 function genBikeName(type,frame,num,size){
@@ -15382,12 +15388,15 @@ function renderBikes(_resultsOnly){
   if(!_resultsOnly&&document.activeElement&&document.activeElement.id==='bk-search-input'&&document.getElementById('bk-results'))_resultsOnly=true;
   if(!document.getElementById('tab-bikes'))return; // Bikes UI now lives inside the Inventory > Bikes section
   const bikes=getBikes();
-  const total=bikes.length,nAvail=bikes.filter(b=>b.status==='available').length,
-        nUse=bikes.filter(b=>b.status==='in-use').length,
-        nMaint=bikes.filter(b=>b.status==='maintenance').length,
-        nRoad=bikes.filter(b=>b.type==='Road').length,
-        nHybrid=bikes.filter(b=>b.type==='Hybrid').length,
-        nMtn=bikes.filter(b=>b.type==='Mountain').length;
+  // "Total" is the fleet, and a retired bike is not in the fleet — it is kept only so the
+  // bookings that went out on it still name it. It is counted in its own section below,
+  // which says how many there are; counting it here too would inflate the one number staff
+  // read as "how many bikes do we have". A bike in for maintenance IS still ours, and has
+  // its own card beside this one, so it stays in.
+  const live=bikes.filter(b=>b.status!=='retired');
+  const total=live.length,nAvail=live.filter(b=>b.status==='available').length,
+        nUse=live.filter(b=>b.status==='in-use').length,
+        nMaint=live.filter(b=>b.status==='maintenance').length;
   const bkTypeOpts=['all','Road','Hybrid','Mountain','Gravel'].map(ty=>
     `<option value="${ty}"${S.bkTypeFilter===ty?' selected':''}>${ty==='all'?t('filterAll'):typeLabel(ty)}</option>`).join('');
   const bkStatusOpts=['all','available','in-use','maintenance','retired'].map(s=>{

@@ -44,7 +44,7 @@ test('a normal booking still gets repriced from the assigned bike at check-in', 
   await page.evaluate(`openModal('qp'); S.modalBikes=['b1'];`);
   await page.evaluate('confirmAssign()');
   await expect.poll(() => patches.some((p) => p.status === 'active')).toBe(true);
-  expect(patches.find((p) => p.status === 'active')!.price).toBe(50); // Hybrid's fare, 2026-09-20
+  expect(patches.find((p) => p.status === 'active')!.price).toBe(57.5); // Hybrid's fare
 });
 
 test('MM Team sale lines carry no customer name (paid lines keep it)', async ({ page }) => {
