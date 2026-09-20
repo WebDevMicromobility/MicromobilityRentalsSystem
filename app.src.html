@@ -13757,6 +13757,7 @@ function exportSessionExcel(){
   const sessPurch=_salesTotals(_cashSessionLines(sessId));
   const cashRows=sessPurch.units>0?[[],[t('cashSalesTitle')],[t('invCategory'),t('cashQtyCol'),t('repValueSar')],
     ...sessPurch.cats.map(c=>[_invCatLabel(c.cat),c.qty,c.value]),
+    ...(sessPurch.discount>0?[[t('cashDiscount'),'',-sessPurch.discount]]:[]),
     [t('repTotal'),sessPurch.units,sessPurch.value],
     [t('printCollected'),'',sessPurch.collected],[t('printPending'),'',sessPurch.pending],...(sessPurch.team>0?[[t('payTeam'),'',sessPurch.team]]:[])]:[];
   const csv=[headers,...rows,...summary,...cashRows].map(r=>r.map(_csvCell).join(',')).join('\n');
@@ -13956,6 +13957,7 @@ function printSessionReport(){
     <table>
       <thead><tr><th>${t('invCategory')}</th><th>${t('cashQtyCol')}</th><th>${t('repValueSar')}</th></tr></thead>
       <tbody>${sessPurch.cats.map(c=>`<tr><td>${esc(_invCatLabel(c.cat))}</td><td>${c.qty}</td><td>SAR ${c.value}</td></tr>`).join('')}
+        ${sessPurch.discount>0?`<tr><td>${t('cashDiscount')}</td><td></td><td>SAR -${sessPurch.discount}</td></tr>`:''}
         <tr style="font-weight:800"><td>${t('repTotal')}</td><td>${sessPurch.units}</td><td>SAR ${sessPurch.value}</td></tr>
       </tbody>
     </table>
@@ -17919,6 +17921,14 @@ async function _bookOutboxFlush(){
 // total negative (cart 100 = 40 paid + 60 pending, 50% off => paid recorded as -10), which
 // understated the drawer and fed a negative base to the card split. Take it out of the paid
 // lines first, then let the remainder reduce the pending side.
+// The lines the customer is actually charged for. A discount sized from the WHOLE cart
+// pushed the share belonging to team and on-the-house lines onto the customer's: half off a
+// cart of one 40 customer line and one 60 team line took 50 off the 40, so nothing was
+// collected and 10 fell into pending, while the customer handed over 20.
+function _ctChargeableTotal(cart){
+  return Math.round((cart||[]).filter(l=>l.pay==='paid'||l.pay==='pending')
+    .reduce((s,l)=>s+(Number(l.qty)||0)*(Number(l.price)||0),0)*100)/100;
+}
 function _ctDiscountSplit(cart,discSAR){
   const paidSub=Math.round((cart||[]).filter(l=>l.pay==='paid')
     .reduce((s,l)=>s+(Number(l.qty)||0)*(Number(l.price)||0),0)*100)/100;
@@ -17932,7 +17942,7 @@ function _ctPreview(){
   const cart=S._ctCart||[];
   const cartTot=Math.round(cart.reduce((s,l)=>s+(Number(l.qty)||0)*(Number(l.price)||0),0)*100)/100;
   const cartPaidNum=cart.filter(l=>l.pay==='paid').reduce((s,l)=>s+(Number(l.qty)||0)*(Number(l.price)||0),0);
-  const disc=_ctDiscountSAR(cartTot),after=Math.round((cartTot-disc)*100)/100;
+  const disc=_ctDiscountSAR(_ctChargeableTotal(cart)),after=Math.round((cartTot-disc)*100)/100;
   const paidAfter=Math.round((cartPaidNum-_ctDiscountSplit(cart,disc).onPaid)*100)/100,card=_ctCardSAR(paidAfter),cash=Math.max(0,Math.round((paidAfter-card)*100)/100);
   const g=document.getElementById('ct-grand');if(g)g.textContent='SAR '+after;
   const sp=document.getElementById('ct-split');if(sp)sp.innerHTML=card>0?`<span>${t('cashCard')} SAR ${card}</span><span>${t('cashCash')} SAR ${cash}</span>`:'';
@@ -17944,15 +17954,14 @@ async function _ctRecord(){
   const rid=uid(),cust=(S._ctCust||'').trim()||null,at=new Date().toISOString();
   const rows=S._ctCart.map(l=>({id:uid(),receipt_id:rid,session_id:sessId,customer_name:l.pay==='team'?null:cust,item_id:l.item_id||null,name:l.name,category:l.cat,qty:l.qty,price:l.price,pay:l.pay,team_name:l.team||null,created_at:at})); // MM Team lines belong to the team member, not a customer
   // Per-receipt discount as a negative 'paid' line (no schema change needed)
-  const cartTotal=S._ctCart.reduce((s,l)=>s+l.qty*l.price,0);
-  const discSAR=_ctDiscountSAR(cartTotal);
+  const discSAR=_ctDiscountSAR(_ctChargeableTotal(S._ctCart));
   if(discSAR>0){
     const _ds=_ctDiscountSplit(S._ctCart,discSAR);
     const _dRow=(amt,pay)=>({id:uid(),receipt_id:rid,session_id:sessId,customer_name:cust,item_id:null,name:t('cashDiscount'),category:'__discount__',qty:1,price:-amt,pay,team_name:null,created_at:at});
     if(_ds.onPaid>0)rows.push(_dRow(_ds.onPaid,'paid'));
     if(_ds.onPending>0)rows.push(_dRow(_ds.onPending,'pending'));
-    // nothing paid and nothing pending (all house/team): keep the discount on the receipt
-    if(_ds.onPaid<=0&&_ds.onPending<=0)rows.push(_dRow(discSAR,'pending'));
+    // A cart with nothing chargeable on it cannot carry a discount at all, so discSAR is
+    // already 0 and there is no third case left to catch.
   }
   // Card/cash split as a qty-0 metadata line (never affects sales totals)
   const paidTotal=rows.filter(r=>r.pay==='paid').reduce((s,r)=>s+r.qty*r.price,0);

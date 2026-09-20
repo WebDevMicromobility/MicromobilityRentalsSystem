@@ -118,7 +118,8 @@ create policy "audit insert" on public.staff_actions
 -- client made renumbering a deliberate no-op long ago and never calls it.
 revoke all on function public.customer_shiftdown(text,text,text,integer) from anon, authenticated, public;
 
--- ── 5. A bike type with no price skipped the price check entirely ──────────
+-- ── 5. A bike type with no price skipped the price check entirely, and a ──
+-- ──    refused promo code still burned one of its uses ─────────────────────
 -- ride_prices had no row for 'Kids', which the customer picker offers. With no canonical
 -- price _enforce_booking_price fell to its else branch: it never re-derived the fare and
 -- never consulted _promo_valid, so the price the client sent stood as-is, zero included —
@@ -158,6 +159,13 @@ begin
          and _promo_valid(new.promo_code, new.customer_id) then
         new.price := least(greatest(coalesce(new.price, canonical), 0), canonical);
       else
+        -- A code that was NOT honoured is not a code this booking carries. Leaving it on the
+        -- row let the AFTER trigger _promo_count burn a use for a discount nobody received:
+        -- a two-rider booking on a one-use code charged rider two the full fare and still
+        -- counted them, so the admin table read "2/1" and the next customer was turned away
+        -- by a cap that two riders had spent on one discount. Clearing it here, in the BEFORE
+        -- trigger, means the counter only ever sees codes that actually applied.
+        if new.promo_code is not null and new.promo_code <> '' then new.promo_code := null; end if;
         new.price := canonical;
       end if;
     else

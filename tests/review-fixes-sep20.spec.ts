@@ -259,3 +259,58 @@ test('the staff move counts a place as held right through the ride', async ({ pa
   await expect(page.locator('.toast')).toBeVisible();
   expect(patches).toHaveLength(0);
 });
+
+test.describe('the till and the sheet agree about money', () => {
+  const inv = [{ id: 'i1', name: 'Gel', category: 'Supplements', qty: 10, price: 12, addon: true }];
+
+  test('a discount is sized from what the customer pays, not from the team tab', async ({ page }) => {
+    await stubSupabase(page, { sessions, bikes, inventory: inv });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('cashier')`);
+    // 40 on the customer's own tab, 60 on Ahmed's team tab, half off.
+    await page.evaluate(`S._ctSession='s0';S._ctDisc='50';S._ctDiscPct=true;S._ctCart=[
+      {item_id:null,name:'Water',cat:'Drinks',qty:1,price:40,pay:'paid',team:''},
+      {item_id:null,name:'Gel',cat:'Supplements',qty:1,price:60,pay:'team',team:'Ahmed'}];`);
+    expect(await page.evaluate(`_ctChargeableTotal(S._ctCart)`)).toBe(40);
+    // Half of the chargeable 40, not half of the whole 100.
+    expect(await page.evaluate(`_ctDiscountSAR(_ctChargeableTotal(S._ctCart))`)).toBe(20);
+    await page.evaluate(`_ctRecord()`);
+    const t = await page.evaluate(`_salesTotals(_cashSessionLines('s0'))`) as { collected: number; pending: number; team: number };
+    expect(t.collected).toBe(20);   // paid 40 less the 20 that was actually theirs
+    expect(t.pending).toBe(0);      // nothing pushed into pending that nobody owes
+    expect(t.team).toBe(60);        // the team's line is untouched
+  });
+
+  test('the printed sheet and the CSV both carry the discount line, so the rows add up', async ({ page }) => {
+    // The export needs a rider on the night, or it bails before it reaches the sales block.
+    const queue_entries = [{
+      id: 'e1', session_id: 's0', session_day: 'Sunday', session_date: D, queue_num: 1, name: 'Spec Rider',
+      type_preference: 'Hybrid', size: 'M', status: 'done', paid: true, price: 57.5,
+      registered_at: '2099-01-01T10:00:00Z',
+    }];
+    await stubSupabase(page, { sessions, bikes, inventory: inv, queue_entries });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    await page.evaluate(`setStaffTab('cashier')`);
+    await page.evaluate(`S._ctSession='s0';S._ctDisc='5';S._ctDiscPct=false;S._ctCart=[
+      {item_id:null,name:'Water',cat:'Drinks',qty:2,price:10,pay:'paid',team:''}];`);
+    await page.evaluate(`_ctRecord()`);
+    const tot = await page.evaluate(`_salesTotals(_cashSessionLines('s0'))`) as { value: number; discount: number };
+    expect(tot.discount).toBe(5);
+    expect(tot.value).toBe(15);
+    // printSessionReport opens a window; catch what it hands to _openReport instead.
+    const sheet = await page.evaluate(`(()=>{const real=window._openReport;let html='';
+      window._openReport=(h)=>{html=h;};S.sfSession='s0';printSessionReport();window._openReport=real;return html;})()`) as string;
+    expect(sheet).toMatch(/Discount/i);
+    expect(sheet).toContain('SAR -5');
+    const csv = await page.evaluate(`(()=>{let out='';const _B=window.Blob;window.Blob=function(p){out=p.join('');return new _B(p,{type:'text/plain'});};
+      const _a=document.createElement.bind(document);document.createElement=(t)=>t==='a'?{click(){},set href(v){},set download(v){}}:_a(t);
+      const _c=URL.createObjectURL;URL.createObjectURL=()=>'blob:x';
+      S.sfSession='s0';exportSessionExcel();window.Blob=_B;document.createElement=_a;URL.createObjectURL=_c;return out;})()`) as string;
+    expect(csv).toMatch(/Discount/i);
+    expect(csv).toContain('-5');
+  });
+});
