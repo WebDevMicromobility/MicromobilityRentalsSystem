@@ -29,7 +29,8 @@ async function startPagesMimic(): Promise<{ url: string; close: () => Promise<vo
     try { path = decodeURIComponent(new URL(req.url || '/', 'http://x').pathname); }
     catch { res.writeHead(400); res.end(); return; }
     if (path === '/index.html') { res.writeHead(308, { location: '/' }); res.end(); return; }
-    const file = join(root, path === '/' ? '/index.html' : path);
+    // Cloudflare serves <dir>/index.html for a trailing slash, which is how /staff/ works.
+    const file = join(root, path === '/' ? '/index.html' : (path.endsWith('/') ? path + 'index.html' : path));
     if (!file.startsWith(root)) { res.writeHead(403); res.end(); return; }
     // A stable ETag, as Cloudflare sends: without one the worker reports every shell as
     // changed and open pages reload themselves mid-navigation.
@@ -79,6 +80,41 @@ test('the site still opens on the second visit when /index.html redirects', asyn
     });
     expect(keys).toContain('/');
     expect(keys).not.toContain('/index.html');
+  } finally {
+    await site.close();
+  }
+});
+
+test('a page that is not the root is never answered from, or stored as, the shell', async ({ page }) => {
+  // /staff/ is a real page whose only job is to set the staff-entry flag and bounce to /.
+  // The worker used to answer EVERY in-scope navigation from the one root cache entry, so
+  // that page was served the customer app and never ran - and the background refresh then
+  // wrote the ~500-byte stub UNDER the root key, so the next visitor to / got a page that
+  // bounces them into the staff entry instead of the app.
+  const site = await startPagesMimic();
+  await page.route(/supabase\.co|open-meteo\.com|cloudflareinsights\.com/, (r) => r.abort());
+  try {
+    await page.goto(site.url, { waitUntil: 'load' });
+    await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 20000 });
+
+    await page.goto(`${site.url}staff/`, { waitUntil: 'domcontentloaded' });
+    // Give the worker's background refresh time to write whatever it is going to write.
+    await page.waitForTimeout(1500);
+
+    // The root shell must still be the app. The stub is a few hundred bytes; the built app
+    // is over a megabyte, so the size alone tells them apart with no ambiguity.
+    const shellLen = await page.evaluate(async () => {
+      for (const n of await caches.keys()) {
+        const hit = await (await caches.open(n)).match('./');
+        if (hit) return (await hit.text()).length;
+      }
+      return -1;
+    });
+    expect(shellLen).toBeGreaterThan(100000);
+
+    // And a fresh visit to the root really does land on the app.
+    await page.goto(site.url, { waitUntil: 'domcontentloaded' });
+    expect(await page.evaluate(() => document.documentElement.innerHTML.length)).toBeGreaterThan(100000);
   } finally {
     await site.close();
   }

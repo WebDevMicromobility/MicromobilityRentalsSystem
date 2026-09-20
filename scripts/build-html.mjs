@@ -152,7 +152,13 @@ const swBefore = sw;
 const shellList = [...sw.matchAll(/'\.\/([^']+?)(?:\?v=[a-z0-9]+)?'/g)].map((m) => m[1]);
 const shellHasher = createHash('sha256').update(cssHash);
 for (const rel of [...new Set(shellList)].sort()) {
-  if (rel === '' || rel === 'styles.css') continue; // the shell root is index.html; the CSS is already in
+  // Skip the two that are already covered, and index.html, which THIS build rewrites further
+  // down (line ~214) — hashing it here would read the previous build's bytes and rotate the
+  // cache one build late. It does not need to be here anyway: the shell entry is
+  // stale-while-revalidate with an etag check on every navigation. The images and the
+  // manifest are the ones served cache-first with no revalidation, and they are what this
+  // hash exists to cover.
+  if (rel === '' || rel === 'styles.css' || rel === 'index.html') continue;
   try { shellHasher.update(rel).update(await readFile(new URL(`../${rel}`, import.meta.url))); }
   catch { throw new Error(`build: service-worker.js precaches ${rel}, which is not in the repo`); }
 }
