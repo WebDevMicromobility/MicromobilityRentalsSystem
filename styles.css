@@ -925,6 +925,33 @@
     .ticket-num-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1.8px;}
     .ticket-num{font-family:var(--font-body);font-size:84px;font-weight:700;color:var(--green-d);line-height:1;margin-top:8px;}
     .ticket-qr-wrap{margin-top:18px;display:flex;flex-direction:column;align-items:center;gap:8px;}
+    /* ── The booking QR is read by a camera, not by a person ──────────────────
+       A scanner wants dark ink on a light field, so the tile under the code keeps its own
+       white and its own hairline whatever the page is wearing: no theme variable, no event
+       skin, and `color-scheme:light` + `forced-color-adjust:none` so the browser's auto-dark
+       and high-contrast modes leave it alone too. An inverted code (light modules on dark)
+       is what most readers refuse, which is why the plate goes white rather than the code. */
+    .qr-tile{
+      background:#fff;padding:6px;border-radius:3px;display:inline-block;line-height:0;
+      border:1px solid rgba(26,25,25,.16);color-scheme:light;forced-color-adjust:none;}
+    /* A card that is dark around the code (the snd96 skin's booking card, the staff dark
+       theme) costs the camera its exposure: it meters the near-black field and the small
+       tile washes out. Those surfaces get a wider plate, so the phone is handing the
+       scanner a white card with a code on it rather than a bright chip in the dark.
+       NB `[data-theme="dark"]` is NOT the test - the head script sets it on every load and
+       the customer reskin overrides the palette at body level, so it is true on the light
+       paper card too. The dark surfaces are named one by one, and the card class is named
+       alongside the body class because My Rides lists an snd96 booking among ordinary
+       ones, without the skin on the body. */
+    body.snd96 .ticket-qr-wrap,
+    body .ticket-card.ev-snd96 .ticket-qr-wrap,
+    html[data-staff-theme="dark"] body.view-staff .ticket-qr-wrap{
+      background:#fff;border-radius:8px;padding:12px 0;color-scheme:light;}
+    /* The "my rides" card sets its QR straight into the header, with no row to whiten -
+       there the plate is the tile's own margin of white. */
+    body.snd96 .qr-tile,
+    body .ticket-card.ev-snd96 .qr-tile,
+    html[data-staff-theme="dark"] body.view-staff .qr-tile{padding:16px;}
     .ticket-qr-caption{font-size:11px;font-weight:600;color:var(--muted-l);}
     .ticket-cols{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:20px 28px 22px;text-align:center;}
     .ticket-col{min-width:0;}
@@ -4147,5 +4174,5 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
     body .ticket-card.ev-snd96 .ticket-cols,
     body .ticket-card.ev-snd96 .ticket-col{border-color:rgba(255,255,255,.18);}
     body .ticket-card.ev-snd96 .qr-hold{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:var(--snd-mut);}
-    /* The QR keeps its white tile: a scanner needs the contrast, whatever the skin. */
-    body .ticket-card.ev-snd96 .ticket-qr-wrap{background:#fff;border-radius:8px;}
+    /* The QR's white plate is not skin-specific any more - see .qr-tile up in the ticket
+       block, which whitens the plate for this skin and for the dark theme in one rule. */
