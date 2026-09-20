@@ -4192,3 +4192,64 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
       --green-rgb:7,122,75; --tint-rgb:26,25,25; --red-rgb:163,59,46; --warn-rgb:138,92,20;
       color:var(--text);
     }
+
+    /* ════════════════════════════════════════════════════════════════════════
+       JEDDAH CORNICHE CIRCUIT — the event picker card
+       Taken from jeddahcircuit.com (Sep 2026): the navy of its "JCC Fit" panel
+       #06346F, the hero's navy-to-cyan run toward #009BDD, its light cyan
+       kicker #9FD5EE, and the row of chevrons that frames that panel, redrawn
+       here rather than lifted. Their display face (Conthrax) is a paid licence,
+       so the title takes Chakra Petch, the squared race-timing face this sheet
+       already ships, which sits in the same family.
+
+       The card only. Unlike the National Day ride there is no takeover: the
+       circuit is the everyday ride, and the flow behind this card keeps the
+       house skin.
+       ════════════════════════════════════════════════════════════════════════ */
+    :root{
+      --jcc-navy:#06346F; --jcc-deep:#031E2B; --jcc-blue:#0A4F96;
+      --jcc-cyan:#0E97D5; --jcc-cyan-lt:#9FD5EE;
+      --jcc-chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 148 40'%3E%3Cg fill='%2329A9E6'%3E%3Cpath d='M0 0h18l18 20-18 20H0l18-20z' opacity='.16'/%3E%3Cpath d='M28 0h18l18 20-18 20H28l18-20z' opacity='.32'/%3E%3Cpath d='M56 0h18l18 20-18 20H56l18-20z' opacity='.5'/%3E%3Cpath d='M84 0h18l18 20-18 20H84l18-20z' opacity='.72'/%3E%3Cpath d='M112 0h18l18 20-18 20H112l18-20z' opacity='1'/%3E%3C/g%3E%3C/svg%3E");
+      --jcc-chev-rtl:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 148 40'%3E%3Cg fill='%2329A9E6' transform='matrix(-1 0 0 1 148 0)'%3E%3Cpath d='M0 0h18l18 20-18 20H0l18-20z' opacity='.16'/%3E%3Cpath d='M28 0h18l18 20-18 20H28l18-20z' opacity='.32'/%3E%3Cpath d='M56 0h18l18 20-18 20H56l18-20z' opacity='.5'/%3E%3Cpath d='M84 0h18l18 20-18 20H84l18-20z' opacity='.72'/%3E%3Cpath d='M112 0h18l18 20-18 20H112l18-20z' opacity='1'/%3E%3C/g%3E%3C/svg%3E");
+    }
+    /* The deep end sits under the mark: the logo's darker "cc" is #0060B0, which all but
+       disappears on the site's own navy, and reads on the deeper one. The run lifts toward
+       the far end, where only the chevrons are. */
+    body .landing-event-card.ev-jcc{
+      --ev:var(--jcc-cyan);--ev-rgb:14,151,213;
+      background-color:var(--jcc-navy);
+      background-image:var(--jcc-chev),linear-gradient(112deg,var(--jcc-deep) 0%,var(--jcc-navy) 44%,var(--jcc-blue) 100%);
+      background-size:74px 20px,100% 100%;
+      background-position:right 20px bottom 14px,0 0;
+      background-repeat:no-repeat;
+      border:1px solid rgba(14,151,213,.4);
+      box-shadow:0 1px 3px rgba(3,30,43,.28);
+      color:#fff;
+    }
+    html[dir="rtl"] body .landing-event-card.ev-jcc{
+      background-image:var(--jcc-chev-rtl),linear-gradient(248deg,var(--jcc-deep) 0%,var(--jcc-navy) 44%,var(--jcc-blue) 100%);
+      background-position:left 20px bottom 14px,0 0;
+    }
+    /* A phone card is barely taller than its copy, and the longer translations (Arabic,
+       Urdu, Spanish) bring the meta line down into a full-size row. There the chevrons
+       shrink and tuck into the corner, below anything the copy can reach. */
+    @media (max-width:560px){
+      body .landing-event-card.ev-jcc{background-size:52px 14px,100% 100%;background-position:right 14px bottom 8px,0 0;}
+      html[dir="rtl"] body .landing-event-card.ev-jcc{background-position:left 14px bottom 8px,0 0;}
+    }
+    body .landing-event-card.ev-jcc:hover{
+      border-color:var(--jcc-cyan);transform:none;
+      box-shadow:0 8px 24px rgba(3,30,43,.38);}
+    body .landing-event-card.ev-jcc::before{display:none;}
+    body .landing-event-card.ev-jcc .lec-title{
+      color:#fff;font-family:'Chakra Petch','IBM Plex Sans Arabic',sans-serif;font-weight:700;letter-spacing:.8px;}
+    :is(html[lang="ar"],html[lang="ur"]) body .landing-event-card.ev-jcc .lec-title{
+      font-family:'IBM Plex Sans Arabic',sans-serif;letter-spacing:0;}
+    body .landing-event-card.ev-jcc .lec-meta{color:var(--jcc-cyan-lt);font-weight:700;}
+    body .landing-event-card.ev-jcc .lec-kicker,
+    body .landing-event-card.ev-jcc .lec-arrow{color:var(--jcc-cyan-lt);}
+    /* The mark with the white wordmark. The house rules always pick the dark-ink
+       variant because the customer surface is always paper; this card is not. */
+    body .landing-event-card.ev-jcc .mm-on-light{display:none;}
+    body .landing-event-card.ev-jcc .mm-on-dark{display:inline;}
+    /* The focus ring keeps the house green: it is drawn outside the card, on the paper. */
