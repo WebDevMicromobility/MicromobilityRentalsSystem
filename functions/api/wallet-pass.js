@@ -18723,11 +18723,18 @@ function _meetUrl(sess) {
 }
 function _sessionDates(b, clock) {
   try {
-    const md = String(b.session_date || "").match(/(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4})/);
-    if (!md) return null;
-    const mo = _MONTHS[md[2].slice(0, 3).toLowerCase()];
+    // queue_entries stores the date as plain ISO, so that is the form to read first. The
+    // long form ("23 Sep 2026") is still accepted for anything that hands one over. Matching
+    // only the long form meant no date ever parsed: every pass was built without a
+    // relevantDate and without an expirationDate, so none of them surfaced on the lock screen
+    // when the ride came round, and none of them ever went stale.
+    const _raw = String(b.session_date || "");
+    const _iso = _raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    const md = _iso ? null : _raw.match(/(\d{1,2})\s+([A-Za-z]{3,})\s+(\d{4})/);
+    if (!_iso && !md) return null;
+    const mo = _iso ? +_iso[2] : _MONTHS[md[2].slice(0, 3).toLowerCase()];
     if (!mo) return null;
-    const day = +md[1], year = +md[3];
+    const day = _iso ? +_iso[3] : +md[1], year = _iso ? +_iso[1] : +md[3];
     const p2 = (n) => String(n).padStart(2, "0");
     const iso = (h, min) => `${year}-${p2(mo)}-${p2(day)}T${p2(h)}:${p2(min)}:00+03:00`;
     const parseT = (s) => {
@@ -18807,8 +18814,9 @@ function _sessClock(sess) {
 var GATHERS = { saturday: true, snd96: true, petromin: false, swim: false, workshop: false, jcc: false };
 function _gathersTime(sess) {
   // Needing staff approval is NOT what makes a ride gather: the National Day ride gathers
-  // and is open to all. The ride kind decides, exactly as KIND_TRAITS does in the app.
-  return !!sess && sess.event_kind === "community" && GATHERS[_rideOf(sess)] === true;
+  // and is open to all. The ride kind decides, exactly as KIND_TRAITS does in the app — and
+  // the kind alone, because the National Day ride is no longer under the community umbrella.
+  return !!sess && GATHERS[_rideOf(sess)] === true;
 }
 // Each ride is told apart in a crowded Wallet by its own colour, and named by its own words.
 var RIDES = {
@@ -18821,9 +18829,15 @@ var RIDES = {
   jcc:      { bg: "rgb(7,9,11)",   label: "rgb(0,229,133)",   venue: "Jeddah Corniche Circuit" }
 };
 function _rideOf(sess) {
-  if (!sess || sess.event_kind !== "community") return "jcc";
+  if (!sess) return "jcc";
+  // The National Day ride is a circuit night that is still itself: it left the umbrella, so
+  // asking the umbrella first answered "jcc" and the pass came out in the circuit's black,
+  // printed the gathering time as RIDE STARTS and invented a bike collection 45 minutes
+  // before it. Its kind is read first, exactly as _rideKind does in the app.
+  if (sess.ride_kind === "snd96") return "snd96";
+  if (sess.event_kind !== "community") return "jcc";
   const k = sess.ride_kind;
-  return k === "petromin" || k === "swim" || k === "workshop" || k === "snd96" ? k : "saturday";
+  return k === "petromin" || k === "swim" || k === "workshop" ? k : "saturday";
 }
 function _hhmm(min) {
   if (min == null) return "";
