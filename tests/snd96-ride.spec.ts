@@ -124,8 +124,18 @@ test('the session form asks for a gathering and a start, with no end and no coll
   await page.addInitScript(() => localStorage.setItem('cq_staff', '1'));
   await page.goto('/');
   await waitForSb(page);
-  expect(await page.evaluate(`(()=>{S.newSessEvent='snd96';return _nsSeats();})()`)).toBe(true);
-  expect(await page.evaluate(`(()=>{S.newSessEvent='petromin';return _nsSeats();})()`)).toBe(false);
-  expect(await page.evaluate(`_seatsSess(allSessions().find(s=>s.id==='snd1'))`)).toBe(true);
+  // Two named times: yes. Petromin keeps its window plus a bike collection time.
+  expect(await page.evaluate(`(()=>{S.newSessEvent='snd96';return _nsTwoTimes();})()`)).toBe(true);
+  expect(await page.evaluate(`(()=>{S.newSessEvent='petromin';return _nsTwoTimes();})()`)).toBe(false);
+  expect(await page.evaluate(`_twoTimesSess(allSessions().find(s=>s.id==='snd1'))`)).toBe(true);
   expect(await page.evaluate(`_gathers(allSessions().find(s=>s.id==='snd1'))`)).toBe(true);
+
+  // ...but it is NOT a spots ride. It rents bikes from the fleet and it is paid, so it keeps
+  // the fleet picker and the add-ons and does not get a meeting point. Counting spots and
+  // naming two times are different questions, and conflating them cost this ride its fleet.
+  expect(await page.evaluate(`(()=>{S.newSessEvent='snd96';return _nsSeats();})()`)).toBe(false);
+  expect(await page.evaluate(`_needsBike(allSessions().find(s=>s.id==='snd1'))`)).toBe(true);
+  // The pool session is the other way round: spots, no bikes, and start-to-end times.
+  expect(await page.evaluate(`(()=>{S.newSessEvent='swim';return [_nsSeats(),_nsTwoTimes()];})()`)).toEqual([true, true]);
+  expect(await page.evaluate(`_kindHas('swim','gathering')`)).toBe(false);
 });

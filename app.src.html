@@ -4268,11 +4268,12 @@ function _gathers(s){return _kindHas(_rideKind(s),'gathering');}
 // gathers and is open to all - so the question has one name now, and the ride kinds say
 // which of them gather.
 function _gathersTime(s){return _isCommunity(s)&&_gathers(s);}
-// Sessions whose form counts SPOTS rather than a bike fleet, and so asks for two named times
-// instead of a window plus a bike collection time. Every community ride but Petromin, which
-// is the one that hands out bikes from the rack. The two time labels then follow _gathers:
-// "Gathering / Start" for the ones that gather, "Start / End" for the pool and the workshop.
-function _seatsSess(s){return _isCommunity(s)&&_rideKind(s)!=='petromin';}
+// Sessions whose times are two named moments rather than a window plus a bike collection
+// time: every community ride but Petromin, which hands bikes out from the rack across a
+// window. The two labels then follow _gathers — "Gathering / Start" for the ones that
+// gather, "Start / End" for the pool and the workshop. This says nothing about whether the
+// ride rents bikes: the National Day ride is two named times AND a full bike fleet.
+function _twoTimesSess(s){return _isCommunity(s)&&_rideKind(s)!=='petromin';}
 // Charging is a property of the SESSION, never of "community": the price trigger in the
 // database reads the very same paid_ride flag, so the two can't drift apart.
 function _isFreeRide(s){return _isCommunity(s)&&!(s&&s.paid_ride);}
@@ -4317,10 +4318,14 @@ function _nsComm(){return S.newSessEvent==='community'||S.newSessEvent==='petrom
 // ...and which of them is described by a plain cap. An APPROVAL ride allocates places, so
 // one number says everything about it. Every other session — the circuit and the Petromin
 // ride alike — is described by the bikes it actually puts out, and its capacity is their sum.
-// The new-session form's half of _seatsSess: it works off the picked kind, before a session
-// row exists. snd96 belongs here — it gathers, so it has a gathering time and a start time,
-// and neither an end time nor a bike collection time to ask for.
-function _nsSeats(){return S.newSessEvent==='community'||S.newSessEvent==='swim'||S.newSessEvent==='workshop'||S.newSessEvent==='snd96';}
+// Counts SPOTS rather than allocating a bike fleet, meets somewhere rather than at the rack,
+// and sells no add-ons. The National Day ride is deliberately NOT here: it rents bikes from
+// the fleet and it is a paid ride, so it keeps the fleet picker and the add-ons.
+function _nsSeats(){return S.newSessEvent==='community'||S.newSessEvent==='swim'||S.newSessEvent==='workshop';}
+// Asks for two named times instead of a window plus a bike collection time: every community
+// ride except Petromin, which hands bikes out from the rack across a window. Which two names
+// they carry then follows the kind's gathering trait.
+function _nsTwoTimes(){return _nsComm()&&S.newSessEvent!=='petromin';}
 // ── One colour per ride ──────────────────────────────────────────────────────
 // Three rides now share the same screens, so each carries its own colour wherever it
 // appears: the circuit blue, the Saturday social ride green, the Petromin ride red. The
@@ -8681,7 +8686,7 @@ function renderSessions(){
             ${[2,3,4,6,8,12].map(n=>`<option value="${n}"${String(S.newSessRepeat)===String(n)?' selected':''}>${t('repeatWeeksOpt').replace('{0}',n)}</option>`).join('')}
           </select>
         </div>
-        ${_nsSeats()?`
+        ${_nsTwoTimes()?`
         <div class="form-group">
           <label>${_kindHas(S.newSessEvent,'gathering')?t('sessGatherTime'):t('sessStartTime')}</label>
           <input type="time" id="ns-start" value="${S.newSessStartTime||'06:30'}" oninput="S.newSessStartTime=this.value" style="margin-top:4px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer;max-width:140px;display:block">
@@ -8843,7 +8848,7 @@ function renderSessions(){
               onclick="S.editSessStatus='${st}';renderSessions()">${{closed:t('statusClosed'),open:t('statusOpen'),full:t('statusFull')}[st]}</button>`).join('')}
           </div>
         </div>
-        ${_seatsSess(editSess)?`
+        ${_twoTimesSess(editSess)?`
         <div class="form-group">
           <label>${_gathers(editSess)?t('sessGatherTime'):t('sessStartTime')}</label>
           <input type="time" id="es-start" value="${S.editSessStartTime||'06:30'}" oninput="S.editSessStartTime=this.value" style="margin-top:4px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer;max-width:140px;display:block">
@@ -9328,7 +9333,7 @@ async function saveSessionEdit(){
     total=assignedIds.length;
   }
   {const _wl=_readWlCap('es');if(_wl)slots._wl=_wl;} // blank/0 clears the cap
-  if(esCollect&&!_seatsSess(sess))slots._collect=esCollect; // a gathering ride has no bike collection time
+  if(esCollect&&!_twoTimesSess(sess))slots._collect=esCollect; // a gathering ride has no bike collection time
   const newStatus=S.editSessStatus||sess.status;
   const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const newDay=dayNames[new Date(newDate+'T00:00:00').getDay()];
@@ -9497,7 +9502,7 @@ async function addSession(){
     total=assignedIds.length;
   }
   {const _wl=_readWlCap('ns');if(_wl)slots._wl=_wl;}
-  if(collectVal&&!_nsSeats())slots._collect=collectVal; // blank/0 = unlimited waitlist
+  if(collectVal&&!_nsTwoTimes())slots._collect=collectVal; // blank/0 = unlimited waitlist
   const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   const weeks=Math.max(1,Math.min(12,parseInt(document.getElementById('ns-repeat')?.value||'1')||1));
   // Build one session per week (same weekday/time/config), skipping dates that already exist
