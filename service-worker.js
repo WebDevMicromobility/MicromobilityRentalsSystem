@@ -1,5 +1,5 @@
 
-const CACHE = 'mmcq-bf4ba32142';
+const CACHE = 'mmcq-bb2d82c06c';
 const IMG_CACHE = 'mmcq-img'; // Supabase Storage photos; persists across app versions (content-addressed)
 
 // The one key the app shell lives under. './index.html' is deliberately NOT precached and
@@ -68,6 +68,15 @@ self.addEventListener('fetch', (e) => {
   // it in the background for next time (stale-while-revalidate). A new deploy therefore
   // applies on the next load rather than blocking this one. First-ever visit (nothing
   // cached) falls back to the network.
+  // ...but ONLY for the root. Every in-scope navigation used to be answered from this one
+  // cache entry and written back to it, so /staff/ - a real page whose whole job is to set the
+  // staff-entry flag and bounce to / - was served the customer app instead and never ran, and
+  // the background refresh then stored that stub UNDER the root key, handing the next visitor
+  // to / a page that bounces them into the staff entry. Anything that is not the root goes to
+  // the network and is never cached as the shell.
+  if (req.mode === 'navigate' && url.origin === self.location.origin && url.pathname !== '/' && url.pathname !== '/index.html') {
+    return;
+  }
   if (req.mode === 'navigate') {
     e.respondWith(
       caches.match(SHELL_KEY).then((cached) => {

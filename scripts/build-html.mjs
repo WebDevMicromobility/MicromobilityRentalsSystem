@@ -138,13 +138,28 @@ if (out === beforeCss && /styles\.css\?v=/.test(beforeCss)) {
   throw new Error('build: styles.css cache tag present but not rewritten');
 }
 
-// Keep the service worker's precache entry and cache name in lockstep with that hash.
+// Keep the service worker's precache entry and cache name in lockstep.
+//
+// The cache name used to be the styles.css hash alone, but the cache also holds manifest.json
+// and seven images, served cache-first with no revalidation. Shipping a new logo or icon
+// without touching the stylesheet left the service worker byte-identical: no install event,
+// no re-precache, no cache rotation, and returning visitors kept the old bytes for ever with
+// no way out but an unrelated CSS edit. The name is now a hash of EVERY shell asset, so any
+// one of them changing rotates the cache.
 const swUrl = new URL('../service-worker.js', import.meta.url);
 let sw = await readFile(swUrl, 'utf8');
 const swBefore = sw;
+const shellList = [...sw.matchAll(/'\.\/([^']+?)(?:\?v=[a-z0-9]+)?'/g)].map((m) => m[1]);
+const shellHasher = createHash('sha256').update(cssHash);
+for (const rel of [...new Set(shellList)].sort()) {
+  if (rel === '' || rel === 'styles.css') continue; // the shell root is index.html; the CSS is already in
+  try { shellHasher.update(rel).update(await readFile(new URL(`../${rel}`, import.meta.url))); }
+  catch { throw new Error(`build: service-worker.js precaches ${rel}, which is not in the repo`); }
+}
+const shellHash = shellHasher.digest('hex').slice(0, 10);
 sw = sw
   .replace(/styles\.css\?v=[a-z0-9]+/g, `styles.css?v=${cssHash}`)
-  .replace(/const CACHE = '[^']*';/, `const CACHE = 'mmcq-${cssHash}';`);
+  .replace(/const CACHE = '[^']*';/, `const CACHE = 'mmcq-${shellHash}';`);
 if (!/const CACHE = 'mmcq-/.test(sw)) throw new Error('build: could not rewrite the SW cache name');
 if (sw !== swBefore) await writeFile(swUrl, sw);
 

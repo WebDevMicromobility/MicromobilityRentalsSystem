@@ -1,3 +1,11 @@
+// Apple Wallet .pkpass for a booking.
+//
+// MAINTAINED DIRECTLY. This file began as an esbuild bundle of scripts/wallet/wallet-pass.src.js
+// with scripts/wallet/pass-images.js inlined, but every change since 2026-09 has been made here:
+// the collection and start times, the per-ride colours and names, the voided flag on a dead
+// booking, the per-session meet_url and the list_sessions lookup exist ONLY in this file.
+// Rebuilding from the .src.js would silently revert all of it, so `npm run build:wallet` now
+// refuses to run. The .src.js is kept for history; do not treat it as the source.
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
@@ -18745,7 +18753,7 @@ function _sessTimes(sess) {
   const raw = _sessClock(sess);
   const parts = String(raw).split("-").map((x) => x.trim()).filter(Boolean);
   if (parts.length < 1) return null;
-  const approval = _isApproval(sess);
+  const approval = _gathersTime(sess);
   const toMin = (t) => { const m = /^(\d{1,2}):(\d{2})$/.exec(t); return m ? (+m[1]) * 60 + (+m[2]) : null; };
   const startMin = toMin(approval ? parts[1] || parts[0] : parts[0]);
   if (startMin == null) return null;
@@ -18769,8 +18777,15 @@ function _sessClock(sess) {
     return (slots && slots._time) || "";
   } catch (e) { return ""; }
 }
-function _isApproval(sess) {
-  return !!sess && sess.event_kind === "community" && sess.needs_approval !== false;
+// Does this ride's _time read as "gather, then set off", or as a plain "starts - ends"?
+// It used to be inferred from community + needs_approval, which is true of the pool session
+// and the T100 prep as well - and those do NOT gather. Their _time is an ordinary start-end
+// window, so the pass printed the session's END as the moment the ride leaves, and dropped
+// the end time entirely, leaving the pass live for hours after the session was over.
+// The app keys this off KIND_TRAITS.gathering; this is the same table.
+var GATHERS = { saturday: true, petromin: false, swim: false, workshop: false, jcc: false };
+function _gathersTime(sess) {
+  return !!sess && sess.event_kind === "community" && sess.needs_approval !== false && GATHERS[_rideOf(sess)] === true;
 }
 // Each ride is told apart in a crowded Wallet by its own colour, and named by its own words.
 var RIDES = {

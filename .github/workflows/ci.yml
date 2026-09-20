@@ -145,13 +145,22 @@ jobs:
           # A deploy that quietly drops the Functions is the failure this guards against:
           # the site looks perfect and every /api route is gone. A POST that reaches a
           # function gets its answer; one that reaches the static file server gets 405.
+          # Only a 2xx proves a function answered. The old test was "anything but 405 passes",
+          # so a timeout, a DNS failure or a Cloudflare 5xx returned 000/502 and the step went
+          # green on the first attempt having verified nothing at all -- and the one case it
+          # was meant to retry, a 405, was the only one that ever reached the sleep.
           for attempt in 1 2 3; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST \
               -H 'Content-Type: application/json' -d '{}' \
               https://micromobilityrentals.pages.dev/api/log-error || echo 000)
             echo "attempt $attempt: /api/log-error -> $code"
-            [ "$code" = "405" ] || exit 0
-            sleep 20
+            case "$code" in
+              2*) echo "Pages Functions are live."; exit 0 ;;
+              405) echo "405 = the static file server answered; Functions are not live yet." ;;
+              000) echo "no answer (timeout / DNS / TLS)." ;;
+              *)   echo "unexpected status." ;;
+            esac
+            [ "$attempt" = 3 ] || sleep 20
           done
-          echo "::error::Pages Functions are not live (405 = static file server answered)"
+          echo "::error::Pages Functions did not answer with a 2xx after 3 attempts (last status: $code)"
           exit 1

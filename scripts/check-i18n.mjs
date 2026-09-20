@@ -91,5 +91,24 @@ for (const code of codes) {
   report('has different {n} placeholders from English in', badHoles);
 }
 
+// Two strings are used with their first character stripped by a regex, because the same key
+// serves a button with a leading decoration and a plain label elsewhere. If a translation
+// drops that decoration the strip silently does nothing and the badge keeps the symbol, which
+// no placeholder rule would catch. Pin the prefixes here instead.
+const DECORATED = [
+  ['addWalkin', /^\+ /, '"+ " (stripped by /^\\+ / at the walk-in badge)'],
+  ['showOtherTypes', /^[↓↑]\s*/, 'an arrow (stripped by /^[↓↑]\\s*/ )'],
+];
+for (const [key, re, what] of DECORATED) {
+  for (const code of codes) {
+    const v = LANG[code] && LANG[code][key];
+    if (v == null) continue;
+    if (!re.test(String(v))) {
+      failed = true;
+      console.error(`check-i18n: ${code} ${key} must start with ${what} — got ${JSON.stringify(String(v).slice(0, 24))}`);
+    }
+  }
+}
+
 if (failed) process.exit(1);
 console.log(`check-i18n: OK — ${enKeys.length} keys, parity across ${codes.join('/')}`);
