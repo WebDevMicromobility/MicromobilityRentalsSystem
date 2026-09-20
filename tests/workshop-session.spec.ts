@@ -45,7 +45,7 @@ test('it has the Saturday shape, minus the bike and minus the gate', async ({ pa
 test('the landing page no longer offers it as a card', async ({ page }) => {
   await asAnyone(page);
   await page.evaluate(`goLanding()`);
-  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(2);
+  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(3);
   await expect(page.locator('#land-events .landing-event-card.ev-workshop')).toHaveCount(0);
   expect(await page.evaluate(`document.getElementById('land-events').textContent`)).not.toMatch(/T100|Triathlon/);
 });

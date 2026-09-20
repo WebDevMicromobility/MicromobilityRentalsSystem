@@ -3613,6 +3613,12 @@
       --border:rgba(18,21,15,.12);
       --tint-rgb:18,21,15;
       --s1:#fff;--s2:#fff;--s3:#f4f2ec;
+      /* The bar is white in every theme and on every event, so the accent it draws with has
+         to be the one that clears AA on white — not whichever green the page below is
+         wearing. An event skin sets --green on <body>; without this it inherited straight
+         into the header and took the focus rings and the avatar with it. */
+      --green:#077a4b;--green-h:#06603b;--green-d:#06603b;--green-rgb:7,122,75;
+      --ev:#077a4b;--ev-rgb:7,122,75;
     }
     /* The light-on-dark block that came with the green bar, undone. */
     body:not(.view-staff) #topbar#topbar .cust-topbar-name{color:#12150f;}
@@ -3940,3 +3946,287 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
        whole list. The wrapper carries no layout of its own — the row and its tag picker keep
        their own borders and spacing. */
     .am-row{display:contents;}
+
+    /* ════════════════════════════════════════════════════════════════════════
+       SAUDI NATIONAL DAY 96 — عزّنا بطبعنا  ·  "Our pride is in our nature"
+       Straight off the official SND brand guideline: deep green is the
+       foundation of the whole visual system, the brand green frames the logo
+       and its woven checkers, and the six trait colours sit on top. The motif
+       reproduced here is the checkerboard from the logo's side panels — the
+       same square-framed grid the guideline traces back to Al-Ahsa plaster and
+       to Najdi and Aseeri doors — drawn in CSS rather than shipped as art, so
+       it stays crisp at any size and costs nothing to download.
+
+       Three things wear it, and they are deliberately separate:
+         .ev-snd              the ride's --ev token, like every other ride
+         .snd-card            the landing card
+         body.ev-flow-snd     the whole Reserve flow, tokens remapped
+         .ticket-card.ev-snd  the booking card, wherever it is shown
+       The booking card is NOT scoped to the flow on purpose: a National Day
+       ticket sitting in My Rides among JCC tickets has to read as that ride.
+       ════════════════════════════════════════════════════════════════════════ */
+    :root{
+      --snd-deep:#002628;    /* the page: the foundation green of the identity */
+      --snd-deep-2:#001C1E;
+      --snd-panel:#00342E;   /* the logo's inner plate — one step up from the page */
+      --snd-panel-2:#01423A;
+      --snd-green:#00894A;   /* the brand green: the logo frame and its checkers */
+      --snd-green-l:#2FBE72;
+      --snd-green-xl:#5FE0A0;
+      --snd-lime:#5ABA1C;    /* authenticity — the brightest of the six trait colours */
+      --snd-ink:#F2F7F3;
+      --snd-mut:#9FC4B0;
+      --snd-line:rgba(0,137,74,.45);
+    }
+
+    /* The ride's colour, on the same contract every other ride uses. */
+    .ev-snd{--ev:#00894A;--ev-rgb:0,137,74;}
+    :root[data-theme="dark"] .ev-snd{--ev:#2FBE72;--ev-rgb:47,190,114;}
+
+    /* ── The weave ───────────────────────────────────────────────────────────
+       Two 45° gradients offset by half a tile: the checkerboard from the logo.
+       Always decorative, always behind the copy, always masked so it fades out
+       before it reaches anything anyone has to read. */
+    .snd-weave{
+      position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+      background-image:
+        linear-gradient(45deg,var(--snd-green) 25%,transparent 25% 75%,var(--snd-green) 75%),
+        linear-gradient(45deg,var(--snd-green) 25%,transparent 25% 75%,var(--snd-green) 75%);
+      background-position:0 0,9px 9px;
+      background-size:18px 18px;
+      opacity:.30;
+      /* The trailing edge only. The logo already carries a woven panel at each of its ends,
+         so repeating it behind the mark just fights it; the card picks the motif up again in
+         the space the copy leaves, and never anywhere a person has to read. */
+      -webkit-mask-image:linear-gradient(to right,transparent 0%,transparent 60%,rgba(0,0,0,.55) 84%,#000 100%);
+      mask-image:linear-gradient(to right,transparent 0%,transparent 60%,rgba(0,0,0,.55) 84%,#000 100%);
+    }
+    /* The mark sits on the start side, so the panel is at the other end whichever way the
+       page runs. */
+    html[dir="rtl"] .snd-weave{
+      -webkit-mask-image:linear-gradient(to left,transparent 0%,transparent 60%,rgba(0,0,0,.55) 84%,#000 100%);
+      mask-image:linear-gradient(to left,transparent 0%,transparent 60%,rgba(0,0,0,.55) 84%,#000 100%);
+    }
+
+    /* ── 1. The landing card ─────────────────────────────────────────────────
+       The one card on the picker that does not wear the paper skin: it is the
+       identity itself, so it is the deep green plate with the official lockup
+       on it. Everything inside is re-stated in SND ink because the paper skin
+       set all of it for a white card. */
+    body .landing-event-card.snd-card{
+      grid-column:1/-1;min-height:148px;gap:30px;
+      background:
+        radial-gradient(120% 140% at 6% 0%,var(--snd-panel) 0%,var(--snd-deep) 58%,var(--snd-deep-2) 100%);
+      border:1px solid var(--snd-line);
+      color:var(--snd-ink);
+      box-shadow:0 10px 30px rgba(0,22,17,.30);
+      overflow:hidden;isolation:isolate;}
+    body .landing-event-card.snd-card:hover{
+      border-color:var(--snd-green);
+      box-shadow:0 14px 38px rgba(0,22,17,.42);}
+    body .landing-event-card.snd-card:focus-visible{outline:2px solid var(--snd-green-xl);outline-offset:2px;}
+    .snd-card .lec2-copy{position:relative;z-index:1;}
+    body .snd-card .lec-title{color:#FFFFFF;}
+    body .snd-card .lec-meta{color:var(--snd-mut);font-weight:600;font-style:italic;}
+    /* The day it runs, read off the session — the line the rider actually needs. */
+    body .snd-card .lec-when{
+      color:var(--snd-green-xl);font-weight:700;font-size:13.5px;margin-top:7px;letter-spacing:.2px;}
+    body .snd-card .lec-meta{font-size:12.5px;margin-top:5px;}
+    :is(html[lang="ar"],html[lang="ur"]) body .snd-card .lec-meta,
+    html[lang="hi"] body .snd-card .lec-meta,
+    html[lang="ne"] body .snd-card .lec-meta{font-style:normal;letter-spacing:0;}
+    @media (max-width:560px){body .snd-card .lec-when{font-size:12.5px;}}
+    /* The lockup is 2.13:1, so at the slot's 84px height it lands just under the
+       180px the other marks get. A few more pixels of room keeps it off the edge. */
+    .lec2-snd{position:relative;z-index:1;}
+    .lec2-snd{height:94px;max-width:210px;}
+    .lec2-snd img{height:94px;max-width:210px;object-fit:contain;}
+    @media (max-width:760px){body .landing-event-card.snd-card{gap:18px;}}
+    @media (max-width:560px){.lec2-snd,.lec2-snd img{height:58px;max-width:132px;}}
+    /* It spans the grid, so the container query that narrows a third-width card never
+       applies to it — only the phone breakpoint does. */
+    /* The paper skin forces theme-swapped art to its on-light version; the SND
+       lockup is not a pair, it is one white-on-green mark, so it opts out. */
+    html body .snd-card .lec2-snd img{display:inline;}
+
+    /* ── 2. The flow ─────────────────────────────────────────────────────────
+       One class on <body> and the Reserve wizard changes ground. This is a
+       token remap first — nearly everything downstream reads --s1/--border/
+       --text and follows on its own — and a short list of re-statements after,
+       for the places the paper skin wrote a literal white. */
+    body.ev-flow-snd{
+      --bg:var(--snd-deep);
+      --s1:#01332C; --s2:#01433A; --s3:#013A32; --in-bg:#01312A;
+      --text:var(--snd-ink); --muted:var(--snd-mut); --muted-l:#7BA791;
+      --border:rgba(159,196,176,.22); --line2:rgba(159,196,176,.38);
+      --green:var(--snd-green-l); --green-h:#27A863; --green-d:var(--snd-green-xl);
+      --ac-fill:var(--snd-green); --ac-fill-h:#00A357; --acink:#FFFFFF;
+      --acsoft:rgba(0,137,74,.20); --accent2:rgba(47,190,114,.45);
+      --photo-bg:#01332C; --warn:rgba(242,247,243,.42);
+      --green-rgb:47,190,114; --tint-rgb:242,247,243;
+      /* Signal colours, lifted off the paper palette onto the deep green. Errors, warnings
+         and links all read from these, and the paper values sit at ~2:1 on this ground. */
+      --red:#F0907F; --red-rgb:240,144,127;
+      --orange:#E5B54A; --warn-rgb:229,181,74;
+      --blue:#7FC4F5; --blue-rgb:127,196,245;
+      --purple:#B9A6F2; --purple-rgb:185,166,242;
+      --ev:var(--snd-green-l); --ev-rgb:47,190,114;
+      --sh-1:none; --sh-2:0 2px 10px rgba(0,16,12,.38); --sh-3:0 14px 40px rgba(0,16,12,.45);
+      color-scheme:dark;
+      background:var(--snd-deep);
+      /* The square-framed grid, very quiet, fixed so the page reads as one cloth. */
+      background-image:
+        linear-gradient(rgba(0,137,74,.07) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(0,137,74,.07) 1px,transparent 1px),
+        radial-gradient(ellipse 90% 55% at 50% -8%,rgba(90,186,28,.07),transparent 62%);
+      background-size:72px 72px,72px 72px,100% 100%;
+      background-attachment:fixed;}
+
+    /* Surfaces the paper skin painted a literal white. */
+    body.ev-flow-snd .ticket-card,
+    body.ev-flow-snd .auth-box,
+    body.ev-flow-snd .modal-box,
+    body.ev-flow-snd .sess-card,
+    body.ev-flow-snd .landing-avail-row,
+    body.ev-flow-snd .form-section,
+    body.ev-flow-snd .reg-summary-panel{
+      background:var(--s1);border:1px solid var(--border);box-shadow:var(--sh-2);}
+    body.ev-flow-snd input[type="text"],body.ev-flow-snd input[type="email"],
+    body.ev-flow-snd input[type="tel"],body.ev-flow-snd input[type="number"],
+    body.ev-flow-snd input[type="url"],body.ev-flow-snd input[type="search"],
+    body.ev-flow-snd input[type="date"],body.ev-flow-snd input[type="time"],
+    body.ev-flow-snd input[type="password"],
+    body.ev-flow-snd select,body.ev-flow-snd textarea,
+    body.ev-flow-snd .auth-box .auth-field input{
+      background:var(--in-bg);border:1px solid var(--border);color:var(--text);}
+    body.ev-flow-snd input:focus,body.ev-flow-snd select:focus,body.ev-flow-snd textarea:focus,
+    body.ev-flow-snd .auth-box .auth-field input:focus{
+      border-color:var(--snd-green-l);box-shadow:inset 0 0 0 1px var(--snd-green-l);}
+    /* The flow's own ground only. A bare descendant selector also caught the white header,
+       where a #5FE0A0 ring sits at 1.66:1 — under the 3:1 a focus indicator has to clear. */
+    body.ev-flow-snd .view-main :focus-visible,
+    body.ev-flow-snd #cust-bottom-nav :focus-visible{outline-color:var(--snd-green-xl);}
+    body.ev-flow-snd input[type="checkbox"]{accent-color:var(--snd-green-l);}
+    body.ev-flow-snd select option{background:#01312A;color:var(--snd-ink);}
+    /* The quiet note block: paper cream on white becomes a panel on green. */
+    body.ev-flow-snd:not(.view-staff) .mm-note{
+      background:rgba(1,51,44,.72);border:1px solid var(--border);color:var(--snd-mut);}
+    body.ev-flow-snd:not(.view-staff) .mm-note-go{border-color:var(--snd-line);color:var(--snd-green-xl);}
+    body.ev-flow-snd:not(.view-staff) .mm-note span[style*="color:var(--orange)"]{color:#E5B54A!important;}
+    /* Chips (bike type, filters) are white paper with ink on them; the ink token moved with
+       the ground, so on green they were white on white. They become outline chips, and the
+       selected one takes the brand green rather than the paper skin's near-black. */
+    body.ev-flow-snd:not(.view-staff) .toggle-btn{
+      background:rgba(242,247,243,.07);border:1px solid rgba(159,196,176,.30);color:var(--snd-ink);font-weight:600;}
+    body.ev-flow-snd:not(.view-staff) .toggle-btn:hover{
+      background:rgba(242,247,243,.13);border-color:rgba(159,196,176,.55);color:#FFFFFF;}
+    body.ev-flow-snd:not(.view-staff) .toggle-btn.active{
+      background:var(--snd-green);border-color:var(--snd-green);color:#FFFFFF;font-weight:700;}
+    body.ev-flow-snd:not(.view-staff) .toggle-btn.active::before{background:#90DF4A;}
+    /* Status is a word and a dot, and its colours are literals three layers up. Restate them
+       for the deep green — in the flow, and on the booking card wherever it is shown. */
+    body.ev-flow-snd:not(.view-staff) .badge-waiting,
+    body.ev-flow-snd:not(.view-staff) .badge-waitlist,
+    body.ev-flow-snd:not(.view-staff) .spots-low,
+    body .ticket-card.ev-snd .badge-waiting,
+    body .ticket-card.ev-snd .badge-waitlist,
+    body .ticket-card.ev-snd .spots-low{color:#E5B54A;}
+    body.ev-flow-snd:not(.view-staff) .badge-active,
+    body.ev-flow-snd:not(.view-staff) .spots-green,
+    body .ticket-card.ev-snd .badge-active,
+    body .ticket-card.ev-snd .spots-green{color:var(--snd-green-xl);}
+    body.ev-flow-snd:not(.view-staff) .badge-done,
+    body .ticket-card.ev-snd .badge-done{color:#B7CFC1;}
+    body.ev-flow-snd:not(.view-staff) .badge-noshow,
+    body.ev-flow-snd:not(.view-staff) .spots-red,
+    body .ticket-card.ev-snd .badge-noshow,
+    body .ticket-card.ev-snd .spots-red{color:#F0907F;}
+    body.ev-flow-snd .section-label{color:var(--snd-mut);}
+    body.ev-flow-snd .landing-main-title span{color:var(--snd-green-xl);}
+    body.ev-flow-snd .cust-back-btn:hover{color:var(--snd-green-xl);}
+    /* The sticky Next/Back bar is the page's own colour with a green hairline. */
+    body.ev-flow-snd .mm-reg-foot,body.ev-flow-snd .mm-cart-foot{
+      background:rgba(0,38,40,.93);border-top:1px solid var(--snd-line);}
+    /* The bottom bar travels with the flow on a phone, so it travels in green too. */
+    body.ev-flow-snd #cust-bottom-nav{
+      background:rgba(0,28,30,.97);border-top:1px solid var(--snd-line);}
+    body.ev-flow-snd .cust-bnav-btn{color:var(--snd-mut);}
+    body.ev-flow-snd .cust-bnav-btn.active{color:#FFFFFF;}
+    body.ev-flow-snd .cust-bnav-btn.active::after{background:var(--snd-green-xl);}
+    /* The Add to Apple Wallet button borrows the pass's own green. */
+    body.ev-flow-snd .btn-wallet{border-color:rgba(47,190,114,.42);}
+    body.ev-flow-snd .btn-wallet::before{background:linear-gradient(90deg,transparent,rgba(95,224,160,.9),transparent);}
+    body.ev-flow-snd .btn-wallet:hover{border-color:rgba(95,224,160,.7);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 8px 22px rgba(0,137,74,.22);}
+    body.ev-flow-snd .btn-wallet:focus-visible{outline-color:var(--snd-green-xl);}
+    /* A step of the wizard opens onto the identity rather than a bare green page. */
+    body.ev-flow-snd .page-title{color:#FFFFFF;letter-spacing:-.6px;}
+    body.ev-flow-snd .page-title::after{
+      content:'';display:block;width:72px;height:9px;margin-top:11px;
+      background-image:
+        linear-gradient(45deg,var(--snd-green-l) 25%,transparent 25% 75%,var(--snd-green-l) 75%),
+        linear-gradient(45deg,var(--snd-green-l) 25%,transparent 25% 75%,var(--snd-green-l) 75%);
+      background-position:0 0,4.5px 4.5px;background-size:9px 9px;opacity:.85;}
+
+    /* ── 3. The booking card ─────────────────────────────────────────────────
+       Themed on its own class, so it keeps the identity in My Rides, in the
+       confirmation panel and anywhere else a ticket is drawn. */
+    body .ticket-card.ev-snd{
+      background:
+        radial-gradient(130% 120% at 0% 0%,var(--snd-panel) 0%,var(--snd-deep) 62%,var(--snd-deep-2) 100%);
+      border:1px solid var(--snd-line);
+      color:var(--snd-ink);
+      box-shadow:0 12px 32px rgba(0,22,17,.30);}
+    /* The 3px timing strip becomes the weave. */
+    body .ticket-card.ev-snd::before{
+      height:8px;
+      background-image:
+        linear-gradient(45deg,var(--snd-green) 25%,transparent 25% 75%,var(--snd-green) 75%),
+        linear-gradient(45deg,var(--snd-green) 25%,transparent 25% 75%,var(--snd-green) 75%);
+      background-color:var(--snd-panel);
+      background-position:0 0,4px 4px;background-size:8px 8px;}
+    body .ticket-card.ev-snd .ticket-header,
+    body .ticket-card.ev-snd .ticket-top,
+    body .ticket-card.ev-snd .ticket-cols{border-color:rgba(159,196,176,.30);}
+    body .ticket-card.ev-snd .ticket-num{color:#FFFFFF;}
+    body .ticket-card.ev-snd .ticket-num-label,
+    body .ticket-card.ev-snd .ticket-label,
+    body .ticket-card.ev-snd .qr-hold span,
+    body .ticket-card.ev-snd .ticket-qr-caption{color:var(--snd-green-xl);}
+    body .ticket-card.ev-snd .ticket-value,
+    body .ticket-card.ev-snd .ticket-num-block{color:var(--snd-ink);}
+    /* The punch holes read the PAGE colour, so they keep working on paper and on
+       green alike — but the hairline around them has to leave the paper palette. */
+    body .ticket-card.ev-snd .ticket-cols::before,
+    body .ticket-card.ev-snd .ticket-cols::after{border-color:rgba(159,196,176,.30);}
+    /* Inside a ticket every token-driven child follows this remap. */
+    body .ticket-card.ev-snd{
+      --text:var(--snd-ink); --muted:var(--snd-mut); --border:rgba(159,196,176,.24);
+      --line2:rgba(159,196,176,.34); --s1:#01332C; --s2:#01433A; --s3:#013A32;
+      --green:var(--snd-green-l); --green-d:var(--snd-green-xl); --green-rgb:47,190,114;
+      --tint-rgb:242,247,243; --ac-fill:var(--snd-green); --ac-fill-h:#00A357; --acink:#FFFFFF;}
+    body.ev-flow-snd:not(.view-staff) .btn-secondary,
+    body .ticket-card.ev-snd .btn-secondary{
+      background:rgba(242,247,243,.06);color:var(--snd-ink);border:1px solid rgba(159,196,176,.34);}
+    body.ev-flow-snd:not(.view-staff) .btn-secondary:hover,
+    body .ticket-card.ev-snd .btn-secondary:hover{
+      background:rgba(242,247,243,.12);color:#FFFFFF;border-color:var(--snd-green-l);}
+    body.ev-flow-snd:not(.view-staff) .btn-primary{background:var(--snd-green);color:#FFFFFF;}
+    body.ev-flow-snd:not(.view-staff) .btn-primary:hover{background:#00A357;color:#FFFFFF;}
+    body.ev-flow-snd:not(.view-staff) .btn-red,
+    body .ticket-card.ev-snd .btn-red{background:transparent;color:#F0907F;border:1px solid rgba(240,144,127,.45);}
+    body.ev-flow-snd:not(.view-staff) .btn-red:hover,
+    body .ticket-card.ev-snd .btn-red:hover{background:#A33B2E;border-color:#A33B2E;color:#FFFFFF;}
+    body.ev-flow-snd:not(.view-staff) .btn-green,
+    body .ticket-card.ev-snd .btn-green{
+      background:rgba(47,190,114,.16);color:var(--snd-green-xl);border:1px solid rgba(47,190,114,.42);}
+    body.ev-flow-snd:not(.view-staff) .btn-green:hover,
+    body .ticket-card.ev-snd .btn-green:hover{background:rgba(47,190,114,.26);border-color:var(--snd-green-l);}
+    body .ticket-card.ev-snd .mm-note{background:rgba(1,51,44,.7);border-color:rgba(159,196,176,.22);color:var(--snd-mut);}
+
+    /* The identity lives on the deep green in every theme, so a staff device in
+       dark mode must not repaint any of it. Nothing above is theme-conditional —
+       this is the note that says that is deliberate, not an omission. */
+
+    @media (prefers-reduced-motion: reduce){
+      body .landing-event-card.snd-card{transition:none;}
+    }
