@@ -42,7 +42,9 @@ test('the ride is open to everyone: no members gate between the card and the ses
   await expect(page.locator('#comm-members-modal, .comm-members-box')).toHaveCount(0);
   await expect(page.locator('.sess-card')).toHaveCount(1);
   await expect(page.locator('.sess-card')).toContainText('Saudi National Day 96 Ride');
-  expect(await page.evaluate(`_openToAll(allSessions().find(s=>s.id==='snd1'))`)).toBe(true);
+  // there is no gate to open: the umbrella never covers this ride, even on this row, which
+  // carries the old 'community' stamp
+  expect(await page.evaluate(`_isCommunity(allSessions().find(s=>s.id==='snd1'))`)).toBe(false);
 });
 
 test('each card lists only its own ride', async ({ page }) => {
@@ -162,6 +164,28 @@ test('it is stamped as a circuit night and still keeps its own identity', async 
   // It is not filed with the employer rides, and has no employee registration desk.
   expect(await page.evaluate(`_evMatch(${s},'community')`)).toBe(false);
   expect(await page.evaluate(`allSessions().filter(x=>_isCommunity(x)).map(x=>x.id)`)).not.toContain('snd1');
+  // ...and having left the umbrella it must not fall into the circuit list either, or it
+  // would be offered twice: once under its own card and once among the circuit nights.
+  expect(await page.evaluate(`_evMatch(${s},'jcc')`)).toBe(false);
+  expect(await page.evaluate(`allSessions().filter(x=>_evMatch(x,'jcc')).map(x=>x.id)`)).toEqual(['s1']);
+});
+
+test('the rider cap rolls with the account, exactly as the circuit does', async ({ page }) => {
+  // Three riders per ACCOUNT per session, not per booking. A second booking for the same
+  // night draws on the same three, so the cap has to count what the account already holds -
+  // a flat three would let a rider book three and then three more.
+  const plain = { ...snd, event_kind: null };
+  const held = (id: string, sid: string) => ({ id, name: 'Spec Rider', customer_id: 'c1', session_id: sid,
+    session_day: 'Wednesday', session_date: '2099-09-23', queue_num: 1, status: 'waiting', paid: false, price: 60 });
+  await stubSupabase(page, { sessions: [jcc, plain, sat], bikes: [],
+    queue_entries: [held('h1', 'snd1'), held('h2', 'snd1')] });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok' });
+  await page.goto('/');
+  await waitForSb(page);
+  // two of the three already booked leaves one
+  expect(await page.evaluate(`_maxRiders(allSessions().find(x=>x.id==='snd1'))`)).toBe(1);
+  // and a night the account holds nothing on still offers all three
+  expect(await page.evaluate(`_maxRiders(allSessions().find(x=>x.id==='s1'))`)).toBe(3);
 });
 
 test('a session stamped the old way still behaves the same', async ({ page }) => {

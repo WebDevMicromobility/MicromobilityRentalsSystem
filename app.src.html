@@ -4223,7 +4223,11 @@ window.addEventListener('popstate',function(e){_applyNav(e.state||_loadNav());})
 function goLanding(){showView('landing');renderLandingAvail();_pushNav();}
 // Which event a session belongs to: 'community' rows are private events (the customer only
 // ever RECEIVES those rows if the server let them, so their mere presence means access).
-function _isCommunity(s){return s&&s.event_kind==='community';}
+// The National Day ride is never under the umbrella, whatever its row says. Rows written
+// before it became a circuit night still carry event_kind 'community', and every rule that
+// reads the umbrella — the members gate, the one-seat cap, the free fare, the breakfast —
+// would answer for the Saturday ride instead. Its KIND is what it is.
+function _isCommunity(s){return !!s&&s.event_kind==='community'&&s.ride_kind!=='snd96';}
 // ── Which community ride ─────────────────────────────────────────────────────
 // 'community' used to mean exactly one event: the free, solo-only Saturday Social Ride.
 // It now covers a second one — the paid Petromin Wednesday Ride, which takes groups and
@@ -4286,18 +4290,14 @@ function _isFreeRide(s){return _isCommunity(s)&&!(s&&s.paid_ride);}
 // one community session (the Triathlon Workshop) and changes nothing else about its shape:
 // still approved, still solo, still free, queue still hidden. The gate trigger reads the very
 // same column, so the app and the database cannot disagree about who gets in.
-// A National Day ride is a public celebration: it is open to all by its KIND, so it stays
-// open even on a row written before open_to_all existed, or by a build that never set it.
-function _openToAll(s){return _isCommunity(s)&&(_rideKind(s)==='snd96'||!!(s&&s.open_to_all===true));}
+function _openToAll(s){return _isCommunity(s)&&!!(s&&s.open_to_all===true);}
 // One seat per member on the Saturday ride; the Petromin ride takes a whole group.
-function _isGroupRide(s){const k=_rideKind(s);return _isCommunity(s)&&(k==='petromin'||k==='snd96');}
+function _isGroupRide(s){return _isCommunity(s)&&_rideKind(s)==='petromin';}
 // A group ride takes a party, not a coach: one account books at most this many riders on a
 // session. The database enforces the same number per ACCOUNT (see _group_ride_cap), so
 // booking a second time cannot get round it — the two are the same rule.
 // Two = the member and one guest. Staff are exempt, so the desk can still seat a larger party.
 const GROUP_RIDE_MAX=2;
-// National Day is ridden with the family, so one account seats a party of three.
-const SND96_RIDE_MAX=3;
 // JCC: three riders per account per SESSION, not per booking - a second booking for the
 // same night draws on the same three. Rows already on the account for that session count
 // (waiting, on the bike, waitlisted); while an existing booking is being modified its
@@ -4309,7 +4309,7 @@ function _jccBooked(s){
   const modifying=!!S.modifyEntryId&&mine.some(e=>e.id===S.modifyEntryId);
   return modifying?mine.filter(e=>e.status==='active').length:mine.length;
 }
-function _maxRiders(s){if(!s)return 10;return _rideKind(s)==='snd96'?SND96_RIDE_MAX:_isGroupRide(s)?GROUP_RIDE_MAX:_isCommunity(s)?1:Math.max(1,JCC_ACCOUNT_CAP-_jccBooked(s));}
+function _maxRiders(s){if(!s)return 10;return _isGroupRide(s)?GROUP_RIDE_MAX:_isCommunity(s)?1:Math.max(1,JCC_ACCOUNT_CAP-_jccBooked(s));}
 // The Saturday ride's SHAPE — staff pick the riders, the queue stays hidden until it is
 // published, the spot cap is an allocation rather than a capacity — is what needs_approval
 // says. The Petromin ride sets it false, and every one of those behaviours falls away: real
@@ -4336,12 +4336,15 @@ function _nsTwoTimes(){return _nsComm()&&S.newSessEvent!=='petromin';}
 // appears: the circuit blue, the Saturday social ride green, the Petromin ride red. The
 // class is the whole styling contract (styles.css owns the palette).
 function _evClass(s){return 'ev-'+_rideKind(s);}
-// What to call a session. A community ride is whatever staff named it; the fallbacks are
-// the two ride names, never the umbrella one (that names the landing card, not a ride).
-function _evName(s){return _isCommunity(s)
+// What to call a session. A named ride is whatever staff called it; the fallbacks are the
+// ride names, never the umbrella one (that names the landing card, not a ride). Every kind
+// but the circuit has a name of its own — the National Day ride is ridden on the circuit's
+// terms but it is still the National Day ride, and its card says so.
+function _evNamed(s){return _rideKind(s)!=='jcc';}
+function _evName(s){return _evNamed(s)
   ?((s&&s.title)||(_rideKind(s)==='petromin'?t('evPetroName'):_rideKind(s)==='swim'?t('evSwimName'):_rideKind(s)==='workshop'?t('evWorkshopName'):_rideKind(s)==='snd96'?t('evSnd96Name'):t('evSatName')))
   :t('evJccName');}
-function _evChip(s){return _isCommunity(s)?`<span class="ev-chip ${_evClass(s)}">${esc(_evName(s))}</span>`:'';}
+function _evChip(s){return _evNamed(s)?`<span class="ev-chip ${_evClass(s)}">${esc(_evName(s))}</span>`:'';}
 // The workshop runs with a partner, and says so in a quieter line wherever a customer sees its name.
 function _partnerHtml(s,cls){return _rideKind(s)==='workshop'?`<span class="${cls||'ev-partner'}">${t('partnerStf')}</span>`:'';}
 // Rider brings their own bike ('Own' is exclusive to community rides). Own-bike bookings
@@ -4391,7 +4394,7 @@ function _evMatch(s,ev){
   if(ev==='workshop')return _rideKind(s)==='workshop';
   if(ev==='snd96')return _rideKind(s)==='snd96';
   if(ev==='community')return _isCommunity(s)&&_rideKind(s)!=='workshop'&&_rideKind(s)!=='snd96';
-  return !_isCommunity(s);
+  return !_isCommunity(s)&&_rideKind(s)!=='snd96'; // it has its own card, so not in the circuit list too
 }
 // ── The Saudi National Day 96 ride ────────────────────────────────────────────
 // A dated event, so its card dates itself out rather than sitting on the picker for ever:
@@ -4764,10 +4767,10 @@ function renderLandingAvail(){
     }
   }
   if(cust){strip.innerHTML='';return;} // signed-in landing shows no availability strip
-  const open=openSessions().filter(s=>!_isCommunity(s)&&!_sessPastDay(s)); // strip = public JCC availability only, today onwards
+  const open=openSessions().filter(s=>_evMatch(s,'jcc')&&!_sessPastDay(s)); // strip = public JCC availability only, today onwards; every row opens the circuit list, so it lists what that list holds
   if(!open.length){
     // v2: distinguish "everything is booked out" from "nothing scheduled".
-    const anyFull=allSessions().some(s=>_sessFull(s)&&!_isCommunity(s));
+    const anyFull=allSessions().some(s=>_sessFull(s)&&_evMatch(s,'jcc'));
     strip.innerHTML=`<div class="landing-avail-empty">${anyFull?t('sessAllFull'):t('noSessions')}</div>`;
     return;
   }
@@ -5595,7 +5598,7 @@ function renderManagedWl(){
       <select id="mw-sess" class="filter-select" style="min-width:190px;flex-shrink:0" aria-label="${esc(t('colSession'))}"
         onchange="mwSetSess(this.value)">
         <option value="all"${(S._mwSess||'all')==='all'?' selected':''}>${t('allSessions')}</option>
-        ${_mwSessOpts().map(x=>`<option value="${esc(x.id)}"${S._mwSess===x.id?' selected':''}>${esc(_isCommunity(x)?_evName(x)+' \u00b7 ':'')}${dayLabel(x.day)} ${shortDate(x.session_date||x.id)}</option>`).join('')}
+        ${_mwSessOpts().map(x=>`<option value="${esc(x.id)}"${S._mwSess===x.id?' selected':''}>${esc(_evNamed(x)?_evName(x)+' \u00b7 ':'')}${dayLabel(x.day)} ${shortDate(x.session_date||x.id)}</option>`).join('')}
       </select>
       <input id="mw-name" type="text" maxlength="60" placeholder="${esc(t('mwSearchPh'))}" value="${esc(S._mwQ||'')}" style="flex:1;min-width:160px"
         oninput="mwSearch(this.value)" onkeydown="if(event.key==='Enter')mwEnter()">
@@ -6212,7 +6215,10 @@ function renderRegister(){
         const sel=S.selSession===s.id;
         const isFull=_sessFull(s);
         const _n=spotsLeft(s.id);
-        const _c=_isCommunity(s);
+        // A named ride wears its accent and says its name on the card. The circuit is the
+        // only unnamed one, so this is where the National Day ride keeps its identity even
+        // though it is now ridden on the circuit's terms.
+        const _c=_evNamed(s);
         // An APPROVAL ride never hints at fullness from computed spots - customers only see
         // "waitlist" once staff explicitly mark the session full. A seat-based one counts down.
         const _low=!isFull&&!_isApprovalRide(s)&&_n>0&&_n<=3;
@@ -8590,7 +8596,7 @@ function cloneSession(id){
   // Everything the form asks for comes across, so a clone is the same session on a new date:
   // the event kind, its name, seats, meeting point, breakfast stop, add-ons and waitlist rule.
   // Only the date is left blank. The bike allocation follows below.
-  S.newSessEvent=!_isCommunity(s)?'jcc':(['petromin','swim','workshop','snd96'].includes(String(s.ride_kind||''))?String(s.ride_kind):'community');
+  S.newSessEvent=_rideKind(s)==='snd96'?'snd96':!_isCommunity(s)?'jcc':(['petromin','swim','workshop'].includes(String(s.ride_kind||''))?String(s.ride_kind):'community');
   S.newSessTitle=s.title||'';
   S.newSessSpots=s.spots!=null?String(s.spots):'';
   S.newSessMapUrl=s.meet_url||'';
@@ -9308,7 +9314,7 @@ async function saveSessionEdit(){
   const esEnd=S.editSessEndTime||document.getElementById('es-end')?.value||'23:00';
   const timeVal=`${esStart} - ${esEnd}`;
   const esCollect=S.editSessCollect||document.getElementById('es-collect')?.value||'';
-  const isCommEdit=_isCommunity(sess);
+  const isNamedEdit=_evNamed(sess);
   let slots,total;
   if(_isApprovalRide(sess)){
     // Spot cap only: an approval ride allocates places instead of putting out a fleet.
@@ -9385,8 +9391,8 @@ async function saveSessionEdit(){
     }
     // Persist offered add-ons separately so a missing column can't block the save (always written so removals stick)
     {try{await sb.from('sessions').update({addons:JSON.stringify(S.editSessAddons||[])}).eq('id',newId);}catch(e){}}
-  if(isCommEdit){
-    // Community extras (spot cap, meeting point, breakfast). Tolerant: missing columns never block the save.
+  if(isNamedEdit){
+    // Named-ride extras (spot cap, meeting point, breakfast). Tolerant: missing columns never block the save.
     // On a DATE change the row is re-inserted fresh (above) WITHOUT the gate fields, so re-assert the full
     // community identity here — otherwise the ride silently reverts to a paid JCC session (numbers + price
     // shown to customers, approval gate lost). required_tag_id stays null (visible to all).
@@ -11318,7 +11324,7 @@ function renderQRow(e){
       const isToday=(s.session_date||s.id)===todayStr(); // tonight's ride leads the strip and takes more room
       // Every named ride says its name here — the label is how staff pick it out of a strip
       // of dates, and that is as true of the Petromin ride as of the Saturday one.
-      const _cm=_isCommunity(s);
+      const _cm=_evNamed(s); // a named ride wears its name and colour on the chip; only the circuit goes bare
       return`<div class="sess-summary-chip${isCurrent?' active-sess':''}${isToday?' today-sess':''}${_cm?' community '+_evClass(s):''}"
         onclick="setSfSession('${s.id}')" title="${_cm?esc(_evName(s))+' · ':''}${dayLabel(s.day)} ${shortDate(s.session_date||s.id)} · ${sessionTime(s)}">
         <div class="sess-chip-info">
@@ -11340,7 +11346,7 @@ function renderQRow(e){
       openSess.map(s=>{
         const q=getQueue().filter(e=>e.sessionId===s.id);
         const sWait=q.filter(e=>e.status==='waiting').length;
-        const label=`${_isCommunity(s)?`${esc(_evName(s))} · `:''}${dayLabel(s.day)}, ${shortDate(s.session_date||s.id)} · ${sessionTime(s)} — ${sWait} ${t('waitingStat').toLowerCase()}`;
+        const label=`${_evNamed(s)?`${esc(_evName(s))} · `:''}${dayLabel(s.day)}, ${shortDate(s.session_date||s.id)} · ${sessionTime(s)} — ${sWait} ${t('waitingStat').toLowerCase()}`;
         return`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${label}</option>`;
       }).join('');
 
