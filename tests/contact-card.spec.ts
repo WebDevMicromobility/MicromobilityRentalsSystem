@@ -69,3 +69,33 @@ test('a name with no surname still makes a valid card', async ({ page }) => {
   expect(vcf).toContain('FN:Mononym');
   expect(vcf).toContain('N:;Mononym;;;');
 });
+
+// Safari answered "cannot download this file" to the blob-plus-download route, and on a phone
+// a download lands in Files where nobody looks for it. The share sheet is the path that
+// reaches Contacts, so it is tried first and the download is the desktop fallback.
+test('a phone hands the card to the share sheet instead of downloading it', async ({ page }) => {
+  await accounts(page);
+  const shared = await page.evaluate(`(()=>{
+    let got=null;
+    navigator.canShare=(d)=>!!(d&&d.files&&d.files.length);
+    navigator.share=(d)=>{got={name:d.files[0].name,type:d.files[0].type};return Promise.resolve();};
+    document.querySelector('.am-vcard[onclick*="c1"]').click();
+    return got;
+  })()`) as { name: string; type: string } | null;
+  expect(shared).not.toBeNull();
+  expect(shared?.type).toBe('text/vcard');
+  expect(shared?.name).toMatch(/\.vcf$/);
+});
+
+test('what is handed over starts at BEGIN:VCARD, with no byte-order mark in front', async ({ page }) => {
+  await accounts(page);
+  const first = await page.evaluate(`(()=>{
+    let text='';
+    navigator.canShare=(d)=>!!(d&&d.files&&d.files.length);
+    navigator.share=(d)=>{return d.files[0].text().then(t=>{text=t;});};
+    document.querySelector('.am-vcard[onclick*="c1"]').click();
+    return new Promise(r=>setTimeout(()=>r(text),120));
+  })()`) as string;
+  expect(first.startsWith('BEGIN:VCARD')).toBe(true);   // a BOM here is what broke the parse
+  expect(first).toContain('\r\n');
+});

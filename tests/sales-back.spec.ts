@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
+import { stubSupabase, unlockStaff, waitForSb, goStaffTab } from './helpers/supabase';
 
 // Drilling into a category in the Sales item picker must show a labelled Back button (with a
 // back-arrow clip-art) at the start.
@@ -14,7 +14,7 @@ test('Sales picker shows a Back button with an arrow after drilling in', async (
   await unlockStaff(page);
   await page.goto('/');
   await waitForSb(page);
-  await page.locator('#staff-tab-nav [data-stab="cashier"]').click();
+  await goStaffTab(page, 'cashier');
 
   const picker = page.locator('#tab-cashier');
   // drill in via the first category/section card in the picker

@@ -1,6 +1,6 @@
 import { test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { stubSupabase } from './helpers/supabase';
+import { stubSupabase, staffReady } from './helpers/supabase';
 
 // Accessibility audit — now a GATE. The backlog it was written to work down is clear:
 // every audited view (landing, auth, booking, my rides, and each staff screen) reports
@@ -78,7 +78,7 @@ test.describe('accessibility audit (report-only)', () => {
         localStorage.setItem('cq_op_name', 'A11y Spec');
       });
       await page.goto('/');
-      await page.locator('#staff-tab-nav').waitFor();
+      await staffReady(page);
       await page.evaluate((t) => (window as unknown as { setStaffTab: (x: string) => void }).setStaffTab(t), tab);
       const count = await audit(page, `staff ${tab}`);
       if (STRICT && count > 0) throw new Error(`${count} a11y violation type(s)`);

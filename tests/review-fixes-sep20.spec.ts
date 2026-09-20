@@ -314,3 +314,38 @@ test.describe('the till and the sheet agree about money', () => {
     expect(csv).toContain('-5');
   });
 });
+
+test.describe('when bikes start going out is on the ticket, not only in Wallet', () => {
+  const D2 = '2099-02-08';
+  // 9pm circuit session: collection is three quarters of an hour before, at 8:15pm.
+  const circuit = [{
+    id: 'c0', day: 'Sunday', session_date: D2, capacity: 9, status: 'open', created_at: 1,
+    bike_slots: JSON.stringify({ _time: '21:00 - 23:00', _total: 9 }), location: 'JCC', addons: null,
+  }];
+
+  test('the ticket names the collection time beside the ride window', async ({ page }) => {
+    await stubSupabase(page, { sessions: circuit, bikes, inventory,
+      customers: [{ id: 'c1', name: 'Spec Rider', email: 'spec@example.test' }] });
+    await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok' });
+    await page.goto('/');
+    await waitForSb(page);
+    expect(await page.evaluate(`sessionCollectTime(allSessions().find(s=>s.id==='c0'))`)).toBe('20:15');
+    await page.evaluate(`S.lastTickets=[{id:'t1',queueNum:7,name:'Spec Rider',sessionId:'c0',sessionDay:'Sunday',sessionDate:'${D2}',status:'waiting'}];S.regStep=4;setCustTab('register')`);
+    const card = page.locator('.ticket-card').first();
+    await expect(card).toContainText('8:15 PM');                 // when bikes start going out
+    await expect(card).toContainText('9 PM - 11 PM');            // and the ride window itself
+  });
+
+  test('a session with no bike to collect shows no collection time', async ({ page }) => {
+    const pool = [{ ...circuit[0], id: 'p0', event_kind: 'community', ride_kind: 'swim',
+      needs_approval: true, bike_slots: JSON.stringify({ _time: '19:00 - 21:00' }) }];
+    await stubSupabase(page, { sessions: pool, bikes, inventory,
+      customers: [{ id: 'c1', name: 'Spec Rider', email: 'spec@example.test' }] });
+    await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok' });
+    await page.goto('/');
+    await waitForSb(page);
+    expect(await page.evaluate(`_needsBike(allSessions().find(s=>s.id==='p0'))`)).toBe(false);
+    await page.evaluate(`S.lastTickets=[{id:'t1',queueNum:1,name:'Spec Rider',sessionId:'p0',sessionDay:'Sunday',sessionDate:'${D2}',status:'waiting'}];S.regStep=4;setCustTab('register')`);
+    await expect(page.locator('.ticket-card').first()).not.toContainText(/collection/i);
+  });
+});

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
+import { stubSupabase, unlockStaff, waitForSb, goStaffTab } from './helpers/supabase';
 
 test('scroll helper honors reduced-motion (auto), else smooth', async ({ page }) => {
   await stubSupabase(page);
@@ -20,7 +20,7 @@ test('the Sales cart puts the total + Record button in a sticky action bar', asy
   await unlockStaff(page);
   await page.goto('/');
   await waitForSb(page);
-  await page.locator('#staff-tab-nav [data-stab="cashier"]').click();
+  await goStaffTab(page, 'cashier');
   // put an item in the cart so the footer renders
   await page.evaluate(`S._ctSession='s1'; S._ctCart=[{item_id:'i1',name:'Gel',cat:'EnergyGels',qty:1,price:8,pay:'paid'}]; renderCashier();`);
   const foot = page.locator('#tab-cashier .mm-cart-foot');

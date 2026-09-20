@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubSupabase, unlockStaff, loginCustomer, waitForSb } from './helpers/supabase';
+import { stubSupabase, unlockStaff, loginCustomer, waitForSb, staffReady } from './helpers/supabase';
 
 // Phase-0 money paths: the flows where a silent regression costs real money.
 // All Supabase traffic is stubbed (see helpers/supabase.ts) — no production data.
@@ -59,7 +59,7 @@ test.describe('point of sale', () => {
     await unlockStaff(page);
     await page.goto('/');
     await waitForSb(page);
-    await expect(page.locator('#staff-tab-nav')).toBeVisible();
+    await staffReady(page);
     await page.waitForFunction('S.inventory && S.inventory.length > 0');
   });
 
@@ -96,7 +96,7 @@ test.describe('close-out totals (pure logic)', () => {
     await unlockStaff(page);
     await page.goto('/');
     await waitForSb(page);
-    await expect(page.locator('#staff-tab-nav')).toBeVisible();
+    await staffReady(page);
   });
 
   test('_salesTotals: collected/pending/free/team, refunds reversed, discounts reduce', async ({ page }) => {

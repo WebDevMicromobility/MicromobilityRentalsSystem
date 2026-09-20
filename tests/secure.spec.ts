@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubSupabase, unlockStaff, loginCustomer, waitForSb } from './helpers/supabase';
+import { stubSupabase, unlockStaff, loginCustomer, waitForSb, staffReady } from './helpers/supabase';
 
 // SECURE_AUTH mode (SECURITY-RUNBOOK.md): the app talks to token-checked RPCs
 // and the no-PII queue_public view instead of the locked tables. The flag is
@@ -169,7 +169,7 @@ test('staff sign in with a Supabase Auth account (no 4-digit PIN)', async ({ pag
   `);
   await page.locator('#pin-modal .btn-primary').click();
 
-  await expect(page.locator('#staff-tab-nav')).toBeVisible();
+  await staffReady(page);
   expect(await page.evaluate(`S._staffAuthed`)).toBe(true);
   expect(await page.evaluate(`S.staffRole`)).toBe('admin');
 });

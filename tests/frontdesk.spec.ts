@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
+import { stubSupabase, unlockStaff, waitForSb, staffReady } from './helpers/supabase';
 
 test('front desk mode limits the staff tabs to Sales & Bookings', async ({ page }) => {
   const sessions = [
@@ -14,7 +14,7 @@ test('front desk mode limits the staff tabs to Sales & Bookings', async ({ page 
   await unlockStaff(page);
   await page.goto('/');
   await waitForSb(page);
-  await expect(page.locator('#staff-tab-nav')).toBeVisible();
+  await staffReady(page);
 
   const vis = () => page.evaluate(() =>
     [...document.querySelectorAll('#staff-tab-nav .tab-btn')]

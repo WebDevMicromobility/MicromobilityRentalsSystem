@@ -2469,16 +2469,60 @@
     body.view-staff #staff-tab-nav .tab-btn .tab-badge{
       background:var(--sf-card);color:var(--text);border-radius:8px;min-width:16px;height:16px;font-size:9.5px;font-weight:700;
     }
-    /* tablet & phones: rail becomes a horizontal dark strip above the content */
+    /* The sections menu bar. Desktop keeps the rail and never shows this. */
+    .snav-burger,#snav-scrim{display:none;}
+
+    /* Tablet & phones: the rail used to become a horizontal strip that had to be dragged
+       sideways before Analytics or History came into view, so the sections past the fold
+       were invisible and the bar ate a row of the screen on every page. It is a menu now,
+       behind a bar that names the section you are on. */
     @media(max-width:1023px){
       body.view-staff #view-staff.active{display:block;}
-      body.view-staff #staff-tab-nav{
-        flex-direction:row;align-items:center;height:auto;position:sticky;top:0;z-index:60;
-        overflow-x:auto;overflow-y:hidden;padding:8px 10px;border-inline-end:none;
-        border-bottom:1px solid rgba(255,255,255,.1);scrollbar-width:none;
+
+      body.view-staff .snav-burger{
+        display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;
+        position:sticky;top:0;z-index:62;padding:11px 14px;min-height:48px;
+        border:none;border-bottom:1px solid rgba(255,255,255,.1);
+        background:#0f1215;color:#e6ebe8;
+        font-family:var(--font-body);font-size:13px;font-weight:800;letter-spacing:.2px;
+        text-align:start;cursor:pointer;
       }
-      body.view-staff .snav-group{display:none;}
-      body.view-staff #staff-tab-nav .tab-btn{width:auto;flex:0 0 auto;padding:9px 13px;min-height:40px;}
+      body.view-staff .snav-burger-lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+      body.view-staff .snav-burger-caret{color:#7d868d;font-size:11px;transition:transform .18s ease;}
+      body.snav-open.view-staff .snav-burger-caret{transform:rotate(180deg);}
+      /* Three bars that become a cross while the menu is open. */
+      body.view-staff .snav-burger-bars{
+        display:inline-flex;flex-direction:column;justify-content:center;gap:4px;
+        width:18px;height:14px;flex:0 0 18px;
+      }
+      body.view-staff .snav-burger-bars span{
+        display:block;height:2px;border-radius:2px;background:#03ff89;
+        transition:transform .18s ease,opacity .18s ease;
+      }
+      body.snav-open.view-staff .snav-burger-bars span:nth-child(1){transform:translateY(6px) rotate(45deg);}
+      body.snav-open.view-staff .snav-burger-bars span:nth-child(2){opacity:0;}
+      body.snav-open.view-staff .snav-burger-bars span:nth-child(3){transform:translateY(-6px) rotate(-45deg);}
+
+      /* The rail itself: a panel that drops from under the bar, holding every section with
+         its group heading. Shut, it takes no room at all. */
+      body.view-staff #staff-tab-nav{
+        display:none;flex-direction:column;align-items:stretch;height:auto;
+        position:sticky;top:48px;z-index:61;max-height:calc(100vh - 48px);overflow-y:auto;
+        padding:8px 10px 14px;border-inline-end:none;
+        border-bottom:1px solid rgba(255,255,255,.1);
+        box-shadow:0 14px 28px rgba(0,0,0,.45);
+      }
+      body.snav-open.view-staff #staff-tab-nav{display:flex;}
+      body.view-staff #staff-tab-nav .tab-btn{width:100%;flex:0 0 auto;padding:12px 13px;min-height:46px;}
+      /* The group headings are the point of a menu: keep them. */
+      body.view-staff .snav-group{display:block;}
+      body.view-staff #staff-tab-nav.desk-mode .snav-group{display:none;}
+      /* Pinning is a desktop idea; there is no rail to pin here. */
+      body.view-staff #rail-pin{display:none;}
+
+      body.snav-open.view-staff #snav-scrim{
+        display:block;position:fixed;inset:48px 0 0;z-index:59;background:rgba(0,0,0,.45);
+      }
       body.view-staff #view-staff .view-main{padding:16px 14px 40px;}
     }
 

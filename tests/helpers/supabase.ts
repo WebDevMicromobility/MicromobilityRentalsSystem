@@ -218,3 +218,18 @@ export async function waitForSb(page: Page) {
     { timeout: 10000 },
   );
 }
+
+/** The staff panel is up and usable.
+ *  On a phone the sections live behind a burger, so the rail itself is display:none until it
+ *  is opened — waiting on the rail there waits for ever. Wait for whichever of the two this
+ *  viewport actually shows. */
+export async function staffReady(page: Page) {
+  await page.locator('#snav-burger, #staff-tab-nav').filter({ visible: true }).first().waitFor();
+}
+
+/** Go to a staff section the way a person would, on either viewport. */
+export async function goStaffTab(page: Page, tab: string) {
+  const burger = page.locator('#snav-burger');
+  if (await burger.isVisible()) await burger.click();
+  await page.locator(`#staff-tab-nav .tab-btn[data-stab="${tab}"]`).click();
+}

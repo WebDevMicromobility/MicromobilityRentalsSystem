@@ -242,6 +242,15 @@ setTimeout(function(){var ls=document.getElementById('loading-screen');if(ls&&ls
 
 
 <div id="view-staff">
+  <!-- Small screens: the rail is a menu behind this bar, not a strip that has to be scrolled
+       sideways to reach Analytics and History. The bar names the section you are on, so the
+       page still says where you are with the menu shut. -->
+  <button type="button" id="snav-burger" class="snav-burger" aria-expanded="false" aria-controls="staff-tab-nav" onclick="toggleStaffNav()">
+    <span class="snav-burger-bars" aria-hidden="true"><span></span><span></span><span></span></span>
+    <span class="snav-burger-lbl" id="snav-burger-lbl">Sections</span>
+    <span class="snav-burger-caret" aria-hidden="true">&#9662;</span>
+  </button>
+  <div id="snav-scrim" onclick="closeStaffNav()" aria-hidden="true"></div>
   <nav class="tab-nav" id="staff-tab-nav" aria-label="Staff sections">
     <button type="button" id="rail-pin" class="snav-pin" onclick="toggleRailPin()" aria-pressed="true">
       <span class="snav-ico" aria-hidden="true"></span><span class="snav-lbl">Pin sidebar</span>
@@ -404,7 +413,7 @@ en:{landMainTitleHtml:'Reserve Your <span>Bicycle Now!</span>',spotsFull:'Full',
   logsTitle:'Action Log',logsPermanentNote:'Shared audit trail - actions from every staff device, synced to the database.',logsSearchPh:'Search actions…',logCatPay:'Payment',logCatBook:'Bookings',logCatBike:'Bikes',logCatInv:'Inventory',logCatAuth:'Access',logCatOther:'Other',logToday:'Today',logYesterday:'Yesterday',logsExportBtn:'Export CSV',histRangeLabel:'Range',histRangeToday:'Today',histRange7:'Last 7 days',histRange30:'Last 30 days',histWindowNote:'Showing the last 12 months',histMarkSelPaid:'Mark {0} paid',invSearchPh:'Search items…',invSortCat:'By category',invSortStock:'Lowest stock',invSortSales:'Best sellers',stStartBtn:'Stock-take',stCancelBtn:'Exit stock-take',stHint:'Type the counted quantity for each item - differences are highlighted.',stApplyBtn:'Apply {0} correction(s)',stNoChanges:'No corrections to apply.',invDelInUse:'On {0} live booking(s) — set its stock to zero instead of deleting it.',logStockAdj:'Stock {0}: {1}',logStockTake:'Stock-take {0}: {1} → {2}',histInLabel:'Check-in',histOutLabel:'Check-out',histTabRides:'Rides',logsColTime:'Time',logsColBy:'By',logsColAction:'Action',logsOperator:'Operator',logsOperatorPh:'Your name (tags the audit log)',opGateTitle:'Who is working?',opGateMsg:'Pick your name — every action is recorded in the log under whoever did it.',opGateBtn:'Continue',logOperatorSet:'Operator changed: {0}',filterRejected:'Rejected',errSessionStale:'Your session has expired — please sign in again.',repGeneratedAt:'Generated',repPreparedBy:'Prepared by',repReviewedBy:'Reviewed by',repVatIncl:'VAT (15%) incl.',logPrintedReport:'Printed session report',lecKickerComm:'Micromobility',commSoloOnly:'Saturday ride bookings are one rider per customer — extra riders cannot be added.',
   authPhone:'Phone Number',authPhoneOpt:'(optional if using email)',
   authPassword:'Password',authPasswordHint:'Min 8 chars, 1 uppercase, 1 number',authConfirmPassword:'Confirm Password',
-  tabReserve:'Reserve',tabMyRides:'My Bookings',tabQueue:'Queue',tabRiders:'Riders',ridersTitle:'Rider registrations',ridersSub:'Riders who registered on micromobility.sa/petromin: their session, company and booking number.',ridersEmpty:'No registrations yet',ridersRefresh:'Refresh',ridersScan:'Scan QR',ridersScanFound:'Found {0} {1} — opening the booking.',ridersWalkinHalfDone:'The registration is saved. The booking was not added — retry to finish.',ridersWalkinDup:'#{0} {1} is already booked on this session. Is this the same rider?',ridersWalkinDupSame:'Yes, same rider',ridersWalkinDupNew:'No, add a booking',ridersPartyCount:'{0} riders',ridersCheckInAll:'Check in all',ridersWalkinBtn:'+ Walk-in',ridersWalkinRiders:'Riding with them',ridersWalkinRiderN:'Rider {0}: {1}',ridersWalkinErrRiders:'Up to four companions on one booking.',ridersPartyOf:'Rider {0} of {1}',ridersWith:'with {0}',ridersParty:'Party',ridersEditTitle:'Edit registration',ridersEditSub:'Changes here also update the rider’s booking in the queue, if they have one. The session can be changed until the rider is checked in.',ridersEditSaved:'{0} updated',ridersEditDup:'Another registration already uses this badge on that session.',ridersWalkinTitle:'Add a walk-in rider',ridersWalkinSub:'The same details the registration form asks for. The rider gets a registration number and an ordinary booking in the queue, exactly as if they had registered online.',ridersWalkinName:'Full name',ridersWalkinCheckinNow:'Check in now',ridersWalkinAdd:'Add rider',ridersWalkinAdded:'{0} added as {1}',ridersWalkinResub:'{1} was already registered — {0}’s details updated',ridersWalkinNoSess:'No Petromin session is on today or coming up, so there is nothing to add a walk-in to.',ridersWalkinErrSession:'Pick a session that is still on.',ridersWalkinErrBadge:'Enter the badge number.',ridersWalkinErrName:'Enter the rider’s full name — first and last.',ridersWalkinErrPhone:'Check the mobile number.',ridersWalkinErrHeight:'Height must be between 100 and 250 cm.',ridersWalkinErrType:'Pick a bike type.',ridersWalkinErrCompany:'Pick Petromin or Petrolube.',ridersWalkinErr:'Could not add the rider. Check the connection and try again.',ridersExport:'Export CSV',ridersSearch:'Search booking no, badge, name or phone',colBookingNo:'Booking no',ridersCheckIn:'Check in',ridersReturn:'Return bike',ridersUndoCheckin:'Undo check-in',ridersUndoReturn:'Undo return',colCheckedIn:'Check-in time',colCheckedOut:'Check-out time',ridersBy:'by {0}',ridersRideTime:'Ride {0}',ridersFilterWaiting:'Not arrived',ridersFilterRiding:'On ride',ridersFilterReturned:'Returned',ridersReport:'Billing report',ridersReportCsv:'Report CSV',ridersReportEmpty:'No returned bikes to report yet',ridersRepRides:'Completed rides',ridersRepTotal:'Total',ridersCompany:'Company',ridersFilterAll:'All',colBadge:'Badge',colSubmitted:'Submitted',ridersRemove:'Remove',ridersRemoveConfirm:'Remove this registration?',ridersLoadErr:'Could not load registrations',ridersResub:'Submitted {0} times',railPinTip:'Keep sidebar open',railHoverTip:'Collapse sidebar',snavRides:'Rides',snavCommerce:'Commerce',snavPeople:'People',snavInsights:'Insights',snavSystem:'System',tabSessions:'Sessions',tabBikes:'Bikes',tabHistory:'History',tabAnalytics:'Analytics',tabLogs:'Logs',tabInventory:'Inventory',tabCommunity:'Community',
+  tabReserve:'Reserve',tabMyRides:'My Bookings',tabQueue:'Queue',tabRiders:'Riders',ridersTitle:'Rider registrations',ridersSub:'Riders who registered on micromobility.sa/petromin: their session, company and booking number.',ridersEmpty:'No registrations yet',ridersRefresh:'Refresh',ridersScan:'Scan QR',ridersScanFound:'Found {0} {1} — opening the booking.',ridersWalkinHalfDone:'The registration is saved. The booking was not added — retry to finish.',ridersWalkinDup:'#{0} {1} is already booked on this session. Is this the same rider?',ridersWalkinDupSame:'Yes, same rider',ridersWalkinDupNew:'No, add a booking',ridersPartyCount:'{0} riders',ridersCheckInAll:'Check in all',ridersWalkinBtn:'+ Walk-in',ridersWalkinRiders:'Riding with them',ridersWalkinRiderN:'Rider {0}: {1}',ridersWalkinErrRiders:'Up to four companions on one booking.',ridersPartyOf:'Rider {0} of {1}',ridersWith:'with {0}',ridersParty:'Party',ridersEditTitle:'Edit registration',ridersEditSub:'Changes here also update the rider’s booking in the queue, if they have one. The session can be changed until the rider is checked in.',ridersEditSaved:'{0} updated',ridersEditDup:'Another registration already uses this badge on that session.',ridersWalkinTitle:'Add a walk-in rider',ridersWalkinSub:'The same details the registration form asks for. The rider gets a registration number and an ordinary booking in the queue, exactly as if they had registered online.',ridersWalkinName:'Full name',ridersWalkinCheckinNow:'Check in now',ridersWalkinAdd:'Add rider',ridersWalkinAdded:'{0} added as {1}',ridersWalkinResub:'{1} was already registered — {0}’s details updated',ridersWalkinNoSess:'No Petromin session is on today or coming up, so there is nothing to add a walk-in to.',ridersWalkinErrSession:'Pick a session that is still on.',ridersWalkinErrBadge:'Enter the badge number.',ridersWalkinErrName:'Enter the rider’s full name — first and last.',ridersWalkinErrPhone:'Check the mobile number.',ridersWalkinErrHeight:'Height must be between 100 and 250 cm.',ridersWalkinErrType:'Pick a bike type.',ridersWalkinErrCompany:'Pick Petromin or Petrolube.',ridersWalkinErr:'Could not add the rider. Check the connection and try again.',ridersExport:'Export CSV',ridersSearch:'Search booking no, badge, name or phone',colBookingNo:'Booking no',ridersCheckIn:'Check in',ridersReturn:'Return bike',ridersUndoCheckin:'Undo check-in',ridersUndoReturn:'Undo return',colCheckedIn:'Check-in time',colCheckedOut:'Check-out time',ridersBy:'by {0}',ridersRideTime:'Ride {0}',ridersFilterWaiting:'Not arrived',ridersFilterRiding:'On ride',ridersFilterReturned:'Returned',ridersReport:'Billing report',ridersReportCsv:'Report CSV',ridersReportEmpty:'No returned bikes to report yet',ridersRepRides:'Completed rides',ridersRepTotal:'Total',ridersCompany:'Company',ridersFilterAll:'All',colBadge:'Badge',colSubmitted:'Submitted',ridersRemove:'Remove',ridersRemoveConfirm:'Remove this registration?',ridersLoadErr:'Could not load registrations',ridersResub:'Submitted {0} times',railPinTip:'Keep sidebar open',railHoverTip:'Collapse sidebar',snavRides:'Rides',snavSections:'Sections',snavCommerce:'Commerce',snavPeople:'People',snavInsights:'Insights',snavSystem:'System',tabSessions:'Sessions',tabBikes:'Bikes',tabHistory:'History',tabAnalytics:'Analytics',tabLogs:'Logs',tabInventory:'Inventory',tabCommunity:'Community',
   tabDashboard:'Dashboard',dashTitle:'Dashboard',dashSub:'Live overview of the booth right now.',dashWaiting:'Waiting',dashOnBikes:'On bikes now',dashOpenSessions:'Open sessions',dashAvailBikes:'Available bikes',dashAlerts:'Alerts',dashOverdueSub:'Ride running long',dashMaintAlert:'{0} bike(s) in maintenance',dashLowBikes:'Only {0} bikes available',dashAllClear:'All clear - nothing needs attention.',sessSelectMsg:'Select a session to see its details and bookings.',sessRidersTitle:'Bookings',sessBackList:'All sessions',sessNoRiders:'No bookings in this session yet.',
   anRevCollected:'Revenue Collected',anRevPending:'Revenue Pending',anRevTotal:'Total Revenue',anAvgPerSession:'Avg / Session',
   anTotalRides:'Completed Rides',anUniqueCustomers:'Unique Customers',anRepeatRiders:'Repeat Riders',
@@ -653,7 +662,7 @@ en:{landMainTitleHtml:'Reserve Your <span>Bicycle Now!</span>',spotsFull:'Full',
   errValidEmail:'Please enter a valid email address.',errGroupCap:'Up to {0} riders per booking on this ride.',groupCapHint:'up to {0} riders',jccCapNote:'The limit per one account is {0} riders.',errValidPhone:'Please enter a valid phone number (at least 8 digits).',errFieldRequired:'This field is required.',
   errPasswordLen:'Password must be at least 8 characters and include an uppercase letter and a number.',
   
-  ticketAddCal:'Add to Calendar',ticketDirections:'Get Directions',opensNewTab:' (opens in a new tab)',ticketLocation:'Location',ticketScanGate:'Scan on arrival',
+  ticketAddCal:'Add to Calendar',ticketCollectAt:'Collect bikes from {0}',ticketDirections:'Get Directions',opensNewTab:' (opens in a new tab)',ticketLocation:'Location',ticketScanGate:'Scan on arrival',
   errPasswordMatch:'Passwords do not match.',
   errEmailExists:'An account with this email already exists.',
   errPhoneExists:'An account with this phone number already exists.',
@@ -818,7 +827,7 @@ ar:{landMainTitleHtml:'احجز <span>دراجتك الآن!</span>',spotsFull:'
   logsTitle:'سجل الإجراءات',logsPermanentNote:'سجل تدقيق مشترك - إجراءات كل أجهزة الموظفين، متزامنة مع قاعدة البيانات.',logsSearchPh:'ابحث في الإجراءات…',logCatPay:'الدفع',logCatBook:'الحجوزات',logCatBike:'الدراجات',logCatInv:'المخزون',logCatAuth:'الوصول',logCatOther:'أخرى',logToday:'اليوم',logYesterday:'أمس',logsExportBtn:'تصدير CSV',histRangeLabel:'المدة',histRangeToday:'اليوم',histRange7:'آخر 7 أيام',histRange30:'آخر 30 يومًا',histWindowNote:'يعرض آخر 12 شهرًا',histMarkSelPaid:'تحديد {0} كمدفوع',invSearchPh:'ابحث عن العناصر…',invSortCat:'حسب الفئة',invSortStock:'الأقل مخزوناً',invSortSales:'الأكثر مبيعاً',stStartBtn:'جرد المخزون',stCancelBtn:'إنهاء الجرد',stHint:'اكتب الكمية المعدودة لكل عنصر - تُبرز الفروقات.',stApplyBtn:'تطبيق {0} تصحيح',stNoChanges:'لا توجد تصحيحات للتطبيق.',invDelInUse:'مرتبط بـ {0} حجز قائم — اجعل مخزونه صفراً بدلاً من حذفه.',logStockAdj:'المخزون {0}: {1}',logStockTake:'جرد {0}: {1} → {2}',histInLabel:'الدخول',histOutLabel:'الخروج',histTabRides:'الرحلات',logsColTime:'الوقت',logsColBy:'بواسطة',logsColAction:'الإجراء',logsOperator:'الموظف',logsOperatorPh:'اسمك (يوسم سجل التدقيق)',opGateTitle:'من يعمل الآن؟',opGateMsg:'اختر اسمك — يُسجَّل كل إجراء في السجل باسم من قام به.',opGateBtn:'متابعة',logOperatorSet:'تغيير المشغّل: {0}',filterRejected:'مرفوض',errSessionStale:'انتهت صلاحية جلستك — يرجى تسجيل الدخول من جديد.',repGeneratedAt:'أُنشئ',repPreparedBy:'أعدّه',repReviewedBy:'راجعه',repVatIncl:'شامل ضريبة القيمة المضافة (15%)',logPrintedReport:'طُبع تقرير الجلسة',lecKickerComm:'مايكرو موبيليتي',commSoloOnly:'حجز جولة السبت لراكب واحد فقط لكل عميل — لا يمكن إضافة ركاب آخرين.',
   authPhone:'رقم الهاتف',authPhoneOpt:'(اختياري إذا استخدمت البريد)',
   authPassword:'كلمة المرور',authPasswordHint:'8 أحرف كحد أدنى، حرف كبير ورقم',authConfirmPassword:'تأكيد كلمة المرور',
-  tabReserve:'حجز',tabMyRides:'حجوزاتي',tabQueue:'الطابور',tabRiders:'الراكبون',ridersTitle:'تسجيلات الراكبين',ridersSub:'الراكبون الذين سجلوا عبر micromobility.sa/petromin: الجلسة والشركة ورقم الحجز.',ridersEmpty:'لا توجد تسجيلات بعد',ridersRefresh:'تحديث',ridersScan:'مسح رمز QR',ridersScanFound:'تم العثور على {0} {1} — جارٍ فتح الحجز.',ridersWalkinHalfDone:'تم حفظ التسجيل. لم يُضف الحجز — أعد المحاولة للإكمال.',ridersWalkinDup:'الرقم #{0} {1} محجوز بالفعل في هذه الجلسة. هل هو نفس الراكب؟',ridersWalkinDupSame:'نعم، نفس الراكب',ridersWalkinDupNew:'لا، أضف حجزاً',ridersPartyCount:'{0} ركاب',ridersCheckInAll:'تسجيل دخول الجميع',ridersWalkinBtn:'+ حضور مباشر',ridersWalkinRiders:'يركبون معه',ridersWalkinRiderN:'الراكب {0}: {1}',ridersWalkinErrRiders:'حتى أربعة مرافقين في الحجز الواحد.',ridersPartyOf:'الراكب {0} من {1}',ridersWith:'مع {0}',ridersParty:'المجموعة',ridersEditTitle:'تعديل التسجيل',ridersEditSub:'التغييرات هنا تُحدّث أيضًا حجز الراكب في قائمة الانتظار إن وُجد. يمكن تغيير الجلسة حتى يتم تسجيل دخول الراكب.',ridersEditSaved:'تم تحديث {0}',ridersEditDup:'يوجد تسجيل آخر يستخدم رقم البطاقة هذا في تلك الجلسة.',ridersWalkinTitle:'إضافة راكب حضر مباشرة',ridersWalkinSub:'نفس البيانات التي يطلبها نموذج التسجيل. يحصل الراكب على رقم تسجيل وحجز عادي في قائمة الانتظار، تمامًا كما لو سجّل عبر الإنترنت.',ridersWalkinName:'الاسم الكامل',ridersWalkinCheckinNow:'تسجيل الدخول الآن',ridersWalkinAdd:'إضافة الراكب',ridersWalkinAdded:'تمت إضافة {0} برقم {1}',ridersWalkinResub:'الرقم {1} مسجّل مسبقًا — تم تحديث بيانات {0}',ridersWalkinNoSess:'لا توجد جلسة بترومين اليوم أو قادمة، فلا يوجد ما يُضاف إليه الراكب.',ridersWalkinErrSession:'اختر جلسة ما زالت قائمة.',ridersWalkinErrBadge:'أدخل رقم البطاقة.',ridersWalkinErrName:'أدخل الاسم الكامل للراكب — الاسم الأول والأخير.',ridersWalkinErrPhone:'تحقق من رقم الجوال.',ridersWalkinErrHeight:'يجب أن يكون الطول بين 100 و250 سم.',ridersWalkinErrType:'اختر نوع الدراجة.',ridersWalkinErrCompany:'اختر بترومين أو بترولوب.',ridersWalkinErr:'تعذّرت إضافة الراكب. تحقق من الاتصال وحاول مجددًا.',ridersExport:'تصدير CSV',ridersSearch:'ابحث برقم الحجز أو البادج أو الاسم أو الجوال',colBookingNo:'رقم الحجز',ridersCheckIn:'تسجيل وصول',ridersReturn:'إرجاع الدراجة',ridersUndoCheckin:'تراجع عن الدخول',ridersUndoReturn:'تراجع عن الإرجاع',colCheckedIn:'وقت الدخول',colCheckedOut:'وقت الخروج',ridersBy:'بواسطة {0}',ridersRideTime:'الرحلة {0}',ridersFilterWaiting:'لم يصل',ridersFilterRiding:'في الرحلة',ridersFilterReturned:'أُرجعت',ridersReport:'تقرير الفوترة',ridersReportCsv:'تقرير CSV',ridersReportEmpty:'لا توجد دراجات مُرجعة للتقرير بعد',ridersRepRides:'الرحلات المكتملة',ridersRepTotal:'الإجمالي',ridersCompany:'الشركة',ridersFilterAll:'الكل',colBadge:'البادج',colSubmitted:'وقت الإرسال',ridersRemove:'حذف',ridersRemoveConfirm:'حذف هذا التسجيل؟',ridersLoadErr:'تعذر تحميل التسجيلات',ridersResub:'أُرسل {0} مرات',railPinTip:'تثبيت القائمة الجانبية',railHoverTip:'طيّ القائمة',snavRides:'الرحلات',snavCommerce:'التجارة',snavPeople:'الأشخاص',snavInsights:'الرؤى',snavSystem:'النظام',tabSessions:'الجلسات',tabBikes:'الدراجات',tabHistory:'السجل',tabAnalytics:'التحليلات',tabLogs:'السجلات',tabInventory:'المخزون',tabCommunity:'المجتمع',
+  tabReserve:'حجز',tabMyRides:'حجوزاتي',tabQueue:'الطابور',tabRiders:'الراكبون',ridersTitle:'تسجيلات الراكبين',ridersSub:'الراكبون الذين سجلوا عبر micromobility.sa/petromin: الجلسة والشركة ورقم الحجز.',ridersEmpty:'لا توجد تسجيلات بعد',ridersRefresh:'تحديث',ridersScan:'مسح رمز QR',ridersScanFound:'تم العثور على {0} {1} — جارٍ فتح الحجز.',ridersWalkinHalfDone:'تم حفظ التسجيل. لم يُضف الحجز — أعد المحاولة للإكمال.',ridersWalkinDup:'الرقم #{0} {1} محجوز بالفعل في هذه الجلسة. هل هو نفس الراكب؟',ridersWalkinDupSame:'نعم، نفس الراكب',ridersWalkinDupNew:'لا، أضف حجزاً',ridersPartyCount:'{0} ركاب',ridersCheckInAll:'تسجيل دخول الجميع',ridersWalkinBtn:'+ حضور مباشر',ridersWalkinRiders:'يركبون معه',ridersWalkinRiderN:'الراكب {0}: {1}',ridersWalkinErrRiders:'حتى أربعة مرافقين في الحجز الواحد.',ridersPartyOf:'الراكب {0} من {1}',ridersWith:'مع {0}',ridersParty:'المجموعة',ridersEditTitle:'تعديل التسجيل',ridersEditSub:'التغييرات هنا تُحدّث أيضًا حجز الراكب في قائمة الانتظار إن وُجد. يمكن تغيير الجلسة حتى يتم تسجيل دخول الراكب.',ridersEditSaved:'تم تحديث {0}',ridersEditDup:'يوجد تسجيل آخر يستخدم رقم البطاقة هذا في تلك الجلسة.',ridersWalkinTitle:'إضافة راكب حضر مباشرة',ridersWalkinSub:'نفس البيانات التي يطلبها نموذج التسجيل. يحصل الراكب على رقم تسجيل وحجز عادي في قائمة الانتظار، تمامًا كما لو سجّل عبر الإنترنت.',ridersWalkinName:'الاسم الكامل',ridersWalkinCheckinNow:'تسجيل الدخول الآن',ridersWalkinAdd:'إضافة الراكب',ridersWalkinAdded:'تمت إضافة {0} برقم {1}',ridersWalkinResub:'الرقم {1} مسجّل مسبقًا — تم تحديث بيانات {0}',ridersWalkinNoSess:'لا توجد جلسة بترومين اليوم أو قادمة، فلا يوجد ما يُضاف إليه الراكب.',ridersWalkinErrSession:'اختر جلسة ما زالت قائمة.',ridersWalkinErrBadge:'أدخل رقم البطاقة.',ridersWalkinErrName:'أدخل الاسم الكامل للراكب — الاسم الأول والأخير.',ridersWalkinErrPhone:'تحقق من رقم الجوال.',ridersWalkinErrHeight:'يجب أن يكون الطول بين 100 و250 سم.',ridersWalkinErrType:'اختر نوع الدراجة.',ridersWalkinErrCompany:'اختر بترومين أو بترولوب.',ridersWalkinErr:'تعذّرت إضافة الراكب. تحقق من الاتصال وحاول مجددًا.',ridersExport:'تصدير CSV',ridersSearch:'ابحث برقم الحجز أو البادج أو الاسم أو الجوال',colBookingNo:'رقم الحجز',ridersCheckIn:'تسجيل وصول',ridersReturn:'إرجاع الدراجة',ridersUndoCheckin:'تراجع عن الدخول',ridersUndoReturn:'تراجع عن الإرجاع',colCheckedIn:'وقت الدخول',colCheckedOut:'وقت الخروج',ridersBy:'بواسطة {0}',ridersRideTime:'الرحلة {0}',ridersFilterWaiting:'لم يصل',ridersFilterRiding:'في الرحلة',ridersFilterReturned:'أُرجعت',ridersReport:'تقرير الفوترة',ridersReportCsv:'تقرير CSV',ridersReportEmpty:'لا توجد دراجات مُرجعة للتقرير بعد',ridersRepRides:'الرحلات المكتملة',ridersRepTotal:'الإجمالي',ridersCompany:'الشركة',ridersFilterAll:'الكل',colBadge:'البادج',colSubmitted:'وقت الإرسال',ridersRemove:'حذف',ridersRemoveConfirm:'حذف هذا التسجيل؟',ridersLoadErr:'تعذر تحميل التسجيلات',ridersResub:'أُرسل {0} مرات',railPinTip:'تثبيت القائمة الجانبية',railHoverTip:'طيّ القائمة',snavRides:'الرحلات',snavSections:'الأقسام',snavCommerce:'التجارة',snavPeople:'الأشخاص',snavInsights:'الرؤى',snavSystem:'النظام',tabSessions:'الجلسات',tabBikes:'الدراجات',tabHistory:'السجل',tabAnalytics:'التحليلات',tabLogs:'السجلات',tabInventory:'المخزون',tabCommunity:'المجتمع',
   tabDashboard:'لوحة القيادة',dashTitle:'لوحة القيادة',dashSub:'نظرة حية على الكشك الآن.',dashWaiting:'في الانتظار',dashOnBikes:'على الدراجات الآن',dashOpenSessions:'الجلسات المفتوحة',dashAvailBikes:'الدراجات المتاحة',dashAlerts:'التنبيهات',dashOverdueSub:'الرحلة تطول',dashMaintAlert:'{0} دراجة في الصيانة',dashLowBikes:'تبقّى {0} دراجات متاحة فقط',dashAllClear:'كل شيء على ما يرام - لا شيء يحتاج انتباهاً.',sessSelectMsg:'اختر جلسة لعرض تفاصيلها وحجوزاتها.',sessRidersTitle:'الحجوزات',sessBackList:'كل الجلسات',sessNoRiders:'لا توجد حجوزات في هذه الجلسة بعد.',
   anRevCollected:'الإيرادات المحصلة',anRevPending:'الإيرادات المعلقة',anRevTotal:'إجمالي الإيرادات',anAvgPerSession:'متوسط الجلسة',
   anTotalRides:'الرحلات المكتملة',anUniqueCustomers:'العملاء الفريدون',anRepeatRiders:'الراكبون المتكررون',
@@ -1059,7 +1068,7 @@ ar:{landMainTitleHtml:'احجز <span>دراجتك الآن!</span>',spotsFull:'
   errValidEmail:'الرجاء إدخال بريد إلكتروني صحيح.',errGroupCap:'حتى {0} راكبين لكل حجز في هذه الجولة.',groupCapHint:'حتى {0} راكبين',jccCapNote:'الحد الأقصى لكل حساب هو {0} راكبين.',errValidPhone:'الرجاء إدخال رقم هاتف صحيح (٨ أرقام على الأقل).',errFieldRequired:'هذا الحقل مطلوب.',
   errPasswordLen:'يجب أن تكون كلمة المرور 8 أحرف على الأقل وتحتوي على حرف كبير ورقم.',
   
-  ticketAddCal:'أضف إلى التقويم',ticketDirections:'الاتجاهات',opensNewTab:' (يفتح في تبويب جديد)',ticketLocation:'الموقع',ticketScanGate:'امسح عند الوصول',
+  ticketAddCal:'أضف إلى التقويم',ticketCollectAt:'استلام الدراجات من {0}',ticketDirections:'الاتجاهات',opensNewTab:' (يفتح في تبويب جديد)',ticketLocation:'الموقع',ticketScanGate:'امسح عند الوصول',
   errPasswordMatch:'كلمتا المرور غير متطابقتين.',
   errEmailExists:'يوجد حساب بهذا البريد الإلكتروني مسبقاً.',
   errPhoneExists:'يوجد حساب بهذا الرقم مسبقاً.',
@@ -1342,7 +1351,7 @@ function setLang(lang,_fromUrl){
   });
   // ERP sidebar suite labels (presentational chrome only)
   document.querySelectorAll('#staff-tab-nav .snav-group').forEach(s=>{s.textContent=t(s.dataset.group);});
-  try{_syncRailPin();}catch(e){}
+  try{_syncRailPin();_syncStaffNavLabel();}catch(e){}
   }catch(e){try{_logError('tab-label render: '+((e&&e.message)||e),'render');}catch(_){}}
   renderTopbarRight();
   if(S.view==='customer'){renderRegister();renderMyRides();if(S.custTab==='account')renderAccount();}
@@ -1795,13 +1804,30 @@ function _custTagNames(c){
 function saveCustomerContact(id){
   const c=(S.customers||[]).find(x=>x.id===id);if(!c)return;
   if(!c.phone&&!c.email){toast(t('amContactNone'),'warning');return;}
-  const blob=new Blob(['\ufeff'+_vcardFor(c)],{type:'text/vcard;charset=utf-8'});
+  // No byte-order mark. A BOM before BEGIN:VCARD is what several parsers choke on, and it is
+  // part of why Safari answered "cannot download this file" rather than opening the card.
+  const text=_vcardFor(c);
+  const file=`${String(c.name||'contact').replace(/[^\w\u0600-\u06FF -]/g,'').trim().slice(0,40)||'contact'}.vcf`;
+  const done=()=>toast(t('amContactSaved').replace('{0}',c.name||''));
+  // The share sheet first. On a phone this is the only route that actually reaches Contacts:
+  // a download lands in Files and nobody goes looking for it. It must be called straight
+  // from the tap, so no await comes before it.
+  try{
+    if(typeof File==='function'&&navigator.canShare){
+      const f=new File([text],file,{type:'text/vcard'});
+      if(navigator.canShare({files:[f]})){
+        navigator.share({files:[f]}).then(done,()=>{}); // a cancelled share is not an error
+        return;
+      }
+    }
+  }catch(e){/* fall through to the download */}
+  // Desktop: an ordinary download, which every browser there handles.
+  const url=URL.createObjectURL(new Blob([text],{type:'text/vcard;charset=utf-8'}));
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);
-  a.download=`${String(c.name||'contact').replace(/[^\w\u0600-\u06FF -]/g,'').trim().slice(0,40)||'contact'}.vcf`;
+  a.href=url;a.download=file;a.rel='noopener';
   document.body.appendChild(a);a.click();
-  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1200);
-  toast(t('amContactSaved').replace('{0}',c.name||''));
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},1200);
+  done();
 }
 const SOCIAL_NETS=[
   ['instagram','socInstagram','https://www.instagram.com/',/^[A-Za-z0-9._]{1,30}$/],
@@ -4857,6 +4883,7 @@ function setStaffTab(tab){
   if(tab==='waitlist'){S.queueView='waitlist';tab='queue';} // Waitlist lives there too (third pill)
   if(!isAdmin()&&tab!=='cashier'&&tab!=='queue')tab='queue'; // Front Desk mode: only Sales & Bookings
   S.staffTab=tab;
+  closeStaffNav(); // a choice is the end of the menu
   try{sessionStorage.setItem('cq_nav_stab',tab);}catch(e){}
   _opGateCheck(); // re-arm if the name was cleared (new device, wiped storage)
   renderStaffTabs();
@@ -4920,6 +4947,27 @@ function _syncRailPin(){
   b.title=lbl;b.setAttribute('aria-label',lbl);
   const l=b.querySelector('.snav-lbl');if(l)l.textContent=lbl;
 }
+// The small-screen sections menu. It is a menu, not a strip: the rail's own markup is
+// reused, so there is one list of sections and one place that knows which is current.
+function toggleStaffNav(){document.body.classList.contains('snav-open')?closeStaffNav():openStaffNav();}
+function openStaffNav(){
+  document.body.classList.add('snav-open');
+  const b=document.getElementById('snav-burger');if(b)b.setAttribute('aria-expanded','true');
+  const cur=document.querySelector('#staff-tab-nav .tab-btn.active');if(cur)setTimeout(()=>{try{cur.focus();}catch(e){}},0);
+}
+function closeStaffNav(){
+  if(!document.body.classList.contains('snav-open'))return;
+  document.body.classList.remove('snav-open');
+  const b=document.getElementById('snav-burger');
+  if(b){b.setAttribute('aria-expanded','false');try{b.focus();}catch(e){}}
+}
+// The bar carries the current section's name, so a shut menu still answers "where am I".
+function _syncStaffNavLabel(){
+  const el=document.getElementById('snav-burger-lbl');if(!el)return;
+  const cur=document.querySelector('#staff-tab-nav .tab-btn.active .snav-lbl');
+  el.textContent=(cur&&cur.textContent.trim())||t('snavSections');
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeStaffNav();});
 function renderStaffTabs(){
   _fillNavIcons();_syncRailPin();
   // Front Desk mode is limited to Sales + Bookings; hide the rest and keep the active tab valid.
@@ -4932,6 +4980,7 @@ function renderStaffTabs(){
     b.classList.toggle('active',_on);
     if(_on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
   });
+  _syncStaffNavLabel();
   document.getElementById('tab-queue')     .classList.toggle('active',S.staffTab==='queue');
   document.getElementById('tab-inventory') .classList.toggle('active',S.staffTab==='inventory');
   document.getElementById('tab-cashier')   .classList.toggle('active',S.staffTab==='cashier');
@@ -6255,6 +6304,9 @@ function renderRegister(){
     const _sess=allSessions().find(s=>s.id===tkt.sessionId);
     const _commT=_isApprovalRide(_sess); // a reservation-style ticket: no number, meet point instead of directions
     const sessTime=sessionTime(_sess);
+    // When bikes start going out. It was on the Wallet pass and nowhere else, so a rider
+    // without an iPhone had to be told. Only where there is a bike to collect.
+    const _collect=_needsBike(_sess)?fmt12h(sessionCollectTime(_sess)):'';
     const label=total>1?`${t('bike')} ${idx+1} / ${total}`:'';
     return`<div class="ticket-card" style="${idx>0?'margin-top:16px':''}">
       ${label?`<div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;padding:14px 24px 0;text-align:center">${label}</div>`:''}
@@ -6277,6 +6329,7 @@ function renderRegister(){
       </div>`}
       <div class="ticket-cols">
         <div class="ticket-col"><div class="ticket-label">${t('colSession')}</div><div class="ticket-value">${dayLabel(tkt.sessionDay)} ${shortDate(tkt.sessionDate)}</div></div>
+        ${_collect?`<div class="ticket-col"><div class="ticket-label">${t('sessCollectTime')}</div><div class="ticket-value">${esc(_collect)}</div></div>`:''}
         <div class="ticket-col"><div class="ticket-label">${t('timeLabel')}</div><div class="ticket-value">${sessTime}</div></div>
         <div class="ticket-col"><div class="ticket-label">${t('nameLabel')}</div><div class="ticket-value">${esc(tkt.name)}</div></div>
       </div>
@@ -7167,7 +7220,7 @@ function renderBookingTicket(entries,opts){
       <div class="ticket-right">
         ${(stForBadge==='waiting'||(_comm&&!_commPublished(sess)))?'':(stForBadge==='cancelled'?statusBadgeFor(primary):statusBadge(stForBadge))}
         ${_qrReady?ticketQR(bookingRef(primary),132):`<div class="qr-hold" style="width:132px"><span>${t('ticketQrHold')}</span></div>`}
-        <div style="font-size:10px;color:var(--muted);font-weight:700;text-align:right;line-height:1.4">${dayLabel(primary.sessionDay)}<br>${shortDate(primary.sessionDate)}<br>${sessTime}</div>
+        <div style="font-size:10px;color:var(--muted);font-weight:700;text-align:right;line-height:1.4">${dayLabel(primary.sessionDay)}<br>${shortDate(primary.sessionDate)}<br>${sessTime}${(()=>{const c=_needsBike(sess)?fmt12h(sessionCollectTime(sess)):'';return c?`<br><span style="color:var(--green)">${esc(t('ticketCollectAt').replace('{0}',c))}</span>`:'';})()}</div>
       </div>
     </div>
     <div style="padding:2px 18px 0">

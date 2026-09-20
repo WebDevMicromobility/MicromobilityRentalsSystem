@@ -18607,14 +18607,15 @@ async function buildPkpass(b, cfg) {
   const addonSum = addons.reduce((s, a) => s + (Number(a.p) || 0), 0);
   const grand = Math.round((rentalSum + addonSum) * 100) / 100;
   const priceStr = rentalSum || addonSum ? `SAR ${grand}` : "";
-  // The two times lead: they are what a rider opens the pass to check. The queue number
-  // keeps a line of its own beside them, still big enough to read out at the desk.
+  // The queue number leads. It is what the desk asks for and what the rider has to read out,
+  // so it takes the biggest line on the pass; the time the ride leaves keeps the other half.
+  // When bikes start going out sits below, in full words, because "COLLECT FROM" beside a
+  // start time read as a second start rather than as the moment to turn up.
   const primary = [];
-  if (collectStr) primary.push({ key: "collect", label: "COLLECT FROM", value: collectStr });
+  primary.push({ key: "queue", label: single ? "QUEUE" : "QUEUE NUMBERS", value: numsDisplay });
   if (startStr) primary.push({ key: "start", label: "RIDE STARTS", value: startStr });
-  if (!primary.length) primary.push({ key: "queue", label: single ? "QUEUE" : "QUEUE NUMBERS", value: numsDisplay });
   const secondary = [];
-  if (primary[0].key !== "queue") secondary.push({ key: "queue", label: single ? "QUEUE" : "QUEUE NUMBERS", value: numsDisplay });
+  if (collectStr) secondary.push({ key: "collect", label: "BIKE COLLECTION START TIME", value: collectStr });
   if (ridersValue) secondary.push({ key: "riders", label: single ? "RIDER" : "RIDERS", value: ridersValue });
   const auxiliary = [];
   if (bikeType) auxiliary.push({ key: "bike", label: "BIKE", value: bikeType });

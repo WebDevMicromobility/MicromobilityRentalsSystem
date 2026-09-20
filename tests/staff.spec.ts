@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubSupabase, unlockStaff } from './helpers/supabase';
+import { stubSupabase, unlockStaff, staffReady, goStaffTab } from './helpers/supabase';
 
 test('visiting ?staff locked shows the staff email/password gate (no PIN pad)', async ({ page }) => {
   await stubSupabase(page);
@@ -18,7 +18,7 @@ test('the staff link always opens the staff panel, even after browsing as a cust
     sessionStorage.setItem('cq_nav', JSON.stringify({ view: 'customer' }));
   });
   await page.goto('/?staff');
-  await expect(page.locator('#staff-tab-nav')).toBeVisible(); // staff panel, NOT the customer page
+  await staffReady(page); // staff panel, NOT the customer page
 });
 
 test('wrong staff credentials are rejected with an error', async ({ page }) => {
@@ -39,7 +39,7 @@ test.describe('unlocked staff panel', () => {
 
   test('staff view loads with the staff app name', async ({ page }) => {
     await expect(page).toHaveTitle('MicroMobility Rental and Inventory System');
-    await expect(page.locator('#staff-tab-nav')).toBeVisible();
+    await staffReady(page);
   });
 
   test('bookings tab has the QR scan button and the scanner degrades gracefully without a camera', async ({ page }) => {
@@ -81,7 +81,7 @@ test.describe('inventory sections derive from the data, not this device', () => 
     await stubSupabase(page, fixtures);
     await unlockStaff(page);
     await page.goto('/');
-    await page.locator('#staff-tab-nav [data-stab="inventory"]').click();
+    await goStaffTab(page, 'inventory');
   });
 
   test('custom supplement categories land in Supplements & Beverages on a fresh device', async ({ page }) => {
