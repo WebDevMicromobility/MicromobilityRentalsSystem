@@ -638,7 +638,7 @@ en:{landMainTitleHtml:'Reserve Your <span>Bicycle Now!</span>',spotsFull:'Full',
   totalStat:'Total',waitingStat:'Waiting',onBikeStat:'On Bike',doneStat:'Done',waitingRidersStat:'Waiting Riders',ridersStat:'Riders',
   todayLabel:'Today',todayRevenue:'Revenue today',todayServed:'Riders served',todayNoShows:'No-shows',todayBikesOut:'Bikes out',
   statNumRiders:'# of Riders',statExpected:'Expected',statCompleted:'Completed',
-  exportBackupBtn:'Export backup',exportedToast:'Backup downloaded',noShowFlagTip:'{0} past no-shows',cloneSessBtn:'Clone',helpBtn:'Help',helpTitle:'Staff quick guide',
+  exportBackupBtn:'Export backup',exportedToast:'Backup downloaded',noShowFlagTip:'{0} past no-shows',cloneSessBtn:'Clone',cloneBtn:'Clone',helpBtn:'Help',helpTitle:'Staff quick guide',
   kbTitle:'Keyboard shortcuts',kbSearch:'Search / find a booking',kbCheckin:'Check in next rider',kbRefresh:'Refresh now',kbToggle:'Toggle this help',kbNoWaiting:'No riders waiting',kbInventory:'Inventory',kbCommunity:'Community',
   frChoose:'Choose what to reset:',frBookings:'Bookings & Queue',frBookingsSub:'All queue entries and ride history',frSessions:'Sessions',frSessionsSub:'All created sessions',frBikes:'Fleet (Bikes)',frBikesSub:'All bikes in the fleet',frCustomers:'Customers',frCustomersSub:'All customer accounts and login data',frTypeBefore:'Type',frTypeAfter:'to confirm:',fixDupBtn:'Fix duplicate numbers',fixDupTitle:'Fix duplicate booking numbers',fixDupBody:'Found {0} duplicate booking number(s). Each duplicate will get a fresh unique number (the earliest booking keeps its number). Continue?',fixDupConfirm:'Renumber duplicates',fixDupNone:'No duplicate booking numbers found.',fixDupDone:'Renumbered {0} booking(s).',fixDupLog:'Fixed {0} duplicate booking number(s)',
   expTitle:'Export Report',expChoose:'Choose a format',repOptCols:'Columns',repOptSections:'Sections',repOptFilters:'Filters',repOptSummary:'Summary tiles',repOptReset:'Reset',repOptNone:'Pick at least one column.',expPdf:'PDF / Print',expExcel:'Excel (CSV)',
@@ -1051,7 +1051,7 @@ ar:{landMainTitleHtml:'احجز <span>دراجتك الآن!</span>',spotsFull:'
   totalStat:'الكل',waitingStat:'بانتظار',onBikeStat:'على الدراجة',doneStat:'منتهٍ',waitingRidersStat:'في الانتظار',ridersStat:'الراكبون',
   todayLabel:'اليوم',todayRevenue:'إيرادات اليوم',todayServed:'الركّاب المخدومون',todayNoShows:'لم يحضروا',todayBikesOut:'دراجات بالخارج',
   statNumRiders:'عدد الركّاب',statExpected:'متوقّع',statCompleted:'مكتمل',
-  exportBackupBtn:'تصدير نسخة احتياطية',exportedToast:'تم تنزيل النسخة الاحتياطية',noShowFlagTip:'{0} حالات عدم حضور سابقة',cloneSessBtn:'نسخ',helpBtn:'مساعدة',helpTitle:'دليل سريع للموظفين',
+  exportBackupBtn:'تصدير نسخة احتياطية',exportedToast:'تم تنزيل النسخة الاحتياطية',noShowFlagTip:'{0} حالات عدم حضور سابقة',cloneSessBtn:'نسخ',cloneBtn:'نسخ',helpBtn:'مساعدة',helpTitle:'دليل سريع للموظفين',
   kbTitle:'اختصارات لوحة المفاتيح',kbSearch:'بحث / إيجاد حجز',kbCheckin:'تسجيل دخول الراكب التالي',kbRefresh:'تحديث الآن',kbToggle:'إظهار/إخفاء المساعدة',kbNoWaiting:'لا يوجد ركاب في الانتظار',kbInventory:'المخزون',kbCommunity:'المجتمع',
   frChoose:'اختر ما تريد إعادة ضبطه:',frBookings:'الحجوزات والطابور',frBookingsSub:'جميع إدخالات الطابور وسجل الرحلات',frSessions:'الجلسات',frSessionsSub:'جميع الجلسات المُنشأة',frBikes:'الأسطول (الدراجات)',frBikesSub:'جميع الدراجات في الأسطول',frCustomers:'العملاء',frCustomersSub:'جميع حسابات العملاء وبيانات الدخول',frTypeBefore:'اكتب',frTypeAfter:'للتأكيد:',fixDupBtn:'إصلاح الأرقام المكررة',fixDupTitle:'إصلاح أرقام الحجوزات المكررة',fixDupBody:'تم العثور على {0} رقم حجز مكرر. سيحصل كل مكرر على رقم فريد جديد (يحتفظ الحجز الأقدم برقمه). متابعة؟',fixDupConfirm:'إعادة ترقيم المكررات',fixDupNone:'لا توجد أرقام حجوزات مكررة.',fixDupDone:'تمت إعادة ترقيم {0} حجز.',fixDupLog:'إصلاح {0} رقم حجز مكرر',
   repOptCols:'الأعمدة',repOptSections:'الأقسام',repOptFilters:'عوامل التصفية',repOptSummary:'بطاقات الملخص',repOptReset:'إعادة تعيين',repOptNone:'اختر عموداً واحداً على الأقل.',expTitle:'تصدير التقرير',expChoose:'اختر الصيغة',expPdf:'PDF / طباعة',expExcel:'إكسل (CSV)',
@@ -15565,6 +15565,7 @@ function renderBikes(_resultsOnly){
       <td data-label="${esc(t('colRider'))}">${riderCell}</td>
       <td><div class="actions-cell">
         <button class="btn-sm btn-green" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
+        <button class="btn-sm btn-muted" onclick="startClone('${b.id}')">${t('cloneBtn')}</button>
         ${b.status==='available'?`<button class="btn-sm btn-muted" onclick="setMaintenance('${b.id}')">${t('maintBtn')}</button>`:''}
         ${orphaned?`<button class="btn-sm btn-muted" onclick="releaseBike('${b.id}')">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-${isRetired?'green':'muted'}" onclick="${isMaint?`setMaintenance('${b.id}')`:`toggleRetire('${b.id}')`}">${isRetired?t('restoreBtn'):t('retireBtn')}</button>`}
         <button class="btn-sm btn-red" ${b.status!=='in-use'&&!isRetired?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
@@ -15612,6 +15613,7 @@ function renderBikes(_resultsOnly){
         <div style="display:flex;flex-direction:column;gap:4px;margin-top:10px">
           <div style="display:flex;gap:4px">
             <button class="btn-sm btn-green" style="flex:1" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
+            <button class="btn-sm btn-muted" style="flex:1" onclick="startClone('${b.id}')">${t('cloneBtn')}</button>
             <button class="btn-sm btn-red" style="flex:1" ${b.status!=='in-use'&&!isRetiredG?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
           </div>
           ${orphaned?`<button class="btn-sm btn-muted" style="width:100%;justify-content:center;text-align:center" onclick="releaseBike('${b.id}')">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-${isRetiredG?'green':'muted'}" style="width:100%;justify-content:center;text-align:center" onclick="toggleRetire('${b.id}')">${isRetiredG?t('restoreBtn'):t('retireBtn')}</button>`}
@@ -15745,6 +15747,7 @@ function renderBikes(_resultsOnly){
             <div style="display:flex;gap:4px">
               <button class="btn-sm btn-green" style="flex:1" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
               <button class="btn-sm btn-green" style="flex:1" onclick="toggleRetire('${b.id}')">${t('restoreBtn')}</button>
+              <button class="btn-sm btn-muted" style="flex:1" onclick="startClone('${b.id}')">${t('cloneBtn')}</button>
             </div>
           </div>`;
         }).join('')}</div>`
@@ -15762,6 +15765,7 @@ function renderBikes(_resultsOnly){
           <td><div class="actions-cell">
             <button class="btn-sm btn-green" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
             <button class="btn-sm btn-green" onclick="toggleRetire('${b.id}')">${t('restoreBtn')}</button>
+            <button class="btn-sm btn-muted" onclick="startClone('${b.id}')">${t('cloneBtn')}</button>
           </div></td>
         </tr>`).join('')}</tbody></table></div>`}
     </div>`:''}
@@ -15969,18 +15973,45 @@ async function addBike(){
   });
   renderBikes();
 }
-function startEdit(id){
-  const bike=getBikes().find(b=>b.id===id);if(!bike)return;
-  S.editBikeId=id;S.showAddBike=false;S.addBikeType=bike.type;S.addBikeSize=bike.size;
+// Everything the bike form holds EXCEPT the three fields that identify one bike rather than
+// another: its number, its name and the day it entered service. Editing keeps those as they
+// are; cloning replaces them. Shared so a field added to the form cannot be remembered by
+// one of the two and quietly forgotten by the other.
+function _bkFillForm(bike){
+  S.addBikeType=bike.type;S.addBikeSize=bike.size;
   S.addBikeColors=bike.colors&&bike.colors.length?[...bike.colors]:['#6ee89a'];
   S.addBikeColorNames=bike.color_names&&bike.color_names.length?[...bike.color_names]:S.addBikeColors.map(()=>''); // map the DEFAULTED colors — bike.colors may be undefined (legacy/imported bike) and would crash
-  S._bkName=bike.name;S._bkNameCustom=bike.name!==genBikeName(bike.type,bike.frame_type,bike.bike_number,bike.size);S._bkBrand=bike.brand||'';S._bkModel=bike.model||'';
+  S._bkBrand=bike.brand||'';S._bkModel=bike.model||'';
   S._bkGroupset=bike.groupset||'';S._bkSpeeds=bike.speeds!=null?String(bike.speeds):'';S._bkRentalPrice=bike.rental_price!=null?String(bike.rental_price):'';
   S._bkBrandAdd=false;S._bkModelAdd=false;S._bkGroupsetAdd=false;
-  S._bkLocationAdd=false;S._bkFrame=bike.frame_type||'';S._bkNumber=bike.bike_number!=null?String(bike.bike_number):'';
-  S._bkStartDate=bike.in_service_date||'';S._bkPhoto=bike.photo||'';
+  S._bkLocationAdd=false;S._bkFrame=bike.frame_type||'';S._bkPhoto=bike.photo||'';
   S._bkWheel=bike.wheel_size||'';S._bkBrake=bike.brake_type||'';S._bkWeight=bike.weight_kg!=null?String(bike.weight_kg):'';S._bkWheelAdd=false;S._bkBrakeAdd=false;
   _autoSaveBkOpts(bike.brand,bike.model,bike.groupset);
+}
+function startEdit(id){
+  const bike=getBikes().find(b=>b.id===id);if(!bike)return;
+  S.editBikeId=id;S.showAddBike=false;
+  _bkFillForm(bike);
+  S._bkName=bike.name;S._bkNameCustom=bike.name!==genBikeName(bike.type,bike.frame_type,bike.bike_number,bike.size);
+  S._bkNumber=bike.bike_number!=null?String(bike.bike_number):'';
+  S._bkStartDate=bike.in_service_date||'';
+  renderBikes();_scrollToBikeForm();
+}
+// The same bike again, one number along. The Add form opens carrying every spec of the one
+// it was taken from — type, frame, size, colours, brand, model, groupset, speeds, price,
+// wheel, brakes, weight, photo — so a fleet of near-identical bikes is entered once and
+// copied. Three things cannot be copied: the number (the next free one, because two bikes
+// cannot wear one sticker), the name (it is built from the number, so it follows), and the
+// in-service date, which is today — the copy is a new bike however old its original is.
+// Nothing is written until the form is saved, so a clone opened by mistake costs nothing.
+function startClone(id){
+  const bike=getBikes().find(b=>b.id===id);if(!bike)return;
+  S.editBikeId=null;S.showAddBike=true;
+  _bkFillForm(bike);
+  const num=_nextBikeNumber();
+  S._bkNumber=String(num);
+  S._bkNameCustom=false;S._bkName=genBikeName(bike.type,bike.frame_type,num,bike.size);
+  S._bkStartDate=_todayISO();
   renderBikes();_scrollToBikeForm();
 }
 async function saveBikeEdit(){
@@ -16207,6 +16238,7 @@ function openBikeProfile(id){
       <div style="display:flex;gap:8px;margin-top:16px">
         ${(()=>{const h=bike.status==='in-use'?getQueue().find(e=>e.status==='active'&&getAssignedBikeIds(e).includes(bike.id)):null;return h?`<button class="btn-primary" onclick="closeBikeProfile();doReturn('${h.id}')">${t('returnBikeBtn')} · #${h.queueNum} ${esc(h.name)}</button>`:'';})()}
         <button class="btn-secondary" onclick="closeBikeProfile();startEdit('${bike.id}')">${t('editBtn')}</button>
+        <button class="btn-secondary" onclick="closeBikeProfile();startClone('${bike.id}')">${t('cloneBtn')}</button>
       </div>
     </div>
   </div>`;
@@ -16251,7 +16283,13 @@ function _bkFieldHtml(id,val,addMode,list){
       <button class="btn-secondary" style="padding:8px 10px;flex-shrink:0" onclick="_bkOptCancel('${id}')" aria-label="${t('cancelBtn')}">${_artIcon('close',11)}</button>
     </div>`;
   }
-  const opts=list.map(v=>`<option value="${esc(v)}"${v===val?' selected':''}>${esc(v)}</option>`).join('');
+  // A value the list does not hold still has to be selectable, or the field silently empties
+  // itself the moment the form is saved: no option matches, the select reads '', and the save
+  // writes null over a groupset the bike really has. That happens whenever an option was
+  // renamed or dropped from the list after a bike was given it, and on a clone, where the
+  // source's options are only on their way into the list as the form renders.
+  const _list=(val&&!list.includes(val))?[val,...list]:list;
+  const opts=_list.map(v=>`<option value="${esc(v)}"${v===val?' selected':''}>${esc(v)}</option>`).join('');
   return`<select id="${id}" onchange="_bkSelChange('${id}',this.value)">
     <option value=""${!val?' selected':''}>—</option>
     ${opts}
