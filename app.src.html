@@ -19962,6 +19962,15 @@ async function saveTagGrant(){
     if(!_amRepaintRow(st.cid))renderCommunity();
   }catch(e){toast((e&&e.message)||t('errServerError'),'error');}
 }
+// The two system tags wear their brands instead of their names: the circuit's symbol on its
+// blue, the micromobility mark on green. Any tag staff create keeps its name. The name still
+// reaches screen readers and hover titles, and reports and exports print it.
+const TAG_BRANDS={jcc:{cls:'jcc',color:'#0466AF'},saturday:{cls:'mm',color:'#0c7a3d'}};
+function _tagBrand(tg){return (tg&&TAG_BRANDS[String(tg.slug||'').toLowerCase()])||null;}
+function _tagColor(tg){const b=_tagBrand(tg);return b?b.color:((tg&&tg.color)||'#00e585');}
+function _tagLogo(tg){const b=_tagBrand(tg);return b?`<span class="tag-logo tag-logo-${b.cls}" role="img" aria-label="${esc(tg.name)}"></span>`:'';}
+// A tag's face on a button (picker, filter): its logo, or its name when it has none.
+function _tagFace(tg){return _tagLogo(tg)||esc(tg.name);}
 function _tagChip(tg,ct){
   const col=esc(tg.color||'#00e585');
   let suffix='',dim='';
@@ -19971,6 +19980,8 @@ function _tagChip(tg,ct){
     else if(ct.starts_at!=null&&ct.starts_at>n)suffix=' · '+t('tagFrom').replace('{0}',_tagDateFmt(ct.starts_at));
     else if(ct.expires_at!=null)suffix=' · '+t('tagUntil').replace('{0}',_tagDateFmt(ct.expires_at));
   }
+  const b=_tagBrand(tg);
+  if(b)return `<span class="am-chip tag-brand" style="${dim}background:${b.color};border-color:${b.color}" title="${esc(tg.name)}">${_tagLogo(tg)}${suffix?`<span>${suffix.replace(/^ · /,'')}</span>`:''}</span>`;
   return `<span class="am-chip" style="${dim}background:${col}22;border-color:${col}66;color:${col}">${esc(tg.name)}${suffix}</span>`;
 }
 function _tagEditForm(){
@@ -20252,7 +20263,7 @@ function _amRowInner(c){
     const myCT=_ctRowsFor(c.id).filter(ct=>_tm[ct.tag_id]);
     const chips=myCT.length?myCT.map(ct=>_tagChip(_tm[ct.tag_id],ct)).join(''):`<span class="am-meta">${t('amNoTags')}</span>`;
     const picking=S.tagCustId===c.id;
-    const picker=picking?`<div class="am-picker">${(S.tags||[]).map(tg=>{const on=myTags.some(x=>x.id===tg.id);return `<button class="am-pick${on?' on':''}" onclick="toggleCustTag('${c.id}','${tg.id}')" style="--tc:${esc(tg.color||'#00e585')}">${on?'✓ ':'+ '}${esc(tg.name)}</button>`;}).join('')||`<span class="am-meta">${t('amNoTags')}</span>`}</div>`:'';
+    const picker=picking?`<div class="am-picker">${(S.tags||[]).map(tg=>{const on=myTags.some(x=>x.id===tg.id);return `<button class="am-pick${on?' on':''}" onclick="toggleCustTag('${c.id}','${tg.id}')" style="--tc:${esc(_tagColor(tg))}" title="${esc(tg.name)}">${on?'✓ ':'+ '}${_tagFace(tg)}</button>`;}).join('')||`<span class="am-meta">${t('amNoTags')}</span>`}</div>`:'';
     const contact=[c.email,c.phone].filter(Boolean)
       .map(v=>`<bdi>${esc(v)}</bdi>`).join(' <span style="opacity:.5">·</span> ');
     // Accounts made before signup asked for a gender have none; offer it on the row, one tap.
@@ -20317,7 +20328,7 @@ function _commAccounts(){
     ${(S.tags||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(tg=>{
       const cnt=(S.customerTags||[]).filter(ct=>ct.tag_id===tg.id&&_tagActive(ct)).length;
       const on=S.amTagFilter===tg.id;
-      return `<button class="am-pick${on?' on':''}" style="--tc:${esc(tg.color||'#00e585')}" onclick="_amFilter('amTagFilter',${on?`''`:`'${tg.id}'`})">${esc(tg.name)} (${cnt})</button>`;
+      return `<button class="am-pick${on?' on':''}" style="--tc:${esc(_tagColor(tg))}" title="${esc(tg.name)}" onclick="_amFilter('amTagFilter',${on?`''`:`'${tg.id}'`})">${_tagFace(tg)} (${cnt})</button>`;
     }).join('')}
     ${missingPill}${fixingPill}${sxPill}
   </div>`;
