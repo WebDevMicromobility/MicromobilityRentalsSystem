@@ -1,5 +1,5 @@
 
-const CACHE = 'mmcq-8cd50e6710';
+const CACHE = 'mmcq-2586b7e1e6';
 const IMG_CACHE = 'mmcq-img'; // Supabase Storage photos; persists across app versions (content-addressed)
 
 // The one key the app shell lives under. './index.html' is deliberately NOT precached and
@@ -12,7 +12,7 @@ const IMG_CACHE = 'mmcq-img'; // Supabase Storage photos; persists across app ve
 const SHELL_KEY = './';
 const SHELL = [
   SHELL_KEY,
-  './styles.css?v=48b131b900',
+  './styles.css?v=dc14983d48',
   './manifest.json',
   './logo.png',
   './logo-dark.png',
