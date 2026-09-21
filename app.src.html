@@ -10114,7 +10114,14 @@ function showCommAddModal(group){
   S._caGroup=!!group;
   const sess=_caSessList();
   if(!sess.length){toast(t('noSessionsAvail'),'warning');return;}
-  if(!S._caSess||!sess.find(s=>s.id===S._caSess))S._caSess=(sess.find(s=>s.id===S.sfSession)||sess[0]).id;
+  // Aim at the session the desk is showing, every time the modal opens. It used to keep the
+  // last pick, and when the night on screen was not in its community-only list (the National
+  // Day ride, a circuit night) it fell back to the OLDEST session in that list - so riders
+  // were added to a night the staffer was not looking at. Only when the desk shows all
+  // sessions does the last pick, or the first live session, stand.
+  const _viewed=S.sfSession&&S.sfSession!=='all'&&sess.find(s=>s.id===S.sfSession);
+  if(_viewed)S._caSess=_viewed.id;
+  else if(!S._caSess||!sess.find(s=>s.id===S._caSess))S._caSess=sess[0].id;
   S._caDest=S._caDest||'list';
   S._caOwn=false;
   S._caSel=null;S._caSelArr=[];
@@ -10151,6 +10158,7 @@ function renderCommAddModal(){
   const m=document.getElementById('comm-add-modal');if(!m)return;
   const sess=_caSessList();
   const cur=sess.find(s=>s.id===S._caSess)||sess[0];
+  if(cur)S._caSess=cur.id; // the session the select shows is the one saveCommAdd writes to
   const left=cur?spotsLeft(cur.id):0;
   const keep=document.getElementById('ca-search');const _q=keep?keep.value:(S._caSearch||'');S._caSearch=_q;
   m.style.display='flex';
