@@ -1,0 +1,117 @@
+import { test, expect, type Page } from '@playwright/test';
+import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
+
+// Accounts whose details look wrong are listed under "Looks off" with the reason, for staff
+// to check and, if they agree, flag. The checks run over the list in hand, so a later account
+// is checked as soon as it arrives. "Looks fine" is remembered for exactly those details.
+
+const base = { created_at: '2026-01-05T10:00:00Z', gender: 'female' };
+const customers = [
+  { ...base, id: 'ok', name: 'Clean Rider', email: 'clean@gmail.com', phone: '+966551876215', height: 170, birth_date: '1994-03-14' },
+  { ...base, id: 'typo', name: 'Typo Email', email: 'rider@gmail.con', phone: '+966551876210' },
+  { ...base, id: 'short', name: 'Short Phone', email: 'short@hotmail.com', phone: '+96655187620' },
+  { ...base, id: 'dob', name: 'Future Birth', email: 'dob@icloud.com', phone: '+966551876211', birth_date: '2099-01-01' },
+  { ...base, id: 'tall', name: 'Very Short', email: 'h@outlook.com', phone: '+966551876212', height: 120 },
+  { ...base, id: 'emoji', name: 'Sara 🩵', email: 'sara@yahoo.com', phone: '+966551876213' },
+  { ...base, id: 'fam1', name: 'Parent One', email: 'p1@gmail.com', phone: '+966551234987' },
+  { ...base, id: 'fam2', name: 'Kid Two', email: 'p2@gmail.com', phone: '+966551234987' },
+  { ...base, id: 'uk', name: 'Uk Visitor', email: 'uk@gmail.com', phone: '+4479123456' },
+  { ...base, id: 'asked', name: 'Already Asked', email: 'asked@gamil.com', phone: '+966551876214', fix_fields: ['email'] },
+];
+
+async function accounts(page: Page, extra: Record<string, unknown> = {}) {
+  await stubSupabase(page, { sessions: [], queue_entries: [], bikes: [], customers, tags: [], customer_tags: [], staff_options: [], ...extra });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction('(S.customers||[]).length>0');
+  await page.evaluate(`setStaffTab('community');S.communityTab='accounts';renderCommunity()`);
+  await page.waitForFunction('!!_phoneRules');                     // the libphonenumber rules arrived
+  await page.evaluate(`_amFilter('amSuspect',true)`);
+}
+const line = (page: Page, id: string) => page.locator(`.am-row[data-cust="${id}"] .am-sx`);
+
+test('each kind of wrong detail is listed with its reason; a clean account is not', async ({ page }) => {
+  await accounts(page);
+  await expect(line(page, 'typo')).toContainText('email ends in gmail.con, probably gmail.com');
+  await expect(line(page, 'short')).toContainText('Saudi number too short');
+  await expect(line(page, 'dob')).toContainText('birth date is in the future');
+  await expect(line(page, 'tall')).toContainText('height 120 cm is unusual');
+  await expect(line(page, 'emoji')).toContainText('name has numbers, symbols or emoji');
+  await expect(line(page, 'fam1')).toContainText('same phone as Kid Two');
+  await expect(line(page, 'uk')).toContainText('not a valid mobile number for +44');
+  await expect(page.locator('.am-row[data-cust="ok"]')).toHaveCount(0);
+  // A field staff already asked the rider to correct is in hand, not "looks off".
+  await expect(page.locator('.am-row[data-cust="asked"]')).toHaveCount(0);
+  await expect(page.locator('.am-pick', { hasText: 'Looks off' })).toHaveText('Looks off (8)');
+});
+
+test('an account that arrives later is checked the moment it lands', async ({ page }) => {
+  await accounts(page);
+  await page.evaluate(`S.customers=[...S.customers,{id:'new',name:'New Rider',email:'new@hotmial.com',phone:'+966551876299',created_at:'2026-09-21T12:00:00Z'}];renderCommunity()`);
+  await expect(line(page, 'new')).toContainText('email ends in hotmial.com, probably hotmail.com');
+  await expect(page.locator('.am-row').first()).toHaveAttribute('data-cust', 'new'); // newest first
+});
+
+test('"Looks fine" is shared through staff_options and does not reload the customer list', async ({ page }) => {
+  await accounts(page);
+  const writes: { url: string; body: unknown }[] = [];
+  let customerReads = 0;
+  page.on('request', r => {
+    if (/rest\/v1\/staff_options/.test(r.url()) && r.method() === 'POST') writes.push({ url: r.url(), body: r.postDataJSON() });
+    if (/rest\/v1\/customers/.test(r.url()) && r.method() === 'GET') customerReads++;
+  });
+  await line(page, 'typo').locator('.am-fine').click();
+  await expect(page.locator('.am-row[data-cust="typo"]')).toHaveCount(0);
+  expect(writes).toHaveLength(1);
+  const row = (Array.isArray(writes[0].body) ? writes[0].body[0] : writes[0].body) as { key: string; items: string[] };
+  expect(row.key).toBe('accounts_look_fine');
+  expect(row.items).toHaveLength(1);
+  expect(row.items[0]).toMatch(/^typo\|[0-9a-z]+$/);
+  expect(await page.evaluate('_refDirty')).toBe(false);            // no full reference reload queued
+  expect(customerReads).toBe(0);
+  // The decision holds for those details only: change the email and the account is back.
+  await page.evaluate(`S.customers=S.customers.map(c=>c.id==='typo'?{...c,email:'rider@gmial.com'}:c);renderCommunity()`);
+  await expect(line(page, 'typo')).toContainText('gmial.com');
+});
+
+test('the flag dialog says why a field looks off, and ticks nothing by itself', async ({ page }) => {
+  await accounts(page);
+  await page.evaluate(`showFlagFieldsModal('typo')`);
+  const row = page.locator('#confirm-modal .fl-row[data-flag="email"]');
+  await expect(row.locator('.fl-sx')).toHaveText('email ends in gmail.con, probably gmail.com');
+  await expect(row).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#confirm-modal .fl-row[data-flag="name"] .fl-sx')).toHaveCount(0);
+});
+
+test('the checks themselves: providers, endings, Saudi shapes, dates and heights', async ({ page }) => {
+  await accounts(page);
+  const r = await page.evaluate(`(()=>{
+    const run=c=>{const o=[];_sxName(c.name,o);_sxEmail(c.email,o);_sxPhone(c,o,'');_sxBody(c,o);return o.map(x=>x.k);};
+    return {
+      realNear: run({name:'Sara Khalid',email:'a@mail.com',phone:'+966551876215'}),
+      regional: run({name:'Sara Khalid',email:'a@hotmail.co.uk',phone:'+966551876215'}),
+      gmailCo: run({name:'Sara Khalid',email:'a@gmail.co',phone:'+966551876215'}),
+      badTld: run({name:'Sara Khalid',email:'a@jsjs.xs',phone:'+966551876215'}),
+      relay: run({name:'Sara Khalid',email:'x@privaterelay.appleid.com',phone:'+966551876215'}),
+      twice: run({name:'Sara Khalid',email:'a@b.com',phone:'+966966501234'}),
+      zero: run({name:'Sara Khalid',email:'a@b.com',phone:'+9660551876215'}),
+      landline: run({name:'Sara Khalid',email:'a@b.com',phone:'+966126543210'}),
+      kg: run({name:'Sara Khalid',email:'a@b.com',phone:'+996551876215'}),
+      noCode: run({name:'Sara Khalid',email:'a@b.com',phone:'+2895518762'}),
+      fake: run({name:'Sara Khalid',email:'a@b.com',phone:'+966500000000'}),
+      initial: run({name:'Ahmed A',email:'a@b.com',phone:'+966551876215'}),
+      middle: run({name:'Ahmed M Alharbi',email:'a@b.com',phone:'+966551876215'}),
+      mixed: run({name:'Ahmed أحمد',email:'a@b.com',phone:'+966551876215'}),
+      diacritics: run({name:'مُحَمَّد العتيبي',email:'a@b.com',phone:'+966551876215'}),
+      kid: run({name:'Sara Khalid',email:'a@b.com',phone:'+966551876215',birth_date:'2016-05-05',height:135}),
+      tallKid: run({name:'Sara Khalid',email:'a@b.com',phone:'+966551876215',birth_date:'2019-05-05',height:185}),
+      afterSignup: run({name:'Sara Khalid',email:'a@b.com',phone:'+966551876215',birth_date:'2026-08-15',created_at:'2026-08-15T09:00:00Z'}),
+    };})()`);
+  expect(r).toEqual({
+    realNear: [], regional: [], gmailCo: ['sxEmailTypo'], badTld: ['sxEmailTld'], relay: [],
+    twice: ['sxPhoneSaTwice'], zero: ['sxPhoneSaZero'], landline: ['sxPhoneSaNotMobile'], kg: ['sxPhoneKg'],
+    noCode: ['sxPhoneCode'], fake: ['sxPhoneFake'], initial: ['sxNameInitial'], middle: [], mixed: ['sxNameMixed'],
+    diacritics: [], kid: [], tallKid: ['sxHeightAge'], afterSignup: ['sxDobYoung'],
+  });
+});

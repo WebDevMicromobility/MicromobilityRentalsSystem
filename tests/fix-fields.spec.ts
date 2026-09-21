@@ -98,6 +98,16 @@ test('what the server refuses stays asked; what it took is the account now', asy
   expect(await page.evaluate('S.selEvent')).toBe('none');                     // still not booked in
 });
 
+test('a booking the server refuses for owed details (FIX_FIRST) opens the request instead of an error', async ({ page }) => {
+  // The device's cached answer says nothing is owed; the server knows better.
+  await rider(page, ['gender'], { 'rpc:customer_create_booking': { __rpcError: { status: 400, code: 'P0001', message: 'FIX_FIRST' } } });
+  await page.evaluate(`S._fixCache={id:'c1',at:Date.now(),fields:[]}`);
+  await page.evaluate(`S.selEvent='jcc';S.selSession='${S1}';S.regQty=1;S.regBikeHeights=[175];S.regBikeTypes=['Road'];S.regRiderNames=['Spec Rider'];S.promoApplied=null;submitReg()`);
+  await expect(page.locator('#fix-gate .fx-item[data-fx="gender"]')).toBeVisible();
+  await expect(page.locator('.toast', { hasText: 'FIX_FIRST' })).toHaveCount(0);
+  expect(await page.evaluate('S.regSubmitting')).toBe(false);                 // Confirm is usable again once it is answered
+});
+
 test('an email already on another account is named under the email box', async ({ page }) => {
   await rider(page, ['email'], { 'rpc:customer_fix_save': { __rpcError: { status: 409, code: '23505', message: 'email_taken' } } });
   await page.evaluate(`selectEvent('jcc')`);
@@ -177,6 +187,7 @@ test('staff tick fields in a report-builder dialog and the row says what was ask
   await page.click('#fl-send');
   await expect(dlg).toBeHidden();
   expect(sent).toEqual([{ fix_fields: ['email', 'phone'] }]);                  // the account's order, not the tap order
+  expect(await page.evaluate('_refDirty')).toBe(false);                        // no full customer-list reload queued for one flag
   await expect(page.locator('.am-row[data-cust="c1"] .am-fix')).toHaveText(/Asked to correct: Email Address, Phone Number/);
   await expect(page.locator('.am-row[data-cust="c1"] .am-flag')).toHaveClass(/\bon\b/);
 });

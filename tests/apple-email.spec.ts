@@ -4,8 +4,8 @@ import { stubSupabase, loginCustomer, unlockStaff, waitForSb } from './helpers/s
 // Apple "Hide My Email" accounts carry only a private relay address. The check-up asks them
 // for the email they actually use and a password; that email becomes the main one and the
 // relay address stays linked for Continue with Apple. The server decides who is asked
-// (customer_fix_fields adds 'email' / 'password': existing accounts at once, new sign-ups
-// after two completed rides); these specs stub its answer.
+// (customer_fix_fields adds 'email' / 'password' for every relay account, new sign-ups
+// included); these specs stub its answer.
 
 const RELAY = 'x7kd9f2@privaterelay.appleid.com';
 const S1 = '2099-01-01';
@@ -98,8 +98,8 @@ test('an email already on another account is named, and nothing else is lost', a
 });
 
 // ── Signing up with Apple and a hidden email ─────────────────────────────────
-// The sign-up form is the plain one. Whether a new account is asked (two completed rides)
-// is decided by _customer_asks on the server; the specs above stub its answer.
+// The sign-up form is the plain one; the new account meets the check-up at its first event
+// pick (_customer_asks on the server; the specs above stub its answer).
 async function signup(page: Page, email: string, fixtures: Record<string, unknown> = {}) {
   await stubSupabase(page, { 'rpc:customer_exists': false, ...fixtures });
   await page.goto('/');
@@ -114,7 +114,7 @@ function rpcBodies(page: Page, fn: string) {
   return bodies;
 }
 
-test('Apple sign-up with a hidden email asks nothing extra; the check-up comes after two rides (server side)', async ({ page }) => {
+test('Apple sign-up with a hidden email asks nothing extra; the check-up comes at the first event pick', async ({ page }) => {
   await signup(page, 'n1@privaterelay.appleid.com', { 'rpc:customer_oauth_signup': [{ id: 'x', session_token: 'tokN' }] });
   const plain = rpcBodies(page, 'customer_oauth_signup');
   await expect(page.locator('#a-email')).toHaveCount(0);
