@@ -4349,3 +4349,49 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
        this card is not. */
     body .landing-event-card.ev-community .mm-on-light{display:none;}
     body .landing-event-card.ev-community .mm-on-dark{display:inline;}
+
+    /* ════════════════════════════════════════════════════════════════════════
+       STAFF — the icon-only controls lose their boxes
+       The desk has two kinds of button: ones that say what they do (Check In,
+       Add group) and ones that are only a glyph — the grid/table pair, the
+       density switch, the row's ⋯ and the globe. The second kind was wearing
+       the same card-and-hairline as the first, which put five boxes across the
+       toolbar competing with the buttons that carry words. They become bare
+       icons: no fill, no border.
+
+       What a border was doing still has to be done. Hover paints the same soft
+       tint the rest of the desk uses, so the target is still discoverable, and
+       the hit area is unchanged — the min-heights above are untouched, only the
+       paint is gone. The pressed state of a toggle cannot rest on colour alone,
+       so the active icon keeps a soft accent pill as well as the accent ink.
+       Labelled buttons are deliberately left alone.
+       ════════════════════════════════════════════════════════════════════════ */
+    body.view-staff .view-toggle{background:none;border:0;border-radius:0;overflow:visible;gap:2px;}
+    body.view-staff .view-toggle-btn,
+    body.view-staff .density-btn,
+    body.view-staff .sf-icon-btn,
+    body.view-staff .btn-sm[aria-haspopup="menu"]{
+      background:none;border:0;box-shadow:none;border-radius:8px;color:var(--muted);}
+    body.view-staff .view-toggle-btn:hover,
+    body.view-staff .density-btn:hover,
+    body.view-staff .sf-icon-btn:hover,
+    body.view-staff .btn-sm[aria-haspopup="menu"]:hover{
+      background:var(--sf-hover2);color:var(--text);transform:none;opacity:1;}
+    /* the password-reset key carried its box inline, so it needed a class to give it up */
+    .sf-icon-btn{padding:6px 9px;font-size:15px;line-height:1;cursor:pointer;
+      display:inline-flex;align-items:center;justify-content:center;
+      font-family:var(--font-body);color:var(--muted);
+      transition:background .18s,color .18s;}
+    /* the pressed half of a toggle: accent ink AND a tint, never colour alone */
+    body.view-staff .view-toggle-btn.active,
+    body.view-staff .density-btn.active{
+      background:rgba(12,122,61,.10);border:0;color:var(--sf-green-ink);}
+    html[data-staff-theme="dark"] body.view-staff .view-toggle-btn.active,
+    html[data-staff-theme="dark"] body.view-staff .density-btn.active{
+      background:rgba(37,209,132,.14);border:0;color:var(--sf-green-ink);}
+    /* The globe in the staff header. Its box is on .lang-wrap - the select itself is a
+       transparent overlay - and the customer header already ghosts it the same way. The
+       focus ring on :focus-within a few rules up is what keeps it reachable without one. */
+    body.view-staff #topbar#topbar .lang-wrap{background:transparent;border-color:transparent;}
+    body.view-staff #topbar#topbar .lang-wrap:hover{
+      background:var(--sf-hover2);border-color:transparent;color:var(--text);}
