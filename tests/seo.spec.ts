@@ -101,3 +101,27 @@ test.describe('?lang addressing', () => {
     expect(new URL(page.url()).searchParams.get('lang')).toBe('ar');
   });
 });
+
+// One mark on every tab. The app pointed at logo.png - the wordmark lockup, 241x256 - so the
+// tab squashed it and the word under the mark was a smudge at 16 px, while the partner form
+// and the new site carried no icon at all and fell back to whatever the origin answered.
+// favicon.png is the mark alone, square, and the same bytes on every Micromobility site.
+test.describe('the tab icon', () => {
+  test('every page this site serves points at the shared square mark', async ({ page }) => {
+    for (const [file, href] of [['../index.html', 'favicon.png'], ['../404.html', '/favicon.png'], ['../staff/index.html', '/favicon.png']] as const) {
+      const html = await readFile(resolve(__dirname, file), 'utf8');
+      expect(html, file).toContain(`<link rel="icon" type="image/png" href="${href}">`);
+    }
+    // It is served, it is a PNG, and it is square: a tab stretches whatever shape it is given.
+    const res = await page.request.get('/favicon.png');
+    expect(res.status()).toBe(200);
+    const png = Buffer.from(await res.body());
+    expect(png.subarray(0, 4).toString('latin1')).toBe('\x89PNG');
+    expect(png.readUInt32BE(16)).toBe(png.readUInt32BE(20)); // IHDR width === height
+  });
+
+  test('it is the file the dist build ships', async () => {
+    const dist = await readFile(resolve(__dirname, '../scripts/assemble-dist.mjs'), 'utf8');
+    expect(dist).toContain("'favicon.png'"); // left out, the tab 404s in production only
+  });
+});

@@ -18,6 +18,7 @@ const FILES = [
   '_headers', '_redirects',
   'robots.txt', 'sitemap.xml',
   'brand.png', 'hero.webp', 'icon-192.png', 'icon-512.png', 'logo.png', 'apple-touch-icon.png',
+  'favicon.png', // the tab icon, shared with the partner form and the new site
   // referenced by the app + service-worker SHELL — missing any of these breaks cache.addAll on install
   'jcc.png', 'jcc-white.png', 'logo-dark.png', 'logo-mark-dark.png', 'og-image.png',
 ];
