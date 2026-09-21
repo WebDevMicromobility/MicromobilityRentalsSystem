@@ -53,6 +53,16 @@ test('an account that arrives later is checked the moment it lands', async ({ pa
   await expect(page.locator('.am-row').first()).toHaveAttribute('data-cust', 'new'); // newest first
 });
 
+// Production had no accounts_look_fine row until the first "Looks fine", and a fresh [] in its
+// place missed the cache on every call: each account re-checked every account, and the
+// Accounts tab froze for tens of seconds at 2,700 accounts.
+test('with no "Looks fine" saved yet, the checks still run once per list, not once per account', async ({ page }) => {
+  await accounts(page);
+  expect(await page.evaluate(`S.staffOptions&&S.staffOptions.accounts_look_fine`)).toBeFalsy();
+  expect(await page.evaluate(`_sxIndex()===_sxIndex()`)).toBe(true);
+  expect(await page.evaluate(`(()=>{const a=_sxIndex();S.customers.forEach(c=>_sxOf(c));renderCommunity();return a===_sxIndex();})()`)).toBe(true);
+});
+
 test('"Looks fine" is shared through staff_options and does not reload the customer list', async ({ page }) => {
   await accounts(page);
   const writes: { url: string; body: unknown }[] = [];

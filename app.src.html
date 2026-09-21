@@ -20154,9 +20154,13 @@ function _sxSig(list){
 }
 // Every account's findings, worked out once per list: cached on the identity of the customer
 // list, the phone rules and the "looks fine" decisions, so a repaint costs nothing.
+// The fallbacks must be ONE array, not a fresh [] per call: until the first "Looks fine" there
+// is no staff_options row, and a new [] never matched the cache, so every _sxOf re-checked every
+// account - 2,700 x 2,700 per Accounts repaint, a freeze of tens of seconds (2026-09-21).
 let _sxIdx=null,_sxSrc=null,_sxRulesAt=null,_sxFineSrc=null;
+const _SX_NONE=Object.freeze([]);
 function _sxIndex(){
-  const cs=S.customers||[],fine=(S.staffOptions&&S.staffOptions[SX_FINE_KEY])||[];
+  const cs=S.customers||_SX_NONE,fine=(S.staffOptions&&S.staffOptions[SX_FINE_KEY])||_SX_NONE;
   if(_sxIdx&&_sxSrc===cs&&_sxRulesAt===_phoneRules&&_sxFineSrc===fine)return _sxIdx;
   const byPhone=new Map();
   for(const c of cs){const k=String(c.phone||'').replace(/\D/g,'').slice(-9);if(k.length===9){if(!byPhone.has(k))byPhone.set(k,[]);byPhone.get(k).push(c);}}
