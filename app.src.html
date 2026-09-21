@@ -8309,7 +8309,11 @@ function startEditSession(id){
     S.editSessTotal=slots._total||10;
     S.editSessAssignedIds=[];
     S.editSessTypeSizes={Road:_emptySizes(),Hybrid:_emptySizes(),Mountain:_emptySizes(),Kids:_emptySizes()};
-  } else if(fmt==='counts'){
+  // A session saved from the Bike Counts grid stores each type as a per-size object, which
+  // slotsFormat calls 'legacy' - and the label and the check-in picker both read that shape
+  // correctly under that name. Only this form missed it: it fell through to From Fleet with
+  // every box at zero, so re-saving wiped the counts. The branch below already reads objects.
+  } else if(fmt==='counts'||(fmt==='legacy'&&['Road','Hybrid','Mountain','Kids'].some(ty=>slots[ty]&&typeof slots[ty]==='object'))){
     S.editSessMode='counts';
     S.editSessAssignedIds=[];
     const ts={Road:_emptySizes(),Hybrid:_emptySizes(),Mountain:_emptySizes(),Kids:_emptySizes()};
