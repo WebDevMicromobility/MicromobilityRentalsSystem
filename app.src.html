@@ -621,7 +621,7 @@ en:{landMainTitleHtml:'Reserve Your <span>Bicycle Now!</span>',spotsFull:'Full',
   saveAccountBtn:'Save Changes',accountSaved:'Profile updated successfully.',
   statTotalRides:'Total Rides',statTotalSpent:'Total Spent',statMemberSince:'Member Since',statFavType:'Favourite Type',
   statStreak:'Week Streak',statNextRide:'Next Ride',mrBookNext:'Book your next ride',mrToday:'Today!',mrTomorrow:'Tomorrow',mrInDays:'in {0} days',
-  mrBadgesTitle:'Badges',bdHowTo:'How to earn',bdEarned:'Earned',closeWord:'Close',mrShareBtn:'Share my season',mrShareText:'My season at the Jeddah Corniche Circuit 🚴',memberCardTitle:'Member card',
+  mrBadgesTitle:'Badges',bdHowTo:'How to earn',bdEarned:'Earned',closeWord:'Close',
   bdFirstLap:'First Lap',bdFirstLapD:'Completed your first circuit ride',
   bdRegular:'Grid Regular',bdRegularD:'5 rides on the grid',
   bdPodium:'Podium Pace',bdPodiumD:'10 rides strong',
@@ -1039,7 +1039,7 @@ ar:{landMainTitleHtml:'احجز <span>دراجتك الآن!</span>',spotsFull:'
   saveAccountBtn:'حفظ التغييرات',accountSaved:'تم تحديث الملف الشخصي.',
   statTotalRides:'مجموع الرحلات',statTotalSpent:'إجمالي الإنفاق',statMemberSince:'عضو منذ',statFavType:'النوع المفضل',
   statStreak:'أسابيع متتالية',statNextRide:'الرحلة القادمة',mrBookNext:'احجز رحلتك القادمة',mrToday:'اليوم!',mrTomorrow:'غداً',mrInDays:'بعد {0} أيام',
-  mrBadgesTitle:'الأوسمة',bdHowTo:'كيف تحصل عليه',bdEarned:'حصلت عليه',closeWord:'إغلاق',mrShareBtn:'شارك موسمي',mrShareText:'موسمي في حلبة كورنيش جدة 🚴',memberCardTitle:'بطاقة العضوية',
+  mrBadgesTitle:'الأوسمة',bdHowTo:'كيف تحصل عليه',bdEarned:'حصلت عليه',closeWord:'إغلاق',
   bdFirstLap:'اللفة الأولى',bdFirstLapD:'أكملت أول رحلة لك في الحلبة',
   bdRegular:'منتظم الحلبة',bdRegularD:'٥ رحلات في الحلبة',
   bdPodium:'إيقاع المنصة',bdPodiumD:'١٠ رحلات',
@@ -7814,61 +7814,7 @@ function _mrBadgeInfo(i){
   el.addEventListener('click',e=>{if(e.target===el)el.remove();});
   document.body.appendChild(el);
 }
-function _mrMemberCard(cust,completed){
-  const ar=_isRtl();
-  const since=cust.created_at?new Date(cust.created_at).toLocaleDateString(_locale(),{month:'short',year:'numeric'}):'—';
-  const tier=_mrTier(completed.length);
-  return`<div class="mr-cardrow">
-    <div class="member-card">
-      <div class="member-card-head"><img src="logo.png" alt="MicroMobility" class="member-card-logo"><span class="member-card-tier">${tier.name}</span></div>
-      <div class="member-card-name">${esc(cust.name||'')}</div>
-      <div class="member-card-foot">
-        <div><div class="member-card-lbl">${t('statMemberSince')}</div><div class="member-card-val">${since}</div></div>
-        ${ticketQR('MM-MEMBER:'+cust.id,72)}
-      </div>
-    </div>
-    <button type="button" class="btn-secondary mr-share" onclick="_mrShareCard()">${t('mrShareBtn')}</button>
-  </div>`;
-}
-// Season share card: canvas -> PNG -> native share sheet (WhatsApp/Instagram), download fallback.
-async function _mrShareCard(){
-  const cust=S.loggedIn;if(!cust)return;
-  const completed=getQueue().filter(e=>e.customerId===cust.id&&e.status==='done'&&e.paid);
-  const tier=_mrTier(completed.length),streak=_mrStreak(completed);
-  try{await Promise.all([document.fonts.load('italic 800 90px "Barlow Condensed"'),document.fonts.load('700 40px "Chakra Petch"')]);}catch(e){}
-  const c=document.createElement('canvas');c.width=1080;c.height=1080;const x=c.getContext('2d');
-  x.fillStyle='#08090b';x.fillRect(0,0,1080,1080);
-  x.fillStyle='rgba(255,255,255,.04)';x.font='italic 800 330px "Barlow Condensed",sans-serif';x.fillText('JCC',560,360);
-  x.fillStyle='#00e585';x.fillRect(0,1062,1080,18);
-  x.fillStyle='#f2f5f2';x.font='italic 800 66px "Barlow Condensed",sans-serif';x.fillText('MICROMOBILITY RENTALS',64,124);
-  x.fillStyle='#8b939b';x.font='700 26px "Chakra Petch",sans-serif';x.fillText('JEDDAH CORNICHE CIRCUIT',66,168);
-  x.fillStyle='#00e585';x.font='italic 800 92px "Barlow Condensed",sans-serif';x.fillText(String(cust.name||'').toUpperCase().slice(0,20),64,340);
-  const stats=[
-    [String(completed.length),t('statTotalRides')],
-    [tier.name,t('rideTierLabel')],
-    [String(streak),t('statStreak')],
-    [cust.created_at?String(new Date(cust.created_at).getFullYear()):'—',t('statMemberSince')],
-  ];
-  stats.forEach((st,i)=>{
-    const cx=64+(i%2)*520, cy=520+Math.floor(i/2)*240;
-    x.fillStyle='#00e585';x.font='700 110px "Chakra Petch","Barlow Condensed",sans-serif';
-    const v=st[0].length>8?st[0].slice(0,10):st[0];
-    x.font=(v.length>4?'700 72px':'700 110px')+' "Chakra Petch","Barlow Condensed",sans-serif';
-    x.fillText(v,cx,cy);
-    x.fillStyle='#8b939b';x.font='700 26px "Chakra Petch",sans-serif';
-    x.fillText(st[1].toUpperCase(),cx+4,cy+44);
-  });
-  x.fillStyle='#8b939b';x.font='700 26px "Chakra Petch",sans-serif';x.fillText('micromobilityrentals.pages.dev',66,1016);
-  const blob=await new Promise(r=>c.toBlob(r,'image/png'));
-  if(!blob)return;
-  const file=new File([blob],'my-season.png',{type:'image/png'});
-  try{
-    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'MicroMobility',text:t('mrShareText')});return;}
-  }catch(e){if(e&&e.name==='AbortError')return;}
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='my-season.png';
-  document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1200);
-}
-// Season dashboard (stats + badges + member card). Lives at the top of My Account.
+// Season dashboard (stats + badges). Lives at the top of My Account.
 function _seasonDashboard(cust){
   const allEntries=getQueue().filter(e=>e.customerId===cust.id);
   const completed=allEntries.filter(e=>e.status==='done'&&e.paid);
@@ -7896,8 +7842,7 @@ function _seasonDashboard(cust){
         ?`<div class="rides-stat-card"><div class="rides-stat-num" style="font-size:17px">${dayLabel(nextGroup[0].sessionDay)||shortDate(nextGroup[0].sessionDate)}</div><div style="font-size:12px;font-weight:800;color:var(--green);margin-top:2px">${nextTxt}</div><div class="rides-stat-label">${t('statNextRide')}</div></div>`
         :`<div class="rides-stat-card" style="display:flex;align-items:center;justify-content:center"><button type="button" class="btn-primary" style="font-size:12px;padding:10px 12px" onclick="setCustTab('register')">${t('mrBookNext')}</button></div>`}
     </div>
-    ${_mrBadgesRow(allEntries,completed)}
-    ${_mrMemberCard(cust,completed)}`;
+    ${_mrBadgesRow(allEntries,completed)}`;
 }
 function renderMyRides(){
   const cust=S.loggedIn;
