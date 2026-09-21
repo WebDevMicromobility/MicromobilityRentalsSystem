@@ -207,29 +207,32 @@
     #landing-body.events-only .sector-stripes,
     #landing-body.events-only .landing-avail-rows{display:none;}
     #landing-body.events-only .landing-events-title{margin-top:10px;}
-    /* v2 event cards: flat row - big condensed title + meta on one end, brand logo on the other. */
-    /* the mark leads: logo on the start side, copy beside it */
-    .lec2{flex-direction:row;align-items:center;justify-content:flex-start;gap:20px;padding:26px 28px;border-radius:12px;min-height:132px;}
-    .lec2 .lec2-logo,.lec2 .lec2-mm{order:-1;}
+    /* v2 event cards: a poster — the mark in a band across the top, the name and meta under it.
+       The three cards are read as one set, so what is shared is the geometry: the same padding,
+       the same band height, the same gap. Every logo then sits on one line and every name starts
+       on another, which no row layout could do here — the marks' proportions are nothing alike
+       (the National Day lockup is 2.2:1, the Micromobility mark all but square), and a name
+       beside a mark starts wherever that mark happens to end.
+       It was a row until Sep 2026, with the National Day card alone breaking to a poster because
+       its lockup and its name would not fit side by side in a third of the picker. */
+    .lec2{flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:16px;padding:26px 28px;border-radius:12px;min-height:132px;}
+    .lec2 .lec2-logo{order:-1;} /* the copy comes first in the markup; the mark leads */
     .lec2::before{display:none;}
     .lec2 .lec-title{font-size:24px;font-style:normal;letter-spacing:.3px;}
     .lec2 .lec-meta{font-size:13px;margin-top:8px;}
     .lec2-copy{display:flex;flex-direction:column;min-width:0;}
-    .lec2-logo{height:84px;max-width:180px;object-fit:contain;flex-shrink:0;}
-    .lec2-mm{display:inline-flex;}
-    .lec2-mm img{height:84px;max-width:180px;object-fit:contain;}
-    /* the two marks that read small at 84px — the Micromobility wordmark and the federation's
-       roundel — get more room; the JCC mark is wide already */
-    .lec2-mm-big img{height:116px;max-width:220px;}
+    /* The band is what is fixed, not the mark: each logo fills the band's height and takes the
+       width its own proportions ask for, never wider than the card. */
+    .lec2-logo{height:62px;max-width:100%;flex-shrink:0;display:inline-flex;align-items:center;justify-content:flex-start;}
+    .lec2-logo img{height:100%;width:auto;max-width:100%;object-fit:contain;display:block;}
     /* the wordmark half of the logo flips with the theme */
     html[data-theme="dark"] .mm-on-light{display:none;}
     html:not([data-theme="dark"]) .mm-on-dark{display:none;}
     :is(html[lang="ar"],html[lang="ur"]) .lec2 .lec-title{font-size:21px;}
     @media (max-width:560px){
-      .lec2{padding:20px;min-height:104px;}
+      .lec2{padding:20px;gap:14px;min-height:104px;}
       .lec2 .lec-title{font-size:20px;}
-      .lec2-logo,.lec2-mm img{height:56px;max-width:112px;}
-      .lec2-mm-big img{height:76px;max-width:140px;}
+      .lec2-logo{height:54px;}
     }
     .landing-avail-rows{width:100%;margin-top:56px;border-top:1px solid var(--line2);}
     .landing-avail-row{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -3593,26 +3596,6 @@
     .lec2-mm img.lec-partner-logo{border-radius:50%;}
         @media (max-width:560px){.lec2 .lec-partner{font-size:11px;}}
 
-    /* Three cards in a row can leave each one too narrow for a 30px title beside an
-       84px mark: the copy column had min-width:0, so a word like MICROMOBILITY ran on
-       under the logo, which never shrank. A narrow card keeps the same shape — the mark
-       on the start side, copy beside it — but the title drops a size, the copy may
-       never be squeezed below its longest word, and it is the MARK that gives way,
-       scaling down inside whatever width is left. Keyed on the card's width, not the
-       viewport's; the phone layout (one wide card, small mark) is untouched. */
-    .landing-event-card{container-type:inline-size;}
-    @media (min-width:561px){
-      @container (max-width:480px){
-        .lec2{gap:14px;padding:22px 22px;min-height:112px;}
-        .lec2 .lec-title{font-size:19px;}
-        :is(html[lang="ar"],html[lang="ur"]) .lec2 .lec-title{font-size:17px;}
-        .lec2-copy{flex:1 1 0;min-width:auto;} /* fill what the mark leaves; never below the longest word */
-        .lec2-logo,.lec2-mm{flex:0 1 auto;min-width:0;justify-content:flex-start;}
-        .lec2-logo,.lec2-mm img{height:64px;max-width:100%;}
-        .lec2-mm-big img{height:88px;}
-      }
-    }
-
     /* ── The customer header is white paper, in both themes ──────────────────
        The art already assumed this: the logo is forced to logo-mark-dark.png in
        every theme ("the whole app rides the white paper header now"), but the
@@ -4003,7 +3986,6 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
       border:1px solid rgba(0,137,74,.55);
       box-shadow:0 1px 3px rgba(0,0,0,.28);
       color:var(--snd-ink);
-      gap:18px;
     }
     body .landing-event-card.ev-snd96:hover{
       border-color:var(--snd-green);transform:none;
@@ -4013,20 +3995,10 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
     body .landing-event-card.ev-snd96 .lec-meta{color:var(--snd-lime-lt);font-weight:700;}
     body .landing-event-card.ev-snd96 .lec-kicker,
     body .landing-event-card.ev-snd96 .lec-arrow{color:var(--snd-lime-lt);}
-    /* The lockup is the hero of the card: sized by height so the wordmark never
-       squashes, and never given a max-width to fight (it is a wide lockup). */
-    .lec2-snd{display:inline-flex;align-items:center;flex-shrink:0;}
-    .lec2-snd img{height:74px;width:auto;max-width:none;object-fit:contain;display:block;}
+    /* The lockup takes the shared band like the other two marks, so nothing here sizes it.
+       The weave tightens on a phone, where the card is shorter than the tile. */
     @media(max-width:640px){
-      .lec2-snd img{height:50px;}
-      body .landing-event-card.ev-snd96{gap:14px;background-size:24px 24px;}
-    }
-    /* Once the picker is a row of narrow columns the lockup and the title stop fitting
-       side by side, and the title breaks over three lines. The card turns into a poster
-       there instead: lockup across the top, name and date beneath it. */
-    @media(min-width:641px){
-      body .landing-event-card.ev-snd96{flex-direction:column;align-items:flex-start;justify-content:center;gap:16px;}
-      .lec2-snd img{height:62px;}
+      body .landing-event-card.ev-snd96{background-size:24px 24px;}
     }
 
     /* ── The full takeover, while the flow is on the National Day ride ────── */
@@ -4265,8 +4237,8 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
 
        The lockup is the guideline's own Dark Version, used as drawn: no
        recolour, no outline, no shadow, nothing stretched. The veil is its
-       clear-space rule — the pattern fades out before it reaches the mark,
-       so no graphic crowds the logo.
+       clear-space rule — the pattern gathers in the far corner and fades out
+       before it reaches the mark or the name, so no graphic crowds either.
 
        The card only, like the circuit card above it: the community flow
        behind it keeps the house paper skin.
@@ -4278,7 +4250,7 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
     body .landing-event-card.ev-community{
       --ev:var(--mm-green);--ev-rgb:3,255,137;
       background-color:var(--mm-ink);
-      background-image:linear-gradient(to right,var(--mm-ink) 0 28%,rgba(26,25,25,.86) 56%,rgba(26,25,25,0) 100%),var(--mm-pattern);
+      background-image:linear-gradient(to bottom right,var(--mm-ink) 0 30%,rgba(26,25,25,.84) 62%,rgba(26,25,25,0) 100%),var(--mm-pattern);
       background-size:100% 100%,112px auto;
       background-position:0 0,right -16px top -12px;
       background-repeat:no-repeat,repeat;
@@ -4287,7 +4259,7 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
       color:var(--mm-paper);
     }
     html[dir="rtl"] body .landing-event-card.ev-community{
-      background-image:linear-gradient(to left,var(--mm-ink) 0 28%,rgba(26,25,25,.86) 56%,rgba(26,25,25,0) 100%),var(--mm-pattern);
+      background-image:linear-gradient(to bottom left,var(--mm-ink) 0 30%,rgba(26,25,25,.84) 62%,rgba(26,25,25,0) 100%),var(--mm-pattern);
       background-position:0 0,left -16px top -12px;
     }
     body .landing-event-card.ev-community:hover{
