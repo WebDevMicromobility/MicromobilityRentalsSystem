@@ -2029,7 +2029,7 @@ const S={
   histLog:[],showHistLog:false,
   
   
-  sessSort:'date',sessSortDir:-1,sessStatusFilter:'all',showDeletedSess:false,sessShowAll:false,
+  sessSort:'date',sessSortDir:-1,sessStatusFilter:'all',showDeletedSess:false,
   
   analyticsRange:'all', anSession:'all', analyticsTrendSort:'date', analyticsTrendDir:-1, analyticsCustomN:20, anView:'overview',
   analyticsDateFrom:'', analyticsDateTo:'',
@@ -4542,6 +4542,17 @@ function _ownOffered(s){return _isCommunity(s)||_rideKind(s)==='snd96';}
 // other ride there is no such thing as a close the rule made, and no marker to read.)
 function _sessLive(s){return !!s&&(s.status==='open'||s.status==='full');}
 function _sessFull(s){return !!s&&s.status==='full';}
+// The order of sessions in every staff list: the live ones first (open or full), soonest at
+// the top; then the rest, the most recent first. One rule everywhere, so a staffer never has to
+// relearn a list. Dates compare as KSA date strings - Date objects would put the viewer's
+// browser timezone in charge - and two sessions on one date keep a stable order by id.
+function _sessOrder(a,b){
+  const la=_sessLive(a)?0:1,lb=_sessLive(b)?0:1;
+  if(la!==lb)return la-lb;
+  const ka=String(a.session_date||a.id).slice(0,10),kb=String(b.session_date||b.id).slice(0,10);
+  const d=la===0?ka.localeCompare(kb):kb.localeCompare(ka);
+  return d||(la===0?String(a.id).localeCompare(String(b.id)):String(b.id).localeCompare(String(a.id)));
+}
 // Is the session's window already over, on the KSA clock? rider_register() refuses one that
 // is, so the desk must not offer it - and this must answer exactly as the server does, or the
 // desk offers a night the RPC then rejects with "pick a session that is still on", which reads
@@ -5678,7 +5689,7 @@ function _mwSessOpts(){
     const sx=bk&&allSessions().find(x=>x.id===bk.sessionId);
     if(sx&&!byId.has(sx.id))byId.set(sx.id,sx);
   });
-  return [...byId.values()].sort((a,b)=>String(a.session_date||a.id).localeCompare(String(b.session_date||b.id)));
+  return [...byId.values()].sort(_sessOrder);
 }
 /** The session a parked row belongs to — walk-ups belong to none. */
 function _mwRowSess(w){
@@ -6106,7 +6117,7 @@ function payBtnMw(w){const isHouse=w.paid&&_wlRowPrice(w)===0;return`<button cla
 const availChip=avail=>avail>0?`<span style="font-size:10px;font-weight:800;color:var(--green);border:1px solid rgba(var(--green-rgb),.35);border-radius:2px;padding:1px 7px;white-space:nowrap">${t('wlAvailNow').replace('{0}',avail)}</span>`:`<span style="color:var(--muted)">—</span>`;
 function _wlAvail(ty){const base=PREMIUM_TIERS[ty]||ty;return(S.bikes||[]).filter(b=>b.status==='available'&&(!base||base==='Any'||b.type===base)).length;} // premium tiers count their fulfilling base type (Road Carbon -> Road)
 function _wlElapsed(iso){const m=Math.max(0,Math.round((Date.now()-new Date(iso||Date.now()))/60000));return m<60?m+' '+t('unitMin'):Math.floor(m/60)+' '+t('unitHour')+' '+(m%60)+' '+t('unitMin');}
-function _wlOpenSess(){return allSessions().filter(x=>_sessLive(x)&&!_isApprovalRide(x)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));}
+function _wlOpenSess(){return allSessions().filter(x=>_sessLive(x)&&!_isApprovalRide(x)).sort(_sessOrder);}
 // The view mirrors the Bookings queue page: same section header (live indicator, header
 // buttons, density toggle), stat cards, filter bar (session + search), desktop table and
 // mobile cards. Adding goes through a modal, exactly like the queue's Walk-in.
@@ -9353,7 +9364,7 @@ function renderSessions(){
       return _sd*(_sessBooked(a.id)-_sessBooked(b.id));
     }
     if(S.sessSort==='status')   return _sd*(a.status||'').localeCompare(b.status||'');
-    return _sd*(new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+    return -_sd*_sessOrder(a,b); // date, the default (-1), is the staff order; its arrow reverses it
   });
 
   function thSessSort(col,label){
@@ -9367,12 +9378,10 @@ function renderSessions(){
     return`<option value="${s}"${S.sessStatusFilter===s?' selected':''}>${l}</option>`;}).join('');
   const sessSortOpts=[['date',t('colDate')],['day',t('colDay')],['capacity',t('colCapacity')],['bookings',t('colBookings')],['status',t('colStatus')]].map(([v,l])=>
     `<option value="${v}"${S.sessSort===v?' selected':''}>${l}</option>`).join('');
-  const SESS_LIMIT=5;
-  const _sessCollapse=!S.sessShowAll&&sessList.length>SESS_LIMIT;
-  // Collapsed default: the 5 most recent sessions by date, shown newest first (descending)
-  const displaySessions=_sessCollapse
-    ?[...sessList].sort((a,b)=>new Date(b.session_date||b.id)-new Date(a.session_date||a.id)).slice(0,SESS_LIMIT)
-    :sessList;
+  // Every session shows, in the order above. The list used to collapse to five, re-sorted
+  // newest-date-first - the furthest-future nights - which both overrode the staff order and
+  // hid live sessions behind a Show more button. The pane scrolls.
+  const displaySessions=sessList;
   const rows=sessList.length?displaySessions.map(s=>{
     const booked=(_bySession.get(s.id)||[]).filter(e=>_holdsSpot(e,s)).length;
     const cap=_isApprovalRide(s)?(s.spots||s.capacity||12):(s.capacity||12);
@@ -9467,7 +9476,6 @@ function renderSessions(){
   const sessTwoPane=`<div class="sess-twopane${(S.selSessionDetail&&_selSess)?' has-detail':''}">
     <div class="sess-list-pane">
       <div class="sess-list-scroll">${sessList.length?displaySessions.map(_listCard).join(''):emptyIllustration(ILLUS_CALENDAR,t('noSessionsYet'),'',`<button class="btn-primary" onclick="S.showAddSession=true;S.editSessionId=null;renderSessions()">${t('newSession')}</button>`)}</div>
-      ${sessList.length>SESS_LIMIT?`<div style="margin-top:10px;text-align:center"><button class="btn-secondary" onclick="S.sessShowAll=!S.sessShowAll;renderSessions()">${S.sessShowAll?t('sessShowLess'):t('sessShowMore').replace('{0}',sessList.length-SESS_LIMIT)}</button></div>`:''}
     </div>
     <div class="sess-detail-pane">${_detailHtml}</div>
   </div>`;
@@ -10098,10 +10106,10 @@ function skeletonList(){return`<div class="mm-loading mm-loading--inline" role="
 // ── Community "Add rider": staff hand-pick registered customers onto a Saturday session ──
 // Separate from Walk-in. Search by name, email or phone; destination is the final list
 // (waiting + approved) or the waitlist (pending selection).
-// Saturday (community) sessions only. A toggle inside the modal switches between adding one
+// Every session, of every kind. A toggle inside the modal switches between adding one
 // member and adding several as a group; JCC groups have their own walk-in-style modal
 // (showJccGroupModal) with free-text riders and a group name.
-function _caSessList(){return allSessions().filter(s=>_isCommunity(s)&&s.status!=='deleted').sort((x,y)=>String(x.session_date||x.id).localeCompare(String(y.session_date||y.id)));}
+function _caSessList(){return allSessions().filter(s=>s.status!=='deleted').sort(_sessOrder);}
 function showCommAddModal(group){
   S._caGroup=!!group;
   const sess=_caSessList();
@@ -10218,7 +10226,7 @@ async function saveCommAdd(){
 // under ONE group name (e.g. "Tamer Group"). Riders left unnamed become "Tamer Group 1/2/3…";
 // a named rider that matches a saved customer gets linked, exactly like the Walk-in modal. ──
 function showJccGroupModal(){
-  const open=allSessions().filter(x=>_sessLive(x)&&!_isApprovalRide(x)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+  const open=allSessions().filter(x=>x.status!=='deleted'&&!(!isAdmin()&&_isApprovalRide(x))).sort(_sessOrder); // every session, closed ones after the live; front desk stays off approval rides
   if(!open.length){toast(t('noSessionsAvail'),'warning');return;}
   if(!S._jgRiders||!S._jgRiders.length)S._jgRiders=[{name:'',height:'',type:'Any'},{name:'',height:'',type:'Any'}];
   const selId=(S.sfSession!=='all'&&open.find(x=>x.id===S.sfSession))?S.sfSession:open[0].id;
@@ -10316,7 +10324,7 @@ function showGroupEditModal(entryId){
   const comm=_apprSessIds.has(primary.sessionId),noCarbon=_commSessIds.has(primary.sessionId),free=_freeSessIds.has(primary.sessionId);
   const own=_ownOffered(allSessions().find(x=>x.id===primary.sessionId));
   const mainPhone=(primary.groupPhone||primary.phone||'').trim(); // the responsible person's number when stored
-  const open=allSessions().filter(x=>_sessLive(x)&&!_isApprovalRide(x)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+  const open=allSessions().filter(x=>_sessLive(x)&&!_isApprovalRide(x)).sort(_sessOrder);
   if(!open.find(x=>x.id===primary.sessionId)){const cur=allSessions().find(x=>x.id===primary.sessionId);if(cur)open.unshift(cur);}
   const m=document.getElementById('group-edit-modal');if(!m)return;
   m.style.display='flex';
@@ -10799,7 +10807,7 @@ async function saveCustForm(){
   }
 }
 function showWalkinModal(){
-  const open=allSessions().filter(x=>_sessLive(x)&&!_isApprovalRide(x)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+  const open=allSessions().filter(x=>x.status!=='deleted'&&!(!isAdmin()&&_isApprovalRide(x))).sort(_sessOrder); // every session, closed ones after the live; front desk stays off approval rides
   if(!open.length){toast(t('noSessionsAvail'),'warning');return;}
   const selId=(S.sfSession!=='all'&&open.find(x=>x.id===S.sfSession))?S.sfSession:open[0].id;
   S._wiType=S._wiType||'Any';
@@ -10984,7 +10992,7 @@ function showBookingEditModal(entryId){
   const canMove=e.status!=='active';
   const sessOpts=allSessions()
     .filter(s=>s.id===e.sessionId||(s.status==='open'&&(s.session_date||s.id)>=today))
-    .sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id))
+    .sort(_sessOrder) // targets stay open-and-upcoming only (a move is not a retro-entry); the order is the staff one
     .map(s=>{
       const cap=s.capacity||12;
       const taken=getQueue().filter(x=>x.sessionId===s.id&&(x.status==='waiting'||x.status==='active')).length;
@@ -11397,13 +11405,9 @@ function renderStaffQueue(_resultsOnly){
   }
   const qSessOpts=`<option value="all"${S.sfSession==='all'?' selected':''}>${t('allSessions')}</option>`+
     // Every session, closed and finished nights included, so a past night can be reviewed
-    // or printed from here: what is coming first (soonest at the top), then the past,
-    // most recent first. Closed nights say so beside the date.
-    (()=>{const today=todayStr();const key=s=>String(s.session_date||s.id).slice(0,10);
-      const live=sessions.filter(s=>s.status!=='deleted');
-      const up=live.filter(s=>key(s)>=today).sort((a,b)=>key(a).localeCompare(key(b))||String(a.id).localeCompare(String(b.id)));
-      const past=live.filter(s=>key(s)<today).sort((a,b)=>key(b).localeCompare(key(a))||String(b.id).localeCompare(String(a.id)));
-      return up.concat(past);})().map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${_sessFull(s)?` (${t('statusFull')})`:s.status==='closed'?` (${t('statusClosed')})`:''}</option>`).join('');
+    // or printed from here, in the one staff order (_sessOrder): live nights first, soonest
+    // at the top, then closed ones, most recent first. Closed nights say so beside the date.
+    sessions.filter(s=>s.status!=='deleted').sort(_sessOrder).map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${_sessFull(s)?` (${t('statusFull')})`:s.status==='closed'?` (${t('statusClosed')})`:''}</option>`).join('');
   const qStatusOpts=(_commSel
     ?['all','approved','pending','waitlist','rejected','cancelled']  // approval funnel
     :['all','waiting','reserved','toreserve','waitlist','active','done','noshow','cancelled']).map(s=>{ // ride lifecycle
@@ -11783,7 +11787,7 @@ function renderQRow(e){
           const nPend=getQueue().filter(e=>e.sessionId===S.sfSession&&_apprOf(e)==='pending'&&e.status==='waiting').length;
           return `${nPend?`<button class="btn-sm btn-green" onclick="bulkApprovePending()" style="white-space:nowrap">✓ ${t('bulkApproveBtn').replace('{0}',String(nPend))}</button>`:''}<button class="btn-sm ${_commPublishedById(S.sfSession)?'btn-muted':'btn-green'}" onclick="publishCommResults()" style="white-space:nowrap">${_commPublishedById(S.sfSession)?t('publishedChip'):t('publishBtn')}</button>`;
         })():''}
-        <button class="btn-sm btn-green hide-mobile" onclick="showWalkinModal()" style="white-space:nowrap">${t('addWalkin')}</button><button class="btn-sm btn-muted hide-mobile" onclick="showJccGroupModal()" style="white-space:nowrap">${t('commAddGroupBtn')}</button>${isAdmin()&&allSessions().some(s=>_isCommunity(s)&&s.status!=='deleted')?`<button class="btn-sm btn-muted" onclick="showCommAddModal()" style="white-space:nowrap">${t('commAddRiderBtn')}</button>`:''}
+        <button class="btn-sm btn-green hide-mobile" onclick="showWalkinModal()" style="white-space:nowrap">${t('addWalkin')}</button><button class="btn-sm btn-muted hide-mobile" onclick="showJccGroupModal()" style="white-space:nowrap">${t('commAddGroupBtn')}</button>${isAdmin()&&allSessions().some(s=>s.status!=='deleted')?`<button class="btn-sm btn-muted" onclick="showCommAddModal()" style="white-space:nowrap">${t('commAddRiderBtn')}</button>`:''}
         ${S.sfSession!=='all'?`<button class="hide-mobile" onclick="showPrintReportOptions()" style="background:rgba(var(--tint-rgb),.05);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);font-family:var(--font-body);transition:background .18s,color .18s,border-color .18s,transform .18s,box-shadow .18s,opacity .18s;line-height:1" onmouseover="this.style.borderColor='rgba(var(--green-rgb),.35)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='rgba(var(--tint-rgb),.1)';this.style.color='var(--muted)'">${ICON_PRINT} ${t('printReportBtn')}</button>`:''}
         <div class="density-toggle hide-mobile">
           <button class="density-btn${S.queueDensity==='comfortable'?' active':''}" onclick="setQueueDensity('comfortable')" title="${t('comfortableTip')}">${_artIcon('grid',13)}</button>
@@ -11813,7 +11817,7 @@ function renderQRow(e){
   const _sessSummaryBar=(()=>{
     const _td=todayStr();
     const openSess=allSessions().filter(s=>_sessLive(s)&&!(_fd&&_isApprovalRide(s)))
-      .sort((a,b)=>(((b.session_date||b.id)===_td)-((a.session_date||a.id)===_td))||(new Date(a.session_date||a.id)-new Date(b.session_date||b.id)));
+      .sort(_sessOrder);
     if(!openSess.length)return'';
     const chips=openSess.map(s=>{
       const q=getQueue().filter(e=>e.sessionId===s.id);
@@ -11875,7 +11879,7 @@ function renderQRow(e){
   if(S.sfStatus==='active'&&S.sfOverdueFirst)filtered=filtered.slice().sort((a,b)=>(_activeMinutes(b)||0)-(_activeMinutes(a)||0));
   const _qShown=filtered.slice(0,S.sfSession!=='all'?Infinity:(S.sfLimit||150));
   if(S.sfSession==='all'){
-    const orderedSessions=[...allSessions()].sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+    const orderedSessions=[...allSessions()].sort(_sessOrder);
     rows=orderedSessions.map(sess=>{
       const sessFiltered=_qShown.filter(e=>e.sessionId===sess.id);
       if(!sessFiltered.length)return'';
@@ -17766,7 +17770,7 @@ function renderHistory(_resultsOnly){
   const hSortOpts=[['date',t('sortNewest')],['name',t('sortName')],['type',t('sortType')],['amount',t('colPayment')],['status',t('colStatus')],['dur',t('colDuration')]].map(([v,l])=>
     `<option value="${v}"${S.histSort===v?' selected':''}>${l}</option>`).join('');
   const sessOpts=`<option value="all"${S.histSess==='all'?' selected':''}>${t('allSessions')}</option>`+
-    sessions.map(s=>`<option value="${s.id}"${S.histSess===s.id?' selected':''}>${dayLabel(s.day)} ${s.display}</option>`).join('');
+    sessions.filter(s=>s.status!=='deleted').sort(_sessOrder).map(s=>`<option value="${s.id}"${S.histSess===s.id?' selected':''}>${dayLabel(s.day)} ${s.display}</option>`).join('');
   const hRangeOpts=[['all',t('filterAll')],['today',t('histRangeToday')],['7d',t('histRange7')],['30d',t('histRange30')]].map(([v,l])=>`<option value="${v}"${S.histRange===v?' selected':''}>${l}</option>`).join('');
   const _histShown=filtered.slice(0,S.histLimit||60);
   const _hc=_listCols(_histShown);
@@ -17931,7 +17935,6 @@ function setHistSearch(v){S.histSearch=v;S.histLimit=60;const _k=document.active
 function setSessSort(col){
   if(S.sessSort===col) S.sessSortDir=-S.sessSortDir;
   else{S.sessSort=col;S.sessSortDir=1;}
-  S.sessShowAll=true; // sorting only makes sense across the full list
   renderSessions();
 }
 function setSessStatusFilter(v){S.sessStatusFilter=v;renderSessions();}
@@ -19046,7 +19049,7 @@ async function recordDrawerCount(){
 function renderCashier(){
   const el=document.getElementById('tab-cashier');if(!el)return;
   if(!S.dataLoaded){el.innerHTML=skeletonList(5);return;}
-  const sessions=allSessions().filter(s=>s.status!=='deleted');
+  const sessions=allSessions().filter(s=>s.status!=='deleted').sort(_sessOrder);
   if(!sessions.length){el.innerHTML=`<div class="empty-state" style="padding:48px">${t('cashNoSessions')}</div>`;return;}
   if(!S._ctSession||!sessions.find(s=>s.id===S._ctSession)){const open=sessions.find(s=>s.status==='open')||sessions[0];S._ctSession=open.id;}
   const sessId=S._ctSession;
@@ -20471,7 +20474,7 @@ function renderAnalytics(){
       <span style="font-size:12px;font-weight:700;color:var(--muted);margin-left:8px">${t('anSessionLabel')}:</span>
       <select class="filter-select" aria-label="${esc(t('colSession'))}" onchange="S.anSession=this.value;renderAnalytics()">
         <option value="all"${(S.anSession==='all'||!S.anSession)?' selected':''}>${t('anSessionAll')}</option>
-        ${_anRangeSessions.slice().reverse().map(s=>`<option value="${s.id}"${S.anSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${s.location?' · '+esc(s.location):''}</option>`).join('')}
+        ${_anRangeSessions.slice().sort(_sessOrder).map(s=>`<option value="${s.id}"${S.anSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${s.location?' · '+esc(s.location):''}</option>`).join('')}
       </select>
       <span class="result-count" style="margin-left:4px">${_sh} ${t('anSessionsHeld').toLowerCase()} · ${_td} ${t('anRidesLabel')}</span>
     </div>`;
