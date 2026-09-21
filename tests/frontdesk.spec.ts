@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { stubSupabase, unlockStaff, waitForSb, staffReady } from './helpers/supabase';
 
-test('front desk mode limits the staff tabs to Sales & Bookings', async ({ page }) => {
+test('front desk mode limits the staff tabs to Sales, Bookings & Riders', async ({ page }) => {
   const sessions = [
     { id: 's-jcc', day: 'Friday', session_date: '2099-02-13', capacity: 12, status: 'open', created_at: 1 },
     { id: 's-sat', day: 'Saturday', session_date: '2099-02-14', capacity: 12, status: 'open', created_at: 2, event_kind: 'community', title: 'Saturday Social Ride' },
@@ -31,13 +31,21 @@ test('front desk mode limits the staff tabs to Sales & Bookings', async ({ page 
   await expect(panel.getByRole('button', { name: 'Sessions' })).toBeVisible();
   await expect(panel.locator('tr, .q-card').filter({ hasText: 'Sat Rider' }).filter({ visible: true })).toHaveCount(1);
 
-  // Switch to Front Desk -> only Sales (cashier) + Bookings (queue)
+  // Switch to Front Desk -> only Sales (cashier), Bookings (queue) and Riders
   await page.evaluate('setStaffRole("frontdesk")');
-  expect((await vis()).sort()).toEqual(['cashier', 'queue']);
+  expect((await vis()).sort()).toEqual(['cashier', 'queue', 'riders']);
 
   // Trying to open a hidden tab bounces back to queue
   await page.evaluate('setStaffTab("analytics")');
   expect(await page.evaluate('S.staffTab')).toBe('queue');
+
+  // Riders opens, with the desk's actions; the summary report stays admin-only.
+  await page.evaluate('setStaffTab("riders")');
+  expect(await page.evaluate('S.staffTab')).toBe('riders');
+  const riders = page.locator('#tab-riders');
+  await expect(riders.locator('button[onclick^="showRiderWalkin"]')).toBeVisible();
+  await expect(riders.locator('button[onclick^="printRidersReport"]')).toHaveCount(0);
+  await page.evaluate('setStaffTab("queue")');
 
   // Front Desk: no Sessions pill, no Saturday rows, no Saturday option in the filter,
   // no community Add-rider button — Queue + Waitlist pills and JCC data only.
