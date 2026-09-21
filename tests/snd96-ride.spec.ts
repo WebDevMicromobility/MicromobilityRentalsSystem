@@ -427,3 +427,107 @@ test('the circuit still asks which night', async ({ page }) => {
   await expect(page.locator('.sess-solo')).toHaveCount(0);
   expect(await page.evaluate(`S.selSession`)).toBe(null);
 });
+
+// ── The green field is a dark surface wherever it is met ─────────────────────
+// The card paints itself teal on any page, but its ink came from the page. Met on paper -
+// My Bookings, the confirmation, a staff screen - every var() inside it still resolved to
+// the palette meant for white paper: the type chip wrote near-black on the field at 1.08:1,
+// the RIDERS/ADD-ONS/TOTAL labels and the date block sat at 2.15, "Pending" at 2.77, the
+// total in house green at 2.98, and the status badges, which are literals on both skins,
+// between 2.1 and 2.52. This measures the card the way a browser composites it.
+const CONTRAST = `(() => {
+  const px = (c) => { const m = c.match(/[\\d.]+/g) || []; return { r: +m[0], g: +m[1], b: +m[2], a: m[3] === undefined ? 1 : +m[3] }; };
+  const lin = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  const lum = (c) => 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+  const over = (f, b) => ({ r: f.r * f.a + b.r * (1 - f.a), g: f.g * f.a + b.g * (1 - f.a), b: f.b * f.a + b.b * (1 - f.a), a: 1 });
+  const ratio = (a, b) => { const l1 = lum(a), l2 = lum(b), hi = Math.max(l1, l2), lo = Math.min(l1, l2); return (hi + 0.05) / (lo + 0.05); };
+  const bgOf = (el) => { let ls = [], n = el;
+    while (n && n !== document.documentElement) { const c = px(getComputedStyle(n).backgroundColor);
+      if (c.a > 0) { ls.unshift(c); if (c.a === 1) break; } n = n.parentElement; }
+    return ls.reduce((b, l) => over(l, b), { r: 255, g: 255, b: 255, a: 1 }); };
+  const card = document.querySelector('.ticket-card.ev-snd96');
+  if (!card) return [{ text: 'NO CARD', ratio: 0, need: 4.5 }];
+  const out = [];
+  card.querySelectorAll('*').forEach((el) => {
+    const own = [...el.childNodes].filter((n) => n.nodeType === 3 && n.textContent.trim()).map((n) => n.textContent.trim()).join(' ');
+    if (!own) return;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === 'hidden' || cs.display === 'none' || !el.getClientRects().length) return;
+    const size = parseFloat(cs.fontSize), weight = +cs.fontWeight || 400, bg = bgOf(el);
+    out.push({ text: own.slice(0, 30), ratio: +ratio(over(px(cs.color), bg), bg).toFixed(2),
+      need: (size >= 24 || (size >= 18.66 && weight >= 700)) ? 3 : 4.5 });
+  });
+  return out.sort((a, b) => a.ratio - b.ratio);
+})()`;
+
+test('the booking card is readable on a paper page, in every state a rider can meet it', async ({ page }) => {
+  await stubSupabase(page, {
+    sessions: [snd], bikes: [],
+    queue_entries: [{
+      id: 'bk1', session_id: 'snd1', session_day: 'Wednesday', session_date: '2099-09-23',
+      queue_num: 1, name: 'Spec Rider', phone: '0500000000', customer_id: 'c1',
+      status: 'waiting', paid: false, price: 75, type_preference: 'Road', size: 'M',
+      registered_at: '2099-01-01T10:00:00Z',
+    }],
+  });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction('getQueue().length>0');
+  await page.evaluate(`setCustTab('myrides');renderMyRides();`);
+  await expect(page.locator('.ticket-card.ev-snd96')).toBeVisible();
+  // The takeover is NOT up: this is the page the card is met on most of the time.
+  expect(await page.evaluate(`document.body.classList.contains('snd96')`)).toBe(false);
+
+  for (const [state, setup] of [
+    ['waiting', `S.queue[0].status='waiting';S.queue[0].paid=false;`],
+    ['on the bike', `S.queue[0].status='active';`],
+    ['waitlisted', `S.queue[0].status='waitlist';S.queue[0].waitlistNum=3;`],
+    ['paid', `S.queue[0].status='waiting';S.queue[0].paid=true;`],
+    ['finished', `S.queue[0].status='done';`],
+  ] as const) {
+    await page.evaluate(`${setup}renderMyRides();`);
+    const rows = await page.evaluate(CONTRAST) as Array<{ text: string; ratio: number; need: number }>;
+    expect(rows.length, state).toBeGreaterThan(5);
+    const failed = rows.filter((r) => r.ratio < r.need).map((r) => `"${r.text}" ${r.ratio}:1`);
+    expect(failed, `${state}: unreadable text on the green field`).toEqual([]);
+  }
+});
+
+test('it reads the same whether or not the takeover is up', async ({ page }) => {
+  await stubSupabase(page, {
+    sessions: [snd], bikes: [],
+    queue_entries: [{
+      id: 'bk1', session_id: 'snd1', session_day: 'Wednesday', session_date: '2099-09-23',
+      queue_num: 1, name: 'Spec Rider', phone: '0500000000', customer_id: 'c1',
+      status: 'waiting', paid: false, price: 75, type_preference: 'Road', size: 'M',
+      registered_at: '2099-01-01T10:00:00Z',
+    }],
+  });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction('getQueue().length>0');
+  await page.evaluate(`setCustTab('myrides');renderMyRides();`);
+  await expect(page.locator('.ticket-card.ev-snd96')).toBeVisible();
+  // The ink the card writes with comes from the card, not from the page under it. These are
+  // the lines that broke: the type chip read 1.08:1 on paper against 13.18 under the takeover,
+  // because the page decided how its own card read. (The buttons are not in this list - they
+  // are the page's buttons, and they follow the page's skin on purpose.)
+  const inks = () => page.evaluate(`(() => {
+    const card = document.querySelector('.ticket-card.ev-snd96');
+    const out = {};
+    card.querySelectorAll('*').forEach((el) => {
+      const own = [...el.childNodes].filter((n) => n.nodeType === 3 && n.textContent.trim())
+        .map((n) => n.textContent.trim()).join(' ');
+      if (/^(Road|Riders · #1|Add-ons|Total|SAR 75|Pending)$/.test(own) && !out[own]) {
+        out[own] = getComputedStyle(el).color;
+      }
+    });
+    return out;
+  })()`) as Promise<Record<string, string>>;
+  const onPaper = await inks();
+  expect(Object.keys(onPaper).sort()).toEqual(['Add-ons', 'Pending', 'Riders · #1', 'Road', 'SAR 75', 'Total']);
+  await page.evaluate(`document.body.classList.add('snd96');renderMyRides();`);
+  expect(await inks()).toEqual(onPaper);
+});

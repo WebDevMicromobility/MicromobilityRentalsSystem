@@ -4151,6 +4151,50 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
     body .ticket-card.ev-snd96 .qr-hold{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:var(--snd-mut);}
     /* The QR keeps its white tile: a scanner needs the contrast, whatever the skin. */
     body .ticket-card.ev-snd96 .ticket-qr-wrap{background:#fff;border-radius:8px;}
+    /* ── The green field is a dark surface wherever it is met ─────────────────
+       The card paints itself teal on any page, but the ink inside it came from
+       the page: on paper - My Bookings, the confirmation, a staff screen - every
+       var() in this card still resolved to the palette meant for white paper.
+       The type chip wrote #1A1919 on the field at 1.08:1, invisible; the RIDERS,
+       ADD-ONS and TOTAL labels and the date block sat at 2.15:1, the rider's
+       amount at 3.09, "Pending" at 2.77 and the total in house green at 2.98.
+       The card now carries the takeover's own palette on itself, the way a
+       booking for another ride carries the paper palette (below) when the
+       takeover is up - properties set on the element beat the ones it inherits.
+       Measured after: nothing under 7.7:1. Same card, same colours, whichever
+       page a rider happens to meet it on. */
+    body .ticket-card.ev-snd96{
+      --text:var(--snd-ink); --muted:var(--snd-mut); --muted-l:#8FBFA8;
+      --green:var(--snd-lime-lt); --green-h:#A4E86B; --green-d:var(--snd-lime-lt);
+      --red:#FF7BA3; --orange:#D8B36A; --blue:#79C0FF; --purple:#A4A1ED;
+      --s1:var(--snd-surface); --s2:#003C41; --s3:#004449; --in-bg:#00343A;
+      --border:rgba(255,255,255,.18); --line2:rgba(255,255,255,.3);
+      --green-rgb:140,220,70; --tint-rgb:255,255,255; --red-rgb:255,123,163;
+      --warn-rgb:216,179,106; --orange-rgb:216,179,106; --blue-rgb:121,192,255; --purple-rgb:164,161,237;
+      --accent2:rgba(140,220,70,.45); --warn:rgba(255,255,255,.4); --photo-bg:#00343A;
+      color:var(--text);
+    }
+    /* The cue chip ("You're next!", "On the bike now") is written as literals on both
+       skins - paper cream and paper ink - so tokens cannot reach it. Named here at the
+       reskin's own values: lime on cream was 1.6:1. */
+    body .ticket-card.ev-snd96 .mm-note{
+      background:var(--snd-surface);border-color:rgba(255,255,255,.14);color:#fff;}
+    body .ticket-card.ev-snd96 .mm-note-go{border-color:rgba(140,220,70,.45);color:var(--snd-lime-lt);}
+    body .ticket-card.ev-snd96 .mm-note span[style*="color:var(--orange)"]{color:var(--orange)!important;}
+    /* Status inks are literals on the paper skin too ("On Bike" #06603b, "Complete"
+       #57605a), so they were being written on the green field at 2.1:1 and 2.47:1,
+       and the waitlist cue at 2.52. The reskin names them again for its own field;
+       this is the same list, for the card that carries the field on a paper page. */
+    body .ticket-card.ev-snd96 .badge-active,
+    body .ticket-card.ev-snd96 .spots-green{color:var(--snd-lime-lt);}
+    body .ticket-card.ev-snd96 .badge-done{color:var(--muted);}
+    body .ticket-card.ev-snd96 .badge-noshow,
+    body .ticket-card.ev-snd96 .spots-red{color:var(--red);}
+    body .ticket-card.ev-snd96 .badge-waiting,
+    body .ticket-card.ev-snd96 .badge-waitlist{color:var(--orange);}
+    body .ticket-card.ev-snd96 .ticket-num-label.wl-loud{color:var(--orange);}
+    body .ticket-card.ev-snd96 .wl-loud::before{background:var(--orange);}
+
 
     /* ── Status inks ─────────────────────────────────────────────────────────
        The customer reskin writes these as dark literals rather than as tokens,
