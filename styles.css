@@ -251,7 +251,6 @@
     .landing-avail-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
     .landing-avail-empty{padding:24px 4px;color:var(--muted);font-size:14px;font-weight:600;}
 
-    .sess-card-right{display:flex;align-items:center;gap:10px;flex-shrink:0;}
     .spots-low{color:var(--orange);}
 
     
@@ -803,24 +802,43 @@
 
     .session-picker-wrap{margin-bottom:24px;}
     .session-picker-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1.6px;margin-bottom:6px;padding-bottom:10px;border-bottom:1px solid var(--line2);}
-    .session-cards-grid{display:flex;flex-direction:column;}
-    .sess-card{width:100%;background:none;border:none;border-bottom:1px solid var(--border);border-radius:0;
-      padding:16px 4px;cursor:pointer;transition:background .15s;box-shadow:none;
-      display:flex;align-items:center;justify-content:space-between;gap:10px;text-align:left;font-family:var(--font-body);color:var(--text);}
+    /* Every session in a list is the same card: same height, same margins, the same
+       things in the same places. Two rules hold that:
+         - the list is a one-column GRID with 1fr rows, so every card takes the height of
+           the tallest one (the same trick the landing event cards use). A card that has to
+           wrap a word no longer stands taller than its neighbours.
+         - the card stacks full-width rows instead of laying its parts along one line, so
+           nothing pushes anything else along. The selection dot hangs in the card's start
+           padding, which leaves kicker, date and time all starting at the same x. */
+    .session-cards-grid{display:grid;grid-template-columns:minmax(0,1fr);grid-auto-rows:1fr;gap:10px;}
+    .sess-card{--sc-gut:19px; /* the dot's 9px plus the 10px that follows it */
+      width:100%;background:none;border:none;border-bottom:1px solid var(--border);border-radius:0;
+      padding:14px 16px;padding-inline-start:calc(16px + var(--sc-gut));
+      cursor:pointer;transition:background .15s;box-shadow:none;
+      display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:4px;
+      min-height:64px;text-align:start;font-family:var(--font-body);color:var(--text);}
     .sess-card:hover:not(.sess-full){background:var(--s2);}
     .sess-card.sess-selected{background:var(--acsoft);}
     .sess-card.sess-full{opacity:.6;}
-    .sess-card-left{display:flex;align-items:center;gap:12px;min-width:0;flex:1;}
-    .sess-card-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;border:1.5px solid var(--muted-l);}
+    .sess-card-head{display:flex;align-items:center;gap:10px;min-width:0;}
+    .sess-card-dot{width:9px;height:9px;border-radius:50%;flex:none;border:1.5px solid var(--muted-l);
+      margin-inline-start:calc(-1 * var(--sc-gut));}
     .sess-card-dot.on{background:var(--green);border-color:var(--green);}
-    .sess-card-date{font-size:15px;font-weight:600;letter-spacing:-.2px;white-space:nowrap;}
-    .sess-card-time{font-size:12px;color:var(--muted-l);min-width:0;direction:ltr;unicode-bidi:isolate;}
-    /* Times must be fully readable on every device: the row wraps instead of truncating to "...". */
-    .sess-card-left{flex-wrap:wrap;row-gap:2px;}
-    .sess-card-spots{font-size:12.5px;font-weight:700;flex-shrink:0;}
+    /* The date owns the row and the status is pinned to its end, so both edges line up down
+       the whole list. A date long enough to reach the status ellipsises rather than wrap -
+       a wrapped date would be the one thing that could still change a card's height. */
+    .sess-card-date{flex:1;min-width:0;font-size:15px;font-weight:600;letter-spacing:-.2px;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    /* Times must be fully readable on every device: the row wraps instead of truncating to "...".
+       On a line of its own it has the whole card to do it in, and the 1fr rows above mean a
+       card that does wrap takes its neighbours up with it instead of standing out. */
+    .sess-card-time{font-size:12px;color:var(--muted-l);min-width:0;direction:ltr;unicode-bidi:isolate;text-align:start;}
+    html[dir="rtl"] .sess-card-time{text-align:right;}
+    .sess-card-kicker{display:flex;align-items:center;flex-wrap:wrap;gap:8px;min-width:0;}
+    .sess-card-spots{font-size:12.5px;font-weight:700;flex:none;white-space:nowrap;}
     /* Saturday Social Ride rows inside the session list: blue identity (#4aa8f8), matching
        the landing card and the staff session-strip chips. */
-    .sess-card-comm{border-inline-start:3px solid #4aa8f8;padding-inline-start:12px;}
+    .sess-card-comm{border-inline-start:3px solid #4aa8f8;}
     .sess-card-comm .sess-card-dot{border-color:#4aa8f8;}
     .sess-card-comm .sess-card-dot.on{background:#4aa8f8;border-color:#4aa8f8;}
     .sess-card-comm.sess-selected{background:rgba(74,168,248,.08);}
@@ -1307,7 +1325,6 @@
       .rides-stat-row{grid-template-columns:repeat(4,1fr);}
 
       
-      .session-cards-grid{grid-template-columns:repeat(auto-fill,minmax(165px,1fr));}
       .bikes-grid{grid-template-columns:repeat(3,1fr);}
       .modal-bikes-grid{grid-template-columns:repeat(3,1fr);}
 
@@ -1423,10 +1440,9 @@
 
       
       .session-picker-wrap{margin-bottom:16px;}
-      .session-cards-grid{grid-template-columns:repeat(2,1fr);gap:8px;}
-      .sess-card{padding:12px 10px;}
-      .sess-card-day{font-size:9px;letter-spacing:.3px;}
-      .sess-card-date{font-size:15px;margin-bottom:3px;}
+      .session-cards-grid{gap:8px;}
+      .sess-card{padding:12px;padding-inline-start:calc(12px + var(--sc-gut));min-height:58px;}
+      .sess-card-date{font-size:15px;}
       .sess-card-spots{font-size:11px;}
 
       
@@ -1570,7 +1586,6 @@
     @media(max-width:390px){
       .view-main{padding:10px 12px 20px;}
       .landing-main-title{font-size:22px;}
-      .session-cards-grid{grid-template-columns:1fr 1fr;}
       .stats-row{grid-template-columns:repeat(2,1fr);}
       .account-stats-strip{grid-template-columns:repeat(2,1fr);}
       .bikes-grid{grid-template-columns:1fr 1fr;}
@@ -1955,11 +1970,14 @@
     .btn-secondary:focus-visible{outline:none;box-shadow:inset 0 0 0 2px var(--green);}
 
     /* Session board: each session is a timing-tower row - carbon panel with a
-       green start-light edge; full sessions lose the light */
+       green start-light edge; full sessions lose the light. The picker's own grid spaces
+       its cards (1fr rows, one 10px gap), so only the landing strip still carries a
+       margin of its own - a margin on a grid item would double the gap. */
     .sess-card,.landing-avail-row{
       background:var(--s1);border:1px solid var(--border);border-inline-start:3px solid var(--green);
-      border-radius:0;margin-bottom:10px;
+      border-radius:0;
     }
+    .landing-avail-row{margin-bottom:10px;}
     .sess-card.sess-full,.landing-avail-row.full{border-inline-start-color:var(--border);}
     .sess-card.sess-selected{background:var(--acsoft);border-color:var(--accent2);border-inline-start-color:var(--green);}
     .landing-avail-rows{border-top:none;}
@@ -3499,7 +3517,7 @@
     body:not(.view-staff) .mm-note-go{border-color:rgba(7,122,75,.45);color:#06603b;}
 
     /* ── Ride identity: a dot and a kicker, not a coloured edge ──────────── */
-    body:not(.view-staff) .sess-card-comm{border-inline-start:1px solid rgba(26,25,25,.12);padding-inline-start:18px;}
+    body:not(.view-staff) .sess-card-comm{border-inline-start:1px solid rgba(26,25,25,.12);}
     body:not(.view-staff) .sess-card{border-radius:12px;}
     body:not(.view-staff) .sess-comm-chip{
       background:none;border:0;padding:0;color:var(--ev);
@@ -3819,12 +3837,19 @@ body.view-staff .q-card.row-toreserve{background:rgba(109,40,217,.04);border-col
 .wi-sug-new .mw-sug-tag{background:rgba(var(--green-rgb),.12);color:var(--green);}
 #walkin-modal .mw-suggest{margin-top:6px;}
 
-    /* ── Nine languages ──────────────────────────────────────────────────────
+    /* ── Ten languages ───────────────────────────────────────────────────────
        The header control is a native <select> (the phone's own picker on touch), styled
        like the button it replaced; the wrapper draws the chevron so the many `background:`
-       shorthands on .lang-toggle never have to know about it. Hindi and Nepali get the
-       self-hosted Devanagari face appended to every stack: Barlow has no Devanagari glyphs,
-       so only those characters fall through to it. */
+       shorthands on .lang-toggle never have to know about it. Hindi and Nepali point
+       --font-* at the self-hosted Devanagari face and Bengali at the Bengali one, since
+       Barlow carries neither script. NOTE: the later brand pass sets font-family on body
+       directly ('Space Grotesk','IBM Plex Sans Arabic',sans-serif) rather than through
+       var(--font-body), so today BOTH self-hosted faces are declared but never selected
+       and those scripts render in the device's own font. The variables are kept so the
+       two move together if that stack is ever put back on var(--font-body).
+       What does bite today is the metrics: both scripts stack marks above and below the
+       line, hence the looser body line-height and the display titles dropping the tight
+       negative tracking, which crowds their conjuncts. */
     .lang-wrap{position:relative;display:inline-flex;align-items:center;flex-shrink:0;}
     .lang-wrap::after{content:'';position:absolute;inset-inline-end:10px;top:50%;width:5px;height:5px;border-inline-end:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-65%) rotate(45deg);pointer-events:none;opacity:.6;}
     select.lang-toggle{appearance:none;-webkit-appearance:none;padding-inline-end:24px!important;padding-top:0!important;padding-bottom:0!important;line-height:1.5;max-width:160px;overflow:hidden;text-overflow:ellipsis;} /* line-height 1 clipped Devanagari vowel marks */
@@ -3834,8 +3859,13 @@ body.view-staff .q-card.row-toreserve{background:rgba(109,40,217,.04);border-col
       --font-display:'Barlow Condensed','Noto Sans Devanagari','Barlow',sans-serif;
       --font-mono:'Chakra Petch','Noto Sans Devanagari','Barlow',sans-serif;
     }
-    html[lang="hi"] body,html[lang="ne"] body{line-height:1.55;}
-    html[lang="hi"] .lec-title,html[lang="ne"] .lec-title,html[lang="hi"] .landing-main-title,html[lang="ne"] .landing-main-title{font-style:normal;text-transform:none;letter-spacing:0;}
+    html[lang="bn"]{
+      --font-body:'Barlow','Noto Sans Bengali',sans-serif;
+      --font-display:'Barlow Condensed','Noto Sans Bengali','Barlow',sans-serif;
+      --font-mono:'Chakra Petch','Noto Sans Bengali','Barlow',sans-serif;
+    }
+    html[lang="hi"] body,html[lang="ne"] body,html[lang="bn"] body{line-height:1.55;}
+    html[lang="hi"] .lec-title,html[lang="ne"] .lec-title,html[lang="bn"] .lec-title,html[lang="hi"] .landing-main-title,html[lang="ne"] .landing-main-title,html[lang="bn"] .landing-main-title{font-style:normal;text-transform:none;letter-spacing:0;}
 
     /* ── Staff queue: height and bike type read from across the booth ─────────── */
     .q-height{display:inline-block;font-size:20px;font-weight:900;color:var(--green);white-space:nowrap;letter-spacing:-.3px;line-height:1.1;}

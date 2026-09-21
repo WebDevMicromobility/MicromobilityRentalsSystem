@@ -16,7 +16,7 @@ test('shows the no-sessions message when nothing is bookable', async ({ page }) 
   await expect(page.locator('#land-avail-strip')).toContainText('No sessions are currently open');
 });
 
-// Nine languages: the header control is a native dropdown that lists each one by its own
+// Ten languages: the header control is a native dropdown that lists each one by its own
 // name and shows the one you are reading (the rest is in languages.spec.ts).
 test('the language dropdown switches to arabic and back', async ({ page }) => {
   await expect(page.locator('#lang-btn')).toHaveValue('en');

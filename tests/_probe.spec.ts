@@ -45,9 +45,12 @@ const TEXT = `() => {
   return parts.join('\\n');
 }`;
 
+// Each language boots its own context and walks five screens, so the wall-clock grows with
+// the language count; the 30s default started timing out under a fully parallel run.
 test('language purity in non-latin UIs', async ({ page }) => {
-  const ALLOW = /^(MicroMobility|JCC|SAR|QR|WhatsApp|Instagram|TikTok|VAT|Spec|Rider|Saturday|Social|Ride|Petromin|Petrolube|Brew92|Maps|Google|Wallet|Apple|micromobility|info|sa|com|pages|dev|EN|FR|ES|PT|HI|TL|NE|English|Tagalog|Road|Carbon|Hybrid|Mountain|Kids|Gravel|Any|Own|M|S|L|XL)$/;
-  for (const lang of ['ar', 'ur', 'hi', 'ne']) {
+  test.setTimeout(120_000);
+  const ALLOW = /^(MicroMobility|JCC|SAR|QR|WhatsApp|Instagram|TikTok|VAT|Spec|Rider|Saturday|Social|Ride|Petromin|Petrolube|Brew92|Maps|Google|Wallet|Apple|micromobility|info|sa|com|pages|dev|EN|FR|ES|PT|HI|TL|NE|BN|English|Tagalog|Road|Carbon|Hybrid|Mountain|Kids|Gravel|Any|Own|M|S|L|XL)$/;
+  for (const lang of ['ar', 'ur', 'hi', 'ne', 'bn']) {
     const ctx = await page.context().browser()!.newContext({ viewport: { width: 390, height: 844 } });
     const p = await ctx.newPage();
     await boot(p, lang);
@@ -70,7 +73,8 @@ test('language purity in non-latin UIs', async ({ page }) => {
 });
 
 test('country and city dropdowns per language', async ({ page }) => {
-  for (const lang of ['ar', 'fr', 'es', 'hi', 'ur']) {
+  test.setTimeout(120_000);
+  for (const lang of ['ar', 'fr', 'es', 'hi', 'ur', 'bn']) {
     const ctx = await page.context().browser()!.newContext({ viewport: { width: 390, height: 844 } });
     const p = await ctx.newPage();
     await boot(p, lang);

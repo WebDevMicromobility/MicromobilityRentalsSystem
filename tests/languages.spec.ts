@@ -8,19 +8,19 @@ const pack = (code: string) =>
   JSON.parse(readFileSync(resolve(__dirname, `../lang/${code}.json`), 'utf8')) as Record<string, string>;
 
 const fixtures = { sessions: [], bikes: [], queue_entries: [] };
-const CODES = ['ar', 'fr', 'es', 'pt', 'ur', 'hi', 'tl', 'ne'];
+const CODES = ['ar', 'fr', 'es', 'pt', 'ur', 'hi', 'tl', 'ne', 'bn'];
 
-// The site speaks nine languages. The header control is a native <select> listing each one
+// The site speaks ten languages. The header control is a native <select> listing each one
 // by its own name; Arabic and Urdu flip the page right-to-left; the rest read left-to-right.
 test.describe('the language dropdown', () => {
-  test('lists all nine languages by their own name and switches the page', async ({ page }) => {
+  test('lists all ten languages by their own name and switches the page', async ({ page }) => {
     await stubSupabase(page, fixtures);
     await page.goto('/');
     await waitForSb(page);
     const sel = page.locator('select#lang-btn');
     await expect(sel).toHaveValue('en');
     expect(await sel.locator('option').allTextContents()).toEqual([
-      'English', 'العربية', 'Français', 'Español', 'Português', 'اردو', 'हिन्दी', 'Tagalog', 'नेपाली',
+      'English', 'العربية', 'Français', 'Español', 'Português', 'اردو', 'हिन्दी', 'Tagalog', 'नेपाली', 'বাংলা',
     ]);
     await sel.selectOption('fr');
     await expect(page.locator('html')).toHaveAttribute('lang', 'fr');
@@ -56,17 +56,17 @@ test.describe('the language dropdown', () => {
     }
   });
 
-  test('the account screen lists the same nine languages', async ({ page }) => {
+  test('the account screen lists the same ten languages', async ({ page }) => {
     await stubSupabase(page, fixtures);
     await page.goto('/');
     await waitForSb(page);
-    expect(await page.evaluate('LANGS.length')).toBe(9);
-    expect(await page.evaluate(`LANGS.map(l=>l.code).join(',')`)).toBe('en,ar,fr,es,pt,ur,hi,tl,ne');
+    expect(await page.evaluate('LANGS.length')).toBe(10);
+    expect(await page.evaluate(`LANGS.map(l=>l.code).join(',')`)).toBe('en,ar,fr,es,pt,ur,hi,tl,ne,bn');
   });
 });
 
 // With nothing remembered on the device, the site opens in the language the phone is set
-// to — mapped onto the nine we carry — and only falls back to English when none matches.
+// to — mapped onto the ten we carry — and only falls back to English when none matches.
 test.describe('the device language', () => {
   test.describe('a Spanish phone', () => {
     test.use({ locale: 'es-ES' });
