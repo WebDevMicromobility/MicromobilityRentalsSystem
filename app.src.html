@@ -4616,6 +4616,12 @@ function _evMatch(s,ev){
   if(ev==='community')return _isCommunity(s)&&_rideKind(s)!=='workshop'&&_rideKind(s)!=='snd96';
   return !_isCommunity(s)&&_rideKind(s)!=='snd96'; // it has its own card, so not in the circuit list too
 }
+// The event a session belongs to - _evMatch the other way round. Anything that opens the
+// Reserve flow on a given session must set this too: the flow drops a selected session that is
+// not in the current event's list, so opening a National Day booking under the circuit left
+// the rider on the circuit's sessions, and a confirm there got the pay-at-the-booth popup
+// instead of the federation form - with no hold on its close.
+function _evOf(s){return _rideKind(s)==='workshop'?'workshop':_rideKind(s)==='snd96'?'snd96':_isCommunity(s)?'community':'jcc';}
 // ── The Saudi National Day 96 ride ────────────────────────────────────────────
 // A dated event, so its card dates itself out rather than sitting on the picker for ever:
 // it shows while a live ride is on the books, and until the National Day window closes.
@@ -7814,7 +7820,7 @@ function renderBookingTicket(entries,opts){
   const rateBtn=(opts.bookAgain&&!rated)?`<button class="btn-sm btn-green" style="flex:1" onclick="openRateModal('${primary.id}')">★ ${t('rateRideBtn')}</button>`:'';
   // Community rides: a fixed solo reservation - nothing to edit or reschedule, only cancel.
   const actionsHtml=canEdit?`<div style="display:flex;gap:8px;padding:14px 18px 16px;flex-wrap:wrap">
-      ${_comm?'':`<button class="btn-sm btn-green-solid" style="flex:1;min-width:88px" onclick="S.lastTickets=[];S.selSession='${primary.sessionId}';S.regStep=2;setCustTab('register')">${t('editBtn')}</button>
+      ${_comm?'':`<button class="btn-sm btn-green-solid" style="flex:1;min-width:88px" onclick="S.lastTickets=[];S.selEvent='${_evOf(sess)}';S.selSession='${primary.sessionId}';S.regStep=2;setCustTab('register')">${t('editBtn')}</button>
       ${_rideKind(sess)==='snd96'?'':`<button class="btn-sm btn-secondary" style="flex:1;min-width:88px" onclick="showRescheduleModal('${primary.sessionId}')">${ICON_RESCHEDULE} ${t('rescheduleBtn')}</button>`}`}
       <button class="btn-sm btn-red" style="flex:1;min-width:88px" onclick="showCancelReasonModal('${primary.id}')">${t('cancelBooking')}</button>
     </div>`:(opts.bookAgain?`<div style="display:flex;gap:8px;padding:14px 18px 16px;flex-wrap:wrap">

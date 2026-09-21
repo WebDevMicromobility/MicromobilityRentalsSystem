@@ -623,3 +623,33 @@ test('check-in and the booking editor offer the owner type on this ride', async 
   await page.evaluate(`showBookingEditModal('e1')`);
   await expect(page.locator('button', { hasText: 'Bike owner' }).first()).toBeVisible();
 });
+
+// ── Edit opens the booking under its own ride ─────────────────────────────────
+// Edit set the session but not the event, and the Reserve flow drops a session that is not in
+// the current event's list. In a freshly opened app the event is the circuit, so Edit on a
+// National Day booking landed on the circuit's sessions, and a confirm from there got the
+// pay-at-the-booth popup - closable at once - instead of the federation form and its hold.
+test('Edit on a National Day booking opens the ride, and saving it is an edit, not a new circuit booking', async ({ page }) => {
+  const nd = { ...snd, event_kind: null };
+  const held = { id: 'b1', name: 'Spec Rider', customer_id: 'c1', session_id: 'snd1', session_day: 'Wednesday',
+    session_date: '2099-09-23', queue_num: 1, status: 'waiting', paid: false, price: 75, type_preference: 'Road', height: 175 };
+  await stubSupabase(page, { sessions: [jcc, nd, sat], bikes: [], queue_entries: [held] });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok' });
+  const created: string[] = [];
+  page.on('request', r => { if (r.method() === 'POST' && /rpc\/customer_create_booking|rest\/v1\/queue_entries/.test(r.url())) created.push(r.url()); });
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`setCustTab('myrides')`);
+  await page.locator('.ticket-card button', { hasText: 'Edit' }).first().click();
+  expect(await page.evaluate(`[S.selEvent,S.selSession,S.regStep]`)).toEqual(['snd96', 'snd1', 2]);
+  expect(await page.evaluate(`document.body.classList.contains('snd96')`)).toBe(true);
+  // the review step's button is the edit's own save, as the rider would press it
+  await page.evaluate(`S.regStep=3;renderRegister();`);
+  const save = page.locator('.mm-reg-foot .btn-primary, button.btn-primary[onclick="submitModifyBooking()"]').first();
+  await expect(save).toHaveAttribute('onclick', 'submitModifyBooking()');
+  await save.click();
+  await page.waitForTimeout(800);
+  expect(created).toEqual([]);                                                    // no new booking made
+  expect(await page.evaluate(`document.getElementById('booth-popup').style.display!=='flex'
+    ||document.getElementById('booth-popup-title').textContent!=='Payment Info'`)).toBe(true);
+});
