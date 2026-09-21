@@ -18821,7 +18821,13 @@ function _gathersTime(sess) {
 // Each ride is told apart in a crowded Wallet by its own colour, and named by its own words.
 var RIDES = {
   saturday: { bg: "rgb(9,40,26)", label: "rgb(61,220,150)", venue: "Saturday Social Ride" },
-  petromin: { bg: "rgb(46,14,11)", label: "rgb(240,138,120)", venue: "Petromin Wednesday Ride" },
+  // The one ride that does not take the near-black field the others use: a dark maroon read
+  // as muddy brown rather than as a colour, and the salmon labels on it looked washed out.
+  // Petromin commits to its red instead - the same rgb(163,59,46) the app tints this ride
+  // with everywhere else - with a pale warm tint for the labels. Both clear AA against the
+  // near-white foreground (5.9:1) and the field (4.9:1); do not darken the label towards
+  // salmon again, it drops to 2.7:1.
+  petromin: { bg: "rgb(163,59,46)", label: "rgb(255,214,203)", venue: "Petromin Wednesday Ride" },
   swim:     { bg: "rgb(10,30,46)", label: "rgb(122,190,240)", venue: "Triathlon Pool Session" },
   workshop: { bg: "rgb(30,22,48)", label: "rgb(183,162,240)", venue: "T100 Triathlon Prep" },
   // Saudi National Day 96 - the guideline's deep green field, with the lime tint on labels.

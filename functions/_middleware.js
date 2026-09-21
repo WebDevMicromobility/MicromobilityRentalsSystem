@@ -19,8 +19,9 @@ export async function onRequest(context) {
 
   const blocked =
     /\.(sql|md|ts|mjs|lock|yml|yaml|toml|map|cjs|env|sh)$/.test(path) || // source / config / docs / data
-    // configs stay blocked; the PWA manifest and the translation packs are app assets
-    (/\.json$/.test(path) && path !== '/manifest.json' && !/^\/lang\/[a-z-]{2,8}\.json$/.test(path)) ||
+    // configs stay blocked; the PWA manifest, the translation packs and the city lists are app assets
+    (/\.json$/.test(path) && path !== '/manifest.json' && !/^\/lang\/[a-z-]{2,8}\.json$/.test(path) &&
+      !/^\/cities\/[a-z]{2}\.json$/.test(path)) ||
     path === '/app.src' || /\/app\.src\.html$/.test(path) ||            // the readable app source
     path.startsWith('/tests/') ||
     path.startsWith('/scripts/') ||

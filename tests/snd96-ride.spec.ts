@@ -513,21 +513,23 @@ test('it reads the same whether or not the takeover is up', async ({ page }) => 
   // The ink the card writes with comes from the card, not from the page under it. These are
   // the lines that broke: the type chip read 1.08:1 on paper against 13.18 under the takeover,
   // because the page decided how its own card read. (The buttons are not in this list - they
-  // are the page's buttons, and they follow the page's skin on purpose.)
+  // are the page's buttons, and they follow the page's skin on purpose. 'Add-ons' used to be
+  // sampled here too; the section now only exists when the booking has add-ons, and this one
+  // has none. 'Total' carries the same muted ink, so the reading is unchanged.)
   const inks = () => page.evaluate(`(() => {
     const card = document.querySelector('.ticket-card.ev-snd96');
     const out = {};
     card.querySelectorAll('*').forEach((el) => {
       const own = [...el.childNodes].filter((n) => n.nodeType === 3 && n.textContent.trim())
         .map((n) => n.textContent.trim()).join(' ');
-      if (/^(Road|Riders · #1|Add-ons|Total|SAR 75|Pending)$/.test(own) && !out[own]) {
+      if (/^(Road|Riders · #1|Total|SAR 75|Pending)$/.test(own) && !out[own]) {
         out[own] = getComputedStyle(el).color;
       }
     });
     return out;
   })()`) as Promise<Record<string, string>>;
   const onPaper = await inks();
-  expect(Object.keys(onPaper).sort()).toEqual(['Add-ons', 'Pending', 'Riders · #1', 'Road', 'SAR 75', 'Total']);
+  expect(Object.keys(onPaper).sort()).toEqual(['Pending', 'Riders · #1', 'Road', 'SAR 75', 'Total']);
   await page.evaluate(`document.body.classList.add('snd96');renderMyRides();`);
   expect(await inks()).toEqual(onPaper);
 });

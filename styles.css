@@ -882,6 +882,9 @@
     select{appearance:none;-webkit-appearance:none;
       background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M6 8L0 0h12z'/%3E%3C/svg%3E");
       background-repeat:no-repeat;background-position:right 13px center;padding-right:34px;}
+    /* City of residence waits for a country: dimmed, label and all, until one is chosen. */
+    #acc-city:disabled,#cf-city:disabled{opacity:.45;cursor:not-allowed;}
+    .form-group:has(>#acc-city:disabled)>label,.form-group:has(>#cf-city:disabled)>label{opacity:.45;}
     .phone-row{display:flex;gap:8px;}
     .phone-cc{width:110px!important;flex-shrink:0;}
     .phone-num{flex:1;}
@@ -913,6 +916,11 @@
     .btn-sm:disabled{opacity:.3!important;cursor:not-allowed;transform:none;}
     .btn-green{background:rgba(var(--green-rgb),.12);color:var(--green);border:1px solid rgba(var(--green-rgb),.3);}
     .btn-green:hover{background:rgba(var(--green-rgb),.22);border-color:rgba(var(--green-rgb),.5);}
+    /* Filled green, for the one action on a card that is the obvious next step (the booking
+       card's Edit). Takes .btn-primary's fill/ink tokens rather than --green: on dark that
+       variable is a neon that nothing reads against. */
+    .btn-green-solid{background:var(--ac-fill);color:var(--acink);border:1px solid var(--ac-fill);}
+    .btn-green-solid:hover{background:var(--ac-fill-h);border-color:var(--ac-fill-h);}
     .btn-red{background:rgba(var(--red-rgb),.12);color:var(--red);border:1px solid rgba(var(--red-rgb),.3);}
     .btn-red:hover{background:rgba(var(--red-rgb),.22);border-color:rgba(var(--red-rgb),.5);}
     .btn-muted{background:rgba(var(--tint-rgb),.04);color:var(--muted);border:1px solid rgba(var(--tint-rgb),.08);}
@@ -4151,6 +4159,7 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
     body .ticket-card.ev-snd96 .qr-hold{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.22);color:var(--snd-mut);}
     /* The QR keeps its white tile: a scanner needs the contrast, whatever the skin. */
     body .ticket-card.ev-snd96 .ticket-qr-wrap{background:#fff;border-radius:8px;}
+
     /* ── The green field is a dark surface wherever it is met ─────────────────
        The card paints itself teal on any page, but the ink inside it came from
        the page: on paper - My Bookings, the confirmation, a staff screen - every
@@ -4194,7 +4203,6 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
     body .ticket-card.ev-snd96 .badge-waitlist{color:var(--orange);}
     body .ticket-card.ev-snd96 .ticket-num-label.wl-loud{color:var(--orange);}
     body .ticket-card.ev-snd96 .wl-loud::before{background:var(--orange);}
-
 
     /* ── Status inks ─────────────────────────────────────────────────────────
        The customer reskin writes these as dark literals rather than as tokens,

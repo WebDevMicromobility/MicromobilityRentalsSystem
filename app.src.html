@@ -1741,46 +1741,12 @@ const COUNTRY_CODES=[
 ];
 
 
-const COUNTRY_CITIES={
-  "Saudi Arabia":["Riyadh","Jeddah","Mecca","Medina","Dammam","Khobar","Dhahran","Taif","Tabuk","Buraydah","Khamis Mushait","Abha","Hail","Najran","Jazan","Al Hofuf","Yanbu","Jubail","Qatif","Hafar Al-Batin","Arar","Sakaka","Al Bahah","Unaizah","Al Kharj"],
-  "United Arab Emirates":["Dubai","Abu Dhabi","Sharjah","Al Ain","Ajman","Ras Al Khaimah","Fujairah","Umm Al Quwain"],
-  "Kuwait":["Kuwait City","Hawalli","Salmiya","Al Ahmadi","Al Jahra","Farwaniya","Fahaheel"],
-  "Qatar":["Doha","Al Rayyan","Al Wakrah","Al Khor","Lusail","Umm Salal"],
-  "Bahrain":["Manama","Riffa","Muharraq","Hamad Town","Isa Town","Sitra"],
-  "Oman":["Muscat","Salalah","Sohar","Nizwa","Sur","Ibri","Seeb"],
-  "Egypt":["Cairo","Alexandria","Giza","Port Said","Suez","Luxor","Aswan","Mansoura","Tanta","Sharm El Sheikh"],
-  "Jordan":["Amman","Zarqa","Irbid","Aqaba","Salt","Madaba","Karak"],
-  "Lebanon":["Beirut","Tripoli","Sidon","Tyre","Zahle","Jounieh","Byblos"],
-  "Syria":["Damascus","Aleppo","Homs","Latakia","Hama","Tartus"],
-  "Iraq":["Baghdad","Basra","Mosul","Erbil","Najaf","Karbala","Kirkuk","Sulaymaniyah"],
-  "Yemen":["Sanaa","Aden","Taiz","Hodeidah","Mukalla","Ibb"],
-  "Palestine":["Gaza","Ramallah","Hebron","Nablus","Bethlehem","Jenin"],
-  "Sudan":["Khartoum","Omdurman","Port Sudan","Kassala","Nyala","El Obeid"],
-  "Morocco":["Casablanca","Rabat","Marrakesh","Fez","Tangier","Agadir","Meknes"],
-  "Algeria":["Algiers","Oran","Constantine","Annaba","Blida","Setif"],
-  "Tunisia":["Tunis","Sfax","Sousse","Kairouan","Bizerte","Gabes"],
-  "Libya":["Tripoli","Benghazi","Misrata","Zawiya","Sabha"],
-  "Turkey":["Istanbul","Ankara","Izmir","Bursa","Antalya","Adana","Gaziantep","Konya"],
-  "Pakistan":["Karachi","Lahore","Islamabad","Rawalpindi","Faisalabad","Multan","Peshawar","Quetta"],
-  "India":["Mumbai","Delhi","Bengaluru","Hyderabad","Chennai","Kolkata","Pune","Ahmedabad","Kochi"],
-  "Bangladesh":["Dhaka","Chittagong","Khulna","Rajshahi","Sylhet"],
-  "Philippines":["Manila","Quezon City","Davao","Cebu City","Makati","Caloocan"],
-  "Indonesia":["Jakarta","Surabaya","Bandung","Medan","Semarang","Makassar"],
-  "United Kingdom":["London","Manchester","Birmingham","Leeds","Glasgow","Liverpool","Edinburgh","Bristol"],
-  "United States":["New York","Los Angeles","Chicago","Houston","Phoenix","San Francisco","Seattle","Boston","Miami","Dallas"],
-  "Canada":["Toronto","Vancouver","Montreal","Calgary","Ottawa","Edmonton"],
-  "France":["Paris","Marseille","Lyon","Toulouse","Nice","Nantes","Bordeaux"],
-  "Germany":["Berlin","Munich","Hamburg","Cologne","Frankfurt","Stuttgart","Dusseldorf"]
-};
-const COUNTRY_LIST=Object.keys(COUNTRY_CITIES);
 const COUNTRY_AR={"Saudi Arabia":"السعودية","United Arab Emirates":"الإمارات","Kuwait":"الكويت","Qatar":"قطر","Bahrain":"البحرين","Oman":"عُمان","Egypt":"مصر","Jordan":"الأردن","Lebanon":"لبنان","Syria":"سوريا","Iraq":"العراق","Yemen":"اليمن","Palestine":"فلسطين","Sudan":"السودان","Morocco":"المغرب","Algeria":"الجزائر","Tunisia":"تونس","Libya":"ليبيا","Turkey":"تركيا","Pakistan":"باكستان","India":"الهند","Bangladesh":"بنغلاديش","Philippines":"الفلبين","Indonesia":"إندونيسيا","United Kingdom":"المملكة المتحدة","United States":"الولايات المتحدة","Canada":"كندا","France":"فرنسا","Germany":"ألمانيا"};
-const CITY_AR={"Riyadh":"الرياض","Jeddah":"جدة","Mecca":"مكة المكرمة","Medina":"المدينة المنورة","Dammam":"الدمام","Khobar":"الخبر","Dhahran":"الظهران","Taif":"الطائف","Tabuk":"تبوك","Buraydah":"بريدة","Khamis Mushait":"خميس مشيط","Abha":"أبها","Hail":"حائل","Najran":"نجران","Jazan":"جازان","Al Hofuf":"الهفوف","Yanbu":"ينبع","Jubail":"الجبيل","Qatif":"القطيف","Hafar Al-Batin":"حفر الباطن","Arar":"عرعر","Sakaka":"سكاكا","Al Bahah":"الباحة","Unaizah":"عنيزة","Al Kharj":"الخرج"};
-function countryLabel(c){return S&&S.lang==='ar'?(COUNTRY_AR[c]||c):c;}
 // ── Nationality: every country, not just the ones with a city list ────────────
 // [ISO 3166-1 alpha-2, English name]. The English name is the stored value - it is what the
 // dropdown always stored, so 'Egypt' stays 'Egypt' in the table and the report - and the code
 // is what lets Intl.DisplayNames label it in the rider's own language. Country of residence
-// keeps COUNTRY_LIST: it is tied to the city picker.
+// offers the same list, labelled the same way.
 const NATIONALITIES=[["AF","Afghanistan"],["AL","Albania"],["DZ","Algeria"],["AD","Andorra"],["AO","Angola"],["AG","Antigua and Barbuda"],["AR","Argentina"],["AM","Armenia"],["AU","Australia"],["AT","Austria"],["AZ","Azerbaijan"],["BS","Bahamas"],["BH","Bahrain"],["BD","Bangladesh"],["BB","Barbados"],["BY","Belarus"],["BE","Belgium"],["BZ","Belize"],["BJ","Benin"],["BT","Bhutan"],["BO","Bolivia"],["BA","Bosnia and Herzegovina"],["BW","Botswana"],["BR","Brazil"],["BN","Brunei"],["BG","Bulgaria"],["BF","Burkina Faso"],["BI","Burundi"],["CV","Cabo Verde"],["KH","Cambodia"],["CM","Cameroon"],["CA","Canada"],["CF","Central African Republic"],["TD","Chad"],["CL","Chile"],["CN","China"],["CO","Colombia"],["KM","Comoros"],["CG","Congo"],["CD","Congo (DRC)"],["CR","Costa Rica"],["CI","Côte d\'Ivoire"],["HR","Croatia"],["CU","Cuba"],["CY","Cyprus"],["CZ","Czechia"],["DK","Denmark"],["DJ","Djibouti"],["DM","Dominica"],["DO","Dominican Republic"],["EC","Ecuador"],["EG","Egypt"],["SV","El Salvador"],["GQ","Equatorial Guinea"],["ER","Eritrea"],["EE","Estonia"],["SZ","Eswatini"],["ET","Ethiopia"],["FJ","Fiji"],["FI","Finland"],["FR","France"],["GA","Gabon"],["GM","Gambia"],["GE","Georgia"],["DE","Germany"],["GH","Ghana"],["GR","Greece"],["GD","Grenada"],["GT","Guatemala"],["GN","Guinea"],["GW","Guinea-Bissau"],["GY","Guyana"],["HT","Haiti"],["HN","Honduras"],["HU","Hungary"],["IS","Iceland"],["IN","India"],["ID","Indonesia"],["IR","Iran"],["IQ","Iraq"],["IE","Ireland"],["IT","Italy"],["JM","Jamaica"],["JP","Japan"],["JO","Jordan"],["KZ","Kazakhstan"],["KE","Kenya"],["KI","Kiribati"],["XK","Kosovo"],["KW","Kuwait"],["KG","Kyrgyzstan"],["LA","Laos"],["LV","Latvia"],["LB","Lebanon"],["LS","Lesotho"],["LR","Liberia"],["LY","Libya"],["LI","Liechtenstein"],["LT","Lithuania"],["LU","Luxembourg"],["MG","Madagascar"],["MW","Malawi"],["MY","Malaysia"],["MV","Maldives"],["ML","Mali"],["MT","Malta"],["MH","Marshall Islands"],["MR","Mauritania"],["MU","Mauritius"],["MX","Mexico"],["FM","Micronesia"],["MD","Moldova"],["MC","Monaco"],["MN","Mongolia"],["ME","Montenegro"],["MA","Morocco"],["MZ","Mozambique"],["MM","Myanmar"],["NA","Namibia"],["NR","Nauru"],["NP","Nepal"],["NL","Netherlands"],["NZ","New Zealand"],["NI","Nicaragua"],["NE","Niger"],["NG","Nigeria"],["KP","North Korea"],["MK","North Macedonia"],["NO","Norway"],["OM","Oman"],["PK","Pakistan"],["PW","Palau"],["PS","Palestine"],["PA","Panama"],["PG","Papua New Guinea"],["PY","Paraguay"],["PE","Peru"],["PH","Philippines"],["PL","Poland"],["PT","Portugal"],["QA","Qatar"],["RO","Romania"],["RU","Russia"],["RW","Rwanda"],["KN","Saint Kitts and Nevis"],["LC","Saint Lucia"],["VC","Saint Vincent and the Grenadines"],["WS","Samoa"],["SM","San Marino"],["ST","Sao Tome and Principe"],["SA","Saudi Arabia"],["SN","Senegal"],["RS","Serbia"],["SC","Seychelles"],["SL","Sierra Leone"],["SG","Singapore"],["SK","Slovakia"],["SI","Slovenia"],["SB","Solomon Islands"],["SO","Somalia"],["ZA","South Africa"],["KR","South Korea"],["SS","South Sudan"],["ES","Spain"],["LK","Sri Lanka"],["SD","Sudan"],["SR","Suriname"],["SE","Sweden"],["CH","Switzerland"],["SY","Syria"],["TW","Taiwan"],["TJ","Tajikistan"],["TZ","Tanzania"],["TH","Thailand"],["TL","Timor-Leste"],["TG","Togo"],["TO","Tonga"],["TT","Trinidad and Tobago"],["TN","Tunisia"],["TR","Turkey"],["TM","Turkmenistan"],["TV","Tuvalu"],["UG","Uganda"],["UA","Ukraine"],["AE","United Arab Emirates"],["GB","United Kingdom"],["US","United States"],["UY","Uruguay"],["UZ","Uzbekistan"],["VU","Vanuatu"],["VA","Vatican City"],["VE","Venezuela"],["VN","Vietnam"],["YE","Yemen"],["ZM","Zambia"],["ZW","Zimbabwe"]];
 const _NAT_CODE=Object.fromEntries(NATIONALITIES.map(([c,n])=>[n,c]));
 const _natDN={};
@@ -1806,6 +1772,70 @@ function _natFor(lang){
   return (_natMemo[lang]={list:['Saudi Arabia',...rest],lab});
 }
 function nationalityOpts(sel){const m=_natFor((S&&S.lang)||'en');return m.list.map(c=>`<option value="${esc(c)}"${sel===c?' selected':''}>${esc(m.lab[c]||c)}</option>`).join('');}
+// ── Country and city of residence ─────────────────────────────────────────────
+// The country picker offers every country NATIONALITIES holds, labelled the same way. The
+// city picker offers every city of the chosen country: cities/<iso2>.json, generated by
+// scripts/build-cities.mjs from GeoNames as [[English name, Arabic name?], ...]. The English
+// name is what is stored. A country's file is fetched the first time it is chosen and kept.
+function countryOpts(sel){
+  const own=sel&&!_NAT_CODE[sel]?`<option value="${esc(sel)}" selected>${esc(sel)}</option>`:''; // saved before this list
+  return `<option value="">${t('selectCountryOpt')}</option>`+own+nationalityOpts(sel);
+}
+const CITIES_V=''; // build stamps a hash of cities/ for cache-busting
+const _cityLists={},_cityLoads={},_cityAr={};
+function _loadCities(country){
+  const code=_NAT_CODE[country];
+  if(!code)return Promise.resolve(null);
+  if(_cityLists[code])return Promise.resolve(_cityLists[code]);
+  return _cityLoads[code]||(_cityLoads[code]=fetch('cities/'+code.toLowerCase()+'.json'+(CITIES_V?'?v='+CITIES_V:''))
+    .then(r=>r.ok?r.json():null).catch(()=>null).then(list=>{
+      delete _cityLoads[code]; // a failed load is tried again the next time the country is chosen
+      if(!Array.isArray(list))return null;
+      const ar={};list.forEach(([en,a])=>{if(a)ar[en]=a;});_cityAr[code]=ar;
+      return(_cityLists[code]=list);
+    }));
+}
+function cityLabel(c,country){
+  if(!S||S.lang!=='ar')return c;
+  const m=_cityAr[_NAT_CODE[country]];return(m&&m[c])||c;
+}
+// Alphabetical in the rider's language, built once per country and language: the United
+// States alone has 3,000 names and the account form repaints often.
+const _cityMemo={};
+function _citiesSorted(country,lang){
+  const code=_NAT_CODE[country],k=code+'|'+lang;
+  if(_cityMemo[k])return _cityMemo[k];
+  const list=_cityLists[code].map(([en])=>[en,cityLabel(en,country)]);
+  let coll;try{coll=new Intl.Collator(lang);}catch(e){coll=new Intl.Collator();}
+  list.sort((a,b)=>coll.compare(a[1],b[1]));
+  return(_cityMemo[k]=list);
+}
+// A city picker's <option>s. Until the country's file has arrived the picker holds the saved
+// city alone, so a save in that moment keeps it, and the arrival repaints #id if it still
+// shows that country. A saved city the file does not carry stays as its own option.
+function cityOpts(country,sel,id){
+  const head=`<option value="">${t(country?'selectCityOpt':'selectCountryFirst')}</option>`;
+  if(!country)return head;
+  const own=v=>`<option value="${esc(v)}" selected>${esc(cityLabel(v,country))}</option>`;
+  if(!_cityLists[_NAT_CODE[country]]){
+    _loadCities(country).then(list=>{
+      const el=list&&document.getElementById(id);
+      if(el&&el.dataset.country===country)el.innerHTML=cityOpts(country,el.value,id);
+    });
+    return head+(sel?own(sel):'');
+  }
+  const list=_citiesSorted(country,(S&&S.lang)||'en');
+  const known=!sel||list.some(([en])=>en===sel);
+  return head+(known?'':own(sel))+list.map(([en,lab])=>`<option value="${esc(en)}"${en===sel?' selected':''}>${esc(lab)}</option>`).join('');
+}
+// The country changed: the city picker empties, stays disabled (and dimmed) while no country
+// is chosen, and fills with the new country's cities.
+function _setCityCountry(id,country){
+  const el=document.getElementById(id);if(!el)return;
+  el.dataset.country=country||'';
+  el.disabled=!country;
+  el.innerHTML=cityOpts(country,'',id);
+}
 // ── Social accounts on the profile: bare handles, never URLs ──────────────────
 // [key, label string key, profile URL prefix, handle rule]. Whatever the rider pastes - a
 // full URL, an @ - is reduced to the handle, so a link can always be built from it.
@@ -1924,7 +1954,6 @@ function _socLinksHtml(c){
   const items=SOCIAL_NETS.filter(([net])=>v[net]).map(([net,lbl])=>`<a class="soc-link" href="${_socUrl(net,v[net])}" target="_blank" rel="noopener noreferrer" title="${esc(t(lbl))}" aria-label="${esc(t(lbl))} ${esc(v[net])}${t('opensNewTab')}">${_SOC_SVG[net]}<span dir="ltr">${net==='linkedin'?'':'@'}${esc(v[net])}</span></a>`);
   return items.length?`<div class="soc-links">${items.join('')}</div>`:'';
 }
-function cityLabel(c){return S&&S.lang==='ar'?(CITY_AR[c]||c):c;}
 
 
 const S={
@@ -7398,7 +7427,7 @@ function renderBookingTicket(entries,opts){
   const rateBtn=(opts.bookAgain&&!rated)?`<button class="btn-sm btn-green" style="flex:1" onclick="openRateModal('${primary.id}')">★ ${t('rateRideBtn')}</button>`:'';
   // Community rides: a fixed solo reservation - nothing to edit or reschedule, only cancel.
   const actionsHtml=canEdit?`<div style="display:flex;gap:8px;padding:14px 18px 16px;flex-wrap:wrap">
-      ${_comm?'':`<button class="btn-sm btn-green" style="flex:1;min-width:88px" onclick="S.lastTickets=[];S.selSession='${primary.sessionId}';S.regStep=2;setCustTab('register')">${t('editBtn')}</button>
+      ${_comm?'':`<button class="btn-sm btn-green-solid" style="flex:1;min-width:88px" onclick="S.lastTickets=[];S.selSession='${primary.sessionId}';S.regStep=2;setCustTab('register')">${t('editBtn')}</button>
       <button class="btn-sm btn-secondary" style="flex:1;min-width:88px" onclick="showRescheduleModal('${primary.sessionId}')">${ICON_RESCHEDULE} ${t('rescheduleBtn')}</button>`}
       <button class="btn-sm btn-red" style="flex:1;min-width:88px" onclick="showCancelReasonModal('${primary.id}')">${t('cancelBooking')}</button>
     </div>`:(opts.bookAgain?`<div style="display:flex;gap:8px;padding:14px 18px 16px;flex-wrap:wrap">
@@ -7429,20 +7458,18 @@ function renderBookingTicket(entries,opts){
       ${noShowMsg}
       ${(()=>{
         if(_comm)return''; // community rides have no add-ons
-        const canEdit=['waiting','active','waitlist'].includes(primary.status);
+        // Add-ons are chosen during booking and changed at the booth, not from the ticket:
+        // the card lists what the rider already has, so with none there is no section at all.
         return g.map(e=>{
           const ad=addonLineItems(entryAddons(e));
-          if(!ad.length&&!canEdit)return'';
+          if(!ad.length)return'';
           return`<div style="padding:9px 0;border-top:1px dashed var(--border)">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-              <span style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${g.length>1?esc(e.name)+' · ':''}${t('addonsLabel')}</span>
-              ${canEdit?`<button type="button" onclick="showAddonPicker('${e.id}')" style="background:var(--s1);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:11px;font-weight:800;padding:6px 11px;min-height:24px;border-radius:3px;cursor:pointer">+ ${t('addonAddBtn')}</button>`:''}
-            </div>
-            ${ad.length?ad.map(a=>`<div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+            <span style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${g.length>1?esc(e.name)+' · ':''}${t('addonsLabel')}</span>
+            ${ad.map(a=>`<div style="display:flex;align-items:center;gap:8px;margin-top:6px">
               ${a.photo?`<img loading="lazy" decoding="async" src="${esc(a.photo)}" alt="${esc(a.name)}" class="addon-thumb addon-thumb-sm" role="button" tabindex="0" aria-label="${esc(a.name)}" onclick="_photoZoom(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_photoZoom(this);}">`:''}
               <span style="flex:1;min-width:0;font-size:13px;font-weight:700">${esc(a.name)}${a.qty>1?` <span style="color:var(--muted)">×${a.qty}</span>`:''}</span>
               <bdi style="font-weight:800;font-size:13px">SAR ${a.lineTotal}</bdi>
-            </div>`).join(''):`<div style="font-size:12px;color:var(--muted);margin-top:4px">—</div>`}
+            </div>`).join('')}
           </div>`;
         }).join('');
       })()}
@@ -7942,9 +7969,6 @@ function renderAccount(){
   }
   const accNat=cust.nationality||'';
   const natOpts=`<option value="">${t('selectNationalityOpt')}</option>`+nationalityOpts(accNat);
-  const countryOpts=`<option value="">${t('selectCountryOpt')}</option>`+COUNTRY_LIST.map(c=>`<option value="${esc(c)}"${accCountry===c?' selected':''}>${esc(countryLabel(c))}</option>`).join('');
-  const _cityList=accCountry&&COUNTRY_CITIES[accCountry]?COUNTRY_CITIES[accCountry]:[];
-  const cityOpts=`<option value="">${accCountry?t('selectCityOpt'):t('selectCountryFirst')}</option>`+_cityList.map(c=>`<option value="${esc(c)}"${accCity===c?' selected':''}>${esc(cityLabel(c))}</option>`).join('');
   
   const myEntries=getQueue().filter(e=>e.customerId===cust.id);
   const myDone=myEntries.filter(e=>e.status==='done');
@@ -8012,9 +8036,9 @@ function renderAccount(){
       </div>
       <div class="form-row">
         <div class="form-group"><label>${t('countryLabel')}</label>
-          <select id="acc-country" onchange="onAccCountryChange(this.value)">${countryOpts}</select></div>
+          <select id="acc-country" onchange="onAccCountryChange(this.value)">${countryOpts(accCountry)}</select></div>
         <div class="form-group"><label>${t('cityLabel')}</label>
-          <select id="acc-city" ${accCountry?'':'disabled'}>${cityOpts}</select></div>
+          <select id="acc-city" data-country="${esc(accCountry)}" ${accCountry?'':'disabled'}>${cityOpts(accCountry,accCity,'acc-city')}</select></div>
       </div>
       <div class="form-row">
         <div class="form-group"><label>${t('nationalityLabel')}</label>
@@ -8079,13 +8103,7 @@ function renderAccount(){
     })()}`;
 }
 
-function onAccCountryChange(country){
-  const citySel=document.getElementById('acc-city');
-  if(!citySel)return;
-  const list=country&&COUNTRY_CITIES[country]?COUNTRY_CITIES[country]:[];
-  citySel.disabled=!country;
-  citySel.innerHTML=`<option value="">${country?t('selectCityOpt'):t('selectCountryFirst')}</option>`+list.map(c=>`<option value="${esc(c)}">${esc(cityLabel(c))}</option>`).join('');
-}
+function onAccCountryChange(country){_setCityCountry('acc-city',country);}
 
 async function saveAccount(){
   const cust=S.loggedIn||getSession();
@@ -10187,18 +10205,12 @@ function _cfDefPayVal(){
 }
 function _cfCountry(v){
   if(!S._cf)return;S._cf.country=v;S._cf.city='';
-  const sel=document.getElementById('cf-city');if(!sel)return;
-  const list=v&&COUNTRY_CITIES[v]?COUNTRY_CITIES[v]:[];
-  sel.disabled=!v;
-  sel.innerHTML='<option value="">'+(v?t('selectCityOpt'):t('selectCountryFirst'))+'</option>'+list.map(c=>'<option value="'+esc(c)+'">'+esc(cityLabel(c))+'</option>').join('');
+  _setCityCountry('cf-city',v);
 }
 function renderCustFormModal(){
   const m=document.getElementById('new-acct-modal');const d=S._cf;if(!m||!d)return;
   const isCreate=d.mode==='create';
   const ccOpts=COUNTRY_CODES.map(([code])=>`<option value="${code}"${d.cc===code?' selected':''}>${code}</option>`).join('');
-  const countryOpts=`<option value="">${t('selectCountryOpt')}</option>`+COUNTRY_LIST.map(c=>`<option value="${esc(c)}"${d.country===c?' selected':''}>${esc(countryLabel(c))}</option>`).join('');
-  const _cityList=d.country&&COUNTRY_CITIES[d.country]?COUNTRY_CITIES[d.country]:[];
-  const cityOpts=`<option value="">${d.country?t('selectCityOpt'):t('selectCountryFirst')}</option>`+_cityList.map(c=>`<option value="${esc(c)}"${d.city===c?' selected':''}>${esc(cityLabel(c))}</option>`).join('');
   const gBtn=(g,lbl)=>`<button type="button" class="toggle-btn${d.gender===g?' active':''}" style="flex:1" onclick="_cfSet('gender','${g}',this)">${lbl}</button>`;
   const tBtn=ty=>`<button type="button" class="toggle-btn${d.type===ty?' active':''}" onclick="_cfSet('type','${ty}',this)">${typeLabel(ty)}</button>`;
   m.style.display='flex';
@@ -10220,9 +10232,9 @@ function renderCustFormModal(){
       <div class="form-group" style="margin-top:8px"><label>${t('genderLabel')}${!isCreate&&!d.gender?` <span class="label-hint" style="color:var(--orange)">(${t('amGenderAsk')})</span>`:''}</label><div style="display:flex;gap:6px;margin-top:4px">${gBtn('male',t('genderMale'))}${gBtn('female',t('genderFemale'))}</div></div>
       <div class="form-group" style="margin-top:8px"><label for="cf-birth-d">${t('birthDateLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label>${dobFieldHtml('cf-birth',d.birth)}</div>
       <div style="display:flex;gap:8px;margin-top:8px">
-        <div class="form-group" style="flex:1"><label for="cf-country">${t('countryLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-country" onchange="_cfCountry(this.value)">${countryOpts}</select></div>
+        <div class="form-group" style="flex:1"><label for="cf-country">${t('countryLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-country" onchange="_cfCountry(this.value)">${countryOpts(d.country)}</select></div>
         <div class="form-group" style="flex:1"><label for="cf-nationality">${t('nationalityLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-nationality"><option value="">${t('selectNationalityOpt')}</option>${nationalityOpts(d.nationality)}</select></div>
-        <div class="form-group" style="flex:1"><label for="cf-city">${t('cityLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-city" ${d.country?'':'disabled'}>${cityOpts}</select></div>
+        <div class="form-group" style="flex:1"><label for="cf-city">${t('cityLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-city" data-country="${esc(d.country)}" onchange="S._cf&&(S._cf.city=this.value)" ${d.country?'':'disabled'}>${cityOpts(d.country,d.city,'cf-city')}</select></div>
       </div>
       <div class="form-group" style="margin-top:8px"><label>${t('socialsLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label>${_socFieldsHtml('cf',d.socials,true)}</div>
       <div class="form-group" style="margin-top:8px"><label>${t('bikeTypePref')}</label><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${bikeTypeOpts(false).map(tBtn).join('')}</div></div>
@@ -13883,8 +13895,8 @@ function showAccountReportOptions(){
         ${fld(t('acrFilterTag'),sel('acr-f-tag',o.fTag,tagOpts,"_accSet('fTag',this.value)",t('acrFilterTag')))}
         ${fld(t('genderLabel'),sel('acr-f-gender',o.fGender,[['all',t('filterAll')],['male',t('genderMale')],['female',t('genderFemale')],['unset',t('acrGenderUnset')]],"_accSet('fGender',this.value)",t('genderLabel')))}
         ${fld(t('acrFilterAge'),sel('acr-f-age',o.fAge,[['all',t('filterAll')],['u18',t('acrAgeU18')],['18-29',t('acrAge1829')],['30-44',t('acrAge3044')],['45',t('acrAge45')]],"_accSet('fAge',this.value)",t('acrFilterAge')))}
-        ${fld(t('countryLabel'),sel('acr-f-country',o.fCountry,[['all',t('filterAll')],...distinct('country').map(x=>[x,x])],"_accSet('fCountry',this.value)",t('countryLabel')))}
-        ${fld(t('nationalityLabel'),sel('acr-f-nationality',o.fNationality,[['all',t('filterAll')],...distinct('nationality').map(x=>[x,countryLabel(x)])],"_accSet('fNationality',this.value)",t('nationalityLabel')))}
+        ${fld(t('countryLabel'),sel('acr-f-country',o.fCountry,[['all',t('filterAll')],...distinct('country').map(x=>[x,nationalityLabel(x)])],"_accSet('fCountry',this.value)",t('countryLabel')))}
+        ${fld(t('nationalityLabel'),sel('acr-f-nationality',o.fNationality,[['all',t('filterAll')],...distinct('nationality').map(x=>[x,nationalityLabel(x)])],"_accSet('fNationality',this.value)",t('nationalityLabel')))}
         ${fld(t('cityLabel'),sel('acr-f-city',o.fCity,[['all',t('filterAll')],...distinct('city').map(x=>[x,x])],"_accSet('fCity',this.value)",t('cityLabel')))}
         ${fld(t('bikeTypeLabel'),sel('acr-f-type',o.fType,[['all',t('filterAll')],..._types.map(x=>[x,typeLabel(x)])],"_accSet('fType',this.value)",t('bikeTypeLabel')))}
         ${fld(t('acrFilterJoined'),sel('acr-f-joined',o.fJoined,[['all',t('filterAll')],['30',t('acrLastDays').replace('{0}','30')],['90',t('acrLastDays').replace('{0}','90')],['365',t('acrLastDays').replace('{0}','365')]],"_accSet('fJoined',this.value)",t('acrFilterJoined')))}
@@ -13933,7 +13945,7 @@ function _accReportHtml(){
   void tm;
   const filterLine=[o.fTag!=='all'?t('acrFilterTag')+': '+(o.fTag==='any'?t('acrTagAny'):o.fTag==='none'?t('acrTagNone'):((_tagsById()[o.fTag]||{}).name||o.fTag)):'',
     o.fGender!=='all'?t('genderLabel')+': '+_accGender(o.fGender):'',o.fAge!=='all'?t('acrFilterAge')+': '+o.fAge:'',
-    o.fCountry!=='all'?t('countryLabel')+': '+o.fCountry:'',o.fNationality!=='all'?t('nationalityLabel')+': '+countryLabel(o.fNationality):'',o.fCity!=='all'?t('cityLabel')+': '+o.fCity:'',
+    o.fCountry!=='all'?t('countryLabel')+': '+nationalityLabel(o.fCountry):'',o.fNationality!=='all'?t('nationalityLabel')+': '+nationalityLabel(o.fNationality):'',o.fCity!=='all'?t('cityLabel')+': '+o.fCity:'',
     o.fType!=='all'?t('bikeTypeLabel')+': '+typeLabel(o.fType):'',o.fJoined!=='all'?t('acrFilterJoined')+': '+t('acrLastDays').replace('{0}',o.fJoined):'',
     o.fRides!=='all'?t('acrFilterRides')+': '+o.fRides:'',o.fActive!=='all'?t('acrFilterActive')+': '+o.fActive:'',
     o.fUpcoming!=='all'?t('acrFilterUpcoming')+': '+o.fUpcoming:'',o.fPay!=='all'?t('defaultPayLabel')+': '+o.fPay:''].filter(Boolean).join(' · ');

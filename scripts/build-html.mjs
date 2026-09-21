@@ -103,6 +103,17 @@ src = src.replace('const LANG_PACKS={}', `const LANG_PACKS=${packMap}`);
 src = src.replace('<script>try{var _ql=', `<script>window.__LANG_V=${packMap};try{var _ql=`);
 console.log(`build: extracted ${packCodes.join(', ')} to lang/ (${packCodes.length} packs)`);
 
+// The city-of-residence files (cities/, from scripts/build-cities.mjs) are served cache-first
+// by the service worker like the packs, so the app asks for them with one hash of the whole
+// folder: a refresh of the data moves it and every country is fetched afresh.
+const citiesDir = new URL('../cities/', import.meta.url);
+const citiesHasher = createHash('sha256');
+for (const f of (await readdir(citiesDir)).filter((n) => /^[a-z]{2}\.json$/.test(n)).sort()) {
+  citiesHasher.update(f).update(await readFile(new URL(f, citiesDir)));
+}
+if (!src.includes("const CITIES_V=''")) throw new Error('build: CITIES_V placeholder missing');
+src = src.replace("const CITIES_V=''", `const CITIES_V='${citiesHasher.digest('hex').slice(0, 10)}'`);
+
 let out = await minify(src, {
   collapseWhitespace: true,
   conservativeCollapse: true, // keep a single space where text nodes need it (layout-safe)
