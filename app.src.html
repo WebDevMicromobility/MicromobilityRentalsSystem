@@ -11864,15 +11864,16 @@ function setSfSearch(v){
   _debRender('sfSearch',()=>{renderStaffQueue(_keep);if(_keep)return;const inp=document.getElementById('sf-search-input');if(inp){inp.focus();const l=(S.sfSearch||'').length;inp.setSelectionRange(l,l);}});
 }
 // Enter in the queue search. A keyboard-wedge barcode scanner types the booking ref and
-// presses Enter; if that resolves to exactly one waiting rider, go straight to check-in,
-// which is what the camera scanner does. Anything ambiguous just leaves the search filtered.
+// presses Enter; if that resolves to exactly one rider still expected - waiting or waitlisted,
+// as the roster's Check in button counts them - go straight to check-in, which is what the
+// camera scanner does. Anything ambiguous just leaves the search filtered.
 function sfSearchEnter(){
   const q=(S.sfSearch||'').trim().toLowerCase().replace(/^#/,'');
   if(!q)return;
   const hits=getQueue().filter(e=>_matchesRef(e,q)||String(e.queueNum)===q);
   if(hits.length!==1)return;
   const e=hits[0];
-  if(e.status!=='waiting')return;
+  if(!_ciExpected(e))return;
   S.sfSearch='';
   const inp=document.getElementById('sf-search-input');if(inp)inp.value='';
   renderStaffQueue(true);
@@ -14541,7 +14542,10 @@ function _onScanPayload(raw){
   const entry=getQueue().find(e=>String(e.id).toLowerCase().startsWith(ref)&&(m[1]==null||String(e.queueNum)===m[1]));
   if(!entry){say(t('scanNotFound'),'var(--red)');return;}
   const nm=entry.name||'';
-  if(entry.status==='waiting'){
+  // Waitlisted riders come through here too: checking in IS how a rider leaves the waitlist,
+  // and the roster's own Check in button treats them the same. Their ticket used to be told
+  // no booking matched it.
+  if(_ciExpected(entry)){
     if(collecting){_scanBatchAdd(entry,say);return;}
     try{if(navigator.vibrate)navigator.vibrate(80);}catch(e){}
     toast(t('scanFound').replace('{0}',entry.queueNum).replace('{1}',nm));

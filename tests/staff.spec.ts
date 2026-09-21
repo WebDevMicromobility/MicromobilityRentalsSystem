@@ -62,6 +62,26 @@ test.describe('unlocked staff panel', () => {
     `);
     await expect(page.locator('#checkin-modal')).toContainText('Scan Test'); // quick check-in modal (payment + bike type)
   });
+
+  // Checking in IS how a rider leaves the waitlist (Promote was removed), and the roster gives
+  // a waitlisted row the same green Check in button. Both scanners refused them: the camera
+  // said no booking matched the code, and a barcode reader's ref left the search filtered.
+  test('a waitlisted rider\'s ticket opens check-in, the same as a confirmed one', async ({ page }) => {
+    await page.evaluate(`
+      S.queue.push({ id: 'ba5e1234-0000-4000-8000-000000000002', queueNum: 8, name: 'Waitlisted Rider', status: 'waitlist', sessionId: 's1', typePreference: 'Any', size: 'M', paid: false });
+      _onScanPayload('MMC-8-ba5e12');
+    `);
+    await expect(page.locator('#checkin-modal')).toContainText('Waitlisted Rider');
+  });
+
+  test('a barcode reader typing a waitlisted rider\'s ref into the queue search opens it too', async ({ page }) => {
+    await page.evaluate(`
+      S.queue.push({ id: 'cafe5678-0000-4000-8000-000000000003', queueNum: 9, name: 'Wedge Rider', status: 'waitlist', sessionId: 's1', typePreference: 'Any', size: 'M', paid: false });
+      S.sfSearch = 'cafe5678';
+      sfSearchEnter();
+    `);
+    await expect(page.locator('#checkin-modal')).toContainText('Wedge Rider');
+  });
 });
 
 test.describe('inventory sections derive from the data, not this device', () => {
