@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { stubSupabase, loginCustomer, waitForSb, unlockStaff } from './helpers/supabase';
+import { stubSupabase, loginCustomer, waitForSb, unlockStaff, captureBookingRows } from './helpers/supabase';
 
 // The Saudi National Day 96 ride: a public, paid community ride with its own card on the
 // event picker and its own skin on the Reserve flow. What is checked here is what would
@@ -532,4 +532,94 @@ test('it reads the same whether or not the takeover is up', async ({ page }) => 
   expect(Object.keys(onPaper).sort()).toEqual(['Pending', 'Riders · #1', 'Road', 'SAR 75', 'Total']);
   await page.evaluate(`document.body.classList.add('snd96');renderMyRides();`);
   expect(await inks()).toEqual(onPaper);
+});
+
+// ── Bike owners ride free ────────────────────────────────────────────────────
+// The National Day ride takes riders on their own bikes as well as on ours. An owner pays
+// nothing and takes none of the ride's places: those count Micromobility bikes. The circuit
+// keeps its rental-only menu.
+
+async function toRiders(page: Page) {
+  await page.locator('.landing-event-card.ev-snd96').click();
+  await page.locator('.mm-reg-foot .btn-primary').click();
+  expect(await page.evaluate(`S.regStep`)).toBe(2);
+}
+
+test('a rider can say they bring their own bike, and it is free', async ({ page }) => {
+  const plain = { ...snd, event_kind: null };                 // as the live row is stamped
+  await stubSupabase(page, { sessions: [jcc, plain, sat], bikes: [], queue_entries: [] });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok' });
+  const rows = await captureBookingRows(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await toRiders(page);
+
+  const types = await page.evaluate(`Array.from(document.querySelectorAll('[data-type-slot="0"]')).map(b=>b.dataset.type)`);
+  expect(types).toContain('Own');
+  expect(types).toContain('Road Carbon');                     // not a community ride: carbon stays
+  await expect(page.locator('[data-type-slot="0"][data-type="Own"]')).toHaveText('I have my own bike');
+
+  await page.evaluate(`S.regQty=1;S.regBikeHeights=[175];S.regBikeTypes=['Own'];S.regRiderNames=['Spec Rider'];S.promoApplied=null;submitReg();`);
+  await expect.poll(() => rows.length).toBe(1);
+  expect(rows[0].type_preference).toBe('Own');
+  expect(rows[0].price).toBe(0);
+});
+
+test('an owner is told their place is booked; a renter, their bike', async ({ page }) => {
+  const plain = { ...snd, event_kind: null };
+  await stubSupabase(page, { sessions: [jcc, plain, sat], bikes: [], queue_entries: [] });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok' });
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`S.selEvent='snd96';S.selSession='snd1';S.regQty=1;S.regBikeHeights=[175];
+    S.regBikeTypes=['Own'];S.regRiderNames=['Spec Rider'];S.promoApplied=null;submitReg();`);
+  await expect(page.locator('#booth-popup-msg')).toContainText('Your place is booked');
+  await expect(page.locator('#booth-popup-msg')).not.toContainText('Your bike is booked');
+  expect(await page.evaluate(`t('snd96FormMsg')`)).toContain('Your bike is booked');
+});
+
+test('an owner takes none of the ride\'s places, and the circuit still offers no owner option', async ({ page }) => {
+  const plain = { ...snd, event_kind: null };
+  await stubSupabase(page, { sessions: [jcc, plain, sat], bikes: [], queue_entries: [] });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok' });
+  await page.goto('/');
+  await waitForSb(page);
+  const offered = (id: string) => page.evaluate(`_ownOffered(allSessions().find(x=>x.id==='${id}'))`);
+  expect(await offered('snd1')).toBe(true);
+  expect(await offered('comm1')).toBe(true);
+  expect(await offered('s1')).toBe(false);
+  expect(await page.evaluate(`_holdsSpot({status:'waiting',typePreference:'Own'},allSessions().find(x=>x.id==='snd1'))`)).toBe(false);
+  expect(await page.evaluate(`_holdsSpot({status:'waiting',typePreference:'Road'},allSessions().find(x=>x.id==='snd1'))`)).toBe(true);
+});
+
+test('at the desk, the walk-in menu offers an owner on this ride and not on the circuit', async ({ page }) => {
+  const plain = { ...snd, event_kind: null };
+  await stubSupabase(page, { sessions: [jcc, plain], bikes: [], queue_entries: [] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`S.sfSession='snd1';S._wiType='Own';showWalkinModal()`);
+  await expect(page.locator('#walkin-modal [data-wi-type="Own"]')).toHaveCount(1);
+  await page.locator('#wi-name').fill('Desk Rider');
+  await page.selectOption('#wi-sess', 's1');                 // the circuit: the menu follows
+  await expect(page.locator('#walkin-modal [data-wi-type="Own"]')).toHaveCount(0);
+  expect(await page.evaluate(`S._wiType`)).toBe('Any');       // an owner carried there rents
+  await expect(page.locator('#wi-name')).toHaveValue('Desk Rider');
+  await page.selectOption('#wi-sess', 'snd1');
+  await expect(page.locator('#walkin-modal [data-wi-type="Own"]')).toHaveCount(1);
+});
+
+test('check-in and the booking editor offer the owner type on this ride', async ({ page }) => {
+  const plain = { ...snd, event_kind: null };
+  const own = { id: 'e1', session_id: 'snd1', session_day: 'Wednesday', session_date: '2099-09-23', queue_num: 1,
+    name: 'Owner Rider', status: 'waiting', paid: false, price: 0, type_preference: 'Own', registered_at: '2099-01-01T10:00:00Z' };
+  await stubSupabase(page, { sessions: [jcc, plain], bikes: [], queue_entries: [own] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`showCheckinModal('e1')`);
+  await expect(page.locator('button.toggle-btn', { hasText: 'Bike owner' }).first()).toBeVisible();
+  await page.evaluate(`closeCheckinModal&&closeCheckinModal()`).catch(() => {});
+  await page.evaluate(`showBookingEditModal('e1')`);
+  await expect(page.locator('button', { hasText: 'Bike owner' }).first()).toBeVisible();
 });
