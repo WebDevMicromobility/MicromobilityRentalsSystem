@@ -3749,6 +3749,47 @@ html[dir="rtl"] .pg-field select{background-position:left 14px center;}
 .pg-spin{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;animation:pgspin .8s linear infinite;display:inline-block;flex-shrink:0;}
 @keyframes pgspin{to{transform:rotate(360deg)}}
 @media (prefers-reduced-motion:reduce){.pg-spin{animation:none;}}
+/* Correction request (#fix-gate): staff asked the rider to fix some account fields. A pop-up
+   over the page, the profile gate's card inside, one item per flagged field. */
+#fix-gate .auth-backdrop{align-items:flex-start;overflow-y:auto;overscroll-behavior:contain;padding:20px 14px;}
+body.fix-open{overflow:hidden;}
+.fx-box{margin:auto;animation:fxIn .22s ease-out;}
+#fix-gate .fx-box:focus,#fix-gate .fx-box:focus-visible{outline:none;} /* the card takes focus on open; it is not a control */
+@keyframes fxIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.fx-box{animation:none;}}
+.fx-kicker{display:flex;align-items:center;gap:8px;font-weight:700;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#b54708;}
+.fx-flag{width:24px;height:24px;border-radius:50%;background:#fff4e5;color:#dc6803;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}
+.fx-head{display:flex;align-items:center;gap:8px;margin-top:22px;font-weight:700;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#4f565c;}
+.fx-count{min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:#0f1215;color:#fff;font-size:11px;letter-spacing:0;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;}
+.fx-list{display:flex;flex-direction:column;gap:10px;margin-top:10px;}
+.fx-item.pg-field{margin-top:0;gap:8px;border:1px solid rgba(15,18,21,.12);border-radius:12px;padding:12px;background:#fbfbf9;}
+.fx-item.pg-field.err{border-color:#b42318;background:#fff;}
+.fx-top{display:flex;align-items:center;gap:8px;}
+.fx-lbl{font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#0f1215;}
+.fx-was{font-weight:500;font-size:13px;line-height:1.4;color:#4f565c;overflow-wrap:anywhere;}
+.fx-was bdi{font-weight:700;color:#0f1215;}
+.fx-row3{display:grid;grid-template-columns:1fr 1fr;grid-template-areas:"f l" "m m";gap:6px;}
+.fx-row3 #fx-first{grid-area:f;}.fx-row3 #fx-middle{grid-area:m;}.fx-row3 #fx-last{grid-area:l;}
+@media (min-width:480px){.fx-row3{grid-template-columns:1fr 1fr 1fr;grid-template-areas:"f m l";}}
+.fx-row2{display:grid;grid-template-columns:1fr;gap:6px;}
+@media (min-width:480px){.fx-row2{grid-template-columns:1fr 1fr;}}
+.fx-item select:disabled{background-color:#f3f4f4;color:#9aa0a6;}
+.fx-seg{display:flex;gap:8px;}
+.fx-opt{flex:1;height:46px;border-radius:8px;border:1px solid rgba(15,18,21,.15);background:#fff;font-family:var(--font-body);font-weight:600;font-size:15px;color:#0f1215;cursor:pointer;}
+.fx-opt.on{border-color:#008f52;background:#e8f6ee;color:#006b3d;box-shadow:inset 0 0 0 1px #008f52;}
+.fx-item.err .fx-opt{border-color:#b42318;}
+.fx-photo{display:flex;align-items:center;gap:12px;}
+.fx-ph{width:56px;height:56px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid rgba(15,18,21,.1);box-sizing:border-box;}
+.fx-ph.new{border-color:#008f52;}
+.fx-ph-none{display:inline-flex;align-items:center;justify-content:center;background:#eceff0;color:#767e85;}
+.fx-upload{position:relative;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 16px;border-radius:999px;border:1px solid rgba(15,18,21,.18);background:#fff;font-weight:700;font-size:14px;color:#0f1215;cursor:pointer;}
+.pg-field .fx-upload input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;padding:0;border:none;}
+.fx-upload:focus-within{outline:2px solid #008f52;outline-offset:2px;}
+.fx-upload.dis{opacity:.55;pointer-events:none;}
+.fx-hint{font-weight:500;font-size:12.5px;line-height:1.4;color:#767e85;}
+.fx-later{display:block;margin:10px auto 0;background:none;border:none;padding:8px 12px;font-family:var(--font-body);font-weight:600;font-size:14px;color:#4f565c;cursor:pointer;text-decoration:underline;text-underline-offset:3px;}
+.fx-later:hover{color:#0f1215;}
+.fx-later:disabled{opacity:.5;cursor:default;}
 /* Community row: a rider's social profiles, staff-side */
 .soc-links{display:flex;gap:6px;margin-top:4px;flex-wrap:wrap;}
 .soc-link{display:inline-flex;align-items:center;gap:5px;height:24px;padding:0 9px 0 7px;border-radius:999px;border:1px solid var(--border);color:var(--text);text-decoration:none;font-size:11px;font-weight:700;}
@@ -3806,6 +3847,33 @@ body.view-staff .q-card.row-reserved{background:rgba(29,78,216,.04);border-color
 /* bikes out past two hours */
 .overdue-banner{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px;padding:9px 14px;background:rgba(var(--warn-rgb),.1);border:1px solid rgba(var(--warn-rgb),.35);border-radius:6px;font-size:13px;font-weight:800;color:var(--orange);}
 .am-missing{color:var(--orange);font-weight:700;}
+/* Ask to correct (staff): the report builder's layout, pointed at an account's fields */
+.am-fix{color:var(--orange);font-weight:700;display:flex;align-items:center;gap:4px;}
+.am-flag.on,.fl-open.on{color:var(--orange);border-color:var(--orange);}
+.fl-open{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
+.fl-cf-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.fl-box{max-width:520px;}
+.fl-title{display:flex;align-items:center;gap:8px;}
+.fl-ic{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:rgba(var(--warn-rgb),.14);color:var(--orange);flex-shrink:0;}
+.fl-sub{font-size:13px;line-height:1.5;color:var(--muted);margin-bottom:14px;}
+.fl-sec{font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.fl-preview{border:1px solid var(--border);border-inline-start:3px solid var(--orange);border-radius:6px;padding:10px 12px;margin-bottom:14px;}
+.fl-pv-title{font-weight:800;font-size:14px;color:var(--text);margin-bottom:4px;}
+.fl-pv-body{font-size:12.5px;line-height:1.5;color:var(--muted);}
+.fl-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-bottom:16px;}
+@media (max-width:420px){.fl-grid{grid-template-columns:1fr;}}
+.fl-row{display:flex;align-items:flex-start;gap:9px;width:100%;min-width:0;padding:8px 10px;border:none;background:none;border-radius:7px;cursor:pointer;font-family:var(--font-body);color:var(--text);text-align:start;}
+.fl-row:hover{background:rgba(var(--tint-rgb),.05);}
+.fl-row[aria-pressed="true"]{background:rgba(var(--warn-rgb),.1);}
+.fl-row[aria-pressed="true"] svg{color:var(--orange);}
+.fl-row svg{margin-top:1px;}
+.fl-txt{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.fl-lbl{font-size:13px;font-weight:600;}
+.fl-val{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fl-actions{display:flex;flex-direction:column;gap:10px;}
+.cf-apple{margin-top:5px;font-size:11.5px;line-height:1.45;color:var(--muted);overflow-wrap:anywhere;}
+/* Apple sign-up with a hidden email: why the form asks for an email and a password */
+.auth-apple-note{margin:2px 0 14px;padding:11px 14px;border-radius:8px;background:rgba(var(--tint-rgb),.05);border:1px solid rgba(var(--tint-rgb),.1);font-size:13px;line-height:1.55;font-weight:600;color:var(--muted-l);}
 /* To be reserved: marked for a bike to be held, none chosen yet */
 .badge-toreserve{color:#6d28d9;}
 body.view-staff .badge-toreserve{color:#5b21b6;}
