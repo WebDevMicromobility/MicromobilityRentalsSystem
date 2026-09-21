@@ -7779,7 +7779,7 @@ function renderBookingTicket(entries,opts){
   // Community rides: a fixed solo reservation - nothing to edit or reschedule, only cancel.
   const actionsHtml=canEdit?`<div style="display:flex;gap:8px;padding:14px 18px 16px;flex-wrap:wrap">
       ${_comm?'':`<button class="btn-sm btn-green-solid" style="flex:1;min-width:88px" onclick="S.lastTickets=[];S.selSession='${primary.sessionId}';S.regStep=2;setCustTab('register')">${t('editBtn')}</button>
-      <button class="btn-sm btn-secondary" style="flex:1;min-width:88px" onclick="showRescheduleModal('${primary.sessionId}')">${ICON_RESCHEDULE} ${t('rescheduleBtn')}</button>`}
+      ${_rideKind(sess)==='snd96'?'':`<button class="btn-sm btn-secondary" style="flex:1;min-width:88px" onclick="showRescheduleModal('${primary.sessionId}')">${ICON_RESCHEDULE} ${t('rescheduleBtn')}</button>`}`}
       <button class="btn-sm btn-red" style="flex:1;min-width:88px" onclick="showCancelReasonModal('${primary.id}')">${t('cancelBooking')}</button>
     </div>`:(opts.bookAgain?`<div style="display:flex;gap:8px;padding:14px 18px 16px;flex-wrap:wrap">
       ${rateBtn}
@@ -12597,7 +12597,12 @@ function showRescheduleModal(fromSessionId){
   const today=_todayISO();
   // Community rides are never a reschedule target: they're invite-only (tag-gated), solo,
   // and approval-based — moving a JCC group in would bypass all three rules.
-  const opts=allSessions().filter(s=>s.id!==fromSessionId&&s.status==='open'&&!_isApprovalRide(s)&&(s.session_date||s.id)>=today)
+  // Nor is the National Day ride, in either direction. Entry to it is the federation's own
+  // form, and only a booking made there is told so; a booking moved in would never see that
+  // popup. And it takes owners free, so a booking moved out would carry a free own-bike place
+  // onto a night that has none.
+  if(_rideKind(allSessions().find(s=>s.id===fromSessionId))==='snd96')return;
+  const opts=allSessions().filter(s=>s.id!==fromSessionId&&s.status==='open'&&!_isApprovalRide(s)&&_rideKind(s)!=='snd96'&&(s.session_date||s.id)>=today)
     .sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
   const list=opts.length?opts.map(s=>{
     const full=spotsLeft(s.id)<moving.length; // same yardstick as booking + rescheduleBooking
@@ -12624,6 +12629,7 @@ async function rescheduleBooking(fromSessionId,toSessionId){
   if(!moving.length){closeRescheduleModal();return;}
   const newSess=allSessions().find(s=>s.id===toSessionId);if(!newSess){closeRescheduleModal();return;}
   if(_isApprovalRide(newSess)){closeRescheduleModal();return;} // never a reschedule target (invite-only, solo, approval-based); the DB update-gate backstops this
+  if(_rideKind(newSess)==='snd96'||_rideKind(allSessions().find(s=>s.id===fromSessionId))==='snd96'){closeRescheduleModal();return;} // National Day: in or out, see showRescheduleModal
   // Same capacity yardstick as booking (spotsLeft): counting only waiting+active here let a
   // rescheduler land as 'waiting' ahead of riders already waitlisted in the target session.
   if(spotsLeft(toSessionId)<moving.length){toast(t('rescheduleFull'),'error');return;}
