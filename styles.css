@@ -3689,7 +3689,6 @@
 .stat-chip-clickable:active{transform:scale(.98);}
 .filter-toggle{display:none;}
 .filter-more{display:contents;}
-.walkin-fab,.scan-fab{display:none;}
 .queue-table th{padding:10px 12px;}
 .queue-table td{padding:10px 12px;}
 @media (max-width:767px){
@@ -3698,11 +3697,6 @@
   .filter-toggle{display:inline-flex;align-items:center;white-space:nowrap;}
   .filter-more{display:none;}
   .filter-more.open{display:contents;}
-  .fab-row{position:fixed;right:16px;bottom:18px;z-index:320;display:flex;gap:10px;align-items:center;}
-  html[dir="rtl"] .fab-row{right:auto;left:16px;}
-  .walkin-fab,.scan-fab{display:inline-flex;align-items:center;gap:6px;padding:14px 18px;border:none;border-radius:999px;font-family:var(--font-body);font-size:14px;font-weight:900;box-shadow:0 8px 24px rgba(0,0,0,.35);cursor:pointer;white-space:nowrap;}
-  .walkin-fab{background:var(--green);color:#fff;}
-  .scan-fab{background:#111512;color:#fff;border:1px solid rgba(255,255,255,.12);}
   .page-title{font-size:20px;}
 }
 .section-header>div:last-child{flex-wrap:wrap;justify-content:flex-end;}
@@ -3714,8 +3708,10 @@
   .filter-row{flex-wrap:wrap;overflow:visible;}
   .filter-row select.filter-select{flex:1 1 55%;min-width:0 !important;}
   .filter-row .search-wrap{flex:1 1 60%;min-width:0;margin-left:0 !important;}
+  /* the search box already takes the whole row, so Scan ticket gets its own full-width bar
+     under it — the busiest action of the night, and a thumb-sized target for it */
+  body.view-staff .filter-row .scan-inline{flex:1 1 100%;justify-content:center;min-height:44px;margin-left:0 !important;}
 }
-body.has-modal .fab-row{display:none !important;}
 /* the roster's action buttons keep their natural width; stretching them made the last column 258px */
 .queue-table .actions-cell{flex-wrap:nowrap;}
 .queue-table .actions-cell .btn-sm{flex:0 0 auto;min-width:0;white-space:nowrap;}
@@ -3821,13 +3817,20 @@ body.view-staff .queue-table tbody tr.row-reserved{background:rgba(29,78,216,.05
 .q-card.row-reserved{background:rgba(29,78,216,.04);border-color:rgba(29,78,216,.3);}
 body.view-staff .q-card.row-reserved{background:rgba(29,78,216,.04);border-color:rgba(29,78,216,.3);}
 /* ── Staff queue, second pass ── */
-.mobile-only{display:none !important;}
 @media (max-width:767px){
-  .mobile-only{display:inline-flex !important;}
   body.view-staff #tab-queue .page-title{font-size:18px;margin-bottom:0;letter-spacing:-.5px;}
   body.view-staff #tab-queue .section-header{margin-bottom:12px;}
   body.view-staff #tab-queue .section-header>div:first-child{display:flex;align-items:baseline;gap:10px;}
   body.view-staff #tab-queue .refresh-indicator{margin-top:0 !important;}
+  /* Every queue action stays on the phone. They do not fit side by side on a 390px screen and
+     wrapping them stacked four rows of buttons above the roster, so the row scrolls sideways
+     instead — the first two or three are in reach, the rest a swipe away. */
+  .sf-head-actions{flex-wrap:nowrap !important;justify-content:flex-start !important;
+    overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px;}
+  .sf-head-actions::-webkit-scrollbar{display:none;}
+  .sf-head-actions>*{flex:0 0 auto;}
+  /* Print Report carries its own padding, not .btn-sm's — match the rest of the strip */
+  .sf-head-actions>button{min-height:42px;display:inline-flex;align-items:center;gap:6px;}
 }
 /* tonight's ride leads the strip and takes the room; the others stay compact beside it */
 .sess-summary-chip.today-sess{flex:1 1 340px;max-width:none;padding:14px 16px;border-color:rgba(var(--green-rgb),.35);}

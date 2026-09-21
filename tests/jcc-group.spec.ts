@@ -12,13 +12,8 @@ test('JCC group modal books multiple walk-in riders under one group name', async
   await page.goto('/');
   await waitForSb(page);
 
-  // desktop: the header button; phone: it lives behind ⋯ beside Filters
-  if (await page.locator('#tab-queue button[aria-label="More"]').isVisible()) {
-    await page.locator('#tab-queue button[aria-label="More"]').click();
-    await page.locator('.pay-menu-popup').getByRole('button', { name: 'Add group' }).click();
-  } else {
-    await page.getByRole('button', { name: 'Add group' }).click();
-  }
+  // the header button, on the phone as on the desktop
+  await page.getByRole('button', { name: 'Add group' }).click();
   const modal = page.locator('#jcc-group-modal');
   await page.waitForTimeout(120); // let the modal's autofocus timer settle before filling
   await modal.locator('#jg-name').fill('Tamer Group');

@@ -4,7 +4,7 @@ import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
 // Second pass on the staff queue: the payment pill is the whole control, the check-in modal
 // carries the money (this rider, the party) and follows edits live, a free ride's approved
 // riders are completed when it closes, tonight's session leads the strip, and the phone
-// header folds Add group / Print behind ⋯.
+// header keeps every queue action on screen in a sideways-scrolling strip.
 
 const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
 const S1 = '2099-01-09';
@@ -94,18 +94,21 @@ test('a reserved rider shows the held bike under the status', async ({ page }) =
   await expect(cell).toContainText('R-11');
 });
 
-test('the phone header folds Add group and Print behind ⋯', async ({ page }, info) => {
+// Every queue action stays on screen on a phone: the header row scrolls sideways rather than
+// folding anything away, and Scan ticket sits under the search box. Nothing floats over the
+// roster any more.
+test('the phone header keeps every queue action on screen', async ({ page }, info) => {
   await boot(page, [row('q1')]);
-  const more = page.locator('#tab-queue button[aria-label="More"]');
+  const head = page.locator('#tab-queue .section-header');
+  for (const name of ['+ Walk-in', 'Add group', 'Add rider', 'Print Report']) {
+    await expect(head.locator('button', { hasText: name })).toBeVisible();
+  }
+  await expect(page.locator('#tab-queue button[aria-label="More"]')).toHaveCount(0);
+  await expect(page.locator('#tab-queue .scan-inline')).toBeVisible();
   if (info.project.name === 'mobile') {
-    await expect(more).toBeVisible();
-    await expect(page.locator('#tab-queue .section-header button', { hasText: 'Add group' })).toBeHidden();
-    await more.click();
-    await expect(page.locator('.pay-menu-popup')).toContainText('Add group');
-    await expect(page.locator('.pay-menu-popup')).toContainText('Print Report');
-  } else {
-    await expect(more).toBeHidden();
-    await expect(page.locator('#tab-queue .section-header button', { hasText: 'Add group' })).toBeVisible();
+    // the strip scrolls rather than stacking rows of buttons above the roster
+    const strip = page.locator('.sf-head-actions');
+    expect(await strip.evaluate((e) => e.scrollWidth > e.clientWidth)).toBe(true);
   }
 });
 
