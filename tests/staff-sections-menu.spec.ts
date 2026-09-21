@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
 
 // On a phone the staff rail used to become a strip you had to drag sideways before Analytics
-// or History came into view. It is a menu now, behind a bar that names the section you are on.
+// or History came into view. It is a menu now, behind a bar that is the burger icon alone.
 
 const sessions = [{ id: 's0', day: 'Sunday', session_date: '2099-02-08', capacity: 9, status: 'open', created_at: 1, bike_slots: null, location: 'JCC', addons: null }];
 
@@ -16,7 +16,7 @@ async function staffOn(page: import('@playwright/test').Page, w: number, h: numb
 }
 
 test.describe('small screens', () => {
-  test('the sections live behind a burger, and the bar says which one you are on', async ({ page }) => {
+  test('the sections live behind a burger, and the burger is the icon alone', async ({ page }) => {
     await staffOn(page, 390, 780);
     const burger = page.locator('#snav-burger');
     const nav = page.locator('#staff-tab-nav');
@@ -24,7 +24,8 @@ test.describe('small screens', () => {
     await expect(burger).toBeVisible();
     await expect(burger).toHaveAttribute('aria-expanded', 'false');
     await expect(nav).toBeHidden();                       // shut, it takes no room at all
-    await expect(page.locator('#snav-burger-lbl')).toHaveText('Queue');
+    await expect(burger).toHaveText('');                  // no section name beside the icon
+    await expect(burger).toHaveAccessibleName('Sections'); // ...but it still has a name
 
     await burger.click();
     await expect(nav).toBeVisible();
@@ -36,10 +37,10 @@ test.describe('small screens', () => {
     }
     await expect(nav.locator('.snav-group', { hasText: 'Insights' })).toBeVisible();
 
-    // Choosing one closes the menu and the bar follows the choice.
+    // Choosing one closes the menu; the bar stays the icon alone.
     await nav.locator('.tab-btn', { hasText: 'Analytics' }).click();
     await expect(nav).toBeHidden();
-    await expect(page.locator('#snav-burger-lbl')).toHaveText('Analytics');
+    await expect(burger).toHaveText('');
     expect(await page.evaluate(`S.staffTab`)).toBe('analytics');
   });
 

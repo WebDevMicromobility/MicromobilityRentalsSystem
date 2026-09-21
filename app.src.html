@@ -282,12 +282,10 @@ window.mmLoading=(function(){
 
 <div id="view-staff">
   <!-- Small screens: the rail is a menu behind this bar, not a strip that has to be scrolled
-       sideways to reach Analytics and History. The bar names the section you are on, so the
-       page still says where you are with the menu shut. -->
-  <button type="button" id="snav-burger" class="snav-burger" aria-expanded="false" aria-controls="staff-tab-nav" onclick="toggleStaffNav()">
+       sideways to reach Analytics and History. The bar is the burger icon alone; its name is
+       set in the viewer's language by _syncStaffNavLabel. -->
+  <button type="button" id="snav-burger" class="snav-burger" aria-expanded="false" aria-controls="staff-tab-nav" aria-label="Sections" title="Sections" onclick="toggleStaffNav()">
     <span class="snav-burger-bars" aria-hidden="true"><span></span><span></span><span></span></span>
-    <span class="snav-burger-lbl" id="snav-burger-lbl">Sections</span>
-    <span class="snav-burger-caret" aria-hidden="true">&#9662;</span>
   </button>
   <div id="snav-scrim" onclick="closeStaffNav()" aria-hidden="true"></div>
   <nav class="tab-nav" id="staff-tab-nav" aria-label="Staff sections">
@@ -5508,11 +5506,12 @@ function closeStaffNav(){
   const b=document.getElementById('snav-burger');
   if(b){b.setAttribute('aria-expanded','false');try{b.focus();}catch(e){}}
 }
-// The bar carries the current section's name, so a shut menu still answers "where am I".
+// The bar is the burger icon alone, so its name lives here, in the viewer's language, for a
+// screen reader and the hover title. It used to spell out the current section beside the
+// icon; every section's page already says what it is.
 function _syncStaffNavLabel(){
-  const el=document.getElementById('snav-burger-lbl');if(!el)return;
-  const cur=document.querySelector('#staff-tab-nav .tab-btn.active .snav-lbl');
-  el.textContent=(cur&&cur.textContent.trim())||t('snavSections');
+  const b=document.getElementById('snav-burger');if(!b)return;
+  b.setAttribute('aria-label',t('snavSections'));b.title=t('snavSections');
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeStaffNav();});
 function renderStaffTabs(){
