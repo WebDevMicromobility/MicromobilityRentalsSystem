@@ -2792,20 +2792,28 @@ function _waiverCopy(s){return _needsBike(s)
 
 const RIDE_PRICES={Road:75,Mountain:57.5,Hybrid:57.5,Kids:57.5,Any:57.5,'Road Carbon':250,Own:0}; // Own = rider brings their own bike, no rental charge
 const RIDE_PRICES_MAX={Road:75,Mountain:57.5,Hybrid:57.5,Kids:57.5,Any:75,'Road Carbon':250,Own:0};
-// Petromin employees keep the old fare on the types that moved. The DATABASE is the authority
-// here - _enforce_booking_price reads ride_prices_by_kind and overwrites whatever a client
-// sends - and this table mirrors it so the desk never quotes a number the row will not carry.
-// Any other ride kind falls through to RIDE_PRICES.
-const KIND_PRICES={petromin:{Mountain:50,Hybrid:50,Kids:50,Any:50}};
+// Petromin employees keep the old fare on the types that moved - the employees, not the night:
+// a rider who books the Petromin ride on the website pays RIDE_PRICES like anywhere else. An
+// employee is a booking their registration from the ride's own form points at. The DATABASE
+// is the authority (_booking_fare, applied by _enforce_booking_price and again when the desk
+// links a registration); this mirrors it so the desk never quotes a number the row will not
+// carry. Road is absent on purpose: an employee on a Road bike pays the standard 75.
+const EMPLOYEE_PRICES={Mountain:50,Hybrid:50,Kids:50,Any:50};
 // Premium tiers are explicitly-priced products with no separate fleet type (a Road Carbon
 // booking is fulfilled with a Road bike): check-in must NOT reprice them from the bike.
 const PREMIUM_TIERS={'Road Carbon':'Road'}; // tier -> fleet type it is fulfilled with
 function priceForType(ty){return RIDE_PRICES[ty]??DEFAULT_PRICE;}
-// The fare for a type ON A GIVEN SESSION. Use this wherever a session is in hand; priceForType
-// alone answers for the circuit and would overcharge a Petromin employee by 7.5.
-function priceForSessionType(sess,ty){
-  const k=KIND_PRICES[_rideKind(sess)];
-  return(k&&k[ty]!=null)?k[ty]:priceForType(ty);
+// Whether a booking is a Petromin employee's. Reads S.riders, which the staff side loads with
+// the Riders tab or before checking a rider in on a ride that takes registrations.
+function _isEmployeeBooking(e){
+  if(!e||!e.id)return false;
+  const sess=(S.sessions||[]).find(s=>s.id===e.sessionId),kind=sess&&sess.ride_kind;
+  return!!kind&&(S.riders||[]).some(r=>r.matched_entry_id===e.id&&r.source===kind);
+}
+// The fare for a type ON A GIVEN BOOKING. Use this wherever the booking is in hand; priceForType
+// alone would overcharge a Petromin employee by 7.5.
+function priceForEntryType(e,ty){
+  return(_isEmployeeBooking(e)&&EMPLOYEE_PRICES[ty]!=null)?EMPLOYEE_PRICES[ty]:priceForType(ty);
 }
 function priceForTypeMax(ty){return RIDE_PRICES_MAX[ty]??DEFAULT_PRICE;}
 function priceDisplay(ty){
@@ -6039,8 +6047,8 @@ async function mwSetType(rowId,ty){
     // The roster's own repricing rule, not a new one: only an unpaid booking still sitting at
     // the canonical fare for its old type follows the change, so a promo price or a fare staff
     // set by hand is never silently rewritten.
-    if(!_freeSessIds.has(bk.sessionId)&&!bk.paid&&(bk.price??DEFAULT_PRICE)===priceForType(bk.typePreference||'Any')){
-      patch.price=priceForType(ty);
+    if(!_freeSessIds.has(bk.sessionId)&&!bk.paid&&(bk.price??DEFAULT_PRICE)===priceForEntryType(bk,bk.typePreference||'Any')){
+      patch.price=priceForEntryType(bk,ty);
     }
     if(_writeErr(await sb.from('queue_entries').update(patch).eq('id',bk.id),'bike type'))return;
     bk.typePreference=ty;if(patch.price!==undefined)bk.price=patch.price;
@@ -10233,7 +10241,7 @@ async function saveCommAdd(){
     typePreference:ty,paid:false,assignedBikeId:null,
     sessionId:sess.id,sessionDay:sess.day,sessionDate:sess.session_date||sess.id,
     queueNum:base+i,status:toWaitlist?'waitlist':'waiting',
-    registeredAt:new Date().toISOString(),walkIn:false,customerId:c.id,price:free?0:priceForSessionType(sess,ty),groupId,
+    registeredAt:new Date().toISOString(),walkIn:false,customerId:c.id,price:free?0:priceForType(ty),groupId,
     approval:comm?(toWaitlist?'pending':'approved'):null};});}; // community: final list = selected, waitlist = awaiting selection
   let entries=mkEntries();
   let res=await sb.from('queue_entries').insert(entries.map(entryToDB));
@@ -10414,7 +10422,7 @@ async function saveGroupEdit(){
     if(CUST_TYPES.includes(ty)&&ty!==m.typePreference){
       patch.type_preference=ty;
       // Reprice like the single-booking editor: only unpaid rows still on the old type's default.
-      if(!_freeSessIds.has(m.sessionId)&&!m.paid&&(m.price??DEFAULT_PRICE)===priceForType(m.typePreference||'Any'))patch.price=priceForType(ty);
+      if(!_freeSessIds.has(m.sessionId)&&!m.paid&&(m.price??DEFAULT_PRICE)===priceForEntryType(m,m.typePreference||'Any'))patch.price=priceForEntryType(m,ty);
     }
     if(moving){patch.session_id=toSessionId;patch.session_day=sessT.day;patch.session_date=sessT.session_date||toSessionId;patch.queue_num=base+i;if(m.status==='waitlist')patch.status='waiting';}
     const res=await sb.from('queue_entries').update(patch).eq('id',m.id);
@@ -11037,7 +11045,7 @@ async function _wiInsertRiders(sessId,riders,phone,custId,retry){
     return _applyDefaultPay({id:uid(),name:r.name,email:(_match&&_match.email)||'',phone:phone||(_match&&_match.phone)||'',size:r.height?heightToSize(r.height):'',height:r.height,
       typePreference:r.type,paid:false,assignedBikeId:null,sessionId:sessId,sessionDay:sess.day,
       sessionDate:sess.session_date||sessId,queueNum:base+i,status:'waiting',
-      registeredAt:new Date().toISOString(),walkIn:!_match,customerId:(_match&&_match.id)||null,price:_isFreeRide(sess)?0:priceForSessionType(sess,r.type),
+      registeredAt:new Date().toISOString(),walkIn:!_match,customerId:(_match&&_match.id)||null,price:_isFreeRide(sess)?0:priceForType(r.type),
       approval:_isApprovalRide(sess)?'approved':null,groupId},i===0);});}; // staff-added riders on a community event are pre-selected (and ride free)
   let entries=mk();_wiAttempted=entries;
   let res=await sb.from('queue_entries').insert(entries.map(entryToDB));
@@ -11150,7 +11158,7 @@ async function saveBookingEdit(){
     patch.type_preference=ty;
     // Reprice on type change like the customer flow, but never stomp a manual/promo price:
     // only when unpaid and still on the old type's default.
-    if(!e.paid&&(e.price??DEFAULT_PRICE)===priceForType(e.typePreference||'Any'))patch.price=priceForType(ty);
+    if(!e.paid&&(e.price??DEFAULT_PRICE)===priceForEntryType(e,e.typePreference||'Any'))patch.price=priceForEntryType(e,ty);
   }
   const moving=toSessionId!==e.sessionId;
   if(moving){
@@ -15114,6 +15122,9 @@ function showCheckinModal(id){
   // action at the desk the slowest one — a full-height modal for a rider whose payment and bike
   // type is all staff need. Everything else (active, done, cancelled) still gets the big modal.
   if(e.status!=='waiting'&&e.status!=='waitlist'){openModal(id);return;}
+  // A retyped employee is repriced at their own fare, which needs the registrations. They load
+  // with the Riders tab; on a ride that takes them, the first check-in fetches them instead.
+  if(!S.ridersLoaded){const _s=S.sessions.find(s=>s.id===e.sessionId);if(_s&&_s.ride_kind==='petromin')loadRiders().then(()=>{if(S._ciId===id)renderCheckinModal();});}
   S._ciId=id;S._ciType=resolvedType(e)||'Any';
   S._ciPaid=e.paid?((e.price??DEFAULT_PRICE)===0?'house':'card'):'pending'; // card is the only paid state; older cash/split rows read as paid by card
   // The Bike field: a bike that arrived with this modal (NFC tab, scanner, the other tab)
@@ -15167,10 +15178,9 @@ function _ciPendingPrice(e,_ty,_mode){
   if(mode==='pending')return houseForTy?0:typePrice;
   return e.paid?(e.price??DEFAULT_PRICE):(houseForTy||isHouseNow)?0:typePrice;
 }
-// A retyped rider is repriced on THEIR session's fare table, the one their booking was priced
-// from - priceForType alone answers for the circuit and charged a Petromin rider 57.50 for a
-// bike their ride sells at 50.
-function _ciTypePrice(e,ty){return priceForSessionType(S.sessions.find(s=>s.id===e.sessionId),ty);}
+// A retyped rider is repriced on THEIR fare table, the one their booking was priced from -
+// priceForType alone charged a Petromin employee 57.50 for a bike their company pays 50 for.
+function _ciTypePrice(e,ty){return priceForEntryType(e,ty);}
 // A party member as Confirm would leave them: the rider in the modal as its toggles have them,
 // anyone the staffer has already set up as their draft has them, everyone else on the defaults
 // the modal opens them with. Pricing only the open rider that way made the group's total jump
@@ -17349,13 +17359,13 @@ function riderUndoCheckin(id){_riderPatch(id,{checked_in_at:null,checked_in_by:n
 function riderReturn(id){_riderPatch(id,{checked_out_at:new Date().toISOString(),checked_out_by:_opName()||null});}
 function riderUndoReturn(id){_riderPatch(id,{checked_out_at:null,checked_out_by:null});}
 // Billing report: completed rides only (bike returned), price per ride as fixed by the trigger
-// (Road 75, Hybrid/Mountain 57.5) and the total. Admin only; the riders' page never sees this.
+// (_rider_price: Road 75, everything else 50) and the total. Admin only; the riders' page never sees this.
 function _riderReportRows(){
   const rows=(S.riders||[]).filter(r=>r.checked_out_at&&(S.ridersSession==='all'||r.session_id===S.ridersSession));
   rows.sort((a,b)=>String(a.session_id||'').localeCompare(String(b.session_id||''))||String(a.booking_no||'').localeCompare(String(b.booking_no||'')));
   return rows;
 }
-function _riderPrice(r){return r.price!=null?Number(r.price):priceForType(r.type_preference);} // same table the Bookings tab prices from
+function _riderPrice(r){return r.price!=null?Number(r.price):(EMPLOYEE_PRICES[r.type_preference]??priceForType(r.type_preference));} // the employee fare, as _rider_price sets it
 function exportRidersReportCsv(){
   const rows=_riderReportRows();if(!rows.length){toast(t('ridersReportEmpty'));return;}
   const head=['booking_no','session','company','badge','name','phone','bike_type','checked_in','checked_out','price_sar'];
@@ -17538,7 +17548,7 @@ async function saveRiderEdit(){
     if(patch.height!==undefined){ePatch.height=h;ePatch.size=heightToSize(h);}
     if(patch.type_preference!==undefined&&d.type!==e.typePreference){
       ePatch.type_preference=d.type;
-      if(!e.paid&&(e.price??DEFAULT_PRICE)===priceForType(e.typePreference||'Any'))ePatch.price=priceForType(d.type);
+      if(!e.paid&&(e.price??DEFAULT_PRICE)===priceForEntryType(e,e.typePreference||'Any'))ePatch.price=priceForEntryType(e,d.type);
     }
     if(moving&&e.status!=='active'){
       const ns=allSessions().find(x=>x.id===d.session);

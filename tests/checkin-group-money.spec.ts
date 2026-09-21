@@ -67,12 +67,40 @@ test('marking one rider paid is the only thing that moves the total', async ({ p
   expect(await money(page)).toContain('SAR 57.50 due');
 });
 
-test('a Petromin rider retyped at check-in is charged their ride’s fare, not the circuit’s', async ({ page }) => {
-  const rows = [
-    e('q1', { queue_num: 1, session_id: 'sp', session_date: '2099-02-11', session_day: 'Tuesday', price: 50 }),
-    e('q2', { queue_num: 2, session_id: 'sp', session_date: '2099-02-11', session_day: 'Tuesday', price: 50 }),
-  ];
-  await boot(page, rows);
+async function bootWith(page: Page, rows: Record<string, unknown>[], rider_registrations: Record<string, unknown>[]) {
+  await stubSupabase(page, { queue_entries: rows, sessions, customers: [], rider_registrations });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction('getQueue().length>0');
+}
+const petro = (id: string, x: Record<string, unknown>) =>
+  e(id, { session_id: 'sp', session_date: '2099-02-11', session_day: 'Tuesday', ...x });
+// q1 came through the company's registration form; q2 booked the same night on the website.
+const employeeOf = (entry: string) => [{ id: 1, badge: 'B1', name: 'R ' + entry, type_preference: 'Hybrid',
+  source: 'petromin', session_id: 'sp', matched_entry_id: entry, match_kind: 'booking', party_no: 1, booking_no: 'P-001' }];
+
+test('a Petromin employee retyped at check-in keeps the employee fare', async ({ page }) => {
+  await bootWith(page, [petro('q1', { queue_num: 1, price: 50 }), petro('q2', { queue_num: 2, price: 57.5 })], employeeOf('q1'));
+  const patched: Record<string, unknown>[] = [];
+  page.on('request', (r) => {
+    if (r.method() === 'PATCH' && r.url().includes('/rest/v1/queue_entries') && r.url().includes('id=eq.q1')) {
+      try { patched.push(r.postDataJSON()); } catch { /* not JSON */ }
+    }
+  });
+  await open(page, 'q1'); // the registrations are not loaded yet: opening the rider fetches them
+  const modal = page.locator('#checkin-modal');
+  await modal.getByRole('button', { name: 'Mountain', exact: true }).click();
+  await expect(page.locator('#ci-money')).toContainText('SAR 50');
+  await expect(page.locator('#ci-money')).toContainText('party SAR 107.50'); // the website booker beside them pays 57.50
+  await modal.getByRole('button', { name: /Confirm/i }).click();
+  // The booked 50 stands, so there is no price to rewrite.
+  await expect.poll(() => patched.some((p) => p.status === 'active')).toBe(true);
+  expect(patched.filter((p) => 'price' in p).map((p) => p.price)).toEqual([]);
+});
+
+test('a website booking on a Petromin night is retyped at the standard fare, not the employees’', async ({ page }) => {
+  await bootWith(page, [petro('q1', { queue_num: 1, price: 50 }), petro('q2', { queue_num: 2, price: 50 })], employeeOf('q2'));
   const patched: Record<string, unknown>[] = [];
   page.on('request', (r) => {
     if (r.method() === 'PATCH' && r.url().includes('/rest/v1/queue_entries') && r.url().includes('id=eq.q1')) {
@@ -80,13 +108,11 @@ test('a Petromin rider retyped at check-in is charged their ride’s fare, not t
     }
   });
   await open(page, 'q1');
+  await page.waitForFunction('S.ridersLoaded');
   const modal = page.locator('#checkin-modal');
-  await modal.getByRole('button', { name: 'Mountain', exact: true }).click(); // Petromin sells every type at 50
-  expect(await money(page)).toContain('SAR 50');
-  expect(await money(page)).toContain('party SAR 100');
+  await modal.getByRole('button', { name: 'Mountain', exact: true }).click();
+  await expect(page.locator('#ci-money')).toContainText('SAR 57.50');
   await modal.getByRole('button', { name: /Confirm/i }).click();
-  // The write agrees with the line: the booked 50 stands, so there is no price to rewrite.
-  // It used to overwrite it with the circuit's 57.50 the moment the type was touched.
   await expect.poll(() => patched.some((p) => p.status === 'active')).toBe(true);
-  expect(patched.filter((p) => 'price' in p).map((p) => p.price)).toEqual([]);
+  expect(patched.filter((p) => 'price' in p).map((p) => p.price)).toEqual([57.5]);
 });

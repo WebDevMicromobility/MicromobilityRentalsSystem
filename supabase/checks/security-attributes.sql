@@ -65,7 +65,11 @@ with expected(fname, want_definer, note) as (values
   ('_rider_session_open',    false, 'pure status check on the row it is handed'),
   ('_session_window',        false, 'pure time arithmetic on the row it is handed'),
   ('_rider_price',           false, 'pure price table'),
-  ('_rider_registration_guard', false, 'inspects NEW only; calls _rider_price at return time')
+  ('_rider_registration_guard', false, 'inspects NEW only; calls _rider_price at return time'),
+  -- The employee fare (20260921190000)
+  ('_employee_fare',         false, 'pure price table'),
+  ('_booking_fare',          false, 'reads rider_registrations, but only ever runs inside the definer triggers; revoked from anon+authenticated'),
+  ('_rider_link_reprice',    true,  'trigger: reprices the linked queue_entries row whoever made the link, anon form included')
 )
 select e.fname,
        case when p.oid is null then 'MISSING FROM DATABASE'

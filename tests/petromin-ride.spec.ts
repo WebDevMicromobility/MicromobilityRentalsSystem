@@ -449,37 +449,43 @@ test.describe('a Petromin night at capacity', () => {
   });
 });
 
-// Hybrid, Mountain and Kids moved from 50 to 57.5 on the circuit. Petromin employees keep the
-// old fare, so the fare depends on the SESSION and not on the bike type alone. The database
-// enforces it (_enforce_booking_price reads ride_prices_by_kind); this covers the quote the
-// desk sees, which has to agree with what the row will end up carrying.
-test('Petromin keeps the old fare while the circuit moves to 57.5', async ({ page }) => {
+// Hybrid, Mountain and Kids moved from 50 to 57.5. Petromin EMPLOYEES keep 50 - the riders who
+// come through the company's registration form - and nobody else does: a rider who books the
+// Petromin night on the website pays the standard fare like anywhere else. The database enforces
+// it (_booking_fare); this covers the quote the desk sees, which has to agree with the row.
+const fareOn = (sessionId: string, riders: unknown[]) => `(() => {
+  S.riders = ${JSON.stringify(riders)};
+  const e = { id: 'q1', sessionId: ${JSON.stringify(sessionId)} };
+  return JSON.stringify(['Hybrid','Mountain','Kids','Any','Road'].reduce(
+    (o,t) => (o[t] = priceForEntryType(e, t), o), {}));
+})()`;
+const standard = { Hybrid: 57.5, Mountain: 57.5, Kids: 57.5, Any: 57.5, Road: 75 };
+
+test('only a registered employee rides a Petromin night at 50', async ({ page }) => {
   await stubSupabase(page, { sessions: [jcc, petromin], bikes });
   await unlockStaff(page);
   await page.goto('/');
   await waitForSb(page);
 
-  const fares = await page.evaluate<string>(`(() => {
-    const circuit = S.sessions.find(s => s.id === 's1');
-    const petro   = S.sessions.find(s => s.id === '2099-01-13-pw');
-    const read = (s) => ['Hybrid','Mountain','Kids','Any','Road'].reduce(
-      (o,t) => (o[t] = priceForSessionType(s, t), o), {});
-    return JSON.stringify({ circuit: read(circuit), petromin: read(petro) });
-  })()`);
-  const { circuit, petromin: petro } = JSON.parse(fares);
+  // A website booking on the Petromin night: no registration points at it.
+  const website = JSON.parse(await page.evaluate<string>(fareOn('2099-01-13-pw', [])));
+  expect(website).toEqual(standard);
 
-  expect(circuit).toEqual({ Hybrid: 57.5, Mountain: 57.5, Kids: 57.5, Any: 57.5, Road: 75 });
-  expect(petro).toEqual({ Hybrid: 50, Mountain: 50, Kids: 50, Any: 50, Road: 75 });
+  // The same booking once the employee's registration is linked to it.
+  const employee = JSON.parse(await page.evaluate<string>(fareOn('2099-01-13-pw',
+    [{ id: 1, matched_entry_id: 'q1', source: 'petromin' }])));
+  expect(employee).toEqual({ Hybrid: 50, Mountain: 50, Kids: 50, Any: 50, Road: 75 });
 });
 
-// The exception is per ride kind, not "every community ride": the Saturday social ride is free
-// and must not quietly pick up Petromin's fare.
-test('the Petromin fare does not leak to other community rides', async ({ page }) => {
-  await stubSupabase(page, { sessions: [sat], bikes });
+// The employee fare belongs to the ride the form is for. A registration that matched the
+// rider's booking on the circuit (rider_register looks there too) does not discount it.
+test('a registration does not discount a booking on another ride', async ({ page }) => {
+  await stubSupabase(page, { sessions: [jcc, sat, petromin], bikes });
   await unlockStaff(page);
   await page.goto('/');
   await waitForSb(page);
-  const fare = await page.evaluate(
-    `priceForSessionType(S.sessions.find(s => s.id === '2099-01-10'), 'Hybrid')`);
-  expect(fare).toBe(57.5);
+  const link = [{ id: 1, matched_entry_id: 'q1', source: 'petromin' }];
+  expect(JSON.parse(await page.evaluate<string>(fareOn('s1', link)))).toEqual(standard);
+  const social = JSON.parse(await page.evaluate<string>(fareOn('2099-01-10', link)));
+  expect(social.Hybrid).toBe(57.5);
 });
