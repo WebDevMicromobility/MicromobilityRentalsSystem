@@ -1,5 +1,5 @@
 
-const CACHE = 'mmcq-2586b7e1e6';
+const CACHE = 'mmcq-960182e55a';
 const IMG_CACHE = 'mmcq-img'; // Supabase Storage photos; persists across app versions (content-addressed)
 
 // The one key the app shell lives under. './index.html' is deliberately NOT precached and
@@ -12,7 +12,7 @@ const IMG_CACHE = 'mmcq-img'; // Supabase Storage photos; persists across app ve
 const SHELL_KEY = './';
 const SHELL = [
   SHELL_KEY,
-  './styles.css?v=dc14983d48',
+  './styles.css?v=5b44a96cde',
   './manifest.json',
   './logo.png',
   './logo-dark.png',
@@ -21,6 +21,7 @@ const SHELL = [
   './brand.png',
   './assets/brand-mark-white.svg', // the loading state's mask - the boot screen needs it offline
   './assets/snd96-logo.svg', // the National Day lockup - on the event picker, the first screen in
+  './assets/mm-pattern.svg', // the brand pattern behind the Micromobility Experiences card - same screen
   './hero.webp',
   './icon-192.png',
   './icon-512.png',
