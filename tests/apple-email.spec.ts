@@ -4,7 +4,8 @@ import { stubSupabase, loginCustomer, unlockStaff, waitForSb } from './helpers/s
 // Apple "Hide My Email" accounts carry only a private relay address. The check-up asks them
 // for the email they actually use and a password; that email becomes the main one and the
 // relay address stays linked for Continue with Apple. The server decides who is asked
-// (customer_fix_fields adds 'email' / 'password'); these specs stub its answer.
+// (customer_fix_fields adds 'email' / 'password': existing accounts at once, new sign-ups
+// after two completed rides); these specs stub its answer.
 
 const RELAY = 'x7kd9f2@privaterelay.appleid.com';
 const S1 = '2099-01-01';
@@ -97,6 +98,8 @@ test('an email already on another account is named, and nothing else is lost', a
 });
 
 // ── Signing up with Apple and a hidden email ─────────────────────────────────
+// The sign-up form is the plain one. Whether a new account is asked (two completed rides)
+// is decided by _customer_asks on the server; the specs above stub its answer.
 async function signup(page: Page, email: string, fixtures: Record<string, unknown> = {}) {
   await stubSupabase(page, { 'rpc:customer_exists': false, ...fixtures });
   await page.goto('/');
@@ -111,58 +114,16 @@ function rpcBodies(page: Page, fn: string) {
   return bodies;
 }
 
-test('Apple sign-up with a hidden email asks for the real email and a password in the same step', async ({ page }) => {
-  await signup(page, 'n1@privaterelay.appleid.com', { 'rpc:customer_apple_signup': [{ id: 'x', session_token: 'tokN' }] });
-  const apple = rpcBodies(page, 'customer_apple_signup'), plain = rpcBodies(page, 'customer_oauth_signup');
-  await expect(page.locator('#auth-modal .auth-apple-note')).toContainText('Apple is keeping your email private');
-  await page.evaluate('doCompleteGoogle()');
-  await expect(page.locator('#auth-err')).toHaveText('Please enter your email address.');
-  await setVal(page, 'a-email', 'n1@privaterelay.appleid.com');
-  await page.evaluate('doCompleteGoogle()');
-  await expect(page.locator('#auth-err')).toHaveText('That’s a private Apple address. Enter the email you use every day.');
-  await setVal(page, 'a-email', 'New.Rider@Example.com');
-  await setVal(page, 'a-pwd', 'Welcome9A'); await setVal(page, 'a-pwd2', 'Welcome9A');
-  await page.evaluate('doCompleteGoogle()');
-  await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
-  expect(apple).toHaveLength(1);
-  expect(plain).toHaveLength(0);
-  expect(apple[0]).toMatchObject({ p_email: 'n1@privaterelay.appleid.com', p_contact_email: 'new.rider@example.com', p_pwd: 'Welcome9A', p_phone: '+966508727012' });
-  expect(await page.evaluate('[S.loggedIn.email,S.loggedIn.session_token]')).toEqual(['new.rider@example.com', 'tokN']);
-});
-
-test('Apple sign-up: an email already taken is said so and nothing is created', async ({ page }) => {
-  await signup(page, 'n1@privaterelay.appleid.com', { 'rpc:customer_apple_signup': { __rpcError: { status: 409, code: '23505', message: 'email_taken' } } });
+test('Apple sign-up with a hidden email asks nothing extra; the check-up comes after two rides (server side)', async ({ page }) => {
+  await signup(page, 'n1@privaterelay.appleid.com', { 'rpc:customer_oauth_signup': [{ id: 'x', session_token: 'tokN' }] });
   const plain = rpcBodies(page, 'customer_oauth_signup');
-  await setVal(page, 'a-email', 'taken@example.com');
-  await setVal(page, 'a-pwd', 'Welcome9A'); await setVal(page, 'a-pwd2', 'Welcome9A');
-  await page.evaluate('doCompleteGoogle()');
-  await expect(page.locator('#auth-err')).toHaveText('An account with this email already exists.');
-  expect(plain).toHaveLength(0);
-  expect(await page.evaluate('S.loggedIn')).toBeFalsy();
-});
-
-test('Apple sign-up before the migration still signs up (the check-up asks later)', async ({ page }) => {
-  await signup(page, 'n1@privaterelay.appleid.com', {
-    'rpc:customer_apple_signup': { __rpcError: { status: 404, code: 'PGRST202', message: 'Could not find the function public.customer_apple_signup' } },
-    'rpc:customer_oauth_signup': [{ id: 'x', session_token: 'tokOld' }],
-  });
-  const plain = rpcBodies(page, 'customer_oauth_signup');
-  await setVal(page, 'a-email', 'new@example.com');
-  await setVal(page, 'a-pwd', 'Welcome9A'); await setVal(page, 'a-pwd2', 'Welcome9A');
-  await page.evaluate('doCompleteGoogle()');
-  await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
-  expect(plain).toHaveLength(1);
-  expect(await page.evaluate('S.loggedIn.email')).toBe('n1@privaterelay.appleid.com');
-});
-
-test('a shared Apple email (or Google) signs up exactly as before', async ({ page }) => {
-  await signup(page, 'someone@icloud.com', { 'rpc:customer_oauth_signup': [{ id: 'x', session_token: 'tokG' }] });
-  const plain = rpcBodies(page, 'customer_oauth_signup');
-  await expect(page.locator('#auth-modal .auth-apple-note')).toHaveCount(0);
   await expect(page.locator('#a-email')).toHaveCount(0);
+  await expect(page.locator('#a-pwd')).toHaveCount(0);
   await page.evaluate('doCompleteGoogle()');
   await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
   expect(plain).toHaveLength(1);
+  expect(plain[0].p_email).toBe('n1@privaterelay.appleid.com');
+  expect(await page.evaluate('S.loggedIn.email')).toBe('n1@privaterelay.appleid.com');
 });
 
 // ── Staff ─────────────────────────────────────────────────────────────────────

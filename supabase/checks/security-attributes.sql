@@ -41,7 +41,7 @@ with expected(fname, want_definer, note) as (values
   ('my_bookings',            true,  'reads the caller''s own rows past RLS'),
   ('customer_fix_fields',    true,  'reads customers.fix_fields; the table is staff-only'),
   ('customer_fix_save',      true,  'writes the flagged customers columns and clears the flags'),
-  ('customer_apple_signup',  true,  'inserts a customer with a real email beside the Apple relay'),
+  ('_customer_asks',         true,  'reads customers and queue_entries to decide the check-up; internal only'),
   ('customer_oauth_login',   true,  'reads customers by email or apple_email'),
   ('_customer_email_alias',  true,  'trigger: reads other customers rows to keep the two email columns apart'),
   ('list_sessions',          true,  'reads sessions incl. gated ones'),
