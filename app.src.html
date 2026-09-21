@@ -11600,6 +11600,10 @@ function renderStaffQueue(_resultsOnly){
     if(isNaN(d))return'—';
     return d.toLocaleDateString(_locale(),{day:'numeric',month:'short',timeZone:KSA_TZ})+' · '+d.toLocaleTimeString(_locale(),{hour:'2-digit',minute:'2-digit',timeZone:KSA_TZ});
   }
+  // Every ride shows when each booking was made, under its number, in the Saturday ride's
+  // style. A party shows when its booking was made: the earliest of its riders.
+  const _bookedAtOf=g=>g.map(e=>e.registeredAt).filter(Boolean).sort((a,b)=>new Date(a)-new Date(b))[0]||null;
+  const _bookedAt=(ra,tag='div')=>`<${tag} class="q-booked-at" style="font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap${tag==='div'?';margin-top:2px':''}" title="${t('reservedAtLabel')}">${_resTimeShort({registeredAt:ra})}</${tag}>`;
   const _adChips=e=>{
     if(_freeSessIds.has(e.sessionId))return''; // free community rides have no add-ons
     const ad=addonLineItems(entryAddons(e));
@@ -11634,6 +11638,7 @@ function renderQRow(e){
       <td style="min-width:52px">
         ${(_apprSessIds.has(e.sessionId)&&!_commPublished(_rowSess(e)))?`<span style="font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap" title="${t('reservedAtLabel')}">${_resTimeShort(e)}</span>${e.status==='waitlist'&&e.waitlistNum?`<div style="font-size:10px;font-weight:900;color:var(--orange);margin-top:2px;white-space:nowrap">W${e.waitlistNum}</div>`:''}`:`
         <span class="queue-num-cell" style="font-size:${e.status!=='waiting'?'18':'22'}px">#${e.queueNum}</span>
+        ${_bookedAt(e.registeredAt)}
         ${e.status==='waitlist'&&e.waitlistNum?`<div style="font-size:10px;font-weight:900;color:var(--orange);margin-top:2px;white-space:nowrap">W${e.waitlistNum}</div>`:''}
         ${e.status==='waiting'&&lp?`<div style="margin-top:4px">${posCell}</div>`:''}
 `}
@@ -11710,6 +11715,7 @@ function renderQRow(e){
       return`<tr class="${groupCls} party-row" style="border-left:2px solid rgba(var(--green-rgb),.2)">
         <td style="min-width:52px;vertical-align:middle">
           <span class="queue-num-cell" style="font-size:15px;line-height:1.25">${(_apprSessIds.has(primary.sessionId)&&!_commPublished(_rowSess(primary)))?'—':qNumDisplay}</span>
+          ${_bookedAt(_bookedAtOf(group))}
           ${primary.status==='waiting'&&lp?`<div style="margin-top:4px">${posCell}</div>`:''}
           <div style="font-size:10px;color:var(--green);font-weight:800;margin-top:3px">${n} ${t('bike')||'Bikes'}</div>
           ${primary.groupName?`<div style="font-size:10px;font-weight:900;color:var(--green);margin-top:2px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(primary.groupName)}">${esc(primary.groupName)}</div>`:''}
@@ -11757,6 +11763,7 @@ function renderQRow(e){
         return`<tr class="${rowCls}" style="${trStyle}">
           <td rowspan="${n}" style="min-width:52px;vertical-align:middle">
             <span class="queue-num-cell" style="font-size:15px;line-height:1.25">${(_apprSessIds.has(primary.sessionId)&&!_commPublished(_rowSess(primary)))?'—':qNumDisplay}</span>
+            ${_bookedAt(_bookedAtOf(group))}
             ${primary.status==='waiting'&&lp?`<div style="margin-top:4px">${posCell}</div>`:''}
             <div style="font-size:10px;color:var(--green);font-weight:800;margin-top:3px">${n} ${t('bike')||'Bikes'}</div>
             ${(n>1&&_ciN>0)?`<button class="btn-sm btn-green" style="margin-top:4px;white-space:nowrap" onclick="groupCheckin('${primary.id}')">${t('bulkCheckinBtn')} (${_ciN})</button>`:''}
@@ -11844,6 +11851,7 @@ function renderQRow(e){
       return`<div class="q-card party-card${groupCls?' '+groupCls:''}" style="border-left:2px solid rgba(var(--green-rgb),.25)">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:${sessLabel?'4':'6'}px">
           <span class="queue-num-cell" style="font-size:22px">${(_apprSessIds.has(primary.sessionId)&&!_commPublished(_rowSess(primary)))?'—':qNumDisplay}</span>
+          ${_bookedAt(_bookedAtOf(group),'span')}
           <span style="font-size:10px;color:var(--green);font-weight:800">${n} ${t('bike')||'Bikes'}</span>
           ${primary.groupName?`<span style="font-size:10px;font-weight:900;color:var(--green);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(primary.groupName)}">${esc(primary.groupName)}</span>`:''}
           ${posTag}
@@ -11866,6 +11874,7 @@ function renderQRow(e){
     return`<div class="q-card${groupCls?' '+groupCls:''}" style="${n>1?'border-left:2px solid rgba(var(--green-rgb),.25)':''}">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:${sessLabel?'4':'6'}px">
         <span class="queue-num-cell" style="font-size:22px">${(_apprSessIds.has(primary.sessionId)&&!_commPublished(_rowSess(primary)))?'—':qNumDisplay}</span>
+        ${_bookedAt(_bookedAtOf(group),'span')}
         ${n>1?`<span style="font-size:10px;color:var(--green);font-weight:800">${n} ${t('bike')||'Bikes'}</span>`:''}
         ${primary.groupName?`<span style="font-size:10px;font-weight:900;color:var(--green);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(primary.groupName)}">${esc(primary.groupName)}</span>`:''}
         ${posTag}
