@@ -1460,17 +1460,19 @@ async function staffAuthSignIn(identifier,password){
     if(!row){
       // Lookup FAILED (timeout/error): only staff hold a password Auth account, so trust the valid
       // session rather than freezing — the DB still enforces is_staff() on every write.
-      if(lookupFailed){S._staffAuthed=true;S._mustChangePwd=false;setStaffRole('admin');return{ok:true};}
+      if(lookupFailed){S._staffAuthed=true;S._mustChangePwd=false;setStaffRole('admin');setupRefRealtime();return{ok:true};}
       // Lookup SUCCEEDED but returned no row: this Auth user is genuinely not staff — deny.
       try{await sb.auth.signOut();}catch(e){}
       return{ok:false,msg:t('errStaffNotAuthorized')};
     }
     S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;setStaffRole(row.role==='frontdesk'?'frontdesk':'admin');
+    setupRefRealtime();
     return{ok:true};
   }catch(e){return{ok:false,msg:(e&&e.message)||t('errConnection')};}
 }
 async function staffAuthSignOut(){
   S._staffAuthed=false;
+  _refLiveStop();
   // The operator name belongs to the account that just left: drop the device copy so the
   // next sign-in restores that person's own name (or asks once) instead of inheriting this one.
   try{localStorage.removeItem('cq_op_name');}catch(_){}
@@ -1525,6 +1527,7 @@ async function staffAuthRestore(){
     S._staffAuthed=false;return;
   }
   S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;setStaffRole(row.role==='frontdesk'?'frontdesk':'admin');
+  setupRefRealtime();
 }
 async function lockStaff(){try{localStorage.removeItem('cq_staff');}catch(e){}_clearActiveCheckin(false);await staffAuthSignOut();window.location.href='./';}
 function _clearPinLock(){try{localStorage.removeItem('cq_pin_until');localStorage.removeItem('cq_pin_lockouts');localStorage.removeItem('cq_pin_attempts');}catch(e){}}
@@ -2109,6 +2112,30 @@ const getQueue=()=>S.queue||[];
 const QUEUE_WINDOW_DAYS=365;
 const QUEUE_BOOT_DAYS=60; // cold start fetches a light 60-day window; the full 12 months stream in seconds later (see the _fullWindow timer after boot)
 function _qWindowCut(days){return new Date(Date.now()-(days||((S&&S._fullWindow)?QUEUE_WINDOW_DAYS:QUEUE_BOOT_DAYS))*864e5).toISOString().slice(0,10);}
+// The desk works the nights around today. Once a staff device holds the whole window, a reload
+// asks for those nights only and lays them over the older rows it already has; the whole window
+// comes again every half hour, so a past night edited on another device while realtime was down
+// still converges. Every reload used to ask for the whole window: 5,098 rows and ~4 MB of JSON
+// after every check-in, on every five-minute poll and every time a booth phone woke. That was
+// most of the project's egress. The live nights are ~480 rows.
+const QUEUE_LIVE_DAYS=2;
+const QUEUE_WHOLE_EVERY_MS=30*60*1000;
+let _qWholeAt=0; // when this device last took the whole window from queue_entries; 0 = it holds less
+// The slice a reload of queue_entries asks for, or null where nothing changes: the customer
+// branch of _queueFetch picks its own, and the boot's first window is the 60-day one.
+function _qSlice(){
+  if(SECURE_AUTH&&!S._staffAuthed)return null;
+  if(!S._fullWindow)return null;
+  if(_qWholeAt&&(Date.now()-_qWholeAt)<QUEUE_WHOLE_EVERY_MS)return{days:QUEUE_LIVE_DAYS,cut:_qWindowCut(QUEUE_LIVE_DAYS)};
+  return{days:QUEUE_WINDOW_DAYS,cut:null,whole:true};
+}
+// Rows before the cut are kept; rows inside it are replaced by what came back, so one deleted
+// elsewhere drops out.
+function _qMerge(fresh,cut){
+  if(!cut)return fresh;
+  const ids=new Set(fresh.map(e=>e.id));
+  return(S.queue||[]).filter(e=>String(e.sessionDate||e.sessionId||'')<cut&&!ids.has(e.id)).concat(fresh);
+}
 // Memoized sessionId -> entries[] map (rebuilds only when the queue array or its length changes;
 // in-place status edits stay live because the map holds entry references). Kills O(n^2) per-session filters.
 let _qbsRef=null,_qbsLen=-1,_qbsMap=null;
@@ -2295,10 +2322,18 @@ async function _pagedAll(makeSel){
 // from signup, customer edits and tag changes) or when the copy goes stale. The TTL is the
 // backstop for a change made on ANOTHER device: without it, a rider tagged at the desk would
 // stay invisible on this one until a reload.
-let _refAt=0,_refDirty=true,_refInFlight=null;
+//
+// Rider changes now arrive the moment they happen, on the staff-ref channel (setupRefRealtime).
+// While it is up, the TTL only backstops it: the whole list is ~2,700 riders and over a
+// megabyte, and refetching it every five minutes on every staff device was a large share of
+// the project's egress. While it is down, or the list in hand was read before staff auth
+// (RLS returns no rows then), the five minutes stand.
+let _refAt=0,_refDirty=true,_refInFlight=null,_refByStaff=false,_refLive=false; // _refLive: the staff-ref channel is joined
 const REF_TTL_MS=5*60*1000;
+const REF_TTL_LIVE_MS=30*60*1000;
+const CUST_REF_COLS='id,name,email,phone,height,type_preference,gender,birth_date,country,city,nationality,socials,created_at,default_pay,hidden_types';
 function refDirty(){_refDirty=true;}
-function _refNeeded(){return _refDirty||!_refAt||(Date.now()-_refAt)>REF_TTL_MS;}
+function _refNeeded(){return _refDirty||!_refAt||(Date.now()-_refAt)>((_refLive&&_refByStaff)?REF_TTL_LIVE_MS:REF_TTL_MS);}
 // Staff-only: the Sales tab's saved-customer picker needs them. Visitors never download the
 // customer list. Tolerant throughout: RLS may deny the read until the staff Auth session is
 // established, and pre-migration databases have no tags tables at all.
@@ -2312,7 +2347,7 @@ async function _refFetch(onCustomers){
   // pages within each one are sequential.
   _refInFlight=(async()=>{
     const [r,rt,rct,rbs,rso]=await Promise.all([
-      _pagedAll(()=>sb.from('customers').select('id,name,email,phone,height,type_preference,gender,birth_date,country,city,nationality,socials,created_at,default_pay,hidden_types').order('created_at').order('id')).catch(e=>({data:null,error:e})),
+      _pagedAll(()=>sb.from('customers').select(CUST_REF_COLS).order('created_at').order('id')).catch(e=>({data:null,error:e})),
       sb.from('tags').select('*').then(x=>x,e=>({data:null,error:e})),
       _pagedAll(()=>sb.from('customer_tags').select('*').order('customer_id').order('tag_id')).catch(e=>({data:null,error:e})),
       sb.from('breakfast_spots').select('*').then(x=>x,e=>({data:null,error:e})),
@@ -2324,7 +2359,7 @@ async function _refFetch(onCustomers){
     if(rso&&!rso.error&&rso.data)S.staffOptions=Object.fromEntries(rso.data.map(r=>[r.key,r.items]));
     // Only a fully successful pass counts as fresh, or one denied read would silence the
     // retry for five minutes and leave the picker empty for the rest of the shift.
-    if(r&&!r.error&&r.data){S.customers=r.data;_refAt=Date.now();_refDirty=false;}
+    if(r&&!r.error&&r.data){S.customers=r.data;_refAt=Date.now();_refDirty=false;_refByStaff=!!S._staffAuthed;}
     return r;
   })();
   let out=null;
@@ -2446,9 +2481,10 @@ async function _loadDataInner(showLoader){
   let c={data:[],error:null};
   const _refP=_refFetch(r=>{if(r)c=r;});
   const _optP=_optionalFetch();
+  const _qs=_qSlice();
   try{
     [q,b,ses]=await Promise.all([
-      _queueFetch(true),
+      _queueFetch(true,_qs&&_qs.days),
       sb.from('bikes').select(BIKE_COLS),
       _sessionsFetch(),
     ]);
@@ -2481,7 +2517,8 @@ async function _loadDataInner(showLoader){
     const _keepPII=(typeof localStorage!=='undefined'&&localStorage.getItem('cq_staff')==='1');
     const _prevPII={};
     if(_keepPII)(S.queue||[]).forEach(e=>{if(e&&e.id&&((e.name||'').trim()||(e.phone||'').trim()))_prevPII[e.id]=e;});
-    S.queue=(q.data||[]).map(entryFromDB);
+    S.queue=_qMerge((q.data||[]).map(entryFromDB),_qs&&_qs.cut);
+    _qWholeAt=_qs?(_qs.whole?Date.now():_qWholeAt):0;
     if(_keepPII)S.queue.forEach(e=>{const p=_prevPII[e.id];if(p&&!(e.name||'').trim()&&(p.name||'').trim()){e.name=p.name;if(!e.phone)e.phone=p.phone;if(!e.email)e.email=p.email;if(e.height==null)e.height=p.height;if(!e.size)e.size=p.size;}});
   }
   try{_applyBookOutbox();}catch(_){}_bookOutboxFlush(); // surface + sync any bookings queued while offline
@@ -21323,15 +21360,14 @@ async function loadDataLight(){
 async function _loadDataLightInner(){
   if(!sb)return;
   let q,ses,cs,bk,wl;
-  // After every write the desk re-syncs. Once the full 12-month window has streamed in, that
-  // used to mean re-fetching the whole year in pages on every check-in; the desk only moves
-  // rows from the last two months, so the light reload fetches that window and merges it over
-  // the older rows it already holds. Every tenth background poll is a full reload, so an old
-  // row edited on another device still converges within five minutes.
+  // After every write the desk re-syncs. Once the full 12-month window has streamed in, a staff
+  // device asks queue_entries for the live nights only (see _qSlice) and the whole window every
+  // half hour. Sales keep the two-month window, merged over the older rows already held.
   const _lightDays=(S&&S._fullWindow)?QUEUE_BOOT_DAYS:undefined;
   const _cut=_lightDays?_qWindowCut(_lightDays):null;
+  const _qs=_qSlice();
   try{[q,ses,cs,bk,wl]=await Promise.all([
-    _queueFetch(true,_lightDays),
+    _queueFetch(true,_qs?_qs.days:_lightDays),
     _sessionsFetch(),
     _pagedAll(()=>{let cs=sb.from('cashier_sales').select('*');if(_cut)cs=cs.gte('created_at',_cut);return cs.order('id');}), // paged like loadData; the same two-month window once the year is in
     sb.from('bikes').select('id,status'), // status-only (no photos) so availability stays fresh on the poll without a heavy payload
@@ -21339,9 +21375,8 @@ async function _loadDataLightInner(){
   ]);}catch(e){S._netDown=true;_updateConnUI();return;} // unreachable: keep current state, flag the connection
   S._netDown=false;_updateConnUI();
   if(q&&!q.error){
-    const fresh=(q.data||[]).map(entryFromDB);
-    if(_cut){const ids=new Set(fresh.map(e=>e.id));const older=(S.queue||[]).filter(e=>String(e.sessionDate||e.sessionId||'')<_cut&&!ids.has(e.id));S.queue=older.concat(fresh);}
-    else S.queue=fresh;
+    S.queue=_qMerge((q.data||[]).map(entryFromDB),_qs?_qs.cut:_cut);
+    _qWholeAt=_qs?(_qs.whole?Date.now():_qWholeAt):0;
     try{_applyBookOutbox();}catch(_){}_bookOutboxFlush();
   }
   if(ses&&!ses.error)S.sessions=ses.data||[];
@@ -21395,7 +21430,8 @@ setInterval(()=>{if(!document.hidden)_updateConnUI();},5000);
 try{_updateConnUI();}catch(e){} // reflect connection state on boot (handles starting up already offline)
 // While realtime is connected, events keep the panel current and the poll is only a safety
 // net: a full reload every five minutes. Without realtime, the light poll every 30 seconds
-// with a full reload every tenth tick. Paused while the tab is hidden.
+// with a full reload every tenth tick. Paused while the tab is hidden. Either way the queue
+// part of a reload is the live nights; the whole window only every half hour (_qSlice).
 function _pollPlan(n,connected){if(n%10===0)return 'full';return connected?'skip':'light';}
 setInterval(()=>{if(document.hidden)return;const plan=_pollPlan(++_pollN,!!S._rtConnected);if(plan==='full')_autoRefresh(true);else if(plan==='light')_autoRefresh(false);},30000); // (_autoRefresh itself no-ops under test)
 // ── Keeping the staff session alive ────────────────────────────────────────
@@ -21484,7 +21520,7 @@ function _rtMergeRow(payload){
 }
 function _onRt(payload){
   if(!payload)return _rtApply();
-  if(payload.table==='inventory'||payload.table==='customers')_rtWantFull=true; // these only ship in the FULL load
+  if(payload.table==='inventory')_rtWantFull=true; // this only ships in the FULL load
   if(S.view==='staff'&&!(typeof window!=='undefined'&&window.__noWiden)){
     let merged=false;try{merged=_rtMergeRow(payload);}catch(e){merged=false;}
     if(merged){_rtPaint();return;}
@@ -21503,7 +21539,8 @@ function setupRealtime(){
       .on('postgres_changes',{event:'*',schema:'public',table:'bikes'},_onRt)
       .on('postgres_changes',{event:'*',schema:'public',table:'inventory'},_onRt)
       .on('postgres_changes',{event:'*',schema:'public',table:'cashier_sales'},_onRt)
-      .on('postgres_changes',{event:'*',schema:'public',table:'customers'},_onRt) // staff edits (default_pay/hidden_types/phone) reach other devices
+      // No customers binding: rider changes come on the private staff-ref channel below. The
+      // table is not in the publication and must not be - postgres_changes sends whole rows.
       .on('postgres_changes',{event:'*',schema:'public',table:'rider_registrations'},_onRidersRt) // /register form submissions (own tab, own loader)
       .subscribe(status=>{
         // removeChannel() fires the REMOVED channel's callback with CLOSED — reacting to a
@@ -21521,6 +21558,73 @@ function setupRealtime(){
   }catch(e){console.warn('Realtime init failed:',e);}
 }
 _sbReady.then(()=>{try{setupRealtime();}catch(e){}});
+// ── Rider changes, the moment they happen, on a channel only staff can join ──
+// customers stays OUT of the postgres_changes publication on purpose: that sends the whole
+// row, and this one holds password_hash and a session_token rewritten on every login. A
+// trigger broadcasts the columns the desk reads instead (customers, customer_tags, tags), on
+// the private topic staff-ref, which realtime.messages RLS opens to is_staff() only
+// (migration 20260921160000). A sign-in rewrites only the token, so it sends nothing.
+let _refCh=null,_refChRetry=0,_refWasLive=false; // _refLive is declared with the reference data
+// Lays one broadcast change over the lists in hand. True when something changed.
+function _rtRefMerge(kind,p){
+  if(!p||!p.op)return false;
+  const del=p.op==='DELETE';
+  if(kind==='customers'){
+    const id=p.id||(p.row&&p.row.id);if(!id)return false;
+    const cs=(S.customers||[]).slice();const i=cs.findIndex(c=>c&&c.id===id);
+    if(del){if(i<0)return false;cs.splice(i,1);}
+    else if(p.row){if(i>=0)cs[i]={...cs[i],...p.row};else cs.push(p.row);}
+    else return false;
+    S.customers=cs;return true;
+  }
+  if(kind==='customer_tags'){
+    const row=p.row,old=p.old;
+    const key=x=>x&&(x.customer_id+'\u0000'+x.tag_id);
+    const drop=new Set([key(old),key(row)].filter(Boolean)); // an update can move either key
+    if(!drop.size)return false;
+    const ct=(S.customerTags||[]).filter(x=>!drop.has(key(x)));
+    if(!del&&row)ct.push(row);
+    S.customerTags=ct;return true;
+  }
+  if(kind==='tags'){
+    const id=(del?(p.old&&p.old.id):(p.row&&p.row.id));if(!id)return false;
+    const tg=(S.tags||[]).slice();const i=tg.findIndex(x=>x&&x.id===id);
+    if(del){if(i<0)return false;tg.splice(i,1);}
+    else if(i>=0)tg[i]={...tg[i],...p.row};else tg.push(p.row);
+    S.tags=tg;return true;
+  }
+  return false;
+}
+function setupRefRealtime(retry){
+  if(!sb||!sb.channel||!S._staffAuthed)return;
+  if(_refCh&&!retry)return; // joined, or joining: a repeat auth restore must not rejoin
+  try{if(_refCh){const c=_refCh;_refCh=null;sb.removeChannel(c);}}catch(_){}
+  try{
+    const ch=_refCh=sb.channel('staff-ref',{config:{private:true}});
+    ['customers','customer_tags','tags'].forEach(kind=>ch.on('broadcast',{event:kind},m=>{
+      let changed=false;try{changed=_rtRefMerge(kind,m&&m.payload);}catch(e){}
+      if(changed&&S.view==='staff'&&!(typeof window!=='undefined'&&window.__noWiden))_rtPaint();
+    }));
+    ch.subscribe(status=>{
+      if(_refCh!==ch)return; // a removed channel reports CLOSED; it is not ours any more
+      if(status==='SUBSCRIBED'){
+        if(_refWasLive)refDirty(); // a rejoin: whatever changed while it was down was missed
+        _refLive=true;_refWasLive=true;_refChRetry=0;
+      }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
+        _refLive=false;
+        if(!S._staffAuthed)return;
+        // 1s, 2s, 4s… up to five minutes: until the migration is in, the join is refused
+        // outright, and knocking every few seconds from every booth would be pointless.
+        const delay=Math.min(5*60*1000,1000*Math.pow(2,Math.min(_refChRetry++,9)));
+        setTimeout(()=>{if(_refCh===ch)setupRefRealtime(true);},delay);
+      }
+    });
+  }catch(e){console.warn('Staff realtime init failed:',e);}
+}
+function _refLiveStop(){
+  _refLive=false;_refWasLive=false;_refChRetry=0;
+  try{if(_refCh){const c=_refCh;_refCh=null;sb.removeChannel(c);}}catch(_){}
+}
 // Probe once whether the optional queue_entries.card_amount column exists. If not, the rental Split option is hidden
 // (it would otherwise silently down-categorize a split as cash). Default assumes present until proven missing.
 async function _probeSchema(){

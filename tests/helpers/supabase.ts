@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Page, WebSocketRoute } from '@playwright/test';
 
 // Table rows are arrays; 'rpc:<name>' is the RPC's return; 'auth:token' is a
 // Supabase Auth session object — so values are broader than arrays.
@@ -45,6 +45,7 @@ export async function stubSupabase(page: Page, fixtures: Fixtures = {}, failWrit
   }));
   await page.route(/(^|\.)wa\.me\/|cloudflareinsights\.com|maps\.app\.goo\.gl/,
     (r) => r.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*' }, body: '' }));
+  await stubRealtime(page);
   await page.route('**://*.supabase.co/**', async (route) => {
     const req = route.request();
     const url = new URL(req.url());
@@ -145,6 +146,51 @@ export async function stubSupabase(page: Page, fixtures: Fixtures = {}, failWrit
       body: JSON.stringify(body),
     });
   });
+}
+
+type PhxMsg = { join_ref?: unknown; ref?: unknown; topic?: unknown; event?: unknown; payload?: { config?: { postgres_changes?: Record<string, unknown>[] } } };
+
+/** Answers the realtime websocket here, so no spec ever opens one to the real project.
+ *
+ *  page.route() never sees a websocket: every spec used to hold a live socket to production
+ *  for as long as it ran. That was ~770 connections per CI run and 93,000 in one day, counted
+ *  against the project's egress allowance. Every join and heartbeat is acknowledged, so the
+ *  channel still reports SUBSCRIBED, and no event ever arrives unless a spec sends one with
+ *  the returned broadcast(). Both wire formats are answered: the array one (vsn 2.0.0) and
+ *  the object one (1.0.0). A spec that needs broadcast() calls this again after stubSupabase:
+ *  the newest route answers the page's socket. */
+export async function stubRealtime(page: Page) {
+  const joined: { ws: WebSocketRoute; topic: string; joinRef: unknown; asArray: boolean }[] = [];
+  await page.routeWebSocket(/\/realtime\/v1\/websocket/, (ws) => {
+    ws.onMessage((raw) => {
+      let parsed: unknown;
+      try { parsed = JSON.parse(String(raw)); } catch { return; }
+      const asArray = Array.isArray(parsed);
+      const m: PhxMsg = asArray
+        ? (() => { const [join_ref, ref, topic, event, payload] = parsed as unknown[]; return { join_ref, ref, topic, event, payload } as PhxMsg; })()
+        : parsed as PhxMsg;
+      if (m.ref == null) return;
+      if (m.event === 'phx_join') joined.push({ ws, topic: String(m.topic), joinRef: m.join_ref, asArray });
+      // The client checks that the server echoes each postgres_changes binding, with an id.
+      const bindings = m.event === 'phx_join' ? (m.payload?.config?.postgres_changes || []) : [];
+      const reply = { status: 'ok', response: m.event === 'phx_join' ? { postgres_changes: bindings.map((b, i) => ({ ...b, id: i + 1 })) } : {} };
+      ws.send(JSON.stringify(asArray
+        ? [m.join_ref, m.ref, m.topic, 'phx_reply', reply]
+        : { join_ref: m.join_ref, ref: m.ref, topic: m.topic, event: 'phx_reply', payload: reply }));
+    });
+  });
+  return {
+    /** Pushes a broadcast, as the server would, to every socket that joined `topic`
+     *  (the channel name with its prefix, e.g. 'realtime:staff-ref'). */
+    broadcast(topic: string, event: string, payload: unknown) {
+      for (const j of joined.filter((x) => x.topic === topic)) {
+        const body = { type: 'broadcast', event, payload };
+        j.ws.send(JSON.stringify(j.asArray
+          ? [j.joinRef, null, topic, 'broadcast', body]
+          : { join_ref: j.joinRef, ref: null, topic, event: 'broadcast', payload: body }));
+      }
+    },
+  };
 }
 
 /** The booking rows the client sent, whichever door it used.

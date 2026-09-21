@@ -41,6 +41,7 @@ with expected(fname, want_definer, note) as (values
   ('my_bookings',            true,  'reads the caller''s own rows past RLS'),
   ('list_sessions',          true,  'reads sessions incl. gated ones'),
   ('community_member',       true,  'reads customer_tags'),
+  ('_staff_ref_broadcast',   true,  'inserts into realtime.messages whoever made the change'),
   -- Invoker on purpose: pure logic, no privileged read.
   ('_capacity_guard',        false, 'counts rows already visible in its calling context'),
   ('_comm_no_carbon',        false, 'inspects NEW only'),

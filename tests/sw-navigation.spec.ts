@@ -4,6 +4,7 @@ import type { Server } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { join, extname } from 'node:path';
 import type { AddressInfo } from 'node:net';
+import { stubRealtime } from './helpers/supabase';
 
 // Service workers are blocked suite-wide (playwright.config.ts), so the worker itself has
 // never been exercised. This file is the exception: it runs a real one.
@@ -57,7 +58,9 @@ async function startPagesMimic(): Promise<{ url: string; close: () => Promise<vo
 test('the site still opens on the second visit when /index.html redirects', async ({ page }) => {
   const site = await startPagesMimic();
   // Keep the suite off the network: this spec does not stub Supabase, it just blocks it.
+  // page.route() does not see websockets, so realtime is answered locally too.
   await page.route(/supabase\.co|open-meteo\.com|cloudflareinsights\.com/, (r) => r.abort());
+  await stubRealtime(page);
   try {
     await page.goto(site.url, { waitUntil: 'load' });
     await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 20000 });
@@ -93,6 +96,7 @@ test('a page that is not the root is never answered from, or stored as, the shel
   // bounces them into the staff entry instead of the app.
   const site = await startPagesMimic();
   await page.route(/supabase\.co|open-meteo\.com|cloudflareinsights\.com/, (r) => r.abort());
+  await stubRealtime(page);
   try {
     await page.goto(site.url, { waitUntil: 'load' });
     await page.waitForFunction(() => !!navigator.serviceWorker.controller, null, { timeout: 20000 });

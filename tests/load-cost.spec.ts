@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
+import { stubSupabase, stubRealtime, unlockStaff, waitForSb } from './helpers/supabase';
 
 // Every staff write ends in loadData(), and loadData used to refetch EVERYTHING — including
 // customers and customer_tags, ~4,300 rows on the live database, as four fetches that awaited
@@ -132,4 +132,124 @@ test('a poll that changed nothing does not rebuild the screen', async ({ page })
   // but a real change still paints
   await page.evaluate(`S.queue=[...(S.queue||[]),{id:'x1',status:'waiting',queueNum:99,sessionId:'${S1}'}];_autoRefresh(false)`);
   expect(await page.evaluate('window.__renders')).toBe(2);
+});
+
+// Egress. The free plan allows 5 GB a month and the project went over: the staff queue reload
+// asked for the whole window (5,098 rows, ~4 MB of JSON) after every write, on every poll and
+// every time a booth phone woke, and every spec held a live realtime socket to production.
+
+const cutFor = (days: number) => new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
+
+/** The session_date cut of every queue_entries GET, from the moment it is installed. */
+function queueCuts(page: import('@playwright/test').Page) {
+  const cuts: string[] = [];
+  page.on('request', (r) => {
+    const m = decodeURIComponent(r.url()).match(/\/rest\/v1\/queue_entries\?.*session_date=gte\.([0-9-]+)/);
+    if (m && r.method() === 'GET') cuts.push(m[1]);
+  });
+  return cuts;
+}
+
+test('once the whole window is held, a staff reload asks for the live nights only', async ({ page }) => {
+  await bootStaff(page);
+  await page.waitForTimeout(400);
+  const cuts = queueCuts(page);
+  await page.evaluate(`S._fullWindow = true; _qWholeAt = 0`);
+  await page.evaluate(`loadData()`);                                   // the whole window, once
+  await page.evaluate(`loadData()`);                                   // then the live nights
+  await page.evaluate(`loadDataLight()`);                              // the light reload too
+  await page.evaluate(`(_qWholeAt = Date.now() - 31*60*1000, loadDataLight())`);
+  expect(cuts).toEqual([cutFor(365), cutFor(2), cutFor(2), cutFor(365)]);  // and the whole again when due
+});
+
+test('a live reload keeps the older rows and drops a live one deleted elsewhere', async ({ page }) => {
+  await bootStaff(page);
+  const out = await page.evaluate(`(S.queue = [
+      { id: 'old', sessionDate: '2000-01-01', name: 'kept' },
+      { id: 'gone', sessionDate: '2999-01-01', name: 'deleted elsewhere' },
+      { id: 'live', sessionDate: '2999-01-01', name: 'before' },
+    ], _qMerge([{ id: 'live', sessionDate: '2999-01-01', name: 'after' }], '2999-01-01').map((e) => e.id + ':' + e.name))`);
+  expect(out).toEqual(['old:kept', 'live:after']);
+});
+
+test('a device that has not taken the whole window takes it on its next reload', async ({ page }) => {
+  await bootStaff(page);
+  await page.waitForTimeout(400);
+  const cuts = queueCuts(page);
+  await page.evaluate(`S._fullWindow = true; _qWholeAt = Date.now()`);
+  await page.evaluate(`loadData()`);
+  await page.evaluate(`_qWholeAt = 0`);                                // e.g. a load went down the customer branch
+  await page.evaluate(`loadData()`);
+  expect(cuts).toEqual([cutFor(2), cutFor(365)]);
+});
+
+test('realtime joins through the local stub, never the real project', async ({ page }) => {
+  await bootStaff(page);
+  await expect.poll(() => page.evaluate('!!S._rtConnected'), { timeout: 8000 }).toBe(true);
+});
+
+// Rider changes reach the desk the moment they happen, on the private staff-ref channel, fed by
+// a trigger (20260921160000). The whole list comes down only as a half-hour backstop then.
+
+async function refLive(page: import('@playwright/test').Page) {
+  await page.evaluate(`S._staffAuthed = true; setupRefRealtime()`);
+  await page.waitForFunction('_refLive === true', null, { timeout: 8000 });
+}
+
+test('a rider change from another device lands on the desk at once, with no fetch', async ({ page }) => {
+  const c1 = { id: 'c1', name: 'First', phone: '0500', created_at: '2026-01-01T00:00:00+00:00' };
+  await stubSupabase(page, { sessions, queue_entries: [], bikes: [], customers: [c1], tags: [] });
+  const rt = await stubRealtime(page);
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction(`S.dataLoaded===true && (S.customers||[]).length===1`);
+  await refLive(page);
+  expect(await page.evaluate(`[_refCh.topic, _refCh.params.config.private]`)).toEqual(['realtime:staff-ref', true]);
+  const hits = counter(page);
+  const ids = () => page.evaluate(`S.customers.map((c) => c.id + ':' + (c.phone || '')).join(',')`);
+  const links = () => page.evaluate(`(S.customerTags || []).map((x) => x.customer_id + '/' + x.tag_id + (x.note ? ':' + x.note : '')).join(',')`);
+
+  rt.broadcast('realtime:staff-ref', 'customers', { op: 'INSERT', id: 'c2', row: { id: 'c2', name: 'Just Signed Up' } });
+  rt.broadcast('realtime:staff-ref', 'customers', { op: 'UPDATE', id: 'c1', row: { id: 'c1', name: 'First', phone: '0555' } });
+  rt.broadcast('realtime:staff-ref', 'customer_tags', { op: 'INSERT', row: { customer_id: 'c2', tag_id: 't1' } });
+  rt.broadcast('realtime:staff-ref', 'tags', { op: 'INSERT', id: 't1', row: { id: 't1', name: 'VIP' } });
+  await expect.poll(ids).toBe('c1:0555,c2:');
+  await expect.poll(links).toBe('c2/t1');
+  expect(await page.evaluate(`S.tags.map((t) => t.name)`)).toEqual(['VIP']);
+
+  rt.broadcast('realtime:staff-ref', 'customer_tags', { op: 'UPDATE', old: { customer_id: 'c2', tag_id: 't1' }, row: { customer_id: 'c2', tag_id: 't1', note: 'hi' } });
+  await expect.poll(links).toBe('c2/t1:hi');
+  rt.broadcast('realtime:staff-ref', 'customer_tags', { op: 'DELETE', old: { customer_id: 'c2', tag_id: 't1' }, row: null });
+  rt.broadcast('realtime:staff-ref', 'customers', { op: 'DELETE', id: 'c2', row: null });
+  await expect.poll(ids).toBe('c1:0555');
+  await expect.poll(links).toBe('');
+  for (const t of REF) expect(hits[t] || 0, `${t} fetched`).toBe(0);
+});
+
+test('while the channel is up the list is refetched every half hour, otherwise every five minutes', async ({ page }) => {
+  await bootStaff(page);
+  await refLive(page);
+  expect(await page.evaluate(`_refDirty = false; _refByStaff = true; _refAt = Date.now() - 6*60*1000; _refNeeded()`)).toBe(false);
+  expect(await page.evaluate(`_refAt = Date.now() - 31*60*1000; _refNeeded()`)).toBe(true);
+  // a list read before staff auth came back empty under RLS: it keeps the five minutes
+  expect(await page.evaluate(`_refByStaff = false; _refAt = Date.now() - 6*60*1000; _refNeeded()`)).toBe(true);
+  // and so does a device whose channel is down
+  expect(await page.evaluate(`_refByStaff = true; _refLive = false; _refNeeded()`)).toBe(true);
+});
+
+test('a rejoin after a drop refetches the list, since the gap was missed; a repeat auth restore does not rejoin', async ({ page }) => {
+  await bootStaff(page);
+  await refLive(page);
+  expect(await page.evaluate(`_refDirty = false; window.__ch = _refCh; setupRefRealtime(); window.__ch === _refCh && !_refDirty`)).toBe(true);
+  await page.evaluate(`setupRefRealtime(true)`);          // what the retry timer does after a drop
+  await page.waitForFunction('_refDirty === true && _refLive === true', null, { timeout: 8000 });
+});
+
+test('signing out leaves the staff channel; a device that is not staff never joins it', async ({ page }) => {
+  await bootStaff(page);
+  await refLive(page);
+  await page.evaluate(`staffAuthSignOut()`);
+  expect(await page.evaluate(`[_refCh === null, _refLive]`)).toEqual([true, false]);
+  expect(await page.evaluate(`S._staffAuthed = false; setupRefRealtime(); _refCh === null`)).toBe(true);
 });
