@@ -3202,14 +3202,16 @@ function typePillLabel(ty){return ty==='Own'?t('typeOwnPref'):typeLabel(ty);}
 const CUST_TYPES=['Any','Road','Hybrid','Mountain','Kids','Road Carbon','Own'];
 // 'Own' ("I have my own bike") is never offered on the circuit — JCC rentals always need a
 // rental bike. Every bike-type selector uses this, with allowOwn from _ownOffered(session).
-// noCarbon=true means a community context: 'Road Carbon' is withdrawn - carbon road bikes
-// are not offered on the social ride.
+// noCarbon=true means a no-carbon ride (_noCarbon): 'Road Carbon' is withdrawn.
 // 'Own' (the rider brings their own bike) is offered on every community ride and on the
 // National Day ride, and always costs nothing — RIDE_PRICES.Own is 0, so a paid ride charges
 // an owner nothing either.
-// Road Carbon goes the other way: carbon bikes are not taken on a community ride at all,
-// paid or not, so both rides hide it and the circuit keeps it.
+// Road Carbon goes the other way: carbon bikes are not taken on a community ride - except
+// the Petromin ride, which offers them at the standard 250 (2026-09-21; the employees' fare
+// has no carbon row, so an employee on carbon pays 250 too). The circuit keeps them as ever.
+// The database holds the same rule in _comm_no_carbon (20260921210000).
 function bikeTypeOpts(allowOwn,noCarbon){return CUST_TYPES.filter(ty=>(ty!=='Own'||allowOwn)&&(ty!=='Road Carbon'||!noCarbon));}
+function _noCarbon(s){return _isCommunity(s)&&_rideKind(s)!=='petromin';}
 // Single venue: tickets link straight to the circuit pin (locations/branches removed from the UI).
 const DIRECTIONS_URL='https://maps.app.goo.gl/zJLjmiaJgfJDKQwY7';
 // Haptic tap on key confirmations. iOS Safari has no Vibration API; since 17.4 a hidden
@@ -4491,6 +4493,7 @@ function _maxRiders(s){if(!s)return 10;return _isGroupRide(s)?GROUP_RIDE_MAX:_is
 function _isApprovalRide(s){return _isCommunity(s)&&(s.needs_approval!==false);}
 const _apprSessIds={has:sid=>_isApprovalRide((S.sessions||[]).find(s=>s.id===sid))};
 const _commSessIds={has:sid=>_isCommunity((S.sessions||[]).find(s=>s.id===sid))};
+const _noCarbonSessIds={has:sid=>_noCarbon((S.sessions||[]).find(s=>s.id===sid))};
 // Which type the new-session form is on. Both community rides share every field except
 // the name and the price, so the form asks this rather than testing for one of them.
 function _nsComm(){return S.newSessEvent==='community'||S.newSessEvent==='petromin'||S.newSessEvent==='swim'||S.newSessEvent==='workshop'||S.newSessEvent==='snd96';}
@@ -6043,7 +6046,7 @@ function _mwTypeCell(w,bk){
   // A parked booking follows its ride's rules ('Own' where the ride offers it, no carbon on a
   // community ride); a walk-up belongs to no session, so it gets the ordinary circuit menu.
   const sess=bk?allSessions().find(x=>x.id===bk.sessionId):null;
-  const opts=bk?bikeTypeOpts(_ownOffered(sess),_isCommunity(sess)):bikeTypeOpts(false,false);
+  const opts=bk?bikeTypeOpts(_ownOffered(sess),_noCarbon(sess)):bikeTypeOpts(false,false);
   const list=opts.includes(cur)?opts:[cur,...opts];
   return`<select class="mw-type" aria-label="${esc(t('bikeTypeLabel'))}" onchange="mwSetType('${esc(w.id)}',this.value)">
       ${list.map(ty=>`<option value="${esc(ty)}"${ty===cur?' selected':''}>${esc(typeLabel(ty))}</option>`).join('')}
@@ -6689,9 +6692,10 @@ function renderRegister(){
   const _apprSel=_isApprovalRide(_selSessObj); // ...that staff approve rider by rider
   const _freeSel=_isFreeRide(_selSessObj); // ...and a complimentary one (the Saturday ride)
   const _grpSel=_isGroupRide(_selSessObj); // ...that takes a whole group (the Petromin ride)
-  // Road Carbon is not offered on the social ride; a saved profile preference could still
+  // Road Carbon is not offered on a no-carbon ride; a saved profile preference could still
   // pre-select it (the button set hides it), so coerce any such choice to Road here.
-  if(_commSel)S.regBikeTypes=S.regBikeTypes.map(ty=>ty==='Road Carbon'?'Road':ty);
+  const _noCarbonSel=_noCarbon(_selSessObj);
+  if(_noCarbonSel)S.regBikeTypes=S.regBikeTypes.map(ty=>ty==='Road Carbon'?'Road':ty);
   let available=allSessions().filter(s=>_sessLive(s)&&!_sessPastDay(s)&&_evMatch(s,_ev))
     .sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
   ensureBikeSizes();
@@ -6798,9 +6802,9 @@ function renderRegister(){
   
   // Community rides are personal: one reservation, the account holder only - no group bookings.
   if(_commSel&&!_grpSel&&S.regQty!==1){S.regQty=1;ensureBikeSizes();}
-  // Carbon road bikes are not offered on the social ride: a selection carried over from a
+  // Carbon road bikes are not offered on a no-carbon ride: a selection carried over from a
   // JCC pick (or a profile preference) silently becomes 'Any' here.
-  if(_commSel)S.regBikeTypes=S.regBikeTypes.map(ty=>ty==='Road Carbon'?'Any':ty);
+  if(_noCarbonSel)S.regBikeTypes=S.regBikeTypes.map(ty=>ty==='Road Carbon'?'Any':ty);
   // A quantity carried over from another night may be past this night's allowance.
   if(!_commSel&&_selSessObj&&S.regQty>_maxRiders(_selSessObj)){S.regQty=_maxRiders(_selSessObj);ensureBikeSizes();}
   const qtyStepper=(_commSel&&!_grpSel)?'':`
@@ -6835,8 +6839,8 @@ function renderRegister(){
     
     // Types hidden for this customer drop out of their picker (fall back to the full list
     // if staff somehow hid everything).
-    let _tyOpts=bikeTypeOpts(_ownOffered(_selSessObj),_commSel).filter(ty=>!_regTypeHidden(ty));
-    if(!_tyOpts.length)_tyOpts=bikeTypeOpts(_ownOffered(_selSessObj),_commSel);
+    let _tyOpts=bikeTypeOpts(_ownOffered(_selSessObj),_noCarbonSel).filter(ty=>!_regTypeHidden(ty));
+    if(!_tyOpts.length)_tyOpts=bikeTypeOpts(_ownOffered(_selSessObj),_noCarbonSel);
     const typeBtns=_tyOpts.map(ty=>
       `<button class="toggle-btn${selTy===ty?' active':''}" data-type-slot="${i}" data-type="${ty}" onclick="setBikeType(${i},'${ty}')">${typePillLabel(ty)}</button>`
     ).join('');
@@ -7410,7 +7414,7 @@ async function submitReg(){
   // The party cap, restated at submit: the stepper stops at it, but no state path may post past it.
   if(qty>_maxRiders(_selSess0)){S.regQty=_maxRiders(_selSess0);ensureBikeSizes();S._qtyCapNote=!_isGroupRide(_selSess0);
     toast(_isGroupRide(_selSess0)?t('errGroupCap').replace('{0}',String(_maxRiders(_selSess0))):t('jccCapNote').replace('{0}',String(JCC_ACCOUNT_CAP)),'warning');renderRegister();return;}
-  if(_isCommunity(_selSess0))S.regBikeTypes=S.regBikeTypes.map(ty=>ty==='Road Carbon'?'Road':ty); // carbon is off every community ride
+  if(_noCarbon(_selSess0))S.regBikeTypes=S.regBikeTypes.map(ty=>ty==='Road Carbon'?'Road':ty); // carbon is off every community ride but Petromin
   ensureBikeSizes();
   if(!validateRegInputs())return;
   const heights=[];
@@ -7495,7 +7499,7 @@ async function submitReg(){
       waitlistNum:bookingStatus==='waitlist'?_wlBase+i:null,
       id:uid(),name:riderNames[i],email,phone,
       size:(_needsBike(sess)&&heights[i])?heightToSize(heights[i]):'',height:_needsBike(sess)?(heights[i]||null):null,
-      typePreference:!_needsBike(sess)?'None':(_isCommBooking&&S.regBikeTypes[i]==='Road Carbon'?'Any':S.regBikeTypes[i]),paid:false,
+      typePreference:!_needsBike(sess)?'None':(_noCarbon(sess)&&S.regBikeTypes[i]==='Road Carbon'?'Any':S.regBikeTypes[i]),paid:false,
       assignedBikeId:null,sessionId:S.selSession,sessionDay:sess.day,sessionDate:sess.session_date||S.selSession,
       queueNum:baseQNum+i,status:bookingStatus,registeredAt:new Date().toISOString(),walkIn:false,
       customerId:cust.id,price:_isFreeBooking?0:priceForType(S.regBikeTypes[i]), // the Saturday ride is complimentary; the Petromin ride is priced like JCC
@@ -10256,7 +10260,7 @@ async function saveCommAdd(){
   const comm=_isApprovalRide(sess),free=_isFreeRide(sess); // a seat-based ride: real prices, no approval flow
   const groupId=S._caGroup?uid():null; // one shared id = one roster group (buildQueueGroups keys on it)
   const mkEntries=()=>{const base=nextQNum(sess.id);const wlBase=toWaitlist?nextWlNum(sess.id):0;return fresh.map((c,i)=>{
-    const ty=S._caOwn?'Own':(['Own','Road Carbon'].includes(c.type_preference)?'Any':(c.type_preference||'Any')); // Own is comm-only pref, Road Carbon is not offered on the social ride
+    const ty=S._caOwn?'Own':((c.type_preference==='Own'||(c.type_preference==='Road Carbon'&&_noCarbon(sess)))?'Any':(c.type_preference||'Any')); // Own is comm-only pref; Road Carbon only where the ride offers it
     return{id:uid(),name:c.name||'',email:c.email||'',phone:c.phone||'',waitlistNum:toWaitlist?wlBase+i:null,
     size:c.height?heightToSize(Number(c.height)):'',height:c.height||null,
     typePreference:ty,paid:false,assignedBikeId:null,
@@ -10378,7 +10382,7 @@ function showGroupEditModal(entryId){
   if(members.length<2){showBookingEditModal(entryId);return;} // solo row: the normal editor
   S._geIds=members.map(m=>m.id);
   const primary=members[0];
-  const comm=_apprSessIds.has(primary.sessionId),noCarbon=_commSessIds.has(primary.sessionId),free=_freeSessIds.has(primary.sessionId);
+  const comm=_apprSessIds.has(primary.sessionId),noCarbon=_noCarbonSessIds.has(primary.sessionId),free=_freeSessIds.has(primary.sessionId);
   const own=_ownOffered(allSessions().find(x=>x.id===primary.sessionId));
   const mainPhone=(primary.groupPhone||primary.phone||'').trim(); // the responsible person's number when stored
   const open=allSessions().filter(x=>_sessLive(x)&&!_isApprovalRide(x)).sort(_sessOrder);
@@ -11108,7 +11112,7 @@ function showBookingEditModal(entryId){
   const _beSess=allSessions().find(s=>s.id===e.sessionId);
   const _beComm=_isApprovalRide(_beSess); // an approval ride books one rider at a time — no add-riders row
   const _beOwn=_ownOffered(_beSess); // 'Own' is offered on every community ride and the National Day ride
-  const _beNoCarbon=_isCommunity(_beSess); // Road Carbon is hidden on every community ride
+  const _beNoCarbon=_noCarbon(_beSess); // Road Carbon is hidden on every community ride but Petromin
   S._beId=entryId;
   S._beType=S._beType&&S._beRender===entryId?S._beType:(e.typePreference||'Any');
   if(S._beRender===entryId)_beSyncNewRiders();else S._beNewRiders=[];
@@ -11223,7 +11227,7 @@ async function saveBookingEdit(){
     let _wln=rStatus==='waitlist'?nextWlNum(toSessionId):0;
     for(const r of newRiders){
       const ent=_applyDefaultPay({id:uid(),name:r.name,email:e.email||'',phone,size:r.height?heightToSize(r.height):'',height:r.height,waitlistNum:rStatus==='waitlist'?_wln++:null,
-        typePreference:_isCommunity(sessT)&&r.type==='Road Carbon'?'Any':r.type,paid:false,assignedBikeId:null,sessionId:toSessionId,
+        typePreference:_noCarbon(sessT)&&r.type==='Road Carbon'?'Any':r.type,paid:false,assignedBikeId:null,sessionId:toSessionId,
         sessionDay:moving?patch.session_day:e.sessionDay,sessionDate:moving?patch.session_date:e.sessionDate,
         queueNum:qn,status:rStatus,registeredAt:new Date().toISOString(),walkIn:!!e.walkIn,
         customerId:e.customerId||null,groupId,groupName:e.groupName||null,groupContact:e.groupContact||null,groupPhone:e.groupPhone||null,price:_isFreeRide(sessT)?0:priceForType(r.type),
@@ -15415,7 +15419,7 @@ function renderCheckinModal(){
           ${payBtn('house',' '+t('onTheHouseLabel'))}
         </div></div>`}
       ${(_bikeless||(S._ciBike&&S._ciBike.bike))?'':`<div class="form-group" style="margin:8px 0 12px"><label>${t('bikeTypeLabel')}</label>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${bikeTypeOpts(_ownOffered(allSessions().find(x=>x.id===e.sessionId)),comm).map(tyBtn).join('')}</div></div>`}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${bikeTypeOpts(_ownOffered(allSessions().find(x=>x.id===e.sessionId)),_noCarbonSessIds.has(e.sessionId)).map(tyBtn).join('')}</div></div>`}
       <div style="display:flex;gap:6px;margin-top:10px">
         <button type="button" class="btn-sm btn-muted" onclick="_ciNoShow()">${t('noShowBtn')}</button>
         <button type="button" class="btn-sm btn-red" onclick="_ciCancelBooking()">${t('cancelBookingLabel')}</button>

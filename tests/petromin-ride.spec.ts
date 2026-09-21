@@ -130,18 +130,24 @@ test.describe('it behaves like a circuit session, not like the Saturday ride', (
     expect(rows[0].price).toBe(0);
   });
 
-  test('the bike-type menu: Own on both rides, Road Carbon on neither', async ({ page }) => {
+  test('the bike-type menu: Own on both rides, Road Carbon on Petromin only', async ({ page }) => {
     await bootMember(page);
     await pickRide(page, 'ev-petromin', '2099-01-13-pw');
     await page.evaluate(`S.regStep=2;renderRegister()`);
-    const types = await page.evaluate(`Array.from(document.querySelectorAll('[data-type-slot="0"]')).map(b=>b.dataset.type)`);
-    expect(types).toContain('Own');            // owners are welcome
-    expect(types).not.toContain('Road Carbon'); // carbon bikes do not go out on a community ride
-    expect(await page.evaluate(`bikeTypeOpts(false,false)`)).toContain('Road Carbon'); // ...but they do at the circuit
+    const petro = await page.evaluate(`Array.from(document.querySelectorAll('[data-type-slot="0"]')).map(b=>b.dataset.type)`);
+    expect(petro).toContain('Own');              // owners are welcome
+    expect(petro).toContain('Road Carbon');      // carbon bikes go out on the Petromin ride (2026-09-21)
+    await page.evaluate(`S.regStep=1;renderRegister()`); // back to the ride list
+    await pickRide(page, 'ev-saturday', '2099-01-10');
+    await page.evaluate(`S.regStep=2;renderRegister()`);
+    const sat = await page.evaluate(`Array.from(document.querySelectorAll('[data-type-slot="0"]')).map(b=>b.dataset.type)`);
+    expect(sat).toContain('Own');
+    expect(sat).not.toContain('Road Carbon');     // ...but not on the social ride
+    expect(await page.evaluate(`bikeTypeOpts(false,false)`)).toContain('Road Carbon'); // the circuit keeps them
     expect(await page.evaluate(`bikeTypeOpts(false,false)`)).not.toContain('Own');
   });
 
-  test('a stale client asking for carbon on the paid ride is coerced, not charged for it', async ({ page }) => {
+  test('carbon on the Petromin ride is booked as carbon at 250; the social ride still coerces it', async ({ page }) => {
     await bootMember(page);
     const rows = await captureBookingRows(page);
     await page.evaluate(
@@ -149,7 +155,15 @@ test.describe('it behaves like a circuit session, not like the Saturday ride', (
        S.regRiderNames=['Spec Rider']; S.promoApplied=null; submitReg();`,
     );
     await expect.poll(() => rows.length).toBe(1);
-    expect(rows[0].type_preference).not.toBe('Road Carbon'); // the DB trigger backstops this too
+    expect(rows[0].type_preference).toBe('Road Carbon');
+    expect(rows[0].price).toBe(250);
+    // A stale client asking for carbon on the Saturday ride is still coerced (the DB trigger too).
+    await page.evaluate(
+      `S.selSession='2099-01-10'; S.regQty=1; S.regBikeHeights=[175]; S.regBikeTypes=['Road Carbon'];
+       S.regRiderNames=['Spec Rider']; S.promoApplied=null; S.regSubmitting=false; submitReg();`,
+    );
+    await expect.poll(() => rows.length).toBe(2);
+    expect(rows[1].type_preference).not.toBe('Road Carbon');
   });
 
   test('a rider on their own bike takes a place here: a full ride waitlists them too', async ({ page }) => {
@@ -260,6 +274,25 @@ test.describe('staff side', () => {
     expect(html).toContain('#4');                       // the number is real, not hidden
     expect(html).toContain('showPayMenu');             // and so is the fare (its pill holds Edit price too)
     expect(html).not.toContain('apprPendingChip');      // nothing to approve
+  });
+
+  test('staff editing a Petromin booking can pick Road Carbon; on the Saturday ride they cannot', async ({ page }) => {
+    const petro = {
+      id: 'p1', session_id: '2099-01-13-pw', session_day: 'Wednesday', session_date: '2099-01-13',
+      queue_num: 4, name: 'Spec Rider', size: 'M', type_preference: 'Road', status: 'waiting',
+      paid: false, price: 75, registered_at: '2099-01-01T10:00:00Z',
+    };
+    const satBooking = { ...petro, id: 's1b', session_id: '2099-01-10', session_day: 'Saturday', session_date: '2099-01-10', queue_num: 1, price: 0, approval: 'approved' };
+    await stubSupabase(page, { ...fixtures, queue_entries: [petro, satBooking] });
+    await unlockStaff(page);
+    await page.goto('/');
+    await waitForSb(page);
+    const carbon = page.locator(`#booking-edit-modal button[onclick*="S._beType='Road Carbon'"]`);
+    await page.evaluate(`showBookingEditModal('p1')`);
+    await expect(carbon).toHaveCount(1);
+    await page.evaluate(`closeBookingEditModal();showBookingEditModal('s1b')`);
+    await expect(page.locator('#booking-edit-modal button[onclick*="S._beType="]').first()).toBeVisible();
+    await expect(carbon).toHaveCount(0);
   });
 
   test('creating one stamps the ride kind, the price rule and a date-proof id', async ({ page }) => {
