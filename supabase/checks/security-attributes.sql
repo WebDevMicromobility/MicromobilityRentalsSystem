@@ -40,7 +40,8 @@ with expected(fname, want_definer, note) as (values
   ('staff_mark_pwd_changed', true,  'writes staff.must_change_pwd'),
   ('my_bookings',            true,  'reads the caller''s own rows past RLS'),
   ('customer_fix_fields',    true,  'reads customers.fix_fields; the table is staff-only'),
-  ('customer_fix_save',      true,  'writes the flagged customers columns and clears the flags'),
+  ('customer_fix_save',      true,  'writes the flagged customers columns, clears the flags, records the history'),
+  ('staff_flag_customer',    true,  'sets fix_fields and writes customer_flags, which nobody may write directly'),
   ('_customer_asks',         true,  'reads customers and queue_entries to decide the check-up; internal only'),
   ('customer_oauth_login',   true,  'reads customers by email or apple_email'),
   ('_customer_email_alias',  true,  'trigger: reads other customers rows to keep the two email columns apart'),
@@ -48,6 +49,8 @@ with expected(fname, want_definer, note) as (values
   ('community_member',       true,  'reads customer_tags'),
   ('_staff_ref_broadcast',   true,  'inserts into realtime.messages whoever made the change'),
   -- Invoker on purpose: pure logic, no privileged read.
+  ('_name_chars_ok',         false, 'pure regex test, no read'),
+  ('_customer_name_ok',      false, 'name-rule trigger; is_staff() does its own privileged read'),
   ('_capacity_guard',        false, 'counts rows already visible in its calling context'),
   ('_comm_no_carbon',        false, 'inspects NEW only'),
   ('_wl_num_assign',         false, 'inspects NEW + same-session rows'),

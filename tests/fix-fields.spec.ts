@@ -145,9 +145,15 @@ async function accounts(page: Page) {
   await page.evaluate(`setStaffTab('community');S.communityTab='accounts';renderCommunity()`);
   return gets;
 }
+// A flag is written by staff_flag_customer now (it keeps the history row in step), so read what
+// the RPC was asked to store, in the shape the column takes: the fields, or null when cleared.
 function patches(page: Page) {
   const bodies: Record<string, unknown>[] = [];
-  page.on('request', r => { if (r.method() === 'PATCH' && /rest\/v1\/customers/.test(r.url())) bodies.push(JSON.parse(r.postData() || '{}')); });
+  page.on('request', r => {
+    if (r.method() !== 'POST' || !/rest\/v1\/rpc\/staff_flag_customer/.test(r.url())) return;
+    const b = JSON.parse(r.postData() || '{}');
+    bodies.push({ fix_fields: b.p_fields && b.p_fields.length ? b.p_fields : null });
+  });
   return bodies;
 }
 
