@@ -304,6 +304,7 @@ export async function staffReady(page: Page) {
 
 /** Go to a staff section the way a person would, on either viewport. */
 export async function goStaffTab(page: Page, tab: string) {
+  await staffReady(page); // straight after goto the burger may not be painted yet, and a phone would skip it
   const burger = page.locator('#snav-burger');
   if (await burger.isVisible()) await burger.click();
   await page.locator(`#staff-tab-nav .tab-btn[data-stab="${tab}"]`).click();

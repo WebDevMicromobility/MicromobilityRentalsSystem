@@ -275,7 +275,7 @@ test.describe('stock room', () => {
   test('the sort menu is labelled with a key that exists', async ({ page }) => {
     await boot(page);
     await page.evaluate(`S.invSection = 'supplements'; setStaffTab('inventory'); renderInventory();`);
-    await expect(page.locator('#tab-inventory select.filter-select')).toHaveAttribute('aria-label', 'Sort by');
+    await expect(page.locator('#tab-inventory select.filter-select').first()).toHaveAttribute('aria-label', 'Sort by'); // the Filter panel's own dropdowns follow it
   });
 });
 

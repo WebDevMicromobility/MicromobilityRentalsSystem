@@ -79,7 +79,7 @@ test('the Riders tab lists every registration with its number, company, phone an
   await expect(r1).toContainText('Petrolube');
   await expect(r1).toContainText('Submitted 2 times');
   await expect(r2).toContainText('C-56');
-  await expect(page.locator('#pm-host select.filter-select')).toContainText('(3)');
+  await expect(page.locator('#pm-host select.filter-select[aria-label="Session"]')).toContainText('(3)');
 
   // Pill counts reflect the whole list, not the current filter.
   await expect(pill(page, 'All')).toContainText('3');

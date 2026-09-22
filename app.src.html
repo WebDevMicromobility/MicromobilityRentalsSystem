@@ -3886,10 +3886,10 @@ function _searchHit(e,q){
     // A numeric query is a booking number (from the first digit), part of a phone, or —
     // for 4+ digits — a raw booking id that happens to carry no letters. _matchesRef needs
     // 4 characters, so a short number can never be dragged into an id match by this.
-    return _rowNum(e,s).startsWith(n)||String(e.phone||'').includes(n)||_matchesRef(e,s)||_bikeHit(e,s);
+    return _rowNum(e,s).startsWith(n)||_phoneHit(e.phone,n)||_matchesRef(e,s)||_bikeHit(e,s);
   }
   return String(e.name||'').toLowerCase().includes(s)
-    ||String(e.phone||'').includes(s)
+    ||_phoneHit(e.phone,s)
     ||String(e.email||'').toLowerCase().includes(s)
     ||(_isRelay(e.email)&&String(_bookEmail(e)).toLowerCase().includes(s))
     ||_matchesRef(e,s)
@@ -3932,7 +3932,9 @@ function _mountSearchClears(){
       b.innerHTML=_artIcon('close',11);
       b.addEventListener('mousedown',e=>e.preventDefault()); // keep the field focused
       b.addEventListener('click',()=>{
-        inp.focus(); // focused first so the screen keeps its results-only refresh path
+        // On a phone × also folds a page search back into its button
+        if(w.classList.contains('srch-fold')&&_srchPhone())_srchClose(w,inp);
+        else inp.focus(); // focused first so the screen keeps its results-only refresh path
         inp.value='';
         inp.dispatchEvent(new Event('input',{bubbles:true}));
         b.style.display='none';
@@ -3957,6 +3959,110 @@ try{
     if(m)_mo.observe(m,{childList:true,subtree:true});
     _mountSearchClears();
   });
+}catch(e){}
+// ── Filter button and folded search ───────────────────────────────────────
+// Every view's filter dropdowns sit behind one Filter button, closed until staff open it; the
+// button counts the filters that are on, so a folded filter is never a forgotten one. On a
+// phone a page's search bar folds into a search button. S._fOpen / S._srchOpen keep both open
+// across the view's own re-renders.
+function _fBtn(key,nOn){
+  const open=!!(S._fOpen||{})[key];
+  return`<button type="button" class="btn-sm ${nOn?'btn-green':'btn-muted'} filter-toggle" aria-expanded="${open}" aria-controls="fm-${key}" onclick="_fToggle(this,${_ja(key)})">${_artIcon('filter',13)} ${t('sfFiltersBtn')}${nOn?` (${nOn})`:''}</button>`;
+}
+function _fPanel(key,fields){return`<div id="fm-${key}" class="filter-more${(S._fOpen||{})[key]?' open':''}">${fields}</div>`;}
+// A dropdown keeps its name beside it however the panel wraps
+function _fField(label,sel){return`<label class="filter-field"><span class="filter-field-lbl">${label}</span>${sel}</label>`;}
+function _fToggle(btn,key){
+  const o=S._fOpen=S._fOpen||{};o[key]=!o[key];
+  btn.setAttribute('aria-expanded',String(o[key]));
+  const p=document.getElementById('fm-'+key);if(p)p.classList.toggle('open',o[key]);
+}
+function _srchPhone(){return matchMedia('(max-width:767px)').matches;}
+// The wrapper's classes: a search with text in it, or one staff opened, stays open
+function _srchCls(key,val){return'search-wrap srch-fold'+(val||(S._srchOpen||{})[key]?' open':'');}
+function _srchBtn(){return`<button type="button" class="srch-btn" aria-label="${esc(t('searchWord'))}" title="${esc(t('searchWord'))}" onclick="_srchOpenBtn(this)">${_artIcon('search',16)}</button>`;}
+function _srchOpenBtn(btn){
+  const w=btn.closest('.srch-fold');if(!w)return;
+  w.classList.add('open');(S._srchOpen=S._srchOpen||{})[w.dataset.srch]=1;
+  const i=w.querySelector('input');if(i)i.focus(); // inside the tap, so a phone raises its keyboard
+}
+function _srchClose(w,inp){
+  w.classList.remove('open');if(S._srchOpen)delete S._srchOpen[w.dataset.srch];
+  if(inp)inp.blur();
+}
+// ── Every staff table sorts by any column ─────────────────────────────────
+// Tap a column's name to sort by it, tap again to reverse. Tables that sort their own data (the
+// Queue, History, Riders, the bike picker: their headers carry onclick) keep doing so; tables
+// holding inputs, or whose rows hang together, are left alone. Mounted like the search ×, after
+// every re-render, which puts the chosen order back on the fresh rows.
+const _tsState=new Map();let _tsT=null;
+const _tsColl=new Intl.Collator(undefined,{numeric:true,sensitivity:'base'});
+const _TS_MON={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,sept:8,oct:9,nov:10,dec:11};
+function _tsWidth(row){let n=0;for(const c of row.cells)n+=c.colSpan||1;return n;}
+function _tsOk(tbl){
+  if(tbl.getAttribute('role')==='presentation'||tbl.hasAttribute('data-nosort')||tbl.closest('.pv-tw'))return false;
+  const h=tbl.tHead;if(!h||h.rows.length!==1||tbl.tBodies.length!==1)return false;
+  const hr=h.rows[0];if(!hr.cells.length||[...hr.cells].some(c=>c.hasAttribute('onclick')))return false;
+  const rows=[...tbl.tBodies[0].rows];if(rows.length<2)return false;
+  const w=_tsWidth(hr);
+  return rows.every(r=>_tsWidth(r)===w&&![...r.cells].some(c=>c.rowSpan>1))&&!tbl.tBodies[0].querySelector('input,select,textarea');
+}
+function _tsKey(tbl){const host=tbl.closest('[id]');return (host?host.id:'')+'|'+[...tbl.tHead.rows[0].cells].map(c=>c.textContent.trim()).join('|');}
+function _tsCellAt(row,col){let i=0;for(const c of row.cells){const w=c.colSpan||1;if(col<i+w)return c;i+=w;}return null;}
+// A cell's value: numbers (SAR 30, 1,200, #12, 45%) and dates (2026-09-22, 22 Sept 2026) as
+// numbers, anything else as text in natural order (P-2 before P-10); blanks go last.
+function _tsVal(cell){
+  const raw=(cell?(cell.dataset.sort!=null?cell.dataset.sort:cell.textContent):'').replace(/\s+/g,' ').trim();
+  if(!raw||raw==='—'||raw==='-'||raw==='·')return{e:1};
+  const a=_asciiDigits(raw),n=a.replace(/^(SAR|ر\.س\.?)\s*/i,'').replace(/[,\s]/g,'').replace(/%$/,'').replace(/^#/,'');
+  if(/^[-+]?\d+(\.\d+)?$/.test(n))return{n:parseFloat(n)};
+  let m=a.match(/^(\d{4})-(\d{2})-(\d{2})/);if(m)return{n:Date.UTC(+m[1],+m[2]-1,+m[3])};
+  m=a.match(/(?:^|\s)(\d{1,2}) ([A-Za-z]{3,4})\.? (\d{4})/);
+  if(m&&_TS_MON[m[2].toLowerCase()]!=null)return{n:Date.UTC(+m[3],_TS_MON[m[2].toLowerCase()],+m[1])};
+  return{s:raw};
+}
+function _tsCmp(x,y){
+  if(x.n!=null&&y.n!=null)return x.n-y.n;
+  if(x.n!=null)return -1;if(y.n!=null)return 1;
+  return _tsColl.compare(x.s,y.s);
+}
+function _tsHead(tbl,st){
+  let i=0;
+  for(const c of tbl.tHead.rows[0].cells){
+    if(!c.classList.contains('th-sort')){c.classList.add('th-sort');c.tabIndex=0;}
+    c.setAttribute('aria-sort',st&&st.col===i?(st.dir===1?'ascending':'descending'):'none');
+    i+=c.colSpan||1;
+  }
+}
+function _tsApply(tbl,st){
+  const body=tbl.tBodies[0];
+  const rows=[...body.rows].map((r,i)=>({r,i,v:_tsVal(_tsCellAt(r,st.col))}));
+  rows.sort((a,b)=>(a.v.e?1:0)-(b.v.e?1:0)||(a.v.e?0:st.dir*_tsCmp(a.v,b.v))||a.i-b.i);
+  rows.forEach(x=>body.appendChild(x.r));
+  body._tsDone=st;body._tsFirst=body.rows[0];body._tsN=body.rows.length; // a refresh of the rows alone brings new ones
+}
+function _mountTableSorts(){
+  if(!document.body.classList.contains('view-staff'))return;
+  document.querySelectorAll('table').forEach(tbl=>{
+    if(!_tsOk(tbl))return;
+    const st=_tsState.get(_tsKey(tbl));
+    _tsHead(tbl,st);
+    const b=tbl.tBodies[0];
+    if(st&&(b._tsDone!==st||b._tsFirst!==b.rows[0]||b._tsN!==b.rows.length))_tsApply(tbl,st);
+  });
+}
+function _tsClick(th){
+  const tbl=th.closest('table');if(!tbl||!_tsOk(tbl))return;
+  let col=0;for(const c of th.parentNode.cells){if(c===th)break;col+=c.colSpan||1;}
+  const key=_tsKey(tbl),cur=_tsState.get(key);
+  const st={col,dir:cur&&cur.col===col?-cur.dir:1};
+  _tsState.set(key,st);_tsHead(tbl,st);_tsApply(tbl,st);
+}
+document.addEventListener('click',e=>{const th=e.target.closest&&e.target.closest('th.th-sort');if(th)_tsClick(th);});
+document.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const th=e.target.closest&&e.target.closest('th.th-sort');if(th){e.preventDefault();_tsClick(th);}});
+try{
+  const _tsMo=new MutationObserver(()=>{clearTimeout(_tsT);_tsT=setTimeout(_mountTableSorts,80);});
+  document.addEventListener('DOMContentLoaded',()=>{_tsMo.observe(document.body,{childList:true,subtree:true});_mountTableSorts();});
 }catch(e){}
 function _debRender(key,fn,ms){if(_debTimers[key])clearTimeout(_debTimers[key]);_debTimers[key]=setTimeout(()=>{_debTimers[key]=null;try{fn();}catch(e){}},ms||160);}
 function fmtPhone(p){
@@ -4640,6 +4746,36 @@ function fmtPhoneInput(el){
 // alone used to be the only rule, and "Ahmed" never matched "Ahmed Khoja": the booking carried no
 // customer_id, and My Bookings shows a customer only the rows that carry theirs.
 function _phoneKey(p){const d=_asciiDigits(String(p==null?'':p)).replace(/\D/g,'');return d.length>=9?d.slice(-9):'';}
+// ── Phone search: 05… finds +9665… ───────────────────────────────────────
+// Staff type a number the way a rider says it: 05x, 5x, +966 5x or 00966 5x. A saved number is
+// tried in all of those shapes, so every search box finds +966564… from "0564" and 0564… from
+// "+966564". Other countries the same way: +20 10… is found from 010…
+let _ccDigitsList=null;const _phoneFormsMemo=new Map();
+function _phoneForms(p){
+  const raw=_asciiDigits(String(p==null?'':p)).trim();
+  if(_phoneFormsMemo.has(raw))return _phoneFormsMemo.get(raw);
+  let d=raw.replace(/\D/g,'');const out=[];
+  if(d){
+    const intl=/^(\+|00)/.test(raw)||(d.length>=11&&d[0]!=='0');
+    if(d.startsWith('00'))d=d.slice(2);
+    out.push(d);
+    if(intl){
+      if(!_ccDigitsList)_ccDigitsList=[...new Set(COUNTRY_CODES.map(c=>c[0].replace(/\D/g,'')))].sort((a,b)=>b.length-a.length);
+      const cc=_ccDigitsList.find(c=>d.startsWith(c));
+      if(cc){const n=d.slice(cc.length).replace(/^0/,'');out.push(n,'0'+n);}
+    }else if(d[0]==='0'){const n=d.slice(1);out.push(n,'966'+n);} // national 05x: the home country's
+    else out.push('0'+d,'966'+d);                                      // a bare local 5x
+  }
+  _phoneFormsMemo.set(raw,out);
+  return out;
+}
+/** Does saved phone `p` contain the number typed in `q`? A query with letters in it never does. */
+function _phoneHit(p,q){
+  const s=_asciiDigits(String(q==null?'':q)).trim();
+  if(!s||/[^\d\s+().\-]/.test(s))return false;
+  const qd=s.replace(/\D/g,'').replace(/^00/,'');
+  return !!qd&&_phoneForms(p).some(f=>f.includes(qd));
+}
 function _linkCustomer(name,phone,email){
   const cs=S.customers||[];
   const nm=String(name||'').trim().toLowerCase();
@@ -6517,7 +6653,7 @@ function _mwAddableCustomers(q,skipNames){
   return (S.customers||[]).filter(c=>{
     const nm=String(c.name||'').trim().toLowerCase();
     if(!nm||onList.has(nm)||skipNames.has(nm))return false;
-    return nm.includes(q)||String(c.phone||'').includes(q);
+    return nm.includes(q)||_phoneHit(c.phone,q);
   }).slice(0,6);
 }
 function _mwSuggestHtml(){
@@ -6884,11 +7020,7 @@ function renderManagedWl(listOnly){
       </div>
     </div>
     <div style="display:flex;gap:6px;margin-top:10px;max-width:760px;flex-wrap:wrap;align-items:center">
-      <select id="mw-sess" class="filter-select" style="min-width:190px;flex-shrink:0" aria-label="${esc(t('colSession'))}"
-        onchange="mwSetSess(this.value)">
-        <option value="all"${(S._mwSess||'all')==='all'?' selected':''}>${t('allSessions')}</option>
-        ${_mwSessOpts().map(x=>`<option value="${esc(x.id)}"${S._mwSess===x.id?' selected':''}>${esc(_evNamed(x)?_evName(x)+' \u00b7 ':'')}${esc(dayLabel(x.day))} ${esc(shortDate(x.session_date||x.id))}</option>`).join('')}
-      </select>
+      ${_fBtn('mw',(S._mwSess||'all')!=='all'?1:0)}
       <input id="mw-name" type="text" maxlength="60" placeholder="${esc(t('mwSearchPh'))}" value="${esc(S._mwQ||'')}" style="flex:1;min-width:160px"
         oninput="mwSearch(this.value)" onkeydown="if(event.key==='Enter')mwEnter()">
       <input id="mw-phone" type="tel" placeholder="05\u2026" value="${esc(S._mwPh||'')}" style="width:130px;flex-shrink:0" oninput="S._mwPh=this.value" onkeydown="if(event.key==='Enter')addManagedWl()">
@@ -6897,6 +7029,12 @@ function renderManagedWl(listOnly){
       <button class="btn-secondary" style="flex-shrink:0" onclick="showWlAddModal()" title="${esc(t('wlAddBtn'))}">${_artIcon('person',12)} ${t('wlAddBtn')}</button>
     </div>
     <div id="mw-suggest" class="mw-suggest" style="display:none"></div>
+    <div style="max-width:760px;margin-top:8px">${_fPanel('mw',_fField(t('colSession'),`
+      <select id="mw-sess" class="filter-select" aria-label="${esc(t('colSession'))}"
+        onchange="mwSetSess(this.value)">
+        <option value="all"${(S._mwSess||'all')==='all'?' selected':''}>${t('allSessions')}</option>
+        ${_mwSessOpts().map(x=>`<option value="${esc(x.id)}"${S._mwSess===x.id?' selected':''}>${esc(_evNamed(x)?_evName(x)+' \u00b7 ':'')}${esc(dayLabel(x.day))} ${esc(shortDate(x.session_date||x.id))}</option>`).join('')}
+      </select>`))}</div>
     <div id="mw-list" style="margin-top:14px;display:flex;flex-direction:column;gap:8px;max-width:900px">${listHtml}</div>`;
   _mwRenderSuggest(); // a background refresh rebuilds this host: put the open picker back
 }
@@ -10097,6 +10235,7 @@ const _ART={
   key:'<circle opacity=".35" cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2.2"/><path d="m11.5 11.5 2-2L22 18v3h-3l-2.2-2.2v-2.3h-2.3l-3-3Z"/>',
   phone:'<path d="M7.6 2.8c.7-.4 1.6-.1 2 .6l1.6 3a1.5 1.5 0 0 1-.4 1.9l-1.5 1.2a13.4 13.4 0 0 0 5.2 5.2l1.2-1.5a1.5 1.5 0 0 1 1.9-.4l3 1.6c.7.4 1 1.3.6 2l-1 2c-.4.8-1.3 1.3-2.2 1.1C12 18.9 5.1 12 3.5 5.9c-.2-.9.3-1.8 1.1-2.2l3-1Z"/>',
   whatsapp:'<path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>',
+  filter:'<path opacity=".35" d="M9.5 12.2h5v7.4l-5 2.4v-9.8Z"/><path d="M2.5 3.5h19v2.2l-7 7.2h-5l-7-7.2V3.5Z"/>',
   search:'<circle opacity=".35" cx="10.5" cy="10.5" r="6.5"/><path d="M10.5 6.5a4 4 0 0 1 4 4h-2a2 2 0 0 0-2-2v-2Zm5.6 8.1 5 5-1.5 1.5-5-5a7 7 0 0 0 1.5-1.5Z"/>',
   bike:'<circle opacity=".35" cx="5.5" cy="16.5" r="4"/><circle opacity=".35" cx="18.5" cy="16.5" r="4"/><path d="M9.8 7h4.6v1.6h-1.5l3.2 5.4a2.5 2.5 0 1 1-1.4.8l-1.1-1.9-3.2 3.9a2.5 2.5 0 1 1-1.2-1l3.6-4.4-1.5-2.5-1.5.1V7Z"/>',
   cart:'<path opacity=".35" d="M1.5 3h3.3l.7 3H21a1 1 0 0 1 1 1.2l-1.4 6A1.6 1.6 0 0 1 19 14.5H8.4L7 8 6.1 5H1.5V3Z"/><path d="M8.6 16.4h11v2h-11zM8 22.5a1.8 1.8 0 1 1 0-3.6 1.8 1.8 0 0 1 0 3.6Zm10 0a1.8 1.8 0 1 1 0-3.6 1.8 1.8 0 0 1 0 3.6Z"/>',
@@ -10503,6 +10642,8 @@ function renderSessions(){
 
   let sessList=sessions.filter(s=>s.status!=='deleted');
   if(S.sessStatusFilter!=='all') sessList=sessList.filter(s=>s.status===S.sessStatusFilter);
+  const _sessLocs=[...new Set(sessions.filter(s=>s.status!=='deleted').map(s=>String(s.location||'').trim()).filter(Boolean))].sort();
+  if(S.sessLocFilter&&S.sessLocFilter!=='all') sessList=sessList.filter(s=>String(s.location||'').trim()===S.sessLocFilter);
   const _sd=S.sessSortDir;
   const _bySession=_qBySession();
   const _sessBooked=id=>(_bySession.get(id)||[]).filter(e=>e.status!=='noshow'&&e.status!=='cancelled').length;
@@ -10640,11 +10781,10 @@ function renderSessions(){
     ${addForm}
     ${editForm}
     <div class="filter-bar">
-      <div class="filter-row">
-        <span class="filter-label">${t('filterStatus')}:</span>
-        <select class="filter-select" onchange="setSessStatusFilter(this.value)" aria-label="${esc(t('filterStatus'))}">${sessStatusOpts}</select>
-        <select class="filter-select" onchange="setSessSort(this.value)" aria-label="${t('colDate')}">${sessSortOpts}</select>
-      </div>
+      <div class="filter-row">${_fBtn('sess',[S.sessStatusFilter,S.sessLocFilter].filter(v=>v&&v!=='all').length)}</div>
+      ${_fPanel('sess',_fField(t('filterStatus'),`<select class="filter-select" onchange="setSessStatusFilter(this.value)" aria-label="${esc(t('filterStatus'))}">${sessStatusOpts}</select>`)
+        +(_sessLocs.length>1?_fField(t('ticketLocation'),`<select class="filter-select" onchange="S.sessLocFilter=this.value;renderSessions()" aria-label="${esc(t('ticketLocation'))}">${['all',..._sessLocs].map(v=>`<option value="${esc(v)}"${(S.sessLocFilter||'all')===v?' selected':''}>${v==='all'?t('filterAll'):esc(v)}</option>`).join('')}</select>`):'')
+        +_fField(t('sortBy'),`<select class="filter-select" onchange="setSessSort(this.value)" aria-label="${esc(t('sortBy'))}">${sessSortOpts}</select>`))}
       ${(()=>{const _nd=sessions.filter(s=>s.status!=='deleted').length;return sessList.length!==_nd?`<div class="result-count">${sessList.length} ${t('resultOf')} ${_nd} ${t('resultSessions')}</div>`:'';})()}
     </div>
     ${sessTwoPane}
@@ -11344,7 +11484,7 @@ function _caToggleSel(id){
 function _caRows(){
   const q=(S._caSearch||'').trim().toLowerCase();
   const list=(S.customers||[])
-    .filter(c=>!q||[c.name,c.email,c.phone].some(v=>String(v||'').toLowerCase().includes(q)))
+    .filter(c=>!q||[c.name,c.email].some(v=>String(v||'').toLowerCase().includes(q))||_phoneHit(c.phone,q))
     .slice(0,q?30:8);
   const satTag=(S.tags||[]).find(tg=>tg.id==='tag_saturday');
   return list.map(c=>{
@@ -12537,8 +12677,7 @@ function closeWalkinModal(){const m=document.getElementById('walkin-modal');if(m
 // without an account. Typing again lets the id go.
 function _wiCustMatches(q){
   const sq=String(q||'').trim().toLowerCase();if(!sq)return[];
-  const pk=_phoneKey(q);
-  return (S.customers||[]).filter(c=>String(c.name||'').toLowerCase().includes(sq)||(pk&&_phoneKey(c.phone)&&_phoneKey(c.phone).includes(pk))||String(c.email||'').toLowerCase().includes(sq)).slice(0,8);
+  return (S.customers||[]).filter(c=>String(c.name||'').toLowerCase().includes(sq)||_phoneHit(c.phone,sq)||String(c.email||'').toLowerCase().includes(sq)).slice(0,8);
 }
 function _wiNameInput(v){S._wiCustId=null;_wiRenderSuggest(v);}
 function _wiRenderSuggest(v){
@@ -13167,6 +13306,7 @@ function renderStaffQueue(_resultsOnly){
     if(S.sfBike==='rental')filtered=filtered.filter(e=>!_isOwnBike(e));
     if(['Road','Mountain','Hybrid','Kids'].includes(S.sfBike))filtered=filtered.filter(e=>(e.typePreference||'Any')===S.sfBike);
   }
+  if(_commQueueView()&&S.sfMember&&S.sfMember!=='all')filtered=filtered.filter(e=>_isSatMember(e)===(S.sfMember==='yes'));
   // Search matches by the shared rule (booking number from its first digit, W-position,
   // name, phone, email, scanned ref) and then widens to whole parties: a rider found by
   // number brings the people they booked with, so nobody hands out three of four bikes.
@@ -13181,12 +13321,19 @@ function renderStaffQueue(_resultsOnly){
     if(S.sfSort==='type'&&_qc.bike)   return _sfd*resolvedType(a).localeCompare(resolvedType(b));
     if(S.sfSort==='paid'&&_qc.money)  return _sfd*(Number(a.paid)-Number(b.paid));
     if(S.sfSort==='status') return _sfd*(a.status||'').localeCompare(b.status||'');
+    if(S.sfSort==='member'&&_commQueueView()) return _sfd*(Number(_isSatMember(a))-Number(_isSatMember(b)));
+    if(S.sfSort==='height'&&_qc.bike) return _sfd*((Number(a.height)||0)-(Number(b.height)||0));
+    if(S.sfSort==='session') return _sfd*(String(a.sessionDate||a.sessionId).localeCompare(String(b.sessionDate||b.sessionId))||a.queueNum-b.queueNum);
+    if(S.sfSort==='bike'&&_qc.bike) return _sfd*_bikeNamesOf(a).localeCompare(_bikeNamesOf(b),undefined,{numeric:true});
+    if(S.sfSort==='price'&&_qc.money) return _sfd*((a.price??DEFAULT_PRICE)-(b.price??DEFAULT_PRICE));
+    if(S.sfSort==='phone') return _sfd*String(entryPhone(a)||'').localeCompare(String(entryPhone(b)||''));
     // Saturday Social Ride rows order by WHEN the spot was reserved (first come, first
     // listed); JCC keeps queue-number order.
     if(a.sessionId===b.sessionId&&_apprSessIds.has(a.sessionId))
       return _sfd*((new Date(a.registeredAt||0)-new Date(b.registeredAt||0))||(a.queueNum-b.queueNum));
     return _sfd*(a.sessionId.localeCompare(b.sessionId)||a.queueNum-b.queueNum);
   });
+  function _bikeNamesOf(e){try{return getAssignedBikes(e).map(x=>x.name||'').join(' ');}catch(_){return'';}}
   function thQSort(col,label,cls=''){
     const active=S.sfSort===col;
     const arrow=active?(S.sfSortDir===1?'↑':'↓'):'';
@@ -13740,30 +13887,25 @@ function renderQRow(e){
     })()}
     <div class="filter-bar">
       <div class="filter-row">
-        <span class="filter-label">${t('colSession')}:</span>
-        <select class="filter-select" style="min-width:160px" onchange="setSfSession(this.value)" aria-label="${esc(t('colSession'))}">${qSessOpts}</select>
-        ${(()=>{const nOn=[S.sfStatus!=='all',S.sfPay&&S.sfPay!=='all',S.sfBike&&S.sfBike!=='all',S.sfSize&&S.sfSize!=='all'].filter(Boolean).length;
-          return `<button type="button" class="btn-sm ${nOn?'btn-green':'btn-muted'} filter-toggle" aria-expanded="${S.sfFiltersOpen?'true':'false'}" onclick="S.sfFiltersOpen=!S.sfFiltersOpen;renderStaffQueue()">${t('sfFiltersBtn')}${nOn?` (${nOn})`:''}</button>`;})()}
-        <div class="filter-more${S.sfFiltersOpen?' open':''}">
-        <span class="filter-label" style="margin-left:8px">${t('filterStatus')}:</span>
-        <select class="filter-select" onchange="setSfStatus(this.value)" aria-label="${esc(t('filterStatus'))}">${qStatusOpts}</select>
-        ${_qc.money?`<span class="filter-label" style="margin-left:8px">${t('filterPay')}:</span>
-        <select class="filter-select" onchange="setSfPay(this.value)" aria-label="${esc(t('filterPay'))}">${qPayOpts}</select>`:''}
-        ${_qc.bike?`<span class="filter-label" style="margin-left:8px">${t('bikeTypeLabel')}:</span>
-        <select class="filter-select" onchange="setSfBike(this.value)" aria-label="${esc(t('bikeTypeLabel'))}">${qBikeOpts}</select>
-        <span class="filter-label" style="margin-left:8px">${t('filterSize')}:</span>
-        <select class="filter-select" onchange="setSfSize(this.value)" aria-label="${esc(t('filterSize'))}">${qSizeOpts}</select>`:''}
-        </div>
-        <div class="search-wrap" style="margin-left:8px">
+        <div class="${_srchCls('q',S.sfSearch)}" data-srch="q">
           ${_artIcon('search',13)}
           <input id="sf-search-input" class="search-input" aria-label="${esc(t('searchPlaceholder'))}" placeholder="${t('searchPlaceholder')}" value="${esc(S.sfSearch)}"
             oninput="setSfSearch(this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();sfSearchEnter();}">
+          ${_srchBtn()}
         </div>
-        <button class="btn-sm btn-green scan-inline" style="margin-left:8px;display:inline-flex;align-items:center;gap:6px" onclick="openScanModal()" title="${t('scanTitle')}">
+        ${_fBtn('q',[S.sfStatus!=='all',S.sfPay&&S.sfPay!=='all',S.sfBike&&S.sfBike!=='all',S.sfSize&&S.sfSize!=='all',_commQueueView()&&S.sfMember&&S.sfMember!=='all'].filter(Boolean).length)}
+        <button class="btn-sm btn-green scan-inline" style="display:inline-flex;align-items:center;gap:6px" onclick="openScanModal()" title="${t('scanTitle')}">
           ${_artIcon('camera',14)}
           ${t('scanBtn')}
         </button>
       </div>
+      ${_fPanel('q',`
+        ${_fField(t('colSession'),`<select class="filter-select" onchange="setSfSession(this.value)" aria-label="${esc(t('colSession'))}">${qSessOpts}</select>`)}
+        ${_fField(t('filterStatus'),`<select class="filter-select" onchange="setSfStatus(this.value)" aria-label="${esc(t('filterStatus'))}">${qStatusOpts}</select>`)}
+        ${_qc.money?_fField(t('filterPay'),`<select class="filter-select" onchange="setSfPay(this.value)" aria-label="${esc(t('filterPay'))}">${qPayOpts}</select>`):''}
+        ${_qc.bike?_fField(t('bikeTypeLabel'),`<select class="filter-select" onchange="setSfBike(this.value)" aria-label="${esc(t('bikeTypeLabel'))}">${qBikeOpts}</select>`)
+          +_fField(t('filterSize'),`<select class="filter-select" onchange="setSfSize(this.value)" aria-label="${esc(t('filterSize'))}">${qSizeOpts}</select>`):''}
+        ${_commQueueView()?_fField(t('colMember'),`<select class="filter-select" onchange="S.sfMember=this.value;renderStaffQueue()" aria-label="${esc(t('colMember'))}">${[['all',t('filterAll')],['yes',t('memberYes')],['no',t('memberNo')]].map(([v,l])=>`<option value="${v}"${(S.sfMember||'all')===v?' selected':''}>${l}</option>`).join('')}</select>`):''}`)}
       <div class="result-count" id="q-result-count">${filtered.length!==base.length?`${filtered.length} ${t('resultOf')} ${base.length} ${t('resultRiders')}`:''}</div>
     </div>
     <div id="q-results"></div>`;
@@ -13777,15 +13919,15 @@ function renderQRow(e){
       <thead><tr>
         ${thQSort('queue',t('colBookingNum'))}
         ${thQSort('name',t('colRider'))}
-        ${_commQueueView()?`<th>${t('colMember')}</th>`:''}
-        ${_qc.bike?`<th>${t('colHeight')}</th>`:''}
+        ${_commQueueView()?thQSort('member',t('colMember')):''}
+        ${_qc.bike?thQSort('height',t('colHeight')):''}
         ${_qc.bike?thQSort('type',t('bikeTypeLabel')):''}
-        ${S.sfSession==='all'?`<th class="hide-mobile">${t('colSession')}</th>`:'<th class="hide-mobile" style="display:none"></th>'}
-        ${_qc.bike?`<th>${t('colBike')}</th>`:''}
-        ${_qc.money?`<th>${t('colPrice')||'Price'}</th>`:''}
+        ${S.sfSession==='all'?thQSort('session',t('colSession'),'hide-mobile'):'<th class="hide-mobile" style="display:none"></th>'}
+        ${_qc.bike?thQSort('bike',t('colBike')):''}
+        ${_qc.money?thQSort('price',t('colPrice')||'Price'):''}
         ${_qc.money?thQSort('paid',t('colPayment')):''}
         ${thQSort('status',t('colStatus'))}
-        <th style="font-size:10px;color:var(--muted)">${t('colContact')}</th>
+        ${thQSort('phone',t('colContact'))}
         <th>${t('colManageBooking')}</th>
       </tr></thead>
       <tbody id="q-tbody">${rows}${emptyRow}</tbody>
@@ -14764,16 +14906,27 @@ function renderLogs(){
   let list=all;
   if(S._logCat&&S._logCat!=='all')list=list.filter(i=>_logCatOf(i.label)===S._logCat);
   if(S._logOp&&S._logOp!=='all')list=list.filter(i=>i.by===S._logOp);
+  if(S._logDay&&S._logDay!=='all'){
+    const _dayOf=ts=>new Date(ts).toLocaleDateString('en-CA',{timeZone:KSA_TZ});
+    const want=S._logDay==='today'?todayStr():fmtDate(new Date(Date.now()-864e5));
+    list=list.filter(i=>_dayOf(i.ts||0)===want);
+  }
   if(q)list=list.filter(i=>(i.label||'').toLowerCase().includes(q)||(i.by||'').toLowerCase().includes(q));
   S._logExport=list; // stash for CSV export (respects current filters)
   const catPill=(v,l)=>`<button class="filter-pill${(S._logCat||'all')===v?' active':''}" onclick="S._logCat=${_ja(v)};renderLogs()">${l}</button>`;
   const filterBar=`
     <div class="filter-row" style="margin-bottom:8px">${catPill('all',t('filterAll'))}${_LOG_CATS.map(([v,k])=>catPill(v,t(k))).join('')}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
-      <input id="log-search" type="text" value="${esc(S._logSearch||'')}" placeholder="${esc(t('logsSearchPh'))}" oninput="S._logSearch=this.value;_debRender('log',renderLogs)" style="flex:1;min-width:170px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.15);border-radius:4px;padding:8px 12px;color:var(--text);font-family:var(--font-body);font-size:13px;outline:none">
-      ${ops.length>1?`<select class="filter-select" aria-label="${esc(t('logsOperator'))}" onchange="S._logOp=this.value;renderLogs()"><option value="all"${(S._logOp||'all')==='all'?' selected':''}>${t('filterAll')}</option>${ops.map(o=>`<option value="${esc(o)}"${S._logOp===o?' selected':''}>${esc(o)}</option>`).join('')}</select>`:''}
+      <div class="${_srchCls('log',S._logSearch)}" data-srch="log" style="flex:1;min-width:170px">
+        ${_artIcon('search',13)}
+        <input id="log-search" type="text" class="search-input" style="width:100%" aria-label="${esc(t('logsSearchPh'))}" value="${esc(S._logSearch||'')}" placeholder="${esc(t('logsSearchPh'))}" oninput="S._logSearch=this.value;_debRender('log',renderLogs)">
+        ${_srchBtn()}
+      </div>
+      ${_fBtn('log',[S._logOp,S._logDay].filter(v=>v&&v!=='all').length)}
       <button class="btn-secondary" onclick="exportLogsCSV()" style="white-space:nowrap">${t('logsExportBtn')}</button>
-    </div>`;
+    </div>
+    ${_fPanel('log',_fField(t('colDate'),`<select class="filter-select" aria-label="${esc(t('colDate'))}" onchange="S._logDay=this.value;renderLogs()">${[['all',t('filterAll')],['today',t('logToday')],['yesterday',t('logYesterday')]].map(([v,l])=>`<option value="${v}"${(S._logDay||'all')===v?' selected':''}>${l}</option>`).join('')}</select>`)
+      +(ops.length>1?_fField(t('logsOperator'),`<select class="filter-select" aria-label="${esc(t('logsOperator'))}" onchange="S._logOp=this.value;renderLogs()"><option value="all"${(S._logOp||'all')==='all'?' selected':''}>${t('filterAll')}</option>${ops.map(o=>`<option value="${esc(o)}"${S._logOp===o?' selected':''}>${esc(o)}</option>`).join('')}</select>`):''))}`;
   const dayKey=ts=>new Date(ts).toLocaleDateString('en-CA',{timeZone:KSA_TZ});
   const todayK=todayStr(),yestK=fmtDate(new Date(Date.now()-864e5));
   const catColors={pay:'var(--green)',book:'var(--muted)',bike:'var(--muted)',inv:'var(--muted)',auth:'var(--red)',other:'var(--muted)'};
@@ -17943,6 +18096,8 @@ function renderModal(){
     if(S.modalSort==='brand')return[...arr].sort((a,b)=>{const ab=(a.brand||'').toLowerCase(),bb=(b.brand||'').toLowerCase();return d*(ab.localeCompare(bb)||(a.model||'').toLowerCase().localeCompare((b.model||'').toLowerCase()));});
     if(S.modalSort==='type')return[...arr].sort((a,b)=>d*a.type.localeCompare(b.type));
     if(S.modalSort==='size')return[...arr].sort((a,b)=>d*((sizeOrd[a.size]??99)-(sizeOrd[b.size]??99)));
+    if(S.modalSort==='color')return[...arr].sort((a,b)=>d*String(((a.color_names||[]).filter(Boolean).length?a.color_names:a.colors||[]).join(' ')).localeCompare(String(((b.color_names||[]).filter(Boolean).length?b.color_names:b.colors||[]).join(' '))));
+    if(S.modalSort==='groupset')return[...arr].sort((a,b)=>d*(String(a.groupset||'').localeCompare(String(b.groupset||''))||((Number(a.speeds)||0)-(Number(b.speeds)||0))));
     if(S.modalSort==='status')return[...arr].sort((a,b)=>d*((statusOrd[a.status]??99)-(statusOrd[b.status]??99)));
     return[...arr].sort((a,b)=>{const aFree=a.status==='available'?0:1,bFree=b.status==='available'?0:1;const aSz=a.size===rider.size?0:1,bSz=b.size===rider.size?0:1;const aFleet=inFleet(a)?0:1,bFleet=inFleet(b)?0:1;return aFree-bFree||aSz-bSz||aFleet-bFleet||a.name.localeCompare(b.name);});
   };
@@ -18016,8 +18171,8 @@ function renderModal(){
           ${thSort('brand',t('bikeBrand')+' / '+t('bikeModel'))}
           ${thSort('type',t('bikeTypeLabel'))}
           ${thSort('size',t('frameSizeLabel'),';text-align:center')}
-          <th style="${thS}">${t('colColor')}</th>
-          <th style="${thS}">${t('bikeGroupset')} / ${t('bikeSpeeds')}</th>
+          ${thSort('color',t('colColor'))}
+          ${thSort('groupset',t('bikeGroupset')+' / '+t('bikeSpeeds'))}
           ${thSort('status',t('colStatus'))}
         </tr></thead>
         <tbody>${bikes.map(b=>bikeRow(b,altType)).join('')}</tbody>
@@ -18065,18 +18220,16 @@ function renderModal(){
   const filterBar=`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px;padding:8px 10px;background:rgba(var(--tint-rgb),.02);border:1px solid rgba(var(--tint-rgb),.06);border-radius:4px">
     <span style="font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0">${t('mfSize')}</span>
     ${['all',...BIKE_SIZES].map(sz=>`<button onclick="S.modalFilterSize=${_ja(sz)};renderModal()" style="padding:3px 9px;border-radius:3px;border:1.5px solid ${S.modalFilterSize===sz?'rgba(var(--green-rgb),.6)':'rgba(var(--tint-rgb),.1)'};background:${S.modalFilterSize===sz?'rgba(var(--green-rgb),.12)':'transparent'};color:${S.modalFilterSize===sz?'var(--green)':'var(--muted-l)'};font-family:var(--font-body);font-size:11px;font-weight:700;cursor:pointer">${sz==='all'?t('filterAll'):esc(sz)}</button>`).join('')}
-    <span style="font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;margin-left:4px">${t('mfBrand')}</span>
-    <select style="${selStyle}" onchange="S.modalFilterBrand=this.value;S.modalFilterModel='all';renderModal()">
+    ${_fBtn('mf',(S.modalFilterBrand!=='all'?1:0)+(S.modalFilterModel!=='all'?1:0))}
+    ${anyFilterActive?`<button onclick="S.modalSort='default';S.modalSortDir=1;S.modalFilterSize='all';S.modalFilterBrand='all';S.modalFilterModel='all';renderModal()" style="margin-left:auto;padding:3px 10px;border-radius:3px;border:1px solid rgba(255,100,100,.3);background:rgba(255,100,100,.06);color:var(--red);font-family:var(--font-body);font-size:11px;font-weight:700;cursor:pointer">${t('resetFiltersBtn')}</button>`:''}
+  </div>
+  ${_fPanel('mf',_fField(t('mfBrand'),`<select style="${selStyle}" onchange="S.modalFilterBrand=this.value;S.modalFilterModel='all';renderModal()">
       <option value="all"${S.modalFilterBrand==='all'?' selected':''}>${t('filterAll')}</option>
       ${allBrands.map(br=>`<option value="${esc(br)}"${S.modalFilterBrand===br?' selected':''}>${esc(br)}</option>`).join('')}
-    </select>
-    ${brandModels.length?`<span style="font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0">${t('mfModel')}</span>
-    <select style="${selStyle}" onchange="S.modalFilterModel=this.value;renderModal()">
+    </select>`)+(brandModels.length?_fField(t('mfModel'),`<select style="${selStyle}" onchange="S.modalFilterModel=this.value;renderModal()">
       <option value="all"${S.modalFilterModel==='all'?' selected':''}>${t('filterAll')}</option>
       ${brandModels.map(m=>`<option value="${esc(m)}"${S.modalFilterModel===m?' selected':''}>${esc(m)}</option>`).join('')}
-    </select>`:''}
-    ${anyFilterActive?`<button onclick="S.modalSort='default';S.modalSortDir=1;S.modalFilterSize='all';S.modalFilterBrand='all';S.modalFilterModel='all';renderModal()" style="margin-left:auto;padding:3px 10px;border-radius:3px;border:1px solid rgba(255,100,100,.3);background:rgba(255,100,100,.06);color:var(--red);font-family:var(--font-body);font-size:11px;font-weight:700;cursor:pointer">${t('resetFiltersBtn')}</button>`:''}
-  </div>`;
+    </select>`):''))}`;
   const noResults=(!prefBikes.length&&!otherBikes.length)&&(mq||S.modalFilterSize!=='all'||S.modalFilterBrand!=='all'||S.modalFilterModel!=='all')?`<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:13px;font-weight:700">${t('noResultsLabel')}</div>`:'';
   const cards=`${searchBar}${filterBar}${prefSection}${noResults}${otherToggle}`;
 
@@ -18469,6 +18622,11 @@ function renderBikes(_resultsOnly){
     return`<option value="${s}"${S.bkStatus===s?' selected':''}>${l}</option>`;}).join('');
   const bkSizeOpts=['all',...BIKE_SIZES].map(sz=>
     `<option value="${sz}"${S.bkSize===sz?' selected':''}>${sz==='all'?t('filterAll'):sz}</option>`).join('');
+  // Brand and model come from the fleet itself; a model list follows the chosen brand.
+  const _bkBrand=S.bkBrand||'all',_bkModel=S.bkModel||'all';
+  const _uniq=a=>[...new Set(a.filter(Boolean).map(v=>String(v).trim()).filter(Boolean))].sort((x,y)=>x.localeCompare(y,undefined,{numeric:true}));
+  const bkBrandOpts=['all',..._uniq(bikes.map(b=>b.brand))].map(v=>`<option value="${esc(v)}"${_bkBrand===v?' selected':''}>${v==='all'?t('filterAll'):esc(v)}</option>`).join('');
+  const bkModelOpts=['all',..._uniq(bikes.filter(b=>_bkBrand==='all'||String(b.brand||'').trim()===_bkBrand).map(b=>b.model))].map(v=>`<option value="${esc(v)}"${_bkModel===v?' selected':''}>${v==='all'?t('filterAll'):esc(v)}</option>`).join('');
   const bkSearch=S.bkSearch||'';
   const isEdit=!!S.editBikeId;const editBike=isEdit?bikes.find(b=>b.id===S.editBikeId):null;
   const curSize=(isEdit&&editBike)?(S.addBikeSize||editBike.size):S.addBikeSize;
@@ -18691,7 +18849,7 @@ function renderBikes(_resultsOnly){
     if(S.bkTypeFilter!=='all'&&S.bkTypeFilter!==ty) return '';
     // A type with zero bikes ever added gets a compact one-line prompt instead of a full
     // empty header+table, so a fresh fleet doesn't force scrolling past several blank tables.
-    if(!bkSearch&&S.bkStatus==='all'&&S.bkSize==='all'&&!bikes.some(b=>b.type===ty)){
+    if(!bkSearch&&S.bkStatus==='all'&&S.bkSize==='all'&&_bkBrand==='all'&&!bikes.some(b=>b.type===ty)){
       return`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-bottom:1px solid var(--border);margin-bottom:12px">
         <div style="display:flex;align-items:center;gap:10px">
           <div style="width:4px;height:20px;border-radius:3px;background:${color};flex-shrink:0"></div>
@@ -18709,6 +18867,8 @@ function renderBikes(_resultsOnly){
     if(S.bkStatus==='all') typeBikes=typeBikes.filter(b=>b.status!=='retired'&&b.status!=='maintenance');
     else                   typeBikes=typeBikes.filter(b=>b.status===S.bkStatus);
     if(S.bkSize!=='all')   typeBikes=typeBikes.filter(b=>b.size===S.bkSize);
+    if(_bkBrand!=='all')   typeBikes=typeBikes.filter(b=>String(b.brand||'').trim()===_bkBrand);
+    if(_bkModel!=='all')   typeBikes=typeBikes.filter(b=>String(b.model||'').trim()===_bkModel);
     if(bkSearch){
       const q=bkSearch.toLowerCase();
       typeBikes=typeBikes.filter(b=>[b.name,b.brand,b.model,b.groupset,b.size,b.type].some(v=>v&&String(v).toLowerCase().includes(q)));
@@ -18723,6 +18883,10 @@ function renderBikes(_resultsOnly){
       else if(col==='speeds')  v=(a.speeds||0)-(b.speeds||0);
       else if(col==='size')    v=(sizeOrder[a.size]??9)-(sizeOrder[b.size]??9);
       else if(col==='status')  v=(sortOrder[a.status]??9)-(sortOrder[b.status]??9);
+      else if(col==='type')    v=(a.type||'').localeCompare(b.type||'');
+      else if(col==='price')   v=(a.rental_price??-1)-(b.rental_price??-1);
+      else if(col==='color')   v=String(((a.color_names||[]).filter(Boolean).length?a.color_names:a.colors||[]).join(' ')).localeCompare(String(((b.color_names||[]).filter(Boolean).length?b.color_names:b.colors||[]).join(' ')));
+      else if(col==='rider')   v=String((bikeUserMap[a.id]||{}).name||'').localeCompare(String((bikeUserMap[b.id]||{}).name||''));
       return v!==0?v*dir:a.name.localeCompare(b.name);
     });
     const all=bikes.filter(b=>b.type===ty&&b.status!=='retired'&&b.status!=='maintenance');
@@ -18742,12 +18906,12 @@ function renderBikes(_resultsOnly){
           ${sortHdr('model',t('bikeModel'))}
           ${sortHdr('groupset',t('bikeGroupset'))}
           ${sortHdr('speeds',t('bikeSpeeds'))}
-          <th>${t('bikeTypeLabel')}</th>
+          ${sortHdr('type',t('bikeTypeLabel'))}
           ${sortHdr('size',t('frameSizeLabel'))}
-          <th>${t('bikeRentalPrice')}</th>
-          <th>${t('colColor')}</th>
+          ${sortHdr('price',t('bikeRentalPrice'))}
+          ${sortHdr('color',t('colColor'))}
           ${sortHdr('status',t('colStatus'))}
-          <th>${t('colRider')}</th>
+          ${sortHdr('rider',t('colRider'))}
           <th>${t('colManageBike')}</th>
         </tr></thead>
         <tbody>${typeBikes.length?typeBikes.map(renderBikeRow).join(''):`<tr><td colspan="13" style="padding:16px 0">${emptyIllustration(ILLUS_BIKE_OK,t('noBikes'))}</td></tr>`}</tbody>
@@ -18876,25 +19040,20 @@ function renderBikes(_resultsOnly){
       <div class="stat-card${nMaint>0?' stat-card-clickable':''}"${nMaint>0?` role="button" tabindex="0" onclick="setBkStatus('maintenance')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setBkStatus('maintenance');}" style="cursor:pointer"`:''}><div class="stat-num" style="color:var(--orange)">${nMaint}</div><div class="stat-label">${t('maintLabel')}</div></div>
     </div>
     <div class="filter-bar" style="margin-bottom:20px">
-      <div class="filter-row" style="flex-wrap:wrap;gap:10px;align-items:flex-end">
-        <div style="display:flex;flex-direction:column;gap:4px;flex:1;min-width:180px;max-width:280px">
-          <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">${t('searchWord')}</span>
-          <input id="bk-search-input" type="text" class="filter-select" aria-label="${esc(t('phBikeSearch'))}" placeholder="${t('phBikeSearch')}" value="${esc(bkSearch)}" oninput="setBkSearch(this.value)">
+      <div class="filter-row">
+        <div class="${_srchCls('bk',bkSearch)}" data-srch="bk">
+          ${_artIcon('search',13)}
+          <input id="bk-search-input" type="text" class="search-input" aria-label="${esc(t('phBikeSearch'))}" placeholder="${t('phBikeSearch')}" value="${esc(bkSearch)}" oninput="setBkSearch(this.value)">
+          ${_srchBtn()}
         </div>
-        <div style="display:flex;flex-direction:column;gap:4px">
-          <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">${t('filterType')}</span>
-          <select class="filter-select" aria-label="${esc(t('filterType'))}" onchange="S.bkTypeFilter=this.value;renderBikes()">${bkTypeOpts}</select>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px">
-          <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">${t('filterStatus')}</span>
-          <select class="filter-select" aria-label="${esc(t('filterStatus'))}" onchange="setBkStatus(this.value)">${bkStatusOpts}</select>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:4px">
-          <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">${t('sizeWord')}</span>
-          <select class="filter-select" aria-label="${esc(t('sizeWord'))}" onchange="setBkSize(this.value)">${bkSizeOpts}</select>
-        </div>
-        ${bkSearch||S.bkTypeFilter!=='all'||S.bkStatus!=='all'||S.bkSize!=='all'?`<button class="btn-secondary" style="font-size:12px;padding:5px 10px;align-self:flex-end" onclick="S.bkSearch='';S.bkTypeFilter='all';S.bkStatus='all';S.bkSize='all';renderBikes()">${_artIcon('close',11)} ${t('clearWord')}</button>`:''}
+        ${_fBtn('bk',[S.bkTypeFilter!=='all',S.bkStatus!=='all',S.bkSize!=='all',_bkBrand!=='all',_bkModel!=='all'].filter(Boolean).length)}
+        ${bkSearch||S.bkTypeFilter!=='all'||S.bkStatus!=='all'||S.bkSize!=='all'||_bkBrand!=='all'||_bkModel!=='all'?`<button class="btn-secondary" style="font-size:12px;padding:5px 10px" onclick="S.bkSearch='';S.bkTypeFilter='all';S.bkStatus='all';S.bkSize='all';S.bkBrand='all';S.bkModel='all';renderBikes()">${_artIcon('close',11)} ${t('clearWord')}</button>`:''}
       </div>
+      ${_fPanel('bk',_fField(t('filterType'),`<select class="filter-select" aria-label="${esc(t('filterType'))}" onchange="S.bkTypeFilter=this.value;renderBikes()">${bkTypeOpts}</select>`)
+        +_fField(t('filterStatus'),`<select class="filter-select" aria-label="${esc(t('filterStatus'))}" onchange="setBkStatus(this.value)">${bkStatusOpts}</select>`)
+        +_fField(t('sizeWord'),`<select class="filter-select" aria-label="${esc(t('sizeWord'))}" onchange="setBkSize(this.value)">${bkSizeOpts}</select>`)
+        +_fField(t('bikeBrand'),`<select class="filter-select" aria-label="${esc(t('bikeBrand'))}" onchange="S.bkBrand=this.value;S.bkModel='all';renderBikes()">${bkBrandOpts}</select>`)
+        +_fField(t('bikeModel'),`<select class="filter-select" aria-label="${esc(t('bikeModel'))}" onchange="S.bkModel=this.value;renderBikes()">${bkModelOpts}</select>`))}
     </div>
     <div id="bk-results"></div>`;
   // Results in their own host so typing in the search never destroys the focused input
@@ -19775,7 +19934,10 @@ function setRidersSession(v){S.ridersSession=v||'all';_saveQueueView();renderSta
 function _riderEntry(r){return r&&r.matched_entry_id?getQueue().find(e=>e.id===r.matched_entry_id)||null:null;}
 // A party: the rows that share a booking number, the employee first (party_no 1), then the
 // companions they registered. One number, one badge, one row per rider.
-function _riderParty(r){return r&&r.booking_no?(S.riders||[]).filter(x=>x.booking_no===r.booking_no).sort((a,b)=>(Number(a.party_no)||1)-(Number(b.party_no)||1)):[r];}
+// Booking numbers start again at P-001 every night, so a party is the same number on the same night.
+function _riderKey(r){return (r.session_id||'')+'|'+(r.booking_no||('id:'+r.id));}
+function _riderNoNum(r){const m=String(r&&r.booking_no||'').match(/(\d+)\s*$/);return m?Number(m[1]):Infinity;}
+function _riderParty(r){return r&&r.booking_no?(S.riders||[]).filter(x=>x.booking_no===r.booking_no&&(x.session_id||'')===(r.session_id||'')).sort((a,b)=>(Number(a.party_no)||1)-(Number(b.party_no)||1)):[r];}
 function _riderPartyNo(r){return Number(r&&r.party_no)||1;}
 // A party folds to one row until opened, as on the Bookings tab; a search opens every party.
 function _riderPartyIsOpen(no){return !!(S.ridersSearch&&S.ridersSearch.trim())||!!(S._riderPartyOpen&&S._riderPartyOpen.has(no));}
@@ -19798,16 +19960,30 @@ function exportRidersCsv(){
   const blob=new Blob(['\ufeff'+lines.join('\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='riders-'+todayStr()+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);
 }
+const _RIDER_SORT={no:r=>_riderNoNum(r),badge:r=>String(r.badge||''),name:r=>String(r.name||''),height:r=>Number(r.height)||0,
+  type:r=>String(r.type_preference||''),session:r=>String(r.session_id||''),in:r=>String(r.checked_in_at||''),out:r=>String(r.checked_out_at||'')};
+function setRidersSort(col){if(S.ridersSort===col)S.ridersSortDir=-(S.ridersSortDir||1);else{S.ridersSort=col;S.ridersSortDir=1;}renderRiders(true);}
 function _ridersFiltered(){
   let rows=(S.riders||[]).slice();
   if(S.ridersFilter==='waiting')rows=rows.filter(r=>!r.checked_in_at);
   else if(S.ridersFilter==='riding')rows=rows.filter(r=>r.checked_in_at&&!r.checked_out_at);
   else if(S.ridersFilter==='returned')rows=rows.filter(r=>!!r.checked_out_at);
   if(S.ridersSession&&S.ridersSession!=='all')rows=rows.filter(r=>r.session_id===S.ridersSession);
-  // Newest first as before, and a party's rows stay together in rider order.
-  rows.sort((a,b)=>String(b.updated_at||'').localeCompare(String(a.updated_at||''))||String(a.booking_no||'').localeCompare(String(b.booking_no||''))||(_riderPartyNo(a)-_riderPartyNo(b)));
+  if(S.ridersCompany&&S.ridersCompany!=='all')rows=rows.filter(r=>String(r.company||'').trim()===S.ridersCompany);
+  if(S.ridersType&&S.ridersType!=='all')rows=rows.filter(r=>r.type_preference===S.ridersType);
+  // First booking to last (P-001 upward) unless staff sort by another column; with every night
+  // on show, the latest night leads. A party sorts by its employee's row and stays together.
+  const col=_RIDER_SORT[S.ridersSort]?S.ridersSort:'no',dir=S.ridersSortDir||1,key=_RIDER_SORT[col];
+  const lead=new Map();rows.forEach(r=>{const k=_riderKey(r),c=lead.get(k);if(!c||_riderPartyNo(r)<_riderPartyNo(c))lead.set(k,r);});
+  const cmp=(x,y)=>typeof x==='number'&&typeof y==='number'?(x===y?0:x-y):String(x).localeCompare(String(y),undefined,{numeric:true});
+  const allNights=!S.ridersSession||S.ridersSession==='all';
+  rows.sort((a,b)=>{
+    if(allNights&&col!=='session'){const n=String(b.session_id||'').localeCompare(String(a.session_id||''));if(n)return n;}
+    const la=lead.get(_riderKey(a)),lb=lead.get(_riderKey(b));
+    return dir*cmp(key(la),key(lb))||cmp(_riderNoNum(la),_riderNoNum(lb))||(_riderPartyNo(a)-_riderPartyNo(b));
+  });
   const q=(S.ridersSearch||'').trim().toLowerCase().replace(/^#/,'');
-  if(q)rows=rows.filter(r=>String(r.badge||'').toLowerCase().includes(q)||String(r.name||'').toLowerCase().includes(q)||String(r.phone||'').includes(q)||String(r.booking_no||'').toLowerCase().includes(q)||String(r.company||'').toLowerCase().includes(q)||(()=>{const e=_riderEntry(r);return !!e&&String(e.queueNum)===q;})());
+  if(q)rows=rows.filter(r=>String(r.badge||'').toLowerCase().includes(q)||String(r.name||'').toLowerCase().includes(q)||_phoneHit(r.phone,q)||String(r.booking_no||'').toLowerCase().includes(q)||String(r.company||'').toLowerCase().includes(q)||(()=>{const e=_riderEntry(r);return !!e&&String(e.queueNum)===q;})());
   return rows;
 }
 // Minutes between check-in and return, shown under the check-out time as "1 h 35 min".
@@ -19855,7 +20031,12 @@ function riderUndoCheckinParty(id){
 // of the rider's QR (MMP-<number>) or from the booking number in the list.
 async function _scanRider(no,say){
   if(!S.ridersLoaded)await loadRiders();
-  const r=(S.riders||[]).filter(x=>String(x.booking_no||'').toUpperCase()===no).sort((a,b)=>_riderPartyNo(a)-_riderPartyNo(b))[0]; // a party's number opens the employee's row
+  // Numbers repeat night to night: the night on show wins, then a live night, then the latest.
+  const hits=(S.riders||[]).filter(x=>String(x.booking_no||'').toUpperCase()===no);
+  const _live=new Set(allSessions().filter(_sessLive).map(x=>x.id));
+  const _rank=x=>x.session_id===S.ridersSession?0:_live.has(x.session_id)?1:2;
+  hits.sort((a,b)=>_rank(a)-_rank(b)||String(b.session_id||'').localeCompare(String(a.session_id||''))||_riderPartyNo(a)-_riderPartyNo(b));
+  const r=hits[0]; // a party's number opens the employee's row
   if(!r){say(t('scanNotFound'),'var(--red)');return;}
   try{if(navigator.vibrate)navigator.vibrate(80);}catch(e){}
   toast(t('ridersScanFound').replace('{0}',no).replace('{1}',r.name||''));
@@ -19925,7 +20106,7 @@ const RIDER_COMPANIES=['Petromin','Petrolube'];
 function _riderCo(r){const c=String((r&&r.company)||'').trim().toLowerCase();return RIDER_COMPANIES.find(x=>x.toLowerCase()===c)||'';}
 function _riderReportRows(co){
   const rows=(S.riders||[]).filter(r=>r.checked_out_at&&(S.ridersSession==='all'||r.session_id===S.ridersSession)&&_riderCo(r)===co);
-  rows.sort((a,b)=>String(a.session_id||'').localeCompare(String(b.session_id||''))||String(a.booking_no||'').localeCompare(String(b.booking_no||'')));
+  rows.sort((a,b)=>String(a.session_id||'').localeCompare(String(b.session_id||''))||(_riderNoNum(a)-_riderNoNum(b))||(_riderPartyNo(a)-_riderPartyNo(b)));
   return rows;
 }
 function _riderPrice(r){return r.price!=null?Number(r.price):(EMPLOYEE_PRICES[r.type_preference]??priceForType(r.type_preference));} // the employee fare, as _rider_price sets it
@@ -20408,7 +20589,8 @@ async function _rwFinish(d,res,r){
   if(res.id)writes.push(sb.from('rider_registrations').update({...link(entry),...stamp}).eq('id',res.id));
   if(companions.length){
     await loadRiders();
-    (S.riders||[]).filter(x=>x.booking_no&&x.booking_no===res.booking_no&&_riderPartyNo(x)>=2).forEach(x=>{
+    const _emp=(S.riders||[]).find(x=>x.id===res.id);
+    (S.riders||[]).filter(x=>x.booking_no&&x.booking_no===res.booking_no&&(!_emp||x.session_id===_emp.session_id)&&_riderPartyNo(x)>=2).forEach(x=>{
       writes.push(sb.from('rider_registrations').update({...link(compEntries[_riderPartyNo(x)-2]),...stamp}).eq('id',x.id));
     });
   }
@@ -20432,7 +20614,7 @@ function renderRiders(_resultsOnly){
     const sess=r.session_id?(_sessById.get(r.session_id)||null):null;
     const _pl=_riderParty(r),_ps=_pl.length,_pn=_riderPartyNo(r),_lead=_pn>1?_pl[0]:null;
     return`<tr${ctx.party?' class="party-row" style="border-left:2px solid rgba(var(--green-rgb),.2)"':''}>
-      <td><button type="button" class="status-badge badge-active" style="font-variant-numeric:tabular-nums;font:inherit;font-weight:800;cursor:pointer;border:0" onclick="openRiderModal(${_ja(r.id)})">${esc(r.booking_no||'')}</button>${_ps>1?`<div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(t('ridersPartyOf').replace('{0}',_pn).replace('{1}',_ps))}</div>`:''}${(ctx.party&&ctx.first)?`${ctx.party.some(x=>!x.checked_in_at)?`<div><button class="btn-sm btn-green" style="margin-top:4px;white-space:nowrap" onclick="riderCheckinParty(${_ja(r.id)})">${t('ridersCheckInAll')} (${ctx.party.filter(x=>!x.checked_in_at).length})</button></div>`:''}${ctx.party.some(x=>x.checked_in_at&&!x.checked_out_at)?`<div><button class="btn-sm btn-green" style="margin-top:4px;white-space:nowrap" onclick="riderReturnParty(${_ja(r.id)})">${t('returnAllBtn')} (${ctx.party.filter(x=>x.checked_in_at&&!x.checked_out_at).length})</button></div>`:''}<div><button type="button" class="party-toggle" aria-expanded="true" onclick="_toggleRiderParty(${_ja(r.booking_no)})">${t('partyHideRiders')} ▴</button></div>`:''}</td>
+      <td><button type="button" class="status-badge badge-active" style="font-variant-numeric:tabular-nums;font:inherit;font-weight:800;cursor:pointer;border:0" onclick="openRiderModal(${_ja(r.id)})">${esc(r.booking_no||'')}</button>${_ps>1?`<div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(t('ridersPartyOf').replace('{0}',_pn).replace('{1}',_ps))}</div>`:''}${(ctx.party&&ctx.first)?`${ctx.party.some(x=>!x.checked_in_at)?`<div><button class="btn-sm btn-green" style="margin-top:4px;white-space:nowrap" onclick="riderCheckinParty(${_ja(r.id)})">${t('ridersCheckInAll')} (${ctx.party.filter(x=>!x.checked_in_at).length})</button></div>`:''}${ctx.party.some(x=>x.checked_in_at&&!x.checked_out_at)?`<div><button class="btn-sm btn-green" style="margin-top:4px;white-space:nowrap" onclick="riderReturnParty(${_ja(r.id)})">${t('returnAllBtn')} (${ctx.party.filter(x=>x.checked_in_at&&!x.checked_out_at).length})</button></div>`:''}<div><button type="button" class="party-toggle" aria-expanded="true" onclick="_toggleRiderParty(${_ja(_riderKey(r))})">${t('partyHideRiders')} ▴</button></div>`:''}</td>
       <td><strong>${esc(r.badge)}</strong>${r.company?`<div style="font-size:11px;color:var(--muted)">${esc(r.company)}</div>`:''}</td>
       <td>${esc(r.name)}${r.phone?`<div style="font-size:12px"><a href="https://wa.me/${esc(_waDigits(r.phone))}" target="_blank" rel="noopener" dir="ltr" style="color:var(--green)">${esc(r.phone)}</a></div>`:''}${_lead?`<div style="font-size:11px;color:var(--muted)">${esc(t('ridersWith').replace('{0}',_lead.name||''))}</div>`:''}${Number(r.submissions)>1?`<div style="font-size:11px;color:var(--muted)">${esc(t('ridersResub').replace('{0}',r.submissions))}</div>`:''}</td>
       <td>${r.height?`${esc(String(r.height))} ${t('cmUnit')}`:`<span style="color:var(--muted)">·</span>`}</td>
@@ -20454,7 +20636,7 @@ function renderRiders(_resultsOnly){
     return`<tr class="party-row" style="border-left:2px solid rgba(var(--green-rgb),.2)">
       <td><button type="button" class="status-badge badge-active" style="font-variant-numeric:tabular-nums;font:inherit;font-weight:800;cursor:pointer;border:0" onclick="openRiderModal(${_ja(r.id)})">${esc(r.booking_no||'')}</button><div style="font-size:10px;color:var(--green);font-weight:800;margin-top:3px">${esc(t('ridersPartyCount').replace('{0}',n))}</div></td>
       <td><strong>${esc(r.badge)}</strong>${r.company?`<div style="font-size:11px;color:var(--muted)">${esc(r.company)}</div>`:''}</td>
-      <td>${esc(r.name)}${r.phone?`<div style="font-size:12px"><a href="https://wa.me/${esc(_waDigits(r.phone))}" target="_blank" rel="noopener" dir="ltr" style="color:var(--green)">${esc(r.phone)}</a></div>`:''}<div style="font-size:11px;color:var(--muted)">${esc(counts)}</div><button type="button" class="party-toggle" aria-expanded="false" onclick="_toggleRiderParty(${_ja(r.booking_no)})">${t('partyShowRiders')} ▾</button></td>
+      <td>${esc(r.name)}${r.phone?`<div style="font-size:12px"><a href="https://wa.me/${esc(_waDigits(r.phone))}" target="_blank" rel="noopener" dir="ltr" style="color:var(--green)">${esc(r.phone)}</a></div>`:''}<div style="font-size:11px;color:var(--muted)">${esc(counts)}</div><button type="button" class="party-toggle" aria-expanded="false" onclick="_toggleRiderParty(${_ja(_riderKey(r))})">${t('partyShowRiders')} ▾</button></td>
       <td>${r.height?`${esc(String(r.height))} ${t('cmUnit')}`:`<span style="color:var(--muted)">·</span>`}</td>
       <td><div style="display:flex;gap:4px;flex-wrap:wrap">${types.map(ty=>typeBadge(ty)).join('')}</div></td>
       <td>${r.session_id?`${shortDate(r.session_id.slice(0,10))}${sess?`<div style="font-size:11px;color:var(--muted)">${esc(sessionTime(sess))}</div>`:''}`:`<span style="color:var(--muted)">·</span>`}</td>
@@ -20465,15 +20647,17 @@ function renderRiders(_resultsOnly){
   };
   // Group the filtered rows by booking number, in the order they appear.
   const _groups=[],_seen=new Set();
-  rows.forEach(r=>{const k=r.booking_no||('id:'+r.id);if(_seen.has(k))return;_seen.add(k);_groups.push(rows.filter(x=>(x.booking_no||('id:'+x.id))===k).sort((a,b)=>_riderPartyNo(a)-_riderPartyNo(b)));});
+  rows.forEach(r=>{const k=_riderKey(r);if(_seen.has(k))return;_seen.add(k);_groups.push(rows.filter(x=>_riderKey(x)===k).sort((a,b)=>_riderPartyNo(a)-_riderPartyNo(b)));});
   const body=_groups.map(g=>{
     if(g.length<2)return _rowHtml(g[0],{});
-    if(!_riderPartyIsOpen(g[0].booking_no))return _foldedHtml(g);
+    if(!_riderPartyIsOpen(_riderKey(g[0])))return _foldedHtml(g);
     return g.map((r,i)=>_rowHtml(r,{party:g,first:i===0})).join('');
   }).join('');
   const emptyRow=rows.length?'':`<tr><td colspan="9"><div style="padding:8px">${emptyIllustration(ILLUS_HISTORY,t('ridersEmpty'))}</div></td></tr>`;
   const results=`<div tabindex="0" role="group" aria-label="${esc(t('tblScrollLabel'))}" class="table-wrapper"><table class="queue-table">
-    <thead><tr><th>${t('colBookingNo')}</th><th>${t('colBadge')}</th><th>${t('colRider')}</th><th>${t('colHeight')}</th><th>${t('bikeTypeLabel')}</th><th>${t('colSession')}</th><th>${t('colCheckedIn')}</th><th>${t('colCheckedOut')}</th><th></th></tr></thead>
+    <thead><tr>${[['no','colBookingNo'],['badge','colBadge'],['name','colRider'],['height','colHeight'],['type','bikeTypeLabel'],['session','colSession'],['in','colCheckedIn'],['out','colCheckedOut']].map(([c,k])=>{
+      const on=(S.ridersSort||'no')===c,arrow=on?((S.ridersSortDir||1)===1?' ↑':' ↓'):'';
+      return`<th class="an-sort-th${on?' an-sort-active':''}" onclick="setRidersSort(${_ja(c)})">${t(k)}${arrow}</th>`;}).join('')}<th></th></tr></thead>
     <tbody>${body}${emptyRow}</tbody></table></div>`;
   if(_resultsOnly){const el=document.getElementById('riders-results');if(el){el.innerHTML=results;return;}}
   const pill=(v,label,n)=>`<button class="filter-pill${S.ridersFilter===v?' active':''}" onclick="setRidersFilter(${_ja(v)})">${label} <span style="opacity:.7">${n}</span></button>`;
@@ -20492,12 +20676,16 @@ function renderRiders(_resultsOnly){
       </div>
     </div>
     <div class="filter-bar"><div class="filter-row">
-      <div class="search-wrap" style="flex-shrink:0">${_artIcon('search',13)}
+      <div class="${_srchCls('riders',S.ridersSearch)}" data-srch="riders">${_artIcon('search',13)}
         <input id="riders-search-input" class="search-input" aria-label="${esc(t('ridersSearch'))}" placeholder="${esc(t('ridersSearch'))}" value="${esc(S.ridersSearch)}" oninput="setRidersSearch(this.value)">
+        ${_srchBtn()}
       </div>
-      ${sessSel}
+      ${_fBtn('riders',[S.ridersCompany,S.ridersType].filter(v=>v&&v!=='all').length)}
       ${pill('all',t('ridersFilterAll'),night.length)}${pill('waiting',t('ridersFilterWaiting'),nWait)}${pill('riding',t('ridersFilterRiding'),nOut)}${pill('returned',t('ridersFilterReturned'),nDone)}
-    </div></div>
+    </div>
+    ${_fPanel('riders',(sessSel?_fField(t('colSession'),sessSel):'')
+      +_fField(t('ridersCompany'),`<select class="filter-select" aria-label="${esc(t('ridersCompany'))}" onchange="S.ridersCompany=this.value;renderRiders()">${['all',...new Set(all.map(r=>String(r.company||'').trim()).filter(Boolean))].map(v=>`<option value="${esc(v)}"${(S.ridersCompany||'all')===v?' selected':''}>${v==='all'?t('filterAll'):esc(v)}</option>`).join('')}</select>`)
+      +_fField(t('bikeTypeLabel'),`<select class="filter-select" aria-label="${esc(t('bikeTypeLabel'))}" onchange="S.ridersType=this.value;renderRiders()">${['all','Road','Hybrid','Mountain','Road Carbon','Kids'].map(v=>`<option value="${esc(v)}"${(S.ridersType||'all')===v?' selected':''}>${v==='all'?t('filterAll'):typeLabel(v)}</option>`).join('')}</select>`))}</div>
     <div id="riders-results">${results}</div>`;
 }
 
@@ -20518,7 +20706,7 @@ function _histRows(){
   if(S.histPay==='pending')filtered=filtered.filter(e=>!e.paid&&e.status==='done');
   if(S.histType!=='all')   filtered=filtered.filter(e=>resolvedType(e)===S.histType);
   if(S.histSize!=='all')   filtered=filtered.filter(e=>e.size===S.histSize);
-  if((S.histSearch||'').trim()){const q=S.histSearch.trim().toLowerCase().replace(/^#/,'');filtered=filtered.filter(e=>String(e.name||'').toLowerCase().includes(q)||(e.phone||'').includes(q)||(e.email||'').toLowerCase().includes(q)||String(e.queueNum)===q||_matchesRef(e,q));}
+  if((S.histSearch||'').trim()){const q=S.histSearch.trim().toLowerCase().replace(/^#/,'');filtered=filtered.filter(e=>String(e.name||'').toLowerCase().includes(q)||_phoneHit(e.phone,q)||(e.email||'').toLowerCase().includes(q)||String(e.queueNum)===q||_matchesRef(e,q));}
   const _hd=S.histSortDir;
   filtered.sort((a,b)=>{
     if(S.histSort==='name')   return _hd*String(a.name||'').localeCompare(String(b.name||''));
@@ -20526,6 +20714,15 @@ function _histRows(){
     if(S.histSort==='type')   return _hd*(resolvedType(a)||'').localeCompare(resolvedType(b)||'');
     if(S.histSort==='status') return _hd*(a.status||'').localeCompare(b.status||'');
     if(S.histSort==='dur')    return _hd*((a.rideDuration||0)-(b.rideDuration||0));
+    if(S.histSort==='num')    return _hd*((a.queueNum||0)-(b.queueNum||0));
+    if(S.histSort==='height') return _hd*((Number(a.height)||0)-(Number(b.height)||0));
+    if(S.histSort==='session')return _hd*String(a.sessionDate||a.sessionId||'').localeCompare(String(b.sessionDate||b.sessionId||''));
+    if(S.histSort==='bike'||S.histSort==='color'){
+      const k=e=>{const bk=getAssignedBikes(e)[0];return bk?(S.histSort==='bike'?bk.name:((bk.color_names||[]).filter(Boolean).length?bk.color_names:bk.colors||[]).join(' ')):'';};
+      return _hd*String(k(a)||'').localeCompare(String(k(b)||''),undefined,{numeric:true});
+    }
+    if(S.histSort==='price')  return _hd*((a.price??DEFAULT_PRICE)-(b.price??DEFAULT_PRICE));
+    if(S.histSort==='phone')  return _hd*String(a.phone||'').localeCompare(String(b.phone||''));
     return _hd*(new Date(a.registeredAt)-new Date(b.registeredAt));
   });
   return{hist,sessionFiltered,filtered};
@@ -20659,24 +20856,20 @@ function renderHistory(_resultsOnly){
     </div>
     <div class="filter-bar">
       <div class="filter-row">
-        <div class="search-wrap" style="flex-shrink:0">
+        <div class="${_srchCls('hist',S.histSearch)}" data-srch="hist">
           ${_artIcon('search',13)}
           <input id="hist-search-input" class="search-input" aria-label="${esc(t('searchPlaceholder'))}" placeholder="${t('searchPlaceholder')}" value="${esc(S.histSearch)}"
             oninput="setHistSearch(this.value)">
+          ${_srchBtn()}
         </div>
-        <span class="filter-label" style="margin-left:8px">${t('filterStatus')}:</span>
-        <select class="filter-select" onchange="setHistStatus(this.value)" aria-label="${esc(t('filterStatus'))}">${hStatusOpts}</select>
-        <span class="filter-label" style="margin-left:8px">${t('filterPay')}:</span>
-        <select class="filter-select" onchange="setHistPay(this.value)" aria-label="${esc(t('filterPay'))}">${hPayOpts}</select>
-        <span class="filter-label" style="margin-left:8px">${t('filterType')}:</span>
-        <select class="filter-select" onchange="setHistType(this.value)" aria-label="${esc(t('filterType'))}">${hTypeOpts}</select>
-        <span class="filter-label" style="margin-left:8px">${t('filterSize')}:</span>
-        <select class="filter-select" onchange="setHistSize(this.value)" aria-label="${esc(t('filterSize'))}">${['all',...BIKE_SIZES].map(z=>`<option value="${z}"${S.histSize===z?' selected':''}>${z==='all'?t('allSizes'):esc(sizeLabel(z))}</option>`).join('')}</select>
-        <span class="filter-label" style="margin-left:8px">${t('colSession')}:</span>
-        <select class="filter-select" onchange="setHistSess(this.value)" aria-label="${esc(t('colSession'))}">${sessOpts}</select>
-        <span class="filter-label" style="margin-left:8px">${t('histRangeLabel')}:</span>
-        <select class="filter-select" onchange="setHistRange(this.value)" aria-label="${esc(t('histRangeLabel'))}">${hRangeOpts}</select>
+        ${_fBtn('hist',[S.histStatus,S.histPay,S.histType,S.histSize,S.histSess,S.histRange].filter(v=>v&&v!=='all').length)}
       </div>
+      ${_fPanel('hist',_fField(t('filterStatus'),`<select class="filter-select" onchange="setHistStatus(this.value)" aria-label="${esc(t('filterStatus'))}">${hStatusOpts}</select>`)
+        +_fField(t('filterPay'),`<select class="filter-select" onchange="setHistPay(this.value)" aria-label="${esc(t('filterPay'))}">${hPayOpts}</select>`)
+        +_fField(t('filterType'),`<select class="filter-select" onchange="setHistType(this.value)" aria-label="${esc(t('filterType'))}">${hTypeOpts}</select>`)
+        +_fField(t('filterSize'),`<select class="filter-select" onchange="setHistSize(this.value)" aria-label="${esc(t('filterSize'))}">${['all',...BIKE_SIZES].map(z=>`<option value="${z}"${S.histSize===z?' selected':''}>${z==='all'?t('allSizes'):esc(sizeLabel(z))}</option>`).join('')}</select>`)
+        +_fField(t('colSession'),`<select class="filter-select" onchange="setHistSess(this.value)" aria-label="${esc(t('colSession'))}">${sessOpts}</select>`)
+        +_fField(t('histRangeLabel'),`<select class="filter-select" onchange="setHistRange(this.value)" aria-label="${esc(t('histRangeLabel'))}">${hRangeOpts}</select>`))}
       ${filtered.length!==hist.length?`<div class="result-count">${filtered.length} ${t('resultOf')} ${hist.length} ${t('resultRecords')}</div>`:''}
     </div>
     <div id="hist-results"></div>`;
@@ -20684,18 +20877,18 @@ function renderHistory(_resultsOnly){
   // phone keyboard and focus() cannot reopen it without a gesture).
   const _histResults=`<div tabindex="0" role="group" aria-label="${esc(t('tblScrollLabel'))}" class="table-wrapper"><table class="queue-table">
       <thead><tr>
-        <th>#</th>
+        ${thHistSort('num','#')}
         ${thHistSort('name',t('colRider'))}
-        ${_hc.bike?`<th style="font-size:10px;color:var(--muted)">${t('colHeight')}</th>`:''}
+        ${_hc.bike?thHistSort('height',t('colHeight')):''}
         ${_hc.bike?thHistSort('type',t('bikeTypeLabel')):''}
-        <th class="hide-mobile">${t('colSession')}</th>
-        ${_hc.bike?`<th>${t('colBike')}</th>`:''}
-        ${_hc.bike?`<th>${t('colColor')}</th>`:''}
-        ${_hc.money?`<th>${t('colPrice')||'Price'}</th>`:''}
+        ${thHistSort('session',t('colSession'),'hide-mobile')}
+        ${_hc.bike?thHistSort('bike',t('colBike')):''}
+        ${_hc.bike?thHistSort('color',t('colColor')):''}
+        ${_hc.money?thHistSort('price',t('colPrice')||'Price'):''}
         ${_hc.money?thHistSort('amount',t('colPayment')):''}
         ${thHistSort('status',t('colStatus'))}
         ${thHistSort('dur',t('colDuration'))}
-        <th style="font-size:10px;color:var(--muted)">${t('colContact')}</th>
+        ${thHistSort('phone',t('colContact'))}
         <th>${t('colManageRecord')}</th>
       </tr></thead>
       <tbody>${rows}${emptyRow}</tbody>
@@ -21481,7 +21674,7 @@ function _ctCustSuggest(focus){
   // On focus with nothing typed: offer the most recent saved customers right away
   const hits=(q.length<2
     ?(S.customers||[]).slice().sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0))
-    :(S.customers||[]).filter(c=>(c.name||'').toLowerCase().includes(q)||(c.phone||'').includes(q)||(c.email||'').toLowerCase().includes(q))).slice(0,6);
+    :(S.customers||[]).filter(c=>(c.name||'').toLowerCase().includes(q)||_phoneHit(c.phone,q)||(c.email||'').toLowerCase().includes(q))).slice(0,6);
   box.innerHTML=hits.length?`<div style="background:var(--s1);border:1px solid var(--border);border-radius:4px;box-shadow:var(--sh-2);overflow:hidden;margin-top:4px">${hits.map(c=>`<button type="button" onclick="_ctCustPick(${_ja(c.id)})" style="display:block;width:100%;text-align:start;background:none;border:none;border-bottom:1px solid var(--border);padding:8px 11px;cursor:pointer;font-family:inherit;color:var(--text)"><div style="font-weight:800;font-size:13px">${esc(c.name||'')}</div><div style="font-size:11px;color:var(--muted)">${esc([c.phone,c.email].filter(Boolean).join(' · '))}</div></button>`).join('')}</div>`:'';
 }
 function _ctCustPick(id){
@@ -22296,7 +22489,7 @@ function renderInventory(){
       </div></td>
       <td style="font-size:13px;font-weight:600">${it.brand?esc(it.brand):'<span style="color:var(--muted)">—</span>'}</td>
       ${isSupp?`<td style="font-size:13px;font-weight:600">${(it.flavour&&!_badFlav(it.flavour))?esc(it.flavour):'<span style="color:var(--muted)">—</span>'}</td>`:''}
-      <td><div style="display:flex;align-items:center;gap:8px">
+      <td data-sort="${qty}"><div style="display:flex;align-items:center;gap:8px">
         ${S.invCount?stInput(it,qty):`<button class="btn-sm btn-muted" onclick="adjInv(${_ja(it.id)},-1)" aria-label="Decrease quantity">-</button>
         <span style="font-weight:900;font-size:15px;min-width:28px;text-align:center">${qty}</span>
         <button class="btn-sm btn-muted" onclick="adjInv(${_ja(it.id)},1)" aria-label="Increase quantity">+</button>`}
@@ -22370,7 +22563,10 @@ function renderInventory(){
   };
   const _sold2=_itemSoldUnits();
   const _invQ=(S.invSearch||'').trim().toLowerCase();
-  const _invMatch=it=>!_invQ||(it.name||'').toLowerCase().includes(_invQ)||(it.brand||'').toLowerCase().includes(_invQ)||((it.flavour&&!_badFlav(it.flavour))?String(it.flavour).toLowerCase().includes(_invQ):false);
+  const _invStockOf=it=>{const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;return q<=0?'out':(lo>0&&q<=lo)?'low':'in';};
+  const _invStock=S.invStock||'all',_invBrand=S.invBrand||'all';
+  const _invMatch=it=>(_invStock==='all'||_invStockOf(it)===_invStock)&&(_invBrand==='all'||String(it.brand||'').trim()===_invBrand)
+    &&(!_invQ||(it.name||'').toLowerCase().includes(_invQ)||(it.brand||'').toLowerCase().includes(_invQ)||((it.flavour&&!_badFlav(it.flavour))?String(it.flavour).toLowerCase().includes(_invQ):false));
   const _invSorted=list=>{const m=S.invSort||'cat';const l=[...list];
     if(m==='name')l.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
     else if(m==='stock')l.sort((a,b)=>((Number(a.qty)||0)-(Number(b.qty)||0))||(a.name||'').localeCompare(b.name||''));
@@ -22380,10 +22576,17 @@ function renderInventory(){
   const invBody=list=>{const fl=_invSorted(list.filter(_invMatch));if(!fl.length)return`<div class="empty-state" style="margin-top:10px">${t('invNoItems')}</div>`;return ((S.invSort||'cat')==='cat'&&!_invQ)?invGroupedByCat(fl):invItems(fl);};
   const _stD=_stockTakeDiffs();
   const ctlBar=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0 2px">
-      <input id="inv-search" type="text" value="${esc(S.invSearch||'')}" placeholder="${esc(t('invSearchPh'))}" oninput="S.invSearch=this.value;_debRender('inv',renderInventory)" style="flex:1;min-width:160px;background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:8px 12px;color:var(--text);font-family:var(--font-body);font-size:13px;outline:none">
+      <div class="${_srchCls('inv',S.invSearch)}" data-srch="inv" style="flex:1;min-width:160px">
+        ${_artIcon('search',13)}
+        <input id="inv-search" type="text" class="search-input" style="width:100%" aria-label="${esc(t('invSearchPh'))}" value="${esc(S.invSearch||'')}" placeholder="${esc(t('invSearchPh'))}" oninput="S.invSearch=this.value;_debRender('inv',renderInventory)">
+        ${_srchBtn()}
+      </div>
+      ${_fBtn('inv',[_invStock,_invBrand].filter(v=>v!=='all').length)}
       <select class="filter-select" aria-label="${esc(t('sortBy'))}" onchange="S.invSort=this.value;renderInventory()">${[['cat',t('invSortCat')],['name',t('sortName')],['stock',t('invSortStock')],['sales',t('invSortSales')]].map(([v,l])=>`<option value="${v}"${(S.invSort||'cat')===v?' selected':''}>${l}</option>`).join('')}</select>
       <button class="btn-secondary" onclick="toggleStockTake()" style="white-space:nowrap;${S.invCount?'border-color:var(--green);color:var(--green)':''}">${S.invCount?t('stCancelBtn'):t('stStartBtn')}</button>
     </div>
+    ${_fPanel('inv',_fField(t('colStatus'),`<select class="filter-select" aria-label="${esc(t('colStatus'))}" onchange="S.invStock=this.value;renderInventory()">${[['all',t('filterAll')],['in',t('invInStock')],['low',t('invLowStock')],['out',t('invOutStock')]].map(([v,l])=>`<option value="${v}"${_invStock===v?' selected':''}>${l}</option>`).join('')}</select>`)
+      +_fField(t('invBrand'),`<select class="filter-select" aria-label="${esc(t('invBrand'))}" onchange="S.invBrand=this.value;renderInventory()">${['all',...new Set((sec==='supplements'?suppItems:equipItems).map(it=>String(it.brand||'').trim()).filter(Boolean))].sort((a,b)=>a==='all'?-1:b==='all'?1:a.localeCompare(b)).map(v=>`<option value="${esc(v)}"${_invBrand===v?' selected':''}>${v==='all'?t('filterAll'):esc(v)}</option>`).join('')}</select>`))}
     ${S.invCount?`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:rgba(var(--green-rgb),.06);border:1px solid rgba(var(--green-rgb),.25);border-radius:4px;padding:9px 12px;margin-top:6px">
       <span style="flex:1;min-width:160px;font-size:12px;color:var(--muted)">${t('stHint')}</span>
       <button class="btn-sm btn-green" onclick="applyStockTake()" ${_stD.length?'':'disabled'}>${t('stApplyBtn').replace('{0}',_stD.length)}</button>
@@ -23063,7 +23266,7 @@ function _amMore(){S.amShow=(S.amShow||AM_PAGE)+AM_PAGE;const w=document.getElem
 function _amFiltered(){
   const custs=(S.customers||[]).slice().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
   const q=(S.amSearch||'').trim().toLowerCase();
-  let shown=q?custs.filter(c=>[c.name,c.email,c.phone,c.apple_email].some(v=>String(v||'').toLowerCase().includes(q))):custs;
+  let shown=q?custs.filter(c=>[c.name,c.email,c.apple_email].some(v=>String(v||'').toLowerCase().includes(q))||_phoneHit(c.phone,q)):custs;
   // Tag filter: only customers holding the selected tag NOW - the same test as the count on its
   // pill (and the DB's gate). It used to list expired and not-yet-started grants too, so the pill
   // said 120 and the list showed 135. Through the index, not a scan.
@@ -23072,6 +23275,8 @@ function _amFiltered(){
   if(S.amFixing)shown=shown.filter(c=>_flagFieldsOf(c).length);
   if(S.amSuspect)shown=shown.filter(c=>_sxOf(c));
   if(S.amDelReq)shown=shown.filter(c=>!!c.deletion_requested_at);
+  if(S.amGender)shown=shown.filter(c=>c.gender===S.amGender);
+  if(S.amNat)shown=shown.filter(c=>String(c.nationality||'').trim()===S.amNat);
   return shown;
 }
 // One account, as one element. Having a row be a single element with its own id is what lets
@@ -23204,7 +23409,16 @@ function _commAccounts(){
   const custPanel=`<div class="form-section">
     <div class="form-title" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">${t('amCustomersTitle')} <span id="am-cust-count" style="color:var(--muted);font-weight:600;font-size:13px">(${S._amShownCount||0})</span><button type="button" class="btn-sm btn-secondary" style="margin-inline-start:auto" onclick="showNewAcctModal()">+ ${t('naBtn')}</button><button type="button" class="btn-sm btn-secondary" onclick="showAccountReportOptions()">${ICON_EXPORT} ${t('acrTitle')}</button></div>
     ${filterPills}
-    <input id="am-search" type="text" value="${esc(S.amSearch||'')}" placeholder="${esc(t('amSearchPh'))}" oninput="_amSearchInput(this.value)" onfocus="S._amFocused=true" onblur="S._amFocused=false" style="width:100%;box-sizing:border-box;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.15);border-radius:4px;padding:9px 12px;margin-bottom:12px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:600;outline:none">
+    <div class="filter-row" style="flex-wrap:wrap;margin-bottom:8px">
+      <div class="${_srchCls('am',S.amSearch)}" data-srch="am" style="flex:1;min-width:200px">
+        ${_artIcon('search',13)}
+        <input id="am-search" type="text" class="search-input" style="width:100%;box-sizing:border-box" aria-label="${esc(t('amSearchPh'))}" value="${esc(S.amSearch||'')}" placeholder="${esc(t('amSearchPh'))}" oninput="_amSearchInput(this.value)" onfocus="S._amFocused=true" onblur="S._amFocused=false">
+        ${_srchBtn()}
+      </div>
+      ${_fBtn('am',[S.amGender,S.amNat].filter(Boolean).length)}
+    </div>
+    ${_fPanel('am',_fField(t('genderLabel'),`<select class="filter-select" aria-label="${esc(t('genderLabel'))}" onchange="_amFilter('amGender',this.value)">${[['',t('filterAll')],['male',t('genderMale')],['female',t('genderFemale')]].map(([v,l])=>`<option value="${v}"${(S.amGender||'')===v?' selected':''}>${l}</option>`).join('')}</select>`)
+      +_fField(t('nationalityLabel'),`<select class="filter-select" aria-label="${esc(t('nationalityLabel'))}" onchange="_amFilter('amNat',this.value)"><option value="">${t('filterAll')}</option>${[...new Set((S.customers||[]).map(c=>String(c.nationality||'').trim()).filter(Boolean))].sort((x,y)=>nationalityLabel(x).localeCompare(nationalityLabel(y))).map(v=>`<option value="${esc(v)}"${S.amNat===v?' selected':''}>${esc(nationalityLabel(v))}</option>`).join('')}</select>`))}
     <div id="am-cust-rows">${rows}</div>
   </div>`;
   return tagPanel+custPanel;
@@ -23740,13 +23954,14 @@ function renderAnalytics(){
           style="background:var(--s3);border:1px solid rgba(var(--tint-rgb),.15);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:12px;font-weight:700;padding:4px 8px;cursor:pointer"
           onchange="S.analyticsDateTo=this.value;renderAnalytics()">
       `:''}
-      <span style="font-size:12px;font-weight:700;color:var(--muted);margin-left:8px">${t('anSessionLabel')}:</span>
+      ${_fBtn('an',S.anSession&&S.anSession!=='all'?1:0)}
+      <span class="result-count" style="margin-left:4px">${_sh} ${t('anSessionsHeld').toLowerCase()} · ${_td} ${t('anRidesLabel')}</span>
+    </div>
+    ${_fPanel('an',_fField(t('anSessionLabel'),`
       <select class="filter-select" aria-label="${esc(t('colSession'))}" onchange="S.anSession=this.value;renderAnalytics()">
         <option value="all"${(S.anSession==='all'||!S.anSession)?' selected':''}>${t('anSessionAll')}</option>
         ${_anRangeList.slice().sort(_sessOrder).map(s=>`<option value="${esc(s.id)}"${S.anSession===s.id?' selected':''}>${esc(dayLabel(s.day))} ${esc(shortDate(s.session_date||s.id))}${s.location?' · '+esc(s.location):''}</option>`).join('')}
-      </select>
-      <span class="result-count" style="margin-left:4px">${_sh} ${t('anSessionsHeld').toLowerCase()} · ${_td} ${t('anRidesLabel')}</span>
-    </div>`;
+      </select>`))}`;
   }
 
   
@@ -24013,6 +24228,8 @@ function renderAnalytics(){
     if(ss==='pending')   return sd*(a.pend-b.pend);
     if(ss==='occupancy') return sd*(a.occ-b.occ);
     if(ss==='noshow')    return sd*(a.noShows-b.noShows);
+    if(ss==='day')       return sd*(new Date(a.s.session_date||a.s.id).getDay()-new Date(b.s.session_date||b.s.id).getDay());
+    if(ss==='toptype')   return sd*String(a.topT||'').localeCompare(String(b.topT||''));
     return sd*(new Date(a.s.session_date||a.s.id)-new Date(b.s.session_date||b.s.id));
   });
   function thSort(col,label){
@@ -24704,13 +24921,13 @@ function renderAnalytics(){
       <table class="analytics-trend-table">
         <thead><tr>
           ${thSort('date',t('anColDate'))}
-          <th style="color:var(--muted)">${t('anColDay2')}</th>
+          ${thSort('day',t('anColDay2'))}
           ${thSort('riders',t('anColRiders'))}
           ${thSort('revenue',t('anColRevenue'))}
           ${thSort('pending',t('anColPending'))}
           ${thSort('noshow',t('anColNoShows'))}
           ${thSort('occupancy',t('anColOccupancy'))}
-          <th style="color:var(--muted)">${t('anColTopType2')}</th>
+          ${thSort('toptype',t('anColTopType2'))}
         </tr></thead>
         <tbody>${trendRows.length?trendRows.join(''):`<tr><td colspan="8" class="empty-state">${t('anNoDataTrend')}</td></tr>`}</tbody>
       </table>

@@ -91,6 +91,8 @@ test('a prefix search still lists everyone it legitimately matches', async ({ pa
 
 test('the queue box itself filters the rendered rows down to the party', async ({ page }) => {
   await boot(page);
+  const open = page.locator('[data-srch="q"] .srch-btn');
+  if (await open.isVisible()) await open.click(); // on a phone the search is a button until tapped
   await page.locator('#sf-search-input').fill('42');
   await expect.poll(async () => {
     const html = await page.evaluate(`document.getElementById('tab-queue').innerText`) as string;

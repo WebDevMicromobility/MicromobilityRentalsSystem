@@ -3779,16 +3779,12 @@
 .stat-chip-clickable{cursor:pointer;transition:border-color .15s,transform .1s;}
 .stat-chip-clickable:hover{border-color:rgba(var(--warn-rgb),.5);}
 .stat-chip-clickable:active{transform:scale(.98);}
-.filter-toggle{display:none;}
-.filter-more{display:contents;}
+.filter-toggle{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;flex-shrink:0;}
 .queue-table th{padding:10px 12px;}
 .queue-table td{padding:10px 12px;}
 @media (max-width:767px){
   .stat-strip{flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;-webkit-overflow-scrolling:touch;}
   .stat-strip::-webkit-scrollbar{display:none;}
-  .filter-toggle{display:inline-flex;align-items:center;white-space:nowrap;}
-  .filter-more{display:none;}
-  .filter-more.open{display:contents;}
   .page-title{font-size:20px;}
 }
 .section-header>div:last-child{flex-wrap:wrap;justify-content:flex-end;}
@@ -3802,7 +3798,7 @@
   .filter-row .search-wrap{flex:1 1 60%;min-width:0;margin-left:0 !important;}
   /* the search box already takes the whole row, so Scan ticket gets its own full-width bar
      under it — the busiest action of the night, and a thumb-sized target for it */
-  body.view-staff .filter-row .scan-inline{flex:1 1 100%;justify-content:center;min-height:44px;margin-left:0 !important;}
+  body.view-staff .filter-row .scan-inline{flex:1 1 auto;justify-content:center;min-height:42px;margin-left:0 !important;}
 }
 /* the roster's action buttons keep their natural width; stretching them made the last column 258px */
 .queue-table .actions-cell{flex-wrap:nowrap;}
@@ -4705,3 +4701,36 @@ body .ca-msg-box textarea.ca-msg{width:100%;min-height:300px;height:300px;box-si
 #pwd-gate .auth-backdrop{background:var(--bg);backdrop-filter:none;-webkit-backdrop-filter:none;z-index:9580;align-items:flex-start;padding:16px;overflow:auto}
 @media (min-width:768px){#pwd-gate .auth-backdrop{padding-top:88px}}
 #pwd-gate .pm-out{display:block;margin:14px auto 0;background:none;border:0;color:#4f565c;font-family:var(--font-body);font-weight:700;font-size:14px;text-decoration:underline;cursor:pointer}
+
+/* ── Filter button and folded search, 2026-09-22 ──
+   A view's filter dropdowns open under its Filter button (_fBtn/_fPanel), each with its name
+   above it. On phones a page's search bar is a search button until tapped (_srchCls/_srchBtn). */
+.filter-more{display:none;}
+.filter-more.open{display:flex;flex-wrap:wrap;gap:10px 12px;align-items:flex-end;margin:0 0 10px;padding:12px;
+  border:1px solid var(--border);border-radius:8px;background:var(--s1);}
+body.view-staff .filter-more.open{border-color:var(--sf-ctl);background:var(--sf-card);}
+.filter-field{display:flex;flex-direction:column;gap:5px;min-width:150px;margin:0;}
+.filter-field-lbl{font-size:10px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:var(--muted);}
+:is(html[lang="ar"],html[lang="ur"]) .filter-field-lbl{letter-spacing:0;text-transform:none;font-size:11.5px;}
+.filter-field select{width:100%;}
+.srch-btn{display:none;}
+@media (max-width:767px){
+  .filter-more.open{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
+  .filter-field{min-width:0;}
+  .search-wrap.srch-fold:not(.open){flex:0 0 auto!important;width:auto!important;min-width:0!important;max-width:none!important;}
+  .search-wrap.srch-fold:not(.open)>:not(.srch-btn){display:none!important;}
+  .search-wrap.srch-fold:not(.open)>.srch-btn{display:inline-flex;align-items:center;justify-content:center;
+    width:42px;height:42px;padding:0;border:1px solid var(--border);border-radius:7px;background:var(--s2);color:var(--text);cursor:pointer;}
+  body.view-staff .search-wrap.srch-fold:not(.open)>.srch-btn{border-color:var(--sf-ctl);background:var(--sf-card);}
+  .srch-btn svg{position:static!important;transform:none!important;opacity:1!important;}
+  .search-wrap.srch-fold.open{flex:1 1 100%!important;max-width:none!important;}
+  body.view-staff .search-wrap.srch-fold.open .search-input{width:100%!important;}
+  .search-wrap.srch-fold.open .search-clear{display:inline-flex!important;}
+}
+/* Every staff table sorts by any column (_mountTableSorts): the name is the button, the arrow the order */
+body.view-staff th.th-sort{cursor:pointer;user-select:none;white-space:nowrap;}
+body.view-staff th.th-sort:hover{color:var(--text);}
+body.view-staff th.th-sort:focus-visible{outline:2px solid var(--sf-green-ink,var(--green));outline-offset:-2px;}
+body.view-staff th.th-sort[aria-sort="ascending"]::after{content:" ↑";}
+body.view-staff th.th-sort[aria-sort="descending"]::after{content:" ↓";}
+body.view-staff th.th-sort[aria-sort="ascending"],body.view-staff th.th-sort[aria-sort="descending"]{color:var(--sf-green-ink,var(--green));}
