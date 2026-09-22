@@ -685,7 +685,7 @@ en:{landMainTitleHtml:'Reserve Your <span>Bicycle Now!</span>',spotsFull:'Full',
   registeredLabel:'Registered',nameLabel:'Name',timeLabel:'Time',preferenceLabel:'Preference',
   
   profileInfo:'Profile Information',needToUpdate:'Need to update?',
-  birthDateLabel:'Birth date',dobDay:'Day',dobMonth:'Month',dobYear:'Year',countryLabel:'Country of residence',nationalityLabel:'Nationality',selectNationalityOpt:'Select nationality',acrBdNationality:'Nationality',cityLabel:'City of residence',optionalLabel:'optional',selectCountryOpt:'Select country of residence',selectCityOpt:'Select city of residence',selectCountryFirst:'Select a country first',
+  birthDateLabel:'Birth date',dobDay:'Day',dobMonth:'Month',dobYear:'Year',dobErrYoung:'Riders must be at least 6 years old. Check the birth date.',dobErrFuture:'A birth date can\'t be in the future.',countryLabel:'Country of residence',nationalityLabel:'Nationality',selectNationalityOpt:'Select nationality',acrBdNationality:'Nationality',cityLabel:'City of residence',optionalLabel:'optional',selectCountryOpt:'Select country of residence',selectCityOpt:'Select city of residence',selectCountryFirst:'Select a country first',
   
   bikeFleetComp:'Bike Fleet Composition',totalBikesSession:'Total bikes in session',rowLabel:'Row',
   
@@ -1103,7 +1103,7 @@ ar:{landMainTitleHtml:'احجز <span>دراجتك الآن!</span>',spotsFull:'
   payAtBooth:' الدفع يتم عند الكشك في دوار الكورنيش. يرجى إحضار رقم طابورك.',
   registeredLabel:'مُسجَّل',nameLabel:'الاسم',timeLabel:'الوقت',preferenceLabel:'التفضيل',
   profileInfo:'معلومات الملف الشخصي',needToUpdate:'تريد التحديث؟',
-  birthDateLabel:'تاريخ الميلاد',dobDay:'اليوم',dobMonth:'الشهر',dobYear:'السنة',countryLabel:'بلد الإقامة',nationalityLabel:'الجنسية',selectNationalityOpt:'اختر الجنسية',acrBdNationality:'الجنسية',cityLabel:'مدينة الإقامة',optionalLabel:'اختياري',selectCountryOpt:'اختر بلد الإقامة',selectCityOpt:'اختر مدينة الإقامة',selectCountryFirst:'اختر الدولة أولاً',
+  birthDateLabel:'تاريخ الميلاد',dobDay:'اليوم',dobMonth:'الشهر',dobYear:'السنة',dobErrYoung:'يجب ألا يقل عمر الراكب عن 6 سنوات. تحقّق من تاريخ الميلاد.',dobErrFuture:'لا يمكن أن يكون تاريخ الميلاد في المستقبل.',countryLabel:'بلد الإقامة',nationalityLabel:'الجنسية',selectNationalityOpt:'اختر الجنسية',acrBdNationality:'الجنسية',cityLabel:'مدينة الإقامة',optionalLabel:'اختياري',selectCountryOpt:'اختر بلد الإقامة',selectCityOpt:'اختر مدينة الإقامة',selectCountryFirst:'اختر الدولة أولاً',
   bikeFleetComp:'تركيبة أسطول الدراجات',totalBikesSession:'إجمالي الدراجات في الجلسة',rowLabel:'الإجمالي',
   sizeMatchLabel:'مقاس مناسب',sessionFleetLabel:'أسطول الجلسة',
   noBikesMatchFleet:'لا توجد دراجات مطابقة لأسطول هذه الجلسة.',
@@ -4830,7 +4830,6 @@ async function selectEvent(ev){
 const PROFILE_GATE_AFTER=8;
 function _pgCount(cust){return getQueue().filter(e=>e.customerId===cust.id&&!['cancelled','removed'].includes(e.status)).length;}
 function _pgMissing(c){return !c.birth_date||!c.nationality;}
-function _pgMaxBirth(){const d=new Date();d.setFullYear(d.getFullYear()-5);return d.toISOString().slice(0,10);} // younger than five is a typo
 // ── Birth date chooser ────────────────────────────────────────────────────────
 // A native date box makes a rider scroll back through decades on a phone, and shows the
 // month in whatever calendar the device fancies. Three selects instead: day, month by name
@@ -4838,30 +4837,54 @@ function _pgMaxBirth(){const d=new Date();d.setFullYear(d.getFullYear()-5);retur
 // century. A hidden input under the caller's id carries YYYY-MM-DD, so every place that
 // read the date box before reads this the same way. Changing month or year trims the day
 // list to that month's length and clamps a day that no longer exists.
-const _DOB_MIN_AGE=5,_DOB_MAX_AGE=100;
+//
+// Nobody five or younger, and nothing in the future: the years stop six years back, and in
+// that last year the months and days still to come are greyed out, so a birth date that
+// young cannot be picked at all. _dobErr checks again on every save, which also catches a
+// date stored before this rule (the old picker defaulted to the sign-up day).
+const _DOB_MIN_AGE=6,_DOB_MAX_AGE=100;
+function _dobMax(){const p=todayStr().split('-');return `${+p[0]-_DOB_MIN_AGE}-${p[1]}-${p[2]}`;} // the latest birth date allowed, in Riyadh's calendar
+function _dobErr(v){
+  v=String(v||'');if(!v)return'';
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(v)||v>todayStr())return t('dobErrFuture');
+  return v>_dobMax()?t('dobErrYoung'):'';
+}
+// In the last allowed year, the months after this one; in this month of it, the days after today.
+function _dobLimits(y,m){const x=_dobMax().split('-').map(Number);return{mMax:y===x[0]?x[1]:12,dMax:(y===x[0]&&m===x[1])?x[2]:31};}
+function _dobMonthOpts(cur,mMax){return `<option value="">${esc(t('dobMonth'))}</option>`+_dobMonths().map((nm,i)=>`<option value="${i+1}"${i+1===cur?' selected':''}${i+1>mMax?' disabled':''}>${esc(nm)}</option>`).join('');}
 function _dobMonths(){
   try{const f=new Intl.DateTimeFormat(_locale(),{month:'long'});return Array.from({length:12},(_,i)=>f.format(new Date(2000,i,1)));}
   catch(e){return ['January','February','March','April','May','June','July','August','September','October','November','December'];}
 }
-function _dobDayOpts(dim,cur){return `<option value="">${esc(t('dobDay'))}</option>`+Array.from({length:dim},(_,i)=>i+1).map(n=>`<option value="${n}"${n===cur?' selected':''}>${n}</option>`).join('');}
+function _dobDayOpts(dim,cur,dMax){return `<option value="">${esc(t('dobDay'))}</option>`+Array.from({length:dim},(_,i)=>i+1).map(n=>`<option value="${n}"${n===cur?' selected':''}${n>(dMax||31)?' disabled':''}>${n}</option>`).join('');}
 // opts: {onchange:'globalFnName'} called with the new YYYY-MM-DD ('' while incomplete); {disabled:true}
 function dobFieldHtml(id,value,opts){
   const o=opts||{};const v=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value||''));
   const y=v?+v[1]:0,m=v?+v[2]:0,d=v?+v[3]:0;
   const yMax=new Date().getFullYear()-_DOB_MIN_AGE,yMin=new Date().getFullYear()-_DOB_MAX_AGE;
   const dim=(y&&m)?new Date(y,m,0).getDate():31;
+  const lim=_dobLimits(y,m);
   const dis=o.disabled?' disabled':'';
   const sel=(part,options,cur,ph)=>`<select id="${id}-${part}" class="dob-part dob-${part}${cur?'':' ph'}" aria-label="${esc(ph)}" onchange="_dobSync('${id}')"${dis}>${options}</select>`;
-  const mos=`<option value="">${esc(t('dobMonth'))}</option>`+_dobMonths().map((nm,i)=>`<option value="${i+1}"${i+1===m?' selected':''}>${esc(nm)}</option>`).join('');
-  let yrs=`<option value="">${esc(t('dobYear'))}</option>`;for(let yy=yMax;yy>=yMin;yy--)yrs+=`<option value="${yy}"${yy===y?' selected':''}>${yy}</option>`;
-  return `<div class="dob-row" id="${id}-row">${sel('d',_dobDayOpts(dim,d),d,t('dobDay'))}${sel('m',mos,m,t('dobMonth'))}${sel('y',yrs,y,t('dobYear'))}<input type="hidden" id="${id}" value="${esc(v?value:'')}"${o.onchange?` data-onchange="${esc(o.onchange)}"`:''}></div>`;
+  const mos=_dobMonthOpts(m,lim.mMax);
+  let yrs=`<option value="">${esc(t('dobYear'))}</option>`;
+  // A stored year outside the list still shows, so the rider sees what is wrong and the save says why.
+  if(y>yMax)yrs+=`<option value="${y}" selected>${y}</option>`;
+  for(let yy=yMax;yy>=yMin;yy--)yrs+=`<option value="${yy}"${yy===y?' selected':''}>${yy}</option>`;
+  if(y&&y<yMin)yrs+=`<option value="${y}" selected>${y}</option>`;
+  return `<div class="dob-row" id="${id}-row">${sel('d',_dobDayOpts(dim,d,lim.dMax),d,t('dobDay'))}${sel('m',mos,m,t('dobMonth'))}${sel('y',yrs,y,t('dobYear'))}<input type="hidden" id="${id}" value="${esc(v?value:'')}"${o.onchange?` data-onchange="${esc(o.onchange)}"`:''}></div>`;
 }
 function _dobSync(id){
   const g=p=>document.getElementById(id+'-'+p);const hid=document.getElementById(id);if(!hid)return;
-  const m=+(g('m')&&g('m').value)||0,y=+(g('y')&&g('y').value)||0;
+  const y=+(g('y')&&g('y').value)||0;
+  // A month or day that the chosen year puts out of reach is cleared, not kept.
+  const msel=g('m');
+  if(msel){const mMax=_dobLimits(y,0).mMax,cur=+msel.value||0;
+    if(msel.dataset.max!==String(mMax)){msel.innerHTML=_dobMonthOpts(cur>mMax?0:cur,mMax);msel.dataset.max=String(mMax);}}
+  const m=+(msel&&msel.value)||0;
   const dsel=g('d');
-  if(dsel){const dim=(y&&m)?new Date(y,m,0).getDate():31;
-    if(dsel.options.length-1!==dim){const cur=+dsel.value||0;dsel.innerHTML=_dobDayOpts(dim,Math.min(cur,dim));}}
+  if(dsel){const dim=(y&&m)?new Date(y,m,0).getDate():31,dMax=_dobLimits(y,m).dMax,key=dim+'|'+dMax;
+    if(dsel.dataset.lim!==key){const cur=Math.min(+dsel.value||0,dim);dsel.innerHTML=_dobDayOpts(dim,cur>dMax?0:cur,dMax);dsel.dataset.lim=key;}} // a shorter month clamps the day; the age limit clears it
   const d=+(dsel&&dsel.value)||0;
   ['d','m','y'].forEach(p=>{const el=g(p);if(el)el.classList.toggle('ph',!el.value);});
   hid.value=(y&&m&&d)?`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`:'';
@@ -4920,7 +4943,7 @@ function _pgInput(k,v){
 }
 async function _pgSave(){
   const g=S._pg,cust=S.loggedIn||getSession();if(!g||g.saving||!cust)return;
-  g.errBirth=(!g.birth||g.birth>_pgMaxBirth())?t('pgErrBirth'):'';
+  g.errBirth=!g.birth?t('pgErrBirth'):_dobErr(g.birth);
   g.errNat=g.nat?'':t('pgErrNat');
   if(g.errBirth||g.errNat){renderProfileGate();setTimeout(()=>{const f=document.getElementById(g.errBirth?'pg-birth-d':'pg-nat');if(f)f.focus();},120);return;}
   g.saving=true;g.net=false;renderProfileGate();
@@ -5140,7 +5163,7 @@ async function _fixSave(){
     else if(k==='email'){const e=String(v.email||'').trim().toLowerCase();if(!/^[^\s<>"'()@]+@[^\s<>"'()@]+\.[^\s<>"'()@]+$/.test(e))err.email=t('errValidEmail');else if(_isRelay(e))err.email=t('fixErrRelay');else vals.email=e;}
     else if(k==='password'){const p=v.password||'';if(p.length<8||!/[A-Z]/.test(p)||!/[0-9]/.test(p))err.password=t('errPasswordLen');else if(p!==(v.password2||''))err.password=t('errPasswordMatch');else vals.password=p;}
     else if(k==='phone'){const p=v.phone||{};const d=_asciiDigits(p.num||'').replace(/\D/g,'');if(d.length<8)err.phone=t('errValidPhone');else vals.phone=_normPhone(d,p.cc||'+966');}
-    else if(k==='birth_date'){if(!v.birth_date||v.birth_date>_pgMaxBirth())err.birth_date=t('pgErrBirth');else vals.birth_date=v.birth_date;}
+    else if(k==='birth_date'){if(!v.birth_date)err.birth_date=t('pgErrBirth');else if(_dobErr(v.birth_date))err.birth_date=_dobErr(v.birth_date);else vals.birth_date=v.birth_date;}
     else if(k==='gender'){if(v.gender!=='male'&&v.gender!=='female')err.gender=t('fixErrPick');else vals.gender=v.gender;}
     else if(k==='nationality'){if(!v.nationality)err.nationality=t('pgErrNat');else vals.nationality=v.nationality;}
     else if(k==='residence'){
@@ -8480,6 +8503,7 @@ async function saveAccount(){
   if(heightTyped&&(isNaN(heightRaw)||heightRaw<100||heightRaw>250)){setErr(t('heightHint'));return;} // out-of-range height errors instead of silently nulling
   const height=(!isNaN(heightRaw)&&heightRaw>=100&&heightRaw<=250)?heightRaw:null;
   const birth_date=(document.getElementById('acc-birth')?.value||'')||null;
+  if(_dobErr(birth_date)){setErr(_dobErr(birth_date));document.getElementById('acc-birth-d')?.focus();return;}
   const country=(document.getElementById('acc-country')?.value||'')||null;
   const city=(document.getElementById('acc-city')?.value||'')||null;
   const nationality=(document.getElementById('acc-nationality')?.value||'')||null;
@@ -10856,6 +10880,7 @@ async function saveCustForm(){
   const phoneRaw=val('cf-phone').replace(/\D/g,'');
   const heightRaw=parseInt(val('cf-height'));
   const birth=val('cf-birth')||null;
+  if(_dobErr(birth)){toast(_dobErr(birth),'error');document.getElementById('cf-birth-d')?.focus();return;}
   const country=val('cf-country')||null;
   const city=val('cf-city')||null;
   const nationality=val('cf-nationality')||null;
