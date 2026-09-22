@@ -67,7 +67,9 @@ test('ids, days and types that carry markup render as text, and the buttons stil
   await expect(page.locator('.flg-row')).toHaveCount(1);
   expect(await pwned()).toEqual([null, 0]);
 
-  // The same odd values still reach their handlers intact.
+  // The same odd values still reach their handlers intact - through the roster table's pay and
+  // party buttons, which are the desktop layout (a phone lists cards; their markup is checked above).
+  if (test.info().project.name === 'mobile') return;
   await page.evaluate(`setStaffTab('queue');S.sfSession=${JSON.stringify(LIVE)};renderStaffQueue()`);
   await page.locator('.queue-table .pay-toggle').first().click();
   await expect(page.locator('.pay-menu-popup')).toBeVisible();
@@ -112,6 +114,7 @@ test('a session is not created with a start or end time left empty', async ({ pa
 
 // ── the party's buttons ──────────────────────────────────────────────────────
 test('Mark paid on a party back from the ride pays the riders who have finished', async ({ page }) => {
+  test.skip(test.info().project.name === 'mobile', 'the party row and its Mark paid button are the desktop roster table');
   await boot(page, { sessions: [sess(LIVE)], queue_entries: [
     row('d1', { group_id: 'gp', status: 'done' }), row('d2', { queue_num: 2, group_id: 'gp', status: 'done' }),
   ] });

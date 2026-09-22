@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { stubSupabase, unlockStaff, staffReady, goStaffTab } from './helpers/supabase';
+import { stubSupabase, unlockStaff, staffReady, goStaffTab, waitForSb } from './helpers/supabase';
 
 test('visiting ?staff locked shows the staff email/password gate (no PIN pad)', async ({ page }) => {
   await stubSupabase(page);
@@ -35,6 +35,9 @@ test.describe('unlocked staff panel', () => {
     await stubSupabase(page);
     await unlockStaff(page);
     await page.goto('/');
+    // The tests below lay bookings straight into S.queue: the first load must have landed, or
+    // it replaces them a moment later (and an open check-in closes when its booking vanishes).
+    await waitForSb(page);
   });
 
   test('staff view loads with the staff app name', async ({ page }) => {

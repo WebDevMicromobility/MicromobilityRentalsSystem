@@ -304,6 +304,7 @@ test('the topbar Undo keeps a refused reversal undoable, and claims it before ru
 });
 
 test('a render with nothing left to add still retires an older render\'s pending rows', async ({ page }) => {
+  test.skip(test.info().project.name === 'mobile', '_qPaintRest fills the desktop roster table (#q-tbody), which a phone does not show');
   const q = [row('A', 'waiting')];
   await boot(page, q);
   await page.evaluate(`setStaffTab('queue');renderStaffQueue()`);
