@@ -1,7 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { stubSupabase, unlockStaff, waitForSb, captureBookingRows } from './helpers/supabase';
 
-// The Riders tab lists self-registrations from the form at micromobility.sa/petromin
+// The Petromin page in Queue (it was the Riders tab until 2026-09-22) lists self-registrations
+// from the form at micromobility.sa/petromin
 // (rider_registrations). Each row was matched server-side by phone or name: to an open
 // booking, to a customer account with no booking, or to nothing; the tab does not show that
 // match any more, the form registration is a booking in its own right. The desk checks a rider
@@ -55,17 +56,20 @@ async function openRiders(page: P) {
   await page.goto('/');
   await waitForSb(page);
   await page.evaluate(`setStaffTab('riders')`);
-  await expect(page.locator('#tab-riders tbody tr')).toHaveCount(3);
+  await expect(page.locator('#pm-host tbody tr')).toHaveCount(3);
 }
 
-const rows = (page: P) => page.locator('#tab-riders tbody tr');
-const pill = (page: P, label: string) => page.locator('#tab-riders .filter-pill', { hasText: label });
+const rows = (page: P) => page.locator('#pm-host tbody tr');
+const pill = (page: P, label: string) => page.locator('#pm-host .filter-pill', { hasText: label });
 
 test('the Riders tab lists every registration with its number, company, phone and session', async ({ page }) => {
   const errs = watch(page);
   await openRiders(page);
 
-  await expect(page.locator('#tab-riders')).toHaveClass(/active/);
+  // The old Riders tab lands on the Petromin page inside Queue, on the open Petromin night.
+  expect(await page.evaluate('[S.staffTab,S.queueView,S.ridersSession]')).toEqual(['queue', 'petromin', SESS]);
+  await expect(page.locator('#tab-queue .pm-chip.active-sess')).toHaveCount(1);          // phones get the same page from the dropdown
+  await expect(page.locator('#tab-queue .sess-bar-mobile select')).toHaveValue('pm:' + SESS);
   const r0 = rows(page).nth(0), r1 = rows(page).nth(1), r2 = rows(page).nth(2);
   await expect(r0).toContainText('P-001');
   await expect(r0).toContainText('A-12');
@@ -75,7 +79,7 @@ test('the Riders tab lists every registration with its number, company, phone an
   await expect(r1).toContainText('Petrolube');
   await expect(r1).toContainText('Submitted 2 times');
   await expect(r2).toContainText('C-56');
-  await expect(page.locator('#tab-riders select.filter-select')).toContainText('(3)');
+  await expect(page.locator('#pm-host select.filter-select')).toContainText('(3)');
 
   // Pill counts reflect the whole list, not the current filter.
   await expect(pill(page, 'All')).toContainText('3');
@@ -106,7 +110,7 @@ test('the filter pills narrow the list by desk state', async ({ page }) => {
 test('check-in and check-out times show in their own columns, with who stamped them and the ride time', async ({ page }) => {
   const errs = watch(page);
   await openRiders(page);
-  const head = page.locator('#tab-riders thead');
+  const head = page.locator('#pm-host thead');
   await expect(head).toContainText('Check-in time');
   await expect(head).toContainText('Check-out time');
 
@@ -161,7 +165,7 @@ test('Check in writes checked_in_at for that row, and Return bike writes checked
 test('the list never shows a price; the billing report CSV carries per-ride prices and a TOTAL line', async ({ page }) => {
   const errs = watch(page);
   await openRiders(page);
-  const cells = await page.locator('#tab-riders td').allTextContents();
+  const cells = await page.locator('#pm-host td').allTextContents();
   for (const c of cells) {
     expect(c).not.toContain('SAR');
     expect(c).not.toContain('57.5');
@@ -190,7 +194,7 @@ test.describe('walk-in at the desk', () => {
     await page.goto('/');
     await waitForSb(page);
     await page.evaluate(`setStaffTab('riders')`);
-    await expect(page.locator('#tab-riders tbody tr')).toHaveCount(3);
+    await expect(page.locator('#pm-host tbody tr')).toHaveCount(3);
     const booked = await captureBookingRows(page);
 
     const calls: Record<string, unknown>[] = [];
@@ -200,7 +204,7 @@ test.describe('walk-in at the desk', () => {
       if (r.method() === 'PATCH' && /rider_registrations/.test(r.url())) patches.push({ url: r.url(), body: JSON.parse(r.postData() || '{}') });
     });
 
-    await page.locator('#tab-riders button', { hasText: 'Walk-in' }).click();
+    await page.locator('#pm-host button', { hasText: 'Walk-in' }).click();
     await expect(page.locator('#rider-walkin-modal .modal-box')).toBeVisible();
     await expect(page.locator('#rw-session')).toHaveValue(SESS);     // tonight's ride is pre-picked
     await expect(page.locator('#rw-checkin')).toBeChecked();         // a walk-in is standing at the desk
@@ -666,7 +670,7 @@ test('scanning a rider QR opens the booking pop-up with a Check in button, and t
   await expect(modal).toContainText('On ride');
   await expect(modal.locator('#rider-return')).toBeVisible();
   await expect(modal.locator('#rider-checkin')).toHaveCount(0);
-  await expect(page.locator('#tab-riders').getByRole('button', { name: 'Scan QR' })).toBeVisible();
+  await expect(page.locator('#pm-host').getByRole('button', { name: 'Scan QR' })).toBeVisible();
   expect(errs).toEqual([]);
 });
 
@@ -708,7 +712,7 @@ test.describe('editing a registration', () => {
     await page.goto('/');
     await waitForSb(page);
     await page.evaluate(`setStaffTab('riders')`);
-    await expect(page.locator('#tab-riders tbody tr')).toHaveCount(3);
+    await expect(page.locator('#pm-host tbody tr')).toHaveCount(3);
     await page.evaluate(`showRiderEdit(3)`);
     await page.fill('#rw-badge', 'A-12');
     await page.click('#rw-submit');
@@ -773,14 +777,14 @@ test.describe('a party under one booking number', () => {
     await waitForSb(page);
     await page.evaluate(`setStaffTab('riders')`);
     // The party folds to one row until opened, as on the Bookings tab.
-    await expect(page.locator('#tab-riders tbody tr')).toHaveCount(4);
-    await page.locator('#tab-riders tbody tr.party-row').getByRole('button', { name: /Show riders/ }).click();
-    await expect(page.locator('#tab-riders tbody tr')).toHaveCount(6);
+    await expect(page.locator('#pm-host tbody tr')).toHaveCount(4);
+    await page.locator('#pm-host tbody tr.party-row').getByRole('button', { name: /Show riders/ }).click();
+    await expect(page.locator('#pm-host tbody tr')).toHaveCount(6);
   }
 
   test('the list keeps the party together and says who is with whom', async ({ page }) => {
     await boot(page);
-    const rows = page.locator('#tab-riders tbody tr', { hasText: 'P-005' });
+    const rows = page.locator('#pm-host tbody tr', { hasText: 'P-005' });
     await expect(rows).toHaveCount(3);
     await expect(rows.nth(0)).toContainText('Dana Lead');
     await expect(rows.nth(0)).toContainText('Rider 1 of 3');
@@ -788,7 +792,7 @@ test.describe('a party under one booking number', () => {
     await expect(rows.nth(1)).toContainText('Rider 2 of 3');
     await expect(rows.nth(1)).toContainText('with Dana Lead');
     await expect(rows.nth(2)).toContainText('Rider 3 of 3');
-    await expect(page.locator('#tab-riders tbody tr', { hasText: 'P-001' })).not.toContainText('Rider 1 of');   // a solo row says nothing
+    await expect(page.locator('#pm-host tbody tr', { hasText: 'P-001' })).not.toContainText('Rider 1 of');   // a solo row says nothing
   });
 
   test('scanning the number opens the employee; a companion cannot change the shared badge', async ({ page }) => {
@@ -816,18 +820,18 @@ test('one QR opens the whole party: every rider listed with their own Check in, 
   await waitForSb(page);
   await page.evaluate(`setStaffTab('riders')`);
   // The party folds to one row, as on the Bookings tab: its size, its counts, Show riders.
-  await expect(page.locator('#tab-riders tbody tr')).toHaveCount(3);
-  const folded = page.locator('#tab-riders tbody tr.party-row');
+  await expect(page.locator('#pm-host tbody tr')).toHaveCount(3);
+  const folded = page.locator('#pm-host tbody tr.party-row');
   await expect(folded).toHaveCount(1);
   await expect(folded).toContainText('3 riders');
   await expect(folded).toContainText('2 not arrived');
   await expect(folded).toContainText('1 returned');
   await expect(folded.getByRole('button', { name: 'Check in all' })).toBeVisible();
   await folded.getByRole('button', { name: /Show riders/ }).click();
-  await expect(page.locator('#tab-riders tbody tr')).toHaveCount(5);
-  await expect(page.locator('#tab-riders tbody tr.party-row')).toHaveCount(3);
-  await page.locator('#tab-riders tbody tr.party-row').first().getByRole('button', { name: /Hide riders/ }).click();
-  await expect(page.locator('#tab-riders tbody tr')).toHaveCount(3);
+  await expect(page.locator('#pm-host tbody tr')).toHaveCount(5);
+  await expect(page.locator('#pm-host tbody tr.party-row')).toHaveCount(3);
+  await page.locator('#pm-host tbody tr.party-row').first().getByRole('button', { name: /Hide riders/ }).click();
+  await expect(page.locator('#pm-host tbody tr')).toHaveCount(3);
   const writes: { url: string; body: Record<string, unknown> }[] = [];
   page.on('request', (r) => { if (r.method() === 'PATCH' && /rest\/v1\/rider_registrations/.test(r.url())) writes.push({ url: r.url(), body: r.postDataJSON() }); });
 
@@ -862,7 +866,7 @@ test('staff edit a party: companions come filled in, one is changed, one removed
   await page.goto('/');
   await waitForSb(page);
   await page.evaluate(`setStaffTab('riders')`);
-  await expect(page.locator('#tab-riders tbody tr')).toHaveCount(3); // P-001's party folds to one row; its Edit covers the party
+  await expect(page.locator('#pm-host tbody tr')).toHaveCount(3); // P-001's party folds to one row; its Edit covers the party
   const reqs: { method: string; url: string; body: Record<string, unknown> | null }[] = [];
   page.on('request', (r) => { if (/rest\/v1\/(rider_registrations|rpc\/rider_party_add)/.test(r.url()) && r.method() !== 'GET') reqs.push({ method: r.method(), url: r.url(), body: r.postData() ? r.postDataJSON() : null }); });
 

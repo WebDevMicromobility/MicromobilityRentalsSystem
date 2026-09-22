@@ -31,21 +31,22 @@ test('front desk mode limits the staff tabs to Sales, Bookings & Riders', async 
   await expect(panel.getByRole('button', { name: 'Sessions' })).toBeVisible();
   await expect(panel.locator('tr, .q-card').filter({ hasText: 'Sat Rider' }).filter({ visible: true })).toHaveCount(1);
 
-  // Switch to Front Desk -> only Sales (cashier), Bookings (queue) and Riders
+  // Switch to Front Desk -> only Sales (cashier) and Bookings (queue); the Petromin
+  // registrations are a page inside Queue now, not a tab
   await page.evaluate('setStaffRole("frontdesk")');
-  expect((await vis()).sort()).toEqual(['cashier', 'queue', 'riders']);
+  expect((await vis()).sort()).toEqual(['cashier', 'queue']);
 
   // Trying to open a hidden tab bounces back to queue
   await page.evaluate('setStaffTab("analytics")');
   expect(await page.evaluate('S.staffTab')).toBe('queue');
 
-  // Riders opens, with the desk's actions; the summary report stays admin-only.
+  // The Petromin page opens, with the desk's actions; the summary report stays admin-only.
   await page.evaluate('setStaffTab("riders")');
-  expect(await page.evaluate('S.staffTab')).toBe('riders');
-  const riders = page.locator('#tab-riders');
+  expect(await page.evaluate('[S.staffTab,S.queueView]')).toEqual(['queue', 'petromin']);
+  const riders = page.locator('#pm-host');
   await expect(riders.locator('button[onclick^="showRiderWalkin"]')).toBeVisible();
   await expect(riders.locator('button[onclick^="printRidersReport"]')).toHaveCount(0);
-  await page.evaluate('setStaffTab("queue")');
+  await page.evaluate('S.queueView="bookings";setStaffTab("queue")');
 
   // Front Desk: no Sessions pill, no Saturday rows, no Saturday option in the filter,
   // no community Add-rider button — Queue + Waitlist pills and JCC data only.
