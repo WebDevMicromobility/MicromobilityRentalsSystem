@@ -5418,6 +5418,10 @@ function _sessEnded(s){
   const parts=raw.split('-');
   const start=hhmm(String(parts[0]||'').trim())||'09:00';
   const end=hhmm(String(parts[1]||'').trim())||start;
+  // An end written before its start is over: a window does not run past midnight into tomorrow.
+  // Read from the clock alone this was wrong between midnight and that end (a 23:59 - 00:30
+  // night still counted as running at 00:05), which is when the desk is packing up.
+  if(end<start)return true;
   let now='';try{now=new Intl.DateTimeFormat('en-GB',{timeZone:KSA_TZ,hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date());}catch(e){return false;}
   return now>=end;
 }
