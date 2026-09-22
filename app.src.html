@@ -6592,6 +6592,11 @@ function _mwRowKey(w){
 function _mwSessOpts(){
   const byId=new Map();
   allSessions().filter(x=>_sessLive(x)).forEach(x=>byId.set(x.id,x));
+  // A night that has closed can still hold bookings nobody rode, and those are parkable like any
+  // other, so the night they belong to is offered here too (asked for 2026-09-23). The order is
+  // the staff order: the live nights first, then the most recent of the rest.
+  const parkable=new Set(getQueue().filter(e=>e.status==='waiting'||e.status==='waitlist').map(e=>e.sessionId));
+  allSessions().forEach(x=>{if(x.status!=='deleted'&&parkable.has(x.id))byId.set(x.id,x);});
   _wlManaged().forEach(w=>{
     if(!w.booking_id)return;
     const bk=getQueue().find(x=>x.id===w.booking_id);

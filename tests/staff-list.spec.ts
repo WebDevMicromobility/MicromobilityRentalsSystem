@@ -452,10 +452,22 @@ test.describe('the session picker', () => {
     registered_at: '2099-01-01T10:00:00Z',
   };
 
+  // A night that closed with bookings nobody rode: those are parkable too (2026-09-23).
+  const shut = {
+    id: '2099-02-07', day: 'Saturday', session_date: '2099-02-07', capacity: 9, status: 'closed',
+    created_at: 3, bike_slots: null, location: 'JCC', addons: null,
+  };
+  const shutBooking = {
+    id: 'sh1', session_id: shut.id, session_day: 'Saturday', session_date: shut.session_date,
+    queue_num: 3, name: 'Closed Night Rider', phone: '0508888888', customer_id: null,
+    type_preference: 'Road', status: 'waiting', paid: false, price: 60,
+    registered_at: '2099-01-01T10:00:00Z',
+  };
+
   async function open(page: import('@playwright/test').Page) {
     await stubSupabase(page, {
-      sessions: [...sessions, other],
-      queue_entries: [...queue_entries, otherBooking],
+      sessions: [...sessions, other, shut],
+      queue_entries: [...queue_entries, otherBooking, shutBooking],
       desk_waitlist: [],
     });
     await unlockStaff(page);
@@ -470,6 +482,17 @@ test.describe('the session picker', () => {
     expect(opts[0]).toBe('all');
     expect(opts).toContain('s0');
     expect(opts).toContain('2099-02-09');
+    expect(opts).toContain('2099-02-07');            // closed, but it still holds an unridden booking
+  });
+
+  test('a booking left on a closed night can still be parked from that night', async ({ page }) => {
+    await open(page);
+    await page.evaluate(`mwSetSess('2099-02-07')`);
+    await page.evaluate(`S._mwQ='Closed';_mwRenderSuggest()`);
+    await expect(page.locator('#mw-suggest')).toContainText('Closed Night Rider');
+    await page.evaluate(`mwFromBooking('sh1')`);
+    await expect.poll(async () => page.locator('#mw-host .q-card').count()).toBe(1);
+    await expect(page.locator('#mw-host')).toContainText('Closed Night Rider');
   });
 
   test('narrows the list to that session, and says so when it empties', async ({ page }) => {
@@ -499,7 +522,7 @@ test.describe('the session picker', () => {
     // Changing the session rebuilds the OPEN picker in place — no second click, and no
     // stale list of the previous ride's riders left on screen.
     await page.evaluate(`mwSetSess('all')`);
-    await expect(page.locator('#mw-suggest .mw-sug')).toHaveCount(3); // both sessions' open bookings
+    await expect(page.locator('#mw-suggest .mw-sug')).toHaveCount(4); // every night's unridden bookings, the closed one's too
   });
 
   test('a walk-up row belongs to no session, so it never hides behind the filter', async ({ page }) => {
