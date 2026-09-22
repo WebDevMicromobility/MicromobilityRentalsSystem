@@ -12886,7 +12886,7 @@ async function publishCommResults(){
       const res=await sb.from('sessions').update({hide_queue:false}).eq('id',sid);
       if(_writeErr(res,'publish results'))return;
       sess.hide_queue=false;
-      logAction(`${t('publishBtn')}: ${sess.title||t('landCommTitle')} (${nApproved})`);
+      logAction(`${t('publishBtn')}: ${_evName(sess)} (${nApproved})`); // what the ride is called everywhere else: staff's name for it, or the ride's own
       toast(t('publishedToast').replace('{0}',String(nApproved)));
       renderStaffQueue();
     }});
@@ -14349,7 +14349,19 @@ async function _returnWrite(id,markPaid,cond,notes){
   if(r&&r.error&&!_rpcAbsent(r.error))return{ok:false,rpcError:r.error};
   if(!(r&&r.error)&&r&&r.data&&r.data.ok===true){ // the function's own answer, or the classic writes
     delete updates.status;
-    if(Object.keys(updates).length){try{await sb.from('queue_entries').update(updates).eq('id',id);}catch(_){}} // paid / ride duration, tolerant
+    // The rider is back and the bike is freed; what is left is the payment and the ride time.
+    // This write used to be swallowed, so a dropped connection toasted "returned and marked as
+    // paid" over a row still pending. Now it is checked: on failure the error bar offers a retry
+    // of just this write, and there is no success toast and no undo entry for a half-done return.
+    const _saveRest=async(again)=>{
+      let w;try{w=await sb.from('queue_entries').update(updates).eq('id',id);}catch(e){w={error:e};}
+      if(_writeErr(w,'return payment',()=>_saveRest(true)))return false;
+      if(again){await _reloadRows([id]);toast(markPaid?t('toastBikeReturnedPaid'):t('toastBikeReturned'));}
+      return true;
+    };
+    if(Object.keys(updates).length&&!(await _saveRest(false))){
+      entry.status='done';await _reloadRows([id]);try{localStorage.removeItem('cq_ct_'+id);}catch(e){}renderStaffQueue();return;
+    }
   }else{
     const _rr=await Promise.all([
       sb.from('queue_entries').update(updates).eq('id',id),

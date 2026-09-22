@@ -77,7 +77,12 @@ async function boot(page: Page, q: Row[], bikes: Row[] = [], refuse?: (table: st
   await page.waitForFunction('getQueue().length>0');
   return hits;
 }
-const undoTop = (page: Page) => page.evaluate('S.undoStack[S.undoStack.length-1].fn()');
+// The undo is pushed at the very end of an action, after its last reload: wait for it rather than
+// for the last write the action made.
+const undoTop = async (page: Page) => {
+  await page.waitForFunction('S.undoStack.length>0');
+  return page.evaluate('S.undoStack[S.undoStack.length-1].fn()');
+};
 
 test('a refused cancel of a rider on a bike frees nothing, promotes nobody and offers no undo', async ({ page }) => {
   const q = [row('A', 'active', { assigned_bike_id: 'b1', addons: JSON.stringify([{ id: 'gel', qty: 1 }]) }), row('W', 'waitlist', { waitlist_num: 1 })];
@@ -335,4 +340,27 @@ test('the log keeps two identical actions made in the same minute', async ({ pag
     return (host.innerText.match(/3 paid/g)||[]).length;
   })()`);
   expect(lines).toBe(2);
+});
+
+test('a return whose payment write fails is not reported as paid, and the retry saves it', async ({ page }) => {
+  const entry = row('A', 'active', { assigned_bike_id: 'b1' });
+  await stubSupabase(page, {
+    sessions, inventory, queue_entries: [entry], bikes: [bike('b1', 'in-use')],
+    'rpc:staff_return': { ok: true, noop: false, bikes_freed: 1 },
+  }, { table: 'queue_entries', methods: ['PATCH'], once: true });
+  const patches: Row[] = [];
+  page.on('request', (r) => { if (r.method() === 'PATCH' && r.url().includes('/rest/v1/queue_entries')) patches.push(r.postDataJSON()); });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction('getQueue().length>0');
+  await page.evaluate(`_finishReturn('A',true,'ok',null)`);
+  await expect(page.locator('#err-bar-el')).toBeVisible();          // the failure is on screen, with a retry
+  await expect(page.locator('#toast-container')).not.toContainText('marked as paid');
+  expect(await page.evaluate('S.undoStack.length')).toBe(0);         // nothing to undo on a half-done return
+  await page.locator('#err-bar-el button', { hasText: 'Try again' }).click();
+  await expect.poll(() => patches.length).toBe(2);
+  expect(patches[1].paid).toBe(true);                                 // the retry saves just the payment
+  expect(patches[1].status).toBeUndefined();
+  await expect(page.locator('#toast-container')).toContainText('marked as paid');
 });
