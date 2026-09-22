@@ -1,3 +1,9 @@
+-- ⛔ SUPERSEDED - DO NOT RUN. Frozen record (see sql/README.md).
+-- Companion to ride-prices-57-5.sql, replaced by
+-- supabase/migrations/20260921190000_petromin_fare_is_the_employees.sql. While
+-- ride_prices_by_kind is empty it does nothing; after a re-run of ride-prices-57-5.sql it would
+-- pull open website bookings on a Petromin night down to 50.
+--
 -- Bring open Petromin bookings down to the Petromin fare.
 --
 -- ride-prices-57-5.sql only moved bookings UP from 50, because that was the case in front of

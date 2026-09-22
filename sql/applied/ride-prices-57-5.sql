@@ -1,3 +1,10 @@
+-- ⛔ SUPERSEDED - DO NOT RUN. Frozen record (see sql/README.md).
+-- This gave EVERY booking on a Petromin night the 50 fare, website bookings included. The 50
+-- belongs only to employees from the registration form: replaced by
+-- supabase/migrations/20260921190000_petromin_fare_is_the_employees.sql. Re-running this on
+-- 2026-09-22 put the per-night 50 back and replaced _enforce_booking_price with the old
+-- version, until the migration's rule was restored the same day.
+--
 -- Hybrid, Mountain and Kids move from 50 to 57.5. Petromin employees keep 50.
 --
 -- Run this in the Supabase SQL editor on production, as one script. It is wrapped in a
