@@ -17,7 +17,7 @@ const base = {
 const apps = [
   { ...base, id: 'a1', status: 'pending', name: 'Karim Mansour', email: 'karim.mansour@gmail.com', phone: '+966552468013', instagram: 'karim.rides', linkedin: 'karim-mansour-arch' },
   { ...base, id: 'a2', status: 'pending', name: 'Huda Al Saleh', email: 'huda.saleh@gmail.com', phone: '+966551239876', gender: 'female', instagram: 'huda.s', linkedin: 'huda-alsaleh', lang: 'ar', bike_type: 'Hybrid', created_at: '2026-09-21T08:00:00Z' },
-  { ...base, id: 'a3', status: 'rejected', name: 'Old Applicant', email: 'old.applicant@gmail.com', phone: '+966553579024', instagram: 'old.a', linkedin: 'old-a', decided_at: '2026-09-20T08:00:00Z', decided_by: 'Desk B' },
+  { ...base, id: 'a3', status: 'rejected', name: 'Old Applicant', email: 'old.applicant@gmail.com', phone: '+966553579024', instagram: 'old.a', linkedin: 'old-a', bike_type: 'Mountain', decided_at: '2026-09-20T08:00:00Z', decided_by: 'Desk B' },
 ];
 
 async function applicationsTab(page: Page, extra: Record<string, unknown> = {}) {
@@ -50,6 +50,7 @@ test('the Applications tab shows every answer, the handles as links, and an acco
   await page.locator('.filter-pill[data-ca-filter="rejected"]').click();
   await expect(page.locator('.ca-row')).toHaveCount(1);
   await expect(row(page, 'a3')).toContainText('by Desk B');
+  await expect(row(page, 'a3').locator('.ca-grid')).toContainText('Mountain');
   await expect(row(page, 'a3').locator('.ca-reopen')).toBeVisible();
 });
 
