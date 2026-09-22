@@ -32,15 +32,15 @@ test('with nothing coming up, the dialog names no ride at all (never the circuit
   await expect(modal.locator('.ev-name')).toHaveCount(0);
 });
 
-test('the staff queue does not open on a night left open last week', async ({ page }) => {
+// With no ride tonight the queue opens on the latest ride before today (575fd6c, _currentSessId);
+// what this keeps is that tonight's ride is found even with a ride's mark on its id.
+test('the staff queue opens on tonight\'s ride, even with a ride\'s mark on its id', async ({ page }) => {
   const old = { id: '2020-01-05', day: 'Sunday', session_date: '2020-01-05', status: 'open', capacity: 10, created_at: 1 };
   const later = { id: '2099-01-05', day: 'Monday', session_date: '2099-01-05', status: 'full', capacity: 10, created_at: 2 };
   await stubSupabase(page, { sessions: [old, later], queue_entries: [], bikes: [] });
   await unlockStaff(page);
   await page.goto('/');
   await waitForSb(page);
-  await page.evaluate(`sessionStorage.removeItem('cq_queue_view');S.sfSession='x';_autoSelectSession()`);
-  expect(await page.evaluate('S.sfSession')).toBe('all');                 // no session tonight: All, as the queue's own rule says
   const today = await page.evaluate('todayStr()') as string;
   await page.evaluate(`S.sessions.push({id:'${today}-pw',session_date:'${today}',day:'Today',status:'open',capacity:10,created_at:3,event_kind:'community',ride_kind:'petromin',needs_approval:false});_autoSelectSession()`);
   expect(await page.evaluate('S.sfSession')).toBe(`${today}-pw`);        // tonight's, even with a ride's mark on its id

@@ -265,12 +265,8 @@ test('a party row names the riders who ride on the house', async ({ page }) => {
   await expect(page.locator('#q-tbody')).toContainText(/1 On the house/);
 });
 
-test('the desk opens on the newest session of tonight', async ({ page }) => {
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
-  await boot(page, { sessions: [sess(today, { created_at: '2026-01-01T00:00:00Z' }), sess(`${today}-pw`, { created_at: '2026-09-01T00:00:00Z' })], queue_entries: [] });
-  await page.evaluate(`sessionStorage.removeItem('cq_queue_view');S._sfDefaulted=false;S.sfSession='all';setStaffTab('queue');renderStaffQueue()`);
-  expect(await page.evaluate('S.sfSession')).toBe(`${today}-pw`);
-});
+// Which session the desk opens on is the queue's own rule now (_currentSessId, 575fd6c), with
+// its own specs (queue-desk-pass, queue-view-memory).
 
 test('the walk-in type goes with its rider, and picking an account keeps the typed riders', async ({ page }) => {
   await boot(page, { sessions: [sess(LIVE)], queue_entries: [],
