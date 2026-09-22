@@ -743,7 +743,7 @@ en:{landMainTitleHtml:'Reserve Your <span>Bicycle Now!</span>',spotsFull:'Full',
   toastLoggedOut:'Logged out successfully.',
   toastStaffPanel:'Welcome to the Staff Panel.',
   toastBookingCancelled:'Booking cancelled. Your spot has been freed.',
-  anCancelWhy:'Why riders cancel',anCancelWhySub:'Bookings riders cancelled themselves, a party counted once: {0} of {1} gave a reason.',anCancelWhyNone:'No reasons saved in this period yet.',anCancelNotes:'In their own words',
+  anCancelWhy:'Why riders cancel',anCancelWhySub:'Cancelled bookings with a reason, a party counted once: {0}, of which staff recorded {1}.',staffCancelWhy:'Why? (optional)',cancelReasonDuplicate:'Duplicate booking',cancelReasonMistake:'Booked by mistake',anCancelWhyNone:'No reasons saved in this period yet.',anCancelNotes:'In their own words',
   returnAllBtn:'Return all',bulkReturnBtn:'Return bikes',bulkReturnTitle:'Return bikes ({0})',bulkReturnSub:'Every bike is marked OK. Tap one that needs a check or is damaged.',bulkReturnNotes:'Notes on the bikes that need a check or are damaged',bulkReturnUnpaid:'Not paid yet: {0}',bulkReturnMarkPaid:'Mark them paid',bulkReturnNoPay:'Return without payment',bulkReturnGo:'Return ({0})',bulkReturnedToast:'Bikes returned: {0}',logBulkReturn:'Bikes returned together: {0}',partyReturnTitle:'Return these riders ({0})?',partyUndoCheckinTitle:'Undo the check-in of these riders ({0})?',partyNoShowTitle:'Mark these riders as no-show ({0})?',partyUndoneToast:'Check-in undone: {0}',partyNoShowToast:'Marked no-show: {0}',logBulkNoShow:'Marked no-show together: {0}',pmChipLabel:'Registrations',pmChipTitle:'Petromin registrations',pmRegistered:'registered',cancelReasonWork:'Work or family commitment',cancelReasonUnwell:'Feeling unwell or injured',cancelReasonWeather:'The weather (heat, wind or dust)',cancelReasonWrongDate:'Booked the wrong date or time',cancelReasonTransport:'Can\'t get there on time (traffic or transport)',cancelReasonGroup:'My group can\'t make it',
   cancelReasonTitle:'Why are you cancelling?',
   cancelReason1:'Change of plans',cancelReason2:'Found a better price elsewhere',
@@ -1158,7 +1158,7 @@ ar:{landMainTitleHtml:'احجز <span>دراجتك الآن!</span>',spotsFull:'
   toastLoggedOut:'تم تسجيل الخروج بنجاح.',
   toastStaffPanel:'مرحباً بك في لوحة الموظفين.',
   toastBookingCancelled:'تم إلغاء الحجز. أُفرج عن دراجتك.',
-  anCancelWhy:'لماذا يلغي الراكبون',anCancelWhySub:'الحجوزات التي ألغاها الراكبون بأنفسهم، والمجموعة تُحسب مرة واحدة: {0} من {1} ذكروا سبباً.',anCancelWhyNone:'لا توجد أسباب محفوظة في هذه الفترة بعد.',anCancelNotes:'بكلماتهم',
+  anCancelWhy:'لماذا يلغي الراكبون',anCancelWhySub:'الحجوزات الملغاة التي لها سبب، والمجموعة تُحسب مرة واحدة: {0}، سجّل الموظفون {1} منها.',staffCancelWhy:'السبب؟ (اختياري)',cancelReasonDuplicate:'حجز مكرر',cancelReasonMistake:'حُجز بالخطأ',anCancelWhyNone:'لا توجد أسباب محفوظة في هذه الفترة بعد.',anCancelNotes:'بكلماتهم',
   returnAllBtn:'إرجاع الكل',bulkReturnBtn:'إرجاع الدراجات',bulkReturnTitle:'إرجاع الدراجات ({0})',bulkReturnSub:'كل دراجة مسجلة كسليمة. اضغط على التي تحتاج فحصاً أو التالفة.',bulkReturnNotes:'ملاحظات عن الدراجات التي تحتاج فحصاً أو التالفة',bulkReturnUnpaid:'لم يدفعوا بعد: {0}',bulkReturnMarkPaid:'تحديدهم كمدفوعين',bulkReturnNoPay:'إرجاع دون دفع',bulkReturnGo:'إرجاع ({0})',bulkReturnedToast:'الدراجات المُرجعة: {0}',logBulkReturn:'دراجات أُرجعت معاً: {0}',partyReturnTitle:'إرجاع هؤلاء الراكبين ({0})؟',partyUndoCheckinTitle:'التراجع عن تسجيل دخول هؤلاء الراكبين ({0})؟',partyNoShowTitle:'تسجيل هؤلاء الراكبين كغائبين ({0})؟',partyUndoneToast:'تم التراجع عن تسجيل الدخول: {0}',partyNoShowToast:'سُجّلوا غائبين: {0}',logBulkNoShow:'سُجّلوا غائبين معاً: {0}',pmChipLabel:'التسجيلات',pmChipTitle:'تسجيلات بترومين',pmRegistered:'مسجّل',cancelReasonWork:'التزام في العمل أو العائلة',cancelReasonUnwell:'أشعر بتوعك أو لدي إصابة',cancelReasonWeather:'الطقس (حرارة أو رياح أو غبار)',cancelReasonWrongDate:'حجزت في تاريخ أو وقت خاطئ',cancelReasonTransport:'لا أستطيع الوصول في الوقت (زحام أو مواصلات)',cancelReasonGroup:'مجموعتي لا تستطيع الحضور',
   cancelReasonTitle:'ما سبب الإلغاء؟',
   cancelReason1:'تغيير في الخطط',cancelReason2:'وجدت سعراً أفضل في مكان آخر',
@@ -12779,7 +12779,7 @@ const _CANCEL_OTHER=CANCEL_REASON_KEYS.length-1;
 function _cancelReasonText(e){
   if(!e||!e.cancelReason)return'';
   if(e.cancelReason==='other')return e.cancelNote?`${t('cancelReason3')}: “${e.cancelNote}”`:t('cancelReason3');
-  const r=CANCEL_REASONS.find(x=>x[0]===e.cancelReason);
+  const r=CANCEL_REASONS.concat(STAFF_CANCEL_EXTRA).find(x=>x[0]===e.cancelReason);
   return r?t(r[1]):e.cancelReason;
 }
 function showCancelReasonModal(id){
@@ -12977,25 +12977,49 @@ async function staffCancelEntry(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
   if(entry.status==='waitlist')return _staffCancelNow(id);
   if(entry.status!=='waiting'&&entry.status!=='active'){toast(t('toastCannotCancel'),'error');return;}
-  _staffCancelConfirm(entry,()=>_staffCancelNow(id));
+  _staffCancelConfirm(entry,why=>_staffCancelNow(id,why));
 }
+// Why staff cancelled, optionally. The desk often cancels on a rider's behalf (a call, a
+// WhatsApp), so the rider's own reasons are offered, plus two only the desk meets: a duplicate
+// booking and one made by mistake. Nothing picked is fine; the cancel goes ahead without one.
+// The reason is saved like a rider's (cancel_reason / cancel_note) and read the same way.
+const STAFF_CANCEL_EXTRA=[['duplicate','cancelReasonDuplicate'],['mistake','cancelReasonMistake']];
+function _staffReasonList(){const other=CANCEL_REASONS[CANCEL_REASONS.length-1];return CANCEL_REASONS.filter(r=>r!==other).concat(STAFF_CANCEL_EXTRA,[other]);}
+function _cxPick(code){
+  const w=S._cxWhy;if(!w)return;
+  w.code=w.code===code?null:code; // a second tap takes it back
+  document.querySelectorAll('#confirm-modal .cx-chip').forEach(b=>{const on=b.dataset.code===w.code;b.classList.toggle('on',on);b.setAttribute('aria-pressed',String(on));});
+  const n=document.getElementById('cx-note');if(n){n.style.display=w.code==='other'?'':'none';if(w.code==='other')n.focus();}
+}
+function _cxPatch(){
+  const w=S._cxWhy;if(!w||!w.code)return{};
+  if(w.code!=='other')return{cancel_reason:w.code};
+  const note=String(w.note||'').trim().slice(0,300);
+  return note?{cancel_reason:'other',cancel_note:note}:{cancel_reason:'other'};
+}
+// onConfirm receives the reason patch ({} when none was picked).
 function _staffCancelConfirm(entry,onConfirm){
   const statusLabel=t(STATUS_KEY[entry.status]||'statusWaiting');
+  S._cxWhy={code:null,note:''};
+  const chips=_staffReasonList().map(([code,key])=>`<button type="button" class="cx-chip" data-code="${code}" aria-pressed="false" onclick="_cxPick('${code}')">${esc(t(key))}</button>`).join('');
   confirmDialog({
     title:`${t('cancelBookingLabel')} #${entry.queueNum}`,
-    body:`<strong>${esc(entry.name)}</strong> (${statusLabel})<br>${t('cancelEntryBody')}`,
+    body:`<strong>${esc(entry.name)}</strong> (${statusLabel})<br>${t('cancelEntryBody')}
+      <div class="cx-pick" role="group" aria-label="${esc(t('staffCancelWhy'))}"><div class="cx-pick-lbl">${t('staffCancelWhy')}</div><div class="cx-chips">${chips}</div>
+      <input id="cx-note" class="cx-note" type="text" maxlength="300" aria-label="${esc(t('cancelReason3'))}" placeholder="${esc(t('cancelOtherPlaceholder'))}" style="display:none" oninput="S._cxWhy&&(S._cxWhy.note=this.value)"></div>`,
     confirmLabel:t('cancelBookingLabel'),
     confirmClass:'btn-red',
-    onConfirm,
+    onConfirm:()=>{const why=_cxPatch();S._cxWhy=null;return onConfirm(why);},
   });
 }
 // The write behind a staff cancel (waitlist, waiting or active), shared by the roster's
 // Cancel and the check-in modal's Cancel booking.
-async function _staffCancelNow(id){
+async function _staffCancelNow(id,why){
+      why=why||{}; // {cancel_reason, cancel_note} when staff picked one
       const entry=getQueue().find(e=>e.id===id);if(!entry)return;
       if(entry.status==='waitlist'){
         const _wc=await sb.from('queue_entries').update({status:'cancelled',cancelled_by:'staff'}).eq('id',id);
-        if(_writeErr(_wc,'cancel booking',()=>_staffCancelNow(id))){await loadData();renderStaffQueue();return;}
+        if(_writeErr(_wc,'cancel booking',()=>_staffCancelNow(id,why))){await loadData();renderStaffQueue();return;}
         await _mwRetireLinked(id,'removed'); // a Staff List row carrying this booking is spent
         await loadData();toast(`${t('cancelBtn')} ✓`);renderStaffQueue();renderMyRides();return;
       }
@@ -13007,8 +13031,8 @@ async function _staffCancelNow(id){
         const savedQNum=entry.queueNum;
         // Checked before the promotion hands the place on: promoting over a refused cancel puts
         // the session one rider past its capacity.
-        const _cc=await sb.from('queue_entries').update({status:'cancelled',cancelled_by:'staff'}).eq('id',id);
-        if(_writeErr(_cc,'cancel booking',()=>_staffCancelNow(id))){await loadData();renderStaffQueue();return;}
+        const _cc=await sb.from('queue_entries').update({status:'cancelled',cancelled_by:'staff',...why}).eq('id',id);
+        if(_writeErr(_cc,'cancel booking',()=>_staffCancelNow(id,why))){await loadData();renderStaffQueue();return;}
         await _shiftDownAfter(entry.sessionId,savedQNum); // close the number gap
         // A cancellation is the ONE thing that frees a place, so it is the one thing that
         // promotes: the place goes to whoever has been waiting longest, rather than sitting
@@ -13019,14 +13043,14 @@ async function _staffCancelNow(id){
         toast(_promoted?`#${savedQNum} — ${t('toastBookingCancelled')} · ${t('toastPromoted')}`:`#${savedQNum} — ${t('toastBookingCancelled')}`);
         if(_promoted&&_promoted.phone)_promoNudge(_promoted);
         pushUndo(`${t('undoStaffCancel')} #${savedQNum} ${entry.name}`,async()=>{
-          const _u=await sb.from('queue_entries').update({status:'waiting',queue_num:_restoreNum(entry.sessionId,savedQNum,id)}).eq('id',id);
+          const _u=await sb.from('queue_entries').update({status:'waiting',queue_num:_restoreNum(entry.sessionId,savedQNum,id),...(why.cancel_reason?{cancel_reason:null,cancel_note:null}:{})}).eq('id',id);
           if(_writeErr(_u,'undo cancel')){await loadData();renderStaffQueue();return false;} // failed restore must not consume stock or repaint as restored
           await loadData();
           await _consumeAddonsOnEnter(entry); // the restore brings the booking back, so re-reserve the add-ons that were restocked on cancel
           renderMyRides();renderStaffQueue();
         });
       }else{
-        const calls=[sb.from('queue_entries').update({status:'cancelled',assigned_bike_id:null,cancelled_by:'staff'}).eq('id',id)];
+        const calls=[sb.from('queue_entries').update({status:'cancelled',assigned_bike_id:null,cancelled_by:'staff',...why}).eq('id',id)];
         bikeIds.forEach(bid=>calls.push(sb.from('bikes').update({status:'available'}).eq('id',bid)));
         await Promise.all(calls);
         await _shiftDownAfter(entry.sessionId,entry.queueNum); // close the number gap
@@ -13042,7 +13066,7 @@ async function _staffCancelNow(id){
           const claimed=await _reclaimBikes(bikeIds);
           if(claimed.length<bikeIds.length)toast(t('errBikeUnavailable'),'warning');
           const assignedVal=claimed.length===1?claimed[0]:(claimed.length?JSON.stringify(claimed):null);
-          const _u=await sb.from('queue_entries').update({status:savedStatus,assigned_bike_id:assignedVal,queue_num:_restoreNum(entry.sessionId,entry.queueNum,id)}).eq('id',id);
+          const _u=await sb.from('queue_entries').update({status:savedStatus,assigned_bike_id:assignedVal,queue_num:_restoreNum(entry.sessionId,entry.queueNum,id),...(why.cancel_reason?{cancel_reason:null,cancel_note:null}:{})}).eq('id',id);
           if(_writeErr(_u,'undo cancel')){await Promise.all(claimed.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b))).catch(()=>{});await loadData();renderStaffQueue();return false;}
           await loadData();
           await _consumeAddonsOnEnter(entry); // the restore brings the booking back, so re-reserve the add-ons that were restocked on cancel
@@ -15915,7 +15939,7 @@ async function _ciNoShow(){
 function _ciCancelBooking(){
   const e=getQueue().find(x=>x.id===S._ciId);if(!e)return;
   const next=_ciPartyRest(e)[0];
-  const go=async()=>{_ciCloseForNext(e);_ciDropDraft(e.id);await _staffCancelNow(e.id);if(next)showCheckinModal(next.id);else _ciRunDone();};
+  const go=async why=>{_ciCloseForNext(e);_ciDropDraft(e.id);await _staffCancelNow(e.id,why);if(next)showCheckinModal(next.id);else _ciRunDone();};
   if(e.status==='waitlist')return go();
   _staffCancelConfirm(e,go);
 }
@@ -22279,9 +22303,10 @@ function renderAnalytics(){
 
     <div class="an-anchor" data-anview="customers"></div>
     ${(()=>{
-      // Why riders cancel: the reason saved on each booking they cancelled themselves
-      // (queue_entries.cancel_reason, from 2026-09-22). A party cancels together, so it counts once.
-      const cx=queue.filter(e=>e.status==='cancelled'&&e.cancelledBy==='customer');
+      // Why riders cancel: the reason saved on each cancelled booking (queue_entries.cancel_reason,
+      // from 2026-09-22), picked by the rider or recorded by staff cancelling for them. A party
+      // cancels together, so it counts once.
+      const cx=queue.filter(e=>e.status==='cancelled'&&e.cancelReason);
       const one=new Map();cx.forEach(e=>{const k=(e.customerId||e.id)+'|'+e.sessionId;if(!one.has(k)||(!one.get(k).cancelReason&&e.cancelReason))one.set(k,e);});
       const bookings=[...one.values()],given=bookings.filter(e=>e.cancelReason);
       const by={};given.forEach(e=>{by[e.cancelReason]=(by[e.cancelReason]||0)+1;});
@@ -22290,7 +22315,7 @@ function renderAnalytics(){
       const words=given.filter(e=>e.cancelReason==='other'&&e.cancelNote).sort((a,b)=>String(b.sessionDate||'').localeCompare(String(a.sessionDate||''))).slice(0,6);
       return`<div class="chart-card cx-card">
         <div class="chart-card-title">${t('anCancelWhy')}</div>
-        <div class="chart-card-sub">${esc(t('anCancelWhySub').replace('{0}',given.length).replace('{1}',bookings.length))}</div>
+        <div class="chart-card-sub">${esc(t('anCancelWhySub').replace('{0}',given.length).replace('{1}',given.filter(e=>e.cancelledBy==='staff').length))}</div>
         ${rows.length?rows.map(([code,n])=>`<div class="analytics-bar-row">
           <div class="analytics-bar-label" style="min-width:150px">${esc(_cancelReasonText({cancelReason:code}))}</div>
           <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.min(100,Math.round(n/mx*100))}%;background:var(--orange)"></div></div>

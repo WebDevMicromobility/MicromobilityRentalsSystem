@@ -69,14 +69,63 @@ test('staff read the reason in their own language: the roster, Bookings & histor
   await page.evaluate(`openAccountHistory('c1')`);
   await expect(page.locator('#cust-modal .cx-why').first()).toHaveText('The weather (heat, wind or dust)');
   await page.evaluate(`closeCustomerProfile()`);
-  // Analytics: three rider-cancelled bookings (the party once), two with a reason
+  // Analytics: the bookings with a reason, the party once; x4 (no reason) and x5 (staff, none) are not in it
   await page.evaluate(`S.analyticsRange='all';setStaffTab('analytics');_applyAnView('customers')`);
   const card = page.locator('#tab-analytics .cx-card');
-  await expect(card.locator('.chart-card-sub')).toContainText('2 of 3 gave a reason');
+  await expect(card.locator('.chart-card-sub')).toContainText('a party counted once: 2, of which staff recorded 0');
   await expect(card.locator('.analytics-bar-label')).toHaveText(['The weather (heat, wind or dust)', 'Other']);
   await expect(card.locator('.cx-word')).toContainText('Flat tyre on my car');
   // In Arabic, the same codes read in Arabic.
   await page.evaluate(`setLang('ar')`);
   await page.evaluate(`renderAnalytics();_applyAnView('customers')`);
   await expect(page.locator('#tab-analytics .cx-card .analytics-bar-label').first()).toHaveText('الطقس (حرارة أو رياح أو غبار)');
+});
+
+async function staffDesk(page: Page) {
+  const writes: Record<string, unknown>[] = [];
+  await stubSupabase(page, { sessions, bikes: [], queue_entries: [e('w1', { customer_id: null }), e('w2', { customer_id: null, queue_num: 2 })] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction(`getQueue().length===2`);
+  page.on('request', r => {
+    if (r.method() === 'PATCH' && r.url().includes('/rest/v1/queue_entries')) { try { writes.push(r.postDataJSON()); } catch { /* not JSON */ } }
+  });
+  return writes;
+}
+const confirmBtn = (page: Page) => page.locator('#confirm-modal button', { hasText: 'Cancel booking' }).last();
+
+test('staff can say why when they cancel, and the reason is saved with the cancel', async ({ page }) => {
+  const writes = await staffDesk(page);
+  await page.evaluate(`staffCancelEntry('w1')`);
+  const chips = page.locator('#confirm-modal .cx-chip');
+  await expect(chips).toHaveCount(11);                                     // the rider's eight, duplicate, mistake, other
+  await expect(chips.nth(8)).toHaveText('Duplicate booking');
+  await chips.nth(8).click();
+  await expect(chips.nth(8)).toHaveAttribute('aria-pressed', 'true');
+  await confirmBtn(page).click();
+  await expect.poll(() => writes.find(w => w.status === 'cancelled')).toMatchObject({ cancelled_by: 'staff', cancel_reason: 'duplicate' });
+});
+
+test('a staff cancel with no reason picked goes ahead without one; Other keeps the words', async ({ page }) => {
+  const writes = await staffDesk(page);
+  await page.evaluate(`staffCancelEntry('w1')`);
+  await confirmBtn(page).click();
+  await expect.poll(() => writes.filter(w => w.status === 'cancelled').length).toBe(1);
+  expect(writes.find(w => w.status === 'cancelled')).not.toHaveProperty('cancel_reason');
+  await page.evaluate(`staffCancelEntry('w2')`);
+  await page.locator('#confirm-modal .cx-chip', { hasText: 'Other' }).click();
+  await page.fill('#cx-note', 'Moved to a private session');
+  await confirmBtn(page).click();
+  await expect.poll(() => writes.filter(w => w.status === 'cancelled').length).toBe(2);
+  expect(writes.filter(w => w.status === 'cancelled')[1]).toMatchObject({ cancel_reason: 'other', cancel_note: 'Moved to a private session' });
+});
+
+test('the check-in screen\'s Cancel booking asks the same, optionally', async ({ page }) => {
+  const writes = await staffDesk(page);
+  await page.evaluate(`showCheckinModal('w1')`);
+  await page.evaluate(`_ciCancelBooking()`);
+  await page.locator('#confirm-modal .cx-chip', { hasText: 'Booked by mistake' }).click();
+  await confirmBtn(page).click();
+  await expect.poll(() => writes.find(w => w.status === 'cancelled')).toMatchObject({ cancel_reason: 'mistake' });
 });
