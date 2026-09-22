@@ -4112,8 +4112,10 @@ function _vBlur(el,kind){
 // Password reset qualifies (setting the same password twice changes nothing) and so does
 // login. SIGNUP deliberately does not: if the first attempt did land and only the reply was
 // lost, a retry would come back "account already exists" and read as a different failure.
+// A network failure as supabase-js reports it: it answers with {error}, it does not throw, so this
+// reads the message (or a bare string) rather than waiting for an exception.
 function _isNetErr(e){
-  return /load failed|failed to fetch|networkerror|network error|timed out|timeout/i.test(((e&&e.message)||'')+'');
+  return /load failed|failed to fetch|networkerror|network error|timed out|timeout|aborted|fetcherror/i.test(String((e&&e.message)||e||''));
 }
 async function _rpcResilient(name,args,tries){
   const max=tries||2;let r=null;
@@ -24049,7 +24051,8 @@ function _refreshView(){
     // The booking wizard past step 1 holds what the rider is typing: a background refresh must
     // not rebuild it under them (the same rule the realtime path follows).
     if(S.custTab!=='register'||(S.regStep===1&&!S.modifyEntryId))renderRegister();
-    renderMyRides();if(S.custTab==='account')renderAccount();}
+    // My Account holds what the rider is typing too: repaint it only while nothing is unsaved.
+    renderMyRides();if(S.custTab==='account'&&!_accDirty())renderAccount();}
   else if(S.view==='landing')renderLandingAvail();
   // Re-render the add-on picker if it's open, so photos/stock appear once fresh data lands.
   try{if(S._addonPickerEntry&&typeof renderAddonPicker==='function')renderAddonPicker();}catch(e){}
@@ -24440,8 +24443,6 @@ function _rtFetchRow(id){
   _rtFetchIds.add(id);if(_rtFetchT)return;
   _rtFetchT=setTimeout(()=>{_rtFetchT=null;const ids=[..._rtFetchIds];_rtFetchIds.clear();Promise.resolve(_reloadRows(ids)).catch(()=>{});},200);
 }
-// A network failure as supabase-js reports it (it answers with {error}, it does not throw).
-function _isNetErr(err){return /failed to fetch|networkerror|load failed|aborted|fetcherror/i.test(String((err&&err.message)||err||''));}
 function _rtApply(){
   if(_rtDebounce)clearTimeout(_rtDebounce);
   _rtDebounce=setTimeout(async()=>{
