@@ -221,12 +221,17 @@ test.describe('the quick check-in', () => {
 
   test('a camera that answers after the scanner was closed and reopened is switched off', async ({ page }) => {
     await boot(page, fx());
-    await page.evaluate(`(()=>{window.__stopped=[];let n=0;
-      navigator.mediaDevices.getUserMedia=()=>new Promise(res=>{const k=++n;setTimeout(()=>{const st=new MediaStream();st.getTracks=()=>[{stop(){window.__stopped.push(k);}}];res(st);},k===1?500:50);});})()`);
+    await page.evaluate(`(()=>{window.__stopped=[];window.__started=[];let n=0;
+      navigator.mediaDevices.getUserMedia=()=>new Promise(res=>{const k=++n;setTimeout(()=>{window.__started.push(k);const st=new MediaStream();st.getTracks=()=>[{stop(){window.__stopped.push(k);}}];res(st);},k===1?500:50);});})()`);
     await page.evaluate(`openScanModal();closeScanModal();openScanModal()`);
-    await expect.poll(() => page.evaluate(`window.__stopped.includes(1)`), { timeout: 4000 }).toBe(true); // the late first camera
-    expect(await page.evaluate(`window.__stopped.includes(2)`)).toBe(false); // the one on screen keeps running
+    // Where the browser has a BarcodeDetector both starts ask for a camera and the late first
+    // one must be stopped; where the scanner first loads its QR decoder (Linux Chromium, CI),
+    // the closed start never asks at all. Either way exactly one camera runs: the one on screen.
+    const running = `window.__started.filter(k=>!window.__stopped.includes(k))`;
+    await page.waitForTimeout(700); // past the slow first answer
+    await expect.poll(() => page.evaluate(`${running}.length`), { timeout: 4000 }).toBe(1);
+    expect(await page.evaluate(`${running}[0]===Math.max(...window.__started)`)).toBe(true); // and it is the newest
     await page.evaluate(`closeScanModal()`);
-    expect(await page.evaluate(`window.__stopped.includes(2)`)).toBe(true);
+    await expect.poll(() => page.evaluate(`${running}.length`)).toBe(0);
   });
 });
