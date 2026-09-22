@@ -423,7 +423,8 @@ All are `SECURITY DEFINER` and callable by the anon key. Every customer-owned op
 | `customer_update_profile` (11-arg) | same + `p_nationality` | boolean | the 10-arg overload stays for older clients | token |
 | `customer_profile` | `p_id,p_token` | `TABLE(id,name,email,phone,height,type_preference,created_at,birth_date,country,city,photo,gender,nationality,socials)` | the login/reset RPCs return a fixed column list without `nationality`; the app asks this once per page life | token |
 | `customer_set_socials` | `p_id,p_token,p_socials jsonb` | boolean | keeps only the four known keys, trims `@`/slashes, 100 chars each; null when empty | token |
-| `customer_change_password` | `p_id,p_token,p_new_pwd` | boolean | — | token |
+| `customer_pwd_state` | `p_id,p_token` | boolean | true while the password is a temporary one from a community approval (`must_change_pwd`) | token |
+| `customer_set_own_password` | `p_id,p_token,p_new_pwd` | text (new session token) | only while `must_change_pwd`; 8+ chars, an upper-case letter and a digit, not the temporary one; raises NO_CHANGE_DUE / WEAK_PASSWORD / SAME_PASSWORD. (`customer_change_password`, token-only, was dropped 2026-09-22.) | token |
 | `customer_set_photo` | `p_id,p_token,p_photo` | boolean | — | token |
 | `my_bookings` | `p_id,p_token` | `SETOF queue_entries` | **the customer's private read** — all their rows, full PII | token |
 | `list_sessions` | `p_id,p_token` | `SETOF sessions` | ungated sessions **plus** any whose `required_tag_id` the caller holds **actively**; a bad/absent token returns ungated only | token optional |

@@ -115,7 +115,8 @@ plus migrations: `security-migration.sql`, `tags-events-migration.sql`,
 | `customer_reset(p_email, p_phone, p_new_pwd)` | password reset (identity = email+phone pair) |
 | `customer_oauth_login(p_email)` / `customer_oauth_signup(...)` | Google/Apple flows |
 | `customer_update_profile(p_id, p_token, ...)` | edit own profile |
-| `customer_change_password(p_id, p_token, p_new_pwd)` | change own password |
+| `customer_set_own_password(p_id, p_token, p_new_pwd)` | replace a temporary password (only while `customer_pwd_state` says one is waiting); returns the new session token |
+| `customer_reset(p_email, p_phone, p_new_pwd)` | forgot password: proof by email + phone. (`customer_change_password`, token-only, was dropped 2026-09-22: a stolen token could take an account over. A "change password" screen needs the current password.) |
 | `customer_set_photo(p_id, p_token, p_photo)` | profile photo |
 | `my_bookings(p_id, p_token)` | ALL of this customer's queue_entries (their private read) |
 | `customer_booking_update(p_id, p_token, p_entry_id, p_patch)` | whitelist-patch OWN booking (cancel, edit); the whitelist NEVER includes `approval` |
