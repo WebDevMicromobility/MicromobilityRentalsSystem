@@ -99,11 +99,11 @@ test('a birth date that cannot be right is refused before anything is sent', asy
   await page.selectOption('#pg-nat', 'Egypt');
   await page.evaluate(`_pgSave()`);
   await expect(page.locator('#profile-gate .pg-msg')).toHaveText("A birth date can't be in the future.");
-  // Five years old today is refused too; the rider has to be six.
-  const five = await page.evaluate(`(()=>{const p=todayStr().split('-');return (p[0]-5)+'-'+p[1]+'-'+p[2];})()`) as string;
-  await page.evaluate(`_pgBirth('${five}')`);
+  // Four years old today is refused too; the rider has to be five.
+  const four = await page.evaluate(`(()=>{const p=todayStr().split('-');return (p[0]-4)+'-'+p[1]+'-'+p[2];})()`) as string;
+  await page.evaluate(`_pgBirth('${four}')`);
   await page.evaluate(`_pgSave()`);
-  await expect(page.locator('#profile-gate .pg-msg')).toHaveText('Riders must be at least 6 years old. Check the birth date.');
+  await expect(page.locator('#profile-gate .pg-msg')).toHaveText('Riders must be at least 5 years old. Check the birth date.');
   expect(calls).toHaveLength(0);
   await pickBirth(page, 'pg-birth', '1996-03-14');                   // picking clears the error
   await expect(page.locator('#profile-gate .pg-msg')).toHaveCount(0);

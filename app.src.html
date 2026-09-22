@@ -707,7 +707,7 @@ en:{landMainTitleHtml:'Reserve Your <span>Bicycle Now!</span>',spotsFull:'Full',
   registeredLabel:'Registered',nameLabel:'Name',timeLabel:'Time',preferenceLabel:'Preference',
   
   profileInfo:'Profile Information',needToUpdate:'Need to update?',
-  birthDateLabel:'Birth date',dobDay:'Day',dobMonth:'Month',dobYear:'Year',dobErrYoung:'Riders must be at least 6 years old. Check the birth date.',dobErrFuture:'A birth date can\'t be in the future.',countryLabel:'Country of residence',nationalityLabel:'Nationality',selectNationalityOpt:'Select nationality',acrBdNationality:'Nationality',cityLabel:'City of residence',optionalLabel:'optional',selectCountryOpt:'Select country of residence',selectCityOpt:'Select city of residence',selectCountryFirst:'Select a country first',
+  birthDateLabel:'Birth date',dobDay:'Day',dobMonth:'Month',dobYear:'Year',dobErrYoung:'Riders must be at least 5 years old. Check the birth date.',dobErrFuture:'A birth date can\'t be in the future.',countryLabel:'Country of residence',nationalityLabel:'Nationality',selectNationalityOpt:'Select nationality',acrBdNationality:'Nationality',cityLabel:'City of residence',optionalLabel:'optional',selectCountryOpt:'Select country of residence',selectCityOpt:'Select city of residence',selectCountryFirst:'Select a country first',
   
   bikeFleetComp:'Bike Fleet Composition',totalBikesSession:'Total bikes in session',rowLabel:'Row',
   
@@ -1128,7 +1128,7 @@ ar:{landMainTitleHtml:'احجز <span>دراجتك الآن!</span>',spotsFull:'
   payAtBooth:' الدفع يتم عند الكشك في دوار الكورنيش. يرجى إحضار رقم طابورك.',
   registeredLabel:'مُسجَّل',nameLabel:'الاسم',timeLabel:'الوقت',preferenceLabel:'التفضيل',
   profileInfo:'معلومات الملف الشخصي',needToUpdate:'تريد التحديث؟',
-  birthDateLabel:'تاريخ الميلاد',dobDay:'اليوم',dobMonth:'الشهر',dobYear:'السنة',dobErrYoung:'يجب ألا يقل عمر الراكب عن 6 سنوات. تحقّق من تاريخ الميلاد.',dobErrFuture:'لا يمكن أن يكون تاريخ الميلاد في المستقبل.',countryLabel:'بلد الإقامة',nationalityLabel:'الجنسية',selectNationalityOpt:'اختر الجنسية',acrBdNationality:'الجنسية',cityLabel:'مدينة الإقامة',optionalLabel:'اختياري',selectCountryOpt:'اختر بلد الإقامة',selectCityOpt:'اختر مدينة الإقامة',selectCountryFirst:'اختر الدولة أولاً',
+  birthDateLabel:'تاريخ الميلاد',dobDay:'اليوم',dobMonth:'الشهر',dobYear:'السنة',dobErrYoung:'يجب ألا يقل عمر الراكب عن 5 سنوات. تحقّق من تاريخ الميلاد.',dobErrFuture:'لا يمكن أن يكون تاريخ الميلاد في المستقبل.',countryLabel:'بلد الإقامة',nationalityLabel:'الجنسية',selectNationalityOpt:'اختر الجنسية',acrBdNationality:'الجنسية',cityLabel:'مدينة الإقامة',optionalLabel:'اختياري',selectCountryOpt:'اختر بلد الإقامة',selectCityOpt:'اختر مدينة الإقامة',selectCountryFirst:'اختر الدولة أولاً',
   bikeFleetComp:'تركيبة أسطول الدراجات',totalBikesSession:'إجمالي الدراجات في الجلسة',rowLabel:'الإجمالي',
   sizeMatchLabel:'مقاس مناسب',sessionFleetLabel:'أسطول الجلسة',
   noBikesMatchFleet:'لا توجد دراجات مطابقة لأسطول هذه الجلسة.',
@@ -5648,11 +5648,11 @@ function _pgMissing(c){return !c.birth_date||!c.nationality;}
 // read the date box before reads this the same way. Changing month or year trims the day
 // list to that month's length and clamps a day that no longer exists.
 //
-// Nobody five or younger, and nothing in the future: the years stop six years back, and in
+// Nobody under five, and nothing in the future: the years stop five years back, and in
 // that last year the months and days still to come are greyed out, so a birth date that
 // young cannot be picked at all. _dobErr checks again on every save, which also catches a
 // date stored before this rule (the old picker defaulted to the sign-up day).
-const _DOB_MIN_AGE=6,_DOB_MAX_AGE=100;
+const _DOB_MIN_AGE=5,_DOB_MAX_AGE=100;
 function _dobMax(){const p=todayStr().split('-');return `${+p[0]-_DOB_MIN_AGE}-${p[1]}-${p[2]}`;} // the latest birth date allowed, in Riyadh's calendar
 function _dobErr(v){
   v=String(v||'');if(!v)return'';
