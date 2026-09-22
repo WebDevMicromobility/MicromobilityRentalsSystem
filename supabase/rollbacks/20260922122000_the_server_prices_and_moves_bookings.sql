@@ -1,6 +1,7 @@
 -- Rollback of 20260922122000_the_server_prices_and_moves_bookings.sql (run after the 123000
 -- rollback and before the 121000 one).
--- Every function below is its live definition of 2026-09-22 (pg_get_functiondef). The
+-- Every function below is its live definition of 2026-09-22 (pg_get_functiondef), re-read after
+-- 20260922130000 cancel_reason changed customer_booking_update the same day. The
 -- addons_held record is dropped with its column; stock itself is not touched. Idempotent.
 
 CREATE OR REPLACE FUNCTION public._enforce_booking_price()
@@ -325,6 +326,7 @@ CREATE OR REPLACE FUNCTION public.customer_booking_update(p_id text, p_token tex
  SET search_path TO 'public', 'extensions'
 AS $function$
 declare _old_status text; _sess text; _to sessions%rowtype; _today text;
+  _cancelling boolean := coalesce(p_patch->>'status','') = 'cancelled';
 begin
   if not _cust_token_ok(p_id, p_token) then return false; end if;
   if not exists(select 1 from queue_entries where id = p_entry_id and customer_id = p_id) then return false; end if;
@@ -359,7 +361,15 @@ begin
     feedback         = case when p_patch ? 'feedback'    then p_patch->>'feedback'                    else q.feedback end,
     addons           = case when p_patch ? 'addons'      then p_patch->>'addons'                      else q.addons end,
     assigned_bike_id = case when p_patch ? 'assigned_bike_id' then null                              else q.assigned_bike_id end,
-    cancelled_by     = case when coalesce(p_patch->>'status','') = 'cancelled' then 'customer' else q.cancelled_by end
+    cancelled_by     = case when _cancelling then 'customer' else q.cancelled_by end,
+    cancel_reason    = case
+                         when _cancelling then case when (p_patch->>'cancel_reason') ~ '^[a-z_]{1,24}$' then p_patch->>'cancel_reason' else null end
+                         when p_patch ? 'status' then null
+                         else q.cancel_reason end,
+    cancel_note      = case
+                         when _cancelling then left(nullif(btrim(coalesce(p_patch->>'cancel_note','')),''), 300)
+                         when p_patch ? 'status' then null
+                         else q.cancel_note end
   where q.id = p_entry_id;
 
   if (p_patch ? 'session_id') and _sess is distinct from _to.id

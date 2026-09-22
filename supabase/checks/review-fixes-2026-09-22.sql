@@ -1,6 +1,6 @@
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Proof that the five 2026-09-22 review migrations are live (20260922120000 … 124000).
--- Read-only: catalogue lookups and one count. Prints one row per check; every `ok` must be
+-- Read-only: catalogue lookups and one count. Prints one row per check (44); every `ok` must be
 -- true. Run after applying, and again after any later migration that touches these objects.
 -- Also run supabase/checks/security-attributes.sql (it expects the new helpers too).
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -26,6 +26,7 @@ body(name, fname, must, must_not) as (values
   ('booking RPC checks the tag gate',         'customer_create_booking', 'required_tag_id',                 null),
   ('booking RPC ignores the client price',    'customer_create_booking', '_enforce_booking_price decides', 'nullif(it->>''price'''),
   ('update RPC ignores price and queue_num',  'customer_booking_update', '_session_has_room',               'p_patch->>''price'''),
+  ('update RPC keeps the cancel reason',      'customer_booking_update', 'cancel_reason',                   null),
   ('promotion checks for a free place',       '_promote_next_waitlist',  '_held >= coalesce(_s.capacity',   null),
   ('fill rule recounts the night left',       '_session_fill_status',    '_session_fill_recount(old.session_id)', null),
   ('approval guard reads the request role',   '_approval_guard',         'auth.role()',                     'current_user not in'),

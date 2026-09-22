@@ -52,6 +52,9 @@
 --   I. customer_create_booking checks every rider before writing any (a bad rider 3 used to
 --      leave riders 1 and 2 booked), derives the day and date from the session, and cleans the
 --      contact, size, height, registration time and waiver fields instead of storing them raw.
+--   J. The rider's cancel reason (20260922130000, applied the same day) is carried over exactly:
+--      cancel_reason/cancel_note are kept only on the cancelling write, a malformed code is
+--      dropped, never refused, and any later write that sets a status clears them.
 --
 -- The current client keeps working unchanged: every key it sends is still accepted or quietly
 -- ignored (price, queue_num, assigned_bike_id), and the one it now needs (promo_lookup) falls
@@ -748,7 +751,7 @@ declare
   q queue_entries%rowtype; _to sessions%rowtype; _at sessions%rowtype; _p jsonb; _today text;
   _want text; _new_status text; _move boolean := false; _qnum int; _live int;
   _type text; _size text; _h int; _name text; _addons text; _set_addons boolean := false;
-  _code text; _unpay boolean := false; _rb int; _re int;
+  _code text; _unpay boolean := false; _rb int; _re int; _cancelling boolean;
 begin
   if not _cust_token_ok(p_id, p_token) then return false; end if;
   _p := coalesce(p_patch, '{}'::jsonb);
@@ -862,6 +865,13 @@ begin
     _re := case when (_p->>'rating_exp') ~ '^[0-9]{1,2}$' and (_p->>'rating_exp')::int between 1 and 10 then (_p->>'rating_exp')::int end;
   end if;
 
+  -- The rider's reason (20260922130000): kept only on the write that cancels, a malformed code
+  -- dropped rather than refused, and cleared by any later write that sets a status (a restore).
+  -- Restating 'cancelled' on a cancellation that is already the rider's own may reword it;
+  -- a cancellation staff made is not the rider's to annotate.
+  _cancelling := coalesce(_p->>'status','') = 'cancelled'
+                 and (_new_status = 'cancelled' or (q.status = 'cancelled' and coalesce(q.cancelled_by,'') = 'customer'));
+
   update queue_entries x set
     type_preference  = coalesce(_type, x.type_preference),
     size             = coalesce(_size, x.size),
@@ -886,7 +896,15 @@ begin
     -- Stamped here, not taken from the patch: reaching this function IS the proof.
     cancelled_by     = case when _new_status = 'cancelled' then 'customer'
                             when x.status = 'cancelled' and _new_status in ('waiting','waitlist') then null
-                            else x.cancelled_by end
+                            else x.cancelled_by end,
+    cancel_reason    = case
+                         when _cancelling then case when (_p->>'cancel_reason') ~ '^[a-z_]{1,24}$' then _p->>'cancel_reason' else null end
+                         when _p ? 'status' then null
+                         else x.cancel_reason end,
+    cancel_note      = case
+                         when _cancelling then left(nullif(btrim(coalesce(_p->>'cancel_note','')),''), 300)
+                         when _p ? 'status' then null
+                         else x.cancel_note end
   where x.id = q.id;
 
   -- A rider who held a place and gave it up - a cancel or a move - frees it for the waitlist.
