@@ -1,6 +1,5 @@
 
-const CACHE = 'mmcq-ad96003bc4';
-const IMG_CACHE = 'mmcq-img'; // Supabase Storage photos; persists across app versions (content-addressed)
+const CACHE = 'mmcq-384bc08deb';
 
 // The one key the app shell lives under. './index.html' is deliberately NOT precached and
 // never used as a key: Cloudflare Pages answers /index.html with a 308 to /, so caching it
@@ -33,9 +32,11 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE && k !== IMG_CACHE).map((k) => caches.delete(k))))
-      // Evict the poisoned shell entry left by earlier versions. The cache NAME is the
-      // stylesheet's content hash (scripts/build-html.mjs), so a worker-only fix does not
+    // Everything but this version's cache goes, including the old 'mmcq-img' photo cache (see the
+    // note at the end of the fetch handler).
+    caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      // Evict the poisoned shell entry left by earlier versions. The cache NAME is a hash of
+      // the files the site ships (scripts/build-html.mjs), so a worker-only fix does not
       // rotate it — without this delete, a device already broken by the redirected
       // './index.html' entry would stay broken even after installing this worker.
       .then(() => caches.open(CACHE).then((c) => c.delete('./index.html')).catch(() => {}))
@@ -109,7 +110,9 @@ self.addEventListener('fetch', (e) => {
 
   
   // Same-origin (incl. the self-hosted vendor/ libraries): cache-first, then network.
-  // Vendor filenames are version-pinned, so a cached copy is never stale.
+  // Nothing here is revalidated, so a cached copy has to be right for as long as this cache
+  // lives: the cache NAME hashes every file the site ships (scripts/build-html.mjs), and the
+  // translation packs and city lists are asked for by their own content hash.
   if (url.origin === self.location.origin) {
     e.respondWith(
       caches.match(req).then((hit) => hit || fetch(req).then((res) => {
@@ -122,28 +125,13 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Supabase Storage product/profile photos: cache-first in a separate, capped cache so
-  // they load instantly on repeat views instead of a ~1s fetch each time. Filenames are
-  // content-addressed (uid.jpg), so a cached copy is never stale.
-  if (url.hostname.endsWith('.supabase.co') && url.pathname.includes('/storage/')) {
-    e.respondWith(
-      caches.open(IMG_CACHE).then((c) =>
-        c.match(req).then((hit) => hit || fetch(req).then((res) => {
-          if (res && res.ok) { c.put(req, res.clone()); trimCache(IMG_CACHE, 120); }
-          return res;
-        }).catch(() => hit))
-      )
-    );
-    return;
-  }
+  // Supabase Storage photos are left to the browser. The worker used to keep them in a cache of
+  // its own, but an <img> fetches cross-origin in no-cors mode, so every answer was opaque
+  // (res.ok false) and nothing was ever stored - it only added a hop. Storing opaque answers is
+  // no fix (each one counts megabytes against the origin's quota), and none is needed: photos
+  // are uploaded with a one-year Cache-Control and content-addressed names, so the HTTP cache
+  // already serves repeat views.
 });
-
-// Keep the image cache from growing unbounded: drop the oldest entries past `max`.
-async function trimCache(name, max) {
-  const c = await caches.open(name);
-  const keys = await c.keys();
-  if (keys.length > max) for (let i = 0; i < keys.length - max; i++) await c.delete(keys[i]);
-}
 
 // ── Web Push ────────────────────────────────────────────────────────────────
 // Waitlist promotion used to depend on a 25-second banner appearing on whichever staff

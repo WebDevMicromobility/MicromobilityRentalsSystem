@@ -6,14 +6,16 @@
 // files (app.src.html, *.sql, *.md, tests/, scripts/, configs) are deliberately
 // NOT copied, so the deployed artifact can't leak them even without the middleware.
 import { rm, mkdir, copyFile, cp, access } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
 
-// Files copied verbatim from repo root.
-const FILES = [
+// Files copied verbatim from repo root. Exported: scripts/build-html.mjs hashes what the service
+// worker serves cache-first into its cache name from these same two lists, so the site that
+// ships and the files the worker's cache name covers cannot drift apart.
+export const FILES = [
   'index.html', 'styles.css', 'service-worker.js', 'manifest.json', '404.html',
   '_headers', '_redirects',
   'robots.txt', 'sitemap.xml',
@@ -27,7 +29,7 @@ const FILES = [
 // lang/ holds the build-generated translation packs the app fetches at runtime.
 // assets/ holds the brand mark the loading state masks. cities/ holds one city list per
 // country for the city-of-residence picker (scripts/build-cities.mjs).
-const DIRS = ['functions', 'staff', 'vendor', 'splash', 'fonts', 'lang', 'assets', 'cities'];
+export const DIRS = ['functions', 'staff', 'vendor', 'splash', 'fonts', 'lang', 'assets', 'cities'];
 
 const exists = async (p) => { try { await access(p); return true; } catch { return false; } };
 
@@ -48,4 +50,7 @@ async function main() {
   console.log(`assemble-dist: wrote dist/ (${FILES.length} files + ${DIRS.length} dirs)`);
 }
 
-main().catch((e) => { console.error(e); process.exit(1); });
+// Only when run as a script; importing the lists must not rebuild dist/.
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((e) => { console.error(e); process.exit(1); });
+}

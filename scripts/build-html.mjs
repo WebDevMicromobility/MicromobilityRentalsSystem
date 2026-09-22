@@ -5,6 +5,9 @@
 import { minify } from 'html-minifier-terser';
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { FILES as DIST_FILES, DIRS as DIST_DIRS } from './assemble-dist.mjs';
 
 // Modularization foundation: logic can live in separate src/ files and be pulled in
 // at build time via `<!--include:path/to/file.js-->` markers. Inlining (not ES-module
@@ -155,24 +158,48 @@ if (out === beforeCss && /styles\.css\?v=/.test(beforeCss)) {
 // and seven images, served cache-first with no revalidation. Shipping a new logo or icon
 // without touching the stylesheet left the service worker byte-identical: no install event,
 // no re-precache, no cache rotation, and returning visitors kept the old bytes for ever with
-// no way out but an unrelated CSS edit. The name is now a hash of EVERY shell asset, so any
-// one of them changing rotates the cache.
+// no way out but an unrelated CSS edit. The name then became a hash of the precache list - but
+// the worker serves EVERY same-origin file cache-first, not just the ones it precaches: the tag
+// badges, the National Day marks, logo-mark-dark.png, the splash screens, fonts.css (whose ?v=
+// is bumped by hand) and phone-rules.json all sat outside it, and a new version of any of them
+// alone stayed stale for good. So the name now covers every file the site ships (the same
+// FILES/DIRS assemble-dist.mjs copies), less the ones that cannot go stale in that cache:
+//   index.html      - rewritten by THIS build further down, and stale-while-revalidate with an
+//                     etag check on every navigation anyway (hashing it would read the previous
+//                     build's bytes and rotate one build late)
+//   service-worker.js, _headers, _redirects - never served from the cache
+//   robots.txt, sitemap.xml - rewritten further down by this build, and only crawlers read them
+//   styles.css      - already in, through cssHash
+//   functions/      - not static files
+//   lang/, cities/  - asked for with their own content hash (?v=), so a change is a new URL
+// Only files git tracks are read: a stray local file (.DS_Store, work in progress) must not make
+// this machine's cache name differ from the one CI rebuilds and compares.
 const swUrl = new URL('../service-worker.js', import.meta.url);
 let sw = await readFile(swUrl, 'utf8');
 const swBefore = sw;
+const NOT_CACHE_FIRST = new Set(['index.html', 'service-worker.js', '_headers', '_redirects', 'robots.txt', 'sitemap.xml', 'styles.css']);
+const VERSIONED_DIRS = new Set(['functions', 'lang', 'cities']);
+const shipped = (rel) => DIST_FILES.includes(rel) || DIST_DIRS.some((d) => rel.startsWith(d + '/'));
+// Every file the worker precaches must also ship, or cache.addAll() rejects and the worker
+// never installs in production. Checked here so it fails at build time, not at "Assemble dist".
 const shellList = [...sw.matchAll(/'\.\/([^']+?)(?:\?v=[a-z0-9]+)?'/g)].map((m) => m[1]);
-const shellHasher = createHash('sha256').update(cssHash);
-for (const rel of [...new Set(shellList)].sort()) {
-  // Skip the two that are already covered, and index.html, which THIS build rewrites further
-  // down (line ~214) — hashing it here would read the previous build's bytes and rotate the
-  // cache one build late. It does not need to be here anyway: the shell entry is
-  // stale-while-revalidate with an etag check on every navigation. The images and the
-  // manifest are the ones served cache-first with no revalidation, and they are what this
-  // hash exists to cover.
-  if (rel === '' || rel === 'styles.css' || rel === 'index.html') continue;
-  try { shellHasher.update(rel).update(await readFile(new URL(`../${rel}`, import.meta.url))); }
+for (const rel of new Set(shellList)) {
+  if (rel === '') continue;
+  if (!shipped(rel)) throw new Error(`build: service-worker.js precaches ${rel}, which scripts/assemble-dist.mjs does not ship`);
+  try { await readFile(new URL(`../${rel}`, import.meta.url)); }
   catch { throw new Error(`build: service-worker.js precaches ${rel}, which is not in the repo`); }
 }
+const rootDir = fileURLToPath(new URL('../', import.meta.url));
+const tracked = execFileSync('git', ['ls-files', '-z', '--', ...DIST_FILES, ...DIST_DIRS], { cwd: rootDir, encoding: 'utf8' })
+  .split('\0').filter(Boolean);
+const cacheFirst = tracked
+  .filter((rel) => !NOT_CACHE_FIRST.has(rel) && !VERSIONED_DIRS.has(rel.split('/')[0]))
+  .sort();
+for (const rel of DIST_FILES) {
+  if (!NOT_CACHE_FIRST.has(rel) && !cacheFirst.includes(rel)) throw new Error(`build: ${rel} ships but git does not track it`);
+}
+const shellHasher = createHash('sha256').update(cssHash);
+for (const rel of cacheFirst) shellHasher.update(rel).update(await readFile(new URL(`../${rel}`, import.meta.url)));
 const shellHash = shellHasher.digest('hex').slice(0, 10);
 sw = sw
   .replace(/styles\.css\?v=[a-z0-9]+/g, `styles.css?v=${cssHash}`)
