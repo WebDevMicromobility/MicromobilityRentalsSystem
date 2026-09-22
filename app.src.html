@@ -2257,6 +2257,7 @@ function entryFromDB(e){
     rideDuration:e.ride_duration||null,
     cancelledBy:e.cancelled_by||null, // 'staff' | 'customer' | null when it predates the column
     cancelReason:e.cancel_reason||null,cancelNote:e.cancel_note||null, // why the rider cancelled (a CANCEL_REASONS code; Other's words)
+    removedFrom:e.removed_from||null, // what a removed row was before removal, so Restore can bring it back as that
     toReserve:!!e.to_reserve, // staff mark: hold a bike for this booking, before one is chosen
     ratingBike:e.rating_bike||null,ratingExp:e.rating_exp||null,feedback:e.feedback||null,checkedInAt:e.checked_in_at||null,checkedOutAt:e.checked_out_at||null,
     promoCode:e.promo_code||null,
@@ -15026,35 +15027,43 @@ function _accSetNatTop(v){_accOpts().natTop=Number(v)||0;_accSave();}
 // The one thing a filter pick changes on the dialog: how many accounts are on the list.
 function _accPaintCount(){const el=document.getElementById('acr-count');if(!el)return;el.innerHTML=`${t('acrOnList')}: <span style="color:var(--text)">${_accRows().length}</span> / ${getCustomers().length}`;}
 function _accReset(){S._accOpts=_accDefaults();_accSave();showAccountReportOptions();}
+// KSA calendar days for the report's windows. Session dates are KSA days, so every cutoff and
+// every timestamp compared with them has to be one too: a UTC day made the 14/30/90/365-day
+// windows a day longer between midnight and 3am, and put 1am sign-ups on the day before.
+// Saudi Arabia keeps UTC+3 all year (no daylight saving), so a fixed offset is exact, and it
+// costs nothing across 2,700 accounts where an Intl formatter per row would not.
+const _KSA_OFF_MS=3*3600000;
+function _ksaDayOf(v){const ms=typeof v==='number'?v:Date.parse(v||'');return isNaN(ms)?'':new Date(ms+_KSA_OFF_MS).toISOString().slice(0,10);}
+function _ksaDaysAgo(n){return _ksaDayOf(Date.now()-n*86400000);}
 // Riding history per account, aggregated once from the queue. A "ride" is a booking that
 // reached 'done'; bookings count everything the customer ever made except rows staff removed.
 function _accStats(){
   const m={};
   const live=['waiting','waitlist','active'];
-  const today=new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});
-  // Riyadh days, like `today` above: toISOString() is the UTC date, a day behind from midnight
-  // to 03:00 KSA, which made each window one day wider for three hours a night.
-  const since14=new Date(Date.now()-14*86400000).toLocaleDateString('en-CA',{timeZone:KSA_TZ});
-  const since30=new Date(Date.now()-30*86400000).toLocaleDateString('en-CA',{timeZone:KSA_TZ});
+  const today=_ksaDaysAgo(0);
+  const since14=_ksaDaysAgo(14),since30=_ksaDaysAgo(30);
+  const sessById=new Map((S.sessions||[]).map(s=>[s.id,s])); // one lookup per ride, not a scan of every session
   getQueue().forEach(e=>{
     if(!e.customerId||e.status==='removed')return;
     const st=m[e.customerId]||(m[e.customerId]={bookings:0,rides:0,commRides:0,upcoming:0,noshows:0,cancelled:0,lastRide:'',minutes:0,spent:0,active14:false,active30:false});
     st.bookings++;
     // Active in the last 14 / 30 days: a booking (not cancelled) whose session fell in that
     // window, or one made in that window - "had a booking in the last N days", either way round.
-    if(e.status!=='cancelled'){const sd=String(e.sessionDate||''),ra=String(e.registeredAt||'').slice(0,10);
+    if(e.status!=='cancelled'){const sd=String(e.sessionDate||''),ra=_ksaDayOf(e.registeredAt);
       if((sd>=since14&&sd<=today)||ra>=since14)st.active14=true;
       if((sd>=since30&&sd<=today)||ra>=since30)st.active30=true;}
     if(e.status==='done'){
       st.rides++;
-      if(_isCommunity(_rowSess(e)))st.commRides++;
+      if(_isCommunity(sessById.get(e.sessionId)))st.commRides++;
       const d=String(e.sessionDate||'');if(d>st.lastRide)st.lastRide=d;
       st.minutes+=Number(e.rideDuration)||0;
     }
     if(live.includes(e.status)&&String(e.sessionDate||'')>=today)st.upcoming++;
     if(e.status==='noshow')st.noshows++;
     if(e.status==='cancelled')st.cancelled++;
-    if(e.paid&&e.status!=='cancelled')st.spent+=Number(e.price??DEFAULT_PRICE)||0; // the customer profile's "Total spent" rule, so one account reads the same in both places
+    // Spent is money that stayed: the close-out and the session report leave a cancelled
+    // booking out of what was collected even when it was marked paid first, so this does too.
+    if(e.paid&&e.status!=='cancelled')st.spent+=Number(e.price??DEFAULT_PRICE)||0;
   });
   return m;
 }
@@ -15115,7 +15124,7 @@ function _accCells(c,st,o){
     instagram:(c.socials&&c.socials.instagram)||'',x:(c.socials&&c.socials.x)||'',tiktok:(c.socials&&c.socials.tiktok)||'',linkedin:(c.socials&&c.socials.linkedin)||'',
     height:c.height?String(c.height)+' '+t('cmUnit'):'',
     type:c.type_preference?typeLabel(c.type_preference):'',
-    joined:c.created_at?shortDate(String(c.created_at).slice(0,10)):'',
+    joined:c.created_at?shortDate(_ksaDayOf(c.created_at)):'',
     bookings:String(st.bookings),rides:String(st.rides),commRides:String(st.commRides),upcoming:String(st.upcoming),
     noshows:String(st.noshows),cancelled:String(st.cancelled),
     lastRide:st.lastRide?shortDate(st.lastRide):'',
@@ -15129,9 +15138,10 @@ function _accCells(c,st,o){
 function _accRows(){
   const o=_accOpts();
   const stats=_accStats();
-  const now=Date.now(),day=86400000;
-  const today=new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});
-  const sinceIso=days=>new Date(now-days*day).toISOString().slice(0,10);
+  const sinceIso=_ksaDaysAgo; // KSA days, like the session dates they are compared with
+  // The pickers list trimmed values (see distinct() in the builder), so the match is on the
+  // trimmed value too: "Jeddah " picked as "Jeddah" used to match nobody.
+  const tv=v=>String(v||'').trim();
   const list=getCustomers().filter(c=>{
     const st=stats[c.id]||_ACC_EMPTY;
     const live=_accLiveTags(c,o);
@@ -15139,11 +15149,11 @@ function _accRows(){
     if(o.fTag==='none'&&live.length)return false;
     if(!['all','any','none'].includes(o.fTag)&&!live.some(x=>x.tag_id===o.fTag))return false;
     if(o.fGender==='unset'){if(c.gender)return false;}else if(o.fGender!=='all'&&String(c.gender||'')!==o.fGender)return false;
-    if(o.fCountry!=='all'&&String(c.country||'')!==o.fCountry)return false;
-    if(o.fNationality!=='all'&&String(c.nationality||'')!==o.fNationality)return false;
-    if(o.fCity!=='all'&&String(c.city||'')!==o.fCity)return false;
+    if(o.fCountry!=='all'&&tv(c.country)!==o.fCountry)return false;
+    if(o.fNationality!=='all'&&tv(c.nationality)!==o.fNationality)return false;
+    if(o.fCity!=='all'&&tv(c.city)!==o.fCity)return false;
     if(o.fType!=='all'&&String(c.type_preference||'')!==o.fType)return false;
-    if(o.fJoined!=='all'&&String(c.created_at||'').slice(0,10)<sinceIso(Number(o.fJoined)))return false;
+    if(o.fJoined!=='all'&&_ksaDayOf(c.created_at)<sinceIso(Number(o.fJoined)))return false;
     if(o.fRides==='rode'&&st.rides<1)return false;
     if(o.fRides==='never'&&st.rides>0)return false;
     if(o.fRides==='5plus'&&st.rides<5)return false;
@@ -15170,7 +15180,6 @@ function _accRows(){
     last:(a,b)=>String((stats[b.id]||_ACC_EMPTY).lastRide).localeCompare(String((stats[a.id]||_ACC_EMPTY).lastRide))||String(a.name||'').localeCompare(String(b.name||'')),
   };
   list.sort(srt[o.sort]||srt.name);
-  void today;
   // The cells (every column formatted as text) are only needed by the printed sheet and the
   // CSV; the builder itself needs the count and the summaries. Formatted on first read.
   return list.map(c=>{const st=stats[c.id]||_ACC_EMPTY;const r={c,st,_cells:null};Object.defineProperty(r,'cells',{get(){return this._cells||(this._cells=_accCells(c,st,o));}});return r;});
@@ -15209,17 +15218,22 @@ function _accBreakdown(k,rows,o){
     case 'nationality':return fold(count(r=>{const v=String(r.c.nationality||'').trim();return v?nationalityLabel(v):unk;}),false,o?o.natTop:20);
     case 'type':return fold(count(r=>r.c.type_preference?typeLabel(r.c.type_preference):unk));
     case 'joined':{
-      // the last twelve months, every month present even when empty, oldest first
-      const months=[];const d=new Date();d.setDate(1);
-      for(let i=11;i>=0;i--){const x=new Date(d.getFullYear(),d.getMonth()-i,1);months.push(x.toISOString().slice(0,7));}
-      const m=count(r=>String(r.c.created_at||'').slice(0,7));
-      return months.map(ym=>({label:new Date(ym+'-01T00:00:00').toLocaleDateString(_locale(),{month:'short',year:'2-digit'}),value:m.get(ym)||0}));}
+      // the last twelve months, every month present even when empty, oldest first. Month keys
+      // are counted in KSA and never go through a local Date: toISOString() of local midnight
+      // on the 1st is the day before in UTC for a device east of Greenwich, so on every KSA
+      // phone the chart began a month early and the current month - this month's sign-ups -
+      // was not on it at all.
+      const [cy,cm]=_ksaDaysAgo(0).split('-').map(Number);
+      const months=[];
+      for(let i=11;i>=0;i--){const k=cy*12+(cm-1)-i;months.push(`${Math.floor(k/12)}-${String(k%12+1).padStart(2,'0')}`);}
+      const m=count(r=>_ksaDayOf(r.c.created_at).slice(0,7));
+      return months.map(ym=>({label:new Date(Date.UTC(+ym.slice(0,4),+ym.slice(5,7)-1,1)).toLocaleDateString(_locale(),{month:'short',year:'2-digit',timeZone:'UTC'}),value:m.get(ym)||0}));}
     case 'rides':{
       const order=[t('acrRidesNone'),t('acrRides14'),t('acrRides59'),t('acrRides10')];
       const m=count(r=>{const n=r.st.rides;return n<1?order[0]:n<5?order[1]:n<10?order[2]:order[3];});
       return order.filter(l=>m.has(l)).map(label=>({label,value:m.get(label)}));}
     case 'active':{
-      const day=86400000,now=Date.now();const iso=n=>new Date(now-n*day).toISOString().slice(0,10);
+      const iso=_ksaDaysAgo; // KSA days, like the session dates in lastRide
       const order=[t('acrBand90'),t('acrBand365'),t('acrBandOver'),t('acrNever')];
       const m=count(r=>{const l=r.st.lastRide;return !l?order[3]:l>=iso(90)?order[0]:l>=iso(365)?order[1]:order[2];});
       return order.filter(l=>m.has(l)).map(label=>({label,value:m.get(label)}));}
@@ -15317,19 +15331,53 @@ function _accFigure(k,items,type){
   return `<section style="break-inside:avoid;margin-bottom:8px"><h2>${esc(_accBdTitle(k))}</h2><div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap">${svg?`<div style="flex:0 0 auto">${svg}</div>`:''}<div style="flex:1 1 150px">${table}</div></div></section>`;
 }
 function _accSelCols(){const o=_accOpts();const sel=_ACC_COLS.filter(c=>o.cols[c.k]);return sel.length?sel:_ACC_COLS.filter(c=>c.k==='name');}
+// Every filter the builder offers, in the order the dialog shows them: the option it sets, its
+// label and its choices as [value,label]. One list feeds the dialog, the printed filter line
+// (which prints the label that was picked - it used to print the stored value: 'rode',
+// '14no', 'house', a tag's id) and the check below that drops a saved pick nobody can see.
+const _ACC_TYPES=['Road','Hybrid','Mountain','Kids','Road Carbon','Any','Own'];
+function _accFilterDefs(){
+  const distinct=k=>[...new Set(getCustomers().map(c=>String(c[k]||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const all=['all',t('filterAll')],days=n=>[String(n),t('acrLastDays').replace('{0}',String(n))];
+  return [
+    ['fTag',t('acrFilterTag'),[all,['any',t('acrTagAny')],['none',t('acrTagNone')],...(S.tags||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(tg=>[tg.id,tg.name])]],
+    ['fGender',t('genderLabel'),[all,['male',t('genderMale')],['female',t('genderFemale')],['unset',t('acrGenderUnset')]]],
+    ['fAge',t('acrFilterAge'),[all,['u18',t('acrAgeU18')],['18-29',t('acrAge1829')],['30-44',t('acrAge3044')],['45',t('acrAge45')]]],
+    ['fCountry',t('countryLabel'),[all,...distinct('country').map(x=>[x,nationalityLabel(x)])]],
+    ['fNationality',t('nationalityLabel'),[all,...distinct('nationality').map(x=>[x,nationalityLabel(x)])]],
+    ['fCity',t('cityLabel'),[all,...distinct('city').map(x=>[x,x])]],
+    ['fType',t('bikeTypeLabel'),[all,..._ACC_TYPES.map(x=>[x,typeLabel(x)])]],
+    ['fJoined',t('acrFilterJoined'),[all,days(30),days(90),days(365)]],
+    ['fRides',t('acrFilterRides'),[all,['rode',t('acrRodeAny')],['never',t('acrRodeNever')],['5plus',t('acrRode5')]]],
+    ['fActive',t('acrFilterActive'),[all,days(90),days(365),['inactive',t('acrInactive')],['14',t('acrActive14Yes')],['14no',t('acrActive14No')],['30',t('acrActive30Yes')],['30no',t('acrActive30No')]]],
+    ['fUpcoming',t('acrFilterUpcoming'),[all,['yes',t('acrHasUpcoming')],['no',t('acrNoUpcoming')]]],
+    ['fPay',t('defaultPayLabel'),[all,['normal',t('acrPayNormal')],['house',t('acrPayHouse')]]],
+  ];
+}
+function _accSortOpts(){return [['name',t('acrSortName')],['joined',t('acrSortJoined')],['rides',t('acrSortRides')],['last',t('acrSortLast')]];}
+// Picks are saved per device. A saved pick that is no longer on offer - a tag since deleted,
+// the only account from a city since edited - still filtered, while its select fell back to
+// showing "All": the list read 0 with nothing on screen to say why, and picking "All" again
+// fired no change. Such a pick goes back to "All" (the sort to its default). Not before the
+// tags and accounts have loaded, or a pick that is merely not here YET would be thrown away.
+function _accDropStale(o,defs){
+  if(typeof _refsLoaded!=='undefined'&&!_refsLoaded)return;
+  let drop=false;
+  defs.forEach(([k,,opts])=>{if(!opts.some(op=>op[0]===o[k])){o[k]='all';drop=true;}});
+  if(!_accSortOpts().some(op=>op[0]===o.sort)){o.sort='name';drop=true;}
+  if(drop)_accSave();
+}
 function showAccountReportOptions(){
   const m=document.getElementById('print-opts-modal');
   const o=_accOpts();
   // Opening from a tag pill carries that pill into the builder, so the report matches the list.
   if(S.amTagFilter&&S._accSeedTag!==S.amTagFilter){o.fTag=S.amTagFilter;S._accSeedTag=S.amTagFilter;}
+  const defs=_accFilterDefs();
+  _accDropStale(o,defs);
   const chk=(on)=>on?_artIcon('boxOn',15):_artIcon('boxOff',15);
-  const row=(kind,k,label)=>`<button type="button" data-rep="${kind}:${k}" aria-pressed="${o[kind][k]?'true':'false'}" onclick="_accToggle('${kind}','${k}')" style="display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border:none;background:none;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:700;color:var(--text);text-align:start">${chk(o[kind][k])}<span>${esc(label)}</span></button>`;
+  const row=(kind,k,label)=>`<button type="button" data-rep="${kind}:${k}" aria-pressed="${o[kind][k]?'true':'false'}" onclick="_accToggle(${_ja(kind)},${_ja(k)})" style="display:flex;align-items:center;gap:9px;width:100%;padding:8px 10px;border:none;background:none;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:700;color:var(--text);text-align:start">${chk(o[kind][k])}<span>${esc(label)}</span></button>`;
   const sel=(id,val,opts,onchg,lbl)=>`<select class="filter-select" aria-label="${esc(lbl||id)}" style="width:100%" onchange="${onchg}">${opts.map(op=>`<option value="${esc(op[0])}"${val===op[0]?' selected':''}>${esc(op[1])}</option>`).join('')}</select>`;
   const fld=(lbl,html)=>`<label style="display:flex;flex-direction:column;gap:4px">${esc(lbl)}${html}</label>`;
-  const distinct=k=>[...new Set(getCustomers().map(c=>String(c[k]||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
-  const tagOpts=[['all',t('filterAll')],['any',t('acrTagAny')],['none',t('acrTagNone')],
-    ...(S.tags||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(tg=>[tg.id,tg.name])];
-  const _types=['Road','Hybrid','Mountain','Road Carbon','Any','Own'];
   const rows=_accRows();
   const _keep=m.querySelector('.modal-box');const _scroll=_keep?_keep.scrollTop:0; // a tap must not send the list back to the top
   m.style.display='flex';
@@ -15352,8 +15400,8 @@ function showAccountReportOptions(){
       <div style="font-size:11px;color:var(--muted);margin-bottom:6px">${t('acrSectChartsHint')}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:2px 10px;margin-bottom:14px">
         ${_ACC_BREAKDOWNS.map(k=>`<div style="display:flex;align-items:center;gap:6px">
-          <button type="button" data-rep="chartsOn:${k}" aria-pressed="${o.chartsOn[k]?'true':'false'}" onclick="_accToggle('chartsOn','${k}')" style="display:flex;align-items:center;gap:9px;flex:1;min-width:0;padding:8px 10px;border:none;background:none;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:700;color:var(--text);text-align:start">${chk(o.chartsOn[k])}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(_accBdTitle(k))}</span></button>
-          <select class="filter-select" aria-label="${esc(_accBdTitle(k))}" style="width:104px;flex:none" onchange="_accSetChart('${k}',this.value)"${o.chartsOn[k]?'':' disabled'}>${_ACC_CHART_TYPES.map(([v,key])=>`<option value="${v}"${o.charts[k]===v?' selected':''}>${t(key)}</option>`).join('')}</select>
+          <button type="button" data-rep="chartsOn:${k}" aria-pressed="${o.chartsOn[k]?'true':'false'}" onclick="_accToggle('chartsOn',${_ja(k)})" style="display:flex;align-items:center;gap:9px;flex:1;min-width:0;padding:8px 10px;border:none;background:none;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:700;color:var(--text);text-align:start">${chk(o.chartsOn[k])}<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(_accBdTitle(k))}</span></button>
+          <select class="filter-select" aria-label="${esc(_accBdTitle(k))}" style="width:104px;flex:none" onchange="_accSetChart(${_ja(k)},this.value)"${o.chartsOn[k]?'':' disabled'}>${_ACC_CHART_TYPES.map(([v,key])=>`<option value="${v}"${o.charts[k]===v?' selected':''}>${t(key)}</option>`).join('')}</select>
         </div>`).join('')}
       </div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:-8px 0 14px;font-size:12px;font-weight:700;color:var(--muted)">
@@ -15363,19 +15411,8 @@ function showAccountReportOptions(){
 
       <div style="font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px">${t('repOptFilters')}</div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:14px">
-        ${fld(t('acrFilterTag'),sel('acr-f-tag',o.fTag,tagOpts,"_accSet('fTag',this.value)",t('acrFilterTag')))}
-        ${fld(t('genderLabel'),sel('acr-f-gender',o.fGender,[['all',t('filterAll')],['male',t('genderMale')],['female',t('genderFemale')],['unset',t('acrGenderUnset')]],"_accSet('fGender',this.value)",t('genderLabel')))}
-        ${fld(t('acrFilterAge'),sel('acr-f-age',o.fAge,[['all',t('filterAll')],['u18',t('acrAgeU18')],['18-29',t('acrAge1829')],['30-44',t('acrAge3044')],['45',t('acrAge45')]],"_accSet('fAge',this.value)",t('acrFilterAge')))}
-        ${fld(t('countryLabel'),sel('acr-f-country',o.fCountry,[['all',t('filterAll')],...distinct('country').map(x=>[x,nationalityLabel(x)])],"_accSet('fCountry',this.value)",t('countryLabel')))}
-        ${fld(t('nationalityLabel'),sel('acr-f-nationality',o.fNationality,[['all',t('filterAll')],...distinct('nationality').map(x=>[x,nationalityLabel(x)])],"_accSet('fNationality',this.value)",t('nationalityLabel')))}
-        ${fld(t('cityLabel'),sel('acr-f-city',o.fCity,[['all',t('filterAll')],...distinct('city').map(x=>[x,x])],"_accSet('fCity',this.value)",t('cityLabel')))}
-        ${fld(t('bikeTypeLabel'),sel('acr-f-type',o.fType,[['all',t('filterAll')],..._types.map(x=>[x,typeLabel(x)])],"_accSet('fType',this.value)",t('bikeTypeLabel')))}
-        ${fld(t('acrFilterJoined'),sel('acr-f-joined',o.fJoined,[['all',t('filterAll')],['30',t('acrLastDays').replace('{0}','30')],['90',t('acrLastDays').replace('{0}','90')],['365',t('acrLastDays').replace('{0}','365')]],"_accSet('fJoined',this.value)",t('acrFilterJoined')))}
-        ${fld(t('acrFilterRides'),sel('acr-f-rides',o.fRides,[['all',t('filterAll')],['rode',t('acrRodeAny')],['never',t('acrRodeNever')],['5plus',t('acrRode5')]],"_accSet('fRides',this.value)",t('acrFilterRides')))}
-        ${fld(t('acrFilterActive'),sel('acr-f-active',o.fActive,[['all',t('filterAll')],['90',t('acrLastDays').replace('{0}','90')],['365',t('acrLastDays').replace('{0}','365')],['inactive',t('acrInactive')],['14',t('acrActive14Yes')],['14no',t('acrActive14No')],['30',t('acrActive30Yes')],['30no',t('acrActive30No')]],"_accSet('fActive',this.value)",t('acrFilterActive')))}
-        ${fld(t('acrFilterUpcoming'),sel('acr-f-up',o.fUpcoming,[['all',t('filterAll')],['yes',t('acrHasUpcoming')],['no',t('acrNoUpcoming')]],"_accSet('fUpcoming',this.value)",t('acrFilterUpcoming')))}
-        ${fld(t('defaultPayLabel'),sel('acr-f-pay',o.fPay,[['all',t('filterAll')],['normal',t('acrPayNormal')],['house',t('acrPayHouse')]],"_accSet('fPay',this.value)",t('defaultPayLabel')))}
-        ${fld(t('acrSortLabel'),sel('acr-sort',o.sort,[['name',t('acrSortName')],['joined',t('acrSortJoined')],['rides',t('acrSortRides')],['last',t('acrSortLast')]],"_accSet('sort',this.value)",t('acrSortLabel')))}
+        ${defs.map(([k,lbl,opts])=>fld(lbl,sel(k,o[k],opts,`_accSet(${_ja(k)},this.value)`,lbl))).join('')}
+        ${fld(t('acrSortLabel'),sel('sort',o.sort,_accSortOpts(),"_accSet('sort',this.value)",t('acrSortLabel')))}
       </div>
       <div id="acr-count" style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:14px">${t('acrOnList')}: <span style="color:var(--text)">${rows.length}</span> / ${getCustomers().length}</div>
 
@@ -15397,7 +15434,7 @@ function _accReportHtml(){
   const rows=_accRows();
   const cols=_accSelCols();
   const tm=_tagsById();
-  const yearAgo=new Date(Date.now()-365*86400000).toISOString().slice(0,10);
+  const yearAgo=_ksaDaysAgo(365); // a KSA day, like the session dates in lastRide
   const nTagged=rows.filter(r=>_accLiveTags(r.c,o).length).length;
   const nRides=rows.reduce((s,r)=>s+r.st.rides,0);
   const nActive=rows.filter(r=>r.st.lastRide&&r.st.lastRide>=yearAgo).length;
@@ -15414,12 +15451,8 @@ function _accReportHtml(){
     return `<tr><td>${esc(tg.name)}</td><td>${live.length}</td><td>${live.filter(ct=>onList.has(ct.customer_id)).length}</td></tr>`;
   }).join('');
   void tm;
-  const filterLine=[o.fTag!=='all'?t('acrFilterTag')+': '+(o.fTag==='any'?t('acrTagAny'):o.fTag==='none'?t('acrTagNone'):((_tagsById()[o.fTag]||{}).name||o.fTag)):'',
-    o.fGender!=='all'?t('genderLabel')+': '+_accGender(o.fGender):'',o.fAge!=='all'?t('acrFilterAge')+': '+o.fAge:'',
-    o.fCountry!=='all'?t('countryLabel')+': '+nationalityLabel(o.fCountry):'',o.fNationality!=='all'?t('nationalityLabel')+': '+nationalityLabel(o.fNationality):'',o.fCity!=='all'?t('cityLabel')+': '+o.fCity:'',
-    o.fType!=='all'?t('bikeTypeLabel')+': '+typeLabel(o.fType):'',o.fJoined!=='all'?t('acrFilterJoined')+': '+t('acrLastDays').replace('{0}',o.fJoined):'',
-    o.fRides!=='all'?t('acrFilterRides')+': '+o.fRides:'',o.fActive!=='all'?t('acrFilterActive')+': '+o.fActive:'',
-    o.fUpcoming!=='all'?t('acrFilterUpcoming')+': '+o.fUpcoming:'',o.fPay!=='all'?t('defaultPayLabel')+': '+o.fPay:''].filter(Boolean).join(' · ');
+  // Each active filter as "Label: the choice's label" - the same words the dialog shows.
+  const filterLine=_accFilterDefs().filter(([k])=>o[k]!=='all').map(([k,lbl,opts])=>{const op=opts.find(x=>x[0]===o[k]);return op?lbl+': '+op[1]:'';}).filter(Boolean).join(' · ');
   // How many different nationalities the list holds - the spread, not the shape of it.
   // Blanks are not a nationality and are not counted.
   const nNats=_accNatCount(rows);
@@ -15488,9 +15521,15 @@ function exportSessionExcel(){
     URL.revokeObjectURL(url);
     return;
   }
-  const entries=getQueue()
-    .filter(e=>e.sessionId===sessId&&(e.status==='active'||e.status==='done'))
-    .sort((a,b)=>a.queueNum-b.queueNum);
+  // The sheet follows the export dialog as the PDF does: the same riders (every live outcome,
+  // Expected and No-show included, after the dialog's filters), the ticked columns, and the
+  // add-on and cashier blocks only when their sections are on. It used to ignore the dialog
+  // entirely: "Payment: Pending" still exported everyone, and a paid no-show was on the
+  // printed sheet but missing from the file.
+  const _ro=_repOpts();
+  const entries=_repFilter(getQueue()
+    .filter(e=>e.sessionId===sessId&&['waiting','active','done','noshow'].includes(e.status))
+    .sort((a,b)=>a.queueNum-b.queueNum));
   if(!entries.length){toast(t('toastNoExport'),'warning');return;}
   const groups=[];
   const usedIds=new Set();
@@ -15504,7 +15543,21 @@ function exportSessionExcel(){
   }
   const statusPriority={active:0,waiting:1,done:2,noshow:3,cancelled:4};
   const addonSales=addonSalesFromGroups(groups);
-  const headers=[t('repColSeq'),t('colQueueNum')||'#',t('nameLabel'),t('repColPhone'),t('repColEmail'),t('repColType'),t('colBike'),t('repPriceSar'),t('addonsLabel'),t('colPayment'),t('colStatus')];
+  // Each builder column and the sheet columns it stands for: phone brings the email beside it,
+  // bike brings the type, payment brings the price and the add-ons - as the sheet always had.
+  const _xc={
+    seq:    {h:[t('repColSeq')],v:x=>[x.seq]},
+    qnum:   {h:[t('colQueueNum')||'#'],v:x=>[x.qNums]},
+    name:   {h:[t('nameLabel')],v:x=>[x.lead.name]},
+    phone:  {h:[t('repColPhone'),t('repColEmail')],v:x=>[x.lead.phone||'',x.lead.email||'']},
+    height: {h:[t('heightLabel')+' ('+t('cmUnit')+')'],v:x=>[x.heights]},
+    bike:   {h:[t('repColType'),t('colBike')],v:x=>[x.types,x.bikes]},
+    payment:{h:[t('repPriceSar'),t('addonsLabel'),t('colPayment')],v:x=>[x.totalPrice,x.addonNames,x.payLabel]},
+    status: {h:[t('colStatus')],v:x=>[reportStatusLabel(x.topStatus)]},
+  };
+  const _pick=_REP_COLS.filter(c=>_xc[c.k]&&_ro.cols[c.k]); // membership is Saturday-only, as on the PDF
+  const _cols=(_pick.length?_pick:_REP_COLS.filter(c=>c.k==='qnum'||c.k==='name')).map(c=>_xc[c.k]);
+  const headers=_cols.flatMap(c=>c.h);
   const rows=groups.map((group,_i)=>{
     const lead=group[0];
     const qNums=group.map(x=>`#${x.queueNum}`).join(', ');
@@ -15516,15 +15569,17 @@ function exportSessionExcel(){
     const types=[...new Set(group.map(x=>resolvedType(x)).filter(Boolean))].join(', ')||'—';
     const _grpAd={};group.forEach(x=>entryAddons(x).forEach(a=>{_grpAd[a.id]=(_grpAd[a.id]||0)+a.qty;})); // aggregate every rider's add-ons
     const addonNames=Object.entries(_grpAd).map(([id,qty])=>{const it=(S.inventory||[]).find(x=>x.id===id);return (it?it.name:id)+(qty>1?` ×${qty}`:'');}).join('; ')||'—';
-    return[_i+1,qNums,lead.name,lead.phone||'',lead.email||'',types,bikes,totalPrice,addonNames,payLabel,reportStatusLabel(topStatus)];
+    const heights=[...new Set(group.map(x=>x.height).filter(Boolean))].join(', ');
+    const x={seq:_i+1,qNums,lead,types,bikes,totalPrice,addonNames,payLabel,topStatus,heights};
+    return _cols.flatMap(c=>c.v(x));
   });
   // Append an add-on sales summary block below the bookings
-  const summary=addonSales.totalUnits>0?[[],[t('repAddon'),t('repBrand'),t('repBookings'),t('repValueSar')],
+  const summary=(_ro.sections.addons&&addonSales.totalUnits>0)?[[],[t('repAddon'),t('repBrand'),t('repBookings'),t('repValueSar')],
     ...addonSales.items.map(a=>[a.name,a.brand||'',a.units,a.value]),
     [t('repTotal'),'',addonSales.totalUnits,addonSales.totalValue]]:[];
   // Cashier sales for the session, grouped by inventory category
   const sessPurch=_salesTotals(_cashSessionLines(sessId));
-  const cashRows=sessPurch.units>0?[[],[t('cashSalesTitle')],[t('invCategory'),t('cashQtyCol'),t('repValueSar')],
+  const cashRows=(_ro.sections.sales&&sessPurch.units>0)?[[],[t('cashSalesTitle')],[t('invCategory'),t('cashQtyCol'),t('repValueSar')],
     ...sessPurch.cats.map(c=>[_invCatLabel(c.cat),c.qty,c.value]),
     ...(sessPurch.discount>0?[[t('cashDiscount'),'',-sessPurch.discount]]:[]),
     [t('repTotal'),sessPurch.units,sessPurch.value],
@@ -15575,11 +15630,12 @@ function printCloseout(){
   // (e.g. a rider/sale marked paid with no pay method, or a refund that did not restock) before the drawer is counted.
   const grandCard=r2(rentCard+coCard),grandCash=r2(rentCash+coCash); // add-on money already sits inside rentCard/rentCash by pay method
   const reconDelta=r2(grandCollected-(grandCard+grandCash));
-  const row=(label,val,color)=>`<div style="display:flex;justify-content:space-between;padding:4px 0"><span>${label}</span><strong${color?` style="color:${color}"`:''}>SAR ${val}</strong></div>`;
+  // money rows print "SAR n"; a count (the riders) prints the bare number - it read "SAR 45"
+  const row=(label,val,color,count)=>`<div style="display:flex;justify-content:space-between;padding:4px 0"><span>${label}</span><strong${color?` style="color:${color}"`:''}>${count?'':'SAR '}${val}</strong></div>`;
   const catRows=st.cats.map(c=>`<tr><td>${esc(_invCatLabel(c.cat))}</td><td style="text-align:center">${c.qty}</td><td style="text-align:end">SAR ${c.value}</td></tr>`).join('');
   const body=`
     <h2>${t('coRentals')}</h2>
-    ${row(t('printTotalRiders'),rentEntries.length)}${row(t('printCollected'),rentCollected,'#16a34a')}${rentCard>0?row('&nbsp;&nbsp;'+t('cashCard'),rentCard,'#2563eb')+row('&nbsp;&nbsp;'+t('cashCash'),rentCash,'#16a34a'):''}${row(t('printPending'),rentPending,'#b45309')}${(addonCollected>0||addonPending>0)?row(t('addonsLabel')+' &middot; '+t('printCollected'),addonCollected,'#16a34a')+(addonPending>0?row(t('addonsLabel')+' &middot; '+t('printPending'),addonPending,'#b45309'):''):''}
+    ${row(t('printTotalRiders'),rentEntries.length,'',true)}${row(t('printCollected'),rentCollected,'#16a34a')}${rentCard>0?row('&nbsp;&nbsp;'+t('cashCard'),rentCard,'#2563eb')+row('&nbsp;&nbsp;'+t('cashCash'),rentCash,'#16a34a'):''}${row(t('printPending'),rentPending,'#b45309')}${(addonCollected>0||addonPending>0)?row(t('addonsLabel')+' &middot; '+t('printCollected'),addonCollected,'#16a34a')+(addonPending>0?row(t('addonsLabel')+' &middot; '+t('printPending'),addonPending,'#b45309'):''):''}
     <h2>${t('coSales')}</h2>
     ${st.cats.length?`<table><thead><tr><th style="text-align:start">${t('invCategory')}</th><th style="text-align:center">${t('cashQtyCol')}</th><th style="text-align:end">${t('repValueSar')}</th></tr></thead><tbody>${catRows}</tbody></table>`:''}
     <div style="margin-top:8px">${row(t('printCollected'),st.collected,'#16a34a')}${(coCard>0||coCash>0)?row('&nbsp;&nbsp;'+t('cashCard'),coCard,'#2563eb')+row('&nbsp;&nbsp;'+t('cashCash'),coCash,'#16a34a'):''}${row(t('printPending'),st.pending,'#b45309')}${st.team>0?row(t('payTeam'),st.team,'#7c3aed'):''}${st.free>0?row(t('onTheHouseLabel'),st.free,'#666'):''}${st.discount>0?row(t('cashDiscount'),st.discount,'#666'):''}${st.refunded>0?row(t('cashRefunds'),st.refunded,'#b45309'):''}</div>
@@ -15628,7 +15684,7 @@ function printCommunityRoster(sess){
     </table>`;
   const html=_reportShell({
     kind:t('printReportTitle'),
-    title:esc(sess.title||t('landCommTitle')),
+    title:esc(_evName(sess)), // what staff called it, else the ride's own name - never the umbrella one now that unnamed rides store no title
     subtitle:`${dayLabel(sess.day)} &middot; ${shortDate(sess.session_date||sess.id)}`,
     refNo:'MM-RPT-'+String(sess.session_date||sess.id).slice(2,10).replace(/-/g,''),
     body});
@@ -15654,7 +15710,10 @@ function printSessionReport(){
   const paidSAR=paidRows.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
   // Card / cash split of the collected amount: card rows count fully, split rows count
   // their card share; cash is the remainder (covers cash + anything method-less).
-  const cardSAR=Math.round(paidRows.reduce((s,e)=>s+(e.pay_method==='card'?(e.price??DEFAULT_PRICE):(e.pay_method==='split'?(e.card_amount||0):0)),0)*100)/100;
+  // A split's card slice may also cover add-ons (the split prompt allows up to rental +
+  // add-ons), but this tile is the rental alone: only the part of the slice up to the rental
+  // price is rental paid by card. Uncapped, an old split row printed a negative cash figure.
+  const cardSAR=Math.round(paidRows.reduce((s,e)=>{const p=e.price??DEFAULT_PRICE;return s+(e.pay_method==='card'?p:(e.pay_method==='split'?Math.min(Math.max(0,Number(e.card_amount)||0),p):0));},0)*100)/100;
   const cashSAR=Math.round((paidSAR-cardSAR)*100)/100;
   const nCheckedIn=entries.filter(e=>e.status==='active'||e.status==='done').length;
 
@@ -15735,7 +15794,7 @@ function printSessionReport(){
   const _sTime=(()=>{try{return sessionTime(sess);}catch(_){return'';}})();
   const html=_reportShell({
     kind:t('printReportTitle'),
-    title:`${dayLabel(sess.day)} &middot; ${shortDate(sess.session_date||sess.sessionDate||sess.id)}${_sTime?` &middot; ${_sTime}`:''} &middot; Jeddah Corniche Circuit`,
+    title:`${dayLabel(sess.day)} &middot; ${shortDate(sess.session_date||sess.sessionDate||sess.id)}${_sTime?` &middot; ${_sTime}`:''} &middot; ${esc(_evName(sess))}`, // the ride's name in the reader's language: a Petromin, workshop or swim sheet no longer says Corniche Circuit in English
     refNo:'MM-RPT-'+String(sess.session_date||sess.id).slice(2,10).replace(/-/g,''),
     chip:`<strong>${t('repTotal')} SAR ${paidSAR}</strong> &middot; ${t('repVatIncl')} SAR ${vatIncl}`,
     body});
@@ -15764,67 +15823,119 @@ function confirmHistRemove(id){
   confirmDialog({title:t('confirmRemoveTitle'),body:`#${entry.queueNum} - ${esc(entry.name)}`,confirmLabel:t('removeBtn'),confirmClass:'btn-red',onConfirm:()=>doRemove(id)});
 }
 
+// A removed row's reservation comes back only onto a bike that is still free for it: available,
+// and not since reserved for or handed to anyone else. Otherwise the undo would point two
+// bookings at one bike.
+function _reserveStillFree(raw,selfId){
+  const ids=getAssignedBikeIds({id:selfId,assignedBikeId:raw});
+  return ids.length>0&&ids.every(bid=>{const b=bikeById(bid);return b&&b.status==='available'&&!getQueue().some(e=>e.id!==selfId&&['waiting','waitlist','active'].includes(e.status)&&getAssignedBikeIds(e).includes(bid));});
+}
 async function doRemove(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
   const prevStatus=entry.status;
   const savedQNum=entry.queueNum;
-  const bikeIds=getAssignedBikeIds(entry); // free these on removal, re-assign them on undo (parity with staff-cancel)
+  const sess=allSessions().find(s=>s.id===entry.sessionId);
+  // Only a rider who is out on a bike has one to hand back. A done row keeps its bike link after
+  // the return and a waiting row's link is a reservation on a bike that never left 'available',
+  // so freeing those set whatever the bike was doing NOW to available: mid-ride under the next
+  // rider (a second rider could then be given it), or back into service after coming in damaged.
+  const bikeIds=prevStatus==='active'?getAssignedBikeIds(entry):[];
   const savedAssigned=entry.assignedBikeId;
   const restocks=prevStatus==='waiting'||prevStatus==='active'; // pre-ride removal returns add-ons; done = delivered, noshow/cancelled already restocked
+  // Only a row that held a place frees one. Cancelled, no-show and waitlisted rows hold none
+  // (_holdsSpot, spotsLeft), and removing one used to promote the next waitlisted rider into a
+  // place that did not exist: the night over capacity and a "you're in" sent to someone who was not.
+  const heldPlace=['waiting','active','done'].includes(prevStatus)&&_holdsSpot(entry,sess);
   addHistLog(t('histRemoved'),entry,async()=>{
     // Undo: restore the status the row actually HAD (a removed no-show/cancelled row must come
     // back as no-show/cancelled — not as a live 'waiting' rider holding a capacity spot), the
     // queue number, AND the bike link. Bikes go back in-use only for a rider who was riding.
+    // The removal may have handed the place to the waitlist since: bringing a waiting rider back
+    // then over-fills the night, so staff are asked first, as a restored cancellation asks.
+    if(prevStatus==='waiting'&&heldPlace&&spotsLeft(entry.sessionId)<=0&&
+      !await askConfirm({title:t('restoreFullTitle'),body:t('restoreFullBody'),confirmLabel:t('restoreBookingBtn'),confirmClass:'btn-muted'}))return 'declined';
     const claimed=prevStatus==='active'?await _reclaimBikes(bikeIds):[]; // atomic: the freed bike may be under someone else by now
     if(prevStatus==='active'&&claimed.length<bikeIds.length)toast(t('errBikeUnavailable'),'warning');
-    const _av=prevStatus==='active'?(claimed.length===0?null:claimed.length===1?claimed[0]:JSON.stringify(claimed)):(savedAssigned??null);
+    const _keepLink=prevStatus==='done'||prevStatus==='noshow'||prevStatus==='cancelled'; // a record of what they rode, not a claim on a bike
+    const _av=prevStatus==='active'?(claimed.length===0?null:claimed.length===1?claimed[0]:JSON.stringify(claimed))
+      :savedAssigned==null?null:(_keepLink||_reserveStillFree(savedAssigned,id))?savedAssigned:null;
     const _u=await sb.from('queue_entries').update({status:prevStatus,assigned_bike_id:_av,queue_num:_restoreNum(entry.sessionId,savedQNum,id)}).eq('id',id);
-    if(_writeErr(_u,'undo remove')){await Promise.all(claimed.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b))).catch(()=>{});await loadData();renderStaffQueue();renderHistory();return false;}
+    if(_writeErr(_u,'undo remove')){await Promise.all(claimed.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b).eq('status','in-use'))).catch(()=>{});await loadData();renderStaffQueue();renderHistory();return false;}
     await loadData();
     if(restocks)await _consumeAddonsOnEnter(entry); // the restore brings the booking back, so re-reserve what the removal restocked
     renderStaffQueue();renderHistory();
   });
-  // Free the bike (parity with cancel/no-show): null the link AND set the bike available, otherwise
-  // the bike reads as 'in-use' forever with nothing pointing at it and can't be reassigned/deleted.
+  // Free the bike of a rider who was riding: null the link AND set the bike available (only if it
+  // is still in-use, so a bike already given back or sent to maintenance stays as it is),
+  // otherwise it reads as 'in-use' forever with nothing pointing at it.
   const calls=[sb.from('queue_entries').update({status:'removed',assigned_bike_id:null}).eq('id',id)];
-  bikeIds.forEach(bid=>calls.push(sb.from('bikes').update({status:'available'}).eq('id',bid)));
+  bikeIds.forEach(bid=>calls.push(sb.from('bikes').update({status:'available'}).eq('id',bid).eq('status','in-use')));
   // Checked before anything acts on it: the promotion hands the place on, the restock returns
   // add-ons and the toast says it is done. All three used to run over a refusal, so the desk
   // believed the place was free while the rider still held it.
   const _rm=await Promise.all(calls);
   if(_writeErr(_rm,'remove booking',()=>doRemove(id))){await loadData();renderStaffQueue();return;}
-  // A removal frees the rider's place exactly as a cancellation does — _holdsSpot counts
-  // neither — so it has to hand that place on. Without this the waitlist simply did not move:
-  // the place sat empty until somebody else cancelled, and then only one rider advanced, so
-  // the session ran one short for every removal. Cancel and no-show already do this.
-  const _promoted=await _autoPromoteOldestWaitlist(entry.sessionId);
+  await _noteRemovedFrom(id,prevStatus);
+  // A removal of a row that held a place frees it exactly as a cancellation does, so it hands
+  // that place on. Without this the waitlist simply did not move: the place sat empty until
+  // somebody else cancelled, and the session ran one short for every removal.
+  const _promoted=heldPlace?await _autoPromoteOldestWaitlist(entry.sessionId):false;
   await loadData();
   if(restocks)await _restockAddonsOnExit(entry);
   toast(_promoted?`${t('toastRiderRemoved')} · ${t('toastPromoted')}`:t('toastRiderRemoved'));
   if(_promoted&&_promoted.phone)_promoNudge(_promoted);
   renderStaffQueue();renderHistory();
 }
-
+// What a removed row was before it went, kept in queue_entries.removed_from so History's
+// Restore can put it back as exactly that. Removal overwrites the status, and Restore used to
+// guess from ride evidence: a removed cancellation or no-show came back as a live 'waiting'
+// booking, taking a place and its add-on stock again. Written apart from the removal itself
+// and tolerated if refused, so a database without the column still removes; after the first
+// "no such column" answer this device stops asking.
+async function _noteRemovedFrom(id,prev){
+  if(S._noRemovedFrom)return;
+  try{
+    const{error}=await sb.from('queue_entries').update({removed_from:prev}).eq('id',id);
+    if(error&&/removed_from|PGRST204|42703/i.test(((error.code||'')+' '+(error.message||''))))S._noRemovedFrom=true;
+    else if(!error){const e=getQueue().find(x=>x.id===id);if(e)e.removedFrom=prev;}
+  }catch(_){}
+}
+// The status Restore brings a removed row back as: what it was (removed_from), or - for a row
+// removed before that was recorded - the best the row itself can say.
+function _restoreStatusOf(e){
+  const p=e.removedFrom;
+  if(p==='done'||p==='noshow'||p==='cancelled'||p==='waitlist'||p==='waiting')return p;
+  if(p==='active')return 'waiting'; // their bike went back at removal: back in line for a fresh check-in
+  if(e.checkedOutAt||e.rideDuration||e.assignedBikeId)return 'done';
+  if(e.cancelledBy)return 'cancelled';
+  // Nothing on record and the night is over: a booking nobody rode is a no-show, which holds
+  // no place and takes no stock - not a live 'waiting' rider on a past night.
+  if(String(e.sessionDate||'')<todayStr())return 'noshow';
+  return 'waiting';
+}
 async function doRestoreEntry(id){
-  const entry=getQueue().find(e=>e.id===id);if(!entry)return;
+  const entry=getQueue().find(e=>e.id===id);if(!entry||entry.status!=='removed')return;
   const originalStatus=entry.status;
-  // Removal always nulls assigned_bike_id, so the old assignedBikeId test restored EVERY
-  // removed row as 'waiting' — a completed ride came back into the live queue and its
-  // add-ons were consumed a second time. Ride evidence decides instead.
-  const restoreStatus=(entry.checkedOutAt||entry.rideDuration||entry.assignedBikeId)?'done':'waiting';
-  const consumes=restoreStatus==='waiting'; // back to the queue = its add-ons must be reserved again (they were restocked when it exited)
+  const restoreStatus=_restoreStatusOf(entry);
+  const consumes=restoreStatus==='waiting'; // back in a place = its add-ons must be reserved again (they were restocked when it exited)
+  // Back into a place on a night that is already full: ask first, as a restored cancellation does.
+  if(consumes&&spotsLeft(entry.sessionId)<=0&&_holdsSpot({...entry,status:'waiting'},allSessions().find(s=>s.id===entry.sessionId))&&
+    !await askConfirm({title:t('restoreFullTitle'),body:t('restoreFullBody'),confirmLabel:t('restoreBookingBtn'),confirmClass:'btn-muted'}))return;
   addHistLog(t('histRestored'),entry,async()=>{
-    await sb.from('queue_entries').update({status:originalStatus}).eq('id',id);
+    // A refused reversal returns false, so the log row is not struck through over a booking
+    // that never changed.
+    const _u=await sb.from('queue_entries').update({status:originalStatus}).eq('id',id);
+    if(_writeErr(_u,'undo restore')){await loadData();renderHistory();return false;}
     await loadData();
     if(consumes)await _restockAddonsOnExit(entry); // undoing the restore sends it back out, so return the add-ons again
-    renderHistory();
+    renderStaffQueue();renderHistory();
   });
   const _rr=await sb.from('queue_entries').update({status:restoreStatus,queue_num:_restoreNum(entry.sessionId,entry.queueNum,id)}).eq('id',id);
   if(_writeErr(_rr,'restore')){await loadData();renderHistory();return;}
   await loadData();
   if(consumes)await _consumeAddonsOnEnter(entry);
   toast(t('restoreEntryBtn')||'Restored');
-  renderHistory();
+  renderStaffQueue();renderHistory();
 }
 
 async function undoHistLog(logId){
@@ -15834,7 +15945,9 @@ async function undoHistLog(logId){
     // A reversal that was REFUSED returns false rather than throwing (it has already raised
     // the error bar). Marking the row undone on "did not throw" struck it through for good
     // while the booking was untouched on the server, with no way back but Restore.
-    if(await log.undoFn()===false){toast(t('undoFailed'),'error');renderHistory();return;}
+    const r=await log.undoFn();
+    if(r===false){toast(t('undoFailed'),'error');renderHistory();return;}
+    if(r==='declined')return; // staff chose not to over-fill the night: nothing changed, the row stays undoable
     log.undone=true;
     renderHistory();
     toast(t('undoneMsg'));
@@ -15896,7 +16009,7 @@ function _scanBatchHtml(){
   const chips=_scanBatch.map(id=>{
     const e=q.find(x=>x.id===id);if(!e)return '';
     const more=_partyOf(e).filter(x=>x.id!==e.id&&_ciExpected(x)).length; // the party that comes with this ticket
-    return `<li style="display:inline-flex;align-items:center;gap:4px;background:var(--s3);border:1px solid var(--border);border-radius:5px;padding:3px 3px 3px 9px;font-size:12px;font-weight:700"><bdi>#${e.queueNum} ${esc(String(e.name||'').split(' ')[0])}</bdi>${more?`<span style="color:var(--muted)">+${more}</span>`:''}<button type="button" onclick="_scanBatchDrop('${e.id}')" aria-label="${esc(t('removeBtn')+' #'+e.queueNum+' '+(e.name||''))}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:2px 6px">×</button></li>`;
+    return `<li style="display:inline-flex;align-items:center;gap:4px;background:var(--s3);border:1px solid var(--border);border-radius:5px;padding:3px 3px 3px 9px;font-size:12px;font-weight:700"><bdi>#${e.queueNum} ${esc(String(e.name||'').split(' ')[0])}</bdi>${more?`<span style="color:var(--muted)">+${more}</span>`:''}<button type="button" onclick="_scanBatchDrop(${_ja(e.id)})" aria-label="${esc(t('removeBtn')+' #'+e.queueNum+' '+(e.name||''))}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;line-height:1;padding:2px 6px">×</button></li>`;
   }).join('');
   return `<ul aria-label="${esc(t('ciBatchLabel'))}" style="display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:6px 0 8px">${chips}</ul>
     <button type="button" id="scan-batch-go" class="btn-primary" style="width:100%;margin-bottom:8px" onclick="_scanBatchGo()"${pend?'':' disabled'}>${t('scanBatchGo').replace('{0}',pend)}</button>`;
@@ -15948,31 +16061,47 @@ function openScanModal(){
   </div>`;
   _startScanner();
 }
+// Each camera start has a number; stopping moves it on. A start still waiting on the camera
+// (the permission prompt, a slow iPhone camera) when the scanner was closed and opened again
+// used to land afterwards and overwrite the stream of the newer start - the older stream was
+// never stopped and the camera stayed on until the page was reloaded.
+let _scanGen=0;
 function _stopScanStream(){
+  _scanGen++;
   if(_scanTimer){clearTimeout(_scanTimer);_scanTimer=null;}
   if(_scanStream){try{_scanStream.getTracks().forEach(tr=>tr.stop());}catch(e){}_scanStream=null;}
   _scanDetector=null;_scanLastTxt='';_scanLastAt=0;
 }
 function closeScanModal(_keepTally){
   _stopScanStream();
-  if(!_keepTally){_scanResume=false;_scanCount=0;}
+  // Opened from inside an open check-in (its Scan button, for the bike's sticker), closing the
+  // camera - with a sticker or with Cancel - is part of that rider's check-in, not the end of
+  // Keep scanning: the camera still has to come back after their Confirm, and the tally stands.
+  if(!_keepTally&&!S._ciId){_scanResume=false;_scanCount=0;}
   _scanBatch=[];
   const m=document.getElementById('scan-modal');
   if(m){m.style.display='none';m.innerHTML='';}
 }
 async function _startScanner(){
+  _stopScanStream(); // one camera at a time, whatever was running before
+  const gen=_scanGen;
   try{
     if('BarcodeDetector' in window){
       try{_scanDetector=new BarcodeDetector({formats:['qr_code']});}catch(e){_scanDetector=null;}
     }
     if(!_scanDetector)await _loadJsQR();
-    _scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    if(gen!==_scanGen)return; // closed (or restarted) while the decoder loaded
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    if(gen!==_scanGen){try{stream.getTracks().forEach(tr=>tr.stop());}catch(e){}return;} // a newer start or a close came first
+    _scanStream=stream;
     const v=document.getElementById('scan-video');
     if(!v){_stopScanStream();return;}
     v.srcObject=_scanStream;
     await v.play();
-    _scanTick();
+    if(gen!==_scanGen)return;
+    _scanTick(gen);
   }catch(err){
+    if(gen!==_scanGen)return; // a stale start's failure says nothing about the scanner on screen
     const el=document.getElementById('scan-msg');
     if(el){
       el.style.color='var(--red)';
@@ -15981,8 +16110,8 @@ async function _startScanner(){
     _stopScanStream();
   }
 }
-async function _scanTick(){
-  if(!_scanStream)return;
+async function _scanTick(gen){
+  if(!_scanStream||gen!==_scanGen)return; // one loop per start: a loop from a closed start ends here
   const v=document.getElementById('scan-video');
   if(v&&v.readyState>=2){
     let txt='';
@@ -16001,9 +16130,10 @@ async function _scanTick(){
         if(code&&code.data)txt=code.data;
       }
     }catch(e){}
+    if(gen!==_scanGen)return; // closed while the frame was being read
     if(txt)_onScanPayload(txt);
   }
-  if(_scanStream)_scanTimer=setTimeout(_scanTick,150);
+  if(_scanStream&&gen===_scanGen)_scanTimer=setTimeout(()=>_scanTick(gen),150);
 }
 function _onScanPayload(raw){
   const txt=String(raw||'').trim();
@@ -16214,7 +16344,7 @@ async function _ciResolve(code){
   if(err){S._ciBike=null;S._ciBikeMsg=_rpcMessage(err);_ciRenderBikeSpec();return;}
   if(d&&d.found&&d.bike){
     S._ciBike=d;S._ciLinkOffer=null;
-    if(/^\d{1,4}$/.test(code))S._ciLastNumberBike=d.bike;
+    if(/^\d{1,4}$/.test(code))S._ciLastNumber={bike:d.bike,ci:myId,at:Date.now()};
     _ciTypeFollowsBike(d.bike);
     renderCheckinModal(); // the type row folds away; Confirm is next
     const c=document.getElementById('ci-confirm');if(c&&!c.disabled)c.focus();
@@ -16223,10 +16353,17 @@ async function _ciResolve(code){
   S._ciBike=null;
   const bare=code.replace(/[^0-9A-Za-z]/g,'');
   const uidLike=bare.length>=8&&!/^\d{1,4}$/.test(code);
-  S._ciLinkOffer=(uidLike&&S._ciLastNumberBike)?{uid:code,bike:S._ciLastNumberBike}:null;
+  // The offer links an unknown tag to the bike whose number was keyed in just before, for this
+  // same rider - the one in the staffer's hand. It used to take whichever number was typed
+  // last, however long ago and for whoever: a tag scanned twenty minutes later offered to link
+  // itself to an old bike, and one tap made that tag open the wrong bike from then on.
+  const ln=S._ciLastNumber;
+  const fresh=!!(ln&&ln.ci===myId&&Date.now()-ln.at<_CI_LINK_WINDOW_MS);
+  S._ciLinkOffer=(uidLike&&fresh)?{uid:code,bike:ln.bike}:null;
   S._ciBikeMsg=t('nfcUnknownBike').replace('{0}',code);
   _ciRenderBikeSpec();
 }
+const _CI_LINK_WINDOW_MS=2*60*1000;
 // Before the migration lands the fleet is still fully loaded: number or id, from memory.
 function _ciResolveLocal(code){
   const b=/^\d{1,4}$/.test(code)
@@ -16234,7 +16371,7 @@ function _ciResolveLocal(code){
     :getBikes().find(x=>x.id===code);
   if(!b)return{found:false};
   const h=b.status==='in-use'?getQueue().find(q=>q.status==='active'&&getAssignedBikeIds(q).includes(b.id)):null;
-  return{found:true,bike:b,rented_to:h?{name:h.name,since:h.checked_in_at||null}:null};
+  return{found:true,bike:b,rented_to:h?{name:h.name,since:h.checkedInAt||null}:null};
 }
 async function _ciLinkTag(){
   const o=S._ciLinkOffer;if(!o)return;
@@ -16242,7 +16379,7 @@ async function _ciLinkTag(){
   if(r&&r.error){toast(_rpcMessage(r.error),'error');return;}
   toast(t('ciTagLinked').replace('{0}',_ciBikeNum(o.bike)));
   logAction(`${t('ciLinkTag').replace('{0}',_ciBikeNum(o.bike))}`);
-  S._ciLinkOffer=null;
+  S._ciLinkOffer=null;S._ciLastNumber=null; // one number links one tag
   _ciResolve(o.uid);
 }
 function _ciBikeNum(b){return b&&b.bike_number!=null?String(b.bike_number).padStart(3,'0'):(b&&b.name)||'';}
@@ -16271,22 +16408,28 @@ function _ciSpecHtml(){
   const ok=!_ciBikeBlocked();
   const dup=Object.entries(S._ciDrafts||{}).find(([id,d])=>id!==S._ciId&&d&&d.bike&&d.bike.bike&&d.bike.bike.id===b.id);
   const dupName=dup?((getQueue().find(x=>x.id===dup[0])||{}).name||''):'';
-  return `<div style="font-weight:800;color:var(--text)">${line}</div><div style="color:${ok?'var(--green)':'var(--orange)'};font-weight:700">${esc(_ciBikeStatusText(S._ciBike))}</div>${dupName?`<div style="color:var(--orange);font-weight:700">${t('ciBikeAlsoFor').replace('{0}',esc(dupName))}</div>`:''}`;
+  // Held for another waiting rider: said here as the bike picker says it, and asked about on
+  // Confirm, which then moves the reservation to this rider rather than leaving both on it.
+  const rsv=_rsvHolder(b.id,S._ciId);
+  return `<div style="font-weight:800;color:var(--text)">${line}</div><div style="color:${ok?'var(--green)':'var(--orange)'};font-weight:700">${esc(_ciBikeStatusText(S._ciBike))}</div>${dupName?`<div style="color:var(--orange);font-weight:700">${t('ciBikeAlsoFor').replace('{0}',()=>esc(dupName))}</div>`:''}${rsv?`<div style="color:var(--orange);font-weight:700">${esc(t('reservedChip'))} · ${esc(('#'+(rsv.queueNum||'')+' '+(rsv.name||'')).trim())}</div>`:''}`;
 }
 function _ciRenderBikeSpec(){
   const el=document.getElementById('ci-bike-spec');if(el)el.innerHTML=_ciSpecHtml();
-  const c=document.getElementById('ci-confirm');if(c)c.disabled=_ciBikeBlocked();
+  const c=document.getElementById('ci-confirm');if(c)c.disabled=_ciBikeBlocked()||!!S._ciSaving;
   const er=document.getElementById('ci-error');if(er)er.textContent=S._ciErr||'';
 }
 function renderCheckinModal(){
-  const e=getQueue().find(x=>x.id===S._ciId);const m=document.getElementById('checkin-modal');if(!e||!m)return;
+  const e=getQueue().find(x=>x.id===S._ciId);const m=document.getElementById('checkin-modal');if(!m)return;
+  // The booking is gone (deleted on another desk): close properly rather than leave the modal
+  // and the shared "check-in open" marker behind for a bike tag to be routed into.
+  if(!e){if(S._ciId)closeCheckinModal(true);return;}
   const _party=_ciPartyAll(e),_batch=!!_ciBatchOf(e);
   const _idx=Math.max(0,_party.findIndex(m=>m.id===e.id));
   const _stepsHtml=_party.length>1?`<ol aria-label="${esc(t(_batch?'ciBatchLabel':'ciPartyLabel'))}" style="display:flex;gap:6px;flex-wrap:wrap;list-style:none;padding:0;margin:8px 0 0">${_party.map((m,i)=>{
         const cur=m.id===e.id,done=m.status==='active'||m.status==='done',out=['noshow','cancelled','removed'].includes(m.status),pend=!cur&&!done&&!out;
         const tap=!cur&&(pend||m.status==='noshow'); // a no-show can be opened again and brought back
         const mark=done?'✓':out?'✕':String(i+1);
-        return `<li><button type="button" class="toggle-btn${cur?' active':''}"${cur?' aria-current="step"':''}${tap?` onclick="showCheckinModal('${m.id}')"`:' disabled'} style="font-size:12px;padding:5px 9px;${out?'text-decoration:line-through;opacity:.6':''}"><b style="margin-inline-end:4px">${mark}</b>${esc(String(m.name||'').split(' ')[0])}</button></li>`;}).join('')}</ol>`:'';
+        return `<li><button type="button" class="toggle-btn${cur?' active':''}"${cur?' aria-current="step"':''}${tap?` onclick="showCheckinModal(${_ja(m.id)})"`:' disabled'} style="font-size:12px;padding:5px 9px;${out?'text-decoration:line-through;opacity:.6':''}"><b style="margin-inline-end:4px">${mark}</b>${esc(String(m.name||'').split(' ')[0])}</button></li>`;}).join('')}</ol>`:'';
   // The rider's height (and the size it maps to) sits under the title: on the phone this modal
   // is where the bike gets picked, so the number staff size a bike by has to be on it.
   // Height, size and the bike type sit together, big and bold: the bike is picked off them.
@@ -16310,8 +16453,8 @@ function renderCheckinModal(){
   const comm=_commSessIds.has(e.sessionId),free=_freeSessIds.has(e.sessionId);
   // No bike to choose and none to hand over: a swim check-in is just "they are here".
   const _bikeless=!_needsBike(allSessions().find(x=>x.id===e.sessionId));
-  const tyBtn=ty=>`<button type="button" class="toggle-btn${S._ciType===ty?' active':''}" onclick="S._ciType='${ty}';renderCheckinModal()">${typeLabel(ty)}</button>`;
-  const payBtn=(v,lbl)=>`<button type="button" class="toggle-btn${S._ciPaid===v?' active':''}" style="flex:1" onclick="S._ciPaid='${v}';renderCheckinModal()">${lbl}</button>`;
+  const tyBtn=ty=>`<button type="button" class="toggle-btn${S._ciType===ty?' active':''}" onclick="S._ciType=${_ja(ty)};renderCheckinModal()">${typeLabel(ty)}</button>`;
+  const payBtn=(v,lbl)=>`<button type="button" class="toggle-btn${S._ciPaid===v?' active':''}" style="flex:1" onclick="S._ciPaid=${_ja(v)};renderCheckinModal()">${lbl}</button>`;
   m.style.display='flex';
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeCheckinModal()">
     <div class="modal-box" role="dialog" aria-modal="true" style="max-width:420px">
@@ -16320,7 +16463,7 @@ function renderCheckinModal(){
       ${_stepsHtml}
       ${S._ciNfc?`<div role="status" style="margin-top:8px;font-size:12.5px;font-weight:700;color:var(--green)">${t('ciNfcNotice').replace('{0}',esc(e.name))}</div>`:''}
       ${_bikeless?'':_ciBikeFieldHtml(e)}
-      ${_bikeless?'':`<button type="button" style="background:none;border:none;padding:0;margin:-4px 0 6px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;text-decoration:underline;font-family:var(--font-body)" onclick="_ciCarryPay();closeCheckinModal(true);openModal('${e.id}')">${t('assignBikeTitle')}…</button>`}
+      ${_bikeless?'':`<button type="button" style="background:none;border:none;padding:0;margin:-4px 0 6px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;text-decoration:underline;font-family:var(--font-body)" onclick="_ciCarryPay();closeCheckinModal(true);openModal(${_ja(e.id)})">${t('assignBikeTitle')}…</button>`}
       ${free?'':(()=>{
         // every rider as the modal would confirm them: the picked type's price, the picked payment
         const _pend=_ciAsConfirmed(e);
@@ -16345,7 +16488,7 @@ function renderCheckinModal(){
       <div id="ci-error" role="alert" style="color:var(--red);font-size:12.5px;font-weight:700;min-height:0;margin-top:8px">${S._ciErr?esc(S._ciErr):''}</div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeCheckinModal()">${t('closeBtn')}</button>
-        <button id="ci-confirm" class="btn-primary" onclick="confirmCheckinModal()"${_ciBikeBlocked()?' disabled':''}>${t('confirmCheckin')}</button>
+        <button id="ci-confirm" class="btn-primary" onclick="confirmCheckinModal()"${(_ciBikeBlocked()||S._ciSaving)?' disabled':''}>${t('confirmCheckin')}</button>
       </div>
     </div></div>`;
   // First paint only (the pay/type toggles re-render): Confirm when a bike came with the
@@ -16363,6 +16506,14 @@ function closeCheckinModal(_noResume,_fromBus){
   if(_scanResume&&!_noResume){_scanResume=false;setTimeout(()=>{if(_scanCont)openScanModal();},80);return;}
   if(_noResume)_scanResume=false;
 }
+// A tab that goes away with a check-in open (reload, tab closed) forgets it: otherwise for the
+// next fifteen minutes a bike tag tapped on this phone opened that stale rider's check-in.
+// Only on an unload - pagehide does not fire when iOS merely switches to the tab it opened for
+// a tag, and a page kept in the back-forward cache (persisted) can still come back to it.
+window.addEventListener('pagehide',ev=>{
+  if(ev.persisted||!S._ciId)return;
+  try{const v=JSON.parse(localStorage.getItem(ACTIVE_CHECKIN_KEY)||'null');if(v&&v.entryId===S._ciId)localStorage.removeItem(ACTIVE_CHECKIN_KEY);}catch(_){}
+});
 // Activating a rider must CLAIM their reserved bike (available -> in-use, atomically — same
 // conditional update as the bike picker), or DROP the reservation if another device took the
 // bike first. Skipping this leaves an active rider pointing at an 'available' bike: a second
@@ -16397,6 +16548,24 @@ async function _reclaimBikes(ids){
   }
   return ok;
 }
+// The other waiting booking a bike is reserved for, if any (a reservation is assigned_bike_id
+// on a waiting or waitlisted row; the bike itself stays 'available' until check-in).
+function _rsvHolder(bikeId,selfId){return getQueue().find(e=>e.id!==selfId&&(e.status==='waiting'||e.status==='waitlist')&&getAssignedBikeIds(e).includes(bikeId))||null;}
+// A bike is reserved for one waiting booking at a time. Handing a reserved bike to someone
+// else ("Reserved for {0} — assign anyway?") used to leave the other booking still pointing at
+// it: two bookings on one bike, the other rider silently bikeless at their own check-in, and a
+// later Remove of that booking freeing the bike under whoever was riding it. The other links
+// are dropped - each guarded on the row still being that reservation, so a change made
+// meanwhile on another desk is not overwritten.
+async function _dropOtherReservations(bikeIds,selfId){
+  const ids=[].concat(bikeIds||[]).filter(Boolean);if(!ids.length)return;
+  const others=getQueue().filter(e=>e.id!==selfId&&(e.status==='waiting'||e.status==='waitlist')&&getAssignedBikeIds(e).some(b=>ids.includes(b)));
+  for(const e of others){
+    const keep=getAssignedBikeIds(e).filter(b=>!ids.includes(b));
+    const nv=keep.length===0?null:keep.length===1?keep[0]:JSON.stringify(keep);
+    try{const{error}=await sb.from('queue_entries').update({assigned_bike_id:nv}).eq('id',e.id).eq('assigned_bike_id',e.assignedBikeId).in('status',['waiting','waitlist']);if(!error)e.assignedBikeId=nv;}catch(_){}
+  }
+}
 // "Assign specific bike…" leaves the check-in modal, and only confirmCheckinModal() reads
 // S._ciPaid — so the payment the staffer just chose used to be silently discarded. Carry it.
 function _ciCarryPay(){S._ciPayCarry=(S._ciPaid&&S._ciPaid!=='pending')?S._ciPaid:null;}
@@ -16408,8 +16577,23 @@ function _ciCarryPay(){S._ciPayCarry=(S._ciPaid&&S._ciPaid!=='pending')?S._ciPai
 async function _addonsOnLeaveWaitlist(entry,wasWaitlist){
   if(wasWaitlist)await _consumeAddonsOnEnter(entry);
 }
+// One Confirm at a time. A double tap ran the whole check-in twice: staff_checkin answers a
+// repeat with a no-op success, so everything after it ran again - a waitlisted rider's add-ons
+// taken from stock twice, the log line twice, the next rider's modal reset under the staffer.
 async function confirmCheckinModal(_bikeId){
+  if(S._ciSaving)return;
+  S._ciSaving=true;
+  const b=document.getElementById('ci-confirm');if(b)b.disabled=true;
+  try{await _confirmCheckinRun(_bikeId);}
+  finally{S._ciSaving=false;const c=document.getElementById('ci-confirm');if(c)c.disabled=_ciBikeBlocked();}
+}
+async function _confirmCheckinRun(_bikeId){
   const e=getQueue().find(x=>x.id===S._ciId);if(!e)return;
+  // The Bike field's bike, held for another waiting rider: ask first, as the bike picker does.
+  const _fieldBike=S._ciBike&&S._ciBike.bike&&S._ciBike.bike.id;
+  const _rsv=_fieldBike?_rsvHolder(_fieldBike,e.id):null;
+  if(_rsv&&!await askConfirm({title:t('reserveTakenConfirm').replace('{0}',()=>('#'+(_rsv.queueNum||'')+' '+(_rsv.name||'')).trim()),confirmLabel:t('confirmBtn'),confirmClass:'btn-primary'}))return;
+  if(S._ciId!==e.id)return; // the modal moved on while the question was open
   const _wasWl=e.status==='waitlist'; // a waitlisted rider checks in like any other
   const ty=CUST_TYPES.includes(S._ciType)?S._ciType:(e.typePreference||'Any');
   const comm=_freeSessIds.has(e.sessionId); // only a FREE ride skips the payment step
@@ -16421,6 +16605,10 @@ async function confirmCheckinModal(_bikeId){
   // default payment covers the chosen type ride free automatically.
   let _method,_card=null;
   if(!comm){
+    // A retyped Petromin employee is repriced on their own fare table, which needs the
+    // registrations; showCheckinModal starts loading them, and a Confirm quicker than that load
+    // used to price them at the public fare. Wait for it here.
+    if(!S.ridersLoaded&&ty!==e.typePreference){const _s=allSessions().find(x=>x.id===e.sessionId);if(_s&&_s.ride_kind==='petromin')await loadRiders();}
     const mode=S._ciPaid||'pending';
     const isHouseNow=e.paid&&(e.price??DEFAULT_PRICE)===0;
     const c=e.customerId?(S.customers||[]).find(x=>x.id===e.customerId):null;
@@ -16454,14 +16642,23 @@ async function confirmCheckinModal(_bikeId){
     if(_ciBikeBlocked()){S._ciErr=_ciBikeStatusText(S._ciBike);_ciRenderBikeSpec();return;}
     _bikeId=S._ciBike.bike.id;
   }
-  let _viaRpc=false;
+  let _viaRpc=false,_gotBikes=[]; // the bikes this rider now has, whose other reservations go
   if(_bikeId){
     let r;try{r=await sb.rpc('staff_checkin',{p_booking_id:e.id,p_bike_id:_bikeId});}catch(err){r={error:err};}
     if(r&&r.error&&!_rpcAbsent(r.error)){S._ciErr=_rpcMessage(r.error);_ciRenderBikeSpec();await loadDataLight().catch(()=>{});return;}
     // Only the function's own answer counts as done. Anything else (absent function, an
     // empty or foreign reply) means the classic path below must do the work.
     if(!(r&&r.error)&&r&&r.data&&r.data.ok===true){
-      _viaRpc=true;
+      // A no-op means this booking was already checked in on this bike - by the tab iOS opened
+      // for the tag, or a Confirm that got past the guard. That check-in did the rest (payment,
+      // stock, log); doing it again here doubled it. Catch up and move on.
+      if(r.data.noop===true){
+        _ciDropDraft(e.id);_ciCloseForNext(e);
+        await _reloadRows([e.id]);renderStaffQueue();
+        const _nx=_ciPartyRest(e)[0];if(_nx)showCheckinModal(_nx.id);else _ciRunDone();
+        return;
+      }
+      _viaRpc=true;_gotBikes=[_bikeId];
       delete patch.status;delete patch.assigned_bike_id;
       if(Object.keys(patch).length){try{await sb.from('queue_entries').update(patch).eq('id',e.id);}catch(_){}} // type + payment, tolerant like the rest
     }
@@ -16493,6 +16690,7 @@ async function confirmCheckinModal(_bikeId){
   if(_scanResume)_scanCount++;
   _ciCloseForNext(e);
   if(!(_q.data&&_q.data.length)){await _unclaim();await loadDataLight();renderStaffQueue();_ciRunDone();return;}
+  _gotBikes=_claim.claimed.slice();
   }else{
     if(_scanResume)_scanCount++;
     _ciCloseForNext(e);
@@ -16503,6 +16701,7 @@ async function confirmCheckinModal(_bikeId){
   S._flashId=e.id;S._flashColor='green';renderStaffQueue(); // the row moves now; the re-sync below confirms it
   await _addonsOnLeaveWaitlist(e,_wasWl);
   await _mwRetireLinked(e.id); // a Staff List row carrying this booking is spent once they ride
+  if(_gotBikes.length)await _dropOtherReservations(_gotBikes,e.id);
   logAction(`${t('checkInBtn')}: #${e.queueNum} ${e.name}`);
   _ciDropDraft(e.id);
   await _reloadRows([e.id]);
@@ -16539,6 +16738,10 @@ function openModal(riderId){
   if(entry&&(entry.status==='active'||getAssignedBikeIds(entry).length))S.modalBikes=getAssignedBikeIds(entry); // waiting rider with a pre-reserved bike: preselect it for check-in
   renderModal();
 }
+// A bike colour as it may go into a style attribute: a hex colour, or a neutral grey. Colours
+// are typed or picked in the bike form and stored as text, so anything else in them - a quote,
+// a semicolon, markup - was written straight into the page's HTML.
+function _bkHex(c){return /^#[0-9a-fA-F]{3,8}$/.test(String(c||''))?String(c):'#888888';}
 function renderModal(){
   const rider=getQueue().find(e=>e.id===S.modalRider);if(!rider)return;
   const allBikes=getBikes().filter(b=>b.status!=='retired'&&b.status!=='maintenance');
@@ -16581,7 +16784,7 @@ function renderModal(){
   const brandModels=[...new Set(allBikes.filter(b=>S.modalFilterBrand==='all'||(b.brand||'')===S.modalFilterBrand).map(b=>b.model).filter(Boolean))].sort();
 
   const thS='padding:7px 14px;text-align:start;font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;white-space:nowrap;border-bottom:1px solid rgba(var(--tint-rgb),.08)';
-  const thSort=(col,label,extra='')=>{const act=S.modalSort===col;const arr=act?(S.modalSortDir===1?' ▲':' ▼'):'';return`<th style="${thS}${extra};cursor:pointer;user-select:none${act?';color:var(--green)':''}" onclick="if(S.modalSort==='${col}'){S.modalSortDir*=-1;}else{S.modalSort='${col}';S.modalSortDir=1;}renderModal()">${label}${arr}</th>`;};
+  const thSort=(col,label,extra='')=>{const act=S.modalSort===col;const arr=act?(S.modalSortDir===1?' ▲':' ▼'):'';return`<th style="${thS}${extra};cursor:pointer;user-select:none${act?';color:var(--green)':''}" onclick="if(S.modalSort===${_ja(col)}){S.modalSortDir*=-1;}else{S.modalSort=${_ja(col)};S.modalSortDir=1;}renderModal()">${label}${arr}</th>`;};
   // Bikes pre-reserved for OTHER waiting riders (reservation = assigned_bike_id on a
   // waiting/waitlist row; the bike itself stays 'available' until real check-in).
   const _rsvBy={};
@@ -16597,7 +16800,7 @@ function renderModal(){
     const bikeColors=b.colors&&b.colors.length?b.colors:['#03ff89'];
     const colorDots=bikeColors.map((c,ci)=>{
       const cn=b.color_names&&b.color_names[ci]?b.color_names[ci]:'';
-      return`<span title="${esc(cn)}" style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`;
+      return`<span title="${esc(cn)}" style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${_bkHex(c)};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`;
     }).join('');
     const sizeMatch=b.size===rider.size;
     const badges=[];
@@ -16608,9 +16811,9 @@ function renderModal(){
     const selCell=sel
       ?`<div style="width:22px;height:22px;border-radius:50%;background:var(--green);color:#000;font-size:11px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0">${selIdx+1}</div>`
       :`<div style="width:22px;height:22px;border-radius:50%;border:2px solid rgba(var(--tint-rgb),.15);flex-shrink:0"></div>`;
-    const specs=[b.groupset,b.speeds?`${b.speeds}sp`:'',b.wheel_size,b.brake_type,b.weight_kg!=null?`${b.weight_kg} kg`:''].filter(Boolean).join(' · ')||'—';
+    const specs=[b.groupset,b.speeds?`${b.speeds}sp`:'',b.wheel_size,b.brake_type,b.weight_kg!=null?`${b.weight_kg} kg`:''].filter(Boolean).map(x=>esc(String(x))).join(' · ')||'—'; // free text from the bike form
     return`<tr style="border-bottom:1px solid rgba(var(--tint-rgb),.05);background:${sel?'rgba(var(--green-rgb),.05)':'transparent'};${unavail?'opacity:.32':'cursor:pointer'};transition:background .12s"
-      ${!unavail?`onclick="pickBike('${b.id}')" onmouseover="if(!this.style.background.includes('255,137'))this.style.background='rgba(var(--tint-rgb),.025)'" onmouseout="if(!this.style.background.includes('255,137'))this.style.background='transparent'"`:''}>
+      ${!unavail?`onclick="pickBike(${_ja(b.id)})" onmouseover="if(!this.style.background.includes('255,137'))this.style.background='rgba(var(--tint-rgb),.025)'" onmouseout="if(!this.style.background.includes('255,137'))this.style.background='transparent'"`:''}>
       <td style="padding:10px 14px;text-align:center;width:44px">${selCell}</td>
       <td style="padding:10px 14px">
         <div style="font-weight:800;font-size:13px">${esc(b.name)}</div>
@@ -16620,7 +16823,7 @@ function renderModal(){
         ${b.brand?`<div style="font-weight:700;color:var(--text);font-size:12px">${esc(b.brand)}</div>${b.model?`<div style="margin-top:1px">${esc(b.model)}</div>`:''}` :`<span style="color:var(--muted)">—</span>`}
       </td>
       <td style="padding:10px 14px">${typeBadge(b.type)}</td>
-      <td style="padding:10px 14px;font-weight:800;font-size:13px;text-align:center">${b.size}</td>
+      <td style="padding:10px 14px;font-weight:800;font-size:13px;text-align:center">${esc(b.size)}</td>
       <td style="padding:10px 14px"><div style="display:flex;gap:3px;align-items:center">${colorDots}</div></td>
       <td style="padding:10px 14px;font-size:12px;color:var(--muted-l);font-weight:600;white-space:nowrap">${specs}</td>
       <td style="padding:10px 14px">
@@ -16641,8 +16844,8 @@ function renderModal(){
           ${thSort('brand',t('bikeBrand')+' / '+t('bikeModel'))}
           ${thSort('type',t('bikeTypeLabel'))}
           ${thSort('size',t('frameSizeLabel'),';text-align:center')}
-          <th style="${thS}">${t('colColor')||'Color'}</th>
-          <th style="${thS}">${t('bikeGroupset')} / Spd</th>
+          <th style="${thS}">${t('colColor')}</th>
+          <th style="${thS}">${t('bikeGroupset')} / ${t('bikeSpeeds')}</th>
           ${thSort('status',t('colStatus'))}
         </tr></thead>
         <tbody>${bikes.map(b=>bikeRow(b,altType)).join('')}</tbody>
@@ -16679,17 +16882,17 @@ function renderModal(){
   const searchBar=`<div style="position:relative;margin-bottom:10px">
     <span style="position:absolute;left:11px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--muted);pointer-events:none"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
     <input id="modal-search-input" type="text" value="${esc(S.modalSearch)}"
-      placeholder="${t('searchLabel')||'Search bikes...'}"
+      placeholder="${esc(t('searchLabel'))}"
       oninput="S.modalSearch=this.value;_debRender('modal',()=>{renderModal();const i=document.getElementById('modal-search-input');if(i){i.focus();const l=(S.modalSearch||'').length;i.setSelectionRange&&i.setSelectionRange(l,l);}})"
       style="width:100%;padding:9px 12px 9px 34px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:4px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:600;outline:none;transition:border-color .15s"
       onfocus="this.style.borderColor='rgba(var(--green-rgb),.4)'" onblur="this.style.borderColor='rgba(var(--tint-rgb),.1)'">
-    ${S.modalSearch?`<button onclick="S.modalSearch='';renderModal()" aria-label="Clear search" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:2px" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&times;</button>`:''}
+    ${S.modalSearch?`<button onclick="S.modalSearch='';renderModal()" aria-label="${esc(t('clearWord'))}" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:2px" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&times;</button>`:''}
   </div>`;
   const selStyle=`background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:12px;font-weight:700;padding:4px 8px;cursor:pointer;outline:none;height:30px`;
   const anyFilterActive=S.modalFilterSize!=='all'||S.modalFilterBrand!=='all'||S.modalFilterModel!=='all'||S.modalSort!=='default';
   const filterBar=`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:12px;padding:8px 10px;background:rgba(var(--tint-rgb),.02);border:1px solid rgba(var(--tint-rgb),.06);border-radius:4px">
     <span style="font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0">${t('mfSize')}</span>
-    ${['all',...BIKE_SIZES].map(sz=>`<button onclick="S.modalFilterSize='${sz}';renderModal()" style="padding:3px 9px;border-radius:3px;border:1.5px solid ${S.modalFilterSize===sz?'rgba(var(--green-rgb),.6)':'rgba(var(--tint-rgb),.1)'};background:${S.modalFilterSize===sz?'rgba(var(--green-rgb),.12)':'transparent'};color:${S.modalFilterSize===sz?'var(--green)':'var(--muted-l)'};font-family:var(--font-body);font-size:11px;font-weight:700;cursor:pointer">${sz==='all'?'All':sz}</button>`).join('')}
+    ${['all',...BIKE_SIZES].map(sz=>`<button onclick="S.modalFilterSize=${_ja(sz)};renderModal()" style="padding:3px 9px;border-radius:3px;border:1.5px solid ${S.modalFilterSize===sz?'rgba(var(--green-rgb),.6)':'rgba(var(--tint-rgb),.1)'};background:${S.modalFilterSize===sz?'rgba(var(--green-rgb),.12)':'transparent'};color:${S.modalFilterSize===sz?'var(--green)':'var(--muted-l)'};font-family:var(--font-body);font-size:11px;font-weight:700;cursor:pointer">${sz==='all'?t('filterAll'):esc(sz)}</button>`).join('')}
     <span style="font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;margin-left:4px">${t('mfBrand')}</span>
     <select style="${selStyle}" onchange="S.modalFilterBrand=this.value;S.modalFilterModel='all';renderModal()">
       <option value="all"${S.modalFilterBrand==='all'?' selected':''}>${t('filterAll')}</option>
@@ -16702,34 +16905,34 @@ function renderModal(){
     </select>`:''}
     ${anyFilterActive?`<button onclick="S.modalSort='default';S.modalSortDir=1;S.modalFilterSize='all';S.modalFilterBrand='all';S.modalFilterModel='all';renderModal()" style="margin-left:auto;padding:3px 10px;border-radius:3px;border:1px solid rgba(255,100,100,.3);background:rgba(255,100,100,.06);color:var(--red);font-family:var(--font-body);font-size:11px;font-weight:700;cursor:pointer">${t('resetFiltersBtn')}</button>`:''}
   </div>`;
-  const noResults=(!prefBikes.length&&!otherBikes.length)&&(mq||S.modalFilterSize!=='all'||S.modalFilterBrand!=='all'||S.modalFilterModel!=='all')?`<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:13px;font-weight:700">${t('noResultsLabel')||'No bikes match your search.'}</div>`:'';
+  const noResults=(!prefBikes.length&&!otherBikes.length)&&(mq||S.modalFilterSize!=='all'||S.modalFilterBrand!=='all'||S.modalFilterModel!=='all')?`<div style="text-align:center;padding:28px 16px;color:var(--muted);font-size:13px;font-weight:700">${t('noResultsLabel')}</div>`:'';
   const cards=`${searchBar}${filterBar}${prefSection}${noResults}${otherToggle}`;
 
   const isHouseRider=rider.paid&&(rider.price??DEFAULT_PRICE)===0;
   const _pbs='padding:4px 10px;border-radius:3px;border:1.5px solid;display:inline-flex;align-items:center;gap:4px;font-family:\'Barlow\',sans-serif;font-size:11px;font-weight:700;cursor:pointer;background:transparent';
   const priceWidget=S.modalPriceEdit
-    ?`<span style="display:inline-flex;align-items:center;gap:4px">SAR&nbsp;<input id="modal-price-inp" type="number" min="0" step="0.5" value="${rider.price??DEFAULT_PRICE}" style="width:68px;padding:3px 8px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.2);border-radius:2px;color:var(--text);font-family:var(--font-body);font-size:12px;font-weight:700;outline:none" onkeydown="if(event.key==='Enter')saveModalPrice('${rider.id}')"><button onclick="saveModalPrice('${rider.id}')" style="${_pbs};color:var(--green);border-color:rgba(var(--green-rgb),.4)">${t('setBtnShort')}</button><button onclick="S.modalPriceEdit=false;renderModal()" aria-label="${t('cancelBtn')}" style="${_pbs};color:var(--muted);border-color:rgba(var(--tint-rgb),.15)">${_artIcon('close',11)}</button></span>`
+    ?`<span style="display:inline-flex;align-items:center;gap:4px">SAR&nbsp;<input id="modal-price-inp" type="number" min="0" step="0.5" value="${rider.price??DEFAULT_PRICE}" style="width:68px;padding:3px 8px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.2);border-radius:2px;color:var(--text);font-family:var(--font-body);font-size:12px;font-weight:700;outline:none" onkeydown="if(event.key==='Enter')saveModalPrice(${_ja(rider.id)})"><button onclick="saveModalPrice(${_ja(rider.id)})" style="${_pbs};color:var(--green);border-color:rgba(var(--green-rgb),.4)">${t('setBtnShort')}</button><button onclick="S.modalPriceEdit=false;renderModal()" aria-label="${t('cancelBtn')}" style="${_pbs};color:var(--muted);border-color:rgba(var(--tint-rgb),.15)">${_artIcon('close',11)}</button></span>`
     :`<span role="button" tabindex="0" onclick="S.modalPriceEdit=true;renderModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();S.modalPriceEdit=true;renderModal();}" title="${t('editPriceTip')}" style="cursor:pointer;font-size:12px;font-weight:800;color:var(--muted-l);border-bottom:1px dashed rgba(var(--tint-rgb),.25);padding-bottom:1px">SAR ${rider.price??DEFAULT_PRICE} </span>`;
   const paySection=!rider.paid
     ?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(var(--warn-rgb),.1);border:1px solid rgba(var(--warn-rgb),.3);border-radius:4px;padding:10px 14px;margin-bottom:14px">
         <span style="font-size:16px"></span>
         <span style="font-size:12px;font-weight:800;color:var(--muted-l)">${t('payPendingWarning')} –</span>
         ${priceWidget}
-        <button class="pay-toggle pending" style="font-size:11px" onclick="togglePayment('${rider.id}',true);S.modalPriceEdit=false;renderModal()"> ${t('paidLabel')}?</button>
-        <button class="pay-toggle house" style="font-size:11px" onclick="togglePayment('${rider.id}','house');S.modalPriceEdit=false;renderModal()"> ${t('onTheHouseLabel')}</button>
+        <button class="pay-toggle pending" style="font-size:11px" onclick="togglePayment(${_ja(rider.id)},true);S.modalPriceEdit=false;renderModal()"> ${t('paidLabel')}?</button>
+        <button class="pay-toggle house" style="font-size:11px" onclick="togglePayment(${_ja(rider.id)},'house');S.modalPriceEdit=false;renderModal()"> ${t('onTheHouseLabel')}</button>
       </div>`
     :isHouseRider
       ?`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(var(--purple-rgb),.08);border:1px solid rgba(var(--purple-rgb),.3);border-radius:4px;padding:10px 14px;margin-bottom:14px">
           <span style="font-size:16px"></span>
           <span style="font-size:12px;font-weight:800;color:var(--purple)">${t('onTheHouseLabel')}</span>
-          <button class="pay-toggle pending" style="font-size:11px" onclick="togglePayment('${rider.id}','pending');S.modalPriceEdit=false;renderModal()">${_artIcon('undo',11)} ${t('pendingLabel')}</button>
-          <button class="pay-toggle paid" style="font-size:11px" onclick="togglePayment('${rider.id}','paid');S.modalPriceEdit=false;renderModal()">✓ ${t('paidLabel')}</button>
+          <button class="pay-toggle pending" style="font-size:11px" onclick="togglePayment(${_ja(rider.id)},'pending');S.modalPriceEdit=false;renderModal()">${_artIcon('undo',11)} ${t('pendingLabel')}</button>
+          <button class="pay-toggle paid" style="font-size:11px" onclick="togglePayment(${_ja(rider.id)},'paid');S.modalPriceEdit=false;renderModal()">✓ ${t('paidLabel')}</button>
         </div>`
       :`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:rgba(var(--green-rgb),.06);border:1px solid rgba(var(--green-rgb),.2);border-radius:4px;padding:10px 14px;margin-bottom:14px">
           <span style="font-size:13px;font-weight:800;color:var(--green)">✓ ${t('paidLabel')} –</span>
           ${priceWidget}
-          <button class="pay-toggle pending" style="font-size:11px" onclick="togglePayment('${rider.id}','pending');S.modalPriceEdit=false;renderModal()">${_artIcon('undo',11)} ${t('pendingLabel')}</button>
-          <button class="pay-toggle house" style="font-size:11px" onclick="togglePayment('${rider.id}','house');S.modalPriceEdit=false;renderModal()"> ${t('onTheHouseLabel')}</button>
+          <button class="pay-toggle pending" style="font-size:11px" onclick="togglePayment(${_ja(rider.id)},'pending');S.modalPriceEdit=false;renderModal()">${_artIcon('undo',11)} ${t('pendingLabel')}</button>
+          <button class="pay-toggle house" style="font-size:11px" onclick="togglePayment(${_ja(rider.id)},'house');S.modalPriceEdit=false;renderModal()"> ${t('onTheHouseLabel')}</button>
         </div>`;
   const heightBadge=rider.height?`<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(110,232,154,.12);border:1px solid rgba(110,232,154,.3);border-radius:2px;padding:3px 8px;font-size:11px;font-weight:700;color:var(--green)"><bdi>${rider.height} ${t('cmUnit')}</bdi></span>`:'';
 
@@ -16737,10 +16940,10 @@ function renderModal(){
   if(S.modalShowAddBike&&!S.modalAddBikeNumber)S.modalAddBikeNumber=String(_nextBikeNumber());
   const addBikeTypeBtns=['Road','Hybrid','Mountain','Kids','Gravel'].map(ty=>
     `<button type="button" class="toggle-btn${S.modalAddBikeType===ty?' active':''}" style="font-size:11px;padding:5px 10px"
-      onclick="S.modalAddBikeType='${ty}';renderModal()">${typeLabel(ty)}</button>`).join('');
+      onclick="S.modalAddBikeType=${_ja(ty)};renderModal()">${typeLabel(ty)}</button>`).join('');
   const addBikeSizeBtns=BIKE_SIZES.map(sz=>
     `<button type="button" class="toggle-btn${S.modalAddBikeSize===sz?' active':''}" style="font-size:11px;padding:5px 10px"
-      onclick="S.modalAddBikeSize='${sz}';renderModal()">${sz}</button>`).join('');
+      onclick="S.modalAddBikeSize=${_ja(sz)};renderModal()">${sz}</button>`).join('');
   const modalFrameOpts=FRAME_TYPES.map(f=>`<option value="${f}"${S.modalAddBikeFrame===f?' selected':''}>${t('frame'+f)}</option>`).join('');
   const modalAutoName=genBikeName(S.modalAddBikeType,S.modalAddBikeFrame,S.modalAddBikeNumber||0,S.modalAddBikeSize);
   const quickAddForm=S.modalShowAddBike?`
@@ -16808,7 +17011,7 @@ function renderModal(){
       ${fleetLine}
       ${cards}
       ${addBikeToggle}
-      <div class="modal-footer" style="display:flex;gap:10px;justify-content:space-between"><button class="btn-secondary" onclick="showCashierModal('${rider.id}')">${t('cashierAddBtn')}</button><button class="btn-secondary" onclick="closeModal()">${t('cancelBtn')}</button></div>
+      <div class="modal-footer" style="display:flex;gap:10px;justify-content:space-between"><button class="btn-secondary" onclick="showCashierModal(${_ja(rider.id)})">${t('cashierAddBtn')}</button><button class="btn-secondary" onclick="closeModal()">${t('cancelBtn')}</button></div>
     </div>
   </div>`;
 }
@@ -16866,6 +17069,7 @@ async function reserveBike(){
   const res=await sb.from('queue_entries').update({assigned_bike_id:id,...(id&&rider.toReserve?{to_reserve:false}:{})}).eq('id',rider.id); // a held bike answers the mark
   if(_writeErr(res,'reserve'))return;
   rider.assignedBikeId=id;if(id)rider.toReserve=false;
+  if(id)await _dropOtherReservations([id],rider.id); // "assign anyway" moves the reservation here, it does not share it
   const b=id?bikeById(id):null;
   closeModal();
   toast(id?t('bikeReservedToast').replace('{0}',(b&&b.name)||''):t('bikeReserveCleared'));
@@ -16902,18 +17106,27 @@ async function confirmAssign(){
   const prevPrice=rider?rider.price:null;
   
   const priceUpdate={};
-  // Reprice from the assigned bike(s) — EXCEPT for an on-the-house booking (paid, price 0):
-  // overwriting its 0 with the bike price made it silently display as a normal paid ride.
+  // Reprice from the assigned bike(s) — EXCEPT for a paid booking, on the house or not: the
+  // amount recorded as paid is what was taken. Overwriting a house 0 made it read as a normal
+  // paid ride, and a paid Hybrid swapped to a Road bike read 75 paid - money the drawer never
+  // saw (the check-in modal keeps the same rule: a paid row's amount is never rewritten).
   // Also EXCEPT premium tiers (e.g. Road Carbon): they're fulfilled with a base-type bike,
   // so bike-derived repricing would silently undercharge the booked premium price.
-  const _onHouse=rider&&rider.paid&&(rider.price??DEFAULT_PRICE)===0;
+  const _paidRow=!!(rider&&rider.paid);
   const _premiumTier=rider&&PREMIUM_TIERS[rider.typePreference]!=null;
   // ALSO except a promo booking: the code's discount is the agreed price, and every other
   // repricing path in the app guards it (see typePrice() in the check-in modal). Handing the
   // rider a bike is not a renegotiation.
   const _promoPriced=!!(rider&&rider.promoCode);
-  if(rider&&selected.length>0&&!_onHouse&&!_premiumTier&&!_promoPriced){
-    priceUpdate.price=selected.reduce((s,b)=>s+priceForBike(b),0);
+  if(rider&&selected.length>0&&!_paidRow&&!_premiumTier&&!_promoPriced){
+    // On THIS booking's fare table: a Petromin employee from the ride's own form rides at the
+    // employee fare, and priceForBike alone charged them the public 57.50 for a bike their
+    // company pays 50 for. The registrations that say who is an employee load with the Riders
+    // tab, so on that ride they are fetched first if this device has not got them yet.
+    const _rs=allSessions().find(s=>s.id===rider.sessionId);
+    if(!S.ridersLoaded&&_rs&&_rs.ride_kind==='petromin')await loadRiders();
+    const _emp=_isEmployeeBooking(rider);
+    priceUpdate.price=selected.reduce((s,b)=>s+(_emp&&EMPLOYEE_PRICES[b.type]!=null?EMPLOYEE_PRICES[b.type]:priceForBike(b)),0);
   }
   const isReassign=rider&&rider.status==='active';
   
@@ -16948,7 +17161,12 @@ async function confirmAssign(){
       // bike is in-use: only a genuine conflict if ANOTHER active rider holds it; otherwise it's
       // ours (write applied, row just not returned) or an orphan we can safely take.
       await loadData();
-      const heldByOther=getQueue().some(e=>e.status==='active'&&e.id!==riderId&&getAssignedBikeIds(e).includes(b.id));
+      const _heldByOther=()=>getQueue().some(e=>e.status==='active'&&e.id!==riderId&&getAssignedBikeIds(e).includes(b.id));
+      let heldByOther=_heldByOther();
+      // No holder visible may only mean another desk is mid-claim: its bike write lands a moment
+      // before the booking write that names its rider. Taking the bike at once could put it
+      // under two riders, so look once more after that moment has passed.
+      if(!heldByOther){await new Promise(r=>setTimeout(r,1200));await loadDataLight();heldByOther=_heldByOther();}
       if(heldByOther){
         await Promise.all(claimed.map(id=>sb.from('bikes').update({status:'available'}).eq('id',id))).catch(()=>{});
         toast(`${b.name}: ${t('errBikeUnavailable')}`,'error');
@@ -16957,8 +17175,9 @@ async function confirmAssign(){
     }
     claimed.push(b.id);
   }
-  // We own every needed bike now; release any the rider is giving up (reassign case)
-  if(toFree.length)await Promise.all(toFree.map(id=>sb.from('bikes').update({status:'available'}).eq('id',id))).catch(()=>{});
+  // We own every needed bike now; release any the rider is giving up (reassign case) - only
+  // while it is still in-use, so one sent to maintenance meanwhile is not put back in service
+  if(toFree.length)await Promise.all(toFree.map(id=>sb.from('bikes').update({status:'available'}).eq('id',id).eq('status','in-use'))).catch(()=>{});
 
   let assignedVal;
   const _relClaimed=()=>Promise.all(claimed.map(id=>sb.from('bikes').update({status:'available'}).eq('id',id))).catch(()=>{});
@@ -17009,6 +17228,7 @@ async function confirmAssign(){
   }
   try{await sb.from('queue_entries').update({checked_in_at:new Date().toISOString()}).eq('id',riderId);}catch(_){} // tolerant: exact check-in stamp
   if(rider&&rider.status==='waitlist'){await _addonsOnLeaveWaitlist(rider,true);await _mwRetireLinked(riderId);} // handed a bike straight off the waitlist
+  await _dropOtherReservations(selected.map(b=>b.id),riderId); // "assign anyway" moves the reservation, it does not share it
   if(rider&&rider.typePreference==='Any'&&selected.length>0){
     await sb.from('queue_entries').update({type_preference:selected[0].type}).eq('id',riderId);
   }
@@ -17053,7 +17273,7 @@ async function confirmAssign(){
 }
 
 
-function updateColorPreview(){const p=document.getElementById('color-prev');if(p)p.innerHTML=S.addBikeColors.map(c=>`<span style="display:inline-block;width:28px;height:28px;border-radius:50%;background:${c};border:2px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');}
+function updateColorPreview(){const p=document.getElementById('color-prev');if(p)p.innerHTML=S.addBikeColors.map(c=>`<span style="display:inline-block;width:28px;height:28px;border-radius:50%;background:${_bkHex(c)};border:2px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');}
 function addColorSlot(){if(S.addBikeColors.length>=4)return;S.addBikeColors.push('#ffffff');S.addBikeColorNames.push('');renderBikes();}
 function removeColor(i){if(S.addBikeColors.length<=1)return;S.addBikeColors.splice(i,1);S.addBikeColorNames.splice(i,1);renderBikes();}
 
@@ -17070,7 +17290,7 @@ function renderBikes(_resultsOnly){
   const total=live.length,nAvail=live.filter(b=>b.status==='available').length,
         nUse=live.filter(b=>b.status==='in-use').length,
         nMaint=live.filter(b=>b.status==='maintenance').length;
-  const bkTypeOpts=['all','Road','Hybrid','Mountain','Gravel'].map(ty=>
+  const bkTypeOpts=['all','Road','Hybrid','Mountain','Kids','Gravel'].map(ty=>
     `<option value="${ty}"${S.bkTypeFilter===ty?' selected':''}>${ty==='all'?t('filterAll'):typeLabel(ty)}</option>`).join('');
   const bkStatusOpts=['all','available','in-use','maintenance','retired'].map(s=>{
     const l={all:t('filterAll'),available:t('availLabel'),'in-use':t('inUseLabel'),maintenance:t('maintLabel'),retired:t('retiredLabel')}[s];
@@ -17082,14 +17302,14 @@ function renderBikes(_resultsOnly){
   const curSize=(isEdit&&editBike)?(S.addBikeSize||editBike.size):S.addBikeSize;
   const sizeOpts=BIKE_SIZES.map(v=>`<option value="${v}"${curSize===v?' selected':''}>${v}</option>`).join('');
   const bkTypeBtns=['Road','Hybrid','Mountain','Kids','Gravel'].map(ty=>
-    `<button class="toggle-btn${S.addBikeType===ty?' active':''}" onclick="S.addBikeType='${ty}';renderBikes()">${typeLabel(ty)}</button>`).join('');
+    `<button class="toggle-btn${S.addBikeType===ty?' active':''}" onclick="S.addBikeType=${_ja(ty)};renderBikes()">${typeLabel(ty)}</button>`).join('');
   const colorSlots=S.addBikeColors.map((c,i)=>`
     <div class="color-slot" style="display:flex;flex-direction:column;gap:4px;align-items:center">
-      <input type="color" value="${c}" oninput="S.addBikeColors[${i}]=this.value;updateColorPreview()">
+      <input type="color" value="${_bkHex(c)}" oninput="S.addBikeColors[${i}]=this.value;updateColorPreview()">
       <input type="text" placeholder="${t('colorNameLabel')}" value="${esc(S.addBikeColorNames[i]||'')}"
         oninput="S.addBikeColorNames[${i}]=this.value"
         style="width:72px;padding:3px 6px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:2px;color:var(--text);font-family:var(--font-body);font-size:11px;font-weight:600;text-align:center">
-      ${S.addBikeColors.length>1?`<button class="color-del" onclick="removeColor(${i})" type="button" aria-label="Remove color">&#x2715;</button>`:''}</div>`).join('');
+      ${S.addBikeColors.length>1?`<button class="color-del" onclick="removeColor(${i})" type="button" aria-label="${esc(t('removeBtn'))}">&#x2715;</button>`:''}</div>`).join('');
   const addColorBtn=S.addBikeColors.length<4?`<button class="add-color-slot" onclick="addColorSlot()" type="button">+<br>${t('colorWord')}</button>`:'';
   const frameField=`<select id="bk-frame" onchange="S._bkFrame=this.value;_updateBkNamePreview()">
       <option value=""${!S._bkFrame?' selected':''}>—</option>
@@ -17142,7 +17362,7 @@ function renderBikes(_resultsOnly){
     <div class="form-row">
       <div class="form-group">
         <label>${t('bikeRentalPrice')} (SAR)</label>
-        ${!isAdmin()?`<div style="padding:11px 14px;background:var(--s2);border:1px solid var(--border);border-radius:4px;color:var(--muted);font-weight:700">${S._bkRentalPrice?`SAR ${S._bkRentalPrice}`:'—'} <span style="font-size:11px">(${t('adminOnlyMsg')})</span></div>`:(()=>{
+        ${!isAdmin()?`<div style="padding:11px 14px;background:var(--s2);border:1px solid var(--border);border-radius:4px;color:var(--muted);font-weight:700">${S._bkRentalPrice?`SAR ${esc(S._bkRentalPrice)}`:'—'} <span style="font-size:11px">(${t('adminOnlyMsg')})</span></div>`:(()=>{
           const presets=['57.5','75','95','105','175','250'];
           const isCustom=S._bkRentalPrice&&!presets.includes(S._bkRentalPrice);
           const sel=isCustom?'custom':S._bkRentalPrice;
@@ -17157,14 +17377,14 @@ function renderBikes(_resultsOnly){
             `<option value="custom"${sel==='custom'?' selected':''}>${t('priceCustomOpt')}</option>`,
           ].join('');
           return`<select id="bk-rental-price" onchange="setBkRentalPrice(this.value)">${opts}</select>`
-            +(isCustom?`<div style="font-size:12px;color:var(--green);font-weight:700;margin-top:5px">${t('customWord')}: SAR ${S._bkRentalPrice}</div>`:'');
+            +(isCustom?`<div style="font-size:12px;color:var(--green);font-weight:700;margin-top:5px">${t('customWord')}: SAR ${esc(S._bkRentalPrice)}</div>`:'');
         })()}
       </div>
     </div>
     <div class="form-group" style="margin-bottom:16px">
       <label>${t('bikeColorsLabel')} &nbsp;<span class="label-hint">${t('colorsHint')}</span></label>
       <div class="color-builder">
-        <div id="color-prev" style="display:flex;gap:8px;align-items:center;padding:6px 0">${S.addBikeColors.map(c=>`<span style="display:inline-block;width:28px;height:28px;border-radius:50%;background:${c};border:2px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('')}</div>
+        <div id="color-prev" style="display:flex;gap:8px;align-items:center;padding:6px 0">${S.addBikeColors.map(c=>`<span style="display:inline-block;width:28px;height:28px;border-radius:50%;background:${_bkHex(c)};border:2px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('')}</div>
         <div class="color-slots">${colorSlots}${addColorBtn}</div>
       </div>
     </div>
@@ -17202,7 +17422,7 @@ function renderBikes(_resultsOnly){
     const colorSwatches=colors.map((c,ci)=>{
       const cn=b.color_names&&b.color_names[ci]?b.color_names[ci]:'';
       return`<div style="display:flex;flex-direction:column;align-items:center;gap:3px">
-        <span title="${esc(cn)}" style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>
+        <span title="${esc(cn)}" style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${_bkHex(c)};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>
         ${cn?`<span style="font-size:9px;font-weight:700;color:var(--muted-l);white-space:nowrap;max-width:40px;overflow:hidden;text-overflow:ellipsis">${esc(cn)}</span>`:''}
       </div>`;
     }).join('');
@@ -17219,15 +17439,15 @@ function renderBikes(_resultsOnly){
     const rowBorderClr=orphaned?'rgba(var(--warn-rgb),.7)':b.status==='available'?'rgba(var(--green-rgb),.45)':b.status==='in-use'?'rgba(var(--blue-rgb),.45)':'rgba(var(--red-rgb),.45)';
     const rowBg=orphaned?'background:rgba(var(--warn-rgb),.06);':b.status==='in-use'?'background:rgba(var(--blue-rgb),.025);':isRetired?'background:rgba(var(--red-rgb),.025);opacity:.75;':'';
     return`<tr style="border-left:3px solid ${rowBorderClr};${rowBg}${sel?'background:rgba(var(--green-rgb),.07);':''}">
-      <td class="bk-cell-sel" style="text-align:center"><input type="checkbox" aria-label="${esc(b.name)}" ${sel?'checked':''} onclick="_bkToggleSel('${b.id}')"></td>
-      <td class="bk-cell-name"><div style="display:flex;align-items:center;gap:10px">${b.photo?`<img loading="lazy" decoding="async" src="${esc(b.photo)}" alt="" style="width:38px;height:38px;border-radius:3px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}<button type="button" onclick="openBikeProfile('${b.id}')" title="${esc(b.name)}" style="background:none;border:none;padding:8px 6px;margin:-8px -6px;cursor:pointer;text-align:start;font:inherit;color:var(--text)"><span class="rider-name" style="text-decoration:underline;text-decoration-color:rgba(var(--tint-rgb),.2);text-underline-offset:2px">${esc(b.name)}</span></button></div></td>
+      <td class="bk-cell-sel" style="text-align:center"><input type="checkbox" aria-label="${esc(b.name)}" ${sel?'checked':''} onclick="_bkToggleSel(${_ja(b.id)})"></td>
+      <td class="bk-cell-name"><div style="display:flex;align-items:center;gap:10px">${b.photo?`<img loading="lazy" decoding="async" src="${esc(b.photo)}" alt="" style="width:38px;height:38px;border-radius:3px;object-fit:cover;border:1px solid var(--border);flex-shrink:0">`:''}<button type="button" onclick="openBikeProfile(${_ja(b.id)})" title="${esc(b.name)}" style="background:none;border:none;padding:8px 6px;margin:-8px -6px;cursor:pointer;text-align:start;font:inherit;color:var(--text)"><span class="rider-name" style="text-decoration:underline;text-decoration-color:rgba(var(--tint-rgb),.2);text-underline-offset:2px">${esc(b.name)}</span></button></div></td>
       <td data-label="${esc(t('bikeBrand'))}" style="font-weight:700;font-size:13px">${b.brand?esc(b.brand):`<span style="color:var(--muted)">—</span>`}</td>
       <td data-label="${esc(t('bikeModel'))}" style="font-weight:700;font-size:13px">${b.model?esc(b.model):`<span style="color:var(--muted)">—</span>`}</td>
       <td data-label="${esc(t('bikeGroupset'))}" style="font-weight:700;font-size:13px">${b.groupset?esc(b.groupset):`<span style="color:var(--muted)">—</span>`}${_bkSpecsLine(b)?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:2px">${_bkSpecsLine(b)}</div>`:''}</td>
-      <td data-label="${esc(t('bikeSpeeds'))}" style="font-weight:700;font-size:13px;text-align:center">${b.speeds?`${b.speeds}`:`<span style="color:var(--muted)">—</span>`}</td>
+      <td data-label="${esc(t('bikeSpeeds'))}" style="font-weight:700;font-size:13px;text-align:center">${b.speeds?`${esc(b.speeds)}`:`<span style="color:var(--muted)">—</span>`}</td>
       <td data-label="${esc(t('bikeTypeLabel'))}">${typeBadge(b.type)}</td>
-      <td data-label="${esc(t('frameSizeLabel'))}" style="font-weight:800">${b.size}</td>
-      <td data-label="${esc(t('bikeRentalPrice'))}" style="font-weight:700;white-space:nowrap">${b.rental_price!=null?`SAR ${b.rental_price}`:`<span style="color:var(--muted)">—</span>`}</td>
+      <td data-label="${esc(t('frameSizeLabel'))}" style="font-weight:800">${esc(b.size)}</td>
+      <td data-label="${esc(t('bikeRentalPrice'))}" style="font-weight:700;white-space:nowrap">${b.rental_price!=null?`SAR ${esc(b.rental_price)}`:`<span style="color:var(--muted)">—</span>`}</td>
       <td data-label="${esc(t('colColor'))}"><div style="display:flex;gap:4px;align-items:center">${colorSwatches}</div></td>
       <td data-label="${esc(t('colStatus'))}">
         <div style="display:flex;align-items:center;gap:6px">
@@ -17237,11 +17457,11 @@ function renderBikes(_resultsOnly){
       </td>
       <td data-label="${esc(t('colRider'))}">${riderCell}</td>
       <td><div class="actions-cell">
-        <button class="btn-sm btn-green" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
-        <button class="btn-sm btn-muted" onclick="startClone('${b.id}')">${t('cloneBtn')}</button>
-        ${b.status==='available'?`<button class="btn-sm btn-muted" onclick="setMaintenance('${b.id}')">${t('maintBtn')}</button>`:''}
-        ${orphaned?`<button class="btn-sm btn-muted" onclick="releaseBike('${b.id}')">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-${isRetired?'green':'muted'}" onclick="${isMaint?`setMaintenance('${b.id}')`:`toggleRetire('${b.id}')`}">${isRetired?t('restoreBtn'):t('retireBtn')}</button>`}
-        <button class="btn-sm btn-red" ${b.status!=='in-use'&&!isRetired?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
+        <button class="btn-sm btn-green" onclick="startEdit(${_ja(b.id)})">${t('editBtn')}</button>
+        <button class="btn-sm btn-muted" onclick="startClone(${_ja(b.id)})">${t('cloneBtn')}</button>
+        ${b.status==='available'?`<button class="btn-sm btn-muted" onclick="setMaintenance(${_ja(b.id)})">${t('maintBtn')}</button>`:''}
+        ${orphaned?`<button class="btn-sm btn-muted" onclick="releaseBike(${_ja(b.id)})">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-${isRetired?'green':'muted'}" onclick="${isMaint?`setMaintenance(${_ja(b.id)})`:`toggleRetire(${_ja(b.id)})`}">${isRetired?t('restoreBtn'):t('retireBtn')}</button>`}
+        <button class="btn-sm btn-red" ${b.status!=='in-use'&&!isRetired?`onclick="delBike(${_ja(b.id)})"`:' disabled'}>${t('deleteBtn')}</button>
       </div></td>
     </tr>`;
   }
@@ -17250,7 +17470,7 @@ function renderBikes(_resultsOnly){
   function sortHdr(col,label){
     const d=sortDir(col);
     const arrow=d===1?' ↑':d===-1?' ↓':'';
-    return`<th style="cursor:pointer;user-select:none;white-space:nowrap${d?';color:var(--green)':''}" onclick="S.bkSortDir=(S.bkSortCol==='${col}'&&S.bkSortDir===1)?-1:1;S.bkSortCol='${col}';renderBikes()">${label}${arrow}</th>`;
+    return`<th style="cursor:pointer;user-select:none;white-space:nowrap${d?';color:var(--green)':''}" onclick="S.bkSortDir=(S.bkSortCol===${_ja(col)}&&S.bkSortDir===1)?-1:1;S.bkSortCol=${_ja(col)};renderBikes()">${label}${arrow}</th>`;
   }
 
   function renderBikeGrid(typeBikes){
@@ -17265,17 +17485,17 @@ function renderBikes(_resultsOnly){
       const isRetiredG=b.status==='retired'||b.status==='maintenance';
       const bgStyle=orphaned?'background:rgba(var(--warn-rgb),.06);':b.status==='in-use'?'background:rgba(var(--blue-rgb),.025);':isRetiredG?'background:rgba(var(--red-rgb),.025);opacity:.75;':'';
       const colors=b.colors&&b.colors.length?b.colors:['#03ff89'];
-      const dots=colors.map(c=>`<span style="width:11px;height:11px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);display:inline-block;flex-shrink:0"></span>`).join('');
+      const dots=colors.map(c=>`<span style="width:11px;height:11px;border-radius:50%;background:${_bkHex(c)};border:1.5px solid rgba(0,0,0,.3);display:inline-block;flex-shrink:0"></span>`).join('');
       const el=b.status==='in-use'&&user?rideElapsed(user.id):null;
       return`<div class="bike-grid-card" style="border-color:${borderClr};${bgStyle}">
         ${b.photo?`<img loading="lazy" decoding="async" src="${esc(b.photo)}" alt="" style="width:100%;height:110px;border-radius:4px;object-fit:cover;border:1px solid var(--border);margin-bottom:8px">`:''}
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:6px">
-          <button type="button" onclick="openBikeProfile('${b.id}')" style="background:none;border:none;padding:8px 6px;margin:-8px -6px;cursor:pointer;text-align:start;font-weight:900;font-size:13px;line-height:1.3;color:var(--text)"><span style="text-decoration:underline;text-decoration-color:rgba(var(--tint-rgb),.2);text-underline-offset:2px">${esc(b.name)}</span></button>
+          <button type="button" onclick="openBikeProfile(${_ja(b.id)})" style="background:none;border:none;padding:8px 6px;margin:-8px -6px;cursor:pointer;text-align:start;font-weight:900;font-size:13px;line-height:1.3;color:var(--text)"><span style="text-decoration:underline;text-decoration-color:rgba(var(--tint-rgb),.2);text-underline-offset:2px">${esc(b.name)}</span></button>
           <div style="display:flex;gap:3px;flex-shrink:0">${dots}</div>
         </div>
         <div style="display:flex;gap:5px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
           ${typeBadge(b.type)}
-          <span style="background:var(--s3);border:1px solid rgba(var(--tint-rgb),.08);border-radius:2px;padding:2px 8px;font-size:10px;font-weight:800;color:var(--muted-l)">${b.size}</span>
+          <span style="background:var(--s3);border:1px solid rgba(var(--tint-rgb),.08);border-radius:2px;padding:2px 8px;font-size:10px;font-weight:800;color:var(--muted-l)">${esc(b.size)}</span>
         </div>
         <div style="display:flex;align-items:center;gap:5px${(user||orphaned)?';margin-bottom:5px':''}">
           <span class="avail-dot ${dot}" style="display:inline-block;flex-shrink:0"></span>
@@ -17285,11 +17505,11 @@ function renderBikes(_resultsOnly){
         ${user?`<div style="font-size:11px;font-weight:700;color:var(--green)">#${user.queueNum} ${esc(user.name)}</div>`:orphaned?`<div style="font-size:11px;font-weight:700;color:var(--orange)">${t('noRiderAssigned')}</div>`:''}
         <div style="display:flex;flex-direction:column;gap:4px;margin-top:10px">
           <div style="display:flex;gap:4px">
-            <button class="btn-sm btn-green" style="flex:1" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
-            <button class="btn-sm btn-muted" style="flex:1" onclick="startClone('${b.id}')">${t('cloneBtn')}</button>
-            <button class="btn-sm btn-red" style="flex:1" ${b.status!=='in-use'&&!isRetiredG?`onclick="delBike('${b.id}')"`:' disabled'}>${t('deleteBtn')}</button>
+            <button class="btn-sm btn-green" style="flex:1" onclick="startEdit(${_ja(b.id)})">${t('editBtn')}</button>
+            <button class="btn-sm btn-muted" style="flex:1" onclick="startClone(${_ja(b.id)})">${t('cloneBtn')}</button>
+            <button class="btn-sm btn-red" style="flex:1" ${b.status!=='in-use'&&!isRetiredG?`onclick="delBike(${_ja(b.id)})"`:' disabled'}>${t('deleteBtn')}</button>
           </div>
-          ${orphaned?`<button class="btn-sm btn-muted" style="width:100%;justify-content:center;text-align:center" onclick="releaseBike('${b.id}')">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-${isRetiredG?'green':'muted'}" style="width:100%;justify-content:center;text-align:center" onclick="toggleRetire('${b.id}')">${isRetiredG?t('restoreBtn'):t('retireBtn')}</button>`}
+          ${orphaned?`<button class="btn-sm btn-muted" style="width:100%;justify-content:center;text-align:center" onclick="releaseBike(${_ja(b.id)})">${t('releaseBikeBtn')}</button>`:`<button class="btn-sm btn-${isRetiredG?'green':'muted'}" style="width:100%;justify-content:center;text-align:center" onclick="toggleRetire(${_ja(b.id)})">${isRetiredG?t('restoreBtn'):t('retireBtn')}</button>`}
         </div>
       </div>`;
     }).join('')}</div>`;
@@ -17307,7 +17527,7 @@ function renderBikes(_resultsOnly){
           <div style="font-size:12px;color:var(--muted)">${t('noBikes')}</div>
         </div>
         <button class="btn-secondary" style="font-size:12px;padding:6px 12px"
-          onclick="S.showAddBike=true;S.addBikeType='${ty}';S.editBikeId=null;S.addBikeSize='M';S.addBikeColors=['#03ff89'];S.addBikeColorNames=[''];S._bkName='';S._bkFrame='';S._bkNumber=String(_nextBikeNumber());renderBikes();_scrollToBikeForm()">
+          onclick="S.showAddBike=true;S.addBikeType=${_ja(ty)};S.editBikeId=null;S.addBikeSize='M';S.addBikeColors=['#03ff89'];S.addBikeColorNames=[''];S._bkName='';S._bkFrame='';S._bkNumber=String(_nextBikeNumber());renderBikes();_scrollToBikeForm()">
           + ${typeLabel(ty)}
         </button>
       </div>`;
@@ -17374,7 +17594,7 @@ function renderBikes(_resultsOnly){
           </div>
         </div>
         <button class="btn-secondary" style="font-size:12px;padding:6px 12px"
-          onclick="S.showAddBike=true;S.addBikeType='${ty}';S.editBikeId=null;S.addBikeSize='M';S.addBikeColors=['#03ff89'];S.addBikeColorNames=[''];S._bkName='';S._bkFrame='';S._bkNumber=String(_nextBikeNumber());renderBikes();_scrollToBikeForm()">
+          onclick="S.showAddBike=true;S.addBikeType=${_ja(ty)};S.editBikeId=null;S.addBikeSize='M';S.addBikeColors=['#03ff89'];S.addBikeColorNames=[''];S._bkName='';S._bkFrame='';S._bkNumber=String(_nextBikeNumber());renderBikes();_scrollToBikeForm()">
           + ${typeLabel(ty)}
         </button>
       </div>
@@ -17385,6 +17605,9 @@ function renderBikes(_resultsOnly){
   const typeColorMap={Road:'#0c7a3d',Hybrid:'#0c7a3d',Mountain:'#0c7a3d',Kids:'#0c7a3d',Gravel:'#0c7a3d'}; // one accent: section markers are all brand green
   const typeSections=['Road','Hybrid','Mountain','Kids','Gravel'].map(ty=>renderTypeSection(ty,typeColorMap[ty])).join('');
   const retiredBikes=bikes.filter(b=>b.status==='retired'||b.status==='maintenance');
+  // The section holds both; each bike says which it is - a bike in for a repair is coming back,
+  // and every one of them read "Retired".
+  const _bkOutLabel=b=>b.status==='maintenance'?t('maintLabel'):t('retiredLabel');
   // Only show the collapsed graveyard in the default 'all' view — a specific status filter shows those bikes inline instead
   const retiredSection=(retiredBikes.length&&S.bkStatus==='all')?`<div style="margin-bottom:28px">
     <button onclick="S.bkShowRetired=!S.bkShowRetired;renderBikes()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:rgba(var(--tint-rgb),.02);border:1.5px solid rgba(var(--tint-rgb),.07);border-radius:6px;cursor:pointer;font-family:var(--font-body);transition:border-color .2s" onmouseover="this.style.borderColor='rgba(var(--tint-rgb),.15)'" onmouseout="this.style.borderColor='rgba(var(--tint-rgb),.07)'">
@@ -17399,7 +17622,7 @@ function renderBikes(_resultsOnly){
       ${S.bkView==='grid'
         ?`<div class="bike-grid" style="opacity:.75">${retiredBikes.map(b=>{
           const colors=b.colors&&b.colors.length?b.colors:['#03ff89'];
-          const dots=colors.map(c=>`<span style="width:11px;height:11px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);display:inline-block;flex-shrink:0"></span>`).join('');
+          const dots=colors.map(c=>`<span style="width:11px;height:11px;border-radius:50%;background:${_bkHex(c)};border:1.5px solid rgba(0,0,0,.3);display:inline-block;flex-shrink:0"></span>`).join('');
           return`<div class="bike-grid-card" style="border-color:rgba(160,160,160,.2)">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:6px">
               <div style="font-weight:900;font-size:13px;line-height:1.3;color:var(--muted-l)">${esc(b.name)}</div>
@@ -17407,20 +17630,20 @@ function renderBikes(_resultsOnly){
             </div>
             <div style="display:flex;gap:5px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
               ${typeBadge(b.type)}
-              <span style="background:var(--s3);border:1px solid rgba(var(--tint-rgb),.08);border-radius:2px;padding:2px 8px;font-size:10px;font-weight:800;color:var(--muted-l)">${b.size}</span>
+              <span style="background:var(--s3);border:1px solid rgba(var(--tint-rgb),.08);border-radius:2px;padding:2px 8px;font-size:10px;font-weight:800;color:var(--muted-l)">${esc(b.size)}</span>
             </div>
             <div style="display:flex;align-items:center;gap:5px;margin-bottom:8px">
-              <span class="avail-dot dot-red" style="display:inline-block;flex-shrink:0"></span>
-              <span style="color:var(--muted);font-weight:700;font-size:12px">${t('retiredLabel')}</span>
+              <span class="avail-dot ${b.status==='maintenance'?'dot-orange':'dot-red'}" style="display:inline-block;flex-shrink:0"></span>
+              <span style="color:var(--muted);font-weight:700;font-size:12px">${_bkOutLabel(b)}</span>
             </div>
             <div style="margin-bottom:10px">
               <div style="font-size:9px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">${t('lifespanLabel')}</div>
-              <div style="font-size:11px;font-weight:700;color:var(--muted-l)">${_bikeLifespan(b)}</div>
+              <div style="font-size:11px;font-weight:700;color:var(--muted-l)">${esc(_bikeLifespan(b))}</div>
             </div>
             <div style="display:flex;gap:4px">
-              <button class="btn-sm btn-green" style="flex:1" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
-              <button class="btn-sm btn-green" style="flex:1" onclick="toggleRetire('${b.id}')">${t('restoreBtn')}</button>
-              <button class="btn-sm btn-muted" style="flex:1" onclick="startClone('${b.id}')">${t('cloneBtn')}</button>
+              <button class="btn-sm btn-green" style="flex:1" onclick="startEdit(${_ja(b.id)})">${t('editBtn')}</button>
+              <button class="btn-sm btn-green" style="flex:1" onclick="toggleRetire(${_ja(b.id)})">${t('restoreBtn')}</button>
+              <button class="btn-sm btn-muted" style="flex:1" onclick="startClone(${_ja(b.id)})">${t('cloneBtn')}</button>
             </div>
           </div>`;
         }).join('')}</div>`
@@ -17432,13 +17655,13 @@ function renderBikes(_resultsOnly){
           <td data-label="${esc(t('bikeBrand'))}" style="font-weight:700;font-size:13px">${b.brand?esc(b.brand):`<span style="color:var(--muted)">—</span>`}</td>
           <td data-label="${esc(t('bikeModel'))}" style="font-weight:700;font-size:13px">${b.model?esc(b.model):`<span style="color:var(--muted)">—</span>`}</td>
           <td data-label="${esc(t('bikeTypeLabel'))}">${typeBadge(b.type)}</td>
-          <td data-label="${esc(t('frameSizeLabel'))}" style="font-weight:800">${b.size}</td>
-          <td data-label="${esc(t('lifespanLabel'))}" style="font-weight:700;font-size:12px;color:var(--muted-l);white-space:nowrap">${_bikeLifespan(b)}</td>
-          <td data-label="${esc(t('colStatus'))}"><span style="color:var(--muted);font-weight:700;font-size:12px">${t('retiredLabel')}</span></td>
+          <td data-label="${esc(t('frameSizeLabel'))}" style="font-weight:800">${esc(b.size)}</td>
+          <td data-label="${esc(t('lifespanLabel'))}" style="font-weight:700;font-size:12px;color:var(--muted-l);white-space:nowrap">${esc(_bikeLifespan(b))}</td>
+          <td data-label="${esc(t('colStatus'))}"><span style="color:var(--muted);font-weight:700;font-size:12px">${_bkOutLabel(b)}</span></td>
           <td><div class="actions-cell">
-            <button class="btn-sm btn-green" onclick="startEdit('${b.id}')">${t('editBtn')}</button>
-            <button class="btn-sm btn-green" onclick="toggleRetire('${b.id}')">${t('restoreBtn')}</button>
-            <button class="btn-sm btn-muted" onclick="startClone('${b.id}')">${t('cloneBtn')}</button>
+            <button class="btn-sm btn-green" onclick="startEdit(${_ja(b.id)})">${t('editBtn')}</button>
+            <button class="btn-sm btn-green" onclick="toggleRetire(${_ja(b.id)})">${t('restoreBtn')}</button>
+            <button class="btn-sm btn-muted" onclick="startClone(${_ja(b.id)})">${t('cloneBtn')}</button>
           </div></td>
         </tr>`).join('')}</tbody></table></div>`}
     </div>`:''}
