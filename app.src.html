@@ -2669,7 +2669,7 @@ async function _loadDataInner(showLoader){
   if(ses.error)console.error('loadData sessions error:',ses.error.message);
   // Total failure = the three core fetches all errored (the customer list is not part of this
   // test - the old !c.data condition made this branch unreachable).
-  if(q.error&&b.error&&ses.error){S.dataLoaded=true;try{_applyBookOutbox();}catch(_){}_bookOutboxFlush();toast(t('toastConnStale'),'error');return;}
+  if(q.error&&b.error&&ses.error){S.dataLoaded=true;try{_applyBookOutbox();}catch(_){}_bookOutboxFlush();toast(t('toastConnStale'),'error');if(_isNetErr(q.error)){S._netDown=true;_updateConnUI();}return false;} // false: the caller must not call the screen fresh
 
   if(_bootDone&&startToken<_bootReadyAt)return;
   // On a staff device, remember rider details we've already loaded. If a later refresh comes back
@@ -2691,6 +2691,11 @@ async function _loadDataInner(showLoader){
   // list or the customer picker mid-shift (and then snapshot the emptiness into cq_snapshot).
   if(!b.error)S.bikes=b.data||[];
   if(!ses.error)S.sessions=ses.data||[];
+  // Realtime rows and rider/tag broadcasts that landed while this load was in flight are newer
+  // than its answer (see _rtRecent); lay them back on. The core is in: the boot's snapshot
+  // fallback must not paint over it (_coreLoadOk), and a server that answered is reachable.
+  _rtReplaySince(startToken);_rtReplaySince(startToken,'ref');_coreLoadOk=true;
+  if(!q.error&&S._netDown){S._netDown=false;_updateConnUI();}
   S.dataLoaded=true; // first successful load - render real content instead of skeletons
   S._cacheOnly=false; // the queue's opening session can now be chosen from real data (_sfDefaultToToday)
   if(_firstLoad){
@@ -2724,6 +2729,7 @@ async function _afterOptional(){
 }
 let _bootReadyAt=0;
 let _lastLoadOk=false;   // the core data (queue, bikes, sessions) of the last load arrived
+let _coreLoadOk=false;   // a load has applied its queue/bikes/sessions - set the moment they are in (_lastLoadOk waits for the reference lists too)
 let _refsLoaded=false;   // and the reference lists behind it (customers, tags, sales, team) have too
 // Cold-start resilience: keep a local snapshot of the last good load (photos stripped to stay under quota).
 // On boot, if the network load brought nothing, render last-known data instead of an empty screen.
@@ -22404,10 +22410,17 @@ function _anFunnelCounts(entries){
   const completed=entries.filter(e=>e.status==='done').length;
   return{booked,checkedIn,completed};
 }
-// Demand grid: day-of-week (0=Sun) × 2-hour slot, from the ride time (check-in, else booking time).
+// A moment as the business clock reads it. Riyadh keeps UTC+3 all year (no daylight saving), so
+// shifting by three hours and reading the UTC fields gives KSA's date, weekday and hour on any
+// device - the Date getters answered in the viewer's own zone, so an admin abroad (or a phone
+// left on UTC) saw rides land on the wrong hour, weekday and month.
+// A 'YYYY-MM-DD' date moved by n days, as a date string (calendar arithmetic, no timezone involved).
+function _isoAddDays(iso,n){const t=Date.parse(String(iso||'')+'T00:00:00Z');return isNaN(t)?'':new Date(t+n*864e5).toISOString().slice(0,10);}
+function _ksaParts(ts){const t=new Date(ts).getTime();if(isNaN(t))return null;const d=new Date(t+3*3600000);return{y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate(),dow:d.getUTCDay(),h:d.getUTCHours()};}
+// Demand grid: day-of-week (0=Sun) × 2-hour slot, from the ride time (check-in, else booking time), in KSA time.
 function _anHeatGrid(entries){
   const grid={};let max=0;const hours=new Set();
-  entries.forEach(e=>{const ts=e.checkedInAt||e.registeredAt;if(!ts)return;const d=new Date(ts);if(isNaN(d.getTime()))return;const day=d.getDay(),hb=Math.floor(d.getHours()/2)*2;hours.add(hb);(grid[day]=grid[day]||{})[hb]=(grid[day][hb]||0)+1;if(grid[day][hb]>max)max=grid[day][hb];});
+  entries.forEach(e=>{const ts=e.checkedInAt||e.registeredAt;if(!ts)return;const k=_ksaParts(ts);if(!k)return;const day=k.dow,hb=Math.floor(k.h/2)*2;hours.add(hb);(grid[day]=grid[day]||{})[hb]=(grid[day][hb]||0)+1;if(grid[day][hb]>max)max=grid[day][hb];});
   return{grid,max,hours:[...hours].sort((a,b)=>a-b)};
 }
 // Retail attach: share of rides that also bought a product add-on, and add-on revenue per ride.
@@ -22417,23 +22430,27 @@ function _anAttachStats(entries){
   const n=entries.length;
   return{attachPct:n?Math.round(withAddon/n*100):0,addonRevPerRide:n?Math.round(addonRev/n*10)/10:0,withAddon,addonRev:Math.round(addonRev)};
 }
-// Run-rate: project the current calendar month from the pace so far.
+// Run-rate: project the current calendar month (KSA) from the pace so far. Sessions are matched on
+// their date string, the way the range filter does it, and deleted ones stay out.
 function _anMonthForecast(allSess,allQ,now){
-  now=now||new Date();const y=now.getFullYear(),m=now.getMonth();const days=new Date(y,m+1,0).getDate();const elapsed=Math.min(days,Math.max(1,now.getDate()));
-  const ids=new Set((allSess||[]).filter(s=>{const d=new Date(s.session_date||s.id);return !isNaN(d.getTime())&&d.getFullYear()===y&&d.getMonth()===m;}).map(s=>s.id));
+  const k=_ksaParts(now||Date.now());const y=k.y,m=k.m;const days=new Date(Date.UTC(y,m,0)).getUTCDate();const elapsed=Math.min(days,Math.max(1,k.d));
+  const ym=y+'-'+String(m).padStart(2,'0');
+  const ids=new Set((allSess||[]).filter(s=>s.status!=='deleted'&&String(s.session_date||s.id||'').slice(0,7)===ym).map(s=>s.id));
   const md=(allQ||[]).filter(e=>ids.has(e.sessionId)&&e.status==='done');
   const rides=md.length,rev=md.filter(e=>e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
   const f=elapsed>0?days/elapsed:1;
   return{rides,rev:Math.round(rev),projRides:Math.round(rides*f),projRev:Math.round(rev*f),elapsed,days};
 }
 // RFM bucket from recency (days since last ride) and frequency (ride count).
+// Every rider lands in exactly one bucket. A one-ride rider who has not been back for three
+// weeks used to fall through to 'loyal' ("2+ rides, still active"), the one label that
+// certainly does not describe them; slipping away is what 'atrisk' is for.
 function _anRFMSegment(recencyDays,freq){
+  if(recencyDays>60)return'lost';
   if(freq>=3&&recencyDays<=14)return'champions';
   if(freq>=2&&recencyDays<=30)return'loyal';
-  if(freq===1&&recencyDays<=21)return'newbie';
-  if(freq>=2&&recencyDays>30&&recencyDays<=60)return'atrisk';
-  if(recencyDays>60)return'lost';
-  return'loyal';
+  if(freq<=1&&recencyDays<=21)return'newbie';
+  return'atrisk';
 }
 // wa.me wants E.164 digits — and riders type the national 05xx form at least as often as
 // the international one, which made every WhatsApp link for those numbers point at a
@@ -22497,13 +22514,17 @@ function _anMargin(lines,costById){
 // Lifetime value by first-ride month cohort: avg total spend per rider.
 function _anLTVByCohort(entries){
   const j=_anCustJourneys(entries),mo={};
-  Object.values(j).forEach(({times,spend})=>{const d=new Date(times[0]);const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');(mo[key]=mo[key]||{n:0,spend:0}).n++;mo[key].spend+=spend;});
+  Object.values(j).forEach(({times,spend})=>{const k=_ksaParts(times[0]);if(!k)return;const key=k.y+'-'+String(k.m).padStart(2,'0');(mo[key]=mo[key]||{n:0,spend:0}).n++;mo[key].spend+=spend;});
   return Object.entries(mo).sort((a,b)=>a[0]<b[0]?1:-1).slice(0,6).map(([month,v])=>({month,customers:v.n,avgLtv:Math.round(v.spend/v.n)}));
 }
 // One CSV cell escaper for every export. Neutralizes spreadsheet formula injection (a cell
 // beginning with = + - @ or a tab/CR is run as a formula by Excel/Sheets — a customer named
 // '=HYPERLINK(...)' would execute on the staffer's machine), then quotes if needed.
-function _csvCell(v){let s=(v==null?'':String(v));if(/^[=+\-@\t\r]/.test(s))s="'"+s;return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
+// A plain number and a phone written +966… are data, not formulas: prefixing them turned a
+// discount of -20 into the text '-20 (the column no longer summed) and every phone into '+9665….
+// Only those exact shapes pass; anything with an operator or a letter after the lead still gets
+// the quote.
+function _csvCell(v){if(typeof v==='number'&&isFinite(v))return String(v);let s=(v==null?'':String(v));if(/^[=+\-@\t\r]/.test(s)&&!/^-?\d+(\.\d+)?$/.test(s)&&!/^\+\d[\d ]{6,19}$/.test(s))s="'"+s;return /[",\n\r]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
 const _anCsvCell=_csvCell; // back-compat alias
 function _anShareDigest(){
   const txt=(S&&S._anDigestText)||'';
@@ -22518,14 +22539,31 @@ async function _anSetTarget(){
   S.anRevTarget=n;try{localStorage.setItem('cq_an_rev_target',String(n));}catch(e){}
   renderAnalytics();
 }
+// The sessions the analytics range covers. Deleted sessions are out (Cashier and the live board
+// already filter them) and range boundaries compare KSA date STRINGS - Date-object math put the
+// viewer's browser timezone in charge of which month/year a session belongs to. The dashboard and
+// the Height & Bike report both read this, so "This Month" means the same nights in both (the
+// report used to take every session from the 1st onward, next month's included, and deleted ones).
+function _anRangeSessions(all){
+  let ss=(all||allSessions()).filter(s=>s.status!=='deleted').sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+  const R=S.analyticsRange,ds=s=>String(s.session_date||s.id||'');
+  if(R==='month'){const mo=todayStr().slice(0,7);ss=ss.filter(s=>ds(s).slice(0,7)===mo);}
+  else if(R==='year'){const yr=todayStr().slice(0,4);ss=ss.filter(s=>ds(s).slice(0,4)===yr);}
+  else if(R==='daterange'){if(S.analyticsDateFrom)ss=ss.filter(s=>(s.session_date||'')>=S.analyticsDateFrom);if(S.analyticsDateTo)ss=ss.filter(s=>(s.session_date||'')<=S.analyticsDateTo);}
+  return ss;
+}
+// A single-session focus only means something while that session is in the range. Picking an
+// August night and then switching to "This Month" left every card at zero, with the dropdown
+// showing "All sessions" (no option matched) - and choosing it again fired no change - so the
+// focus drops back to all sessions as soon as it falls out of range.
+function _anSessionInRange(rangeSess){
+  if(S.anSession&&S.anSession!=='all'&&!rangeSess.some(s=>s.id===S.anSession))S.anSession='all';
+}
 // ── Height & bike-type report: per session, the riders' heights + count of each bike type rented.
 // Respects the current analytics range and the chosen session filter.
 function _anHeightBikeData(){
-  let sess=[...allSessions()].sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
-  const R=S.analyticsRange;
-  if(R==='month'){const mo=new Date();mo.setDate(1);mo.setHours(0,0,0,0);sess=sess.filter(s=>new Date(s.session_date||s.id)>=mo);}
-  else if(R==='year'){const yr=new Date().getFullYear();sess=sess.filter(s=>new Date(s.session_date||s.id).getFullYear()===yr);}
-  else if(R==='daterange'){if(S.analyticsDateFrom)sess=sess.filter(s=>(s.session_date||'')>=S.analyticsDateFrom);if(S.analyticsDateTo)sess=sess.filter(s=>(s.session_date||'')<=S.analyticsDateTo);}
+  let sess=_anRangeSessions();
+  _anSessionInRange(sess);
   if(S.anSession&&S.anSession!=='all')sess=sess.filter(s=>s.id===S.anSession);
   return sess.map(s=>{
     const riders=getQueue().filter(e=>e.sessionId===s.id&&(e.status==='done'||e.status==='active')); // only riders who actually rode (checked in / completed)
@@ -22546,7 +22584,7 @@ function printHeightBikeReport(){
   const data=_anHeightBikeData();
   if(!data.length){toast(t('anCsvEmpty'));return;}
   const blocks=data.map(d=>{
-    const title=`${dayLabel(d.sess.day)} · ${shortDate(d.sess.session_date||d.sess.id)}${d.sess.location?' · '+esc(d.sess.location):''}`;
+    const title=`${esc(dayLabel(d.sess.day))} · ${esc(shortDate(d.sess.session_date||d.sess.id))}${d.sess.location?' · '+esc(d.sess.location):''}`;
     const hRows=d.people.length?d.people.map(p=>`<tr><td>${esc(p.name)}</td><td>${esc(String(p.height))}</td><td>${esc(typeLabel(p.type)||p.type)}</td></tr>`).join(''):`<tr><td colspan="3" style="color:#888">${t('repNoHeight')}</td></tr>`;
     const tc=d.typeCounts;const tRows=[['Road',tc.Road],['Hybrid',tc.Hybrid],['Mountain',tc.Mountain]].concat(d.other?[['Other',d.other]]:[]).map(([ty,n])=>`<tr><td>${esc(typeLabel(ty)||ty)}</td><td style="text-align:end;font-weight:800">${n}</td></tr>`).join('');
     return`<section style="margin-bottom:26px"><h2 style="margin-top:0">${title}</h2><div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start"><div style="flex:2 1 320px"><h3 style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#666;margin:0 0 5px">${t('repRiderHeights')} (${d.people.length})</h3>${d.hSummary.count?`<div style="font-size:12px;margin:0 0 8px;color:#333">${t('repHeightSummary')}: <b>${t('anHeightAvg')} ${d.hSummary.avg} cm</b> &nbsp;\u00b7&nbsp; ${t('repMin')} ${d.hSummary.min} &nbsp;\u00b7&nbsp; ${t('repMax')} ${d.hSummary.max}</div><h4 style="font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:#888;margin:0 0 3px">${t('repHeightRanges')}</h4><table style="max-width:260px;margin-bottom:10px"><tbody>${d.hRanges.map(([l,n])=>`<tr><td>${l} cm</td><td style="text-align:end;font-weight:800">${n}</td></tr>`).join('')}</tbody></table>`:''}<h4 style="font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:#888;margin:0 0 3px">${t('repHeightIndividual')}</h4><table><thead><tr><th>${t('nameLabel')}</th><th>${t('repHeightCol')}</th><th>${t('colBike')}</th></tr></thead><tbody>${hRows}</tbody></table></div><div style="flex:1 1 190px"><h3 style="font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#666;margin:0 0 5px">${t('repBikesRented')} (${d.rented})</h3><table><tbody>${tRows}</tbody></table></div></div></section>`;
@@ -22567,7 +22605,7 @@ function exportHeightBikeCsv(){
     rows.push([]);
   });
   const csv=rows.map(r=>r.map(_csvCell).join(',')).join('\n');
-  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='heights_bike_types.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='heights_bike_types.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000); // revoked at once, Safari and Firefox can cancel the download it just started
 }
 function _anExportCSV(){
   const rows=(S&&S._anCsvRows)||[];
@@ -22589,27 +22627,27 @@ function renderAnalytics(){
   const allSess=allSessions();
   if(S.analyticsRange==='custom')S.analyticsRange='all'; // 'custom' (last-N) range was removed; fall back to All time
 
-
-  // Deleted sessions are out (Cashier and the live board already filter them) and range
-  // boundaries compare KSA date STRINGS — Date-object math put the viewer's browser
-  // timezone in charge of which month/year a session belongs to.
-  let sessCandidates=allSess.filter(s=>s.status!=='deleted').sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
-  if(S.analyticsRange==='month'){
-    const _mo=todayStr().slice(0,7);
-    sessCandidates=sessCandidates.filter(s=>String(s.session_date||s.id).slice(0,7)===_mo);
-  } else if(S.analyticsRange==='year'){
-    const _yr=todayStr().slice(0,4);
-    sessCandidates=sessCandidates.filter(s=>String(s.session_date||s.id).slice(0,4)===_yr);
-  } else if(S.analyticsRange==='daterange'){
-    if(S.analyticsDateFrom) sessCandidates=sessCandidates.filter(s=>(s.session_date||'')>=S.analyticsDateFrom);
-    if(S.analyticsDateTo)   sessCandidates=sessCandidates.filter(s=>(s.session_date||'')<=S.analyticsDateTo);
-  }
-  const _anRangeSessions=[...sessCandidates]; // range-filtered list (for the session dropdown)
+  let sessCandidates=_anRangeSessions(allSess); // deleted out, KSA date-string boundaries
+  const _anRangeList=[...sessCandidates]; // range-filtered list (for the session dropdown)
+  _anSessionInRange(_anRangeList); // a focus left over from another range would zero every card
   if(S.anSession&&S.anSession!=='all')sessCandidates=sessCandidates.filter(s=>s.id===S.anSession); // optional single-session focus
   const sessIds=new Set(sessCandidates.map(s=>s.id));
   const queue=allQ.filter(e=>sessIds.has(e.sessionId));
   const sessions=sessCandidates;
   const done=queue.filter(e=>e.status==='done');
+  // Completed rides per session, built once. The per-session cards below used to filter the whole
+  // done list once per session, several times over - quadratic on "All time", on every repaint.
+  const doneBySess=new Map();done.forEach(e=>{let a=doneBySess.get(e.sessionId);if(!a)doneBySess.set(e.sessionId,a=[]);a.push(e);});
+  const _dn=sid=>doneBySess.get(sid)||[];
+  // Weekday keys come off the booking row, which the booking call accepts as sent. Only the seven
+  // real day names are counted, so nothing else can reach the busiest-day card or its label.
+  const _DAYS=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const _isDay=d=>_DAYS.indexOf(d)>=0;
+  // A bike type's label as HTML. The type comes off the booking row, so a value that is not one of
+  // ours is text: escaped here (a label typeLabel already made safe comes back changed and is left
+  // alone, so nothing is escaped twice).
+  const _tl=k=>{const m=typeLabel(k);return m===k?esc(k):m;};
+  const _tcls=k=>Object.prototype.hasOwnProperty.call(TYPE_CLS,k)?TYPE_CLS[k]:'type-any';
   // Revenue counts a booking the moment it is marked PAID — no check-in or completion
   // needed. Cancelled/removed rows stay out (refunds/mistakes).
   const _paidRows=arr=>arr.filter(e=>e.paid&&e.status!=='cancelled'&&e.status!=='removed');
@@ -22643,28 +22681,28 @@ function renderAnalytics(){
   const heightCard=`<div class="chart-card"><div class="chart-card-title">${t('anHeightTitle')}</div><div class="chart-card-sub">${t('anHeightSub')}</div><div style="display:flex;gap:8px;align-items:baseline;margin:4px 0 8px"><span style="font-size:22px;font-weight:900;color:var(--green)">${_htAvg||'\u2014'}${_htAvg?' cm':''}</span><span style="font-size:12px;color:var(--muted)">${t('anHeightAvg')} \u00b7 ${_htVals.length} ${t('anRiders').toLowerCase()}</span></div>${_htBk.map(([l,n])=>`<div class="analytics-bar-row"><div class="analytics-bar-label" style="min-width:66px">${l} cm</div><div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(n/_htMax*100)}%;background:var(--blue)"></div></div><div class="analytics-bar-value">${n}</div></div>`).join('')}</div>`;
 
   function _rangeBar(){
-    const _sh=sessions.filter(s=>queue.some(e=>e.sessionId===s.id&&e.status==='done')).length;
+    const _sh=sessions.filter(s=>doneBySess.has(s.id)).length;
     const _td=done.length;
     const rangeLabels={all:t('anAllTime'),month:t('anThisMonth'),year:t('anThisYear')||'This Year',custom:t('anCustom')||'Custom',daterange:t('anDateRange')||'Date Range'};
     return`<div class="an-range-bar">
       <span class="an-range-label">${t('anShowing')}</span>
       ${['all','month','year','daterange'].map(r=>
-        `<button class="filter-pill${S.analyticsRange===r?' active':''}" onclick="setAnRange('${r}')">${rangeLabels[r]}</button>`
+        `<button class="filter-pill${S.analyticsRange===r?' active':''}" onclick="setAnRange(${_ja(r)})">${rangeLabels[r]}</button>`
       ).join('')}
       ${S.analyticsRange==='daterange'?`
         <span style="font-size:12px;font-weight:700;color:var(--muted)">${t('anFromDate')||'From'}:</span>
-        <input type="date" value="${S.analyticsDateFrom||''}"
+        <input type="date" value="${esc(S.analyticsDateFrom||'')}"
           style="background:var(--s3);border:1px solid rgba(var(--tint-rgb),.15);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:12px;font-weight:700;padding:4px 8px;cursor:pointer"
           onchange="S.analyticsDateFrom=this.value;renderAnalytics()">
         <span style="font-size:12px;font-weight:700;color:var(--muted)">${t('anToDate')||'To'}:</span>
-        <input type="date" value="${S.analyticsDateTo||''}"
+        <input type="date" value="${esc(S.analyticsDateTo||'')}"
           style="background:var(--s3);border:1px solid rgba(var(--tint-rgb),.15);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:12px;font-weight:700;padding:4px 8px;cursor:pointer"
           onchange="S.analyticsDateTo=this.value;renderAnalytics()">
       `:''}
       <span style="font-size:12px;font-weight:700;color:var(--muted);margin-left:8px">${t('anSessionLabel')}:</span>
       <select class="filter-select" aria-label="${esc(t('colSession'))}" onchange="S.anSession=this.value;renderAnalytics()">
         <option value="all"${(S.anSession==='all'||!S.anSession)?' selected':''}>${t('anSessionAll')}</option>
-        ${_anRangeSessions.slice().sort(_sessOrder).map(s=>`<option value="${s.id}"${S.anSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${s.location?' · '+esc(s.location):''}</option>`).join('')}
+        ${_anRangeList.slice().sort(_sessOrder).map(s=>`<option value="${esc(s.id)}"${S.anSession===s.id?' selected':''}>${esc(dayLabel(s.day))} ${esc(shortDate(s.session_date||s.id))}${s.location?' · '+esc(s.location):''}</option>`).join('')}
       </select>
       <span class="result-count" style="margin-left:4px">${_sh} ${t('anSessionsHeld').toLowerCase()} · ${_td} ${t('anRidesLabel')}</span>
     </div>`;
@@ -22681,9 +22719,13 @@ function renderAnalytics(){
   function sarBoth(v,precision=0){
     return`SAR ${v.toFixed(precision)}<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">SAR ${excVAT(v).toFixed(precision)} <span style="font-size:10px">${t('vatExcl')}</span></div>`;
   }
-  const sessionsWithDone=sessions.filter(s=>done.some(e=>e.sessionId===s.id));
+  const sessionsWithDone=sessions.filter(s=>doneBySess.has(s.id));
   const sessionsHeld=sessionsWithDone.length;
-  const avgRevPerSession=sessionsHeld?Math.round(revTotal/sessionsHeld):0;
+  // The per-ride, per-session and per-customer averages divide by rides that happened, so their
+  // money is those rides' fares (paid or still owed). revTotal also holds places paid ahead for
+  // nights not yet ridden and paid no-shows, which pushed "revenue per ride" well above any fare.
+  const doneRev=done.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0);
+  const avgRevPerSession=sessionsHeld?Math.round(doneRev/sessionsHeld):0;
   const collectionRate=revTotal>0?Math.round((revCollected/revTotal)*100):0;
 
   
@@ -22701,8 +22743,8 @@ function renderAnalytics(){
   const cancelCount=allQ.filter(e=>sessIds.has(e.sessionId)&&e.status==='cancelled').length;
   const cancelRate=totalAttempted+cancelCount>0?Math.round(cancelCount/(totalAttempted+cancelCount)*100):0;
   const noShowLost=Math.round(noshow.reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0));
-  const noShowByDay=(()=>{const m={};noshow.forEach(e=>{if(e.sessionDay)m[e.sessionDay]=(m[e.sessionDay]||0)+1;});
-    return Object.fromEntries(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].filter(d=>m[d]).map(d=>[dayLabel(d),m[d]]));})();
+  const noShowByDay=(()=>{const m={};noshow.forEach(e=>{if(_isDay(e.sessionDay))m[e.sessionDay]=(m[e.sessionDay]||0)+1;});
+    return Object.fromEntries(_DAYS.filter(d=>m[d]).map(d=>[dayLabel(d),m[d]]));})();
   // Cash vs card mix: paid rentals (pay_method/card_amount) + cashier receipts (card meta lines).
   // Same row basis as revCollected (every paid row except cancelled/removed — a paid no-show's
   // money is in the drawer) and same whole-take attribution as the close-out (rental + add-ons).
@@ -22712,15 +22754,17 @@ function renderAnalytics(){
       card+=c;cash+=p-c;});
     [...sessIds].forEach(sid=>{const cc=_cashCardCash(sid);card+=cc.card;cash+=cc.cash;cash+=_salesTotals(_cashSessionLines(sid).filter(l=>l.src==='rental')).collected;}); // booking-rung purchases: cash-only, invisible to the receipt split
     return{card:Math.round(card),cash:Math.round(cash)};})();
-  // Team-account consumption per member (products taken on the MM Team account)
-  const teamByMember=(()=>{const m={};const add=(nm,v)=>{if(v<=0)return;const k=(nm||'').trim()||'—';m[k]=(m[k]||0)+v;};
-    (S.cashSales||[]).filter(r=>sessIds.has(r.session_id)&&r.pay==='team'&&r.category!=='__cardmeta__'&&r.category!=='__discount__').forEach(r=>add(r.team,(Number(r.qty)||0)*(Number(r.price)||0)));
+  // Team-account consumption per member (products taken on the MM Team account). A till sale
+  // keeps the member in team_name (a rental purchase line keeps it in team); reading .team off the
+  // sale put every till line under "—".
+  const teamByMember=(()=>{const m={};const add=(nm,v)=>{if(v<=0)return;const k=String(nm||'').trim()||'—';m[k]=(m[k]||0)+v;};
+    (S.cashSales||[]).filter(r=>sessIds.has(r.session_id)&&r.pay==='team'&&r.category!=='__cardmeta__'&&r.category!=='__discount__').forEach(r=>add(r.team_name||r.team,(Number(r.qty)||0)*(Number(r.price)||0)));
     queue.forEach(e=>entryPurchases(e).forEach(p=>{if(p.pay==='team'&&p.cat!=='__discount__')add(p.team,(Number(p.qty)||0)*(Number(p.price)||0));}));
     return Object.fromEntries(Object.entries(m).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k,Math.round(v*100)/100]));})();
   const avgOccupancy=sessionsHeld>0
     ?Math.round(sessionsWithDone.reduce((sum,s)=>{
         const cap=s.capacity||12;
-        return sum+(done.filter(e=>e.sessionId===s.id).length/cap*100);
+        return sum+(_dn(s.id).length/cap*100);
       },0)/sessionsHeld)
     :0;
 
@@ -22733,27 +22777,28 @@ function renderAnalytics(){
   const typeBreak={};
   done.forEach(e=>{const rt=resolvedType(e);typeBreak[rt]=(typeBreak[rt]||0)+1;});
   const dayBreak={};
-  done.forEach(e=>{if(e.sessionDay)dayBreak[e.sessionDay]=(dayBreak[e.sessionDay]||0)+1;});
+  done.forEach(e=>{if(_isDay(e.sessionDay))dayBreak[e.sessionDay]=(dayBreak[e.sessionDay]||0)+1;});
   const revByType={};
   _paidRows(queue).forEach(e=>{const rt=resolvedType(e);revByType[rt]=(revByType[rt]||0)+(e.price??DEFAULT_PRICE);});
   
   const revByDay={};
   const countByDay={};
   done.filter(e=>e.paid).forEach(e=>{
-    if(!e.sessionDay)return;
+    if(!_isDay(e.sessionDay))return;
     revByDay[e.sessionDay]=(revByDay[e.sessionDay]||0)+(e.price??DEFAULT_PRICE);
     countByDay[e.sessionDay]=(countByDay[e.sessionDay]||0)+1;
   });
   
+  // Revenue per ride by type: the fares of paid rides that happened, over those same rides. It
+  // used to divide ALL paid money of a type (paid-ahead nights and paid no-shows included) by the
+  // paid completed rides alone.
   const typeRevPerRide={};
-  Object.keys(revByType).forEach(ty=>{
-    const cnt=done.filter(e=>e.paid&&resolvedType(e)===ty).length;
-    typeRevPerRide[ty]=cnt>0?(revByType[ty]/cnt):0;
-  });
+  (()=>{const sum={},cnt={};done.filter(e=>e.paid).forEach(e=>{const ty=resolvedType(e);sum[ty]=(sum[ty]||0)+(e.price??DEFAULT_PRICE);cnt[ty]=(cnt[ty]||0)+1;});
+    Object.keys(sum).forEach(ty=>{typeRevPerRide[ty]=sum[ty]/cnt[ty];});})();
   const typeColor={Road:'var(--text)',Hybrid:'var(--green)',Mountain:'var(--text)',Any:'var(--muted-l)'};
   const typeColorHex={Road:'#0c7a3d',Hybrid:'#58a17b',Mountain:'#123019',Any:'#8a938c'}; // green-family ladder: segments stay tellable without off-brand hues
   const dayColorHex=_thc('--green','#03ff89');
-  const dayOrder=['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const dayOrder=_DAYS;
   const dayBreakOrdered=Object.fromEntries(dayOrder.filter(d=>dayBreak[d]).map(d=>[dayLabel(d),dayBreak[d]]));
   const topType=Object.keys(typeBreak).sort((a,b)=>typeBreak[b]-typeBreak[a])[0]||'—';
   const topDay=Object.keys(dayBreak).sort((a,b)=>dayBreak[b]-dayBreak[a])[0]||'—';
@@ -22762,11 +22807,11 @@ function renderAnalytics(){
   const timeBreak={};
   done.forEach(e=>{const tm=_sessTimeById[e.sessionId];if(tm)timeBreak[tm]=(timeBreak[tm]||0)+1;});
   const topTime=Object.keys(timeBreak).sort((a,b)=>timeBreak[b]-timeBreak[a])[0]||'—';
-  const revPerRide=totalDone>0?(revTotal/totalDone):0;
-  const revPerCustomer=uniqueCustIds.length>0?(revTotal/uniqueCustIds.length):0;
+  const revPerRide=totalDone>0?(doneRev/totalDone):0;
+  const revPerCustomer=uniqueCustIds.length>0?(done.filter(e=>e.customerId).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0)/uniqueCustIds.length):0;
   const bestSession=sessionsWithDone.length
     ?sessionsWithDone.reduce((best,s)=>{
-        const r=done.filter(e=>e.sessionId===s.id&&e.paid).reduce((sum,e)=>sum+(e.price??DEFAULT_PRICE),0);
+        const r=_dn(s.id).filter(e=>e.paid).reduce((sum,e)=>sum+(e.price??DEFAULT_PRICE),0);
         return r>best.r?{s,r}:best;
       },{s:null,r:-1})
     :{s:null,r:0};
@@ -22786,7 +22831,8 @@ function renderAnalytics(){
   const durBySession={};
   ridesWithDur.forEach(e=>{if(!durBySession[e.sessionId])durBySession[e.sessionId]={sum:0,cnt:0};durBySession[e.sessionId].sum+=e.rideDuration;durBySession[e.sessionId].cnt++;});
   const avgDurBySession={};
-  Object.entries(durBySession).forEach(([sid,{sum,cnt}])=>{const s=allSessions().find(x=>x.id===sid);if(s)avgDurBySession[`${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}`]=Math.round(sum/cnt);});
+  const _sessById=new Map(allSess.map(x=>[x.id,x]));
+  Object.entries(durBySession).forEach(([sid,{sum,cnt}])=>{const s=_sessById.get(sid);if(s)avgDurBySession[`${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}`]=Math.round(sum/cnt);});
   const durSumByType={},durCntByType={};
   ridesWithDur.forEach(e=>{const ty=resolvedType(e);durSumByType[ty]=(durSumByType[ty]||0)+e.rideDuration;durCntByType[ty]=(durCntByType[ty]||0)+1;});
   const avgDurByType={};Object.keys(durSumByType).forEach(k=>{avgDurByType[k]=Math.round(durSumByType[k]/durCntByType[k]);});
@@ -22842,14 +22888,16 @@ function renderAnalytics(){
   const modelColorMap={};_modelKeys.forEach((k,i)=>{modelColorMap[k]=_fleetPalette[i%_fleetPalette.length];});
 
   
+  const qBySessR=new Map();queue.forEach(e=>{let a=qBySessR.get(e.sessionId);if(!a)qBySessR.set(e.sessionId,a=[]);a.push(e);});
+  const _qs=sid=>qBySessR.get(sid)||[];
   const trendData=[...sessions]
-    .filter(s=>done.some(e=>e.sessionId===s.id)||noshow.some(e=>e.sessionId===s.id)||queue.some(e=>e.sessionId===s.id&&e.paid&&e.status!=='cancelled'&&e.status!=='removed'))
+    .filter(s=>doneBySess.has(s.id)||_qs(s.id).some(e=>e.status==='noshow'||(e.paid&&e.status!=='cancelled'&&e.status!=='removed')))
     .sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id))
     .map(s=>{
-      const sDone=done.filter(e=>e.sessionId===s.id);
-      const sNo  =noshow.filter(e=>e.sessionId===s.id);
+      const sDone=_dn(s.id);
+      const sNo  =_qs(s.id).filter(e=>e.status==='noshow');
       const cap  =s.capacity||12;
-      const rev  =_paidRows(queue.filter(e=>e.sessionId===s.id)).reduce((sum,e)=>sum+(e.price??DEFAULT_PRICE),0);
+      const rev  =_paidRows(_qs(s.id)).reduce((sum,e)=>sum+(e.price??DEFAULT_PRICE),0);
       const pend =sDone.filter(e=>!e.paid).reduce((sum,e)=>sum+(e.price??DEFAULT_PRICE),0);
       const occ  =Math.round(sDone.length/cap*100);
       const types={};sDone.forEach(e=>{const rt=resolvedType(e);types[rt]=(types[rt]||0)+1;});
@@ -22867,19 +22915,23 @@ function renderAnalytics(){
     return`<div class="insight-card ${type}"><div class="insight-icon">${icon}</div><div><div class="insight-title">${title}</div><div class="insight-body">${body}</div></div></div>`;
   }
   const insights=[];
-  if(collectionRate>=80) insights.push(insightCard('good','',t('anCollectionRate'),t('anInsightGoodCollection')));
-  else insights.push(insightCard('alert','',t('anCollectionRate'),t('anInsightLowCollection').replace('{0}',revPending.toFixed(0))));
+  // No money in the range at all (the 1st of the month, a future night picked) is not a low
+  // collection rate: the 0% it computes to used to raise the red alert anyway.
+  if(revTotal>0){
+    if(collectionRate>=80) insights.push(insightCard('good','',t('anCollectionRate'),t('anInsightGoodCollection')));
+    else insights.push(insightCard('alert','',t('anCollectionRate'),t('anInsightLowCollection').replace('{0}',revPending.toFixed(0))));
+  }
   if(revPending>0&&revTotal>0&&(revPending/revTotal)>0.2)
     insights.push(insightCard('warn','',t('pendingLabel'),t('anInsightPendingHigh').replace('{0}',revPending.toFixed(0)).replace('{1}',Math.round(revPending/revTotal*100))));
   if(avgOccupancy>=75) insights.push(insightCard('good','',t('anAvgOccupancy'),t('anInsightHighOcc')));
   else if(avgOccupancy<50) insights.push(insightCard('warn','',t('anAvgOccupancy'),t('anInsightLowOcc')));
-  if(topDay&&topDay!=='—') insights.push(insightCard('info','',t('anBusiestDayLabel'),t('anInsightTopDay').replace('{0}',dayLabel(topDay)||topDay)));
-  if(topTime&&topTime!=='—') insights.push(insightCard('info','',t('anPeakTimeLabel'),t('anInsightPeakTime').replace('{0}',topTime).replace('{1}',timeBreak[topTime])));
-  if(topType&&topType!=='—') insights.push(insightCard('info','',t('anMostPopType'),t('anInsightTopType').replace('{0}',typeLabel(topType))));
+  if(topDay&&topDay!=='—') insights.push(insightCard('info','',t('anBusiestDayLabel'),t('anInsightTopDay').replace('{0}',esc(dayLabel(topDay)||topDay))));
+  if(topTime&&topTime!=='—') insights.push(insightCard('info','',t('anPeakTimeLabel'),t('anInsightPeakTime').replace('{0}',esc(topTime)).replace('{1}',timeBreak[topTime])));
+  if(topType&&topType!=='—') insights.push(insightCard('info','',t('anMostPopType'),t('anInsightTopType').replace('{0}',_tl(topType))));
   const retentionPct=uniqueCustIds.length>0?Math.round(repeatCustomers/uniqueCustIds.length*100):0;
   if(retentionPct>=30) insights.push(insightCard('purple','',t('anCustRetention'),t('anInsightRetention').replace('{0}',retentionPct)));
   // Anomaly/trend alert: compare the latest session's ridership to the median of the prior ones.
-  (function(){const sd=sessionsWithDone.slice().sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));if(sd.length<4)return;const cnt=s=>done.filter(e=>e.sessionId===s.id).length;const last=cnt(sd[sd.length-1]);const prior=sd.slice(0,-1).map(cnt).sort((a,b)=>a-b);const med=prior[Math.floor(prior.length/2)]||0;if(med<=0)return;const dev=Math.round((last-med)/med*100);if(dev<=-40)insights.push(insightCard('alert','',t('anAnomalyTitle'),t('anAnomalyDown').replace('{0}',Math.abs(dev)).replace('{1}',med)));else if(dev>=50)insights.push(insightCard('good','',t('anAnomalyTitle'),t('anAnomalyUp').replace('{0}',dev).replace('{1}',med)));})();
+  (function(){const sd=sessionsWithDone.slice().sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));if(sd.length<4)return;const cnt=s=>_dn(s.id).length;const last=cnt(sd[sd.length-1]);const prior=sd.slice(0,-1).map(cnt).sort((a,b)=>a-b);const med=prior[Math.floor(prior.length/2)]||0;if(med<=0)return;const dev=Math.round((last-med)/med*100);if(dev<=-40)insights.push(insightCard('alert','',t('anAnomalyTitle'),t('anAnomalyDown').replace('{0}',Math.abs(dev)).replace('{1}',med)));else if(dev>=50)insights.push(insightCard('good','',t('anAnomalyTitle'),t('anAnomalyUp').replace('{0}',dev).replace('{1}',med)));})();
 
 
   function occGauge(pct){
@@ -22899,14 +22951,17 @@ function renderAnalytics(){
   }
 
   
-  function bars(data,colorFn,valueFmt){
+  // isType: the keys are bike types, labelled through typeLabel. Every other key (a day label, a
+  // team member's name) is text and is escaped - a name typed at the till is not markup.
+  function bars(data,colorFn,valueFmt,isType){
     const max=Math.max(...Object.values(data),1);
-    return Object.entries(data).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0).map(([k,v])=>
-      `<div class="analytics-bar-row" title="${(typeLabel(k)||k)}: ${valueFmt?String(valueFmt(v)).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim():v}">
-        <div class="analytics-bar-label">${typeLabel(k)||k}</div>
+    return Object.entries(data).sort((a,b)=>b[1]-a[1]).filter(([,v])=>v>0).map(([k,v])=>{
+      const lbl=isType?_tl(k):esc(k);
+      return`<div class="analytics-bar-row" title="${esc(String(lbl).replace(/<[^>]*>/g,''))}: ${valueFmt?esc(String(valueFmt(v)).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim()):v}">
+        <div class="analytics-bar-label">${lbl}</div>
         <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(v/max*100)}%;background:${colorFn(k)}"></div></div>
         <div class="analytics-bar-value">${valueFmt?valueFmt(v):v}</div>
-      </div>`).join('');
+      </div>`;}).join('');
   }
 
   
@@ -22921,13 +22976,13 @@ function renderAnalytics(){
   });
   function thSort(col,label){
     const active=ss===col;
-    return`<th class="an-sort-th${active?' an-sort-active':''}${active&&sd===-1?' desc':''}" onclick="setAnSort('${col}')">${label}</th>`;
+    return`<th class="an-sort-th${active?' an-sort-active':''}${active&&sd===-1?' desc':''}" onclick="setAnSort(${_ja(col)})">${label}</th>`;
   }
   const trendRows=sortedTrend.map(({s,sDone,sNo,cap,rev,pend,occ,topT,riders,noShows})=>{
     const occColor=occ>=50?'var(--green)':'var(--muted-l)';
     return`<tr>
-      <td style="font-weight:800;white-space:nowrap">${shortDate(s.session_date||s.id)}</td>
-      <td style="color:var(--muted);font-size:12px">${dayLabel(s.day)||''}</td>
+      <td style="font-weight:800;white-space:nowrap">${esc(shortDate(s.session_date||s.id))}</td>
+      <td style="color:var(--muted);font-size:12px">${esc(dayLabel(s.day)||'')}</td>
       <td style="font-weight:900;font-size:16px">${riders}<span style="font-size:11px;color:var(--muted);font-weight:600"> / ${cap}</span></td>
       <td style="color:var(--green);font-weight:800">${sarBoth(rev)}</td>
       <td style="color:var(--muted-l);font-weight:700">${pend>0?sarBoth(pend):'<span style="color:var(--muted)">—</span>'}</td>
@@ -22936,7 +22991,7 @@ function renderAnalytics(){
         <div class="analytics-occ-track"><div class="analytics-occ-fill" style="width:${occ}%;background:${occColor}"></div></div>
         <span style="font-size:12px;font-weight:800;color:${occColor}">${occ}%</span>
       </div></td>
-      <td>${topT!=='—'?`<span class="type-badge ${TYPE_CLS[topT]||'type-any'}">${typeLabel(topT)}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
+      <td>${topT!=='—'?`<span class="type-badge ${_tcls(topT)}">${_tl(topT)}</span>`:'<span style="color:var(--muted)">—</span>'}</td>
     </tr>`;
   });
 
@@ -22972,11 +23027,11 @@ function renderAnalytics(){
     <div style="font-size:11px;color:var(--muted);font-weight:600">${t('anCollected')}</div>
   </div>`;
 
-  const typeSegs=Object.entries(typeBreak).map(([k,v])=>({v,c:typeColorHex[k]||'#777',label:k}));
+  const typeSegs=Object.entries(typeBreak).map(([k,v])=>({v,c:typeColorHex[k]||'#777',label:_tl(k),key:k})); // label lands in the donut's SVG tooltip as markup
   const typeDonut=_donut(typeSegs);
   const typeLegend=`<div class="donut-legend">${typeSegs.sort((a,b)=>b.v-a.v).map(d=>{
     const pct=Math.round(d.v/totalDone*100);
-    return`<div class="donut-legend-item"><span class="donut-dot" style="background:${d.c}"></span>${typeLabel(d.label)} - ${d.v} (${pct}%)</div>`;
+    return`<div class="donut-legend-item"><span class="donut-dot" style="background:${d.c}"></span>${_tl(d.key)} - ${d.v} (${pct}%)</div>`;
   }).join('')}</div>`;
 
   
@@ -22991,26 +23046,26 @@ function renderAnalytics(){
   const noDataStr=`<div style="color:var(--muted);font-size:13px;padding-top:8px">${t('anNoData2')}</div>`;
 
   // ── Add-on sales (within the selected range) ──
-  const _anSeen=new Set();const anGroups=[];
-  queue.filter(e=>e.status==='done'||e.status==='active').forEach(e=>{
-    if(_anSeen.has(e.id))return;
-    if(e.customerId){
-      const g=queue.filter(x=>x.customerId===e.customerId&&x.sessionId===e.sessionId&&(x.status==='done'||x.status==='active')&&!_anSeen.has(x.id));
-      g.forEach(x=>_anSeen.add(x.id));anGroups.push(g);
-    }else{_anSeen.add(e.id);anGroups.push([e]);}
-  });
+  // One group per account per session (a party's add-ons are counted together), built in one
+  // pass; it used to re-scan the whole range once per rider.
+  const anGroups=[];(()=>{const byKey=new Map();
+    queue.forEach(e=>{if(e.status!=='done'&&e.status!=='active')return;
+      if(!e.customerId){anGroups.push([e]);return;}
+      const k=e.customerId+'\u0000'+e.sessionId;let g=byKey.get(k);if(!g){byKey.set(k,g=[]);anGroups.push(g);}g.push(e);});})();
   const anAddons=addonSalesFromGroups(anGroups);
   const anAddonMax=Math.max(1,...anAddons.items.map(a=>a.units));
 
   // ── Retention (all-time, independent of range) ──
+  // A rider's count is VISITS (distinct sessions), as in the in-range numbers above: a party of
+  // three on one booking is one visit by its booker, not three rides that made them a repeat rider.
   const _allDone=allQ.filter(e=>e.status==='done'&&e.customerId);
   const custAll={};
-  _allDone.forEach(e=>{const d=e.sessionDate||'';const c=custAll[e.customerId]||(custAll[e.customerId]={count:0,last:'',name:e.name,phone:''});c.count++;if(e.phone)c.phone=e.phone;if(d>=c.last){c.last=d;c.name=e.name||c.name;}});
+  _allDone.forEach(e=>{const d=e.sessionDate||'';const c=custAll[e.customerId]||(custAll[e.customerId]={count:0,_s:new Set(),last:'',name:e.name,phone:''});c._s.add(e.sessionId);c.count=c._s.size;if(e.phone)c.phone=e.phone;if(d>=c.last){c.last=d;c.name=e.name||c.name;}});
   const _riderIds=Object.keys(custAll);
   const retTotalRiders=_riderIds.length;
   const retRepeatRiders=_riderIds.filter(id=>custAll[id].count>=2).length;
   const retRepeatPct=retTotalRiders?Math.round(retRepeatRiders/retTotalRiders*100):0;
-  const _cutISO=new Date(Date.now()-30*864e5).toISOString().slice(0,10);
+  const _cutISO=_isoAddDays(todayStr(),-30); // 30 days back from the KSA date
   const retLapsed=_riderIds.filter(id=>custAll[id].last&&custAll[id].last<_cutISO)
     .map(id=>({id,name:custAll[id].name,last:custAll[id].last,count:custAll[id].count}))
     .sort((a,b)=>b.last.localeCompare(a.last));
@@ -23019,7 +23074,9 @@ function renderAnalytics(){
     const c=m[e.customerId]||(m[e.customerId]={id:e.customerId,name:e.name,_s:new Set(),spent:0,last:''});
     c._s.add(e.sessionId);c.spent+=(e.price??DEFAULT_PRICE);const d=e.sessionDate||'';if(d>=c.last){c.last=d;c.name=e.name||c.name;}});
     return Object.values(m).map(c=>({id:c.id,name:c.name,rides:c._s.size,spent:c.spent,last:c.last})).sort((a,b)=>b.spent-a.spent).slice(0,10);})();
-  const _custPhone=id=>{const c=custAll[id];return c&&c.phone?String(c.phone).replace(/\D/g,''):'';}; // phone comes from the rider's own booking entries (customers table is not bulk-fetched, by design)
+  // Phone comes from the rider's own booking entries (customers table is not bulk-fetched, by
+  // design). _waDigits, not bare digits: a number kept as 05xx made the link point at wa.me/05….
+  const _custPhone=id=>{const c=custAll[id];return c&&c.phone?_waDigits(c.phone):'';};
   const _waReengage=id=>{const ph=_custPhone(id);if(!ph)return'';
     return`<a class="btn-sm btn-green" style="text-decoration:none" href="https://wa.me/${ph}?text=${encodeURIComponent(t('waMissYouMsg'))}" target="_blank" rel="noopener">WhatsApp</a>`;};
   const _cohorts={};
@@ -23054,7 +23111,7 @@ function renderAnalytics(){
 
   // ── Period-over-period comparison: compute the same headline metrics for the preceding equivalent window ──
   function _anMetricsFor(fromISO,toISO){
-    const ss=allSess.filter(s=>{const d=(s.session_date||s.id);return d>=fromISO&&d<=toISO;});
+    const ss=allSess.filter(s=>{if(s.status==='deleted')return false;const d=String(s.session_date||s.id||'');return d>=fromISO&&d<=toISO;});
     const ids=new Set(ss.map(s=>s.id));
     const q=allQ.filter(e=>ids.has(e.sessionId));
     const dn=q.filter(e=>e.status==='done'),no=q.filter(e=>e.status==='noshow');
@@ -23068,19 +23125,31 @@ function renderAnalytics(){
     return{revCollected:rc,rides:dn.length,occ,uniq:new Set(dn.filter(e=>e.customerId).map(e=>e.customerId)).size,comp:att?Math.round(dn.length/att*100):0,
       sales,nsr:att?Math.round(no.length/att*100):0,cr:att+can>0?Math.round(can/(att+can)*100):0,avgSess:sw.length?Math.round(rt/sw.length):0};
   }
-  const _isoL=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  let prevM=null;
-  if(S.analyticsRange==='month'){const n=new Date();prevM=_anMetricsFor(_isoL(new Date(n.getFullYear(),n.getMonth()-1,1)),_isoL(new Date(n.getFullYear(),n.getMonth(),0)));}
-  else if(S.analyticsRange==='year'){const y=new Date().getFullYear()-1;prevM=_anMetricsFor(y+'-01-01',y+'-12-31');}
-  else if(S.analyticsRange==='daterange'&&S.analyticsDateFrom&&S.analyticsDateTo){
-    const f=new Date(S.analyticsDateFrom),to=new Date(S.analyticsDateTo);
-    const len=Math.max(1,Math.round((to-f)/864e5)+1);
-    const pTo=new Date(f.getTime()-864e5),pFrom=new Date(pTo.getTime()-(len-1)*864e5);
-    prevM=_anMetricsFor(_isoL(pFrom),_isoL(pTo));
+  // Both sides are measured the same way over windows of the same length, on KSA dates. "This
+  // Month" used to set the whole of last month against the month so far, so every card read about
+  // -80% in red for most of the month; it now sets the 1st-to-today against the 1st-to-the-same-date
+  // last month (the year likewise). A single-session focus has no previous period, so no arrows.
+  const _ymd=(y,m,d)=>`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  const _dim=(y,m)=>new Date(Date.UTC(y,m,0)).getUTCDate(); // days in month m (1-12)
+  let prevM=null,curM=null;
+  if(!(S.anSession&&S.anSession!=='all')){
+    const _td=todayStr(),[ty,tm,tdd]=_td.split('-').map(Number);
+    if(S.analyticsRange==='month'){const py=tm===1?ty-1:ty,pm=tm===1?12:tm-1;
+      curM=_anMetricsFor(_ymd(ty,tm,1),_td);prevM=_anMetricsFor(_ymd(py,pm,1),_ymd(py,pm,Math.min(tdd,_dim(py,pm))));}
+    else if(S.analyticsRange==='year'){
+      curM=_anMetricsFor(_ymd(ty,1,1),_td);prevM=_anMetricsFor(_ymd(ty-1,1,1),_ymd(ty-1,tm,Math.min(tdd,_dim(ty-1,tm))));}
+    else if(S.analyticsRange==='daterange'&&S.analyticsDateFrom&&S.analyticsDateTo){
+      const f=S.analyticsDateFrom,to=S.analyticsDateTo;
+      const len=Math.max(1,Math.round((Date.parse(to+'T00:00:00Z')-Date.parse(f+'T00:00:00Z'))/864e5)+1);
+      const pTo=_isoAddDays(f,-1),pFrom=_isoAddDays(pTo,-(len-1));
+      if(pTo&&pFrom){curM=_anMetricsFor(f,to);prevM=_anMetricsFor(pFrom,pTo);}
+    }
   }
-  // Small delta pill: ▲/▼ % vs previous period. invert=true means "lower is better".
-  function deltaBadge(cur,prevVal,invert){
-    if(prevM===null)return'';
+  // Small delta pill: ▲/▼ % vs previous period, for metric `key` of the two windows above.
+  // invert=true means "lower is better".
+  function deltaBadge(key,invert){
+    if(prevM===null||curM===null)return'';
+    const cur=curM[key],prevVal=prevM[key];
     if((prevVal||0)===0&&(cur||0)===0)return'';
     if((prevVal||0)===0)return`<span class="an-delta" style="color:var(--green)" title="${t('anVsPrev')}">▲ ${t('lbNewLabel')}</span>`;
     const pct=Math.round((cur-prevVal)/Math.abs(prevVal)*100);
@@ -23101,7 +23170,12 @@ function renderAnalytics(){
     const tActive=allQ.filter(e=>e.status==='active').length;
     let rev=tq.filter(e=>e.paid&&e.status!=='cancelled'&&e.status!=='removed').reduce((a,e)=>a+(e.price??DEFAULT_PRICE),0);
     tIds.forEach(sid=>{try{const cc=_cashCardCash(sid);rev+=cc.card+cc.cash;rev+=_salesTotals(_cashSessionLines(sid).filter(l=>l.src==='rental')).collected;}catch(e){}}); // + booking-rung purchase money
-    const cap=todaySess.reduce((a,s)=>a+(s.capacity||12),0),booked=tq.filter(e=>e.status!=='cancelled').length;
+    // Booked = places held, by the same rule as the spot counts (_holdsSpot): removed rows and
+    // no-shows gave theirs back, own-bike riders hold none (except on the Petromin ride), and a
+    // waitlisted rider is waiting for one. Counting every row that was not cancelled read "53/40".
+    const _tsById=new Map(todaySess.map(s=>[s.id,s]));
+    const cap=todaySess.reduce((a,s)=>a+((_isApprovalRide(s)&&s.spots)||s.capacity||12),0);
+    const booked=tq.filter(e=>e.status!=='waitlist'&&_holdsSpot(e,_tsById.get(e.sessionId))).length;
     const stat=(v,l,col)=>`<div style="flex:1;min-width:120px;text-align:center"><div style="font-size:30px;font-weight:900;color:${col};line-height:1"><bdi>${v}</bdi></div><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:5px">${l}</div></div>`;
     return`<div class="chart-card" style="background:linear-gradient(180deg,rgba(var(--green-rgb),.06),transparent)"><div class="chart-card-title">${t('anLiveTitle')}</div><div class="chart-card-sub">${t('anLiveSub')}</div><div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px">${stat(tDone.length,t('anLiveRides'),'var(--green)')}${stat('SAR '+Math.round(rev),t('anLiveRev'),'var(--green)')}${stat(tActive,t('anLiveActive'),'var(--blue)')}${stat(booked+'/'+cap,t('anLiveFill'),'var(--orange)')}</div></div>`;
   }
@@ -23109,7 +23183,10 @@ function renderAnalytics(){
     const _JSDOW=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
     // Funnel
     const fn=_anFunnelCounts(queue),fmax=Math.max(1,fn.booked);
-    const frow=(lbl,v,prev)=>{const pct=Math.round(v/fmax*100),drop=prev!=null?prev-v:0;return`<div class="analytics-bar-row"><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:3px"><span>${lbl}</span><span>${v}${drop>0?` <span style="color:var(--muted);font-weight:600">−${drop}</span>`:''}</span></div><div style="height:15px;background:var(--s3);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--green);border-radius:3px"></div></div></div>`;};
+    // A stacked row of its own (label line over a full-width bar). It used to borrow
+    // .analytics-bar-row, whose flex row put the bar BESIDE the label with no width of its own, so
+    // every funnel bar rendered zero pixels wide.
+    const frow=(lbl,v,prev)=>{const pct=Math.round(v/fmax*100),drop=prev!=null?prev-v:0;return`<div class="an-funnel-row" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;margin-bottom:3px"><span>${lbl}</span><span>${v}${drop>0?` <span style="color:var(--muted);font-weight:600">−${drop}</span>`:''}</span></div><div style="height:15px;background:var(--s3);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--green);border-radius:3px"></div></div></div>`;};
     const funnel=`<div class="chart-card"><div class="chart-card-title">${t('anFunnelTitle')}</div><div class="chart-card-sub">${t('anFunnelSub')}</div>${frow(t('anFunnelBooked'),fn.booked,null)}${frow(t('anFunnelCheckedIn'),fn.checkedIn,fn.booked)}${frow(t('anFunnelCompleted'),fn.completed,fn.checkedIn)}<div style="font-size:12px;color:var(--muted);margin-top:8px">${t('anCompletionRate')}: <b style="color:var(--green)">${completionRate}%</b> · ${t('anNoShowRate')}: <b style="color:var(--orange)">${noShowRate}%</b></div></div>`;
     // Heatmap (day × 2-hour slot)
     const heat=_anHeatGrid(done);let heatCard='';
@@ -23121,9 +23198,9 @@ function renderAnalytics(){
     }
     // Trend sparklines across recent in-range sessions (oldest → newest)
     const chron=sessions.slice().sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
-    const sRev=chron.map(s=>Math.round(_paidRows(queue.filter(e=>e.sessionId===s.id)).reduce((a,e)=>a+(e.price??DEFAULT_PRICE),0)));
-    const sRides=chron.map(s=>done.filter(e=>e.sessionId===s.id).length);
-    const sOcc=chron.map(s=>{const c=s.capacity||12;return Math.round(done.filter(e=>e.sessionId===s.id).length/c*100);});
+    const sRev=chron.map(s=>Math.round(_paidRows(_qs(s.id)).reduce((a,e)=>a+(e.price??DEFAULT_PRICE),0)));
+    const sRides=chron.map(s=>_dn(s.id).length);
+    const sOcc=chron.map(s=>{const c=s.capacity||12;return Math.round(_dn(s.id).length/c*100);});
     const _spark=(label,series,fmt,color)=>`<div style="flex:1;min-width:100px"><div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">${label}</div><div style="font-size:18px;font-weight:900;margin:2px 0 4px">${series.length?fmt(series[series.length-1]):'—'}</div>${_anSparkline(series,color)}</div>`;
     const trends=chron.length>=2?`<div class="chart-card"><div class="chart-card-title">${t('anTrendsTitle')}</div><div class="chart-card-sub">${t('anTrendsSub')}</div><div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:6px">${_spark(t('anRevCollected'),sRev,v=>'SAR '+v,'var(--green)')}${_spark(t('anRidership'),sRides,v=>String(v),'var(--blue)')}${_spark(t('anAvgOccupancy'),sOcc,v=>v+'%','var(--orange)')}</div></div>`:'';
     // Retail attach + this-month forecast
@@ -23143,7 +23220,10 @@ function renderAnalytics(){
     const nowMs=Date.now(),segs={champions:[],loyal:[],newbie:[],atrisk:[],lost:[]};
     Object.keys(cust).forEach(id=>{const c=cust[id],rides=c.sess.size,rec=c.last?Math.round((nowMs-c.last)/86400000):9999;segs[_anRFMSegment(rec,rides)].push({id,name:c.name,phone:c.phone,rides,recencyDays:rec,spend:Math.round(c.spend)});});
     Object.values(segs).forEach(a=>a.sort((x,y)=>y.spend-x.spend||x.recencyDays-y.recencyDays));
-    const cap=k=>k.charAt(0).toUpperCase()+k.slice(1);
+    // Segment id -> the translation key's stem. Capitalising the id built anRfmNewbie and
+    // anRfmAtrisk, keys that exist in no language, so two headings showed the raw key.
+    const _rfmStem={champions:'Champions',loyal:'Loyal',newbie:'New',atrisk:'AtRisk',lost:'Lost'};
+    const cap=k=>_rfmStem[k];
     const rfmChip=r=>{const ph=_waDigits(r.phone),lbl=`${esc(r.name||'—')} · ${r.rides}🚲 · SAR ${r.spend}`;return ph?`<a style="text-decoration:none;background:var(--s3);border:1px solid var(--border);color:var(--text);font-weight:700;font-size:11px;margin:2px;padding:4px 9px;border-radius:3px;display:inline-block" href="https://wa.me/${ph}?text=${encodeURIComponent(t('anRfmMsg').replace('{0}',(r.name||'').split(' ')[0]||''))}" target="_blank" rel="noopener">${lbl}</a>`:`<span style="background:var(--s3);border:1px solid var(--border);color:var(--muted);font-weight:700;font-size:11px;margin:2px;padding:4px 9px;border-radius:3px;display:inline-block">${lbl}</span>`;};
     const segMeta=[['champions','var(--green)'],['loyal','var(--blue)'],['newbie','var(--green)'],['atrisk','var(--orange)'],['lost','var(--muted-l)']];
     const rfm=`<div class="chart-card"><div class="chart-card-title">${t('anRfmTitle')}</div><div class="chart-card-sub">${t('anRfmSub')}</div>${segMeta.map(([k,col])=>{const list=segs[k];return`<div style="margin-top:10px"><div style="font-size:12px;font-weight:900;color:${col};text-transform:uppercase;letter-spacing:.4px">${t('anRfm'+cap(k))} <span style="color:var(--muted);font-weight:700">${list.length}</span> <span style="color:var(--muted);font-weight:600;text-transform:none">· ${t('anRfm'+cap(k)+'D')}</span></div><div style="display:flex;flex-wrap:wrap;margin-top:4px">${list.length?list.slice(0,10).map(rfmChip).join('')+(list.length>10?`<span style="font-size:11px;color:var(--muted);align-self:center;margin-inline-start:6px">${t('anRfmMore').replace('{0}',list.length-10)}</span>`:''):`<span style="font-size:11px;color:var(--muted)">${t('anRfmNone')}</span>`}</div></div>`;}).join('')}</div>`;
@@ -23163,13 +23243,13 @@ function renderAnalytics(){
     const marginCard=mg.haveCost?`<div class="chart-card"><div class="chart-card-title">${t('anMarginTitle')}</div><div class="chart-card-sub">${t('anMarginSub')}</div><div class="analytics-kpi-grid" style="margin-top:6px"><div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--green)">${mg.marginPct}%</div><div class="analytics-kpi-label">${t('anMargin')}</div></div><div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--green)"><bdi>SAR ${mg.profit}</bdi></div><div class="analytics-kpi-label">${t('anGrossProfit')}</div></div><div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--orange)"><bdi>SAR ${mg.cogs}</bdi></div><div class="analytics-kpi-label">${t('anCogs')}</div></div></div></div>`:'';
     // Weather & demand: rides vs daily-high temperature (Open-Meteo)
     const wx=S.anWeather||{};
-    const wrows=chron.map(sx=>({date:sx.session_date||sx.id,rides:done.filter(e=>e.sessionId===sx.id).length,temp:wx[sx.session_date]})).filter(r=>r.temp!=null);
+    const wrows=chron.map(sx=>({date:sx.session_date||sx.id,rides:_dn(sx.id).length,temp:wx[sx.session_date]})).filter(r=>r.temp!=null);
     let weatherCard='';
     if(wrows.length>=3){
       const corr=_anCorrelation(wrows.map(r=>r.temp),wrows.map(r=>r.rides));
       const takeaway=corr>0.3?t('anWeatherWarmMore'):corr<-0.3?t('anWeatherWarmLess'):t('anWeatherFlat');
       const rmax=Math.max(1,...wrows.map(r=>r.rides));
-      weatherCard=`<div class="chart-card"><div class="chart-card-title">${t('anWeatherTitle')}</div><div class="chart-card-sub">${t('anWeatherSub')}</div><div style="font-size:12px;margin:2px 0 8px"><b>${takeaway}</b> <span style="color:var(--muted)">· r=${corr.toFixed(2)}</span></div>${wrows.slice(-8).map(r=>`<div class="analytics-bar-row"><div class="analytics-bar-label" style="min-width:96px">${shortDate(r.date)} · ${Math.round(r.temp)}°</div><div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(r.rides/rmax*100)}%;background:var(--blue)"></div></div><div class="analytics-bar-value">${r.rides} 🚲</div></div>`).join('')}</div>`;
+      weatherCard=`<div class="chart-card"><div class="chart-card-title">${t('anWeatherTitle')}</div><div class="chart-card-sub">${t('anWeatherSub')}</div><div style="font-size:12px;margin:2px 0 8px"><b>${takeaway}</b> <span style="color:var(--muted)">· r=${corr.toFixed(2)}</span></div>${wrows.slice(-8).map(r=>`<div class="analytics-bar-row"><div class="analytics-bar-label" style="min-width:96px">${esc(shortDate(r.date))} · ${Math.round(r.temp)}°</div><div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(r.rides/rmax*100)}%;background:var(--blue)"></div></div><div class="analytics-bar-value">${r.rides} 🚲</div></div>`).join('')}</div>`;
     }
     return`<div class="an-anchor" data-anview="growth"></div>
     <div class="analytics-section-title">${t('anNavGrowth')}</div>
@@ -23177,7 +23257,7 @@ function renderAnalytics(){
   }
 
   // Rows behind the "Export CSV" button (per-session summary for the current range).
-  S._anCsvRows=sessions.map(s=>{const sd=done.filter(e=>e.sessionId===s.id);const rev=sd.filter(e=>e.paid).reduce((a,e)=>a+(e.price??DEFAULT_PRICE),0);const cap=s.capacity||12;return{date:s.session_date||s.id,day:s.day||'',riders:sd.length,no_shows:noshow.filter(e=>e.sessionId===s.id).length,revenue_sar:Math.round(rev),occupancy_pct:cap?Math.round(sd.length/cap*100):0};});
+  S._anCsvRows=sessions.map(s=>{const sd=_dn(s.id);const rev=sd.filter(e=>e.paid).reduce((a,e)=>a+(e.price??DEFAULT_PRICE),0);const cap=s.capacity||12;return{date:s.session_date||s.id,day:s.day||'',riders:sd.length,no_shows:_qs(s.id).filter(e=>e.status==='noshow').length,revenue_sar:Math.round(rev),occupancy_pct:cap?Math.round(sd.length/cap*100):0};});
   // Text behind the "Share digest" button (WhatsApp-friendly summary of the current range).
   S._anDigestText=`MicroMobility — ${t('tabAnalytics')}\n🚲 ${t('anTotalRides')}: ${done.length}\n💰 ${t('anRevCollected')}: SAR ${Math.round(revCollected)}${revPending>0?` (+SAR ${Math.round(revPending)} ${t('printPending').toLowerCase()})`:''}\n📊 ${t('anAvgOccupancy')}: ${avgOccupancy}%${anTopItems.length?`\n🏆 ${t('anTopSellers')}: ${anTopItems[0].name}`:''}${noshow.length?`\n⚠️ ${t('anNoShowRate')}: ${noShowRate}% (${noshow.length})`:''}`;
   document.getElementById('tab-analytics').innerHTML=`
@@ -23186,7 +23266,7 @@ function renderAnalytics(){
     <div class="an-sticky">
       ${_rangeBar()}
       <div class="an-subnav">
-        ${[['overview',t('anNavOverview')],['revenue',t('anRevenue')],['ridership',t('anRidership')],['operations',t('anOperations')],['fleet',t('anFleetSection')],['customers',t('anNavCustomers')],['growth',t('anNavGrowth')]].map(([v,l])=>`<button class="an-nav-btn${S.anView===v?' active':''}" data-anview="${v}" onclick="setAnView('${v}')">${l}</button>`).join('')}
+        ${[['overview',t('anNavOverview')],['revenue',t('anRevenue')],['ridership',t('anRidership')],['operations',t('anOperations')],['fleet',t('anFleetSection')],['customers',t('anNavCustomers')],['growth',t('anNavGrowth')]].map(([v,l])=>`<button class="an-nav-btn${S.anView===v?' active':''}" data-anview="${v}" onclick="setAnView(${_ja(v)})">${l}</button>`).join('')}
       </div>
     </div>
 
@@ -23203,7 +23283,7 @@ function renderAnalytics(){
     <div class="analytics-kpi-grid">
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:var(--green)">${sarBoth(revCollected)}</div>
-        <div class="analytics-kpi-label">${t('anCollected')} ${deltaBadge(revCollected,prevM&&prevM.revCollected)}</div>
+        <div class="analytics-kpi-label">${t('anCollected')} ${deltaBadge('revCollected')}</div>
         <div class="analytics-kpi-sub">${collectionRate}% ${t('anCollRateLabel')}</div>
       </div>
       <div class="analytics-kpi-card">
@@ -23218,7 +23298,7 @@ function renderAnalytics(){
       </div>
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value">${sarBoth(avgRevPerSession)}</div>
-        <div class="analytics-kpi-label">${t('anAvgPerSession')} ${deltaBadge(avgRevPerSession,prevM&&prevM.avgSess)}</div>
+        <div class="analytics-kpi-label">${t('anAvgPerSession')} ${deltaBadge('avgSess')}</div>
         <div class="analytics-kpi-sub">${sarBoth(revPerRide,1)} ${t('anPerRide')}</div>
       </div>
     </div>
@@ -23271,23 +23351,23 @@ function renderAnalytics(){
         <div class="analytics-kpi-sub">${t('anRideDefSub')}</div>
       </div>
       <div class="analytics-kpi-card">
-        <div class="analytics-kpi-value" style="color:var(--blue)">${_min>0?fmtDur(_min):'0 min'}</div>
+        <div class="analytics-kpi-value" style="color:var(--blue)">${_min>0?fmtDur(_min):'0 '+t('unitMin')}</div>
         <div class="analytics-kpi-label">${t('anRideMinutes')}</div>
         <div class="analytics-kpi-sub">${_measured} ${t('anMeasuredRides')}</div>
       </div>`;})()}
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value">${totalDone}</div>
-        <div class="analytics-kpi-label">${t('anTotalRides')} ${deltaBadge(totalDone,prevM&&prevM.rides)}</div>
+        <div class="analytics-kpi-label">${t('anTotalRides')} ${deltaBadge('rides')}</div>
         <div class="analytics-kpi-sub">${noshow.length} ${t('filterNoshow').toLowerCase()} · ${cancelCount} ${t('anCancellations')}</div>
       </div>
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:${completionRate>=70?'var(--green)':'var(--red)'}">${completionRate}%</div>
-        <div class="analytics-kpi-label">${t('anCompletionRate')} ${deltaBadge(completionRate,prevM&&prevM.comp)}</div>
+        <div class="analytics-kpi-label">${t('anCompletionRate')} ${deltaBadge('comp')}</div>
         <div class="analytics-kpi-sub">${done.length} ${t('anOf')} ${totalAttempted} ${t('anAttempts')}</div>
       </div>
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:var(--green)">${uniqueCustIds.length}</div>
-        <div class="analytics-kpi-label">${t('anUniqueCustomers')} ${deltaBadge(uniqueCustIds.length,prevM&&prevM.uniq)}</div>
+        <div class="analytics-kpi-label">${t('anUniqueCustomers')} ${deltaBadge('uniq')}</div>
         <div class="analytics-kpi-sub">${sarBoth(revPerCustomer,1)} ${t('anAvgSpend')}</div>
       </div>
       <div class="analytics-kpi-card">
@@ -23325,17 +23405,17 @@ function renderAnalytics(){
       </div>
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:${avgOccupancy>=50?'var(--green)':'var(--red)'}">${avgOccupancy}%</div>
-        <div class="analytics-kpi-label">${t('anAvgOccupancy')} ${deltaBadge(avgOccupancy,prevM&&prevM.occ)}</div>
+        <div class="analytics-kpi-label">${t('anAvgOccupancy')} ${deltaBadge('occ')}</div>
         <div class="analytics-kpi-sub">${t('anRidersCapacity')}</div>
       </div>
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:${noShowRate>15?'var(--red)':'var(--green)'}">${noShowRate}%</div>
-        <div class="analytics-kpi-label">${t('anNoShowRate')} ${deltaBadge(noShowRate,prevM&&prevM.nsr,true)}</div>
+        <div class="analytics-kpi-label">${t('anNoShowRate')} ${deltaBadge('nsr',true)}</div>
         <div class="analytics-kpi-sub">${noshow.length} ${t('anOf')} ${totalAttempted} ${t('anAttempts')} · ~<bdi>SAR ${noShowLost}</bdi> ${t('anNoShowLost')}</div>
       </div>
       <div class="analytics-kpi-card">
         <div class="analytics-kpi-value" style="color:${cancelRate>10?'var(--red)':'var(--muted-l)'}">${cancelRate}%</div>
-        <div class="analytics-kpi-label">${t('anCancellationRate')} ${deltaBadge(cancelRate,prevM&&prevM.cr,true)}</div>
+        <div class="analytics-kpi-label">${t('anCancellationRate')} ${deltaBadge('cr',true)}</div>
         <div class="analytics-kpi-sub">${cancelCount} ${t('anCancellations')}</div>
       </div>
     </div>
@@ -23367,12 +23447,12 @@ function renderAnalytics(){
       <div class="chart-card">
         <div class="chart-card-title">${t('anByRevType')}</div>
         <div class="chart-card-sub">${t('anCollectedOnly')}</div>
-        ${Object.keys(revByType).length?bars(revByType,k=>typeColorHex[k]||'#777',v=>sarBoth(v)):noDataStr}
+        ${Object.keys(revByType).length?bars(revByType,k=>typeColorHex[k]||'#777',v=>sarBoth(v),true):noDataStr}
       </div>
       <div class="chart-card">
         <div class="chart-card-title">${t('anTypeRevPerRide')}</div>
         <div class="chart-card-sub">${t('anTypeRevPerRideSub')}</div>
-        ${Object.keys(typeRevPerRideOrdered).length?bars(typeRevPerRideOrdered,k=>typeColorHex[k]||'#777',v=>sarBoth(v,2)):noDataStr}
+        ${Object.keys(typeRevPerRideOrdered).length?bars(typeRevPerRideOrdered,k=>typeColorHex[k]||'#777',v=>sarBoth(v,2),true):noDataStr}
       </div>
     </div>
 
@@ -23485,7 +23565,7 @@ function renderAnalytics(){
         <div class="chart-card-title">${t('anDurByType')}</div>
         <div class="chart-card-sub">${t('anDurByTypeSub')}</div>
         ${Object.keys(avgDurByType).length?Object.entries(avgDurByType).sort((a,b)=>b[1]-a[1]).map(([ty,avg])=>`<div class="analytics-bar-row">
-            <div class="analytics-bar-label">${typeLabel(ty)}</div>
+            <div class="analytics-bar-label">${_tl(ty)}</div>
             <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(avg/Math.max(...Object.values(avgDurByType),1)*100)}%;background:${typeColorHex[ty]||'#777'}"></div></div>
             <div class="analytics-bar-value">${fmtDur(avg)}</div>
           </div>`).join(''):noDataStr}
@@ -23505,7 +23585,7 @@ function renderAnalytics(){
         <div class="chart-card-title">${t('anDurDistrib')}</div>
         <div class="chart-card-sub">${t('anDurDistribSub')}</div>
         ${Object.entries(durBuckets).map(([label,cnt])=>`<div class="analytics-bar-row">
-            <div class="analytics-bar-label">${label}</div>
+            <div class="analytics-bar-label">${({'<15 min':'<15 '+t('unitMin'),'15-30 min':'15-30 '+t('unitMin'),'30-60 min':'30-60 '+t('unitMin'),'1h+':'1 '+t('unitHour')+'+'})[label]||label}</div>
             <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${ridesWithDur.length?Math.round(cnt/ridesWithDur.length*100):0}%;background:var(--blue)"></div></div>
             <div class="analytics-bar-value">${cnt} <span style="color:var(--muted);font-size:10px">(${ridesWithDur.length?Math.round(cnt/ridesWithDur.length*100):0}%)</span></div>
           </div>`).join('')}
@@ -23514,7 +23594,7 @@ function renderAnalytics(){
         <div class="chart-card-title">${t('anDurBySession')}</div>
         <div class="chart-card-sub">${t('anDurBySessionSub')}</div>
         ${Object.keys(avgDurBySession).length?Object.entries(avgDurBySession).map(([label,avg])=>`<div class="analytics-bar-row">
-            <div class="analytics-bar-label" style="font-size:11px">${label}</div>
+            <div class="analytics-bar-label" style="font-size:11px">${esc(label)}</div>
             <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.round(avg/Math.max(...Object.values(avgDurBySession),1)*100)}%;background:var(--purple)"></div></div>
             <div class="analytics-bar-value">${fmtDur(avg)}</div>
           </div>`).join(''):noDataStr}
@@ -23528,19 +23608,19 @@ function renderAnalytics(){
       <div class="analytics-highlight-card">
         <div class="hl-item">
           <div class="hl-label">${t('anMostPopType')}</div>
-          <div class="hl-value">${topType!=='—'?`<span class="type-badge ${TYPE_CLS[topType]||'type-any'}">${typeLabel(topType)}</span>`:topType}
+          <div class="hl-value">${topType!=='—'?`<span class="type-badge ${_tcls(topType)}">${_tl(topType)}</span>`:topType}
             ${topType!=='—'?`<span style="font-size:13px;color:var(--muted);font-weight:600;margin-left:8px">${typeBreak[topType]} ${t('anRidesLabel')}</span>`:''}
           </div>
         </div>
         <div class="hl-item">
           <div class="hl-label">${t('anBusiestDayLabel')}</div>
-          <div class="hl-value">${dayLabel(topDay)||topDay}
+          <div class="hl-value">${esc(dayLabel(topDay)||topDay)}
             ${topDay!=='—'?`<span style="font-size:13px;color:var(--muted);font-weight:600;margin-left:8px">${dayBreak[topDay]} ${t('anRidesLabel')}</span>`:''}
           </div>
         </div>
         <div class="hl-item" style="margin-bottom:0">
           <div class="hl-label">${t('anBestSession')}</div>
-          <div class="hl-value" style="color:var(--green)">${bestSession.s?`${sarBoth(bestSession.r)} <span style="font-size:13px;font-weight:600;color:var(--muted)">${shortDate(bestSession.s.session_date||bestSession.s.id)}</span>`:'—'}</div>
+          <div class="hl-value" style="color:var(--green)">${bestSession.s?`${sarBoth(bestSession.r)} <span style="font-size:13px;font-weight:600;color:var(--muted)">${esc(shortDate(bestSession.s.session_date||bestSession.s.id))}</span>`:'—'}</div>
         </div>
       </div>
       ${_apprRangeIds.size?`<div class="analytics-highlight-card ev-saturday">
@@ -23657,14 +23737,14 @@ function renderAnalytics(){
       <div class="chart-card-title" style="margin-bottom:6px">${t('anTopCustomers')} <span style="color:var(--muted);font-size:11px;font-weight:600">· ${t('anTopCustomersSub')}</span></div>
       <table class="analytics-trend-table">
         <thead><tr><th>${t('anLapsedColRider')}</th><th>${t('anLapsedColRides')}</th><th>${t('anSpentCol')}</th><th>${t('anLapsedColLast')}</th></tr></thead>
-        <tbody>${topCustomers.map(r=>`<tr><td>${esc(r.name)}</td><td>${r.rides}</td><td><bdi>SAR ${Math.round(r.spent)}</bdi></td><td>${shortDate(r.last)}</td></tr>`).join('')}</tbody>
+        <tbody>${topCustomers.map(r=>`<tr><td>${esc(r.name)}</td><td>${r.rides}</td><td><bdi>SAR ${Math.round(r.spent)}</bdi></td><td>${esc(shortDate(r.last))}</td></tr>`).join('')}</tbody>
       </table>
     </div>`:''}
     ${retLapsed.length?`<div tabindex="0" role="group" aria-label="${esc(t('tblScrollLabel'))}" class="table-wrapper" style="margin-top:8px">
       <div class="chart-card-title" style="margin-bottom:6px">${t('anLapsedTitle')} <span style="color:var(--muted);font-size:11px;font-weight:600">· ${t('anLapsedSub')}</span></div>
       <table class="analytics-trend-table">
         <thead><tr><th>${t('anLapsedColRider')}</th><th>${t('anLapsedColLast')}</th><th>${t('anLapsedColRides')}</th><th></th></tr></thead>
-        <tbody>${retLapsed.slice(0,12).map(r=>`<tr><td>${esc(r.name)}</td><td>${shortDate(r.last)}</td><td>${r.count}</td><td>${_waReengage(r.id)}</td></tr>`).join('')}</tbody>
+        <tbody>${retLapsed.slice(0,12).map(r=>`<tr><td>${esc(r.name)}</td><td>${esc(shortDate(r.last))}</td><td>${r.count}</td><td>${_waReengage(r.id)}</td></tr>`).join('')}</tbody>
       </table>
     </div>`:''}
 
@@ -23686,7 +23766,7 @@ function renderAnalytics(){
       <div class="chart-card-title">${t('anFillBySession')}</div>
       <div class="chart-card-sub">${t('anFillBySessionSub')}</div>
       ${demandRows.length?demandRows.slice(0,12).map(r=>`<div class="analytics-bar-row">
-          <div class="analytics-bar-label" style="min-width:120px">${dayLabel(r.s.day)} ${shortDate(r.s.session_date||r.s.id)}</div>
+          <div class="analytics-bar-label" style="min-width:120px">${esc(dayLabel(r.s.day))} ${esc(shortDate(r.s.session_date||r.s.id))}</div>
           <div class="analytics-bar-track"><div class="analytics-bar-fill" style="width:${Math.min(100,r.fill)}%;background:${r.soldOut?'var(--orange)':'var(--green)'}"></div></div>
           <div class="analytics-bar-value"><bdi>${r.booked}/${r.cap}</bdi> · ${r.fill}%</div>
         </div>`).join(''):noDataStr}
@@ -23706,7 +23786,7 @@ function renderAnalytics(){
     <div class="an-anchor" data-anview="revenue"></div>
     <div class="analytics-section-title">${t('coSales')}</div>
     <div class="analytics-kpi-grid">
-      <div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--green)"><bdi>SAR ${anSales.collected}</bdi></div><div class="analytics-kpi-label">${t('cashValue')} ${deltaBadge(anSales.collected,prevM&&prevM.sales)}</div><div class="analytics-kpi-sub">${anSales.units} ${t('cashQtyCol').toLowerCase()}</div></div>
+      <div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--green)"><bdi>SAR ${anSales.collected}</bdi></div><div class="analytics-kpi-label">${t('cashValue')} ${deltaBadge('sales')}</div><div class="analytics-kpi-sub">${anSales.units} ${t('cashQtyCol').toLowerCase()}</div></div>
       <div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--orange)"><bdi>SAR ${anSales.pending}</bdi></div><div class="analytics-kpi-label">${t('printPending')}</div></div>
       ${anSales.team>0?`<div class="analytics-kpi-card"><div class="analytics-kpi-value" style="color:var(--purple)"><bdi>SAR ${anSales.team}</bdi></div><div class="analytics-kpi-label">${t('payTeam')}</div></div>`:''}
     </div>
@@ -23768,10 +23848,13 @@ const ILLUS_RIDES=`<svg width="72" height="72" viewBox="0 0 72 72" fill="none" s
 // Re-render whatever view is currently active (used after a background data refresh).
 function _refreshView(){
   if(S.view==='staff'){renderStaffQueue();renderSessions();renderBikes();
-    const tb=S.staffTab;
-    if(tb==='history')renderHistory();else if(tb==='analytics')renderAnalytics();
-    else if(tb==='community'&&typeof renderCommunity==='function')renderCommunity();else if(tb==='cashier')renderCashier();
-  }else if(S.view==='customer'){renderRegister();renderMyRides();if(S.custTab==='account')renderAccount();}
+    // Any other tab through the renderer that knows them all (Riders and Inventory were missing).
+    const tb=S.staffTab;if(tb!=='queue'&&tb!=='bikes')_renderStaffTab();
+  }else if(S.view==='customer'){
+    // The booking wizard past step 1 holds what the rider is typing: a background refresh must
+    // not rebuild it under them (the same rule the realtime path follows).
+    if(S.custTab!=='register'||(S.regStep===1&&!S.modifyEntryId))renderRegister();
+    renderMyRides();if(S.custTab==='account')renderAccount();}
   else if(S.view==='landing')renderLandingAvail();
   // Re-render the add-on picker if it's open, so photos/stock appear once fresh data lands.
   try{if(S._addonPickerEntry&&typeof renderAddonPicker==='function')renderAddonPicker();}catch(e){}
@@ -23779,6 +23862,16 @@ function _refreshView(){
 // supabase-js keeps its session under sb-<ref>-auth-token; its presence is what makes a
 // snapshot paint before the auth verdict safe - a device with no session never sees the panel early.
 function _hasStoredAuth(){try{for(let i=0;i<localStorage.length;i++){if(/^sb-.*-auth-token$/.test(localStorage.key(i)||''))return true;}}catch(e){}return false;}
+// The staff section a reload returns to: every section on the rail, plus the old names setStaffTab
+// still understands ('sessions' is a Bookings view; 'logs' became History's log). Riders was in
+// neither of the two lists the boot kept, and Cashier was missing from the second, so a reload
+// there landed on Bookings; and a remembered 'logs' was reassigned to a const, which threw and
+// sent the staff boot to the landing page.
+function _bootStaffTab(nav){
+  let st='';try{st=(nav&&nav.stab)||sessionStorage.getItem('cq_nav_stab')||'';}catch(e){}
+  if(st==='logs'){S.histView='log';st='history';}
+  return['queue','sessions','cashier','inventory','community','riders','analytics','history','bikes'].includes(st)?st:'';
+}
 (async()=>{
   S.loggedIn=getSession();
   // A known staff device with a stored auth session paints the last snapshot NOW, before the
@@ -23789,8 +23882,8 @@ function _hasStoredAuth(){try{for(let i=0;i<localStorage.length;i++){if(/^sb-.*-
     if(!S.dataLoaded&&localStorage.getItem('cq_staff')==='1'&&(!SECURE_AUTH||_hasStoredAuth())){
       _cacheRestore();
       if(S.dataLoaded){
-        const nav=_loadNav();let stab=(nav&&nav.stab)||sessionStorage.getItem('cq_nav_stab')||'queue';
-        if(!['queue','inventory','community','history','analytics','cashier','bikes'].includes(stab))stab='queue';
+        let stab=_bootStaffTab(_loadNav())||'queue';
+        if(stab==='sessions'){S.queueView='sessions';stab='queue';}
         S.staffTab=stab;showView('staff');
         try{renderStaffTabs();}catch(e){}try{_autoSelectSession();}catch(e){}try{_renderStaffTab();}catch(e){}
       }
@@ -23811,7 +23904,10 @@ function _hasStoredAuth(){try{for(let i=0;i<localStorage.length;i++){if(/^sb-.*-
   (async()=>{ // background refresh (does not block first paint / view selection below)
     try{await Promise.race([loadData(),new Promise(r=>setTimeout(r,8000))]);}
     catch(e){console.warn('Could not reach backend:',e&&e.message);}
-    if(!_lastLoadOk){try{_cacheRestore();}catch(e){}}
+    // Only when no load has applied its core data. _lastLoadOk also waits for the customer list,
+    // the sales and the inventory, and a returning device's load (its snapshot already painted)
+    // could pass the 8s mark on those alone - the snapshot then went back over fresh data.
+    if(!_coreLoadOk){try{_cacheRestore();}catch(e){}}
     try{_refreshView();}catch(e){}
     try{_custSessionCheck();}catch(e){} // stale-token ghost sessions sign out with an explanation
     // Self-heal: if this is a staff device but the Auth session wasn't established at boot
@@ -23886,9 +23982,8 @@ function _hasStoredAuth(){try{for(let i=0;i<localStorage.length;i++){if(/^sb-.*-
   try{
   if(target==='staff'){
     goStaff();
-    const stab=(nav&&nav.stab)||sessionStorage.getItem('cq_nav_stab');
-    if(stab==='logs'){S.histView='log';stab='history';} // Logs merged into History
-    if(stab&&['queue','sessions','inventory','community','history','analytics'].includes(stab))setStaffTab(stab);
+    const stab=_bootStaffTab(nav);
+    if(stab)setStaffTab(stab);
   } else if(target==='customer'){
     const ctab=(nav&&nav.ctab)||sessionStorage.getItem('cq_nav_ctab');
     goCustomer(ctab&&['register','myrides','account'].includes(ctab)?ctab:'register');
@@ -23969,17 +24064,20 @@ async function _reloadRows(ids){
   ids=(ids||[]).filter(Boolean);
   if(!ids.length)return;
   if(!sb||(SECURE_AUTH&&!S._staffAuthed))return loadDataLight(); // no direct read on this device: the window
+  const _t0=Date.now();
   let r,b;
   try{[r,b]=await Promise.all([sb.from('queue_entries').select('*').in('id',ids),sb.from('bikes').select('id,status')]);}catch(e){return loadDataLight();}
   if(!r||r.error)return loadDataLight();
+  _qColsLearn(r.data);
   const want=new Set(ids);const fresh=(r.data||[]).filter(x=>want.has(x.id)).map(entryFromDB); // only the rows asked for, whatever came back
   S.queue=(S.queue||[]).filter(e=>!want.has(e.id)).concat(fresh); // a row that vanished elsewhere drops out
   if(b&&!b.error){const _bm=new Map((b.data||[]).map(x=>[x.id,x.status]));S.bikes=(S.bikes||[]).map(x=>(_bm.has(x.id)&&_bm.get(x.id)!==x.status)?{...x,status:_bm.get(x.id)}:x);}
+  _rtReplaySince(_t0); // events that landed while this was in flight are newer than its answer
   _lastRefresh=Date.now();
   if(S.view==='staff')_renderStaffTab();
 }
 async function loadDataLight(){
-  if(!sb)return;
+  if(!sb)return false;
   if(_lightInFlight){
     return _coalesce(()=>_lightQueued,v=>{_lightQueued=v;},
       ()=>_lightInFlight.catch(()=>{}).then(()=>loadDataLight()));
@@ -23988,8 +24086,11 @@ async function loadDataLight(){
   _lightInFlight=_loadDataLightInner();
   try{return await _lightInFlight;}finally{_lightInFlight=null;}
 }
+// true when the queue and the sessions came back; false when the server could not be reached or
+// either read failed (the poll then does not call the screen fresh).
 async function _loadDataLightInner(){
-  if(!sb)return;
+  if(!sb)return false;
+  const _t0=Date.now();
   let q,ses,cs,bk,wl;
   // After every write the desk re-syncs. Once the full 12-month window has streamed in, a staff
   // device asks queue_entries for the live nights only (see _qSlice) and the whole window every
@@ -24003,15 +24104,24 @@ async function _loadDataLightInner(){
     _pagedAll(()=>{let cs=sb.from('cashier_sales').select('*');if(_cut)cs=cs.gte('created_at',_cut);return cs.order('id');},'id'), // paged like loadData; the same two-month window once the year is in
     sb.from('bikes').select('id,status'), // status-only (no photos) so availability stays fresh on the poll without a heavy payload
     sb.from('desk_waitlist').select('*'), // small table; error-tolerant below (pre-migration DBs)
-  ]);}catch(e){S._netDown=true;_updateConnUI();return;} // unreachable: keep current state, flag the connection
-  S._netDown=false;_updateConnUI();
+  ]);}catch(e){S._netDown=true;_updateConnUI();return false;} // unreachable: keep current state, flag the connection
+  // supabase-js answers a dead network with {error}, it does not throw, so the catch above almost
+  // never ran - and the flag was cleared here on every poll, the captive-portal case included,
+  // taking down the banner a failed write had just raised. The poll is the reachability
+  // heartbeat: the server counts as unreachable when the queue and the sessions both failed on
+  // the network.
+  const _down=[q,ses].every(r=>!r||(r.error&&_isNetErr(r.error)));
+  S._netDown=_down;_updateConnUI();
+  if(_down)return false;
   if(q&&!q.error){
+    _qColsLearn(q.data);
     S.queue=_qMerge((q.data||[]).map(entryFromDB),_qs?_qs.cut:_cut);
     _qWholeAt=_qs?(_qs.whole?Date.now():_qWholeAt):0;
     try{_applyBookOutbox();}catch(_){}_bookOutboxFlush();
   }
   if(ses&&!ses.error)S.sessions=ses.data||[];
   if(bk&&!bk.error){const _bm=new Map((bk.data||[]).map(r=>[r.id,r.status]));S.bikes=(S.bikes||[]).map(b=>(_bm.has(b.id)&&_bm.get(b.id)!==b.status)?{...b,status:_bm.get(b.id)}:b);} // merge fresh statuses, keep photos/other fields
+  _rtReplaySince(_t0); // realtime rows that arrived while this was in flight are newer than its answer
   if(wl&&!wl.error)S.deskWaitlist=wl.data||[];
   if(cs&&!cs.error){
     if(_cut){const ids=new Set((cs.data||[]).map(r=>r.id));S.cashSales=(S.cashSales||[]).filter(r=>String(r.created_at||'')<_cut&&!ids.has(r.id)).concat(cs.data||[]);}
@@ -24019,37 +24129,52 @@ async function _loadDataLightInner(){
     try{_outbox().forEach(op=>{if(op.kind==='delete')S.cashSales=(S.cashSales||[]).filter(r=>r.id!==op.id);else{const i=(S.cashSales||[]).findIndex(r=>r.id===op.id);if(i>=0)S.cashSales[i]=op.data;else S.cashSales.push(op.data);}});}catch(_){}
     try{const _v=_voidedIds();if(_v.length)S.cashSales=(S.cashSales||[]).filter(r=>_v.indexOf(r.id)<0);}catch(_){}}
   _outboxFlush();
+  return !(q&&q.error)&&!(ses&&ses.error);
 }
-// What the staff screens actually draw from. Cheap to build for a few hundred rows, and far
-// cheaper than the re-render it avoids.
+// What the staff screens actually draw from: every field of every row, not a handful. The old
+// print covered id/status/number/paid/bike of the queue and only the COUNT of sales and waitlist
+// rows, so an edited receipt, a refund, a waitlisted walk-in marked done, a price, a name or an
+// add-on changed on another desk reloaded here and was never painted. A reload builds new row
+// objects only for what it fetched, so each row's hash is kept against the object and the print
+// costs a few hundred hashes, not thousands. (Photos are left out: they are big, and never the
+// only thing that changed.)
+const _fpRowCache=new WeakMap();
+function _fpHash(str,h){for(let i=0;i<str.length;i++)h=(h*31+str.charCodeAt(i))|0;return h;}
+function _fpRow(x){if(!x||typeof x!=='object')return _fpHash(String(x),7);let h=_fpRowCache.get(x);if(h===undefined){h=_fpHash(JSON.stringify(x,(k,v)=>k==='photo'?undefined:v)||'',7);_fpRowCache.set(x,h);}return h;}
+function _fpList(a){let h=(a||[]).length|0;(a||[]).forEach(x=>{h=(h*31+_fpRow(x))|0;});return h;}
 function _staffFingerprint(){
-  const q=(S.queue||[]).map(e=>e.id+':'+e.status+':'+e.queueNum+':'+(e.paid?1:0)+':'+(e.assignedBikeId||'')+':'+(e.approval||'')).join('|');
-  const b=(S.bikes||[]).map(x=>x.id+':'+x.status).join('|');
-  const se=(S.sessions||[]).map(x=>x.id+':'+x.status+':'+(x.capacity||'')).join('|');
-  return q+'#'+b+'#'+se+'#'+((S.deskWaitlist||[]).length)+'#'+((S.cashSales||[]).length)+'#'+((S.inventory||[]).map(i=>i.id+':'+i.qty).join('|'));
+  return[S.queue,S.bikes,S.sessions,S.deskWaitlist,S.cashSales,S.inventory].map(_fpList).join('#');
 }
 let _lastFp=null;
 let _pollN=0;
-async function _autoRefresh(full){
+// Repaint after background data. Analytics is the heavy tab (every card is recomputed over the
+// whole range), and on a busy night a realtime event lands every few seconds: its background
+// repaints are held to one every five seconds, the last one always landing. A person's own
+// action still renders it at once, through its own path.
+let _anBgAt=0,_anBgT=null;
+function _bgRenderStaffTab(){
+  if(S.staffTab!=='analytics'){_renderStaffTab();return;}
+  const wait=5000-(Date.now()-_anBgAt);
+  if(wait<=0){_anBgAt=Date.now();_renderStaffTab();return;}
+  if(!_anBgT)_anBgT=setTimeout(()=>{_anBgT=null;if(S.view!=='staff'||S.staffTab!=='analytics'||document.hidden)return;_anBgAt=Date.now();_renderStaffTab();},wait);
+}
+// force: repaint even when the data did not change (a refresh the person asked for).
+async function _autoRefresh(full,force){
   if(typeof window!=='undefined'&&window.__noWiden)return; // tests pin state; no background reload may clobber it (poll / realtime / visibility)
   if(S.view!=='staff')return;
   try{
-    await (full?loadData():loadDataLight());
-    _lastRefresh=Date.now();
+    const ok=await (full?loadData():loadDataLight());
+    // A reload that could not reach the server must not make the label say "just now".
+    if(ok!==false)_lastRefresh=Date.now();
     // The poll runs every 30s whether or not anything moved. Rebuilding a 200-row roster on a
     // timer is wasted work that lands in the middle of whatever staff are doing, so a poll that
     // changed nothing now stops here. Anything a person does re-renders on its own path.
     const fp=_staffFingerprint();
-    if(_lastFp!==null&&fp===_lastFp)return;
+    if(!force&&_lastFp!==null&&fp===_lastFp)return;
     _lastFp=fp;
-    const tab=S.staffTab; // re-render only the visible tab; switching tabs re-renders fresh anyway
-    if(tab==='queue')renderStaffQueue();
-    else if(tab==='bikes')renderBikes();
-    else if(tab==='history')renderHistory();
-    else if(tab==='analytics')renderAnalytics();
-      else if(tab==='inventory')renderInventory();
-    else if(tab==='community')renderCommunity();
-    else if(tab==='cashier')renderCashier();
+    // The tab on screen, through the one renderer that knows every tab (Riders and the open
+    // Bookings & history window included - the hand-kept list here had neither).
+    _bgRenderStaffTab();
     renderLandingAvail();
   }catch(e){
     console.warn('Auto-refresh error:',e);
@@ -24094,7 +24219,34 @@ try{document.addEventListener('visibilitychange',()=>{
 // ── Supabase Realtime: ONE channel pushes DB changes to the screen (debounced); the 30s poll is the fallback. ──
 // Routes by table: bikes/inventory changes trigger a full reload (new rows + photos); everything else uses the slim
 // path. Auto-reconnects with capped backoff so a dropped socket recovers instead of going silently stale.
-let _rtChannel=null,_rtDebounce=null,_rtRetry=0,_rtWantFull=false;
+let _rtChannel=null,_rtDebounce=null,_rtRetry=0,_rtWantFull=false,_rtRetryT=null,_rtWasLive=false;
+// Realtime rows merged in the last two minutes. A reload's answer is the database as its request
+// found it; an event that lands after the request left can be newer than that, and laying the
+// answer over the list put the older row back (a rider checked in at another desk went back to
+// "waiting" here until the next five-minute reload). Every reload - loadData, loadDataLight,
+// _reloadRows, and the customer/tag lists - replays the events that arrived after it started.
+let _rtRecent=[];
+function _rtNote(kind,payload){
+  const now=Date.now();_rtRecent.push({t:now,kind,payload});
+  if(_rtRecent.length>300||now-_rtRecent[0].t>120000)_rtRecent=_rtRecent.filter(x=>now-x.t<=120000).slice(-300);
+}
+function _rtReplaySince(t0,kind){
+  kind=kind||'row';
+  _rtRecent.filter(x=>x.t>=t0&&x.kind===kind).forEach(x=>{
+    try{if(kind==='row')_rtMergeRow(x.payload);else _rtRefMerge(x.payload.kind,x.payload.p);}catch(_){}
+  });
+}
+// The columns a whole queue_entries row carries, learned from the last full read of it.
+let _qCols=null;
+function _qColsLearn(rows){const r=rows&&rows[0];if(r&&typeof r==='object'&&'status' in r&&'session_id' in r)_qCols=Object.keys(r);}
+// Rows to re-read because their event came in incomplete (see _rtMergeRow), batched.
+let _rtFetchIds=new Set(),_rtFetchT=null;
+function _rtFetchRow(id){
+  _rtFetchIds.add(id);if(_rtFetchT)return;
+  _rtFetchT=setTimeout(()=>{_rtFetchT=null;const ids=[..._rtFetchIds];_rtFetchIds.clear();Promise.resolve(_reloadRows(ids)).catch(()=>{});},200);
+}
+// A network failure as supabase-js reports it (it answers with {error}, it does not throw).
+function _isNetErr(err){return /failed to fetch|networkerror|load failed|aborted|fetcherror/i.test(String((err&&err.message)||err||''));}
 function _rtApply(){
   if(_rtDebounce)clearTimeout(_rtDebounce);
   _rtDebounce=setTimeout(async()=>{
@@ -24103,7 +24255,10 @@ function _rtApply(){
     const full=_rtWantFull;_rtWantFull=false;
     try{
       if(S.view==='staff'){await _autoRefresh(full);}
-      else if(S.view==='customer'&&S.custTab==='myrides'){await(full?loadData():loadDataLight());_lastRefresh=Date.now();renderMyRides();renderLandingAvail();}
+      // My Rides reads the light set only. It used to take the FULL load whenever a bike changed -
+      // every bike and inventory photo again - and every check-in and every return changes a bike,
+      // so each rider keeping My Rides open at the venue re-downloaded the photos twice per ride.
+      else if(S.view==='customer'&&S.custTab==='myrides'){if(await loadDataLight()!==false)_lastRefresh=Date.now();renderMyRides();renderLandingAvail();}
       else{
         // Landing / session picker: re-rendering unchanged state was a no-op — fetch first, so
         // spot counts and session statuses actually move while a customer sits on the picker.
@@ -24122,12 +24277,23 @@ function _rtApply(){
 let _rtPaintT=null;
 function _rtPaint(){
   if(_rtPaintT)clearTimeout(_rtPaintT);
-  _rtPaintT=setTimeout(()=>{_rtPaintT=null;if(document.hidden)return;try{_renderStaffTab();}catch(e){}},120);
+  _rtPaintT=setTimeout(()=>{_rtPaintT=null;if(document.hidden)return;try{_bgRenderStaffTab();}catch(e){}},120);
+}
+// A realtime row can arrive incomplete. Past its size limit the server sends only the small
+// fields and says so in payload.errors, and an UPDATE that left a large out-of-line (TOASTed)
+// value untouched can leave that column out of the row. Merged as if whole, such a row wiped the
+// missing fields here - a booking's add-ons and purchases vanished from the desk until the next
+// reload. An incomplete booking row is read back from the database instead ('fetch'); a bike
+// keeps every field the event did not carry.
+function _rtIncomplete(payload,row){
+  if(payload.errors&&payload.errors.length)return true;
+  return !!(payload.table==='queue_entries'&&_qCols&&_qCols.some(c=>!(c in row)));
 }
 function _rtMergeRow(payload){
   const tb=payload.table,ev=payload.eventType,row=payload.new,old=payload.old;
   if(tb==='queue_entries'){
     if((ev==='INSERT'||ev==='UPDATE')&&row&&row.id){
+      if(_rtIncomplete(payload,row)){_rtFetchRow(row.id);return'fetch';}
       const e=entryFromDB(row);const q=(S.queue||[]).slice();const i=q.findIndex(x=>x.id===e.id);
       if(i>=0)q[i]=e;else q.push(e);S.queue=q;return true;
     }
@@ -24135,13 +24301,14 @@ function _rtMergeRow(payload){
     return false;
   }
   if(tb==='sessions'){
-    if((ev==='INSERT'||ev==='UPDATE')&&row&&row.id){const ss=(S.sessions||[]).slice();const i=ss.findIndex(x=>x.id===row.id);if(i>=0)ss[i]=row;else ss.push(row);S.sessions=ss;return true;}
+    if((ev==='INSERT'||ev==='UPDATE')&&row&&row.id){if(_rtIncomplete(payload,row))return false; // the reload reads it whole
+      const ss=(S.sessions||[]).slice();const i=ss.findIndex(x=>x.id===row.id);if(i>=0)ss[i]=row;else ss.push(row);S.sessions=ss;return true;}
     if(ev==='DELETE'&&old&&old.id){S.sessions=(S.sessions||[]).filter(x=>x.id!==old.id);return true;}
     return false;
   }
   if(tb==='bikes'){
     if((ev==='INSERT'||ev==='UPDATE')&&row&&row.id){
-      const pub={};BIKE_COLS.split(',').forEach(k=>{if(k in row)pub[k]=row[k];}); // the public columns only, as loadData reads them
+      const pub={},_part=_rtIncomplete(payload,row);BIKE_COLS.split(',').forEach(k=>{if(k in row&&!(_part&&row[k]==null))pub[k]=row[k];}); // the public columns only, as loadData reads them
       const bs=(S.bikes||[]).slice();const i=bs.findIndex(b=>b.id===row.id);if(i>=0)bs[i]={...bs[i],...pub};else bs.push(pub);S.bikes=bs;return true;
     }
     if(ev==='DELETE'&&old&&old.id){S.bikes=(S.bikes||[]).filter(b=>b.id!==old.id);return true;}
@@ -24151,17 +24318,34 @@ function _rtMergeRow(payload){
 }
 function _onRt(payload){
   if(!payload)return _rtApply();
-  if(payload.table==='inventory')_rtWantFull=true; // this only ships in the FULL load
-  if(S.view==='staff'&&!(typeof window!=='undefined'&&window.__noWiden)){
+  // Only a staff device takes the FULL reload for these (inventory ships only there; a bike row
+  // it could not merge). A customer's device reloads the light set whatever changed.
+  const staff=S.view==='staff'&&!(typeof window!=='undefined'&&window.__noWiden);
+  if(staff){
+    if(payload.table==='inventory')_rtWantFull=true; // this only ships in the FULL load
     let merged=false;try{merged=_rtMergeRow(payload);}catch(e){merged=false;}
-    if(merged){_rtPaint();return;}
+    if(merged==='fetch')return; // an incomplete row: re-read on its own, painted when it lands
+    if(merged){_rtNote('row',payload);_rtPaint();return;}
+    if(payload.table==='bikes')_rtWantFull=true;
   }
-  if(payload.table==='bikes')_rtWantFull=true;
   _rtApply();
+}
+// One pending rebuild at a time. Every CHANNEL_ERROR / TIMED_OUT / CLOSED of the channel used to
+// schedule its own - phoenix re-reports an error on each of its own rejoins - so pending rebuilds
+// multiplied through an outage (thousands in ten minutes), each tearing down a channel that may
+// just have joined and dropping the events of that gap.
+function _rtScheduleRetry(){
+  if(_rtRetryT)return;
+  const delay=Math.min(30000,1000*Math.pow(2,Math.min(_rtRetry++,5))); // 1s,2s,4s…capped 30s
+  _rtRetryT=setTimeout(()=>{_rtRetryT=null;setupRealtime();},delay);
 }
 function setupRealtime(){
   if(!sb||!sb.channel)return;
-  try{if(_rtChannel){sb.removeChannel(_rtChannel);_rtChannel=null;}}catch(_){}
+  if(_rtRetryT){clearTimeout(_rtRetryT);_rtRetryT=null;} // this rebuild is the one that was pending
+  // Let go of the old channel BEFORE removing it: removing a channel that never joined reports
+  // CLOSED synchronously, and while _rtChannel still pointed at it that report passed the guard
+  // below and scheduled another rebuild.
+  try{if(_rtChannel){const c=_rtChannel;_rtChannel=null;sb.removeChannel(c);}}catch(_){}
   try{
     const _ch=_rtChannel=sb.channel('mmcq-live')
       .on('postgres_changes',{event:'*',schema:'public',table:'queue_entries'},_onRt)
@@ -24177,13 +24361,17 @@ function setupRealtime(){
         // removeChannel() fires the REMOVED channel's callback with CLOSED — reacting to a
         // channel that is no longer ours scheduled a rebuild, whose removeChannel fired the
         // next CLOSED… a permanent ~1s teardown/resubscribe loop after the first reconnect.
-        if(_rtChannel&&_rtChannel!==_ch)return;
+        // (No `_rtChannel&&` here: while a rebuild has let go of the old channel, null is not ours.)
+        if(_rtChannel!==_ch)return;
         S._rtConnected=(status==='SUBSCRIBED');
-        if(status==='SUBSCRIBED'){_rtRetry=0;}
-        else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED'){
-          const delay=Math.min(30000,1000*Math.pow(2,Math.min(_rtRetry++,5))); // 1s,2s,4s…capped 30s
-          setTimeout(setupRealtime,delay);
+        if(status==='SUBSCRIBED'){
+          _rtRetry=0;S._netDown=false; // the socket is up, so the server is reachable
+          // A rejoin: whatever changed while the channel was down never arrives as an event, and a
+          // drop shorter than the 30s poll left it missing until the five-minute reload. Catch up once.
+          if(_rtWasLive)_rtApply();
+          _rtWasLive=true;
         }
+        else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'||status==='CLOSED')_rtScheduleRetry();
         _updateConnUI();
       });
   }catch(e){console.warn('Realtime init failed:',e);}
@@ -24235,6 +24423,7 @@ function setupRefRealtime(retry){
     const ch=_refCh=sb.channel('staff-ref',{config:{private:true}});
     ['customers','customer_tags','tags'].forEach(kind=>ch.on('broadcast',{event:kind},m=>{
       let changed=false;try{changed=_rtRefMerge(kind,m&&m.payload);}catch(e){}
+      if(m&&m.payload)_rtNote('ref',{kind,p:m.payload}); // replayed over a list fetch that was in flight (_refFetch)
       if(changed&&S.view==='staff'&&!(typeof window!=='undefined'&&window.__noWiden))_rtPaint();
     }));
     ch.subscribe(status=>{
@@ -24283,7 +24472,7 @@ document.addEventListener('keydown',e=>{
   const k=e.key.toLowerCase();
   if(k==='/'){e.preventDefault();if(S.staffTab!=='queue')setStaffTab('queue');setTimeout(()=>{const el=document.getElementById('sf-search-input');if(el){el.focus();try{el.select();}catch(_){}}},60);return;}
   if(k==='n'){e.preventDefault();_kbCheckInNext();return;}
-  if(k==='r'){e.preventDefault();if(typeof _autoRefresh==='function')_autoRefresh(true);return;}
+  if(k==='r'){e.preventDefault();if(typeof _autoRefresh==='function')_autoRefresh(true,true);return;}
   const tabKeys={b:'queue',s:'queue',i:'inventory',c:'community',a:'analytics',h:'history',l:'history'};
   if(k==='l')S.histView='log';else if(k==='h')S.histView='rides';
   if(k==='s')S.queueView='sessions';else if(k==='b')S.queueView='bookings';
@@ -24343,12 +24532,17 @@ try{
 }catch(e){}
 document.addEventListener('keydown',e=>{
   if(e.key!=='Tab'&&e.key!=='Escape')return;
+  if(e.key==='Escape'&&e.defaultPrevented)return; // a dialog's own field already used it (the prompt's input closes the prompt)
   const modals=_visibleModals();const modal=modals[modals.length-1];
   if(!modal)return;
   if(e.key==='Escape'){
     // Dismissible dialogs only — the PIN gate and the auth page are page-level, not dialogs.
     if(!modal.classList.contains('modal-backdrop')&&!modal.classList.contains('scan-backdrop'))return;
-    e.preventDefault();modal.click();
+    modal.click();
+    // Handled only if that closed it: the per-dialog Escape list below then stands down, where it
+    // used to go on and close the NEXT dialog in its list too (the cashier sale under the team
+    // manager). A backdrop that does not close on click still falls through to that list.
+    if(!document.contains(modal)||modal.getClientRects().length===0)e.preventDefault();
     return;
   }
   const list=_modalFocusables(modal);
@@ -24359,7 +24553,7 @@ document.addEventListener('keydown',e=>{
 });
 
 // (Realtime is set up once above via setupRealtime(); the old second channel was removed to avoid double-fetching.)
-try{window.addEventListener('online',()=>{_updateConnUI();_outboxFlush();_bookOutboxFlush();try{setupRealtime();}catch(_){}});}catch(e){} // sync queued work + re-subscribe when the connection returns
+try{window.addEventListener('online',()=>{_updateConnUI();_outboxFlush();_bookOutboxFlush();try{if(!S._rtConnected)setupRealtime();}catch(_){}});}catch(e){} // sync queued work + re-subscribe when the connection returns (a channel still joined is left alone)
 try{window.addEventListener('offline',()=>{S._rtConnected=false;_updateConnUI();});}catch(e){}
 // ── Pull-to-refresh: drag down at the top of the queue / sessions / dashboard / My Rides lists to refresh ──
 (function(){
@@ -24391,7 +24585,7 @@ try{window.addEventListener('offline',()=>{S._rtConnected=false;_updateConnUI();
     const el=ind();
     if(dist>=60){
       el.classList.add('refreshing','ready');el.style.transform='translateX(-50%) translateY(14px)';el.style.opacity='1';
-      Promise.resolve().then(()=>S.view==='staff'?_autoRefresh(true):loadData().then(()=>{renderMyRides();renderLandingAvail();}))
+      Promise.resolve().then(()=>S.view==='staff'?_autoRefresh(true,true):loadData().then(()=>{renderMyRides();renderLandingAvail();}))
         .catch(()=>{}).finally(()=>setTimeout(()=>reset(el),450));
     }else reset(el);
     dist=0;
@@ -24421,6 +24615,7 @@ try{window._mmErrors=()=>{try{return JSON.parse(localStorage.getItem('cq_errors'
 // open over it this list closed the Bookings & history window underneath as well.
 try{document.addEventListener('keydown',function(e){
   if(e.key!=='Escape'&&e.keyCode!==27)return;
+  if(e.defaultPrevented)return; // the topmost dialog already closed on this Escape (handler above)
   var order=[['team-mgr-modal','closeTeamManager'],['receipt-edit-modal','closeReceiptEdit'],['cashier-modal','closeCashierModal'],['return-pay-modal','closeReturnPayModal'],['reschedule-modal','closeRescheduleModal'],['edit-price-modal','closeEditPriceModal'],['rate-modal','closeRateModal'],['print-opts-modal','_closePrintOpts'],['bike-profile-modal','closeBikeProfile'],['bike-modal','closeModal'],['receipt-modal',''],['auth-modal','closeAuthModal']];
   for(var i=0;i<order.length;i++){var el=document.getElementById(order[i][0]);if(el&&el.style.display&&el.style.display!=='none'){var fn=order[i][1];if(fn&&typeof window[fn]==='function'){try{window[fn]();}catch(_){el.style.display='none';}}else{el.style.display='none';el.innerHTML='';}return;}}
 });}catch(e){}
@@ -24459,7 +24654,31 @@ if('serviceWorker' in navigator){
     _updPending=true;
     try{_updBar();}catch(e){}
   });}catch(e){}
-  try{document.addEventListener('visibilitychange',()=>{if(document.hidden&&_updPending)_updReload();});}catch(e){}
+  // ...but never over work in progress. Going to the background is not always leaving: on Android
+  // a photo picker or the camera hides the page, and a rider mid-booking switches to WhatsApp for a
+  // friend's number. Reloading then threw away the open form, the picked photo, the sale in hand.
+  // In those cases the reload waits for a later hide; the Refresh bar stays up meanwhile.
+  let _filePickAt=0;
+  try{document.addEventListener('click',e=>{const tg=e.target;if(tg&&tg.matches&&tg.matches('input[type=file]'))_filePickAt=Date.now();},true);}catch(e){}
+  const _edited=root=>[...root.querySelectorAll('input,textarea,select')].some(el=>{
+    if(el.type==='file')return !!(el.files&&el.files.length);
+    if(el.type==='checkbox'||el.type==='radio')return el.checked!==el.defaultChecked;
+    if(el.tagName==='SELECT')return[...el.options].some(o=>o.selected!==o.defaultSelected);
+    if(el.type==='hidden'||el.type==='button'||el.type==='submit')return false;
+    return el.value!==el.defaultValue;});
+  const _updSafe=()=>{
+    try{
+      if(Date.now()-_filePickAt<120000)return false; // a picker/camera is (or was just) open
+      if(S.view==='customer'&&S.custTab==='register'&&S.regStep>1)return false; // mid-booking
+      if(S._ctCart&&S._ctCart.length)return false; // a till sale being rung up
+      const ms=_visibleModals();
+      // A dialog is work in hand; the page-level sign-in / PIN screens only once something was typed.
+      if(ms.some(m=>m.classList.contains('modal-backdrop')||m.classList.contains('scan-backdrop')||_edited(m)))return false;
+      const ae=document.activeElement;if(ae&&ae!==document.body&&/^(INPUT|TEXTAREA)$/.test(ae.tagName)&&_edited(ae.parentNode||document))return false;
+    }catch(e){}
+    return true;
+  };
+  try{document.addEventListener('visibilitychange',()=>{if(document.hidden&&_updPending&&_updSafe())_updReload();});}catch(e){}
 }
 </script>
 </body>

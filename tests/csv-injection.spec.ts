@@ -20,6 +20,11 @@ test('_csvCell neutralizes formula-injection payloads and still quotes correctly
     formulaWithComma: _csvCell('=A1,evil'),
     empty:     _csvCell(null),
     number:    _csvCell(57.5),
+    negNum:    _csvCell(-20),
+    negStr:    _csvCell('-20'),
+    phone:     _csvCell('+966512345678'),
+    phoneSp:   _csvCell('+966 51 234 5678'),
+    plusWord:  _csvCell('+cmd'),
   })`) as Record<string, string>;
   // dangerous leads get a literal-text quote prefix
   expect(out.hyperlink).toBe(`"'=HYPERLINK(""http://evil"",""x"")"`); // prefixed AND quoted (has commas)
@@ -35,4 +40,11 @@ test('_csvCell neutralizes formula-injection payloads and still quotes correctly
   expect(out.formulaWithComma).toBe(`"'=A1,evil"`);
   expect(out.empty).toBe('');
   expect(out.number).toBe('57.5');
+  // A plain number or a +phone is data, not a formula: no quote, so the column still sums and
+  // the phone reads as a phone. Anything with an operator or letters after the lead keeps it.
+  expect(out.negNum).toBe('-20');
+  expect(out.negStr).toBe('-20');
+  expect(out.phone).toBe('+966512345678');
+  expect(out.phoneSp).toBe('+966 51 234 5678');
+  expect(out.plusWord.startsWith("'+")).toBe(true);
 });

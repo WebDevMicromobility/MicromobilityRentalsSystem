@@ -117,7 +117,9 @@ test.describe('analytics growth', () => {
   test('the month forecast projects from pace so far', async ({ page }) => {
     const out = await page.evaluate(() => {
       const now = new Date();
-      const iso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-15`; // mid-month, tz-safe
+      // The forecast reads the KSA calendar month, so the fixture does too (a device clock in
+      // another zone can sit in a different month for a few hours around midnight).
+      const iso = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' }).slice(0, 7) + '-15';
       const sess = [{ id: 's1', session_date: iso }];
       const q = [
         { sessionId: 's1', status: 'done', paid: true, price: 30 },
