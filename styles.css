@@ -4802,3 +4802,26 @@ html[dir="rtl"] #checkin-modal .modal-footer{direction:rtl;}
   justify-content:center;gap:6px;text-align:center;white-space:normal;padding-inline:10px;
 }
 .cm-actions bdi{white-space:nowrap;}
+
+/* The members-only dialog sits in the middle of the screen with soft corners, on a phone as on a
+   desktop — it is a message, not one of the sheets that slide up from the bottom edge. */
+.cm-backdrop{align-items:center;padding:16px;}
+.cm-box{border-radius:20px;width:min(92vw,430px);max-width:430px;max-height:86dvh;overflow-y:auto;margin:0;}
+
+/* ── The sign in / sign up screen reads as one page ──
+   For a signed-out visitor this screen IS the page (as-page): the whole thing scrolls under the
+   header the way the community form does, instead of a boxed panel scrolling inside a fixed
+   backdrop — a page on top of a page. The card chrome goes with it; the page ground carries it. */
+#auth-modal.as-page .auth-backdrop{
+  display:block;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  padding:28px 16px calc(56px + env(safe-area-inset-bottom));
+}
+#auth-modal.as-page .auth-box{
+  max-height:none;overflow:visible;margin:0 auto;border:none;background:none;border-radius:0;
+  box-shadow:none;padding:8px 4px 0;max-width:440px;
+}
+#auth-modal.as-page .auth-logo{margin-bottom:22px;}
+@media (max-width:767px){
+  #auth-modal.as-page .auth-backdrop{padding:20px 16px calc(48px + env(safe-area-inset-bottom));}
+  #auth-modal.as-page .auth-box{padding:4px 0 0;border-radius:0;width:100%;max-width:100%;}
+}
