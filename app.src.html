@@ -12711,15 +12711,15 @@ function showCancelNight(sid){
     <div class="modal-title" style="color:var(--red)">${t('cnTitle')} · ${esc(when)}</div>
     <div class="modal-sub" style="margin-bottom:12px">${t('cnSub').replace('{0}',String(rows.length))}</div>
     <div class="form-group" style="margin-bottom:10px"><label>${t('cnMsgLabel')}</label>
-      <textarea id="cn-msg" rows="3" style="width:100%" oninput="S._cnMsg=this.value">${esc(S._cnMsg)}</textarea></div>
+      <textarea id="cn-msg" rows="3" style="width:100%" oninput="S._cnMsg=this.value;_cnSyncLinks()">${esc(S._cnMsg)}</textarea></div>
     <div style="display:flex;gap:6px;margin-bottom:10px">
       <button class="btn-sm btn-muted" style="flex:1" onclick="_cnCopyNumbers()">${t('cnCopyNumbers')}</button>
     </div>
     <div style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:5px;padding:6px 10px;margin-bottom:12px">
       ${list.map(e=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px">
         <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><b>${esc(e.name)}</b> <span style="color:var(--muted)">${esc(fmtPhone(e.phone)||'—')}</span></span>
-        ${e.phone?`<a class="btn-sm btn-green" style="text-decoration:none;white-space:nowrap" target="_blank" rel="noopener"
-          href="https://wa.me/${_waDigits(e.phone)}?text=${encodeURIComponent(S._cnMsg)}">WhatsApp</a>`:''}
+        ${e.phone?`<a class="btn-sm btn-green" style="text-decoration:none;white-space:nowrap" target="_blank" rel="noopener" data-wa="${esc(_waDigits(e.phone))}"
+          href="https://wa.me/${esc(_waDigits(e.phone))}?text=${esc(encodeURIComponent(S._cnMsg))}">WhatsApp</a>`:''}
       </div>`).join('')}
     </div>
     <div class="modal-footer">
@@ -12729,29 +12729,65 @@ function showCancelNight(sid){
   </div>`;
   m.onclick=e2=>{if(e2.target===m)closeCancelNight();};
 }
+// The links carry the message as it stands NOW: they used to be written once when the modal
+// opened, so a staffer who added the new date to the text still sent every rider the default.
+function _cnSyncLinks(){const q=encodeURIComponent(S._cnMsg||'');document.querySelectorAll('#cancel-night-modal a[data-wa]').forEach(a=>{a.href='https://wa.me/'+a.getAttribute('data-wa')+'?text='+q;});}
 function closeCancelNight(){const m=document.getElementById('cancel-night-modal');if(m){m.style.display='none';m.innerHTML='';}}
 async function _cnCopyNumbers(){
   const nums=[...new Set(_cnLiveRows(S._cnSid).map(e=>e.phone).filter(Boolean))].join('\n');
   try{await navigator.clipboard.writeText(nums);toast(t('cnCopiedToast'));}catch(_){promptDialog&&toast(nums.slice(0,120),'warning');}
 }
+// The ids a guarded bulk write really changed (asked with .select('id')). A row another till
+// had already dealt with comes back missing, and must not be restocked, freed or "undone".
+function _landedIds(r,asked){const want=new Set(asked);return((r&&r.data)||[]).map(x=>x&&x.id).filter(id=>want.has(id));}
+// One stock movement per item for a whole set of bookings: the staff path writes each item
+// under a compare-and-swap, and firing the same item once per rider only makes them race.
+async function _addonStockRows(entries,sign){
+  const agg={};(entries||[]).forEach(e=>entryAddons(e).forEach(a=>{agg[a.id]=(agg[a.id]||0)+a.qty;}));
+  const arr=Object.keys(agg).map(id=>({id,qty:agg[id]}));
+  if(arr.length)await _addonStockQ(arr,sign);
+}
 async function execCancelNight(){
   const sid=S._cnSid;const rows=_cnLiveRows(sid);if(!rows.length){closeCancelNight();return;}
-  const prev={};rows.forEach(e=>{prev[e.id]=e.status;});
-  const bikes=rows.flatMap(e=>getAssignedBikeIds(e));
+  const sess=allSessions().find(x=>x.id===sid)||{};const prevSess=sess.status||'open';
+  const was=new Map(rows.map(e=>[e.id,{status:e.status,assigned:e.assignedBikeId??null,bikes:getAssignedBikeIds(e),entry:e}]));
   const r=await sb.from('queue_entries').update({status:'cancelled',cancelled_by:'staff',assigned_bike_id:null})
-    .in('id',rows.map(e=>e.id)).in('status',['waiting','waitlist','active']);
+    .in('id',rows.map(e=>e.id)).in('status',['waiting','waitlist','active']).select('id');
   if(_writeErr(r,'cancel night'))return;
+  const landed=_landedIds(r,rows.map(e=>e.id));
+  // Only a rider who was out on a bike frees one. A waiting row's reserved bike was never taken
+  // off the rack, and setting it 'available' could free it from under whoever holds it now.
+  const bikes=landed.filter(id=>was.get(id).status==='active').flatMap(id=>was.get(id).bikes);
   if(bikes.length)await Promise.all(bikes.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b))).catch(()=>{});
   await sb.from('sessions').update({status:'closed'}).eq('id',sid).then(()=>{},()=>{});
-  logAction(`${t('cnTitle')} · ${sid} · ${rows.length}`);
+  // A cancelled booking hands its add-ons back, exactly as a single cancel does (a waitlist row never held any).
+  await _addonStockRows(landed.filter(id=>was.get(id).status!=='waitlist').map(id=>was.get(id).entry),1);
+  logAction(`${t('cnTitle')} · ${sid} · ${landed.length}`);
   closeCancelNight();
   await loadDataLight();renderStaffQueue();
-  toast(t('cnDoneToast').replace('{0}',String(rows.length)));
+  toast(t('cnDoneToast').replace('{0}',String(landed.length)));
+  if(!landed.length)return;
   pushUndo(`${t('cnTitle')} ${shortDate(sid)}`,async()=>{
-    const by={};Object.keys(prev).forEach(id=>{(by[prev[id]]=by[prev[id]]||[]).push(id);});
-    for(const st of Object.keys(by))await sb.from('queue_entries').update({status:st,cancelled_by:null}).in('id',by[st]);
-    await sb.from('sessions').update({status:'open'}).eq('id',sid).then(()=>{},()=>{});
+    // Each row goes back to exactly what it was: its status, the bike it was riding (re-claimed
+    // atomically — it may be out under someone else by now) or the one held for it, and the
+    // add-ons it had reserved. The session gets its own status back, not simply 'open'.
+    const plain={},withBike=[];
+    landed.forEach(id=>{const p=was.get(id);if(p.bikes.length)withBike.push(id);else(plain[p.status]=plain[p.status]||[]).push(id);});
+    const res=[],back=[];let short=false;
+    for(const st of Object.keys(plain)){const u=await sb.from('queue_entries').update({status:st,cancelled_by:null}).in('id',plain[st]).eq('status','cancelled').select('id');res.push(u);back.push(..._landedIds(u,plain[st]));}
+    await Promise.all(withBike.map(async id=>{
+      const p=was.get(id);let av=p.assigned,claimed=[];
+      if(p.status==='active'){claimed=await _reclaimBikes(p.bikes);if(claimed.length<p.bikes.length)short=true;av=claimed.length===0?null:claimed.length===1?claimed[0]:JSON.stringify(claimed);}
+      const u=await sb.from('queue_entries').update({status:p.status,cancelled_by:null,assigned_bike_id:av}).eq('id',id).eq('status','cancelled').select('id');
+      res.push(u);
+      if(!(u&&u.error)&&u.data&&u.data.length)back.push(id);
+      else if(claimed.length)await Promise.all(claimed.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b))).catch(()=>{});
+    }));
+    await _addonStockRows(back.filter(id=>was.get(id).status!=='waitlist').map(id=>was.get(id).entry),-1);
+    if(back.length)await sb.from('sessions').update({status:prevSess}).eq('id',sid).eq('status','closed').then(()=>{},()=>{});
+    if(short)toast(t('errBikeUnavailable'),'warning');
     await loadDataLight();renderStaffQueue();
+    if(_writeErr(res,'undo cancel night'))return false;
   });
 }
 async function closeOutSession(sid){
@@ -12765,26 +12801,53 @@ async function closeOutSession(sid){
     body:t('closeOutBody').replace('{0}',String(toDone.length)).replace('{1}',String(toNoshow.length)),
     confirmLabel:t('closeOutBtn'),
     onConfirm:async()=>{
-      const prev={};rows.forEach(e=>{prev[e.id]=e.status;});
+      const was=new Map(rows.map(e=>[e.id,{status:e.status,bikes:getAssignedBikeIds(e),entry:e}]));
+      let doneIds=[],nsIds=[];
       if(toDone.length){
         const r=await sb.from('queue_entries').update({status:'done'})
-          .in('id',toDone.map(e=>e.id)).in('status',['active','waiting']);
+          .in('id',toDone.map(e=>e.id)).in('status',['active','waiting']).select('id');
         if(_writeErr(r,'close out'))return;
+        doneIds=_landedIds(r,toDone.map(e=>e.id));
       }
+      let nsErr=false;
       if(toNoshow.length){
         const r=await sb.from('queue_entries').update({status:'noshow'})
-          .in('id',toNoshow.map(e=>e.id)).eq('status','waiting');
-        if(_writeErr(r,'close out'))return;
+          .in('id',toNoshow.map(e=>e.id)).eq('status','waiting').select('id');
+        nsErr=_writeErr(r,'close out'); // the done half has landed by now: it still gets its bikes back and its undo
+        if(!nsErr)nsIds=_landedIds(r,toNoshow.map(e=>e.id));
       }
-      logAction(`${t('closeOutTitle')} · ${shortDate(sess.session_date||sid)} · ${toDone.length}/${toNoshow.length}`);
+      // A rider marked done hands the bike back, as a Return does; left 'in-use' it was freed later
+      // by whichever device happened to repaint, and the undo then put riders back on bikes that
+      // read as free. Only bikes no other live rider holds, and only while still 'in-use'.
+      const _held=new Set(getQueue().filter(e=>e.status==='active'&&!doneIds.includes(e.id)).flatMap(e=>getAssignedBikeIds(e)));
+      const _free=[...new Set(doneIds.filter(id=>was.get(id).status==='active').flatMap(id=>was.get(id).bikes))].filter(b=>!_held.has(b));
+      if(_free.length)await Promise.all(_free.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b).eq('status','in-use'))).catch(()=>{});
+      // A no-show hands its reserved add-ons back, exactly as a single No-show does.
+      await _addonStockRows(nsIds.map(id=>was.get(id).entry),1);
+      logAction(`${t('closeOutTitle')} · ${shortDate(sess.session_date||sid)} · ${doneIds.length}/${nsIds.length}`);
       await loadDataLight();renderStaffQueue();
-      toast(t('closeOutDoneToast').replace('{0}',String(toDone.length)).replace('{1}',String(toNoshow.length)));
+      if(!nsErr)toast(t('closeOutDoneToast').replace('{0}',String(doneIds.length)).replace('{1}',String(nsIds.length)));
+      if(!doneIds.length&&!nsIds.length)return;
       pushUndo(`${t('closeOutTitle')} ${shortDate(sess.session_date||sid)}`,async()=>{
-        const act=Object.keys(prev).filter(id=>prev[id]==='active');
-        const wai=Object.keys(prev).filter(id=>prev[id]==='waiting');
-        if(act.length)await sb.from('queue_entries').update({status:'active'}).in('id',act);
-        if(wai.length)await sb.from('queue_entries').update({status:'waiting'}).in('id',wai);
+        // Only the rows this close-out changed, each guarded on what it made them. A rider who was
+        // on a bike gets it back only if it is still free (claimed atomically), the checked-in and
+        // the no-shows go back to waiting, and the no-shows re-reserve the add-ons they returned.
+        const res=[];let short=false;
+        const wai=doneIds.filter(id=>was.get(id).status==='waiting');
+        if(wai.length)res.push(await sb.from('queue_entries').update({status:'waiting'}).in('id',wai).eq('status','done').select('id'));
+        let nsBack=[];
+        if(nsIds.length){const u=await sb.from('queue_entries').update({status:'waiting'}).in('id',nsIds).eq('status','noshow').select('id');res.push(u);nsBack=_landedIds(u,nsIds);}
+        await Promise.all(doneIds.filter(id=>was.get(id).status==='active').map(async id=>{
+          const bikes=was.get(id).bikes;const claimed=await _reclaimBikes(bikes);
+          const patch={status:'active'};
+          if(claimed.length<bikes.length){short=true;patch.assigned_bike_id=claimed.length===0?null:claimed.length===1?claimed[0]:JSON.stringify(claimed);}
+          const u=await sb.from('queue_entries').update(patch).eq('id',id).eq('status','done').select('id');res.push(u);
+          if(((u&&u.error)||!(u.data&&u.data.length))&&claimed.length)await Promise.all(claimed.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b))).catch(()=>{});
+        }));
+        await _addonStockRows(nsBack.map(id=>was.get(id).entry),-1);
+        if(short)toast(t('errBikeUnavailable'),'warning');
         await loadDataLight();renderStaffQueue();
+        if(_writeErr(res,'undo close out'))return false;
       });
     }});
 }
@@ -12836,12 +12899,18 @@ function toggleSfSelect(id){
 function clearSfSelect(){S.sfSelected=[];renderStaffQueue();}
 async function bulkSfPaid(){
   const ids=S.sfSelected.slice();if(!ids.length)return;
-  const res=await Promise.all(ids.map(id=>sb.from('queue_entries').update({paid:true,pay_method:'card'}).eq('id',id)));
+  // Only the rows still unpaid, guarded on it. A rider already paid by split, by cash from before
+  // card-only, or on the house keeps how they paid: relabelling a split 'card' while its card
+  // slice stayed made the session report and the drawer count disagree. The fare follows the pay
+  // pill's rule, so an incidental 0 (no promo) is charged the bike's fare, not recorded as free.
+  const rows=ids.map(id=>getQueue().find(e=>e.id===id)).filter(e=>e&&!e.paid);
+  const res=await Promise.all(rows.map(e=>{const p={paid:true,pay_method:'card'};if(e.price===0&&!e.promoCode)p.price=_entryFallbackPrice(e);return sb.from('queue_entries').update(p).eq('id',e.id).eq('paid',false).select('id');}));
+  const n=res.filter(r=>r&&!r.error&&r.data&&r.data.length).length;
   const fail=res.find(r=>r&&r.error);
   await loadData();S.sfSelected=[];
   if(fail){toast(fail.error.message||t('errConnection'),'error');renderStaffQueue();return;}
-  logAction(t('logBulkPaid').replace('{0}',ids.length));
-  toast(`${ids.length} ${t('paidLabel')}`);
+  logAction(t('logBulkPaid').replace('{0}',n));
+  toast(`${n} ${t('paidLabel')}`);
   renderStaffQueue();renderMyRides();
 }
 // Check several riders in at once. Shared by the queue's bulk bar and by a party on the
@@ -12858,7 +12927,7 @@ async function _checkinMany(idList){
     const _c=await _claimReservedBikes(e); // reserved bike goes in-use with the rider (or the stale link is dropped)
     const r=await sb.from('queue_entries').update({status:'active',..._c.patch}).eq('id',id).in('status',['waiting','waitlist']).select('id');
     if(!(r&&r.error)&&(r.data&&r.data.length))landed.push(id);
-    if(!(r&&r.error)&&!(r.data&&r.data.length)&&_c.claimed.length)await Promise.all(_c.claimed.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b))).catch(()=>{}); // another device won
+    else if(_c.claimed.length)await Promise.all(_c.claimed.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b))).catch(()=>{}); // another device won, or the write failed: the bike was never handed over
     if(!(r&&r.error)&&(r.data&&r.data.length)){
       await _addonsOnLeaveWaitlist(e,!!wasWl.get(id));
       await _mwRetireLinked(id); // a Staff List row carrying this booking is spent once they ride
@@ -12873,11 +12942,13 @@ async function _checkinMany(idList){
   const fail=res.find(r=>r&&r.error);
   landed.forEach(id=>{const e=getQueue().find(x=>x.id===id);if(e)e.status='active';});renderStaffQueue(); // paint first, reconcile after
   await (fail?loadDataLight():_reloadRows(ids));
-  if(fail){toast(fail.error.message||t('errConnection'),'error');renderStaffQueue();return 0;}
-  logAction(t('logBulkCheckin').replace('{0}',ids.length));
-  toast(`${ids.length} ${t('checkInBtn')}`);
+  if(fail){toast(fail.error.message||t('errConnection'),'error');renderStaffQueue();return landed.length;}
+  // The count is the riders this desk actually checked in: a row another device got to first
+  // is not one of them, and the log is the record staff reconcile the night against.
+  logAction(t('logBulkCheckin').replace('{0}',landed.length));
+  toast(`${landed.length} ${t('checkInBtn')}`);
   renderStaffQueue();
-  return ids.length;
+  return landed.length;
 }
 async function bulkSfCheckin(){
   const n=await _checkinMany(S.sfSelected.slice());
@@ -12956,7 +13027,7 @@ function showPayMenu(id,evt){
   const menu=document.createElement('div');
   menu.className='pay-menu-popup';
   menu.style.cssText='position:fixed;z-index:9001;background:var(--s2);border:1.5px solid var(--border);border-radius:4px;padding:5px;min-width:200px;box-shadow:0 6px 24px rgba(0,0,0,.6)';
-  menu.innerHTML=opts.map(o=>`<button class="pay-menu-opt${o.active?' active':''}" onclick="${o.mode==='price'?`showEditPriceModal('${id}')`:o.mode==='split'?`splitRentalPayment('${id}')`:`togglePayment('${id}','${o.mode}')`};document.querySelectorAll('.pay-menu-popup').forEach(m=>m.remove())">${o.label}</button>`).join('');
+  menu.innerHTML=opts.map(o=>`<button class="pay-menu-opt${o.active?' active':''}" onclick="${o.mode==='price'?`showEditPriceModal(${_ja(id)})`:o.mode==='split'?`splitRentalPayment(${_ja(id)})`:`togglePayment(${_ja(id)},${_ja(o.mode)})`};document.querySelectorAll('.pay-menu-popup').forEach(m=>m.remove())">${o.label}</button>`).join('');
   document.body.appendChild(menu);
   const r=evt.currentTarget.getBoundingClientRect();
   const mh=menu.offsetHeight||100;
@@ -13100,10 +13171,17 @@ function pushUndo(label,fn){
   if(S.undoStack.length>20)S.undoStack.shift();
   showUndoBar(label,async()=>{
     if(logEntry.undone)return; // already reversed (e.g. via the logs view) — never run the reversal twice
+    const had=S.undoStack.some(i=>i.fn===fn);
     S.undoStack=S.undoStack.filter(i=>i.label!==label||i.fn!==fn);
     logEntry.undone=true;
-    if(await fn()===false){logEntry.undone=false;toast(t('undoFailed'),'error');} // refused: hand the entry back rather than striking it through
-    if(S.staffTab==='history'&&S.histView==='log')renderLogs();
+    let ok=false;
+    try{ok=(await fn())!==false;}finally{
+      if(!ok){logEntry.undone=false;if(had)S.undoStack.push({label,fn});} // refused: hand the entry back (bar, topbar and logs) rather than striking it through
+      if(S.staffTab==='history'&&S.histView==='log')renderLogs();
+    }
+    // Thrown, not toasted here: the bar reports the outcome, and it used to say "Undone" right
+    // after this said the undo had failed.
+    if(!ok)throw new Error('undo refused');
   });
   renderTopbarRight();
   if(S.staffTab==='history'&&S.histView==='log')renderLogs();
@@ -13117,16 +13195,23 @@ async function doUndo(){
   // the bar so no other entry point can re-run it.
   const logEntry=(S.actionLog||[]).find(l=>l.fn===item.fn);
   if(logEntry&&logEntry.undone){renderTopbarRight();return;} // already reversed from the Logs view
-  try{
-    await item.fn();
-    if(logEntry)logEntry.undone=true;
+  // Claimed BEFORE the await, as the bar and the Logs view do: marked only once the reversal had
+  // finished, the second or so it takes left the bar's own Undo free to run it again.
+  if(logEntry)logEntry.undone=true;
+  let ok=false;
+  try{ok=(await item.fn())!==false;}catch(e){ok=false;}
+  if(ok){
     const bar=document.getElementById('undo-bar-el');if(bar){try{clearInterval(_undoBarTimer);}catch(_){}bar.remove();}
     toast(t('undoneMsg'));
-  }catch(e){
+  }else{
+    // Refused (a reversal answers false when its write fails) or threw: nothing was reversed,
+    // so the action stays undoable everywhere instead of reading "Undone".
+    if(logEntry)logEntry.undone=false;
     S.undoStack.push(item);
     toast(t('undoFailed'),'error');
   }
   renderTopbarRight();
+  if(S.staffTab==='history'&&S.histView==='log')renderLogs();
 }
 
 // The reasons a rider can give, the everyday ones first. Other is always last and asks for the
@@ -13166,7 +13251,7 @@ function showCancelReasonModal(id){
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn-secondary" style="flex:1" onclick="closeCancelReasonModal()">${t('cancelBtn')}</button>
-        <button class="btn-primary" style="flex:2;background:var(--red);border-color:var(--red)" onclick="confirmCancelWithReason('${id}')">${t('cancelConfirmBtn')}</button>
+        <button class="btn-primary" style="flex:2;background:var(--red);border-color:var(--red)" onclick="confirmCancelWithReason(${_ja(id)})">${t('cancelConfirmBtn')}</button>
       </div>
     </div>
   </div>`;
@@ -13216,7 +13301,7 @@ function showRescheduleModal(fromSessionId){
     .sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
   const list=opts.length?opts.map(s=>{
     const full=spotsLeft(s.id)<moving.length; // same yardstick as booking + rescheduleBooking
-    return`<button ${full?'disabled':''} onclick="rescheduleBooking('${fromSessionId}','${s.id}')" style="display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:start;padding:12px 14px;border-radius:4px;border:1px solid var(--border);background:${full?'rgba(var(--tint-rgb),.02)':'var(--s2)'};color:var(--text);font-family:var(--font-body);cursor:${full?'not-allowed':'pointer'};opacity:${full?'.5':'1'};margin-bottom:8px">
+    return`<button ${full?'disabled':''} onclick="rescheduleBooking(${_ja(fromSessionId)},${_ja(s.id)})" style="display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:start;padding:12px 14px;border-radius:4px;border:1px solid var(--border);background:${full?'rgba(var(--tint-rgb),.02)':'var(--s2)'};color:var(--text);font-family:var(--font-body);cursor:${full?'not-allowed':'pointer'};opacity:${full?'.5':'1'};margin-bottom:8px">
       <span style="font-weight:800;font-size:13px">${dayLabel(s.day)} · ${shortDate(s.session_date||s.id)}</span>
       <span style="font-size:11px;font-weight:700;color:${full?'var(--red)':'var(--green)'}">${full?t('statusFull'):t('availLabel')}</span>
     </button>`;
@@ -13256,7 +13341,6 @@ async function rescheduleBooking(fromSessionId,toSessionId){
   }
   const base=nextQNum(toSessionId);
   const sorted=moving.slice().sort((a,b)=>(a.queueNum||0)-(b.queueNum||0));
-  const wasAllWaitlist=moving.every(e=>e.status==='waitlist');
   // Reprice across the free/paid boundary: into a community ride -> free (0); out of one -> the bike's
   // real price. Same-kind moves keep the existing price (incl. any promo discount already applied).
   const _toComm=_isApprovalRide(newSess);
@@ -13278,9 +13362,15 @@ async function rescheduleBooking(fromSessionId,toSessionId){
   }
   if(_writeErr(_rs,'reschedule')){await loadData();renderMyRides();return;}
   await loadData();
-  // Consume add-on stock only for rows that really landed as confirmed 'waiting' (the DB
-  // capacity guard may have coerced the move back to waitlist on a just-filled session).
-  if(wasAllWaitlist)for(const _m of moving){const _f=getQueue().find(x=>x.id===_m.id);if(_f&&_f.status==='waiting')await _addonStockQ(entryAddons(_m),-1);}
+  // Add-on stock follows where each rider really landed, row by row: a waitlisted rider who
+  // lands confirmed reserves theirs now, and a confirmed one the DB capacity guard coerced back
+  // to the waitlist (a session filled in the same moment) hands theirs back - held on the
+  // waitlist it was never restocked on a later cancel and was taken a second time on promotion.
+  for(const _m of moving){
+    const _f=getQueue().find(x=>x.id===_m.id);if(!_f)continue;
+    if(_m.status==='waitlist'&&_f.status==='waiting')await _addonStockQ(entryAddons(_m),-1);
+    else if(_m.status==='waiting'&&_f.status==='waitlist')await _addonStockQ(entryAddons(_m),1);
+  }
   const _anyWl=moving.some(_m=>{const _f=getQueue().find(x=>x.id===_m.id);return _f&&_f.status==='waitlist';});
   toast(_anyWl?t('toastWaitlisted'):t('toastRescheduled'));
   renderMyRides();
@@ -13328,10 +13418,23 @@ async function cancelBooking(id,reason,why){
   for(const s of saved)if(s.status==='waiting')await _restockAddonsOnExit(live.find(e=>e.id===s.id)||entry); // waitlist rows never reserved stock
   toast(t('toastBookingCancelled'));
   pushUndo(`${t('undoCancelBooking')} #${savedQNum} ${entry.name}`,async()=>{
-    const r2=await Promise.all(saved.map(s=>_ownEntryUpdate(s.id,{status:s.status,queue_num:_restoreNum(entry.sessionId,s.queueNum,s.id)})));
+    // A customer's restore goes through their own door, which gives a place back only if there is
+    // still room: the place they gave up may already have gone to the next rider on the waitlist,
+    // and then the booking comes back waitlisted. The number stays the row's own (the door does
+    // not take one from a customer), so only the status is sent from that side.
+    const _cust=_asCustomer();
+    const r2=await Promise.all(saved.map(s=>_ownEntryUpdate(s.id,_cust?{status:s.status}:{status:s.status,queue_num:_restoreNum(entry.sessionId,s.queueNum,s.id)})));
     if(_writeErr(r2,'undo cancel')){await loadData();renderMyRides();renderStaffQueue();return false;}
     await loadData();
-    for(const s of saved)if(s.status==='waiting')await _consumeAddonsOnEnter(live.find(e=>e.id===s.id)||entry); // the restore brings the booking back, so re-reserve what the cancel restocked
+    // Re-reserve add-ons only for a rider who really came back confirmed: a waitlisted one holds none.
+    let _wl=false;
+    for(const s of saved){
+      if(s.status!=='waiting')continue;
+      const f=getQueue().find(x=>x.id===s.id);
+      if(f&&f.status==='waitlist'){_wl=true;continue;}
+      await _consumeAddonsOnEnter(live.find(e=>e.id===s.id)||entry); // the restore brings the booking back, so re-reserve what the cancel restocked
+    }
+    if(_wl)toast(t('toastWaitlisted'),'warning');
     renderMyRides();renderStaffQueue();
   });
   renderMyRides();
@@ -13378,65 +13481,62 @@ function _staffCancelConfirm(entry,onConfirm){
 }
 // The write behind a staff cancel (waitlist, waiting or active), shared by the roster's
 // Cancel and the check-in modal's Cancel booking.
+// Every write is guarded on the status this desk saw and checked before anything acts on it:
+// a refused or lost cancel must not free a bike the rider is still on, promote a waitlister into
+// a place that is still held, or put add-ons back that are still out with the rider.
 async function _staffCancelNow(id,why){
       why=why||{}; // {cancel_reason, cancel_note} when staff picked one
       const entry=getQueue().find(e=>e.id===id);if(!entry)return;
-      if(entry.status==='waitlist'){
-        const _wc=await sb.from('queue_entries').update({status:'cancelled',cancelled_by:'staff'}).eq('id',id);
+      const was=entry.status;
+      if(was==='waitlist'){
+        const _wc=await sb.from('queue_entries').update({status:'cancelled',cancelled_by:'staff',...why}).eq('id',id).eq('status','waitlist').select('id');
         if(_writeErr(_wc,'cancel booking',()=>_staffCancelNow(id,why))){await loadData();renderStaffQueue();return;}
+        if(!_landed(_wc))return _lostRace();
         await _mwRetireLinked(id,'removed'); // a Staff List row carrying this booking is spent
         await loadData();toast(`${t('cancelBtn')} ✓`);renderStaffQueue();renderMyRides();return;
       }
-      if(entry.status!=='waiting'&&entry.status!=='active'){toast(t('toastCannotCancel'),'error');return;}
+      if(was!=='waiting'&&was!=='active'){toast(t('toastCannotCancel'),'error');return;}
       const bikeIds=getAssignedBikeIds(entry);
-      const savedStatus=entry.status;
-      const savedAssigned=entry.assignedBikeId;
-      if(entry.status==='waiting'){
-        const savedQNum=entry.queueNum;
-        // Checked before the promotion hands the place on: promoting over a refused cancel puts
-        // the session one rider past its capacity.
-        const _cc=await sb.from('queue_entries').update({status:'cancelled',cancelled_by:'staff',...why}).eq('id',id);
-        if(_writeErr(_cc,'cancel booking',()=>_staffCancelNow(id,why))){await loadData();renderStaffQueue();return;}
-        await _shiftDownAfter(entry.sessionId,savedQNum); // close the number gap
-        // A cancellation is the ONE thing that frees a place, so it is the one thing that
-        // promotes: the place goes to whoever has been waiting longest, rather than sitting
-        // empty while a rider who wanted it stays on the waitlist.
-        const _promoted=await _autoPromoteOldestWaitlist(entry.sessionId);
-        await loadData();
-        await _restockAddonsOnExit(entry);
-        toast(_promoted?`#${savedQNum} — ${t('toastBookingCancelled')} · ${t('toastPromoted')}`:`#${savedQNum} — ${t('toastBookingCancelled')}`);
-        if(_promoted&&_promoted.phone)_promoNudge(_promoted);
-        pushUndo(`${t('undoStaffCancel')} #${savedQNum} ${entry.name}`,async()=>{
-          const _u=await sb.from('queue_entries').update({status:'waiting',queue_num:_restoreNum(entry.sessionId,savedQNum,id),...(why.cancel_reason?{cancel_reason:null,cancel_note:null}:{})}).eq('id',id);
-          if(_writeErr(_u,'undo cancel')){await loadData();renderStaffQueue();return false;} // failed restore must not consume stock or repaint as restored
-          await loadData();
-          await _consumeAddonsOnEnter(entry); // the restore brings the booking back, so re-reserve the add-ons that were restocked on cancel
-          renderMyRides();renderStaffQueue();
-        });
-      }else{
-        const calls=[sb.from('queue_entries').update({status:'cancelled',assigned_bike_id:null,cancelled_by:'staff',...why}).eq('id',id)];
-        bikeIds.forEach(bid=>calls.push(sb.from('bikes').update({status:'available'}).eq('id',bid)));
-        await Promise.all(calls);
-        await _shiftDownAfter(entry.sessionId,entry.queueNum); // close the number gap
-        const _promoted=await _autoPromoteOldestWaitlist(entry.sessionId); // the freed place goes to the next in line
-        await loadData();
-        await _restockAddonsOnExit(entry);
-        if(_promoted&&_promoted.phone)_promoNudge(_promoted);
+      const savedQNum=entry.queueNum;
+      const _cc=await sb.from('queue_entries').update(was==='active'?{status:'cancelled',assigned_bike_id:null,cancelled_by:'staff',...why}:{status:'cancelled',cancelled_by:'staff',...why})
+        .eq('id',id).eq('status',was).select('id');
+      if(_writeErr(_cc,'cancel booking',()=>_staffCancelNow(id,why))){await loadData();renderStaffQueue();return;}
+      if(!_landed(_cc))return _lostRace();
+      if(was==='active'){ // only now that the rider is really off it does the bike go back on the rack
+        await Promise.all(bikeIds.map(bid=>sb.from('bikes').update({status:'available'}).eq('id',bid))).catch(()=>{});
         try{localStorage.removeItem('cq_ct_'+id);}catch(e){}
-        toast(`#${entry.queueNum} — ${t('toastBookingCancelled')}`);
-        pushUndo(`${t('undoStaffCancel')} #${entry.queueNum} ${entry.name}`,async()=>{
-          // The freed bike may already be under another rider: re-claim atomically, restore
-          // only what we actually got back, and bail before consuming stock if the write fails.
-          const claimed=await _reclaimBikes(bikeIds);
-          if(claimed.length<bikeIds.length)toast(t('errBikeUnavailable'),'warning');
-          const assignedVal=claimed.length===1?claimed[0]:(claimed.length?JSON.stringify(claimed):null);
-          const _u=await sb.from('queue_entries').update({status:savedStatus,assigned_bike_id:assignedVal,queue_num:_restoreNum(entry.sessionId,entry.queueNum,id),...(why.cancel_reason?{cancel_reason:null,cancel_note:null}:{})}).eq('id',id);
-          if(_writeErr(_u,'undo cancel')){await Promise.all(claimed.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b))).catch(()=>{});await loadData();renderStaffQueue();return false;}
-          await loadData();
-          await _consumeAddonsOnEnter(entry); // the restore brings the booking back, so re-reserve the add-ons that were restocked on cancel
-          renderStaffQueue();
-        });
       }
+      await _shiftDownAfter(entry.sessionId,savedQNum); // close the number gap
+      // A cancellation is the ONE thing that frees a place, so it is the one thing that
+      // promotes: the place goes to whoever has been waiting longest, rather than sitting
+      // empty while a rider who wanted it stays on the waitlist.
+      const _promoted=await _autoPromoteOldestWaitlist(entry.sessionId);
+      await loadData();
+      await _restockAddonsOnExit(entry);
+      toast(_promoted?`#${savedQNum} — ${t('toastBookingCancelled')} · ${t('toastPromoted')}`:`#${savedQNum} — ${t('toastBookingCancelled')}`);
+      if(_promoted&&_promoted.phone)_promoNudge(_promoted);
+      pushUndo(`${t('undoStaffCancel')} #${savedQNum} ${entry.name}`,async()=>{
+        const plan=await _undoPromotion(_promoted,entry);
+        const patch={status:was,queue_num:_restoreNum(entry.sessionId,savedQNum,id),...(why.cancel_reason?{cancel_reason:null,cancel_note:null}:{})};
+        let claimed=[];
+        if(was==='active'){
+          // On a bike is on a bike: they come back riding whatever the count says. The freed bike
+          // may already be under another rider, so re-claim atomically and keep only what we got.
+          claimed=await _reclaimBikes(bikeIds);
+          if(claimed.length<bikeIds.length)toast(t('errBikeUnavailable'),'warning');
+          patch.assigned_bike_id=claimed.length===1?claimed[0]:(claimed.length?JSON.stringify(claimed):null);
+        }else if(plan.status==='waitlist'){patch.status='waitlist';patch.waitlist_num=entry.waitlistNum||nextWlNum(entry.sessionId);}
+        const _u=await sb.from('queue_entries').update(patch).eq('id',id).eq('status','cancelled').select('id');
+        if(_writeErr(_u,'undo cancel')||!_landed(_u)){ // failed restore must not consume stock or repaint as restored
+          await Promise.all(claimed.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b))).catch(()=>{});
+          await _redoPromotion(plan.back);
+          await loadData();renderStaffQueue();return false;
+        }
+        await loadData();
+        if(patch.status==='waitlist')toast(t('toastWaitlisted'),'warning');
+        else await _consumeAddonsOnEnter(entry); // the restore brings the booking back, so re-reserve the add-ons that were restocked on cancel
+        renderMyRides();renderStaffQueue();
+      });
       renderMyRides();renderStaffQueue();
 }
 
@@ -13479,9 +13579,18 @@ function renderLogs(){
   const el=document.getElementById('hist-log-host')||document.getElementById('tab-logs');if(!el)return;
   try{_loadDbLogs();}catch(_){}
   const fmtT=ts=>new Date(ts).toLocaleTimeString('en-GB',{timeZone:KSA_TZ,hour12:false,hour:'2-digit',minute:'2-digit'});
-  const seen=new Set();
-  const all=[...(S._dbLog||[]),...(S.fullLog||[]).map(i=>({ts:i.ts,label:i.label,by:i.by||''}))]
-    .filter(i=>{const k=Math.floor((i.ts||0)/60000)+'|'+(i.label||'');if(seen.has(k))return false;seen.add(k);return true;})
+  // This device's own lines are mirrored into staff_actions, so each local line is dropped against
+  // ONE matching shared row (same text, within a minute of it), one for one. Keyed on minute and
+  // text alone, two real actions with the same wording in the same minute - two desks each marking
+  // three riders paid, or one desk doing it twice - collapsed into a single line of the audit trail.
+  const _pool=new Map();
+  (S._dbLog||[]).forEach(r=>{const k=r.label||'';if(!_pool.has(k))_pool.set(k,[]);_pool.get(k).push(r.ts||0);});
+  const _mirrored=i=>{
+    const a=_pool.get(String(i.label||'').slice(0,300));if(!a)return false; // the shared table keeps the first 300 characters
+    let bi=-1,bd=60000;a.forEach((ts,j)=>{const d=Math.abs(ts-(i.ts||0));if(d<bd){bd=d;bi=j;}});
+    if(bi<0)return false;a.splice(bi,1);return true;
+  };
+  const all=[...(S._dbLog||[]),...(S.fullLog||[]).map(i=>({ts:i.ts,label:i.label,by:i.by||''})).filter(i=>!_mirrored(i))]
     .sort((a,b)=>(b.ts||0)-(a.ts||0));
   const opBar=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
       <span style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">${t('logsOperator')}</span>
@@ -13495,7 +13604,7 @@ function renderLogs(){
   if(S._logOp&&S._logOp!=='all')list=list.filter(i=>i.by===S._logOp);
   if(q)list=list.filter(i=>(i.label||'').toLowerCase().includes(q)||(i.by||'').toLowerCase().includes(q));
   S._logExport=list; // stash for CSV export (respects current filters)
-  const catPill=(v,l)=>`<button class="filter-pill${(S._logCat||'all')===v?' active':''}" onclick="S._logCat='${v}';renderLogs()">${l}</button>`;
+  const catPill=(v,l)=>`<button class="filter-pill${(S._logCat||'all')===v?' active':''}" onclick="S._logCat=${_ja(v)};renderLogs()">${l}</button>`;
   const filterBar=`
     <div class="filter-row" style="margin-bottom:8px">${catPill('all',t('filterAll'))}${_LOG_CATS.map(([v,k])=>catPill(v,t(k))).join('')}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;align-items:center">
@@ -13517,7 +13626,7 @@ function renderLogs(){
       ${catChip(_logCatOf(i.label))}
       <span style="flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(i.label)}</span>
       <span style="font-size:11px;font-weight:800;color:var(--green);white-space:nowrap;flex-shrink:0">${esc(i.by==='Staff'?t('byStaff'):i.by==='Guest'?t('byGuest'):(i.by||''))}</span>
-      ${_u?`<button class="btn-sm btn-muted" style="flex-shrink:0;font-size:11px;padding:3px 10px" onclick="confirmLogUndo('${_u.id}')">${_artIcon('undo',12)} ${t('undoBtn')}</button>`:''}
+      ${_u?`<button class="btn-sm btn-muted" style="flex-shrink:0;font-size:11px;padding:3px 10px" onclick="confirmLogUndo(${_ja(_u.id)})">${_artIcon('undo',12)} ${t('undoBtn')}</button>`:''}
     </div>`;
   });
   const hadFocus=document.activeElement&&document.activeElement.id==='log-search';
@@ -13777,19 +13886,55 @@ async function _autoPromoteOldestWaitlist(sessionId){
   if(_isApprovalRide(allSessions().find(s=>s.id===sessionId)))return false;
   const wl=getQueue().filter(x=>x.sessionId===sessionId&&x.status==='waitlist')
     .sort(_wlCmp); // staff-set W order first (W1 is next up), registration time as tiebreaker
-  if(!wl.length)return false;
-  const e=wl[0];
-  // Keeps its original booking number (stable numbers, no reuse — same rule as manual promote).
-  // Status-guarded like the manual promote: a stale device auto-promoting an already-promoted
-  // row must not consume its add-on stock a second time.
-  const _aq=await sb.from('queue_entries').update({status:'waiting'}).eq('id',e.id).eq('status','waitlist').select('id');
-  if((_aq&&_aq.error)||!(_aq.data&&_aq.data.length))return false; // don't claim a promotion (or consume stock) if the write failed or lost the race
-  await _mwRetireLinked(e.id);
-  await _consumeAddonsOnEnter(e); // promoted booking now reserves its add-on stock
-  // Auto-promotion happens without anyone watching, which is exactly when a banner on a
-  // staff phone is least likely to be seen — so this path especially needs the push.
-  pushNotify(e.customerId,t('pushPromotedTitle'),t('pushPromotedBody').replace('{0}',e.queueNum),'./','booking-'+e.id);
-  return e; // truthy for existing callers; the entry lets them show the WhatsApp nudge
+  // Down the line until one promotion takes. This device's copy can be a moment behind: a first
+  // candidate another desk had already promoted or cancelled used to end the attempt, and the
+  // place this desk had just freed sat empty with riders still waiting for it.
+  for(const e of wl){
+    // Keeps its original booking number (stable numbers, no reuse — same rule as manual promote).
+    // Status-guarded like the manual promote: a stale device auto-promoting an already-promoted
+    // row must not consume its add-on stock a second time.
+    const _aq=await sb.from('queue_entries').update({status:'waiting'}).eq('id',e.id).eq('status','waitlist').select('id');
+    if(_aq&&_aq.error)return false; // don't claim a promotion (or consume stock) if the write failed
+    if(!(_aq.data&&_aq.data.length))continue; // lost the race for this one: the next in line gets the place
+    await _mwRetireLinked(e.id);
+    await _consumeAddonsOnEnter(e); // promoted booking now reserves its add-on stock
+    // Auto-promotion happens without anyone watching, which is exactly when a banner on a
+    // staff phone is least likely to be seen — so this path especially needs the push.
+    pushNotify(e.customerId,t('pushPromotedTitle'),t('pushPromotedBody').replace('{0}',e.queueNum),'./','booking-'+e.id);
+    return e; // truthy for existing callers; the entry lets them show the WhatsApp nudge
+  }
+  return false;
+}
+// A guarded write came back with no row: another desk changed this booking first. Nothing may
+// act on it (promote, restock, free a bike); staff see the row as it now stands.
+function _landed(r){return !!(r&&!r.error&&r.data&&r.data.length);}
+async function _lostRace(){await loadDataLight();renderStaffQueue();toast(t('errChangedElsewhere'),'warning');}
+// Whether a night has a confirmed place free: the live bookings that hold a place, not counting
+// the waitlist (those are the riders waiting FOR one). Approval rides are hand-picked.
+function _hasRoom(sid){
+  const sess=allSessions().find(s=>s.id===sid);if(!sess||_isApprovalRide(sess))return true;
+  return getQueue().filter(e=>e.sessionId===sid&&e.status!=='waitlist'&&_holdsSpot(e,sess)).length<((sess&&sess.capacity)||12);
+}
+// Undoing a cancel or a no-show gives the rider back a place the action had already handed to
+// the longest-waiting rider, and leaving both confirmed is how a 12-bike night ends up with 13.
+// So the place is taken back while the promoted rider is still only 'waiting': back onto the
+// waitlist with their W position, the add-ons the promotion reserved returned. Once they have
+// been checked in the place is theirs, and the rider being restored goes onto the waitlist
+// instead if the night has no room. Says which status the restored rider gets.
+async function _undoPromotion(p,entry){
+  if(p){
+    const r=await sb.from('queue_entries').update({status:'waitlist'}).eq('id',p.id).eq('status','waiting').select('id');
+    if(_landed(r)){await _restockAddonsOnExit(p);return{status:'waiting',back:p};}
+  }
+  const sess=allSessions().find(s=>s.id===entry.sessionId);
+  const needs=_holdsSpot({...entry,status:'waiting'},sess); // an own-bike rider holds no place (Petromin excepted)
+  return{status:(!needs||_hasRoom(entry.sessionId))?'waiting':'waitlist',back:null};
+}
+// The restore after a take-back failed: the place goes straight back to the promoted rider.
+async function _redoPromotion(p){
+  if(!p)return;
+  const r=await sb.from('queue_entries').update({status:'waiting'}).eq('id',p.id).eq('status','waitlist').select('id');
+  if(_landed(r))await _consumeAddonsOnEnter(p);
 }
 // A Staff List row linked to this booking is spent once the booking leaves the waitlist
 // (promoted / cancelled), whichever page did it.
@@ -13801,51 +13946,72 @@ async function _mwRetireLinked(bookingId,status){
 }
 async function doNoShow(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
+  const was=entry.status;
+  // Only a rider still expected. This runs from a confirm or a check-in modal that can have sat
+  // open while another desk checked the rider in; a rider on a bike marked no-show left the bike
+  // orphaned, and it was freed from under them.
+  if(was!=='waiting'&&was!=='waitlist')return _lostRace();
   const savedQNum=entry.queueNum;
   // Ticket numbers are stable and never reused; no-show just frees the slot and leaves a gap (no shifting, which a unique index would reject).
-  // Everything below (auto-promote, restock) assumes the slot really freed — bail if the write failed.
-  const _ns=await sb.from('queue_entries').update({status:'noshow'}).eq('id',id);
+  // Everything below (auto-promote, restock) assumes the slot really freed — bail if the write failed,
+  // and the write is guarded on the status seen here, so two desks cannot both act on one rider.
+  const _ns=await sb.from('queue_entries').update({status:'noshow'}).eq('id',id).eq('status',was).select('id');
   if(_writeErr(_ns,'no-show')){await loadDataLight();renderStaffQueue();return;}
+  if(!_landed(_ns))return _lostRace();
   entry.status='noshow';S._flashId=id;S._flashColor='orange';renderStaffQueue(); // paint first, reconcile after
   // A no-show releases its place — the rider never took a bike out — so it goes to whoever has
-  // waited longest, exactly as a cancellation does.
-  const _promoted=await _autoPromoteOldestWaitlist(entry.sessionId);
+  // waited longest, exactly as a cancellation does. A waitlisted rider held no place and no
+  // add-on stock (the same rule as cancelling one), so their no-show promotes nobody and
+  // restocks nothing: doing either put a 13th rider on a 12-bike night and inflated inventory.
+  const _promoted=was==='waiting'?await _autoPromoteOldestWaitlist(entry.sessionId):false;
   await loadDataLight(); // queue-only status change: slim re-sync (no photo refetch)
-  await _restockAddonsOnExit(entry);
+  if(was==='waiting')await _restockAddonsOnExit(entry);
   toast(_promoted?`${t('toastNoShow')} · ${t('toastPromoted')}`:t('toastNoShow'));
   if(_promoted&&_promoted.phone)_promoNudge(_promoted);
   S._flashId=id;S._flashColor='orange';setTimeout(()=>{S._flashId=null;},800);
   pushUndo(`${t('undoNoShow')} #${savedQNum} ${entry.name}`,async()=>{
-    const _u=await sb.from('queue_entries').update({status:'waiting',queue_num:_restoreNum(entry.sessionId,savedQNum,id)}).eq('id',id);
-    if(_writeErr(_u,'undo no-show')){await loadData();renderStaffQueue();return false;} // failed restore must not consume stock
+    // Back to what they were: a waitlisted rider to the waitlist, a confirmed one to their place
+    // (taken back from whoever the no-show promoted, or onto the waitlist if it is gone).
+    const plan=was==='waiting'?await _undoPromotion(_promoted,entry):{status:'waitlist',back:null};
+    const patch={status:plan.status,queue_num:_restoreNum(entry.sessionId,savedQNum,id)};
+    if(plan.status==='waitlist')patch.waitlist_num=entry.waitlistNum||nextWlNum(entry.sessionId);
+    const _u=await sb.from('queue_entries').update(patch).eq('id',id).eq('status','noshow').select('id');
+    if(_writeErr(_u,'undo no-show')||!_landed(_u)){await _redoPromotion(plan.back);await loadData();renderStaffQueue();return false;} // failed restore must not consume stock
     await loadData();
-    await _consumeAddonsOnEnter(entry); // undo brings the rider back — re-reserve the add-ons restocked on no-show (was leaking stock)
+    if(plan.status==='waiting')await _consumeAddonsOnEnter(entry); // undo brings the rider back — re-reserve the add-ons restocked on no-show (was leaking stock)
+    else if(was==='waiting')toast(t('toastWaitlisted'),'warning');
     renderStaffQueue();
   });
   renderStaffQueue();
 }
 async function doUndoNoShow(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry||entry.status!=='noshow')return;
-  // The rider keeps their original ticket number. If a live booking already holds that number (a leftover duplicate from the old shifting logic), give this rider a fresh number so the unique index is satisfied.
-  const slotTaken=getQueue().some(e=>e.sessionId===entry.sessionId&&e.queueNum===entry.queueNum&&e.id!==id&&['waiting','active','done'].includes(e.status));
+  // The rider keeps their original ticket number. If a live booking already holds that number
+  // (a leftover duplicate from the old shifting logic), give this rider a fresh number so the
+  // unique index is satisfied. _restoreNum counts waitlist rows too: they sit in that index,
+  // and leaving them out sent a restore onto a waitlisted rider's number and a duplicate-key error.
   const oldQNum=entry.queueNum;
   const upd={status:'waiting'};
-  if(slotTaken)upd.queue_num=nextQNum(entry.sessionId);
+  const _n=_restoreNum(entry.sessionId,oldQNum,id);if(_n!==oldQNum)upd.queue_num=_n;
+  let _landedRow=false;
   try{
-    const{error}=await sb.from('queue_entries').update(upd).eq('id',id); // Supabase returns the error rather than throwing, so check it explicitly
+    const{data,error}=await sb.from('queue_entries').update(upd).eq('id',id).eq('status','noshow').select('id'); // Supabase returns the error rather than throwing, so check it explicitly
     if(error)throw error;
+    _landedRow=!!(data&&data.length);
   }catch(err){
     console.error('doUndoNoShow failed',err);
     toast(t('errSomethingWrong')+(err&&(err.message||err.code)?' ('+(err.message||err.code)+')':''),'error');
     await loadDataLight();renderStaffQueue();
     return;
   }
+  if(!_landedRow)return _lostRace(); // another desk dealt with this row first: nothing to re-reserve
   if(upd.queue_num!=null)entry.queueNum=upd.queue_num;
   await loadDataLight(); // queue-only status change: slim re-sync
   await _consumeAddonsOnEnter(entry); // rider is active again, re-reserve stock that was restocked on no-show
   toast(t('toastUndoNoShow'));
   pushUndo(`${t('undoUndoNoShow')} #${oldQNum} ${entry.name}`,async()=>{
-    await sb.from('queue_entries').update({status:'noshow',queue_num:oldQNum}).eq('id',id);
+    const _u=await sb.from('queue_entries').update({status:'noshow',queue_num:oldQNum}).eq('id',id).eq('status','waiting').select('id');
+    if(_writeErr(_u,'undo')||!_landed(_u)){await loadData();renderStaffQueue();return false;} // checked in since, or refused: nothing to return to stock
     await loadData();
     await _restockAddonsOnExit(entry); // re-no-showing returns the add-ons to stock (mirror of the consume above)
     renderStaffQueue();
@@ -13871,28 +14037,33 @@ async function doRestoreCancelled(id){
 }
 async function _execRestoreCancelled(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry||entry.status!=='cancelled')return;
-  const slotTaken=getQueue().some(e=>e.sessionId===entry.sessionId&&e.queueNum===entry.queueNum&&e.id!==id&&['waiting','active','done'].includes(e.status));
-  const newQNum=slotTaken?nextQNum(entry.sessionId):entry.queueNum;
+  // Its old number unless a live row holds it now - waitlist rows included, they sit in the
+  // unique index too, and leaving them out ended in a duplicate-key error and no restore.
+  const newQNum=_restoreNum(entry.sessionId,entry.queueNum,id);
   // A restored REJECTED community booking comes back as a fresh request, not the old
   // verdict: without this it sat on the roster as waiting+rejected with no approval
   // controls at all (the Riham Issa zombie).
   const _wasRejected=_apprSessIds.has(entry.sessionId)&&entry.approval==='rejected';
   const upd={status:'waiting',queue_num:newQNum};
   if(_wasRejected)upd.approval='pending';
+  let _landedRow=false;
   try{
-    const{error}=await sb.from('queue_entries').update(upd).eq('id',id);
+    const{data,error}=await sb.from('queue_entries').update(upd).eq('id',id).eq('status','cancelled').select('id');
     if(error)throw error;
+    _landedRow=!!(data&&data.length);
   }catch(err){
     console.error('doRestoreCancelled failed',err);
     toast(t('errSomethingWrong')+(err&&(err.message||err.code)?' ('+(err.message||err.code)+')':''),'error');
     await loadDataLight();renderStaffQueue();return;
   }
+  if(!_landedRow)return _lostRace(); // restored or removed on another device first: nothing to re-reserve
   entry.queueNum=newQNum;entry.status='waiting';if(_wasRejected)entry.approval='pending';
   await loadDataLight();
   await _consumeAddonsOnEnter(entry); // rider is back in the queue: re-reserve the add-on stock returned on cancel
   toast(t('toastBookingRestored'));
   pushUndo(`${t('logRestoredBooking')} #${newQNum} ${entry.name}`,async()=>{
-    await sb.from('queue_entries').update({status:'cancelled',cancelled_by:'staff',...(_wasRejected?{approval:'rejected'}:{})}).eq('id',id);
+    const _u=await sb.from('queue_entries').update({status:'cancelled',cancelled_by:'staff',...(_wasRejected?{approval:'rejected'}:{})}).eq('id',id).eq('status','waiting').select('id');
+    if(_writeErr(_u,'undo')||!_landed(_u)){await loadData();renderStaffQueue();return false;} // checked in since, or refused: the add-ons are still out
     try{await _restockAddonsOnExit(entry);}catch(e){}
     await loadData();renderStaffQueue();
   });
@@ -13909,6 +14080,9 @@ async function doReturn(id){
 }
 function showReturnPayModal(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return;
+  // What "Mark paid" settles is the rental AND the add-ons (every total reads a paid row that
+  // way), so that is the figure staff collect; the rental alone had them charging too little.
+  const _owed=Math.round(((entry.price??DEFAULT_PRICE)+addonsCost(entryAddons(entry)))*100)/100;
   const m=document.getElementById('return-pay-modal');
   m.style.display='flex';
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeReturnPayModal()">
@@ -13917,12 +14091,12 @@ function showReturnPayModal(id){
       <div class="modal-sub" style="margin-bottom:24px">${t('returnPayMsg')}</div>
       <div style="font-size:16px;font-weight:900;margin-bottom:24px">
         #${entry.queueNum} - ${esc(entry.name)}<br>
-        <span style="color:var(--muted-l);font-size:14px">SAR ${entry.price??DEFAULT_PRICE} ${t('pendingLabel')}</span>
+        <span style="color:var(--muted-l);font-size:14px"><bdi>${_fmtSar(_owed)}</bdi> ${t('pendingLabel')}</span>
       </div>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <button class="btn-secondary" style="width:100%" onclick="showCashierModal('${id}')">${t('cashierAddBtn')}</button>
-        <button class="btn-primary" style="width:100%" onclick="closeReturnPayModal();_execReturn('${id}',true)">✓ ${t('returnMarkPaidBtn')}</button>
-        <button style="width:100%;padding:10px 16px;border-radius:6px;background:rgba(var(--warn-rgb),.12);border:1.5px solid rgba(var(--warn-rgb),.4);color:var(--orange);font-family:var(--font-body);font-size:13px;font-weight:700;cursor:pointer" onclick="closeReturnPayModal();_execReturn('${id}',false)"> ${t('returnPendingBtn')}</button>
+        <button class="btn-secondary" style="width:100%" onclick="showCashierModal(${_ja(id)})">${t('cashierAddBtn')}</button>
+        <button class="btn-primary" style="width:100%" onclick="closeReturnPayModal();_execReturn(${_ja(id)},true)">✓ ${t('returnMarkPaidBtn')}</button>
+        <button style="width:100%;padding:10px 16px;border-radius:6px;background:rgba(var(--warn-rgb),.12);border:1.5px solid rgba(var(--warn-rgb),.4);color:var(--orange);font-family:var(--font-body);font-size:13px;font-weight:700;cursor:pointer" onclick="closeReturnPayModal();_execReturn(${_ja(id)},false)"> ${t('returnPendingBtn')}</button>
         <button style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:var(--font-body)" onclick="closeReturnPayModal()">${t('cancelBtn')}</button>
       </div>
     </div>
@@ -13935,17 +14109,21 @@ function showEditPriceModal(id){
   const m=document.getElementById('edit-price-modal');
   m.style.display='flex';
   const cur=entry.price!=null?entry.price:DEFAULT_PRICE;
-  const PRICE_LABELS={57.5:'Standard',75:'Road / Standard',95:'',105:'',175:'VIP & Guests',250:'Premium'};
+  // Each preset is labelled with the bike types it is the fare for, in the staff's language.
+  // The fixed English names ('Standard', 'VIP & Guests'...) read the same in every language and
+  // had drifted from the prices they sat next to.
+  const _priceTypes=p=>[...new Set([...Object.keys(RIDE_PRICES).filter(ty=>ty!=='Any'&&ty!=='Own'&&RIDE_PRICES[ty]===p),
+    ...getBikes().filter(b=>b&&b.type&&priceForBike(b)===p).map(b=>b.type)])].map(typeLabel).join(' / ');
   const fleetPrices=getBikes()
     .map(b=>priceForBike(b))
     .filter(p=>p!=null&&!isNaN(p));
   const uniquePrices=[...new Set([...fleetPrices,DEFAULT_PRICE])].sort((a,b)=>a-b);
   const presetBtns=uniquePrices.map(p=>{
     const isCur=cur===p;
-    const lbl=PRICE_LABELS[p]||'';
+    const lbl=_priceTypes(p);
     return`<button style="padding:11px 16px;border-radius:6px;border:1.5px solid ${isCur?'var(--green)':'rgba(var(--tint-rgb),.12)'};background:${isCur?'rgba(var(--green-rgb),.08)':'rgba(var(--tint-rgb),.03)'};color:${isCur?'var(--green)':'var(--text)'};font-family:var(--font-body);font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:space-between;width:100%"
-      onclick="saveEditedPrice('${id}',${p})">
-      <span>SAR ${p%1===0?p:p.toFixed(2)}${lbl?`<span style="font-size:11px;font-weight:600;color:var(--muted);margin-left:8px">${lbl}</span>`:''}</span>
+      onclick="saveEditedPrice(${_ja(id)},${p})">
+      <span>SAR ${p%1===0?p:p.toFixed(2)}${lbl?`<span style="font-size:11px;font-weight:600;color:var(--muted);margin-inline-start:8px">${esc(lbl)}</span>`:''}</span>
       ${isCur?'<span style="font-size:11px">✓</span>':''}
     </button>`;
   }).join('');
@@ -13961,13 +14139,13 @@ function showEditPriceModal(id){
     ${_ad.map(a=>`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:13px">
       <span style="flex:1;min-width:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.name)}</span>
       <div style="display:flex;align-items:center;gap:5px;flex-shrink:0">
-        <button onclick="_epAddonStep('${id}','${a.id}',-1)" aria-label="−" style="width:26px;height:26px;border-radius:3px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-size:16px;font-weight:800;cursor:pointer;line-height:1">−</button>
+        <button onclick="_epAddonStep(${_ja(id)},${_ja(a.id)},-1)" aria-label="−" style="width:26px;height:26px;border-radius:3px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-size:16px;font-weight:800;cursor:pointer;line-height:1">−</button>
         <span style="min-width:16px;text-align:center;font-weight:800">${a.qty}</span>
-        <button onclick="_epAddonStep('${id}','${a.id}',1)" aria-label="+" style="width:26px;height:26px;border-radius:3px;border:1px solid var(--green);background:rgba(var(--green-rgb),.12);color:var(--green);font-size:16px;font-weight:800;cursor:pointer;line-height:1">+</button>
+        <button onclick="_epAddonStep(${_ja(id)},${_ja(a.id)},1)" aria-label="+" style="width:26px;height:26px;border-radius:3px;border:1px solid var(--green);background:rgba(var(--green-rgb),.12);color:var(--green);font-size:16px;font-weight:800;cursor:pointer;line-height:1">+</button>
       </div>
       <span style="min-width:58px;text-align:end;font-weight:700;color:var(--green);flex-shrink:0"><bdi>SAR ${a.lineTotal}</bdi></span>
     </div>`).join('')}
-    <button class="btn-secondary" style="width:100%;margin-top:9px;font-size:12px;padding:8px" onclick="_epOpenAddons('${id}')">+ ${t('addonAddBtn')}</button>
+    <button class="btn-secondary" style="width:100%;margin-top:9px;font-size:12px;padding:8px" onclick="_epOpenAddons(${_ja(id)})">+ ${t('addonAddBtn')}</button>
   </div>`;
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeEditPriceModal()">
     <div class="modal-box" role="dialog" aria-modal="true" style="max-width:380px">
@@ -13981,7 +14159,7 @@ function showEditPriceModal(id){
       <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:14px">
         <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px">${t('rentDiscountLabel')} <span style="font-weight:600;text-transform:none;letter-spacing:0">(${t('reviewTotalLabel')} SAR ${_fmtSar(_grand)})</span></label>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${[10,15,20,25,50].map(p=>`<button style="flex:1;min-width:50px;padding:9px 4px;border-radius:4px;border:1.5px solid rgba(var(--tint-rgb),.12);background:rgba(var(--tint-rgb),.03);color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;cursor:pointer" onclick="saveEditedPrice('${id}',${Math.max(0,Math.round((_grand*(1-p/100)-_adTotal)*100)/100)})">-${p}%</button>`).join('')}
+          ${[10,15,20,25,50].map(p=>`<button style="flex:1;min-width:50px;padding:9px 4px;border-radius:4px;border:1.5px solid rgba(var(--tint-rgb),.12);background:rgba(var(--tint-rgb),.03);color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;cursor:pointer" onclick="saveEditedPrice(${_ja(id)},${Math.max(0,Math.round((_grand*(1-p/100)-_adTotal)*100)/100)})">-${p}%</button>`).join('')}
         </div>
       </div>
       <div style="border-top:1px solid var(--border);padding-top:12px;margin-bottom:16px">
@@ -13989,8 +14167,8 @@ function showEditPriceModal(id){
         <div style="display:flex;gap:8px">
           <input id="ep-custom" type="number" min="0" step="0.01" value="${_fmtSar(_grand)}"
             style="flex:1;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.12);border-radius:4px;padding:10px 12px;color:var(--text);font-family:var(--font-body);font-size:14px;font-weight:700;outline:none"
-            onkeydown="if(event.key==='Enter')saveEditedPrice('${id}',Math.max(0,parseFloat(this.value)-${_adTotal}))">
-          <button class="btn-primary" style="padding:10px 16px" onclick="saveEditedPrice('${id}',Math.max(0,parseFloat(document.getElementById('ep-custom').value)-${_adTotal}))">✓</button>
+            onkeydown="if(event.key==='Enter')saveEditedPrice(${_ja(id)},Math.max(0,parseFloat(this.value)-${_adTotal}))">
+          <button class="btn-primary" style="padding:10px 16px" onclick="saveEditedPrice(${_ja(id)},Math.max(0,parseFloat(document.getElementById('ep-custom').value)-${_adTotal}))">✓</button>
         </div>
       </div>
       <button style="background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;font-family:var(--font-body);width:100%" onclick="closeEditPriceModal()">${t('cancelBtn')}</button>
@@ -14004,10 +14182,14 @@ async function saveEditedPrice(id,newPrice){
   const prevPrice=entry.price;
   entry.price=newPrice;
   closeEditPriceModal();
-  await sb.from('queue_entries').update({price:newPrice}).eq('id',id);
+  // Checked like every other money write: a refused price used to toast the new amount and push
+  // an undo while the reload quietly put the old price back.
+  const _pr=await sb.from('queue_entries').update({price:newPrice}).eq('id',id);
+  if(_writeErr(_pr,'edit price',()=>saveEditedPrice(id,newPrice))){entry.price=prevPrice;await loadDataLight();renderStaffQueue();renderHistory();return;}
   await loadData();renderStaffQueue();renderHistory();
   pushUndo(`${t('undoEditPrice')} #${entry.queueNum} ${entry.name}`,async()=>{
-    await sb.from('queue_entries').update({price:prevPrice}).eq('id',id);
+    const _u=await sb.from('queue_entries').update({price:prevPrice}).eq('id',id);
+    if(_writeErr(_u,'undo edit price')){await loadDataLight();renderStaffQueue();renderHistory();return false;}
     await loadData();renderStaffQueue();renderHistory();
   });
   const _tot=Math.round((newPrice+addonsCost(entryAddons(entry)))*100)/100; // confirm the full amount owed
@@ -14033,10 +14215,10 @@ function showEditQNumModal(entryId){
         <input id="qnum-inp" type="number" min="1" step="1" value="${entry.queueNum}"
           style="width:100%;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.15);border-radius:4px;padding:12px 14px;font-size:20px;font-weight:700;color:var(--green);font-family:var(--font-body);outline:none;text-align:center"
           onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='rgba(var(--tint-rgb),.15)'"
-          onkeydown="if(event.key==='Enter')saveEditedQNum('${entryId}')">
+          onkeydown="if(event.key==='Enter')saveEditedQNum(${_ja(entryId)})">
       </div>
       <div style="display:flex;gap:8px">
-        <button class="btn-primary" style="flex:1" onclick="saveEditedQNum('${entryId}')">${t('saveBtn')}</button>
+        <button class="btn-primary" style="flex:1" onclick="saveEditedQNum(${_ja(entryId)})">${t('saveBtn')}</button>
         <button class="btn-secondary" style="flex:1" onclick="closeEditQNumModal()">${t('cancelBtn')}</button>
       </div>
     </div>
@@ -14079,9 +14261,12 @@ async function fixDuplicateQNums(){
   const toFix=[];
   Object.keys(bySession).forEach(sid=>{
     const rows=bySession[sid];
-    let maxN=rows.reduce((m,e)=>Math.max(m,e.queueNum||0),0);
+    let maxN=rows.reduce((m,e)=>Math.max(m,e.queueNum||0),0); // no-show numbers stay reserved, so new ones go above them too
     const groups={};
-    rows.forEach(e=>{(groups[e.queueNum]=groups[e.queueNum]||[]).push(e);});
+    // A no-show sharing a number with a live booking is not a duplicate: the unique index leaves
+    // no-shows out, exactly as it does cancelled rows. Counting them renumbered a live rider's
+    // ticket for nothing.
+    rows.filter(e=>e.status!=='noshow').forEach(e=>{(groups[e.queueNum]=groups[e.queueNum]||[]).push(e);});
     Object.keys(groups).forEach(qn=>{
       const g=groups[qn];
       if(g.length<2)return;
@@ -14121,7 +14306,7 @@ async function _execReturn(id,markPaid){
 function renderReturnModal(){
   const e=getQueue().find(x=>x.id===S._retId);const m=document.getElementById('return-modal');if(!e||!m)return;
   const bikes=getAssignedBikes(e).map(b=>b.name).join(', ');
-  const btn=(v,lbl)=>`<button type="button" class="toggle-btn${S._retCond===v?' active':''}" aria-pressed="${S._retCond===v}" style="flex:1" onclick="_retSetCond('${v}')">${lbl}</button>`;
+  const btn=(v,lbl)=>`<button type="button" class="toggle-btn${S._retCond===v?' active':''}" aria-pressed="${S._retCond===v}" style="flex:1" onclick="_retSetCond(${_ja(v)})">${lbl}</button>`;
   m.style.display='flex';
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeReturnModal()">
     <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="ret-title" style="max-width:420px">
@@ -14300,13 +14485,17 @@ async function _bulkReturnRun(plan){
   renderStaffQueue();
 }
 // The write halves of Undo check-in, shared by one rider and a whole party. _undoCheckinWrite
-// resolves {bikeIds} or null (refused, already said); _redoCheckinWrite undoes it.
+// resolves {bikeIds}, {lost:true} (another desk moved the rider first) or null (refused, already
+// said); _redoCheckinWrite undoes it.
 async function _undoCheckinWrite(entry){
   const id=entry.id,bikeIds=getAssignedBikeIds(entry);
-  const calls=[sb.from('queue_entries').update({status:'waiting',assigned_bike_id:null}).eq('id',id)];
-  bikeIds.forEach(bid=>calls.push(sb.from('bikes').update({status:'available'}).eq('id',bid)));
-  const _ur=await Promise.all(calls);
+  // The rider first, guarded on still being on the bike, and only then the bike: freeing it in
+  // the same breath let a desk whose copy was behind (the rider already returned, the bike out
+  // again under someone else) put that bike back on the rack mid-ride.
+  const _ur=await sb.from('queue_entries').update({status:'waiting',assigned_bike_id:null}).eq('id',id).eq('status','active').select('id');
   if(_writeErr(_ur,'undo check-in'))return null;
+  if(!_landed(_ur))return{lost:true};
+  if(bikeIds.length)await Promise.all(bikeIds.map(bid=>sb.from('bikes').update({status:'available'}).eq('id',bid))).catch(()=>{});
   try{await sb.from('queue_entries').update({checked_in_at:null}).eq('id',id);}catch(_){}
   try{localStorage.removeItem('cq_ct_'+id);}catch(e){}
   return{bikeIds};
@@ -14316,8 +14505,8 @@ async function _redoCheckinWrite(id,bikeIds){
   const claimed=await _reclaimBikes(bikeIds);
   if(claimed.length<bikeIds.length)toast(t('errBikeUnavailable'),'warning');
   const assignedVal=claimed.length===0?null:claimed.length===1?claimed[0]:JSON.stringify(claimed);
-  const _u=await sb.from('queue_entries').update({status:'active',assigned_bike_id:assignedVal}).eq('id',id);
-  if(_writeErr(_u,'undo')){await Promise.all(claimed.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b))).catch(()=>{});return false;}
+  const _u=await sb.from('queue_entries').update({status:'active',assigned_bike_id:assignedVal}).eq('id',id).eq('status','waiting').select('id');
+  if(_writeErr(_u,'undo')||!_landed(_u)){await Promise.all(claimed.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b))).catch(()=>{});return false;}
   try{localStorage.setItem('cq_ct_'+id,Date.now());}catch(e){}
   return true;
 }
@@ -14325,6 +14514,7 @@ async function doUndoCheckin(id){
   const entry=getQueue().find(e=>e.id===id);if(!entry||entry.status!=='active')return;
   const w=await _undoCheckinWrite(entry);
   if(!w){await loadData();renderStaffQueue();return false;}
+  if(w.lost){await _lostRace();return false;}
   await loadData();
   toast(t('toastUndoCheckin'));
   pushUndo(`${t('undoUndoCheckin')} #${entry.queueNum} ${entry.name}`,async()=>{
@@ -14364,7 +14554,7 @@ function confirmPartyNoShow(ids){
 async function _undoCheckinMany(ids){
   const es=_liveOf(ids,'active');if(!es.length)return;
   const done=[];
-  for(const e of es){const w=await _undoCheckinWrite(e);if(!w)break;done.push({id:e.id,bikeIds:w.bikeIds});}
+  for(const e of es){const w=await _undoCheckinWrite(e);if(!w)break;if(w.lost)continue;done.push({id:e.id,bikeIds:w.bikeIds});} // a rider another desk moved first is theirs, not ours to undo
   await loadData();
   if(done.length){
     toast(t('partyUndoneToast').replace('{0}',done.length));
@@ -14379,49 +14569,70 @@ async function _undoCheckinMany(ids){
 }
 async function _noShowMany(ids){
   const es=_liveOf(ids,'waiting');if(!es.length)return;
-  const done=[];
+  const done=[];let lost=0;
   for(const e of es){
-    const r=await sb.from('queue_entries').update({status:'noshow'}).eq('id',e.id).eq('status','waiting');
+    // Guarded on the status seen here and counted only when the row really changed, like one
+    // no-show: a rider another desk already checked in is not ours to mark, and promoting for
+    // a place that never freed puts one rider too many on the night.
+    const r=await sb.from('queue_entries').update({status:'noshow'}).eq('id',e.id).eq('status','waiting').select('id');
     if(_writeErr(r,'no-show'))break;
-    done.push({e,qn:e.queueNum});e.status='noshow';
+    if(!_landed(r)){lost++;continue;}
+    done.push({e,qn:e.queueNum,promoted:null});e.status='noshow';
   }
   renderStaffQueue(); // paint first, reconcile after
-  if(!done.length){await loadDataLight();renderStaffQueue();return;}
+  if(!done.length){await loadDataLight();renderStaffQueue();if(lost)toast(t('errChangedElsewhere'),'warning');return;}
   // Each place a no-show frees goes to whoever has waited longest, as one no-show does.
-  const promoted=[];
-  for(const d of done){const pr=await _autoPromoteOldestWaitlist(d.e.sessionId);if(pr)promoted.push(pr);}
+  for(const d of done)d.promoted=await _autoPromoteOldestWaitlist(d.e.sessionId)||null;
+  const promoted=done.map(d=>d.promoted).filter(Boolean);
   await loadDataLight();
   for(const d of done)await _restockAddonsOnExit(d.e);
   logAction(t('logBulkNoShow').replace('{0}',done.length));
   toast(t('partyNoShowToast').replace('{0}',done.length)+(promoted.length?` · ${t('toastPromoted')}`:''));
+  if(lost)toast(t('errChangedElsewhere'),'warning');
   if(promoted.length&&promoted[0].phone)_promoNudge(promoted[0]);
   pushUndo(`${t('undoNoShow')} · ${done.length}`,async()=>{
+    // Each rider back to their place, taken back from whoever their no-show promoted, or onto
+    // the waitlist when the place has gone - the same rule as undoing one no-show.
+    const back=[];let ok=true;
     for(const d of done){
-      const _u=await sb.from('queue_entries').update({status:'waiting',queue_num:_restoreNum(d.e.sessionId,d.qn,d.e.id)}).eq('id',d.e.id);
-      if(_writeErr(_u,'undo no-show')){await loadData();renderStaffQueue();return false;}
+      const plan=await _undoPromotion(d.promoted,d.e);
+      const patch={status:plan.status,queue_num:_restoreNum(d.e.sessionId,d.qn,d.e.id)};
+      if(plan.status==='waitlist')patch.waitlist_num=d.e.waitlistNum||nextWlNum(d.e.sessionId);
+      const _u=await sb.from('queue_entries').update(patch).eq('id',d.e.id).eq('status','noshow').select('id');
+      if(_writeErr(_u,'undo no-show')||!_landed(_u)){await _redoPromotion(plan.back);ok=false;break;}
+      back.push({d,status:plan.status});
     }
     await loadData();
-    for(const d of done)await _consumeAddonsOnEnter(d.e);
+    for(const x of back)if(x.status==='waiting')await _consumeAddonsOnEnter(x.d.e);
+    if(back.some(x=>x.status==='waitlist'))toast(t('toastWaitlisted'),'warning');
     renderStaffQueue();
+    if(!ok)return false;
   });
   renderStaffQueue();
 }
 async function doReopen(id){
-  const entry=getQueue().find(e=>e.id===id);if(!entry)return;
-  const bikeIds=getAssignedBikeIds(entry);
-  const calls=[sb.from('queue_entries').update({status:'active'}).eq('id',id)];
-  bikeIds.forEach(bid=>{const bike=bikeById(bid);if(bike&&bike.status==='available')calls.push(sb.from('bikes').update({status:'in-use'}).eq('id',bid));});
-  const _or=await Promise.all(calls);
-  if(_writeErr(_or,'re-open')){await loadData();renderStaffQueue();return;}
+  const entry=getQueue().find(e=>e.id===id);if(!entry||entry.status!=='done')return;
+  const bikeIds=getAssignedBikeIds(entry);const savedAssigned=entry.assignedBikeId??null;
+  // The rider goes back out on their bike only if it is still free, claimed atomically. The
+  // bike used to stay attached whatever it was doing now - out under the next rider, or in the
+  // workshop after a damaged return - so two riders were "on" one bike and returning this one
+  // freed it from under the other.
+  const claimed=await _reclaimBikes(bikeIds);
+  const patch={status:'active'};
+  if(claimed.length<bikeIds.length){patch.assigned_bike_id=claimed.length===0?null:claimed.length===1?claimed[0]:JSON.stringify(claimed);toast(t('errBikeUnavailable'),'warning');}
+  const _or=await sb.from('queue_entries').update(patch).eq('id',id).eq('status','done').select('id');
+  const _release=()=>Promise.all(claimed.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b))).catch(()=>{});
+  if(_writeErr(_or,'re-open')){await _release();await loadData();renderStaffQueue();return;}
+  if(!_landed(_or)){await _release();return _lostRace();}
   await loadData();toast(t('toastReopened'));
   pushUndo(`${t('undoReopen')} #${entry.queueNum} ${entry.name}`,async()=>{
-    // doReopen itself only claims a bike that is still AVAILABLE. The undo used to flip every
-    // bike on the booking back regardless, so a bike re-issued in between read as free while
-    // its new rider was out on it - and the next check-in onto it died on the unique index.
-    const _u2=await sb.from('queue_entries').update({status:'done'}).eq('id',id);
-    if(_writeErr(_u2,'undo re-open')){await loadData();renderStaffQueue();return false;}
+    // Only the bikes the re-open actually took go back: one it could not claim was never this
+    // rider's again, and flipping it 'available' would free it under whoever has it now. The
+    // row gets its ride record back (which bike it was) along with 'done'.
+    const _u2=await sb.from('queue_entries').update({status:'done',...(patch.assigned_bike_id!==undefined?{assigned_bike_id:savedAssigned}:{})}).eq('id',id).eq('status','active').select('id');
+    if(_writeErr(_u2,'undo re-open')||!_landed(_u2)){await loadData();renderStaffQueue();return false;}
     const _mine=bid=>!getQueue().some(x=>String(x.id)!==String(id)&&['waiting','active'].includes(x.status)&&getAssignedBikeIds(x).includes(bid));
-    await Promise.all(bikeIds.filter(_mine).map(bid=>sb.from('bikes').update({status:'available'}).eq('id',bid))).catch(()=>{});
+    await Promise.all(claimed.filter(_mine).map(bid=>sb.from('bikes').update({status:'available'}).eq('id',bid))).catch(()=>{});
     await loadData();renderStaffQueue();
   });
   renderStaffQueue();
@@ -14510,14 +14721,14 @@ function confirmRemove(id){
 }
 
 
+// Minutes on a bike as staff read them, in their language (the units the staff waitlist timer
+// uses). Escaped: it goes straight into row markup, and '<1' is the start of a tag to a parser.
+function _rideMinLabel(min){return esc(min<1?'<1 '+t('unitMin'):min<60?min+' '+t('unitMin'):Math.floor(min/60)+' '+t('unitHour')+' '+(min%60)+' '+t('unitMin'));}
 function rideElapsed(id){
   try{
     const ts=localStorage.getItem('cq_ct_'+id);
     if(!ts)return null;
-    const min=Math.floor((Date.now()-Number(ts))/60000);
-    if(min<1)return'<1 min';
-    if(min<60)return`${min} min`;
-    return`${Math.floor(min/60)}h ${min%60}m`;
+    return _rideMinLabel(Math.floor((Date.now()-Number(ts))/60000));
   }catch(e){return null;}
 }
 // Minutes CURRENTLY on the bike, preferring the row's checked_in_at (every device agrees on
@@ -14531,7 +14742,7 @@ const OVERDUE_RIDE_MIN=120;
 function statusCellHtml(e){
   const badge=statusBadgeFor(e)+(e.status==='cancelled'&&e.cancelReason?`<div class="cx-why" title="${esc(t('cancelReasonTitle'))}">${esc(_cancelReasonText(e))}</div>`:'');
   const min=e.status==='active'?_activeMinutes(e):null;
-  const el=e.status==='active'?(min!=null?(min<1?'<1 min':min<60?`${min} min`:`${Math.floor(min/60)}h ${min%60}m`):rideElapsed(e.id)):null;
+  const el=e.status==='active'?(min!=null?_rideMinLabel(min):rideElapsed(e.id)):null;
   // Past two hours the little green timer turns amber and says so: that is how a missing
   // bike gets noticed while it still matters, not at close-out. (191 bookings were once
   // found still "active" weeks after their sessions ended.)
@@ -14685,7 +14896,7 @@ function showPrintReportOptions(){
   const m=document.getElementById('print-opts-modal');
   const o=_repOpts();
   const chk=(on)=>on?_artIcon('boxOn',15):_artIcon('boxOff',15);
-  const row=(kind,k,label)=>`<button type="button" data-rep="${kind}:${k}" aria-pressed="${o[kind][k]?'true':'false'}" onclick="_repToggle('${kind}','${k}')" style="display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border:none;background:none;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--text);text-align:start">${chk(o[kind][k])}<span>${esc(label)}</span></button>`;
+  const row=(kind,k,label)=>`<button type="button" data-rep="${kind}:${k}" aria-pressed="${o[kind][k]?'true':'false'}" onclick="_repToggle(${_ja(kind)},${_ja(k)})" style="display:flex;align-items:center;gap:9px;width:100%;padding:9px 10px;border:none;background:none;border-radius:7px;cursor:pointer;font-family:var(--font-body);font-size:13px;font-weight:600;color:var(--text);text-align:start">${chk(o[kind][k])}<span>${esc(label)}</span></button>`;
   const _types=['Road','Hybrid','Mountain','Gravel','Road Carbon'];
   const sel=(id,val,opts,onchg,lbl)=>`<select class="filter-select" aria-label="${esc(lbl||id)}" style="width:100%" onchange="${onchg}">${opts.map(op=>`<option value="${esc(op[0])}"${val===op[0]?' selected':''}>${esc(op[1])}</option>`).join('')}</select>`;
   m.style.display='flex';
@@ -14809,8 +15020,10 @@ function _accStats(){
   const m={};
   const live=['waiting','waitlist','active'];
   const today=new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});
-  const since14=new Date(Date.now()-14*86400000).toISOString().slice(0,10);
-  const since30=new Date(Date.now()-30*86400000).toISOString().slice(0,10);
+  // Riyadh days, like `today` above: toISOString() is the UTC date, a day behind from midnight
+  // to 03:00 KSA, which made each window one day wider for three hours a night.
+  const since14=new Date(Date.now()-14*86400000).toLocaleDateString('en-CA',{timeZone:KSA_TZ});
+  const since30=new Date(Date.now()-30*86400000).toLocaleDateString('en-CA',{timeZone:KSA_TZ});
   getQueue().forEach(e=>{
     if(!e.customerId||e.status==='removed')return;
     const st=m[e.customerId]||(m[e.customerId]={bookings:0,rides:0,commRides:0,upcoming:0,noshows:0,cancelled:0,lastRide:'',minutes:0,spent:0,active14:false,active30:false});
@@ -14829,7 +15042,7 @@ function _accStats(){
     if(live.includes(e.status)&&String(e.sessionDate||'')>=today)st.upcoming++;
     if(e.status==='noshow')st.noshows++;
     if(e.status==='cancelled')st.cancelled++;
-    if(e.paid)st.spent+=Number(e.price)||0;
+    if(e.paid&&e.status!=='cancelled')st.spent+=Number(e.price??DEFAULT_PRICE)||0; // the customer profile's "Total spent" rule, so one account reads the same in both places
   });
   return m;
 }

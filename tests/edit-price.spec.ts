@@ -57,5 +57,5 @@ test('the custom amount and discount act on the TOTAL (rental + add-ons)', async
   // -10% of 83 = 74.7, minus 8 add-ons = 66.7 saved as the rental.
   const html = await page.evaluate('document.getElementById("edit-price-modal").innerHTML') as string;
   expect(html).toContain(').value)-8))');   // custom subtracts the add-on total
-  expect(html).toContain("'q1',66.7)");      // -10% discount computed off the total
+  expect(html).toMatch(/q1&quot;,66\.7\)/);   // -10% discount computed off the total (the id handed over JSON-encoded)
 });
