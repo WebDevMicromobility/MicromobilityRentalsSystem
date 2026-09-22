@@ -113,7 +113,10 @@ test('a photo is uploaded without upsert (the bucket grants INSERT only)', async
 });
 
 test('My Account says the phone is taken when the server refuses it', async ({ page }) => {
+  // Save reads the account fresh first (it writes over the account as it is now), so the
+  // profile is answered; the refusal comes from the write itself.
   await stubSupabase(page, { sessions: [], queue_entries: [], bikes: [],
+    'rpc:customer_profile': [{ id: 'c1', name: 'Lina Haddad', email: 'lina@example.com', phone: '+966500000001' }],
     'rpc:customer_update_profile': { __rpcError: { status: 409, code: '23505', message: 'phone_taken' } } });
   await loginCustomer(page, { id: 'c1', name: 'Lina Haddad', email: 'lina@example.com', phone: '+966500000001', session_token: 'tok' });
   await page.goto('/');
