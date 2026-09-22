@@ -17,6 +17,11 @@ const customers = [
   { ...base, id: 'fam2', name: 'Kid Two', email: 'p2@gmail.com', phone: '+966551234987' },
   { ...base, id: 'uk', name: 'Uk Visitor', email: 'uk@gmail.com', phone: '+4479123456' },
   { ...base, id: 'asked', name: 'Already Asked', email: 'asked@gamil.com', phone: '+966551876214', fix_fields: ['email'] },
+  // added 2026-09-23: a hand on the keyboard, a pasted sentence, and one inbox under two spellings
+  { ...base, id: 'smash', name: 'Kjhgfd Mnbvcx', email: 'smash@gmail.com', phone: '+966551876221' },
+  { ...base, id: 'long', name: 'One Two Three Four Five Six Seven', email: 'long@gmail.com', phone: '+966551876222' },
+  { ...base, id: 'inbox1', name: 'Same Inbox', email: 'a.b+ride@gmail.com', phone: '+966551876223' },
+  { ...base, id: 'inbox2', name: 'Other Inbox', email: 'ab@gmail.com', phone: '+966551876224' },
 ];
 
 async function accounts(page: Page, extra: Record<string, unknown> = {}) {
@@ -40,10 +45,14 @@ test('each kind of wrong detail is listed with its reason; a clean account is no
   await expect(line(page, 'emoji')).toContainText('name has numbers, symbols or emoji');
   await expect(line(page, 'fam1')).toContainText('same phone as Kid Two');
   await expect(line(page, 'uk')).toContainText('not a valid mobile number for +44');
+  await expect(line(page, 'smash')).toContainText('a word in the name has no vowels');
+  await expect(line(page, 'long')).toContainText('name is unusually long');
+  await expect(line(page, 'inbox1')).toContainText('same email as Other Inbox');   // dots and +tags are one inbox
+  await expect(line(page, 'inbox2')).toContainText('same email as Same Inbox');
   await expect(page.locator('.am-row[data-cust="ok"]')).toHaveCount(0);
   // A field staff already asked the rider to correct is in hand, not "looks off".
   await expect(page.locator('.am-row[data-cust="asked"]')).toHaveCount(0);
-  await expect(page.locator('.am-pick', { hasText: 'Looks off' })).toHaveText('Looks off (8)');
+  await expect(page.locator('.am-pick', { hasText: 'Looks off' })).toHaveText('Looks off (12)');
 });
 
 test('an account that arrives later is checked the moment it lands', async ({ page }) => {
