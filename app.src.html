@@ -4197,7 +4197,9 @@ function _nameErr3(first,middle,last){
   return'';
 }
 // Accept only real http(s) links (pasted Google Maps URLs); anything else becomes ''.
-function _safeUrl(v){const s=_cleanIdent(v).slice(0,500);return /^https?:\/\/\S+$/i.test(s)?s:'';}
+// No quote, angle bracket or backtick either: these URLs go into href="..." attributes, and one
+// carrying a " closed the attribute and could add its own handler to a customer's ticket.
+function _safeUrl(v){const s=_cleanIdent(v).slice(0,500);return /^https?:\/\/[^\s"<>`]+$/i.test(s)?s:'';}
 function _asciiDigits(v){return String(v==null?'':v).replace(/[٠-٩]/g,c=>String.fromCharCode(c.charCodeAt(0)-1584)).replace(/[۰-۹]/g,c=>String.fromCharCode(c.charCodeAt(0)-1728));}
 // The country codes the pickers offer, as digits. They are prefix-free (no code begins
 // another), so the first one a run of digits starts with is the only one it can start with.
@@ -8239,10 +8241,16 @@ function renderBookingTicket(entries,opts){
   // the rider with nothing to quote at the desk. It keeps its number now, and the waitlisted
   // state is said in bold beside it instead of replacing it.
   const _allWl=g.length&&g.every(e=>e.status==='waitlist');
-  const numDisplay=(_comm&&!_commPublished(sess))?esc((sess&&sess.title)||t('landCommTitle')):(n===1?`#${nums[0]}`:isConsec?`#${nums[0]} – #${nums[n-1]}`:nums.map(q=>`#${q}`).join(', '));
+  // Published or not: publishing announces who is IN, never anyone's place in the order. The QR
+  // ref already left the number out on these rides; the card (and the wallet pass) now do too.
+  // A session this device cannot see counts as one of them, exactly as bookingRef reads it:
+  // list_sessions stops returning a private ride once the member's tag lapses, while
+  // my_bookings still returns their booking on it.
+  const _noNum=_comm||!sess;
+  const numDisplay=_noNum?esc(sess?_evName(sess):t('landCommTitle')):(n===1?`#${nums[0]}`:isConsec?`#${nums[0]} – #${nums[n-1]}`:nums.map(q=>`#${q}`).join(', '));
   // The W number is the rider's place in the queue for a spot, and the one thing staff can
   // quote back to them. Saying it plainly beats "Waitlist" alone, which reads as a dead end.
-  const wlNote=_allWl&&!_comm
+  const wlNote=_allWl&&!_noNum
     ?`<div class="wl-note">${primary.waitlistNum?t('wlPosMsg').replace('{0}',String(primary.waitlistNum)):t('wlPosNoNumMsg')}</div>`
     :'';
   // A ride staff approve hands out no code until the rider is actually through: before the
@@ -8275,8 +8283,10 @@ function renderBookingTicket(entries,opts){
       : `<div class="mm-note" style="display:flex;align-items:center;gap:8px;margin:12px 0 0;padding:9px 12px"><span style="width:8px;height:8px;border-radius:50%;background:${col};flex-shrink:0"></span><span style="font-size:12px;font-weight:800;color:${col}">${t(k)}</span></div>`;
   } else if(stForBadge==='active'){
     cueHtml=`<div class="mm-note mm-note-go" style="display:flex;align-items:center;gap:8px;margin:12px 0 0;padding:9px 12px"><span style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0"></span><span style="font-size:12px;font-weight:800;color:var(--green)">${t('onBikeNow')}</span></div>`;
-  } else if(stForBadge==='waiting'){
-    const isNext=getQueue().filter(o=>o.sessionId===primary.sessionId&&(o.status==='waiting'||o.status==='active')&&o.queueNum<primary.queueNum).length<=0;
+  } else if(stForBadge==='waiting'&&!_noNum){
+    // Only riders still WAITING are ahead: one already on a bike has been served, and counting
+    // them kept the rider after a checked-in batch on "in queue" until those riders came back.
+    const isNext=getQueue().filter(o=>o.sessionId===primary.sessionId&&o.status==='waiting'&&o.queueNum<primary.queueNum).length<=0;
     const txt=isNext?t('youreNext'):t('inQueueMsg');
     cueHtml=`<div class="mm-note" style="display:flex;align-items:center;gap:8px;margin:12px 0 0;padding:9px 12px"><span style="font-size:14px">${isNext?'':''}</span><span style="font-size:12px;font-weight:800;color:${isNext?'var(--green)':'var(--text)'}">${txt}</span></div>`;
   }
@@ -8290,7 +8300,7 @@ function renderBookingTicket(entries,opts){
       :'';
     return`<div style="padding:11px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        ${(_comm&&!_commPublished(sess))?'':e.status==='waitlist'?`<span style="display:inline-flex;align-items:center;gap:6px;color:var(--orange);font-size:10px;font-weight:800;white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;background:var(--orange);flex:none"></span>W${e.waitlistNum||''}</span>`:`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:22px;padding:0 8px;border-radius:999px;background:var(--s1);border:1px solid var(--line2);color:var(--text);font-size:11px;font-weight:800">#${e.queueNum}</span>`}
+        ${_noNum?'':e.status==='waitlist'?`<span style="display:inline-flex;align-items:center;gap:6px;color:var(--orange);font-size:10px;font-weight:800;white-space:nowrap"><span style="width:7px;height:7px;border-radius:50%;background:var(--orange);flex:none"></span>W${e.waitlistNum||''}</span>`:`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:22px;padding:0 8px;border-radius:999px;background:var(--s1);border:1px solid var(--line2);color:var(--text);font-size:11px;font-weight:800">#${e.queueNum}</span>`}
         <span style="font-weight:800;font-size:13px;flex:1;min-width:0">${esc(e.name)}</span>
         ${_needsBike(sess)?typeBadge(resolvedType(e)):''}
       </div>
@@ -8307,21 +8317,21 @@ function renderBookingTicket(entries,opts){
   const noShowMsg=g.some(e=>e.status==='noshow')?`<div style="font-size:11px;color:var(--red);font-weight:600;line-height:1.5;padding:8px 0 0">${t('noShowCustomerMsg')}</div>`:'';
   const _ids=g.map(e=>e.id).join(',');
   const rated=!!(primary.ratingExp||primary.ratingBike);
-  const rateBtn=(opts.bookAgain&&!rated)?`<button class="btn-sm btn-green" style="flex:1" onclick="openRateModal('${primary.id}')">★ ${t('rateRideBtn')}</button>`:'';
+  const rateBtn=(opts.bookAgain&&!rated)?`<button class="btn-sm btn-green" style="flex:1" onclick="openRateModal(${_ja(primary.id)})">★ ${t('rateRideBtn')}</button>`:'';
   // Community rides: a fixed solo reservation - nothing to edit or reschedule, only cancel.
   const actionsHtml=canEdit?`<div style="display:flex;gap:8px;padding:14px 18px 16px;flex-wrap:wrap">
-      ${_comm?'':`<button class="btn-sm btn-green-solid" style="flex:1;min-width:88px" onclick="S.lastTickets=[];S.selEvent='${_evOf(sess)}';S.selSession='${primary.sessionId}';S.regStep=2;setCustTab('register')">${t('editBtn')}</button>
-      ${_rideKind(sess)==='snd96'?'':`<button class="btn-sm btn-secondary" style="flex:1;min-width:88px" onclick="showRescheduleModal('${primary.sessionId}')">${ICON_RESCHEDULE} ${t('rescheduleBtn')}</button>`}`}
-      <button class="btn-sm btn-red" style="flex:1;min-width:88px" onclick="showCancelReasonModal('${primary.id}')">${t('cancelBooking')}</button>
+      ${_comm?'':`<button class="btn-sm btn-green-solid" style="flex:1;min-width:88px" onclick="S.lastTickets=[];S.selEvent=${_ja(_evOf(sess))};S.selSession=${_ja(primary.sessionId)};S.regStep=2;setCustTab('register')">${t('editBtn')}</button>
+      ${_rideKind(sess)==='snd96'?'':`<button class="btn-sm btn-secondary" style="flex:1;min-width:88px" onclick="showRescheduleModal(${_ja(primary.sessionId)})">${ICON_RESCHEDULE} ${t('rescheduleBtn')}</button>`}`}
+      <button class="btn-sm btn-red" style="flex:1;min-width:88px" onclick="showCancelReasonModal(${_ja(primary.id)})">${t('cancelBooking')}</button>
     </div>`:(opts.bookAgain?`<div style="display:flex;gap:8px;padding:14px 18px 16px;flex-wrap:wrap">
       ${rateBtn}
-      <button class="btn-sm btn-green" style="flex:1;min-width:110px" onclick="bookAgain('${_ids}')">↻ ${t('bookAgainBtn')}</button>
+      <button class="btn-sm btn-green" style="flex:1;min-width:110px" onclick="bookAgain(${_ja(_ids)})">↻ ${t('bookAgainBtn')}</button>
     </div>`:'');
   const numFont=numDisplay.length<=4?'72px':numDisplay.length<=9?'40px':'24px';
   return`<div class="ticket-card ${_evClass(sess)}" style="margin-top:0">
     <div class="ticket-header">
       <div class="ticket-num-block">
-        ${(_comm&&!_commPublished(sess))?'':_allWl
+        ${_noNum?'':_allWl
           ?`<div class="ticket-num-label wl-loud">${t('waitlistLabel')}${primary.waitlistNum?` \u00b7 W${primary.waitlistNum}`:''}</div>`
           :`<div class="ticket-num-label">${n>1?n+' '+(t('bike')||'bikes'):t('queueNumLabel')}</div>`}
         <div class="ticket-num" style="font-size:${numFont};letter-spacing:${numDisplay.length<=4?'-3px':'-1px'}">${numDisplay}</div>
@@ -8362,10 +8372,10 @@ function renderBookingTicket(entries,opts){
       </div>
     </div>
     <div style="padding:0 18px 16px;display:flex;gap:8px">
-      <button class="btn-secondary" style="flex:1;font-size:12px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="downloadBookingICS('${primary.sessionId}')" aria-label="${t('addToCalendarBtn')}"> ${t('addToCalendarBtn')}</button>
-      <a href="${(_comm&&_safeUrl(sess&&sess.meet_url))||DIRECTIONS_URL}" target="_blank" rel="noopener" class="btn-secondary" style="flex:1;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none" aria-label="${_comm?t('meetPointLbl'):t('ticketDirections')}${t('opensNewTab')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${_comm?t('meetPointLbl'):t('ticketDirections')}</a>
+      <button class="btn-secondary" style="flex:1;font-size:12px;display:flex;align-items:center;justify-content:center;gap:8px" onclick="downloadBookingICS(${_ja(primary.sessionId)})" aria-label="${t('addToCalendarBtn')}"> ${t('addToCalendarBtn')}</button>
+      <a href="${esc((_comm&&_safeUrl(sess&&sess.meet_url))||DIRECTIONS_URL)}" target="_blank" rel="noopener" class="btn-secondary" style="flex:1;font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none" aria-label="${_comm?t('meetPointLbl'):t('ticketDirections')}${t('opensNewTab')}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>${_comm?t('meetPointLbl'):t('ticketDirections')}</a>
     </div>
-    ${(_hasWallet()&&isLive)?`<div class="wallet-slot" style="padding:0 18px 14px"><button type="button" class="btn-wallet" onclick="addBookingToWallet('${primary.id}',this)" aria-label="${t('addToWallet')}">${WALLET_GLYPH} ${t('addToWallet')}</button></div>`:''}
+    ${(_hasWallet()&&isLive)?`<div class="wallet-slot" style="padding:0 18px 14px"><button type="button" class="btn-wallet" onclick="addBookingToWallet(${_ja(primary.id)},this)" aria-label="${t('addToWallet')}">${WALLET_GLYPH} ${t('addToWallet')}</button></div>`:''}
     ${actionsHtml}
   </div>`;
 }
@@ -8380,21 +8390,27 @@ function downloadBookingICS(sessionId){
   const m=raw.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
   const pad=n=>String(n).padStart(2,'0');
   const _comm=_isApprovalRide(sess);
-  let st='090000',en='110000';
+  let st='090000',en='110000',enDate=date;
   // A community slot is "gathering – ride start", NOT start–end: taking it literally made the
   // calendar event END the moment the ride begins. Start at gathering, end 2h after ride start.
+  // A window that runs past midnight ends on the NEXT day: written on the same date, the event
+  // ended before it began and calendar apps refused it or showed nonsense.
   if(m){
     st=pad(m[1])+pad(m[2])+'00';
-    if(_comm)en=pad((Number(m[3])+2)%24)+pad(m[4])+'00';
-    else en=pad(m[3])+pad(m[4])+'00';
+    const sMin=Number(m[1])*60+Number(m[2]);
+    let eMin=(Number(m[3])+(_comm?2:0))*60+Number(m[4]);
+    if(eMin<=sMin)eMin+=1440;
+    const dayOff=Math.floor(eMin/1440);eMin%=1440;
+    en=pad(Math.floor(eMin/60))+pad(eMin%60)+'00';
+    if(dayOff)enDate=new Date(Date.UTC(+date.slice(0,4),+date.slice(4,6)-1,+date.slice(6,8)+dayOff)).toISOString().slice(0,10).replace(/-/g,'');
   }
   const stamp=new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
   const esc2=s=>String(s).replace(/[\\,;]/g,x=>'\\'+x).replace(/\n/g,'\\n');
   const _meet=_comm&&_safeUrl(sess.meet_url);
   const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//MicroMobility//Corniche Circuit//EN','CALSCALE:GREGORIAN','BEGIN:VEVENT',
     'UID:'+sessionId+'-'+Date.now()+'@micromobility','DTSTAMP:'+stamp,
-    'DTSTART:'+date+'T'+st,'DTEND:'+date+'T'+en,
-    'SUMMARY:'+esc2(_comm?((sess.title||t('landCommTitle'))+' - '+(dayLabel(sess.day)||'')):('MicroMobility Ride - '+(dayLabel(sess.day)||''))),
+    'DTSTART:'+date+'T'+st,'DTEND:'+enDate+'T'+en,
+    'SUMMARY:'+esc2((_evNamed(sess)?_evName(sess):'MicroMobility Ride')+' - '+(dayLabel(sess.day)||'')), // every named ride by its own name, in the rider's language
     'LOCATION:'+esc2(_meet||({'JCC':'Jeddah Corniche Circuit','Sharafeyah Branch':'Sharafeyah, Jeddah'})[sess.location]||sess.location||'Jeddah Corniche Circuit'),
     'DESCRIPTION:'+esc2('Your MicroMobility bike rental booking. Arrive 10 minutes early and show your ticket at the desk.'),
     'BEGIN:VALARM','TRIGGER:-PT2H','ACTION:DISPLAY','DESCRIPTION:MicroMobility ride reminder','END:VALARM',
@@ -8408,7 +8424,8 @@ function downloadBookingICS(sessionId){
 
 // Rebook the same riders/types/heights as a past booking (customer picks a new session)
 // One-tap rebooking for returning riders: pre-fill a solo booking with their remembered height + favourite bike type,
-// auto-pick the soonest open session matching their favourite time-of-day, and drop them on review to just confirm.
+// auto-pick the soonest open session matching their favourite time-of-day, and take them through what is left of the
+// wizard - the waiver included - to confirm.
 function bookMyUsual(){
   const cust=S.loggedIn||getSession();if(!cust||!cust.id)return;
   const mine=getQueue().filter(e=>e.customerId===cust.id);
@@ -8418,13 +8435,17 @@ function bookMyUsual(){
   const favTime=Object.keys(timeCount).sort((a,b)=>timeCount[b]-timeCount[a])[0]||null;
   // Open sessions they are not already in, soonest first; prefer ones with a free spot, matching the favourite time
   const bookedIds=new Set(mine.filter(e=>e.status==='waiting'||e.status==='active'||e.status==='waitlist').map(e=>e.sessionId));
-  // Community rides are never a "usual" booking: they are free, members-only events.
-  const open=allSessions().filter(s=>s.status==='open'&&!_isCommunity(s)&&!bookedIds.has(s.id)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
+  // Community rides are never a "usual" booking: they are free, members-only events. Nor is the
+  // National Day ride, which has its own card. The usual is a circuit night, and only one the
+  // circuit list itself offers: nothing closes a night automatically, so a past one can still
+  // read 'open', and picking it (or a ride from another list) had the Reserve tab drop the
+  // choice at once - the rider landed on an empty step one under a "just confirm" toast.
+  const open=allSessions().filter(s=>s.status==='open'&&_evMatch(s,'jcc')&&!_sessPastDay(s)&&!_sessEnded(s)&&!bookedIds.has(s.id)).sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
   if(!open.length){toast(t('noSessionsAvail'),'warning');return;}
   const withSpot=open.filter(s=>spotsLeft(s.id)>0);
   const pool=withSpot.length?withSpot:open;
   const pick=(favTime&&pool.find(s=>(parseSlots(s.bike_slots)||{})._time===favTime))||pool[0];
-  S.selSession=pick.id;
+  S.selEvent=_evOf(pick);S.selSession=pick.id;
   S.regQty=1;
   // A hidden type never pre-seeds (staff hid it from this customer's picker — the shortcut
   // must not tunnel past that); stale promo/add-ons from an abandoned run don't ride along.
@@ -8435,7 +8456,10 @@ function bookMyUsual(){
   S.regBikeSizes=[''];
   S.lastTickets=[];S.modifyEntryId=null;S._alreadyBookedSession=null;
   S.promoApplied=null;S._promoMsg='';S.regAddons=[];
-  S.regStep=(cust.height&&_usualTy)?3:2; // if we already know their setup, jump straight to review; otherwise let them fill rider details
+  // If we already know their setup the riders step has nothing to ask, but the waiver is not
+  // skipped: the booking stamps the waiver version as accepted, and only the wizard's waiver
+  // step earns that stamp. Jumping straight to review booked riders who never saw it.
+  S.regStep=!(cust.height&&_usualTy)?_regNextStep(pick,1):_needsWaiver(pick)?2.5:3;
   setCustTab('register');
   try{window.scrollTo({top:0,behavior:_sb()});}catch(e){}
   toast(t('bookUsualToast'));
@@ -8449,6 +8473,8 @@ function bookAgain(ids){
   S.regBikeHeights=entries.map(e=>e.height?String(e.height):'');
   S.regRiderNames=entries.map(e=>e.name);
   S.regBikeSizes=entries.map(()=>'');
+  // On the event the booking was for: a Saturday ride's Book again used to open the circuit list.
+  const _bs=allSessions().find(s=>s.id===entries[0].sessionId);if(_bs)S.selEvent=_evOf(_bs);
   S.selSession=null;S.regStep=1;S.lastTickets=[];S.modifyEntryId=null;S._alreadyBookedSession=null;
   S.promoApplied=null;S._promoMsg='';S.regAddons=[];
   setCustTab('register');
@@ -8561,10 +8587,15 @@ function closeRateModal(){
 // Force post-ride rating only for a genuinely COMPLETED ride = bike physically returned
 // (checked_out_at stamped by _execReturn) AND paid. A payment toggle while the bike is still
 // out (status 'active') never qualifies. Scoped to today's session, oldest unrated first.
+// A ride the rider actually completed: done, and paid - or on a complimentary ride, where there
+// is nothing to pay and paid stays false for ever. Requiring paid alone left every Saturday,
+// pool and workshop session out of My Rides, the ride count, the tier, the badges and the
+// rating prompt, so a member with ten Saturday rides read as a newcomer with none.
+function _rideCompleted(e){return !!e&&e.status==='done'&&(!!e.paid||_freeSessIds.has(e.sessionId));}
 function _pendingRatingId(){
   const cust=S.loggedIn;if(!cust)return null;
   const today=todayStr();
-  const done=getQueue().filter(e=>e.customerId===cust.id&&e.status==='done'&&!!e.checkedOutAt&&e.paid&&(e.sessionDate||e.sessionId)===today);
+  const done=getQueue().filter(e=>e.customerId===cust.id&&_rideCompleted(e)&&!!e.checkedOutAt&&(e.sessionDate||e.sessionId)===today);
   const map={};done.forEach(e=>{(map[e.sessionId]=map[e.sessionId]||[]).push(e);});
   const groups=Object.values(map).map(g=>g.slice().sort((a,b)=>(a.queueNum||0)-(b.queueNum||0)));
   const snz=S._rateSnoozed||new Set();
@@ -8580,7 +8611,7 @@ function _forceRatingPrompt(){
 }
 function setRate(kind,v){if(kind==='bike')S._rateBike=v;else S._rateExp=v;renderRateModal();}
 function renderRateModal(){
-  const scale=n=>{const cur=n==='bike'?S._rateBike:S._rateExp;return Array.from({length:10},(_,i)=>i+1).map(v=>`<button onclick="setRate('${n}',${v})" aria-label="${v}" style="width:28px;height:28px;border-radius:50%;border:1px solid ${cur>=v?'var(--green)':'var(--border)'};background:${cur>=v?'rgba(var(--green-rgb),.18)':'transparent'};color:${cur>=v?'var(--green)':'var(--muted)'};font-weight:800;font-size:11px;cursor:pointer">${v}</button>`).join('');};
+  const scale=n=>{const cur=n==='bike'?S._rateBike:S._rateExp;return Array.from({length:10},(_,i)=>i+1).map(v=>`<button onclick="setRate(${_ja(n)},${v})" aria-label="${v}" style="width:28px;height:28px;border-radius:50%;border:1px solid ${cur>=v?'var(--green)':'var(--border)'};background:${cur>=v?'rgba(var(--green-rgb),.18)':'transparent'};color:${cur>=v?'var(--green)':'var(--muted)'};font-weight:800;font-size:11px;cursor:pointer">${v}</button>`).join('');};
   const _re=getQueue().find(x=>x.id===S._rateId);
   const _rs=_re?allSessions().find(s=>s.id===_re.sessionId):null;
   const _rmeta=_re?`${_rs&&_rs.day?dayLabel(_rs.day)+' · ':''}${shortDate(_re.sessionDate||_re.sessionId)}`:'';
@@ -8589,10 +8620,10 @@ function renderRateModal(){
       <div class="modal-title">${t('rateTitle')}</div>
       ${_rmeta?`<div style="font-size:12px;color:var(--green);font-weight:700;margin-top:4px">${_rmeta}</div>`:''}
       ${S._rateForced?`<div style="font-size:12px;color:var(--muted);margin-top:4px">${t('rateForcedHint')}</div>`:''}
-      <div style="margin:16px 0">
+      ${(_rs&&!_needsBike(_rs))?'':`<div style="margin:16px 0">
         <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${t('rateBikeLabel')}</div>
         <div style="display:flex;gap:5px;flex-wrap:wrap">${scale('bike')}</div>
-      </div>
+      </div>`}
       <div style="margin:16px 0">
         <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${t('rateExpLabel')}</div>
         <div style="display:flex;gap:5px;flex-wrap:wrap">${scale('exp')}</div>
@@ -8643,7 +8674,9 @@ function _mrStreak(completed){
 }
 function _mrBadges(all,completed){
   const rides=completed.length;
-  const anyP1=all.some(e=>e.queueNum===1&&e.status!=='cancelled'&&e.status!=='removed');
+  // Not on a ride staff approve: its numbers are never shown to riders, and a badge for being
+  // #1 there would tell them their place in an order the card is careful to keep to itself.
+  const anyP1=all.some(e=>e.queueNum===1&&e.status!=='cancelled'&&e.status!=='removed'&&!_apprSessIds.has(e.sessionId));
   const carbon=all.some(e=>(e.typePreference==='Road Carbon')&&(e.status==='done'||e.status==='active'));
   const bySess={};all.forEach(e=>{if(e.status!=='cancelled'&&e.status!=='removed')bySess[e.sessionId]=(bySess[e.sessionId]||0)+1;});
   const squadMax=Object.values(bySess).reduce((m,v)=>Math.max(m,v),0);
@@ -8664,7 +8697,7 @@ function _mrBadges(all,completed){
 function _mrBadgesRow(all,completed){
   const B=_mrBadges(all,completed);
   return`<div class="analytics-section-title" style="margin-top:22px">${t('mrBadgesTitle')}</div>
-  <div class="mr-badges">${B.map((b,i)=>`<button type="button" class="mr-badge${b.on?'':' locked'}" onclick="_mrBadgeInfo(${i})" aria-label="${esc(t(b.k))}: ${esc(t(b.d))}${b.on?'':' (locked)'}">
+  <div class="mr-badges">${B.map((b,i)=>`<button type="button" class="mr-badge${b.on?'':' locked'}" onclick="_mrBadgeInfo(${i})" aria-label="${esc(t(b.k))}: ${esc(t(b.d))}${b.on?'':' ('+esc(t('bdNotEarned'))+')'}">
     <span class="mr-badge-ic" aria-hidden="true">${b.i}</span>
     <span class="mr-badge-nm">${t(b.k)}</span>
     ${b.on?'':`<span class="mr-badge-p">${b.p||'🔒'}</span>`}
@@ -8674,7 +8707,7 @@ function _mrBadgesRow(all,completed){
 function _mrBadgeInfo(i){
   const cust=S.loggedIn;if(!cust)return;
   const all=getQueue().filter(e=>e.customerId===cust.id);
-  const completed=all.filter(e=>e.status==='done'&&e.paid);
+  const completed=all.filter(_rideCompleted);
   const b=_mrBadges(all,completed)[i];if(!b)return;
   const old=document.getElementById('badge-pop');if(old)old.remove();
   const el=document.createElement('div');el.id='badge-pop';el.className='badge-pop';
@@ -8690,12 +8723,23 @@ function _mrBadgeInfo(i){
   document.body.appendChild(el);
 }
 // Season dashboard (stats + badges). Lives at the top of My Account.
+// Is this booking still ahead of the rider (or under them right now)? Waiting or waitlisted it
+// is until its night is over on the KSA calendar: nothing closes a night by itself and close-out
+// leaves waitlist rows as they are, so last week's booking used to sit under Current rides for
+// ever - live code, Cancel, and a "Next ride: Today" on the account page. On a bike it is until
+// the day after (a night can run past midnight); a row left 'active' longer than that is one
+// nobody returned, not a ride in progress.
+function _bookingAhead(e){
+  if(!e||!['waiting','waitlist','active'].includes(e.status))return false;
+  const d=String(e.sessionDate||e.sessionId||'').slice(0,10);if(!d)return true;
+  return d>=(e.status==='active'?new Date(Date.now()-864e5).toLocaleDateString('en-CA',{timeZone:KSA_TZ}):todayStr());
+}
 function _seasonDashboard(cust){
   const allEntries=getQueue().filter(e=>e.customerId===cust.id);
-  const completed=allEntries.filter(e=>e.status==='done'&&e.paid);
+  const completed=allEntries.filter(_rideCompleted);
   const map={};allEntries.forEach(e=>{(map[e.sessionId]=map[e.sessionId]||[]).push(e);});
   const currentGroups=[];
-  Object.values(map).forEach(g=>{const up=g.filter(e=>e.status==='waiting'||e.status==='active'||e.status==='waitlist');if(up.length)currentGroups.push(up);});
+  Object.values(map).forEach(g=>{const up=g.filter(_bookingAhead);if(up.length)currentGroups.push(up);});
   currentGroups.sort((a,b)=>new Date(b[0].sessionDate||b[0].sessionId)-new Date(a[0].sessionDate||a[0].sessionId));
   const rides=completed.length;
   const tier=_mrTier(rides);
@@ -8728,17 +8772,18 @@ function renderMyRides(){
   allEntries.forEach(e=>{(map[e.sessionId]=map[e.sessionId]||[]).push(e);});
   const currentGroups=[],pastGroups=[];
   Object.values(map).forEach(g=>{
-    const upcoming=g.filter(e=>e.status==='waiting'||e.status==='active'||e.status==='waitlist');
+    const upcoming=g.filter(_bookingAhead);
     if(upcoming.length){currentGroups.push(upcoming);}
     else{
-      
-      const saved=g.filter(e=>e.status==='done'&&e.paid);
+      // A night that is over and was never ridden (still waiting, or waitlisted to the end)
+      // is neither: it is not ahead, and it is not a ride to rate or book again.
+      const saved=g.filter(_rideCompleted);
       if(saved.length)pastGroups.push(saved);
     }
   });
   const byDateDesc=(a,b)=>new Date(b[0].sessionDate||b[0].sessionId)-new Date(a[0].sessionDate||a[0].sessionId);
   currentGroups.sort(byDateDesc);pastGroups.sort(byDateDesc);
-  const completed=allEntries.filter(e=>e.status==='done'&&e.paid);
+  const completed=allEntries.filter(_rideCompleted);
   const currentCards=currentGroups.length
     ?currentGroups.map(g=>renderBookingTicket(g,{actions:true})).join('')
     :`<div class="empty-state" style="grid-column:1/-1">${t('noCurrentRides')}</div>`;
@@ -8785,16 +8830,33 @@ function renderAccount(){
   const accBirth=cust.birth_date||'';
   const accCountry=cust.country||'';
   const accCity=cust.city||'';
-  // Nationality came after the login RPCs were written, and they return the profile without
-  // it. Ask customer_profile once per page life and paint again when it answers.
-  if(CUST_RPC&&(cust.nationality===undefined||cust.socials===undefined)&&cust.session_token&&!S._profHydrating){
-    S._profHydrating=true;
-    sb.rpc('customer_profile',{p_id:cust.id,p_token:cust.session_token}).then(({data})=>{
-      const r=data&&data[0],cur=S.loggedIn||getSession();
+  // The form fills from the account as it is NOW, not from the copy this device kept at sign-in:
+  // the login row carries no nationality or socials, and staff correct names, phones and cities
+  // in Accounts after the rider signed in. So the whole profile is read from customer_profile
+  // when the tab is painted (at most once a minute), and a form nobody has touched is painted
+  // again with it. The flag names the account being asked about and clears on any answer: a
+  // page-life flag used to stay set after a sign-out or one failed call, the form then showed a
+  // blank nationality, and saving erased the one on file.
+  const _pf=S._profFresh;
+  if(CUST_RPC&&cust.session_token&&!(_pf&&_pf.id===cust.id&&Date.now()-_pf.at<60000)&&S._profHydrating!==cust.id){
+    S._profHydrating=cust.id;
+    const _done=()=>{if(S._profHydrating===cust.id)S._profHydrating=null;};
+    sb.rpc('customer_profile',{p_id:cust.id,p_token:cust.session_token}).then(({data,error})=>{
+      _done();
+      const r=!error&&data&&data[0],cur=S.loggedIn||getSession();
       if(!r||!cur||cur.id!==r.id)return;
-      S.loggedIn={...cur,nationality:r.nationality||null,socials:r.socials||null,gender:cur.gender||r.gender||null};setSession(S.loggedIn);renderAccount();
-    }).catch(()=>{});
+      // A repaint throws away whatever was typed, so only a form nobody has touched is repainted.
+      // One already being edited keeps its boxes: the save reads the profile again and takes
+      // everything the rider did not change from there. (Judged before the copy is replaced:
+      // the type pill reads it.)
+      const dirty=_accDirty();
+      S._profFresh={id:r.id,at:Date.now()};
+      S.loggedIn=_withProfile(cur,r);setSession(S.loggedIn);
+      if(!dirty)renderAccount();
+      renderTopbarRight();
+    }).catch(_done);
   }
+  const accTy=_accTypeFor(cust);
   const accNat=cust.nationality||'';
   const natOpts=`<option value="">${t('selectNationalityOpt')}</option>`+nationalityOpts(accNat);
   
@@ -8878,8 +8940,8 @@ function renderAccount(){
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
           ${bikeTypeOpts(false).map(ty=>`
             <button id="atp-${ty}" type="button"
-              class="toggle-btn${(cust.type_preference||'Any')===ty?' active':''}"
-              onclick="S.loggedIn.type_preference='${ty}';CUST_TYPES.forEach(x=>document.getElementById('atp-'+x)?.classList.toggle('active',x==='${ty}'))"
+              class="toggle-btn${accTy===ty?' active':''}"
+              onclick="_accPickType(${_ja(ty)})"
               >${typePillLabel(ty)}</button>`).join('')}
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:6px;font-weight:600">${t('typePrefHint')}</div>
@@ -8929,9 +8991,37 @@ function renderAccount(){
         </button>
       </div>`;
     })()}`;
+  S._accBase={id:cust.id,v:_accFormVals()}; // what the form showed, to tell a rider's edit from a stale box
+}
+// The profile columns customer_profile answers with, laid over a signed-in copy.
+const PROFILE_COLS=['name','email','phone','height','type_preference','birth_date','country','city','photo','gender','nationality','socials'];
+function _withProfile(cur,r){const o={...cur};PROFILE_COLS.forEach(k=>{if(r&&k in r)o[k]=r[k]??null;});return o;}
+// The account form's values, compared as they are saved.
+function _accFormVals(){
+  const g=id=>{const el=document.getElementById(id);return el?String(el.value||''):null;};
+  if(g('acc-first')===null)return null;
+  const ph=(g('acc-phone')||'').replace(/\D/g,'');
+  return{
+    name:_joinName3(g('acc-first'),g('acc-middle')||'',g('acc-last')||''),
+    email:(g('acc-email')||'').trim().toLowerCase(),
+    phone:ph?_normPhone(ph,g('acc-cc')||'+966'):'',
+    height:(g('acc-height')||'').trim(),
+    birth_date:g('acc-birth')||'',country:g('acc-country')||'',city:g('acc-city')||'',nationality:g('acc-nationality')||'',
+    type_preference:_accTypeFor(S.loggedIn||getSession()),
+    socials:JSON.stringify(_socRead('acc').val||null),
+  };
+}
+function _accDirty(){
+  const b=S._accBase,c=S.loggedIn||getSession();if(!b||!b.v||!c||b.id!==c.id)return false;
+  const v=_accFormVals();return !!v&&Object.keys(b.v).some(k=>b.v[k]!==v[k]);
 }
 
 function onAccCountryChange(country){_setCityCountry('acc-city',country);}
+// The type pill picks for the form, not for the account: it used to write straight onto
+// S.loggedIn, so a choice never saved still steered Book my usual and the Reserve prefill.
+// It is held against the account it was picked for, and survives the form being repainted.
+function _accPickType(ty){const c=S.loggedIn||getSession();S._accType=c?{id:c.id,ty}:null;CUST_TYPES.forEach(x=>document.getElementById('atp-'+x)?.classList.toggle('active',x===ty));}
+function _accTypeFor(c){return((S._accType&&c&&S._accType.id===c.id)?S._accType.ty:(c&&c.type_preference))||'Any';}
 
 async function saveAccount(){
   const cust=S.loggedIn||getSession();
@@ -8962,17 +9052,34 @@ async function saveAccount(){
   const city=(document.getElementById('acc-city')?.value||'')||null;
   const nationality=(document.getElementById('acc-nationality')?.value||'')||null;
   const soc=_socRead('acc');if(soc.err){setErr(t('socErr').replace('{0}',soc.err));return;}
-  const socChanged=JSON.stringify(soc.val||null)!==JSON.stringify(cust.socials||null);
   try{
-    const type_preference=S.loggedIn.type_preference||'Any';
+    const type_preference=_accTypeFor(cust);
     if(CUST_RPC){
-      const{data:ok,error}=await sb.rpc('customer_update_profile',{p_id:cust.id,p_token:cust.session_token,p_name:name,p_email:email,p_phone:fullPhone,p_height:height,p_type_preference:type_preference,p_birth_date:birth_date,p_country:country,p_city:city,p_nationality:nationality});
+      // The save writes every column, so it starts from the account as it is NOW. What the rider
+      // changed on this form is sent as typed; every box they left alone takes the value on file,
+      // not the one this device showed - a copy from sign-in, which undid staff corrections made
+      // since, and a blank nationality box, which erased the nationality. No fresh read, no save.
+      let cur=null;
+      try{const{data,error}=await sb.rpc('customer_profile',{p_id:cust.id,p_token:cust.session_token});cur=!error&&data&&data[0];}catch(_){}
+      if(!cur||cur.id!==cust.id){setErr(t('errConnection'));return;}
+      const base=(S._accBase&&S._accBase.id===cust.id&&S._accBase.v)||null,now=_accFormVals();
+      const kept=(k,typed,srv)=>(base&&now&&now[k]===base[k]&&(k in cur))?srv:typed;
+      const v={
+        name:kept('name',name,cur.name),email:kept('email',email,cur.email??''),phone:kept('phone',fullPhone,cur.phone??''),
+        height:kept('height',height,cur.height??null),type_preference:kept('type_preference',type_preference,cur.type_preference||'Any'),
+        birth_date:kept('birth_date',birth_date,cur.birth_date??null),country:kept('country',country,cur.country??null),
+        city:kept('city',city,cur.city??null),nationality:kept('nationality',nationality,cur.nationality??null),
+      };
+      // Handles: the ones typed, over the ones on file when the form never showed those.
+      let socials=kept('socials',soc.val||null,cur.socials??null);
+      if(socials===(soc.val||null)&&base&&base.socials==='null'&&cur.socials&&typeof cur.socials==='object'){const m={...cur.socials,...(soc.val||{})};socials=Object.keys(m).length?m:null;}
+      const{data:ok,error}=await sb.rpc('customer_update_profile',{p_id:cust.id,p_token:cust.session_token,p_name:v.name,p_email:v.email,p_phone:v.phone,p_height:v.height,p_type_preference:v.type_preference,p_birth_date:v.birth_date,p_country:v.country,p_city:v.city,p_nationality:v.nationality});
       if(error||!ok)throw(error||new Error('denied'));
-      if(socChanged){const r=await sb.rpc('customer_set_socials',{p_id:cust.id,p_token:cust.session_token,p_socials:soc.val||{}});if(r.error||!r.data)throw(r.error||new Error('denied'));}
-      S.loggedIn={...cust,name,email,phone:fullPhone,height,type_preference,birth_date,country,city,nationality,socials:soc.val};
-      setSession(S.loggedIn);
-      if(height){S._rHeight=String(height);}
-      if(type_preference&&S.regBikeTypes.length===0)S.regBikeTypes=[type_preference];
+      if(JSON.stringify(socials||null)!==JSON.stringify(cur.socials||null)){const r=await sb.rpc('customer_set_socials',{p_id:cust.id,p_token:cust.session_token,p_socials:socials||{}});if(r.error||!r.data)throw(r.error||new Error('denied'));}
+      S.loggedIn={..._withProfile(cust,cur),...v,socials};
+      setSession(S.loggedIn);S._accType=null;S._profFresh={id:cust.id,at:Date.now()};
+      if(v.height){S._rHeight=String(v.height);}
+      if(v.type_preference&&S.regBikeTypes.length===0)S.regBikeTypes=[v.type_preference];
       toast(t('accountSaved'));renderAccount();renderTopbarRight();return;
     }
     const updates={name,height,type_preference,birth_date,country,city,nationality,socials:soc.val};
@@ -8981,7 +9088,7 @@ async function saveAccount(){
     const{error}=await sb.from('customers').update(updates).eq('id',cust.id);
     if(error)throw error;
     S.loggedIn={...cust,name,email,phone:fullPhone,height,type_preference,birth_date,country,city,nationality,socials:soc.val};
-    setSession(S.loggedIn);
+    setSession(S.loggedIn);S._accType=null;
     
     if(height){S._rHeight=String(height);}
     if(type_preference&&S.regBikeTypes.length===0)S.regBikeTypes=[type_preference];
@@ -9112,6 +9219,10 @@ function startEditSession(id){
   S.editSessCollect=(parseSlots(sess.bike_slots)||{})._collect||sessionCollectTime(sess)||'';
   S.editSessMapUrl=sess.meet_url||'';S.editSessBfName=sess.breakfast_name||'';S.editSessBfUrl=sess.breakfast_url||'';
   S.editSessTitle=sess.title||'';
+  // Every field the form shows is set from THIS session. Spots used to keep whatever was last
+  // typed into the box for any ride, and a later save wrote that number onto another one.
+  S.editSessSpots=sess.spots!=null?String(sess.spots):'';
+  S.editSessTotal=sess.capacity||10;
   S.editSessBfSel=((S.breakfastSpots||[]).find(x=>x.name===sess.breakfast_name)||{}).id||(sess.breakfast_name?'__new':'');
   S.showAddSession=false;
   
@@ -9125,7 +9236,9 @@ function startEditSession(id){
   const fmt=slotsFormat(slots);
   if(fmt==='ids'&&slots._bikes){
     S.editSessMode='fleet';
-    S.editSessAssignedIds=[...slots._bikes];
+    // A retired bike never comes back and the picker never shows it, so it could not be
+    // un-ticked: it stayed in the fleet and in the capacity customers book against.
+    S.editSessAssignedIds=_liveFleetIds(slots._bikes,false);
     S.editSessTypeSizes={Road:_emptySizes(),Hybrid:_emptySizes(),Mountain:_emptySizes(),Kids:_emptySizes()};
   } else if(fmt==='total'){
     S.editSessMode='total';
@@ -9172,6 +9285,13 @@ function toggleNewSessBike(bikeId){
   renderSessions();
   setTimeout(()=>document.getElementById('sess-add-form')?.scrollIntoView({behavior:_sb(),block:'nearest'}),40);
 }
+// A session's saved bike ids, less the ones the fleet no longer puts out: retired always, and
+// (for a new session) any in maintenance, which the new-session picker hides as well. An id this
+// device does not know is kept - the bike list may simply not have loaded.
+function _liveFleetIds(ids,dropMaint){
+  const bk=new Map(getBikes().map(b=>[b.id,b]));
+  return (ids||[]).filter(id=>{const b=bk.get(id);return !b||(b.status!=='retired'&&!(dropMaint&&b.status==='maintenance'));});
+}
 // Bikes already tied to an active/waiting rider can't be added to a new session
 function _nsBusyIds(){return new Set(getQueue().filter(e=>e.status==='active'||e.status==='waiting').flatMap(e=>getAssignedBikeIds(e)));}
 function _nsSelectable(filterFn){
@@ -9196,10 +9316,10 @@ function selectAllNewSessAll(){
 function _sessAddonGroups(items,selIds,toggleFn){
   const cats=[...new Set(items.map(it=>it.category||'Other'))].sort((a,b)=>_invCatLabel(a).localeCompare(_invCatLabel(b)));
   const card=it=>{const sel=(selIds||[]).includes(it.id);const _pl=_priceLabel(it.price);const sub=`${it.brand?esc(it.brand):''}${(it.brand&&_pl)?' · ':''}${_pl}`;
-    return`<button type="button" onclick="${toggleFn}('${it.id}')" title="${esc(it.name)}" style="display:flex;align-items:center;gap:8px;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(var(--green-rgb),.08)':'var(--s2)'};border-radius:4px;padding:6px 11px 6px 6px;cursor:pointer;font-family:inherit;text-align:start">${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="" style="width:34px;height:34px;border-radius:3px;object-fit:contain;background:var(--photo-bg);flex-shrink:0">`:`<div style="width:34px;height:34px;border-radius:3px;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:11px;font-weight:800">${_itemIcon(it)||esc((it.name||'?').charAt(0))}</div>`}<div style="min-width:0"><div style="font-size:12px;font-weight:800;color:${sel?'var(--green)':'var(--text)'};white-space:nowrap">${esc(it.name)}</div>${sub?`<div style="font-size:10px;color:var(--muted);white-space:nowrap">${sub}</div>`:''}</div></button>`;};
+    return`<button type="button" onclick="${toggleFn}(${_ja(it.id)})" title="${esc(it.name)}" style="display:flex;align-items:center;gap:8px;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(var(--green-rgb),.08)':'var(--s2)'};border-radius:4px;padding:6px 11px 6px 6px;cursor:pointer;font-family:inherit;text-align:start">${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="" style="width:34px;height:34px;border-radius:3px;object-fit:contain;background:var(--photo-bg);flex-shrink:0">`:`<div style="width:34px;height:34px;border-radius:3px;background:var(--s3);flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:11px;font-weight:800">${_itemIcon(it)||esc((it.name||'?').charAt(0))}</div>`}<div style="min-width:0"><div style="font-size:12px;font-weight:800;color:${sel?'var(--green)':'var(--text)'};white-space:nowrap">${esc(it.name)}</div>${sub?`<div style="font-size:10px;color:var(--muted);white-space:nowrap">${sub}</div>`:''}</div></button>`;};
   const _saWhich=toggleFn.indexOf('Edit')>=0?'edit':'new';
   const _saAll=items.length>0&&items.every(it=>(selIds||[]).includes(it.id));
-  const _saBtn=items.length>1?`<button type="button" class="btn-sm btn-muted" style="font-size:11px;margin-bottom:10px" onclick="_sessAddonSelectAll('${_saWhich}')">${_saAll?t('nsClear'):t('nsSelectAll')}</button>`:'';
+  const _saBtn=items.length>1?`<button type="button" class="btn-sm btn-muted" style="font-size:11px;margin-bottom:10px" onclick="_sessAddonSelectAll(${_ja(_saWhich)})">${_saAll?t('nsClear'):t('nsSelectAll')}</button>`:'';
   return _saBtn+cats.map(cat=>`<div style="margin-bottom:10px"><div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:6px">${esc(_invCatLabel(cat))}</div><div style="display:flex;flex-wrap:wrap;gap:8px">${items.filter(it=>(it.category||'Other')===cat).map(card).join('')}</div></div>`).join('');
 }
 // Select-all / clear-all toggle for the session add-on offer list (shared by the new + edit session forms)
@@ -9208,7 +9328,10 @@ function _sessAddonSelectAll(which){
   const key=which==='edit'?'editSessAddons':'newSessAddons';
   const cur=S[key]||[];
   const allSel=ids.length>0&&ids.every(id=>cur.includes(id));
-  S[key]=allSel?[]:ids.slice(); // if everything is already selected, clear; otherwise select all
+  // Only the in-stock items on screen move. A sold-out item the session already offers is not
+  // listed (the form shows stock only) yet stays offered on purpose; replacing the whole list
+  // dropped it without anyone seeing it go.
+  S[key]=allSel?cur.filter(id=>!ids.includes(id)):[...new Set([...cur,...ids])]; // all selected: clear them; otherwise select all
   renderSessions();
   setTimeout(()=>document.getElementById(which==='edit'?'sess-edit-form':'sess-add-form')?.scrollIntoView({behavior:_sb(),block:'nearest'}),40);
 }
@@ -9348,9 +9471,14 @@ async function _addonStockQ(arr,sign){
     norm.forEach(({id,qty})=>{const it=(S.inventory||[]).find(x=>x.id===id);if(it)it.qty=(Number(it.qty)||0)+sign*qty;});
     // Inventory writes are staff-only after Section 6; a customer's add-on stock
     // change (book/cancel) goes through the token-checked RPC instead.
+    // The answer is read, not assumed: the RPC refuses a caller with no live booking, and a
+    // refusal used to leave this device showing stock the database never got back. Callers
+    // that move stock as a booking ends do it while the booking is still live (cancelBooking).
     const c=S.loggedIn||getSession();
-    if(c&&c.session_token){try{await sb.rpc('customer_addon_stock',{p_id:c.id,p_token:c.session_token,p_items:norm.map(({id,qty})=>({id,delta:sign*qty}))});}catch(e){}}
-    return;
+    let ok=false;
+    if(c&&c.session_token){try{const r=await sb.rpc('customer_addon_stock',{p_id:c.id,p_token:c.session_token,p_items:norm.map(({id,qty})=>({id,delta:sign*qty}))});ok=!r.error&&r.data!==false;}catch(e){}}
+    if(!ok)norm.forEach(({id,qty})=>{const it=(S.inventory||[]).find(x=>x.id===id);if(it)it.qty=(Number(it.qty)||0)-sign*qty;});
+    return ok;
   }
   // Staff path: each movement is applied as a delta under a compare-and-swap, so two tills
   // selling the same item cannot overwrite each other. The local copy is set from what the
@@ -9395,13 +9523,13 @@ function renderAddonPicker(){
         <div style="padding:10px 12px">
           <div style="font-weight:800;font-size:14px;line-height:1.2">${esc(it.name)}</div>
           ${stock<=10?`<div style="margin-top:4px;font-size:11px;font-weight:800;color:${out?'#e5484d':low?'var(--orange)':'var(--muted)'}">${out?t('outOfStock'):stock+' '+t('stockLeft')}</div>`:''}
-          ${_hasNutri(it)?`<button type="button" onclick="showNutrition('${it.id}')" style="margin-top:7px;background:rgba(var(--green-rgb),.08);border:1px solid rgba(var(--green-rgb),.22);color:var(--green);font-family:inherit;font-size:11px;font-weight:800;padding:4px 10px;border-radius:3px;cursor:pointer">${t('nuButton')}</button>`:''}
+          ${_hasNutri(it)?`<button type="button" onclick="showNutrition(${_ja(it.id)})" style="margin-top:7px;background:rgba(var(--green-rgb),.08);border:1px solid rgba(var(--green-rgb),.22);color:var(--green);font-family:inherit;font-size:11px;font-weight:800;padding:4px 10px;border-radius:3px;cursor:pointer">${t('nuButton')}</button>`:''}
           <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px">
             <span style="font-weight:800;color:var(--green);font-size:14px">${_priceLabel(it.price)}</span>
             <div style="display:flex;align-items:center;gap:6px">
-              <button type="button" onclick="_addonPickerStep('${it.id}',-1)" ${qn<=0?'disabled':''} aria-label="−" style="width:30px;height:30px;border-radius:3px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-size:18px;font-weight:800;cursor:${qn<=0?'default':'pointer'};line-height:1;${qn<=0?'opacity:.4':''}">−</button>
+              <button type="button" onclick="_addonPickerStep(${_ja(it.id)},-1)" ${qn<=0?'disabled':''} aria-label="−" style="width:30px;height:30px;border-radius:3px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-size:18px;font-weight:800;cursor:${qn<=0?'default':'pointer'};line-height:1;${qn<=0?'opacity:.4':''}">−</button>
               <span style="min-width:18px;text-align:center;font-weight:800">${qn}</span>
-              <button type="button" onclick="_addonPickerStep('${it.id}',1)" ${out?'disabled':''} aria-label="+" style="width:30px;height:30px;border-radius:3px;border:1px solid ${out?'var(--border)':'var(--green)'};background:${out?'var(--s2)':'rgba(var(--green-rgb),.12)'};color:${out?'var(--muted)':'var(--green)'};font-size:18px;font-weight:800;cursor:${out?'default':'pointer'};line-height:1;${out?'opacity:.5':''}">+</button>
+              <button type="button" onclick="_addonPickerStep(${_ja(it.id)},1)" ${out?'disabled':''} aria-label="+" style="width:30px;height:30px;border-radius:3px;border:1px solid ${out?'var(--border)':'var(--green)'};background:${out?'var(--s2)':'rgba(var(--green-rgb),.12)'};color:${out?'var(--muted)':'var(--green)'};font-size:18px;font-weight:800;cursor:${out?'default':'pointer'};line-height:1;${out?'opacity:.5':''}">+</button>
             </div>
           </div>
         </div>
@@ -9543,8 +9671,14 @@ function cloneSession(id){
   else{S.newSessWlMode='count';S.newSessWlVal='';}
   const m=String((slots._time)||'09:00 - 11:00').match(/(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})/);
   if(m){S.newSessStartTime=m[1];S.newSessEndTime=m[2];}
+  // The bike collection time is a field of the form too; a clone used to fall back to 45
+  // minutes before the start whatever the original said.
+  S.newSessCollect=slots._collect||'';
+  // Only bikes the picker can show come across. The fleet retired on 15 September was still on
+  // every older session, and a clone put those bikes - invisible, so impossible to un-tick - into
+  // the new night's capacity: places customers could book with no bike behind them.
   if(slots._bikes&&slots._bikes.length){
-    S.newSessMode='ids';S.newSessAssignedIds=[...slots._bikes];
+    S.newSessMode='fleet';S.newSessAssignedIds=_liveFleetIds(slots._bikes,true);
   }else if(typeof slots._total==='number'){
     S.newSessMode='total';S.newSessTotal=slots._total;
   }else{
@@ -9557,9 +9691,16 @@ function cloneSession(id){
   setTimeout(()=>document.getElementById('sess-add-form')?.scrollIntoView({behavior:_sb(),block:'start'}),50);
 }
 // Check in the next waiting rider (keyboard shortcut N)
+// On All sessions it means tonight: the oldest waiting row on the whole list used to win, and
+// that was a rider left 'waiting' on a night long gone. On a ride staff approve only an
+// approved rider is checked in, and the front desk does not handle those rides at all.
 function _kbCheckInNext(){
-  const waiting=getQueue().filter(e=>e.status==='waiting'&&(S.sfSession==='all'||e.sessionId===S.sfSession))
-    .sort((a,b)=>a.sessionId.localeCompare(b.sessionId)||a.queueNum-b.queueNum);
+  const today=todayStr(),fd=!isAdmin();
+  const waiting=getQueue().filter(e=>{
+    if(e.status!=='waiting')return false;
+    if(S.sfSession==='all'?String(e.sessionDate||e.sessionId||'').slice(0,10)!==today:e.sessionId!==S.sfSession)return false;
+    return !_apprSessIds.has(e.sessionId)||(!fd&&_apprOf(e)==='approved');
+  }).sort((a,b)=>String(a.sessionId).localeCompare(String(b.sessionId))||a.queueNum-b.queueNum);
   if(!waiting.length){toast(t('kbNoWaiting'),'info');return;}
   if(S.staffTab!=='queue')setStaffTab('queue');
   showCheckinModal(waiting[0].id);
@@ -9598,19 +9739,19 @@ function renderSessions(){
       return`<div style="margin-bottom:18px">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
           <div style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.6px;color:${typeColorHex[ty]}">${typeLabel(ty)} (${typeBikes.filter(b=>nsAssigned.includes(b.id)).length} ${t('anOf')} ${typeBikes.length})</div>
-          ${selectableTy.length?`<button type="button" class="btn-sm btn-muted" style="font-size:11px;padding:4px 10px" onclick="selectAllNewSessType('${ty}')">${allSelTy?t('nsClear'):t('nsSelectAll')}</button>`:''}
+          ${selectableTy.length?`<button type="button" class="btn-sm btn-muted" style="font-size:11px;padding:4px 10px" onclick="selectAllNewSessType(${_ja(ty)})">${allSelTy?t('nsClear'):t('nsSelectAll')}</button>`:''}
         </div>
         <div class="bike-assign-grid">
           ${typeBikes.map(b=>{
             const sel=nsAssigned.includes(b.id);
             const busy=busyIds.has(b.id)&&!sel;
             const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-blue':'dot-red';
-            const colorDots=(b.colors||['#0c7a3d']).map(c=>`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');
+            const colorDots=(b.colors||['#0c7a3d']).map(c=>`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${esc(c)};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');
             return`<div class="bike-assign-card${sel?' selected':''}${busy?' busy':''}"
-              ${!busy?`onclick="toggleNewSessBike('${b.id}')"`:`title="${t('inUseLabel')}"`}>
+              ${!busy?`onclick="toggleNewSessBike(${_ja(b.id)})"`:`title="${t('inUseLabel')}"`}>
               <div style="display:flex;gap:3px;align-items:center;margin-bottom:7px">${colorDots}</div>
               <div class="bike-assign-name">${esc(b.name)}</div>
-              <div style="font-size:11px;color:var(--muted)"><span class="avail-dot ${dot}" aria-hidden="true" style="display:inline-block;vertical-align:middle"></span> ${b.size}</div>
+              <div style="font-size:11px;color:var(--muted)"><span class="avail-dot ${dot}" aria-hidden="true" style="display:inline-block;vertical-align:middle"></span> ${esc(b.size)}</div>
               ${sel?`<div class="bike-assign-check">&#x2713; ${t('assignBikeTitle')}</div>`:''}
             </div>`;
           }).join('')}
@@ -9711,7 +9852,7 @@ function renderSessions(){
                 ${BIKE_SIZES.map(sz=>`<td style="padding:5px 3px;text-align:center">
                   <input type="number" min="0" max="99" value="${S.newSessTypeSizes[ty]?.[sz]||0}"
                     style="width:40px;padding:5px 2px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:2px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;text-align:center"
-                    oninput="S.newSessTypeSizes['${ty}']['${sz}']=Math.max(0,parseInt(this.value)||0);_debRender('sess',renderSessions)">
+                    oninput="S.newSessTypeSizes[${_ja(ty)}][${_ja(sz)}]=Math.max(0,parseInt(this.value)||0);_debRender('sess',renderSessions)">
                 </td>`).join('')}
                 <td style="padding:8px 10px;text-align:center;font-weight:900;font-size:15px;color:${rowTot>0?'var(--green)':'var(--muted)'}">${rowTot}</td>
               </tr>`;
@@ -9764,12 +9905,12 @@ function renderSessions(){
             const sel=esAssigned.includes(b.id);
             const busy=busyIds.has(b.id)&&!sel;
             const dot=b.status==='available'?'dot-green':b.status==='in-use'?'dot-blue':'dot-red';
-            const colorDots=(b.colors||['#0c7a3d']).map(c=>`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');
+            const colorDots=(b.colors||['#0c7a3d']).map(c=>`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${esc(c)};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('');
             return`<div class="bike-assign-card${sel?' selected':''}${busy?' busy':''}"
-              ${!busy?`onclick="toggleAssignBike('${b.id}')"`:`title="${t('inUseElse')}"`}>
+              ${!busy?`onclick="toggleAssignBike(${_ja(b.id)})"`:`title="${t('inUseElse')}"`}>
               <div style="display:flex;gap:3px;align-items:center;margin-bottom:7px">${colorDots}</div>
               <div class="bike-assign-name">${esc(b.name)}</div>
-              <div style="font-size:11px;color:var(--muted)"><span class="avail-dot ${dot}" aria-hidden="true" style="display:inline-block;vertical-align:middle"></span> ${b.size} &middot; ${b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel')}</div>
+              <div style="font-size:11px;color:var(--muted)"><span class="avail-dot ${dot}" aria-hidden="true" style="display:inline-block;vertical-align:middle"></span> ${esc(b.size)} &middot; ${b.status==='available'?t('availLabel'):b.status==='in-use'?t('inUseLabel'):t('maintLabel')}</div>
               ${sel?`<div class="bike-assign-check">✓ ${t('assignBikeTitle')}</div>`:''}
               ${busy?`<div style="font-size:10px;color:var(--muted);margin-top:4px">${t('inUseLabel')}</div>`:''}
             </div>`;
@@ -9793,28 +9934,28 @@ function renderSessions(){
           <label>${t('colStatus')}</label>
           <div class="toggle-group" style="margin-top:4px">
             ${['closed','open','full'].map(st=>`<button class="toggle-btn${S.editSessStatus===st?' active':''}"
-              onclick="S.editSessStatus='${st}';renderSessions()">${{closed:t('statusClosed'),open:t('statusOpen'),full:t('statusFull')}[st]}</button>`).join('')}
+              onclick="S.editSessStatus=${_ja(st)};renderSessions()">${{closed:t('statusClosed'),open:t('statusOpen'),full:t('statusFull')}[st]}</button>`).join('')}
           </div>
         </div>
         ${_twoTimesSess(editSess)?`
         <div class="form-group">
           <label>${_gathers(editSess)?t('sessGatherTime'):t('sessStartTime')}</label>
-          <input type="time" id="es-start" value="${S.editSessStartTime||'06:30'}" oninput="S.editSessStartTime=this.value" style="margin-top:4px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer;max-width:140px;display:block">
+          <input type="time" id="es-start" value="${esc(S.editSessStartTime||'06:30')}" oninput="S.editSessStartTime=this.value" style="margin-top:4px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer;max-width:140px;display:block">
         </div>
         <div class="form-group">
           <label>${_gathers(editSess)?t('sessStartTime'):t('sessEndTime')}</label>
-          <input type="time" id="es-end" value="${S.editSessEndTime||'07:00'}" oninput="S.editSessEndTime=this.value" style="margin-top:4px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer;max-width:140px;display:block">
+          <input type="time" id="es-end" value="${esc(S.editSessEndTime||'07:00')}" oninput="S.editSessEndTime=this.value" style="margin-top:4px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer;max-width:140px;display:block">
         </div>
-        <div class="form-group"><label>${t('sessMapLabel')}</label>
-          <input type="url" id="es-map" inputmode="url" value="${esc(S.editSessMapUrl||'')}" placeholder="${esc(t('sessMapPh'))}" oninput="S.editSessMapUrl=this.value"></div>
+        ${_rideKind(editSess)==='snd96'?'':`<div class="form-group"><label>${t('sessMapLabel')}</label>
+          <input type="url" id="es-map" inputmode="url" value="${esc(S.editSessMapUrl||'')}" placeholder="${esc(t('sessMapPh'))}" oninput="S.editSessMapUrl=this.value"></div>`}
         ${_hasBreakfast(editSess)?_bfPickerHtml('editSessBfSel','editSessBfName','editSessBfUrl','renderSessions'):''}
         ${''}`:`
         <div class="form-group">
           <label>${t('timeLabel')}</label>
           <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-            <input type="time" id="es-start" value="${S.editSessStartTime||'21:00'}" oninput="S.editSessStartTime=this.value" style="background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
+            <input type="time" id="es-start" value="${esc(S.editSessStartTime||'21:00')}" oninput="S.editSessStartTime=this.value" style="background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
             <span style="color:var(--muted);font-weight:700">-</span>
-            <input type="time" id="es-end" value="${S.editSessEndTime||'23:00'}" oninput="S.editSessEndTime=this.value" style="background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
+            <input type="time" id="es-end" value="${esc(S.editSessEndTime||'23:00')}" oninput="S.editSessEndTime=this.value" style="background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;padding:6px 10px;cursor:pointer">
           </div>
         </div>
         <div class="form-group">
@@ -9826,7 +9967,7 @@ function renderSessions(){
       ${['petromin','swim','workshop'].includes(_rideKind(editSess))?`
       <div class="form-group" style="margin-bottom:16px">
         <label>${t(_needsBike(editSess)?'sessRideNameLabel':'sessSessNameLabel')} &nbsp;<span class="label-hint">${t(_needsBike(editSess)?'sessRideNameHint':'sessSessNameHint')}</span></label>
-        <input type="text" id="es-title" maxlength="60" value="${esc(S.editSessTitle||editSess.title||t(_rideKind(editSess)==='swim'?'evSwimName':_rideKind(editSess)==='workshop'?'evWorkshopName':'evPetroName'))}" oninput="S.editSessTitle=this.value" style="max-width:340px">
+        <input type="text" id="es-title" maxlength="60" value="${esc(_stockEvName(S.editSessTitle)?'':(S.editSessTitle||''))}" placeholder="${esc(_evName({...editSess,title:null}))}" oninput="S.editSessTitle=this.value" style="max-width:340px">
       </div>`:''}
       ${_isApprovalRide(editSess)?`
       <div class="form-group" style="margin-bottom:16px">
@@ -9858,7 +9999,7 @@ function renderSessions(){
                 ${BIKE_SIZES.map(sz=>`<td style="padding:5px 3px;text-align:center">
                   <input type="number" min="0" max="99" value="${S.editSessTypeSizes[ty]?.[sz]||0}"
                     style="width:40px;padding:5px 2px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.1);border-radius:2px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;text-align:center"
-                    oninput="S.editSessTypeSizes['${ty}']['${sz}']=Math.max(0,parseInt(this.value)||0);_debRender('sess',renderSessions)">
+                    oninput="S.editSessTypeSizes[${_ja(ty)}][${_ja(sz)}]=Math.max(0,parseInt(this.value)||0);_debRender('sess',renderSessions)">
                 </td>`).join('')}
                 <td style="padding:8px 10px;text-align:center;font-weight:900;font-size:15px;color:${rowTot>0?'var(--green)':'var(--muted)'}">${rowTot}</td>
               </tr>`;
@@ -9908,7 +10049,7 @@ function renderSessions(){
   function thSessSort(col,label){
     const active=S.sessSort===col;
     const arrow=active?(S.sessSortDir===1?'↑':'↓'):'';
-    return`<th class="an-sort-th${active?' an-sort-active':''}" onclick="setSessSort('${col}')">${label}${active?` ${arrow}`:''}</th>`;
+    return`<th class="an-sort-th${active?' an-sort-active':''}" onclick="setSessSort(${_ja(col)})">${label}${active?` ${arrow}`:''}</th>`;
   }
 
   const sessStatusOpts=['all','open','full','closed'].map(s=>{
@@ -9933,16 +10074,16 @@ function renderSessions(){
     if(isOpen){
       statusBadgeHtml=`<span class="badge-open">${t('statusOpen')}</span>`;
       actionBtns=`
-        <button class="btn-sm btn-muted" onclick="toggleSession('${s.id}','full')">${t('markFullBtn')}</button>
-        <button class="btn-sm btn-red" onclick="toggleSession('${s.id}','closed')">${t('closeBtn')}</button>`;
+        <button class="btn-sm btn-muted" onclick="toggleSession(${_ja(s.id)},'full')">${t('markFullBtn')}</button>
+        <button class="btn-sm btn-red" onclick="toggleSession(${_ja(s.id)},'closed')">${t('closeBtn')}</button>`;
     }else if(isFull){
       statusBadgeHtml=`<span class="badge-full">${t('statusFull')}</span>`;
       actionBtns=`
-        <button class="btn-sm btn-green" onclick="toggleSession('${s.id}','open')">${t('reopenBtn')}</button>
-        <button class="btn-sm btn-red" onclick="toggleSession('${s.id}','closed')">${t('closeBtn')}</button>`;
+        <button class="btn-sm btn-green" onclick="toggleSession(${_ja(s.id)},'open')">${t('reopenBtn')}</button>
+        <button class="btn-sm btn-red" onclick="toggleSession(${_ja(s.id)},'closed')">${t('closeBtn')}</button>`;
     }else{
       statusBadgeHtml=`<span class="badge-closed">${t('statusClosed')}</span>`;
-      actionBtns=`<button class="btn-sm btn-green" onclick="toggleSession('${s.id}','open')">${t('openBtn')}</button>`;
+      actionBtns=`<button class="btn-sm btn-green" onclick="toggleSession(${_ja(s.id)},'open')">${t('openBtn')}</button>`;
     }
     return`<tr>
       <td data-label="${t('colDate')}" style="font-weight:800">${shortDate(s.session_date||s.id)}</td>
@@ -9955,10 +10096,10 @@ function renderSessions(){
       <td data-label="${t('colStatus')}">${statusBadgeHtml}</td>
       <td class="cell-actions">
         <div class="actions-cell">
-          <button class="btn-sm btn-green" onclick="startEditSession('${s.id}')">${t('editBtn2')}</button>
-          <button class="btn-sm btn-muted" onclick="cloneSession('${s.id}')">${t('cloneSessBtn')}</button>
+          <button class="btn-sm btn-green" onclick="startEditSession(${_ja(s.id)})">${t('editBtn2')}</button>
+          <button class="btn-sm btn-muted" onclick="cloneSession(${_ja(s.id)})">${t('cloneSessBtn')}</button>
           ${actionBtns}
-          ${isAdmin()?`<button class="btn-sm btn-red" onclick="deleteSession('${s.id}')" ${booked>0?`disabled title="${t('hasBookingsTitle')}"`:''}>${t('deleteBtn')}</button>`:''}
+          ${isAdmin()?`<button class="btn-sm btn-red" onclick="deleteSession(${_ja(s.id)})" ${booked>0?`disabled title="${t('hasBookingsTitle')}"`:''}>${t('deleteBtn')}</button>`:''}
         </div>
       </td>
     </tr>`;
@@ -9975,20 +10116,20 @@ function renderSessions(){
     const _today=new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});
     const _nightOver=s.status==='closed'||String(s.session_date||s.id)<_today;
     const _closeable=_nightOver?getQueue().filter(e=>e.sessionId===s.id&&(e.status==='active'||e.status==='waiting')).length:0;
-    const _closeoutBtn=_closeable?`<button class="btn-sm btn-muted" onclick="event.stopPropagation();closeOutSession('${s.id}')" title="${t('closeOutHint')}">${t('closeOutBtn')} (${_closeable})</button>`:'';
+    const _closeoutBtn=_closeable?`<button class="btn-sm btn-muted" onclick="event.stopPropagation();closeOutSession(${_ja(s.id)})" title="${t('closeOutHint')}">${t('closeOutBtn')} (${_closeable})</button>`:'';
     // The opposite case: the night is still AHEAD and has to be called off (weather, venue).
     // Cancelling used to mean closing the session and every rider finding out at the gate.
     const _cnLive=(!_nightOver&&s.status!=='closed')?getQueue().filter(e=>e.sessionId===s.id&&['waiting','waitlist','active'].includes(e.status)).length:0;
-    const _cancelNightBtn=_cnLive?`<button class="btn-sm btn-muted" style="color:var(--red)" onclick="event.stopPropagation();showCancelNight('${s.id}')">${t('cnBtn')} (${_cnLive})</button>`:'';
+    const _cancelNightBtn=_cnLive?`<button class="btn-sm btn-muted" style="color:var(--red)" onclick="event.stopPropagation();showCancelNight(${_ja(s.id)})">${t('cnBtn')} (${_cnLive})</button>`:'';
     let badge,actions;
-    if(s.status==='open'){badge=`<span class="badge-open">${t('statusOpen')}</span>`;actions=`<button class="btn-sm btn-muted" onclick="event.stopPropagation();toggleSession('${s.id}','full')">${t('markFullBtn')}</button><button class="btn-sm btn-red" onclick="event.stopPropagation();toggleSession('${s.id}','closed')">${t('closeBtn')}</button>`;}
-    else if(s.status==='full'){badge=`<span class="badge-full">${t('statusFull')}</span>`;actions=`<button class="btn-sm btn-green" onclick="event.stopPropagation();toggleSession('${s.id}','open')">${t('reopenBtn')}</button><button class="btn-sm btn-red" onclick="event.stopPropagation();toggleSession('${s.id}','closed')">${t('closeBtn')}</button>`;}
-    else{badge=`<span class="badge-closed">${t('statusClosed')}</span>`;actions=`<button class="btn-sm btn-green" onclick="event.stopPropagation();toggleSession('${s.id}','open')">${t('openBtn')}</button>`;}
+    if(s.status==='open'){badge=`<span class="badge-open">${t('statusOpen')}</span>`;actions=`<button class="btn-sm btn-muted" onclick="event.stopPropagation();toggleSession(${_ja(s.id)},'full')">${t('markFullBtn')}</button><button class="btn-sm btn-red" onclick="event.stopPropagation();toggleSession(${_ja(s.id)},'closed')">${t('closeBtn')}</button>`;}
+    else if(s.status==='full'){badge=`<span class="badge-full">${t('statusFull')}</span>`;actions=`<button class="btn-sm btn-green" onclick="event.stopPropagation();toggleSession(${_ja(s.id)},'open')">${t('reopenBtn')}</button><button class="btn-sm btn-red" onclick="event.stopPropagation();toggleSession(${_ja(s.id)},'closed')">${t('closeBtn')}</button>`;}
+    else{badge=`<span class="badge-closed">${t('statusClosed')}</span>`;actions=`<button class="btn-sm btn-green" onclick="event.stopPropagation();toggleSession(${_ja(s.id)},'open')">${t('openBtn')}</button>`;}
     return{booked,cap,left,fleetInfo,badge,actions:actions+_closeoutBtn+_cancelNightBtn};
   };
   const _listCard=(s)=>{const d=_sessD(s);const pct=d.cap?Math.round(d.booked/d.cap*100):0;const sel=S.selSessionDetail===s.id;
     const _cChip=_evChip(s);
-    return`<button class="sess-lc ${_evClass(s)}${sel?' selected':''}" onclick="selectSessionDetail('${s.id}')" aria-label="${esc(shortDate(s.session_date||s.id))}">
+    return`<button class="sess-lc ${_evClass(s)}${sel?' selected':''}" onclick="selectSessionDetail(${_ja(s.id)})" aria-label="${esc(shortDate(s.session_date||s.id))}">
       <div class="sess-lc-top"><span class="sess-lc-date">${shortDate(s.session_date||s.id)}</span>${_cChip}${d.badge}</div>
       <div class="sess-lc-meta">${dayLabel(s.day)||''} · ${sessionTime(s)}</div>
       <div class="sess-lc-bar"><div style="width:${pct}%;background:${pct>=100?'#a33b2e':pct>80?'#8a5c14':'#0c7a3d'}"></div></div>
@@ -10007,7 +10148,7 @@ function renderSessions(){
       ${(()=>{const _c=waitlistCap(_selSess);if(_c==null)return'';
         const _u=waitlistUsed(_selSess.id);
         return `<div><div class="sess-ds-num">${_u}/${_c}</div><div class="sess-ds-lbl">${t('wlCapLabel')}</div></div>`;})()}<div><div class="sess-ds-num">${d.booked}/${d.cap}</div><div class="sess-ds-lbl">${t('colBookings')}</div></div><div><div class="sess-ds-num">${d.left}</div><div class="sess-ds-lbl">${t('spotsLeft')}</div></div>${d.fleetInfo?`<div class="sess-ds-fleet"><div class="sess-ds-fleetval">${d.fleetInfo}</div><div class="sess-ds-lbl">${t('bikeFleetComp')}</div></div>`:''}</div>
-      <div class="sess-detail-actions"><button class="btn-sm btn-green" onclick="startEditSession('${_selSess.id}')">${t('editBtn2')}</button><button class="btn-sm btn-muted" onclick="cloneSession('${_selSess.id}')">${t('cloneSessBtn')}</button>${d.actions}${isAdmin()?`<button class="btn-sm btn-red" onclick="deleteSession('${_selSess.id}')" ${d.booked>0?`disabled title="${t('hasBookingsTitle')}"`:''}>${t('deleteBtn')}</button>`:''}</div>
+      <div class="sess-detail-actions"><button class="btn-sm btn-green" onclick="startEditSession(${_ja(_selSess.id)})">${t('editBtn2')}</button><button class="btn-sm btn-muted" onclick="cloneSession(${_ja(_selSess.id)})">${t('cloneSessBtn')}</button>${d.actions}${isAdmin()?`<button class="btn-sm btn-red" onclick="deleteSession(${_ja(_selSess.id)})" ${d.booked>0?`disabled title="${t('hasBookingsTitle')}"`:''}>${t('deleteBtn')}</button>`:''}</div>
       <div class="sess-detail-rtitle">${t('sessRidersTitle')} <span style="color:var(--muted)">(${riders.length})</span></div>
       <div class="sess-detail-riders">${rr}</div>`;
   })():`<div class="sess-detail-empty">${emptyIllustration(ILLUS_CALENDAR,t('sessSelectMsg'))}</div>`;
@@ -10034,7 +10175,7 @@ function renderSessions(){
         <select class="filter-select" onchange="setSessStatusFilter(this.value)" aria-label="${esc(t('filterStatus'))}">${sessStatusOpts}</select>
         <select class="filter-select" onchange="setSessSort(this.value)" aria-label="${t('colDate')}">${sessSortOpts}</select>
       </div>
-      ${sessList.length!==sessions.length?`<div class="result-count">${sessList.length} ${t('resultOf')} ${sessions.length} ${t('resultSessions')}</div>`:''}
+      ${(()=>{const _nd=sessions.filter(s=>s.status!=='deleted').length;return sessList.length!==_nd?`<div class="result-count">${sessList.length} ${t('resultOf')} ${_nd} ${t('resultSessions')}</div>`:'';})()}
     </div>
     ${sessTwoPane}
     ${(()=>{
@@ -10055,13 +10196,13 @@ function renderSessions(){
             const bk=allEntries.filter(e=>e.status!=='removed').length;
             const cap=s.capacity||12;
             const slots=parseSlots(s.bike_slots);
-            const fleetInfo=slots?Object.entries(slots).filter(([k])=>!k.startsWith('_')).map(([ty,n])=>`${ty.slice(0,3)}&times;${n}`).join(', '):'';
+            const fleetInfo=slots?esc(slotsLabel(slots)):''; // per-size counts are objects: printing them gave "Roa×[object Object]"
             return`<tr style="opacity:.65">
               <td data-label="${t('colDate')}" style="font-weight:800">${shortDate(s.session_date||s.id)}</td>
               <td data-label="${t('colDay')}" style="color:var(--muted)">${dayLabel(s.day)||''}</td>
               <td data-label="${t('colCapacity')}"><div style="font-weight:800">${cap}</div><div style="font-size:11px;color:var(--muted)">${fleetInfo}</div></td>
               <td data-label="${t('colBookings')}">${bk} / ${cap}</td>
-              <td class="cell-actions"><button class="btn-sm btn-green" onclick="restoreSession('${s.id}')">${t('restoreBtn')}</button></td>
+              <td class="cell-actions"><button class="btn-sm btn-green" onclick="restoreSession(${_ja(s.id)})">${t('restoreBtn')}</button></td>
             </tr>`;
           }).join('')}</tbody>
         </table></div>`:''}
@@ -10091,13 +10232,17 @@ function _promoForCustomer(c,cust){
   return !!cust&&String(c.customer_id)===String(cust.id);
 }
 /** Human summary of a code's limits for the admin table. */
+// How the admin form names a customer. A name alone is not an identity - two riders share one
+// all the time - so the phone (or email) rides along, and the code binds to the row that label
+// picks, not to whichever same-named account happened to come first.
+function _pcCustLabel(c){const k=String(c.phone||c.email||'').trim();return String(c.name||'').trim()+(k?' · '+k:'');}
 function _promoLimitsText(c){
   const bits=[];
   if(c.expires_at)bits.push(t('promoUntil').replace('{0}',shortDate(c.expires_at)));
   if(c.max_uses!=null&&c.max_uses!=='')bits.push(`${Number(c.uses)||0}/${c.max_uses}`);
   if(c.customer_id){
     const cu=(S.customers||[]).find(x=>String(x.id)===String(c.customer_id));
-    bits.push(cu?esc(cu.name):t('promoOneCustomer'));
+    bits.push(cu?esc(_pcCustLabel(cu)):t('promoOneCustomer'));
   }
   return bits.join(' · ');
 }
@@ -10110,8 +10255,8 @@ function renderPromoManager(){
     <td data-label="${t('promoCodeLabel')}" style="font-weight:900;font-family:monospace">${esc(c.code)}</td>
     <td data-label="${t('promoValueLabel')}">${c.kind==='flat'?`SAR ${c.value}`:`${c.value}%`}${c.applies_to?` · ${typeLabel(c.applies_to)}`:''}</td>
     <td data-label="${t('promoLimitsLabel')}" style="font-size:12px;color:var(--muted)">${_promoLimitsText(c)||'—'}</td>
-    <td data-label="${t('promoActiveLabel')}"><button class="btn-sm ${c.active&&!spent?'btn-green':'btn-muted'}" onclick="togglePromoActive('${c.id}')">${spent?t(_promoExpired(c)?'promoExpiredLabel':'promoUsedUpLabel'):c.active?t('promoActiveLabel'):t('promoInactiveLabel')}</button></td>
-    <td class="cell-actions"><button class="btn-sm btn-red" onclick="delPromo('${c.id}')">${t('deleteBtn')}</button></td>
+    <td data-label="${t('promoActiveLabel')}"><button class="btn-sm ${c.active&&!spent?'btn-green':'btn-muted'}" onclick="togglePromoActive(${_ja(c.id)})">${spent?t(_promoExpired(c)?'promoExpiredLabel':'promoUsedUpLabel'):c.active?t('promoActiveLabel'):t('promoInactiveLabel')}</button></td>
+    <td class="cell-actions"><button class="btn-sm btn-red" onclick="delPromo(${_ja(c.id)})">${t('deleteBtn')}</button></td>
   </tr>`;}).join(''):`<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--muted)">${t('promoNoCodes')}</td></tr>`;
   return`<div style="margin-top:32px">
     <div class="page-title" style="font-size:18px;margin-bottom:10px">${t('promoMgrTitle')}</div>
@@ -10132,7 +10277,7 @@ function renderPromoManager(){
           <input id="pc-max" type="number" min="1" step="1" value="${esc(S._pcMax||'')}" oninput="S._pcMax=this.value" placeholder="${t('promoUnlimited')}"></div>
         <div class="form-group" style="flex:1.4"><label for="pc-cust">${t('promoCustomerLabel')}</label>
           <input id="pc-cust" type="text" list="pc-cust-list" value="${esc(S._pcCust||'')}" oninput="S._pcCust=this.value" placeholder="${t('promoAnyone')}">
-          <datalist id="pc-cust-list">${(S.customers||[]).map(c=>`<option value="${esc(c.name||'')}">`).join('')}</datalist></div>
+          <datalist id="pc-cust-list">${(S.customers||[]).map(c=>`<option value="${esc(_pcCustLabel(c))}">`).join('')}</datalist></div>
       </div>
       <button class="btn-primary" onclick="addPromo()">${t('promoAddBtn')}</button>
     </div>
@@ -10158,9 +10303,13 @@ async function _syncPromoBookings(code){
   const live=getQueue().filter(e=>e.promoCode&&String(e.promoCode).toLowerCase()===lc
     &&['waiting','waitlist','active'].includes(e.status)&&!e.paid&&!_freeSessIds.has(e.sessionId));
   const calls=[];
+  // The full fare is the one this booking pays, not the type's list price: a Petromin employee's
+  // row is 50 on the types that moved, and restoring it to the website fare overcharged them.
+  // priceForEntryType reads the Riders list, so load it when a Petromin row is in the batch.
+  if(!S.ridersLoaded&&live.some(e=>{const _s=(S.sessions||[]).find(x=>x.id===e.sessionId);return _s&&_s.ride_kind==='petromin';})){try{await loadRiders();}catch(_){}}
   live.forEach(e=>{
     const ty=e.typePreference||'Any';
-    const base=priceForType(ty);
+    const base=priceForEntryType(e,ty);
     let price=base;
     const _mine=!match||!match.customer_id||String(match.customer_id)===String(e.customerId||'');
     if(match&&_mine&&(!match.applies_to||match.applies_to===ty)){
@@ -10192,10 +10341,13 @@ async function addPromo(){
   if(S._pcExpires)_lim.expires_at=S._pcExpires;
   {const n=parseInt(S._pcMax,10);if(n>0)_lim.max_uses=n;}
   if((S._pcCust||'').trim()){
-    const nm=String(S._pcCust).trim().toLowerCase();
-    const cu=(S.customers||[]).find(x=>String(x.name||'').trim().toLowerCase()===nm);
-    if(!cu){toast(t('promoNoSuchCustomer'),'error');return;}
-    _lim.customer_id=cu.id;
+    const nm=String(S._pcCust).trim().toLowerCase(),cs=S.customers||[];
+    // The label from the list first; a bare name only when exactly one account carries it.
+    let hits=cs.filter(x=>_pcCustLabel(x).toLowerCase()===nm);
+    if(!hits.length)hits=cs.filter(x=>String(x.name||'').trim().toLowerCase()===nm);
+    if(!hits.length){toast(t('promoNoSuchCustomer'),'error');return;}
+    if(hits.length>1){toast(t('promoCustAmbiguous'),'error');return;}
+    _lim.customer_id=hits[0].id;
   }
   Object.assign(row,_lim);
   let{error}=await sb.from('promo_codes').insert(row);
@@ -10228,7 +10380,7 @@ async function togglePromoActive(id){
 function delPromo(id){
   if(!isAdmin()){toast(t('adminOnlyMsg'),'error');return;}
   const c=(S.promoCodes||[]).find(x=>x.id===id);if(!c)return;
-  confirmDialog({title:t('deleteBtn'),body:c.code,confirmLabel:t('deleteBtn'),confirmClass:'btn-red',onConfirm:async()=>{
+  confirmDialog({title:t('deleteBtn'),body:esc(c.code),confirmLabel:t('deleteBtn'),confirmClass:'btn-red',onConfirm:async()=>{
     const{error}=await sb.from('promo_codes').delete().eq('id',id);
     if(error){toast(error.message,'error');return;}
     await loadData();renderSessions();
@@ -10236,9 +10388,27 @@ function delPromo(id){
   }});
 }
 
+// A session row exactly as the database holds it (allSessions() adds a display field).
+function _sessRowSnap(id){const r=(S.sessions||[]).find(s=>s.id===id);if(!r)return null;const o={...r};delete o.display;return o;}
+// The columns a session edit writes, and so the ones its Undo puts back. Anything else on the
+// row (a publish, the queue counter, the fill rule's mark) belongs to whatever changed it since.
+const SESS_EDIT_COLS=['day','session_date','capacity','status','bike_slots','addons','title','spots','meet_url','breakfast_name','breakfast_url','event_kind','needs_approval','ride_kind','paid_ride','open_to_all','required_tag_id'];
+function _sessEditCols(row){const o={};SESS_EDIT_COLS.forEach(k=>{if(row&&k in row)o[k]=row[k];});return o;}
+// A ride's stock name, in any language this page has loaded. Such a title is not a name staff
+// gave the ride: it is the label of whoever saved it, and stored it made a Saturday ride read
+// in Arabic to everyone once an Arabic-speaking staffer touched it. Stored as null instead,
+// _evName() says it in each viewer's own language.
+function _stockEvName(v){
+  const x=String(v||'').trim().toLowerCase();if(!x)return false;
+  return Object.values(LANG).some(L=>L&&['evSatName','evPetroName','evSwimName','evWorkshopName','evSnd96Name','landCommTitle'].some(k=>L[k]&&String(L[k]).trim().toLowerCase()===x));
+}
 async function saveSessionEdit(){
   const oldId=S.editSessionId;
   const sess=allSessions().find(s=>s.id===oldId);if(!sess)return;
+  // The whole row as it was, for the date move and for Undo. Both used to re-insert or restore a
+  // handful of columns, and a ride brought back that way lost its kind, gate, name, spots and
+  // add-ons: a private free Saturday ride came back as a public paid circuit night.
+  const _snap=_sessRowSnap(oldId)||{...sess};delete _snap.display;
   const newDate=S.editSessDate||(sess.session_date||oldId);
   // The id only changes when the DATE does. A session that is the second of its day carries
   // a number in its id, and rebuilding the id from the date alone would drop that number: an
@@ -10287,8 +10457,7 @@ async function saveSessionEdit(){
   const newDay=dayNames[new Date(newDate+'T00:00:00').getDay()];
 
   
-  const prevSlots=sess.bike_slots;const prevCap=sess.capacity;
-  const prevStatus=sess.status;const prevDate=sess.session_date||sess.id;const prevDay=sess.day;
+  const prevDate=sess.session_date||sess.id;const prevDay=sess.day;
 
   try{
     if(newId!==oldId){
@@ -10298,7 +10467,7 @@ async function saveSessionEdit(){
       // deleting the real one — the whole day's bookings orphaned, with a success toast.
       let _ins=null,_taken=0;
       for(;;){
-        _ins=await sb.from('sessions').insert({
+        _ins=await sb.from('sessions').insert({..._snap,
           id:newId,day:newDay,session_date:newDate,capacity:total,
           status:newStatus,created_at:sess.created_at||new Date().toISOString(),
           bike_slots:JSON.stringify(slots)
@@ -10321,9 +10490,18 @@ async function saveSessionEdit(){
       // day's sales from the ledger, close-out and analytics (deleteSession already guards
       // against exactly this). Tolerant: a failure here never blocks the date move.
       try{await sb.from('cashier_sales').update({session_id:newId}).eq('session_id',oldId);(S.cashSales||[]).forEach(r=>{if(r.session_id===oldId)r.session_id=newId;});}catch(e){}
-      // The bookings and receipts are already on the new id, so a failure here leaves a
-      // stale empty session rather than losing anything — report it, don't abort.
-      _writeErr(await sb.from('sessions').delete().eq('id',oldId),'remove old session');
+      // Registrations from a ride's own form (the Petromin Riders list) follow as well. They are
+      // the one table with a real foreign key to the session, ON DELETE SET NULL, so deleting
+      // the old row below wiped their session and the Riders list lost that night's riders.
+      // Unlike the receipts this one gates the delete: if they did not move, the old row stays.
+      const _rr=await sb.from('rider_registrations').update({session_id:newId}).eq('session_id',oldId);
+      if(_rr&&_rr.error){_writeErr(_rr,'move registrations');}
+      else{
+        (S.riders||[]).forEach(r=>{if(r.session_id===oldId)r.session_id=newId;});
+        // The bookings and receipts are already on the new id, so a failure here leaves a
+        // stale empty session rather than losing anything — report it, don't abort.
+        _writeErr(await sb.from('sessions').delete().eq('id',oldId),'remove old session');
+      }
     } else {
       if(_writeErr(await sb.from('sessions').update({
         day:newDay,session_date:newDate,capacity:total,
@@ -10343,8 +10521,12 @@ async function saveSessionEdit(){
     const _kindEdit=_rideKind(sess);
     const _sndEdit=_kindEdit==='snd96';
     const _paidEdit=_kindEdit==='petromin'||_sndEdit,_swimEdit=_kindEdit==='swim',_wsEdit=_kindEdit==='workshop';
-    const _nameEdit=(document.getElementById('es-title')?.value||S.editSessTitle||sess.title||'').trim().slice(0,60)
-      ||(_sndEdit?t('evSnd96Name'):_paidEdit?t('evPetroName'):_swimEdit?t('evSwimName'):_wsEdit?t('evWorkshopName'):t('evSatName'));
+    // A name staff actually typed is kept as typed. Otherwise the title is null and _evName()
+    // names the ride in each viewer's language; the stock name used to be written here in the
+    // language of whoever pressed Save, and every customer then read it in that language.
+    const _tEl=document.getElementById('es-title');
+    const _typed=String(_tEl?_tEl.value:(S.editSessTitle||sess.title||'')).trim().slice(0,60);
+    const _nameEdit=(_typed&&!_stockEvName(_typed))?_typed:null;
     // ride_kind and paid_ride are re-asserted with the rest: a date move re-inserts the row
     // bare, and without them a paid ride would come back complimentary.
     const _ce={event_kind:_sndEdit?null:'community',required_tag_id:null,title:_nameEdit,
@@ -10373,32 +10555,33 @@ async function saveSessionEdit(){
     toast(t('toastSessionUpdated').replace('{0}',displayDate));
     pushUndo(`${t('undoEditSession')} ${displayDate}`,async()=>{
       const currentId=newId!==oldId?newId:oldId;
+      // What the edit wrote goes back from the snapshot, every column of it; the rest of the row
+      // is taken as it is NOW, so a list published or a place taken since the edit stands.
+      const _back=_sessEditCols(_snap);
       if(newId!==oldId){
         // The forward path was fixed for exactly this sequence and the suite guards it: if the
         // old date has been re-used since, the insert fails with a duplicate key. Unchecked,
         // the two writes behind it then moved every booking onto the OTHER session that now
         // owns that id and deleted the live one.
-        const _ins=await sb.from('sessions').insert({
-          id:oldId,day:prevDay,session_date:prevDate,capacity:prevCap,
-          status:prevStatus,created_at:sess.created_at||new Date().toISOString(),
-          bike_slots:prevSlots||null
-        });
+        const _now=_sessRowSnap(currentId)||_snap;
+        const _ins=await sb.from('sessions').insert({..._now,..._back,
+          id:oldId,created_at:_snap.created_at||sess.created_at||new Date().toISOString()});
         if(_writeErr(_ins,'undo date move')){await loadData();renderSessions();return false;}
         const _mv=await sb.from('queue_entries').update({
           session_id:oldId,session_date:prevDate,session_day:prevDay
         }).eq('session_id',currentId);
         if(_writeErr(_mv,'undo date move')){await sb.from('sessions').delete().eq('id',oldId).catch(()=>{});await loadData();renderSessions();return false;}
         try{await sb.from('cashier_sales').update({session_id:oldId}).eq('session_id',currentId);(S.cashSales||[]).forEach(r=>{if(r.session_id===currentId)r.session_id=oldId;});}catch(e){}
+        const _rr=await sb.from('rider_registrations').update({session_id:oldId}).eq('session_id',currentId);
+        if(_writeErr(_rr,'undo date move')){await loadData();renderSessions();return false;} // the moved row stays: deleting it would null them
+        (S.riders||[]).forEach(r=>{if(r.session_id===currentId)r.session_id=oldId;});
         if(_writeErr(await sb.from('sessions').delete().eq('id',currentId),'undo date move')){await loadData();renderSessions();return false;}
       } else {
-        if(_writeErr(await sb.from('sessions').update({
-          day:prevDay,session_date:prevDate,capacity:prevCap,
-          status:prevStatus,bike_slots:prevSlots||null
-        }).eq('id',oldId),'undo session edit'))return false;
+        if(_writeErr(await sb.from('sessions').update(_back).eq('id',oldId),'undo session edit'))return false;
       }
       await loadData();renderSessions();renderStaffQueue();
     });
-    S.editSessionId=null;S.editSessTitle='';S.editSessTypeSizes={Road:_emptySizes(),Hybrid:_emptySizes(),Mountain:_emptySizes(),Kids:_emptySizes()};
+    S.editSessionId=null;S.editSessTitle='';S.editSessSpots='';S.editSessTypeSizes={Road:_emptySizes(),Hybrid:_emptySizes(),Mountain:_emptySizes(),Kids:_emptySizes()};
     renderSessions();renderStaffQueue();
   }catch(e){toast(t('errServerError'),'error');console.error(e);}
 }
@@ -13570,8 +13753,18 @@ async function cancelBooking(id,reason,why){
   const saved=live.map(e=>({id:e.id,status:e.status,queueNum:e.queueNum,bikeIds:getAssignedBikeIds(e)}));
   // The reason rides on the cancel itself, for every rider of the booking.
   const _why=(why&&why.code)?{cancel_reason:why.code,...(why.note?{cancel_note:why.note}:{})}:{};
+  // Add-ons go back to stock only for riders who held them (waitlist rows never reserved any).
+  // A customer returns them BEFORE the cancel: the stock RPC answers only a caller who still
+  // has a live booking, so afterwards the last booking on the account restocked nothing, and
+  // an Undo then took the same add-ons a second time. A write that fails takes them again.
+  const _restock=live.filter(e=>(saved.find(x=>x.id===e.id)||{}).status==='waiting');
+  const _custStock=_asCustomer();
+  if(_custStock)for(const e of _restock)await _restockAddonsOnExit(e);
   const res=await Promise.all(live.map(e=>_ownEntryUpdate(e.id,{status:'cancelled',assigned_bike_id:null,..._why})));
-  if(_writeErr(res,'cancel')){await loadData();renderMyRides();return;} // e.g. offline: don't toast success over a booking that's still live
+  if(_writeErr(res,'cancel')){ // e.g. offline: don't toast success over a booking that's still live
+    if(_custStock)for(const e of _restock){const i=live.indexOf(e);if(res[i]&&res[i].error)await _consumeAddonsOnEnter(e);}
+    await loadData();renderMyRides();return;
+  }
   const allBikes=saved.flatMap(s=>s.bikeIds);
   if(allBikes.length)await Promise.all(allBikes.map(bid=>sb.from('bikes').update({status:'available'}).eq('id',bid)));
 
@@ -13586,7 +13779,7 @@ async function cancelBooking(id,reason,why){
     try{localStorage.setItem('cq_cancellations',JSON.stringify(S.cancellationLog));}catch(e){}
   }
   await loadData();
-  for(const s of saved)if(s.status==='waiting')await _restockAddonsOnExit(live.find(e=>e.id===s.id)||entry); // waitlist rows never reserved stock
+  if(!_custStock)for(const e of _restock)await _restockAddonsOnExit(e); // staff/open mode write the stock themselves, after the fact
   toast(t('toastBookingCancelled'));
   pushUndo(`${t('undoCancelBooking')} #${savedQNum} ${entry.name}`,async()=>{
     // A customer's restore goes through their own door, which gives a place back only if there is

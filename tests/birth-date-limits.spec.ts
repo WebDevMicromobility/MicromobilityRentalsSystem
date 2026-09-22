@@ -15,7 +15,9 @@ const FUTURE = "A birth date can't be in the future.";
 
 async function account(page: Page, birth_date: string | null = null) {
   const saves: Record<string, unknown>[] = [];
-  await stubSupabase(page, { sessions: [], queue_entries: [], bikes: [] });
+  // The account as the server holds it: My Account reads it before painting and before saving.
+  await stubSupabase(page, { sessions: [], queue_entries: [], bikes: [],
+    'rpc:customer_profile': [{ id: 'c1', name: 'Lina Haddad', email: 'spec@example.com', phone: '0500000001', birth_date }] });
   await page.route(/\/rest\/v1\/rpc\/customer_update_profile/, async r => {
     saves.push(r.request().postDataJSON());
     await r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: 'true' });

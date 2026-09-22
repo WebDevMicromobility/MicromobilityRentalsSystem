@@ -140,7 +140,8 @@ test('sign-up: the server refusing the name reads as the same message', async ({
 
 test('My Account: an existing name is not re-judged, a new one is', async ({ page }) => {
   const saves: Record<string, unknown>[] = [];
-  await stubSupabase(page, { sessions: [], queue_entries: [], bikes: [] });
+  await stubSupabase(page, { sessions: [], queue_entries: [], bikes: [],
+    'rpc:customer_profile': [{ id: 'c1', name: 'Malik 2 Anas', email: 'spec@example.com', phone: '0500000001' }] });
   await page.route(/\/rest\/v1\/rpc\/customer_update_profile/, async r => { saves.push(r.request().postDataJSON()); await r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: 'true' }); });
   await loginCustomer(page, { id: 'c1', name: 'Malik 2 Anas', session_token: 'tok' });   // one of the older names the rule would refuse
   await page.goto('/');
