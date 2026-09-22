@@ -19,9 +19,14 @@ export async function onRequest(context) {
 
   const blocked =
     /\.(sql|md|ts|mjs|lock|yml|yaml|toml|map|cjs|env|sh)$/.test(path) || // source / config / docs / data
-    // configs stay blocked; the PWA manifest, the translation packs and the city lists are app assets
-    (/\.json$/.test(path) && path !== '/manifest.json' && !/^\/lang\/[a-z-]{2,8}\.json$/.test(path) &&
-      !/^\/cities\/[a-z]{2}\.json$/.test(path)) ||
+    // Local databases: wrangler's dev state (.wrangler/state/**.sqlite plus its -wal/-shm
+    // journals) is tracked in git, and a repo-root deploy would otherwise serve it.
+    /\.(sqlite3?|db)(-wal|-shm|-journal)?$/.test(path) ||
+    // configs stay blocked; the PWA manifest, the translation packs, the city lists and the
+    // phone-number rules the staff "Looks off" check reads are app assets. The rules file was
+    // blocked with the configs, so production answered it 404 and every phone passed the check.
+    (/\.json$/.test(path) && path !== '/manifest.json' && path !== '/assets/phone-rules.json' &&
+      !/^\/lang\/[a-z-]{2,8}\.json$/.test(path) && !/^\/cities\/[a-z]{2}\.json$/.test(path)) ||
     path === '/app.src' || /\/app\.src\.html$/.test(path) ||            // the readable app source
     path.startsWith('/tests/') ||
     path.startsWith('/scripts/') ||
@@ -32,6 +37,11 @@ export async function onRequest(context) {
     path.startsWith('/design_handoff_erp_reskin/') ||
     path.startsWith('/.github/') ||
     path.startsWith('/.claude/') ||
+    path.startsWith('/.wrangler/') ||
+    // Anything inside a hidden directory, at any depth. The dotfile rule below only looks at the
+    // last segment, so /.wrangler/state/v3/… walked straight past it. /.well-known/ stays open
+    // for the files browsers and platforms fetch from there.
+    /(^|\/)\.(?!well-known\/)[^/]+\//.test(path) ||
     /(^|\/)\.[^/]+$/.test(path);                                        // dotfiles (.gitignore, .prettierrc, …)
 
   return blocked ? notFound() : context.next();
