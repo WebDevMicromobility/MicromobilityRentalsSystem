@@ -9364,6 +9364,10 @@ function cloneSession(id){
   S.newSessSpots=s.spots!=null?String(s.spots):'';
   S.newSessMapUrl=s.meet_url||'';
   S.newSessBfName=s.breakfast_name||'';S.newSessBfUrl=s.breakfast_url||'';
+  // The picker has to show the stop the clone carries, because what it shows is what is saved:
+  // the saved spot of that name, or "New" with the name and link filled in.
+  {const _sp=s.breakfast_name&&(S.breakfastSpots||[]).find(x=>String(x.name||'').trim().toLowerCase()===String(s.breakfast_name).trim().toLowerCase());
+  S.newSessBfSel=_sp?_sp.id:(s.breakfast_name?'__new':'');}
   try{const ad=typeof s.addons==='string'?JSON.parse(s.addons||'[]'):(s.addons||[]);S.newSessAddons=Array.isArray(ad)?ad.slice():[];}catch(e){S.newSessAddons=[];}
   if(slots._wl&&typeof slots._wl==='object'){S.newSessWlMode=slots._wl.m==='pct'?'pct':'count';S.newSessWlVal=slots._wl.v!=null?String(slots._wl.v):'';}
   else{S.newSessWlMode='count';S.newSessWlVal='';}
@@ -10229,10 +10233,20 @@ async function saveSessionEdit(){
   }catch(e){toast(t('errServerError'),'error');console.error(e);}
 }
 
-async function addSession(){
+// One save per form at a time. A second tap while the first was still on the wire ran the
+// whole save again, and the insert's 23505 retry then handed it fresh numbers: two walk-ins,
+// two groups, a second session at "<date>-2". The key is per form, so two different forms
+// never hold each other up.
+const _busyKeys=new Set();
+async function _busyRun(key,fn){if(_busyKeys.has(key))return;_busyKeys.add(key);try{return await fn();}finally{_busyKeys.delete(key);}}
+function addSession(){return _busyRun('addSession',_addSession);}
+async function _addSession(){
   const date=document.getElementById('ns-date')?.value;
   if(!date){toast(t('errPickDate'),'error');return;}
   const startEl=document.getElementById('ns-start');const endEl=document.getElementById('ns-end');
+  // A cleared time field used to save as " - 23:00", and every screen and the Wallet pass
+  // then printed a session with no start.
+  for(const el of [startEl,endEl])if(el&&!el.value){_fieldErr(el,t('errFieldRequired'));el.focus();return;}
   const startT=startEl?startEl.value:'09:00';const endT=endEl?endEl.value:'11:00';
   const timeVal=`${startT} - ${endT}`;
   // A ride staff approve keeps its gathering time as the moment bikes go out; every other
@@ -10323,12 +10337,13 @@ async function addSession(){
     // required_tag_id stays null: the ride is visible to every customer once opened;
     // seats are still granted only through staff approval / manual add.
     if(isCommSess&&createdIds.length){
-      const _named=(document.getElementById('ns-title')?.value||S.newSessTitle||'').trim().slice(0,60);
-      const _rideName=isSndSess?(_named||t('evSnd96Name'))
-        :isPaidSess?(_named||t('evPetroName'))
-        :isSwimSess?(_named||t('evSwimName'))
-        :isWorkshopSess?(_named||t('evWorkshopName'))
-        :t('evSatName');
+      // The title is stored only when staff named the ride. The field is prefilled with the
+      // kind's default name in the staffer's own language, and storing that froze an Arabic
+      // desk's wording onto every rider's card; left null, each reader sees the default in
+      // theirs (_evName). The Saturday ride's form has no name field at all.
+      const _dfltKey=isSndSess?'evSnd96Name':isPaidSess?'evPetroName':isSwimSess?'evSwimName':isWorkshopSess?'evWorkshopName':'evSatName';
+      const _named=(isSndSess||isPaidSess||isSwimSess||isWorkshopSess)?(document.getElementById('ns-title')?.value||S.newSessTitle||'').trim().slice(0,60):'';
+      const _rideName=(!_named||_named===t(_dfltKey)||Object.values(LANG).some(p=>p&&p[_dfltKey]===_named))?null:_named;
       // The Petromin ride is a circuit session behind a members gate: staff approve nobody,
       // the queue numbers are real, and capacity overflows to the waitlist. Only the Saturday
       // ride keeps the approval/hidden-queue/allocation shape.
@@ -10368,14 +10383,20 @@ async function addSession(){
         const _mu=_safeUrl(S.newSessMapUrl);if(_mu)_extra.meet_url=_mu;
         if(_kindHasBf(S.newSessEvent)){ // the form did not ask; stale state must not leak onto the row
           await _bfSaveNew('newSessBfSel','newSessBfName','newSessBfUrl');
-          const _bn=(S.newSessBfName||'').trim().slice(0,80);if(_bn)_extra.breakfast_name=_bn;
-          const _bu=_safeUrl(S.newSessBfUrl);if(_bu)_extra.breakfast_url=_bu;
+          // What the picker SHOWS is what is saved: a spot chosen from the list brings its own
+          // name and link, "None" brings nothing, and only "New" reads the typed fields. The
+          // typed fields alone used to decide, and they are cleared after every save while the
+          // picker kept its choice - so the next ride showed the spot and saved none.
+          const _sp=(S.breakfastSpots||[]).find(x=>x.id===S.newSessBfSel);
+          const _src=_sp?{n:_sp.name,u:_sp.url}:S.newSessBfSel==='__new'?{n:S.newSessBfName,u:S.newSessBfUrl}:{n:'',u:''};
+          const _bn=(_src.n||'').trim().slice(0,80);if(_bn)_extra.breakfast_name=_bn;
+          const _bu=_safeUrl(_src.u);if(_bu)_extra.breakfast_url=_bu;
         }
       }
       if(Object.keys(_extra).length){try{await Promise.all(createdIds.map(id=>sb.from('sessions').update(_extra).eq('id',id)));}catch(e){}}
     }
     await loadData();
-    S.showAddSession=false;S.newSessDate='';S.newSessAssignedIds=[];S.newSessStartTime='21:00';S.newSessEndTime='23:00';S.newSessCollect='';S.newSessRepeat='1';S.newSessAddons=[];S.newSessEvent='jcc';S.newSessSpots='';S.newSessTitle='';S.newSessMapUrl='';S.newSessBfName='';S.newSessBfUrl='';
+    S.showAddSession=false;S.newSessDate='';S.newSessAssignedIds=[];S.newSessStartTime='21:00';S.newSessEndTime='23:00';S.newSessCollect='';S.newSessRepeat='1';S.newSessAddons=[];S.newSessEvent='jcc';S.newSessSpots='';S.newSessTitle='';S.newSessMapUrl='';S.newSessBfSel='';S.newSessBfName='';S.newSessBfUrl='';
     S.newSessTypeSizes={Road:_emptySizes(),Hybrid:_emptySizes(),Mountain:_emptySizes(),Kids:_emptySizes()};
     if(created>1)toast(t('toastRecurringCreated').replace('{0}',created));
     else toast(`${shortDate(date)} - ${t('toastSessionReady')}`);
@@ -10507,7 +10528,7 @@ function _caRows(){
     const sel=S._caGroup?(S._caSelArr||[]).includes(c.id):S._caSel===c.id;
     const tagged=satTag&&(S.customerTags||[]).some(ct=>ct.customer_id===c.id&&ct.tag_id===satTag.id&&_tagActive(ct));
     const contact=[c.email,c.phone].filter(Boolean).map(v=>'<bdi>'+esc(v)+'</bdi>').join(' <span style="opacity:.5">·</span> ');
-    return '<button type="button" onclick="'+(S._caGroup?"_caToggleSel('"+c.id+"')":"S._caSel='"+c.id+"';renderCommAddModal()")+'" style="width:100%;text-align:start;display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:4px;border:1.5px solid '+(sel?'var(--green)':'var(--border)')+';background:'+(sel?'rgba(var(--green-rgb),.07)':'transparent')+';cursor:pointer;font-family:inherit;color:var(--text)">'
+    return '<button type="button" onclick="'+(S._caGroup?'_caToggleSel('+_ja(c.id)+')':'S._caSel='+_ja(c.id)+';renderCommAddModal()')+'" style="width:100%;text-align:start;display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:4px;border:1.5px solid '+(sel?'var(--green)':'var(--border)')+';background:'+(sel?'rgba(var(--green-rgb),.07)':'transparent')+';cursor:pointer;font-family:inherit;color:var(--text)">'
       +'<div style="flex:1;min-width:0"><div style="font-weight:800;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(c.name||'—')+'</div>'
       +(contact?'<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+contact+'</div>':'')+'</div>'
       +(tagged?'<span style="flex-shrink:0;font-size:9px;font-weight:900;color:var(--green);border:1px solid rgba(var(--green-rgb),.4);border-radius:2px;padding:1px 6px;text-transform:uppercase;letter-spacing:.4px">'+esc(satTag.name)+'</span>':'')
@@ -10524,6 +10545,10 @@ function renderCommAddModal(){
   const cur=sess.find(s=>s.id===S._caSess)||sess[0];
   if(cur)S._caSess=cur.id; // the session the select shows is the one saveCommAdd writes to
   const left=cur?spotsLeft(cur.id):0;
+  // Own bikes only where the ride takes owners and has bikes at all. The box used to show on
+  // circuit nights too (a free, place-less "Own" on a paid night), and a tick carried over
+  // when the session was switched to a pool night, where the box is hidden.
+  const _ownOk=_needsBike(cur)&&_ownOffered(cur);if(!_ownOk)S._caOwn=false;
   const keep=document.getElementById('ca-search');const _q=keep?keep.value:(S._caSearch||'');S._caSearch=_q;
   m.style.display='flex';
   m.innerHTML='<div class="modal-backdrop" onclick="if(event.target===this)closeCommAddModal()">'
@@ -10535,14 +10560,14 @@ function renderCommAddModal(){
     +'</div>'
     +(S._caGroup?'<div style="font-size:12px;color:var(--muted);margin-top:8px">'+t('commAddGroupHint')+'</div>':'')
     +'<div class="form-group" style="margin:14px 0 10px"><label>'+t('colSession')+'</label>'
-    +'<select onchange="S._caSess=this.value;renderCommAddModal()">'+sess.map(s=>'<option value="'+s.id+'"'+(s.id===S._caSess?' selected':'')+'>'+dayLabel(s.day)+' '+shortDate(s.session_date||s.id)+' · '+esc(s.title||t('landCommTitle'))+(s.status==='closed'?' ('+t('statusClosed')+')':'')+'</option>').join('')+'</select>'
+    +'<select onchange="S._caSess=this.value;renderCommAddModal()">'+sess.map(s=>'<option value="'+esc(s.id)+'"'+(s.id===S._caSess?' selected':'')+'>'+esc(dayLabel(s.day))+' '+esc(shortDate(s.session_date||s.id))+' · '+esc(_evName(s))+(s.status==='closed'?' ('+t('statusClosed')+')':'')+'</option>').join('')+'</select>'
     +(cur?'<div style="font-size:11px;color:'+(left>0?'var(--muted)':'var(--orange)')+';margin-top:5px;font-weight:700">'+left+' '+t('spotsLeft')+'</div>':'')+'</div>'
     +'<div class="form-group" style="margin-bottom:10px"><label>'+t('commAddDestLbl')+'</label>'
     +'<div style="display:flex;gap:6px;margin-top:4px">'
     +'<button type="button" class="toggle-btn'+(S._caDest==='list'?' active':'')+'" style="flex:1" onclick="S._caDest=\'list\';renderCommAddModal()">'+t('commAddDestList')+'</button>'
     +'<button type="button" class="toggle-btn'+(S._caDest==='waitlist'?' active':'')+'" style="flex:1" onclick="S._caDest=\'waitlist\';renderCommAddModal()">'+t('waitlistLabel')+'</button>'
     +'</div></div>'
-    +(_needsBike(cur)?('<label style="display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:13px;font-weight:700;cursor:pointer;color:var(--green)">'
+    +(_ownOk?('<label style="display:flex;align-items:center;gap:8px;margin:0 0 10px;font-size:13px;font-weight:700;cursor:pointer;color:var(--green)">'
     +'<input type="checkbox"'+(S._caOwn?' checked':'')+' onchange="S._caOwn=this.checked" style="width:16px;height:16px;accent-color:#0c7a3d">'
     +t('commAddOwnBike')+'</label>'):'') // nobody brings their own bike to a pool session
     +'<div class="form-group" style="margin-bottom:8px"><label for="ca-search">'+t('commAddSearchLbl')+'</label>'
@@ -10556,22 +10581,29 @@ function renderCommAddModal(){
   if(document.activeElement&&document.activeElement.id!=='ca-search'){const i=document.getElementById('ca-search');if(i&&S._caSearch)i.focus();}
 }
 function closeCommAddModal(){const m=document.getElementById('comm-add-modal');if(m){m.style.display='none';m.innerHTML='';}S._caSel=null;S._caSelArr=[];S._caGroup=false;S._caSearch='';}
-async function saveCommAdd(){
+function saveCommAdd(){return _busyRun('commAdd',_saveCommAdd);}
+async function _saveCommAdd(){
   const sess=allSessions().find(s=>s.id===S._caSess);if(!sess)return;
   const ids=S._caGroup?(S._caSelArr||[]):(S._caSel?[S._caSel]:[]);
   if(S._caGroup&&ids.length<2){toast(t('commAddGroupMin'),'warning');return;}
   const picks=ids.map(id=>(S.customers||[]).find(x=>x.id===id)).filter(Boolean);if(!picks.length)return;
-  // One seat per customer: dedupe against the JUST-fetched queue, not possibly-stale local
-  // state — a rider who reserved seconds ago on their own phone must not be added twice.
-  try{const _q=await _queueFetch(true);if(_q&&!_q.error&&_q.data)S.queue=_q.data.map(entryFromDB);}catch(_){}
-  const fresh=picks.filter(c=>!getQueue().some(e=>e.sessionId===sess.id&&e.customerId===c.id&&['waiting','active','waitlist'].includes(e.status)));
+  // One seat per customer: dedupe against what the SERVER holds for this session, not
+  // possibly-stale local state - a rider who reserved seconds ago on their own phone must not
+  // be added twice. Asked of this session and these riders only: it used to refetch the whole
+  // queue window (~5k rows, ~4 MB) on every add. The rows are checked again here in case the
+  // filter was not applied.
+  const _live=['waiting','active','waitlist'],_taken=new Set();
+  try{const r=await sb.from('queue_entries').select('customer_id,session_id,status').eq('session_id',sess.id).in('customer_id',picks.map(c=>c.id)).in('status',_live);
+    if(r&&!r.error&&Array.isArray(r.data))r.data.forEach(x=>{if(x.session_id===sess.id&&_live.includes(x.status))_taken.add(x.customer_id);});}catch(_){}
+  const fresh=picks.filter(c=>!_taken.has(c.id)&&!getQueue().some(e=>e.sessionId===sess.id&&e.customerId===c.id&&_live.includes(e.status)));
   if(fresh.length<picks.length)toast(t('commAddDup'),'warning');
   if(!fresh.length)return;
   const toWaitlist=S._caDest==='waitlist';
   const comm=_isApprovalRide(sess),free=_isFreeRide(sess); // a seat-based ride: real prices, no approval flow
   const groupId=S._caGroup?uid():null; // one shared id = one roster group (buildQueueGroups keys on it)
+  const own=S._caOwn&&_needsBike(sess)&&_ownOffered(sess);
   const mkEntries=()=>{const base=nextQNum(sess.id);const wlBase=toWaitlist?nextWlNum(sess.id):0;return fresh.map((c,i)=>{
-    const ty=S._caOwn?'Own':((c.type_preference==='Own'||(c.type_preference==='Road Carbon'&&_noCarbon(sess)))?'Any':(c.type_preference||'Any')); // Own is comm-only pref; Road Carbon only where the ride offers it
+    const ty=own?'Own':((c.type_preference==='Own'||(c.type_preference==='Road Carbon'&&_noCarbon(sess)))?'Any':(c.type_preference||'Any')); // Own is comm-only pref; Road Carbon only where the ride offers it
     return{id:uid(),name:c.name||'',email:c.email||'',phone:c.phone||'',waitlistNum:toWaitlist?wlBase+i:null,
     size:c.height?heightToSize(Number(c.height)):'',height:c.height||null,
     typePreference:ty,paid:false,assignedBikeId:null,
@@ -10605,7 +10637,7 @@ function showJccGroupModal(){
   const m=document.getElementById('jcc-group-modal');if(!m)return;
   const keep=id=>{const el=document.getElementById(id);return el?el.value:'';} // preserve typed values across row add/remove re-renders
   const _g=keep('jg-name'),_c=keep('jg-cname'),_p=keep('jg-phone'),_s=keep('jg-sess')||selId;
-  const _jgOwn=_ownOffered(open.find(x=>x.id===_s)); // as the walk-in: the menu follows the picked session
+  const _jgSess=open.find(x=>x.id===_s),_jgOwn=_ownOffered(_jgSess),_jgNoCarbon=_noCarbon(_jgSess); // as the walk-in: the menu follows the picked session
   if(!_jgOwn)S._jgRiders.forEach(r=>{if(r.type==='Own')r.type='Any';});
   m.style.display='flex';
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeJccGroupModal()">
@@ -10618,13 +10650,13 @@ function showJccGroupModal(){
         <div class="form-group" style="flex:1;margin-bottom:10px"><label for="jg-phone">${t('authPhone')}</label><input id="jg-phone" type="tel" value="${esc(_p)}" placeholder="05…"></div>
       </div>
       <div class="form-group" style="margin-bottom:10px"><label for="jg-sess">${t('colSession')}</label>
-        <select id="jg-sess" onchange="_jgSync();showJccGroupModal()">${open.map(x=>`<option value="${x.id}"${_s===x.id?' selected':''}>${dayLabel(x.day)} ${shortDate(x.session_date||x.id)} · ${sessionTime(x)}${_sessFull(x)?` (${t('statusFull')})`:''}</option>`).join('')}</select></div>
+        <select id="jg-sess" onchange="_jgSync();showJccGroupModal()">${open.map(x=>`<option value="${esc(x.id)}"${_s===x.id?' selected':''}>${esc(dayLabel(x.day))} ${esc(shortDate(x.session_date||x.id))} · ${esc(sessionTime(x))}${_sessFull(x)?` (${t('statusFull')})`:''}</option>`).join('')}</select></div>
       <div class="form-group" style="margin-bottom:6px"><label>${t('colRider')} × ${S._jgRiders.length}</label></div>
       ${S._jgRiders.map((r,i)=>`<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
         <input id="jg-r-name-${i}" type="text" list="jg-cust-list" placeholder="${t('nameLabel')} ${i+1}" value="${esc(r.name||'')}" maxlength="60" style="flex:1;min-width:0">
         <input id="jg-r-ph-${i}" type="tel" placeholder="05…" value="${esc(r.phone||'')}" style="width:104px;flex-shrink:0">
         <input id="jg-r-h-${i}" type="number" min="80" max="230" placeholder="${t('cmUnit')}" value="${esc(r.height||'')}" style="width:66px;flex-shrink:0">
-        <select id="jg-r-type-${i}" aria-label="${t('bikeTypeLabel')}" style="width:104px;flex-shrink:0">${bikeTypeOpts(_jgOwn).map(ty=>`<option value="${ty}"${(r.type||'Any')===ty?' selected':''}>${typeLabel(ty)}</option>`).join('')}</select>
+        <select id="jg-r-type-${i}" aria-label="${t('bikeTypeLabel')}" style="width:104px;flex-shrink:0">${bikeTypeOpts(_jgOwn,_jgNoCarbon).map(ty=>`<option value="${ty}"${(r.type||'Any')===ty?' selected':''}>${typeLabel(ty)}</option>`).join('')}</select>
         ${S._jgRiders.length>1?`<button type="button" class="btn-sm btn-muted" onclick="_jgRemoveRider(${i})" title="${t('removeBtn')}" style="flex-shrink:0">${_artIcon('close',11)}</button>`:''}
       </div>`).join('')}
       <datalist id="jg-cust-list">${(S.customers||[]).map(c=>`<option value="${esc(c.name||'')}">`).join('')}</datalist>
@@ -10645,7 +10677,8 @@ function _jgSync(){(S._jgRiders||[]).forEach((r,i)=>{
 function _jgAddRider(){_jgSync();S._jgRiders=[...(S._jgRiders||[]),{name:'',height:'',type:'Any'}];showJccGroupModal();}
 function _jgRemoveRider(i){_jgSync();(S._jgRiders||[]).splice(i,1);showJccGroupModal();}
 function closeJccGroupModal(){const m=document.getElementById('jcc-group-modal');if(m){m.style.display='none';m.innerHTML='';}S._jgRiders=null;}
-async function saveJccGroup(){
+function saveJccGroup(){return _busyRun('jccGroup',_saveJccGroup);}
+async function _saveJccGroup(){
   _jgSync();
   const gname=_titleCaseName(document.getElementById('jg-name')?.value||'');
   if(!gname){const i=document.getElementById('jg-name');if(i){_fieldErr(i,t('errFieldRequired'));i.focus();}return;}
@@ -10665,7 +10698,10 @@ async function saveJccGroup(){
       typePreference:r.type,paid:false,assignedBikeId:null,sessionId:sess.id,sessionDay:sess.day,
       sessionDate:sess.session_date||sess.id,queueNum:base+i,status:'waiting',
       registeredAt:new Date().toISOString(),walkIn:!_match,customerId:(_match&&_match.id)||null,
-      price:priceForType(r.type),approval:null,groupId,groupName:gname,groupContact:cname||null,groupPhone:phone||null},i===0);});};
+      // An admin may put a group on an approval ride; staff-added riders there are selected
+      // already and ride free, exactly as a walk-in is (_wiInsertRiders). approval:null read as
+      // 'pending', so the whole group sat waiting on Approve and could not be checked in.
+      price:_isFreeRide(sess)?0:priceForType(r.type),approval:_isApprovalRide(sess)?'approved':null,groupId,groupName:gname,groupContact:cname||null,groupPhone:phone||null},i===0);});};
   let entries=mk();
   let res=await sb.from('queue_entries').insert(entries.map(entryToDB));
   if(res&&res.error&&(String(res.error.code||res.error.message).includes('23505')||/duplicate|unique/i.test(res.error.message||''))){
@@ -10698,6 +10734,9 @@ function showGroupEditModal(entryId){
   const mainPhone=(primary.groupPhone||primary.phone||'').trim(); // the responsible person's number when stored
   const open=allSessions().filter(x=>_sessLive(x)&&!_isApprovalRide(x)).sort(_sessOrder);
   if(!open.find(x=>x.id===primary.sessionId)){const cur=allSessions().find(x=>x.id===primary.sessionId);if(cur)open.unshift(cur);}
+  // A party with someone already on a bike stays on its night, as a single booking does once
+  // checked in: moving it carried the riding member and their bike off tonight's roster.
+  const onBike=members.some(x=>x.status==='active');
   const m=document.getElementById('group-edit-modal');if(!m)return;
   m.style.display='flex';
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeGroupEditModal()">
@@ -10709,8 +10748,8 @@ function showGroupEditModal(entryId){
         <div class="form-group" style="flex:1;margin-bottom:10px"><label for="ge-cname">${t('contactNameLabel')}</label><input id="ge-cname" type="text" value="${esc(primary.groupContact||'')}" maxlength="60"></div>
         <div class="form-group" style="flex:1;margin-bottom:10px"><label for="ge-phone">${t('authPhone')}</label><input id="ge-phone" type="tel" value="${esc(mainPhone)}" placeholder="05…"></div>
       </div>
-      ${comm?'':`<div class="form-group" style="margin-bottom:10px"><label for="ge-sess">${t('colSession')}</label>
-        <select id="ge-sess">${open.map(x=>`<option value="${x.id}"${primary.sessionId===x.id?' selected':''}>${dayLabel(x.day)} ${shortDate(x.session_date||x.id)} · ${sessionTime(x)}${_sessFull(x)?` (${t('statusFull')})`:''}</option>`).join('')}</select></div>`}
+      ${comm?'':onBike?`<div class="ge-no-move" style="font-size:12px;color:var(--muted);font-weight:700;margin-bottom:10px">${t('geMoveOnBike')}</div>`:`<div class="form-group" style="margin-bottom:10px"><label for="ge-sess">${t('colSession')}</label>
+        <select id="ge-sess">${open.map(x=>`<option value="${esc(x.id)}"${primary.sessionId===x.id?' selected':''}>${esc(dayLabel(x.day))} ${esc(shortDate(x.session_date||x.id))} · ${esc(sessionTime(x))}${_sessFull(x)?` (${t('statusFull')})`:''}</option>`).join('')}</select></div>`}
       <div class="form-group" style="margin-bottom:6px"><label>${t('colRider')} × ${members.length}</label></div>
       ${members.map((r,i)=>`<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
         <span style="flex-shrink:0;font-size:11px;font-weight:900;color:var(--muted);min-width:26px">#${r.queueNum||''}</span>
@@ -10726,8 +10765,13 @@ function showGroupEditModal(entryId){
     </div></div>`;
 }
 function closeGroupEditModal(){const m=document.getElementById('group-edit-modal');if(m){m.style.display='none';m.innerHTML='';}S._geIds=null;}
-async function saveGroupEdit(){
-  const members=(S._geIds||[]).map(id=>getQueue().find(e=>e.id===id)).filter(Boolean);
+function saveGroupEdit(){return _busyRun('groupEdit',_saveGroupEdit);}
+async function _saveGroupEdit(){
+  // Each member keeps the index of the row it was drawn on: a member that has left the queue
+  // since the dialog opened is skipped, and must not shift everyone after it onto the wrong
+  // row's name, phone and height.
+  const rows=(S._geIds||[]).map((id,i)=>({i,m:getQueue().find(e=>e.id===id)})).filter(r=>r.m);
+  const members=rows.map(r=>r.m);
   if(!members.length){closeGroupEditModal();return;}
   const primary=members[0];
   const gname=_titleCaseName(document.getElementById('ge-gname')?.value||'');
@@ -10739,15 +10783,16 @@ async function saveGroupEdit(){
   let sessT=null;
   if(moving){
     sessT=allSessions().find(s=>s.id===toSessionId);if(!sessT)return;
-    const cap=sessT.capacity||12;
-    const taken=getQueue().filter(x=>x.sessionId===toSessionId&&(x.status==='waiting'||x.status==='active')).length;
-    if(cap-taken<members.length){toast(t('rescheduleFull'),'error');return;}
+    if(members.some(x=>x.status==='active')){toast(t('geMoveOnBike'),'error');return;} // checked in since the dialog opened
+    // spotsLeft, as the single-booking editor: counting only waiting+active let finished
+    // riders free phantom places and overfilled the night.
+    if(spotsLeft(toSessionId)<members.length){toast(t('rescheduleFull'),'error');return;}
   }
   const prev=members.map(m=>({id:m.id,name:m.name,phone:m.phone||'',height:m.height||null,size:m.size||'',type_preference:m.typePreference,price:m.price??DEFAULT_PRICE,
     group_name:m.groupName||null,group_contact:m.groupContact||null,group_phone:m.groupPhone||null,session_id:m.sessionId,session_day:m.sessionDay,session_date:m.sessionDate,queue_num:m.queueNum,status:m.status}));
   const base=moving?nextQNum(toSessionId):0;
-  for(let i=0;i<members.length;i++){
-    const m=members[i];
+  for(let k=0;k<rows.length;k++){
+    const{i,m}=rows[k];
     const name=_titleCaseName(document.getElementById('ge-r-name-'+i)?.value||'')||m.name;
     const ownPhone=(document.getElementById('ge-r-ph-'+i)?.value||'').trim();
     const height=parseInt(document.getElementById('ge-r-h-'+i)?.value)||null;
@@ -10760,7 +10805,7 @@ async function saveGroupEdit(){
       // Reprice like the single-booking editor: only unpaid rows still on the old type's default.
       if(!_freeSessIds.has(m.sessionId)&&!m.paid&&(m.price??DEFAULT_PRICE)===priceForEntryType(m,m.typePreference||'Any'))patch.price=priceForEntryType(m,ty);
     }
-    if(moving){patch.session_id=toSessionId;patch.session_day=sessT.day;patch.session_date=sessT.session_date||toSessionId;patch.queue_num=base+i;if(m.status==='waitlist')patch.status='waiting';}
+    if(moving){patch.session_id=toSessionId;patch.session_day=sessT.day;patch.session_date=sessT.session_date||toSessionId;patch.queue_num=base+k;if(m.status==='waitlist')patch.status='waiting';}
     const res=await sb.from('queue_entries').update(patch).eq('id',m.id);
     if(_writeErr(res,'edit booking'))return;
     if(moving&&m.status==='waitlist')await _addonStockQ(entryAddons(m),-1); // waitlist -> confirmed: the row finally reserves its add-on stock (same rule as promote/reschedule)
@@ -10778,10 +10823,18 @@ async function saveGroupEdit(){
 }
 // One tap marks every unpaid member of a group booking as paid (same price rules as the
 // single pay toggle: a deliberate promo 0 stays 0, an incidental 0 falls back to the bike price).
+// Every rider the party's money line counts (_partyMoney: all but cancelled / no-show /
+// removed), riders who have already ridden included. It took only the riders still expected,
+// so a party back from the ride unpaid showed "Mark paid" and the button did nothing.
+function _groupPayRows(entryId){
+  const e=getQueue().find(x=>x.id===entryId);if(!e)return[];
+  const k=_partyKey(e);
+  return getQueue().filter(x=>(x.id===e.id||(k&&_partyKey(x)===k))&&!['cancelled','noshow','removed'].includes(x.status));
+}
 async function groupMarkPaid(entryId){
-  const members=_groupMembers(entryId).filter(m=>!m.paid);
+  const members=_groupPayRows(entryId).filter(m=>!m.paid);
   if(!members.length)return;
-  const prev=members.map(m=>({id:m.id,paid:!!m.paid,price:m.price??DEFAULT_PRICE}));
+  const prev=members.map(m=>({id:m.id,paid:!!m.paid,price:m.price??DEFAULT_PRICE,pay_method:m.pay_method||null}));
   const res=await Promise.all(members.map(m=>{
     const price=(m.price===0&&!m.promoCode)?_entryFallbackPrice(m):(m.price??DEFAULT_PRICE);
     m.paid=true;m.price=price;
@@ -10792,7 +10845,7 @@ async function groupMarkPaid(entryId){
   logAction(t('logBulkPaid').replace('{0}',members.length));
   toast(`${members.length} ✓ ${t('paidLabel')}`);
   pushUndo(`${t('undoPayment')} ${members[0].groupName||members[0].name}`,async()=>{
-    await Promise.all(prev.map(p=>sb.from('queue_entries').update({paid:p.paid,price:p.price}).eq('id',p.id)));
+    await Promise.all(prev.map(p=>sb.from('queue_entries').update({paid:p.paid,price:p.price,pay_method:p.pay_method}).eq('id',p.id)));
     await loadDataLight();renderStaffQueue();renderHistory();
   });
   await loadDataLight();
@@ -10867,15 +10920,23 @@ function showFlagFieldsModal(id,preset){
 // it was answered, leaving nothing to review. One row per request, newest first: what was
 // asked, pending / replied / withdrawn, and each answer as before -> after. A reply staff find
 // unacceptable is asked again from here, which opens the usual dialog with the same fields.
+// The list is read once and then kept, so it has to know when it is out of date: a rider
+// answering, or another desk flagging someone, changes customers.fix_fields (which reaches this
+// device on the staff-ref broadcast), and _flagsSig notices. It is also re-read after a minute.
+// A failed read no longer poses as an empty list for the rest of the shift: the list in hand
+// stays, and with none in hand the tab says so and offers Retry.
+function _flagsSig(){return (S.customers||[]).map(c=>c&&Array.isArray(c.fix_fields)&&c.fix_fields.length?c.id+':'+c.fix_fields.join(','):'').filter(Boolean).join('|');}
 async function _loadFlags(){
   if(S._flagsBusy)return;S._flagsBusy=true;
+  const sig=_flagsSig();
   try{
     const{data,error}=await sb.from('customer_flags').select('*').order('flagged_at',{ascending:false}).limit(1000);
-    S._flags=error?[]:(data||[]);S._flagsErr=!!error;
-  }catch(e){S._flags=[];S._flagsErr=true;}
-  finally{S._flagsBusy=false;}
+    if(error)S._flagsErr=true;else{S._flags=data||[];S._flagsErr=false;S._flagsSig=sig;}
+  }catch(e){S._flagsErr=true;}
+  finally{S._flagsBusy=false;S._flagsAt=Date.now();}
   if(S.staffTab==='community'&&S.communityTab==='flagged')renderCommunity();
 }
+function _flagsRetry(){S._flagsErr=false;S._flagsAt=0;renderCommunity();}
 function _flagShow(k,v){
   if(v==null||v==='')return'<span style="color:var(--muted)">—</span>';
   if(k==='photo')return /^https:\/\//.test(String(v))?`<img src="${esc(v)}" alt="" loading="lazy" style="width:34px;height:34px;border-radius:50%;object-fit:cover;vertical-align:middle">`:'—';
@@ -10887,8 +10948,8 @@ function _flagRow(r){
   const ch=r.changes||{};
   const done=Object.keys(ch);
   const waiting=(r.fields||[]).filter(k=>!ch[k]);
-  const when=[t('flgFlaggedOn').replace('{0}',fmtStamp(r.flagged_at))+(r.flagged_by?' · '+t('flgBy').replace('{0}',esc(r.flagged_by)):'')];
-  if(r.answered_at)when.push((r.status==='withdrawn'?t('flgWithdrawnOn'):t('flgRepliedOn')).replace('{0}',fmtStamp(r.answered_at)));
+  const when=[t('flgFlaggedOn').replace('{0}',esc(fmtStamp(r.flagged_at)))+(r.flagged_by?' · '+t('flgBy').replace('{0}',esc(r.flagged_by)):'')];
+  if(r.answered_at)when.push((r.status==='withdrawn'?t('flgWithdrawnOn'):t('flgRepliedOn')).replace('{0}',esc(fmtStamp(r.answered_at))));
   const contact=[c.email,c.phone].filter(Boolean).map(v=>'<bdi>'+esc(v)+'</bdi>').join(' <span style="opacity:.5">·</span> ');
   return `<div class="flg-row" data-flag-id="${esc(r.id)}" data-status="${esc(r.status)}" style="padding:12px 4px;border-bottom:1px solid var(--border)">
     <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap">
@@ -10910,12 +10971,19 @@ function _flagRow(r){
       </div>`).join('')}
     </div>`:''}
     ${r.status==='pending'&&waiting.length?`<div class="flg-waiting" style="font-size:12px;color:var(--orange);font-weight:700;margin-top:6px">${esc(t('flgWaitingFor').replace('{0}',waiting.map(_fixLabel).join(', ')))}</div>`:''}
-    ${r.status!=='pending'&&c.id?`<div style="margin-top:8px"><button type="button" class="btn-sm btn-secondary flg-again" onclick='showFlagFieldsModal(${JSON.stringify(String(c.id))},${JSON.stringify(r.fields||[])})'>${t('flgFlagAgain')}</button></div>`:''}
+    ${r.status!=='pending'&&c.id?`<div style="margin-top:8px"><button type="button" class="btn-sm btn-secondary flg-again" onclick="showFlagFieldsModal(${_ja(c.id)},${esc(JSON.stringify(r.fields||[]))})">${t('flgFlagAgain')}</button></div>`:''}
   </div>`;
 }
 function _commFlagged(){
-  if(!S._flags){_loadFlags();return skeletonList();}
-  if(S._flagsErr)return`<div class="empty-state">${t('flgLoadErr')}</div>`;
+  if(!S._flags){
+    if(S._flagsErr&&!S._flagsBusy)return`<div class="empty-state">${t('flgLoadErr')}<div style="margin-top:10px"><button type="button" class="btn-sm btn-secondary flg-retry" onclick="_flagsRetry()">${t('retryBtn')}</button></div></div>`;
+    _loadFlags();return skeletonList();
+  }
+  // Re-read in the background when a rider's request changed or the list is a minute old; the
+  // list on screen stays until the new one lands. Never twice within 3 s, so a read that keeps
+  // failing cannot turn every repaint into another request.
+  const _age=Date.now()-(S._flagsAt||0);
+  if(!S._flagsBusy&&_age>3000&&(_age>60000||_flagsSig()!==S._flagsSig))_loadFlags();
   const f=S._flagFilter||'all';
   const n=k=>k==='all'?S._flags.length:S._flags.filter(r=>r.status===k).length;
   const pill=(k,label)=>`<button class="filter-pill${f===k?' active':''}" onclick="S._flagFilter='${k}';renderCommunity()">${label} (${n(k)})</button>`;
@@ -11001,7 +11069,7 @@ function _cfAppleLine(id){
 // The editor's header: the flag button, and what is already asked of this rider.
 function _cfFlagHtml(c){
   const on=_flagFieldsOf(c);
-  return `<button type="button" class="btn-sm btn-secondary fl-open${on.length?' on':''}" onclick="showFlagFieldsModal('${esc(c.id)}')">${_artIcon('flag',13)} ${on.length?t('fixPendingBtn').replace('{0}',String(on.length)):t('fixFlagBtn')}</button>`;
+  return `<button type="button" class="btn-sm btn-secondary fl-open${on.length?' on':''}" onclick="showFlagFieldsModal(${_ja(c.id)})">${_artIcon('flag',13)} ${on.length?t('fixPendingBtn').replace('{0}',String(on.length)):t('fixFlagBtn')}</button>`;
 }
 function _fixPendingLine(c){
   const on=_flagFieldsOf(c);
@@ -11055,6 +11123,8 @@ function _cfCountry(v){
 function renderCustFormModal(){
   const m=document.getElementById('new-acct-modal');const d=S._cf;if(!m||!d)return;
   const isCreate=d.mode==='create';
+  // A saved nationality that is not on today's list is offered as it is, as countryOpts does
+  // for the country; without it the select fell back to "Select" and any save wiped the value.
   const ccOpts=COUNTRY_CODES.map(([code])=>`<option value="${code}"${d.cc===code?' selected':''}>${code}</option>`).join('');
   const gBtn=(g,lbl)=>`<button type="button" class="toggle-btn${d.gender===g?' active':''}" style="flex:1" onclick="_cfSet('gender','${g}',this)">${lbl}</button>`;
   const tBtn=ty=>`<button type="button" class="toggle-btn${d.type===ty?' active':''}" onclick="_cfSet('type','${ty}',this)">${typeLabel(ty)}</button>`;
@@ -11062,7 +11132,7 @@ function renderCustFormModal(){
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeCustFormModal()">
     <div class="modal-box" role="dialog" aria-modal="true" style="max-width:470px;max-height:88vh;overflow-y:auto">
       ${isCreate?`<div class="modal-title">${t('naTitle')}</div>`:(()=>{const c=(S.customers||[]).find(x=>String(x.id)===String(d.id))||{id:d.id};
-        return `<div class="modal-title fl-cf-head"><span>${t('naEditTitle')}</span><span class="cf-head-btns"><button type="button" class="btn-sm btn-secondary" onclick="openAccountHistory('${esc(c.id)}',true)">${_artIcon('clock',13)} ${t('ahBtn')}</button><span id="cf-flag-wrap">${_cfFlagHtml(c)}</span></span></div><div id="cf-fix-line">${_fixPendingLine(c)}</div>`;})()}
+        return `<div class="modal-title fl-cf-head"><span>${t('naEditTitle')}</span><span class="cf-head-btns"><button type="button" class="btn-sm btn-secondary" onclick="openAccountHistory(${_ja(c.id)},true)">${_artIcon('clock',13)} ${t('ahBtn')}</button><span id="cf-flag-wrap">${_cfFlagHtml(c)}</span></span></div><div id="cf-fix-line">${_fixPendingLine(c)}</div>`;})()}
       <div style="display:flex;gap:8px;margin-top:12px">
         <div class="form-group" style="flex:1"><label for="cf-first">${t('firstName')}</label><input id="cf-first" oninput="_nameInput(this)" type="text" value="${esc(d.first)}" autocomplete="off"></div>
         <div class="form-group" style="flex:1"><label for="cf-middle">${t('middleName')}</label><input id="cf-middle" oninput="_nameInput(this)" type="text" value="${esc(d.middle)}" autocomplete="off"></div>
@@ -11079,7 +11149,7 @@ function renderCustFormModal(){
       <div class="form-group" style="margin-top:8px"><label for="cf-birth-d">${t('birthDateLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label>${dobFieldHtml('cf-birth',d.birth)}</div>
       <div style="display:flex;gap:8px;margin-top:8px">
         <div class="form-group" style="flex:1"><label for="cf-country">${t('countryLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-country" onchange="_cfCountry(this.value)">${countryOpts(d.country)}</select></div>
-        <div class="form-group" style="flex:1"><label for="cf-nationality">${t('nationalityLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-nationality"><option value="">${t('selectNationalityOpt')}</option>${nationalityOpts(d.nationality)}</select></div>
+        <div class="form-group" style="flex:1"><label for="cf-nationality">${t('nationalityLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-nationality"><option value="">${t('selectNationalityOpt')}</option>${d.nationality&&!_NAT_CODE[d.nationality]?`<option value="${esc(d.nationality)}" selected>${esc(d.nationality)}</option>`:''}${nationalityOpts(d.nationality)}</select></div>
         <div class="form-group" style="flex:1"><label for="cf-city">${t('cityLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label><select id="cf-city" data-country="${esc(d.country)}" onchange="S._cf&&(S._cf.city=this.value)" ${d.country?'':'disabled'}>${cityOpts(d.country,d.city,'cf-city')}</select></div>
       </div>
       <div class="form-group" style="margin-top:8px"><label>${t('socialsLabel')} <span class="label-hint">(${t('optionalLabel')})</span></label>${_socFieldsHtml('cf',d.socials,true)}</div>
@@ -11093,10 +11163,10 @@ function renderCustFormModal(){
       ${isCreate?'':`<div class="form-group" style="margin-top:8px"><label>${t('amEditTags')}</label>
         <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-top:4px">
           ${(()=>{const _tm=_tagsById();const myCT=(S.customerTags||[]).filter(ct=>ct.customer_id===d.id&&_tm[ct.tag_id]);return myCT.length?myCT.map(ct=>_tagChip(_tm[ct.tag_id],ct)).join(''):`<span class="am-meta">${t('amNoTags')}</span>`;})()}
-          <button type="button" class="btn-sm btn-secondary" onclick="_custJumpTags('${d.id}')">${t('amEditTags')}</button>
+          <button type="button" class="btn-sm btn-secondary" onclick="_custJumpTags(${_ja(d.id)})">${t('amEditTags')}</button>
         </div></div>`}
       <div class="modal-footer">
-        ${(!isCreate&&isAdmin())?`<button class="btn-red" style="margin-inline-end:auto" onclick="deleteCustomerAccount('${esc(d.id)}')">${t('naDelBtn')}</button>`:''}
+        ${(!isCreate&&isAdmin())?`<button class="btn-red" style="margin-inline-end:auto" onclick="deleteCustomerAccount(${_ja(d.id)})">${t('naDelBtn')}</button>`:''}
         <button class="btn-secondary" onclick="closeCustFormModal()">${t('cancelBtn')}</button>
         <button class="btn-primary" onclick="saveCustForm()">${isCreate?t('naCreateBtn'):t('naSaveBtn')}</button>
       </div>
@@ -11104,7 +11174,7 @@ function renderCustFormModal(){
 }
 // ── Delete a customer account ────────────────────────────────────────────────
 // What goes: the login and everything personal attached to it — the customers row, tags,
-// notes, push subscriptions. What STAYS: their past bookings, name and all, so old rosters,
+// push subscriptions. What STAYS: their past bookings, name and all, so old rosters,
 // close-outs and analytics still read the way they did. Those rows are unlinked first
 // (customer_id -> null) because queue_entries.customer_id is a real foreign key: delete the
 // account with a booking still pointing at it and Postgres refuses the whole thing.
@@ -11112,6 +11182,13 @@ function renderCustFormModal(){
 // A rider with a LIVE booking is refused outright rather than half-handled. Deleting the
 // account under a rider who is on tonight's roster leaves the booth holding a booking nobody
 // can look up, and the rider unable to see it in My Rides — finish or cancel the ride first.
+//
+// The steps are ordered so a failure part-way loses nothing: the unlink covers every booking
+// on the server (not only the months this device holds - an account with only older rides
+// used to hit the key), a refused delete puts the links it just took back, and tags and push
+// subscriptions go only once the account itself is gone. There is no Undo: the staff list does
+// not hold the password, the photo or the correction history, so a re-inserted row came back
+// as an account its rider could not sign in to.
 async function deleteCustomerAccount(id){
   if(!isAdmin()){toast(t('errAdminOnly'),'error');return;}
   const c=(S.customers||[]).find(x=>String(x.id)===String(id));
@@ -11122,34 +11199,34 @@ async function deleteCustomerAccount(id){
   confirmDialog({
     title:t('naDelTitle'),
     body:`<strong>${esc(c.name||'')}</strong>${c.email?`<br><span style="color:var(--muted)">${esc(c.email)}</span>`:''}
-      <br><br>${t('naDelBody').replace('{0}',String(past.length))}`,
+      <br><br>${esc(t('naDelBodyFinal').replace('{0}',String(past.length)))}`,
     confirmLabel:t('naDelBtn'),
     onConfirm:async()=>{
       if(S._cfBusy)return;S._cfBusy=true;
       try{
-        // Everything needed to put it back, captured before the first write.
-        const tags=(S.customerTags||[]).filter(ct=>String(ct.customer_id)===String(id));
-        const bookingIds=past.map(e=>e.id);
-        // 1. Unlink first, or the delete below hits the foreign key.
-        if(bookingIds.length){
-          if(_writeErr(await sb.from('queue_entries').update({customer_id:null}).eq('customer_id',id),'unlink bookings'))return;
+        const ids=r=>((r&&!r.error&&Array.isArray(r.data))?r.data:[]).map(x=>x&&x.id).filter(Boolean);
+        // 1. Unlink first, or the delete below hits the foreign key. Every booking the server
+        //    holds for the account, whatever this device has loaded.
+        const ub=await sb.from('queue_entries').update({customer_id:null}).eq('customer_id',id).select('id');
+        if(_writeErr(ub,'unlink bookings'))return;
+        const bookingIds=[...new Set([...ids(ub),...past.map(e=>e.id)])];
+        let saleIds=[];
+        try{saleIds=ids(await sb.from('cashier_sales').update({customer_id:null}).eq('customer_id',id).select('id'));}catch(e){} // tolerant: column may predate the FK
+        // 2. The account itself. Refused: give the bookings and sales their link back, so the
+        //    rider still finds them in My Rides, and leave everything else as it was.
+        const del=await sb.from('customers').delete().eq('id',id);
+        if(del&&del.error){
+          if(bookingIds.length)try{await sb.from('queue_entries').update({customer_id:id}).in('id',bookingIds);}catch(e){}
+          if(saleIds.length)try{await sb.from('cashier_sales').update({customer_id:id}).in('id',saleIds);}catch(e){}
+          _writeErr(del,'delete account');await loadData();return;
         }
-        try{await sb.from('cashier_sales').update({customer_id:null}).eq('customer_id',id);}catch(e){} // tolerant: column may predate the FK
-        // 2. Everything personal that hangs off the account.
+        // 3. What hung off it: no key ties these to the account, so they go last.
         try{await sb.from('customer_tags').delete().eq('customer_id',id);}catch(e){}
         try{await sb.from('push_subscriptions').delete().eq('customer_id',id);}catch(e){}
-        // 3. The account itself.
-        if(_writeErr(await sb.from('customers').delete().eq('id',id),'delete account'))return;
         logAction(`${t('naDelTitle')}: ${c.name||id}`);
         closeCustFormModal();
         await loadData();
         toast(t('naDelDone').replace('{0}',c.name||''));
-        pushUndo(`${t('naDelTitle')} · ${c.name||''}`,async()=>{
-          await sb.from('customers').insert(c);
-          if(tags.length)try{await sb.from('customer_tags').insert(tags);}catch(e){}
-          if(bookingIds.length)await sb.from('queue_entries').update({customer_id:id}).in('id',bookingIds);
-          await loadData();renderCommunity();renderStaffQueue();
-        });
         renderCommunity();renderStaffQueue();
       }finally{S._cfBusy=false;}
     },
@@ -11237,12 +11314,16 @@ async function saveCustForm(){
       {const _newDp=_cfDefPayVal();
       if(_newDp!==(d.origDefPay||null)){
         const _oldC={default_pay:d.origDefPay},_newC={default_pay:_newDp};
-        const live=getQueue().filter(e=>e.customerId===d.id&&['waiting','waitlist','active'].includes(e.status)&&!_apprSessIds.has(e.sessionId)&&String(e.name||'').trim().toLowerCase()===name.trim().toLowerCase());
+        // "In their own name" is the name before this save OR after it: the rename above went to
+        // the server only, so the rows in hand still carry the old one, and matching the new
+        // name alone skipped every booking whenever both changed in one save.
+        const _own=new Set([name,d.origName].map(v=>String(v||'').trim().toLowerCase()).filter(Boolean));
+        const live=getQueue().filter(e=>e.customerId===d.id&&['waiting','waitlist','active'].includes(e.status)&&!_apprSessIds.has(e.sessionId)&&_own.has(String(e.name||'').trim().toLowerCase()));
         const calls=[];
         live.forEach(e=>{
           const cov=_custHouseFor(_newC,e.typePreference);
           if(cov&&!e.paid){e.paid=true;e.price=0;calls.push(sb.from('queue_entries').update({paid:true,price:0}).eq('id',e.id));}
-          else if(!cov&&e.paid&&(e.price??DEFAULT_PRICE)===0&&_custHouseFor(_oldC,e.typePreference)){const p=priceForType(e.typePreference||'Any');e.paid=false;e.price=p;calls.push(sb.from('queue_entries').update({paid:false,price:p}).eq('id',e.id));}
+          else if(!cov&&e.paid&&(e.price??DEFAULT_PRICE)===0&&_custHouseFor(_oldC,e.typePreference)){const p=priceForEntryType(e,e.typePreference||'Any');e.paid=false;e.price=p;calls.push(sb.from('queue_entries').update({paid:false,price:p}).eq('id',e.id));}
         });
         if(calls.length){try{await Promise.all(calls);}catch(e){}}
       }}
@@ -11291,7 +11372,7 @@ function showWalkinModal(){
       </div>`).join('')}
       <button type="button" class="btn-secondary" style="width:100%;margin:2px 0 12px" onclick="_wiAddRider()">+ ${t('beAddRiderBtn')}</button>
       <div class="form-group" style="margin-bottom:14px"><label>${t('colSession')}</label>
-        <select id="wi-sess" onchange="_wiSync();showWalkinModal()">${open.map(x=>`<option value="${x.id}"${_s===x.id?' selected':''}>${dayLabel(x.day)} ${shortDate(x.session_date||x.id)} · ${sessionTime(x)}${_sessFull(x)?` (${t('statusFull')})`:''}</option>`).join('')}</select></div>
+        <select id="wi-sess" onchange="_wiSync();showWalkinModal()">${open.map(x=>`<option value="${esc(x.id)}"${_s===x.id?' selected':''}>${esc(dayLabel(x.day))} ${esc(shortDate(x.session_date||x.id))} · ${esc(sessionTime(x))}${_sessFull(x)?` (${t('statusFull')})`:''}</option>`).join('')}</select></div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeWalkinModal()">${t('cancelBtn')}</button>
         <button class="btn-primary" onclick="saveWalkin()">${t('addWalkinBtn')}${S._wiRiders.length?` (${S._wiRiders.length+1})`:''}</button>
@@ -11299,7 +11380,9 @@ function showWalkinModal(){
     </div></div>`;
   setTimeout(()=>{const i=document.getElementById('wi-name');if(i&&!_n&&(!document.activeElement||document.activeElement===document.body))i.focus();},60); // don't steal focus from a fast typist
 }
-function closeWalkinModal(){const m=document.getElementById('walkin-modal');if(m){m.style.display='none';m.innerHTML='';}S._wiRiders=[];S._wiCustId=null;}
+// The bike type goes with the rider it was picked for: kept across walk-ins, the next walk-up
+// was booked (and priced) as the last one's Road unless someone noticed the highlighted pill.
+function closeWalkinModal(){const m=document.getElementById('walkin-modal');if(m){m.style.display='none';m.innerHTML='';}S._wiRiders=[];S._wiCustId=null;S._wiType=null;}
 // ── Walk-in name: a live list of accounts under the field, the typed name as-is on top ──
 // Matches on name, phone digits or email. Picking an account fills what it knows (phone,
 // height, bike type) and links the booking to it by id; "use as typed" books a walk-up
@@ -11317,7 +11400,7 @@ function _wiRenderSuggest(v){
   const cs=_wiCustMatches(q);
   const exact=cs.some(c=>String(c.name||'').trim().toLowerCase()===q.toLowerCase());
   const meta=c=>[c.phone?fmtPhone(c.phone):'',c.height?`${c.height} ${t('cmUnit')}`:'',(c.type_preference&&c.type_preference!=='Any')?typeLabel(c.type_preference):''].filter(Boolean).map(x=>esc(String(x))).join(' · ');
-  host.innerHTML=`${(!exact||!cs.length)?`<button type="button" class="mw-sug wi-sug-new" role="option" onmousedown="event.preventDefault()" onclick="_wiUseTyped()"><span class="mw-sug-tag">＋</span><span class="mw-sug-name">${t('wiUseTyped').replace('{0}',esc(q))}</span></button>`:''}${cs.length?`<div class="mw-sug-head">${t('wiAccountsHead')}</div>${cs.map(c=>`<button type="button" class="mw-sug" role="option" onmousedown="event.preventDefault()" onclick="_wiPickCust('${esc(c.id)}')"><span class="mw-sug-tag cust">${t('mwCustTag')}</span><span class="mw-sug-name">${esc(c.name||'')}</span><span class="mw-sug-meta">${meta(c)}</span></button>`).join('')}`:''}`;
+  host.innerHTML=`${(!exact||!cs.length)?`<button type="button" class="mw-sug wi-sug-new" role="option" onmousedown="event.preventDefault()" onclick="_wiUseTyped()"><span class="mw-sug-tag">＋</span><span class="mw-sug-name">${t('wiUseTyped').replace('{0}',esc(q))}</span></button>`:''}${cs.length?`<div class="mw-sug-head">${t('wiAccountsHead')}</div>${cs.map(c=>`<button type="button" class="mw-sug" role="option" onmousedown="event.preventDefault()" onclick="_wiPickCust(${_ja(c.id)})"><span class="mw-sug-tag cust">${t('mwCustTag')}</span><span class="mw-sug-name">${esc(c.name||'')}</span><span class="mw-sug-meta">${meta(c)}</span></button>`).join('')}`:''}`;
   host.style.display='block';if(inp)inp.setAttribute('aria-expanded','true');
 }
 function _wiHideSuggest(){const h=document.getElementById('wi-suggest');if(h){h.style.display='none';h.innerHTML='';}const inp=document.getElementById('wi-name');if(inp)inp.setAttribute('aria-expanded','false');}
@@ -11328,7 +11411,9 @@ function _wiPickCust(id){
   const fill=(i,v)=>{const el=document.getElementById(i);if(el&&!el.value&&v)el.value=v;};
   fill('wi-phone',c.phone||'');fill('wi-height',c.height?String(c.height):'');
   _wiHideSuggest();
-  if(c.type_preference&&bikeTypeOpts(false).includes(c.type_preference)&&S._wiType!==c.type_preference){S._wiType=c.type_preference;showWalkinModal();}
+  // The repaint rebuilds the extra-rider rows from state, so what was typed into them is read
+  // back first; it used to vanish when the picked account's bike type differed.
+  if(c.type_preference&&bikeTypeOpts(false).includes(c.type_preference)&&S._wiType!==c.type_preference){S._wiType=c.type_preference;_wiSync();showWalkinModal();}
   document.getElementById('wi-phone')?.focus();
 }
 function _wiUseTyped(){S._wiCustId=null;_wiHideSuggest();document.getElementById('wi-phone')?.focus();}
@@ -11395,7 +11480,8 @@ async function _wiInsertRiders(sessId,riders,phone,custId,retry){
   if(_writeErr(res,'walk-in',retry))return null;
   return entries;
 }
-async function saveWalkin(){
+function saveWalkin(){return _busyRun('walkin',_saveWalkin);}
+async function _saveWalkin(){
   _wiSync();
   const name=_titleCaseName(document.getElementById('wi-name')?.value||'');
   if(!name){const i=document.getElementById('wi-name');if(i){_fieldErr(i,t('errFieldRequired'));i.focus();}return;}
@@ -11431,7 +11517,7 @@ function showBookingEditModal(entryId){
   S._beRender=entryId;
   const keep=id=>{const el=document.getElementById(id);return el!=null&&el.value!==''?el.value:null;};
   const _n=keep('be-name')??e.name??'',_p=keep('be-phone')??e.phone??'',_h=keep('be-height')??(e.height?String(e.height):''),_s=keep('be-sess')??e.sessionId;
-  const tyBtn=ty=>`<button type="button" onclick="S._beType='${ty}';showBookingEditModal('${entryId}')" style="flex:1;padding:9px;border-radius:4px;border:1.5px solid ${S._beType===ty?'var(--green)':'var(--border)'};background:${S._beType===ty?'rgba(var(--green-rgb),.12)':'transparent'};color:${S._beType===ty?'var(--green)':'var(--muted)'};font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">${typeLabel(ty)}</button>`;
+  const tyBtn=ty=>`<button type="button" onclick="S._beType='${ty}';showBookingEditModal(${_ja(entryId)})" style="flex:1;padding:9px;border-radius:4px;border:1.5px solid ${S._beType===ty?'var(--green)':'var(--border)'};background:${S._beType===ty?'rgba(var(--green-rgb),.12)':'transparent'};color:${S._beType===ty?'var(--green)':'var(--muted)'};font-weight:700;font-size:12px;cursor:pointer;font-family:inherit">${typeLabel(ty)}</button>`;
   // Session move only before check-in; capacity-checked like the customer reschedule.
   const today=_todayISO();
   const canMove=e.status!=='active';
@@ -11442,7 +11528,7 @@ function showBookingEditModal(entryId){
       const cap=s.capacity||12;
       const taken=getQueue().filter(x=>x.sessionId===s.id&&(x.status==='waiting'||x.status==='active')).length;
       const full=s.id!==e.sessionId&&cap-taken<1;
-      return`<option value="${s.id}"${_s===s.id?' selected':''}${full?' disabled':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)} · ${sessionTime(s)}${full?` (${t('statusFull')})`:''}</option>`;
+      return`<option value="${esc(s.id)}"${_s===s.id?' selected':''}${full?' disabled':''}>${esc(dayLabel(s.day))} ${esc(shortDate(s.session_date||s.id))} · ${esc(sessionTime(s))}${full?` (${t('statusFull')})`:''}</option>`;
     }).join('');
   const m=document.getElementById('booking-edit-modal');
   m.style.display='flex';
@@ -11482,7 +11568,8 @@ function _beSyncNewRiders(){(S._beNewRiders||[]).forEach((r,i)=>{
 });}
 function _beAddRider(){_beSyncNewRiders();S._beNewRiders=[...(S._beNewRiders||[]),{name:'',height:'',type:'Any'}];showBookingEditModal(S._beId);}
 function _beRemoveRider(i){_beSyncNewRiders();(S._beNewRiders||[]).splice(i,1);showBookingEditModal(S._beId);}
-async function saveBookingEdit(){
+function saveBookingEdit(){return _busyRun('bookingEdit',_saveBookingEdit);}
+async function _saveBookingEdit(){
   const e=getQueue().find(x=>x.id===S._beId);if(!e){closeBookingEditModal();return;}
   const name=_titleCaseName(document.getElementById('be-name')?.value||'');
   if(!name){const i=document.getElementById('be-name');if(i){_fieldErr(i,t('errFieldRequired'));i.focus();}return;}
@@ -11761,10 +11848,10 @@ function _sessStripHtml(){
     // of dates, and that is as true of the Petromin ride as of the Saturday one.
     const _cm=_evNamed(s); // a named ride wears its name and colour on the chip; only the circuit goes bare
     return`<div class="sess-summary-chip${isCurrent?' active-sess':''}${isToday?' today-sess':''}${_cm?' community '+_evClass(s):''}"
-      onclick="setSfSession('${s.id}')" title="${_cm?esc(_evName(s))+' · ':''}${dayLabel(s.day)} ${shortDate(s.session_date||s.id)} · ${sessionTime(s)}">
+      onclick="setSfSession(${_ja(s.id)})" title="${_cm?esc(_evName(s))+' · ':''}${esc(dayLabel(s.day))} ${esc(shortDate(s.session_date||s.id))} · ${esc(sessionTime(s))}">
       <div class="sess-chip-info">
         ${_cm?`<div class="sess-chip-event ${_evClass(s)}">${esc(_evName(s))}</div>`:''}
-        <div class="sess-chip-date">${dayLabel(s.day)}, ${shortDate(s.session_date||s.id)} &nbsp;·&nbsp; ${sessionTime(s)}${_wxChip(s.session_date||s.id)}</div>
+        <div class="sess-chip-date">${esc(dayLabel(s.day))}, ${esc(shortDate(s.session_date||s.id))} &nbsp;·&nbsp; ${esc(sessionTime(s))}${_wxChip(s.session_date||s.id)}</div>
         <div class="sess-chip-counts">
           <span style="color:var(--green)">${sWait} ${t('waitingStat').toLowerCase()}</span>
           ${sActive?` &middot; <span style="color:var(--text)">${sActive} ${t('activeSessChip')}</span>`:''}
@@ -11772,7 +11859,7 @@ function _sessStripHtml(){
         </div>
         <div class="sess-chip-bar"><div class="sess-chip-fill" style="width:${fillPct}%;background:${fillClr}"></div></div>
       </div>
-      <div class="sess-chip-badge"><span class="badge-${s.status}">${{open:t('statusOpen'),full:t('statusFull'),closed:t('statusClosed')}[s.status]}</span></div>
+      <div class="sess-chip-badge"><span class="badge-${esc(s.status)}">${{open:t('statusOpen'),full:t('statusFull'),closed:t('statusClosed')}[s.status]}</span></div>
     </div>${_rideKind(s)==='petromin'?_pmChipHtml(s.id):''}`;
   }).join('')+(_pmSid&&!openSess.some(s=>s.id===_pmSid)?_pmChipHtml(_pmSid):'');
 
@@ -11781,8 +11868,8 @@ function _sessStripHtml(){
     openSess.map(s=>{
       const q=getQueue().filter(e=>e.sessionId===s.id);
       const sWait=q.filter(e=>e.status==='waiting').length;
-      const label=`${_evNamed(s)?`${esc(_evName(s))} · `:''}${dayLabel(s.day)}, ${shortDate(s.session_date||s.id)} · ${sessionTime(s)} — ${sWait} ${t('waitingStat').toLowerCase()}`;
-      return`<option value="${s.id}"${S.queueView!=='petromin'&&S.sfSession===s.id?' selected':''}>${label}</option>`+(_rideKind(s)==='petromin'?_pmOptHtml(s.id):'');
+      const label=`${_evNamed(s)?`${esc(_evName(s))} · `:''}${esc(dayLabel(s.day))}, ${esc(shortDate(s.session_date||s.id))} · ${esc(sessionTime(s))} — ${sWait} ${t('waitingStat').toLowerCase()}`;
+      return`<option value="${esc(s.id)}"${S.queueView!=='petromin'&&S.sfSession===s.id?' selected':''}>${label}</option>`+(_rideKind(s)==='petromin'?_pmOptHtml(s.id):'');
     }).join('')+(_pmSid&&!openSess.some(s=>s.id===_pmSid)?_pmOptHtml(_pmSid):'');
 
   return`<div id="sess-strip">
@@ -11894,7 +11981,7 @@ function renderStaffQueue(_resultsOnly){
   }else if(S.sfStatus==='cancelled'){
     filtered=S.sfSession!=='all'
       ?queue.filter(e=>e.sessionId===S.sfSession&&e.status==='cancelled'&&!(_commSel&&e.approval==='rejected'))
-      :queue.filter(e=>e.status==='cancelled');
+      :queue.filter(e=>e.status==='cancelled'&&!(_fd&&_apprSessIds.has(e.sessionId))); // Front Desk never sees the Saturday side, cancelled rows included
   }else if(S.sfStatus==='reserved'){
     filtered=filtered.filter(_isReserved); // waiting, with a bike held for them
   }else if(S.sfStatus==='toreserve'){
@@ -11960,7 +12047,7 @@ function renderStaffQueue(_resultsOnly){
     // Every session, closed and finished nights included, so a past night can be reviewed
     // or printed from here, in the one staff order (_sessOrder): live nights first, soonest
     // at the top, then closed ones, most recent first. Closed nights say so beside the date.
-    sessions.filter(s=>s.status!=='deleted').sort(_sessOrder).map(s=>`<option value="${s.id}"${S.sfSession===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${_sessFull(s)?` (${t('statusFull')})`:s.status==='closed'?` (${t('statusClosed')})`:''}</option>`).join('');
+    sessions.filter(s=>s.status!=='deleted').sort(_sessOrder).map(s=>`<option value="${esc(s.id)}"${S.sfSession===s.id?' selected':''}>${esc(dayLabel(s.day))} ${esc(shortDate(s.session_date||s.id))}${_sessFull(s)?` (${t('statusFull')})`:s.status==='closed'?` (${t('statusClosed')})`:''}</option>`).join('');
   const qStatusOpts=(_commSel
     ?['all','approved','pending','waitlist','rejected','cancelled']  // approval funnel
     :['all','waiting','reserved','toreserve','waitlist','active','done','noshow','cancelled']).map(s=>{ // ride lifecycle
@@ -12041,7 +12128,7 @@ function renderStaffQueue(_resultsOnly){
     if(!ad.length&&!canEdit)return'';
     return`<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
       ${ad.map(a=>`<span style="font-size:10px;font-weight:700;background:rgba(var(--green-rgb),.08);border:1px solid rgba(var(--green-rgb),.2);border-radius:2px;padding:1px 6px;white-space:nowrap">${esc(a.name)}${a.qty>1?` ×${a.qty}`:''} · <bdi>SAR ${a.lineTotal}</bdi></span>`).join('')}
-      ${canEdit?`<button type="button" onclick="event.stopPropagation();showAddonPicker('${e.id}')" title="${t('addonEditTitle')}" style="background:var(--s1);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:10px;font-weight:800;padding:5px 9px;border-radius:2px;cursor:pointer;line-height:1.4;min-height:24px">+ ${t('addonAddBtn')}</button>`:''}
+      ${canEdit?`<button type="button" onclick="event.stopPropagation();showAddonPicker(${_ja(e.id)})" title="${t('addonEditTitle')}" style="background:var(--s1);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:10px;font-weight:800;padding:5px 9px;border-radius:2px;cursor:pointer;line-height:1.4;min-height:24px">+ ${t('addonAddBtn')}</button>`:''}
     </div>`;
   };
   function _commQueueView(){
@@ -12057,7 +12144,7 @@ function renderQRow(e){
     const rowCls=e.status==='active'?'row-active':(e.status==='noshow'||e.status==='cancelled')?'row-noshow-cancel':(e.status==='done'&&e.paid)?'row-done-paid':(e.status==='done')?'row-done':_isReserved(e)?'row-reserved':_isToReserve(e)?'row-toreserve':'';
     const wiTag=e.walkIn?`<span class="walk-in-badge">${t('addWalkin').replace(/^\+ /,'')}</span>`:'';
     const allColors=assignedBikes.flatMap(b=>b.colors&&b.colors.length?b.colors:[]);
-    const colorSwatches=allColors.length?allColors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join(''):'<span style="color:var(--muted)">—</span>';
+    const colorSwatches=allColors.length?allColors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${esc(c)};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join(''):'<span style="color:var(--muted)">—</span>';
     const lp=livePosMap[e.id];
     const totalW=sessWaitCount[e.sessionId]||0;
     const posCell=e.status==='waiting'&&lp
@@ -12077,7 +12164,7 @@ function renderQRow(e){
       ${_memberCell(e)}
       ${_qc.bike?_qHeightCell(e):''}
       ${_qc.bike?`<td class="q-type-cell">${typeBadge(resolvedType(e))}</td>`:''}
-      ${S.sfSession==='all'?`<td class="hide-mobile">${dayLabel(e.sessionDay)||''} ${shortDate(e.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
+      ${S.sfSession==='all'?`<td class="hide-mobile">${esc(dayLabel(e.sessionDay)||'')} ${esc(shortDate(e.sessionDate))}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
       ${_qc.bike?`<td>${assignedBikes.length>0
         ?assignedBikes.map((b,i)=>`<div style="display:flex;align-items:center;gap:5px;${i>0?'margin-top:3px':''}">
             <span style="font-size:9px;font-weight:900;color:var(--muted);min-width:12px">${i+1}.</span>
@@ -12087,7 +12174,7 @@ function renderQRow(e){
       ${_qc.money?`<td style="font-weight:800;white-space:nowrap">${_freeSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:(()=>{const _p=e.price??DEFAULT_PRICE,_a=addonsCost(entryAddons(e));return _a>0?`SAR ${Math.round((_p+_a)*100)/100}<div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${t('reviewRentalLabel')} ${_p} + ${t('addonsLabel')} ${_a}</div>`:`SAR ${_p}`;})()}</td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-          ${_freeSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
+          ${_freeSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu(${_ja(e.id)},event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
         </div>
       </td>`:''}
       <td>${statusCellHtml(e)}</td>
@@ -12131,7 +12218,7 @@ function renderQRow(e){
     const _open=_partyIsOpen(_pk)||_apprSessIds.has(primary.sessionId); // approvals are per rider: those parties never fold
     const priceSpan=_freeSessIds.has(primary.sessionId)?`<span style="color:var(--muted)">—</span>`:`<span style="font-weight:800;white-space:nowrap">SAR ${totalPrice}</span>
       ${adTotal>0?`<div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${t('addonsLabel')}: SAR ${adTotal}</div>`:''}
-      <div style="font-size:11px;font-weight:700;margin-top:3px;color:${remaining>0?'var(--orange)':'var(--green)'}">${paidCount}/${activeGroup.length} ${t('paidLabel')}${houseAmt>0?` · ${houseAmt} `:''} · ${remaining>0?`SAR ${remaining} ${t('dueWord')}`:`✓ ${t('settledLabel')}`}</div>`;
+      <div style="font-size:11px;font-weight:700;margin-top:3px;color:${remaining>0?'var(--orange)':'var(--green)'}">${paidCount}/${activeGroup.length} ${t('paidLabel')}${houseAmt>0?` · ${houseAmt} ${t('onTheHouseLabel')}`:''} · ${remaining>0?`SAR ${remaining} ${t('dueWord')}`:`✓ ${t('settledLabel')}`}</div>`;
 
     if(!_open){
       // One row for the whole party: the holder, the shape of the party, the money, the
@@ -12154,17 +12241,17 @@ function renderQRow(e){
         <td style="vertical-align:middle">
           <div class="rider-name">${esc(primary.name)}${noShowFlag(primary)} ${_noShowChip(primary)}</div>
           <div class="rider-sub">${_partyCountsLine(group)}</div>
-          <button type="button" class="party-toggle" aria-expanded="false" onclick="_togglePartyOpen('${_pk}')">${t('partyShowRiders')} ▾</button>
+          <button type="button" class="party-toggle" aria-expanded="false" onclick="_togglePartyOpen(${_ja(_pk)})">${t('partyShowRiders')} ▾</button>
         </td>
         ${_memberCell(primary,' style="vertical-align:middle"')}
         ${_qc.bike?`<td style="vertical-align:middle"><div style="display:flex;gap:4px;flex-wrap:wrap">${types.map(ty=>typeBadge(ty)).join('')}</div></td>`:''}
-        ${S.sfSession==='all'?`<td class="hide-mobile" style="vertical-align:middle">${dayLabel(primary.sessionDay)||''} ${shortDate(primary.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
+        ${S.sfSession==='all'?`<td class="hide-mobile" style="vertical-align:middle">${esc(dayLabel(primary.sessionDay)||'')} ${esc(shortDate(primary.sessionDate))}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
         ${_qc.bike?`<td style="vertical-align:middle">${bikesHeld.length?bikesHeld.map(b=>`<span style="font-weight:700;font-size:13px">${esc(b)}</span>`).join('<br>'):'<span style="color:var(--muted)">—</span>'}</td>`:''}
-        ${_qc.money?`<td style="vertical-align:middle">${priceSpan}${(!_freeSessIds.has(primary.sessionId)&&remaining>0)?`<button class="btn-sm btn-green" style="margin-top:6px;white-space:nowrap;font-size:11px;padding:4px 9px" onclick="groupMarkPaid('${primary.id}')">✓ ${t('bulkPaidBtn')}</button>`:''}</td>`:''}
+        ${_qc.money?`<td style="vertical-align:middle">${priceSpan}${(!_freeSessIds.has(primary.sessionId)&&remaining>0)?`<button class="btn-sm btn-green" style="margin-top:6px;white-space:nowrap;font-size:11px;padding:4px 9px" onclick="groupMarkPaid(${_ja(primary.id)})">✓ ${t('bulkPaidBtn')}</button>`:''}</td>`:''}
         ${_qc.money?`<td style="vertical-align:middle;font-size:12px;font-weight:700;white-space:nowrap">${_freeSessIds.has(primary.sessionId)?'<span style="color:var(--muted)">—</span>':`${paidCount}/${activeGroup.length} ${t('paidLabel')}`}</td>`:''}
         <td style="vertical-align:middle;font-size:12px;font-weight:700">${group.some(e=>e.status==='active')?statusBadge('active'):group.some(_isReserved)?`<span class="status-badge badge-reserved">${t('statusReserved')}</span>`:group.some(e=>e.status==='waiting'||e.status==='waitlist')?statusBadge(group.some(e=>e.status==='waiting')?'waiting':'waitlist'):statusBadgeFor(primary)}</td>
         <td style="vertical-align:middle">${_contactCell(primary.groupPhone||primary.phone,primary)}</td>
-        <td style="vertical-align:middle"><div class="actions-cell">${_ciN>0?`<button class="btn-sm btn-green" style="white-space:nowrap" onclick="groupCheckin('${primary.id}')">${t('bulkCheckinBtn')} (${_ciN})</button>`:''}${_partyReturnBtn(group)}${partyMenu}</div></td>
+        <td style="vertical-align:middle"><div class="actions-cell">${_ciN>0?`<button class="btn-sm btn-green" style="white-space:nowrap" onclick="groupCheckin(${_ja(primary.id)})">${t('bulkCheckinBtn')} (${_ciN})</button>`:''}${_partyReturnBtn(group)}${partyMenu}</div></td>
       </tr>`;
     }
     return group.map((e,i)=>{
@@ -12174,7 +12261,7 @@ function renderQRow(e){
       const assignedBikes=getAssignedBikes(e);
       const allColors=assignedBikes.flatMap(b=>b.colors&&b.colors.length?b.colors:[]);
       const colorSwatches=allColors.length
-        ?allColors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('')
+        ?allColors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${esc(c)};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join('')
         :'<span style="color:var(--muted)">—</span>';
       const bikeNames=assignedBikes.length
         ?assignedBikes.map(b=>`<span style="font-weight:700;font-size:13px">${esc(b.name)}</span>`).join('<br>')
@@ -12197,9 +12284,9 @@ function renderQRow(e){
             ${_bookedAt(_bookedAtOf(group))}
             ${primary.status==='waiting'&&lp?`<div style="margin-top:4px">${posCell}</div>`:''}
             <div style="font-size:10px;color:var(--green);font-weight:800;margin-top:3px">${n} ${t('bike')||'Bikes'}</div>
-            ${(n>1&&_ciN>0)?`<button class="btn-sm btn-green" style="margin-top:4px;white-space:nowrap" onclick="groupCheckin('${primary.id}')">${t('bulkCheckinBtn')} (${_ciN})</button>`:''}
+            ${(n>1&&_ciN>0)?`<button class="btn-sm btn-green" style="margin-top:4px;white-space:nowrap" onclick="groupCheckin(${_ja(primary.id)})">${t('bulkCheckinBtn')} (${_ciN})</button>`:''}
             ${n>1?`<div style="margin-top:4px">${_partyReturnBtn(group)}</div>`:''}
-            ${(n>1&&!S._partyExpandAll)?`<button type="button" class="party-toggle" aria-expanded="true" onclick="_togglePartyOpen('${_pk}')">${t('partyHideRiders')} ▴</button>`:''}
+            ${(n>1&&!S._partyExpandAll)?`<button type="button" class="party-toggle" aria-expanded="true" onclick="_togglePartyOpen(${_ja(_pk)})">${t('partyHideRiders')} ▴</button>`:''}
             ${primary.groupName?`<div style="font-size:10px;font-weight:900;color:var(--green);margin-top:2px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(primary.groupName)}">${esc(primary.groupName)}</div>`:''}
             ${(primary.groupContact||primary.groupPhone)?`${primary.groupContact?`<div style="font-size:10px;color:var(--muted);font-weight:700;margin-top:3px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(primary.groupContact)}">${esc(primary.groupContact)}</div>`:''}${primary.groupPhone||entryPhone(primary)?`<div style="margin-top:3px">${_contactCell(primary.groupPhone||entryPhone(primary),primary)}</div>`:''}`:''}
           </td>
@@ -12207,12 +12294,12 @@ function renderQRow(e){
           ${_memberCell(e,' style="vertical-align:middle"')}
           ${_qc.bike?heightCell:''}
           ${_qc.bike?`<td class="q-type-cell" style="vertical-align:middle">${typeBadge(resolvedType(e))}</td>`:''}
-          ${S.sfSession==='all'?`<td class="hide-mobile" rowspan="${n}" style="vertical-align:middle">${dayLabel(primary.sessionDay)||''} ${shortDate(primary.sessionDate)}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
+          ${S.sfSession==='all'?`<td class="hide-mobile" rowspan="${n}" style="vertical-align:middle">${esc(dayLabel(primary.sessionDay)||'')} ${esc(shortDate(primary.sessionDate))}</td>`:'<td class="hide-mobile" style="display:none"></td>'}
           ${_qc.bike?`<td style="vertical-align:middle"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${bikeNames}${allColors.length?colorSwatches:''}</div></td>`:''}
-          ${_qc.money?`<td rowspan="${n}" style="vertical-align:middle">${priceSpan}${(!_freeSessIds.has(primary.sessionId)&&remaining>0)?`<button class="btn-sm btn-green" style="margin-top:6px;white-space:nowrap;font-size:11px;padding:4px 9px" onclick="groupMarkPaid('${primary.id}')">✓ ${t('bulkPaidBtn')}</button>`:''}</td>`:''}
+          ${_qc.money?`<td rowspan="${n}" style="vertical-align:middle">${priceSpan}${(!_freeSessIds.has(primary.sessionId)&&remaining>0)?`<button class="btn-sm btn-green" style="margin-top:6px;white-space:nowrap;font-size:11px;padding:4px 9px" onclick="groupMarkPaid(${_ja(primary.id)})">✓ ${t('bulkPaidBtn')}</button>`:''}</td>`:''}
           ${_qc.money?`<td style="vertical-align:middle" onclick="event.stopPropagation()">
             <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-              ${_freeSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
+              ${_freeSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu(${_ja(e.id)},event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
             </div>
           </td>`:''}
           <td style="vertical-align:middle">${statusCellHtml(e)}</td>
@@ -12229,7 +12316,7 @@ function renderQRow(e){
           ${_qc.bike?`<td style="vertical-align:middle"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${bikeNames}${allColors.length?colorSwatches:''}</div></td>`:''}
           ${_qc.money?`<td style="vertical-align:middle" onclick="event.stopPropagation()">
             <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-              ${_freeSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
+              ${_freeSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu(${_ja(e.id)},event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
             </div>
           </td>`:''}
           <td style="vertical-align:middle">${statusCellHtml(e)}</td>
@@ -12250,14 +12337,14 @@ function renderQRow(e){
     const groupCls=group.some(e=>e.status==='active')?'row-active':group.every(e=>['noshow','cancelled'].includes(e.status))?'row-noshow-cancel':group.every(e=>['done','noshow','cancelled'].includes(e.status))&&group.some(e=>e.status==='done'&&e.paid)?'row-done-paid':group.every(e=>['done','noshow','cancelled'].includes(e.status))?'row-done':'';
     const lp=livePosMap[primary.id];const totalW=sessWaitCount[primary.sessionId]||0;
     const posTag=primary.status==='waiting'&&lp?`<span class="pos-badge" style="font-size:11px;padding:2px 7px">${lp}/${totalW}</span>`:'';
-    const sessLabel=S.sfSession==='all'?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:6px">${dayLabel(primary.sessionDay)||''} &middot; ${shortDate(primary.sessionDate)}</div>`:'';
+    const sessLabel=S.sfSession==='all'?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:6px">${esc(dayLabel(primary.sessionDay)||'')} &middot; ${esc(shortDate(primary.sessionDate))}</div>`:'';
     const riderRows=group.map((e,i)=>{
       const assignedBikes=getAssignedBikes(e);
       const bikeInfo=assignedBikes.length?assignedBikes.map(b=>b.name).join(', '):'';
       const isHouse=e.paid&&(e.price??DEFAULT_PRICE)===0;
       // Same tappable payment control the desktop table has: shows the state, opens the
       // Pending / Paid (cash·card·split) / On-the-house menu.
-      const payBtn=_freeSessIds.has(e.sessionId)?'':`<button class="pay-toggle ${isHouse?'house':e.paid?'paid':'pending'}" style="font-size:10px;padding:5px 9px;min-height:26px" onclick="event.stopPropagation();showPayMenu('${e.id}',event)">${isHouse?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`;
+      const payBtn=_freeSessIds.has(e.sessionId)?'':`<button class="pay-toggle ${isHouse?'house':e.paid?'paid':'pending'}" style="font-size:10px;padding:5px 9px;min-height:26px" onclick="event.stopPropagation();showPayMenu(${_ja(e.id)},event)">${isHouse?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`;
       const indent=n>1?'padding-inline-start:22px':'';
       return`<div style="padding:6px 0;${i>0?'border-top:1px solid rgba(var(--tint-rgb),.05)':''}">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -12269,7 +12356,7 @@ function renderQRow(e){
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${e.phone?_contactCell(e.phone,e):''}<span style="text-align:end">${statusCellHtml(e)}</span>${payBtn}</div>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px;${indent}">
-          ${typeLabel(e.typePreference)}${bikeInfo?` &middot; <span style="color:var(--muted-l)">${esc(bikeInfo)}</span>`:''}${_freeSessIds.has(e.sessionId)?'':` &middot; <bdi style="font-weight:800;color:var(--text)">SAR ${e.price??DEFAULT_PRICE}</bdi>`}
+          ${esc(typeLabel(e.typePreference))}${bikeInfo?` &middot; <span style="color:var(--muted-l)">${esc(bikeInfo)}</span>`:''}${_freeSessIds.has(e.sessionId)?'':` &middot; <bdi style="font-weight:800;color:var(--text)">SAR ${e.price??DEFAULT_PRICE}</bdi>`}
         </div>
       </div>`;
     }).join('');
@@ -12296,10 +12383,10 @@ function renderQRow(e){
         </div>
         ${_freeSessIds.has(primary.sessionId)?'':`<div style="font-size:12px;font-weight:700;margin-top:6px;display:flex;justify-content:space-between;gap:8px"><span><bdi>${_fmtSar(pm.total)}</bdi> · ${pm.paidCount}/${pm.count} ${t('paidLabel')}</span><span style="color:${pm.due>0?'var(--orange)':'var(--green)'}">${pm.due>0?`<bdi>${_fmtSar(pm.due)}</bdi> ${t('dueWord')}`:`✓ ${t('settledLabel')}`}</span></div>`}
         <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
-          ${(()=>{const _ciN=_partyCheckinRows(group).length;return _ciN?`<button class="btn-sm btn-green" onclick="groupCheckin('${primary.id}')">${t('bulkCheckinBtn')} (${_ciN})</button>`:'';})()}
+          ${(()=>{const _ciN=_partyCheckinRows(group).length;return _ciN?`<button class="btn-sm btn-green" onclick="groupCheckin(${_ja(primary.id)})">${t('bulkCheckinBtn')} (${_ciN})</button>`:'';})()}
           ${_partyReturnBtn(group)}
-          ${(!_freeSessIds.has(primary.sessionId)&&pm.due>0)?`<button class="btn-sm btn-green" onclick="groupMarkPaid('${primary.id}')">✓ ${t('bulkPaidBtn')}</button>`:''}
-          <button type="button" class="btn-sm btn-muted" aria-expanded="false" onclick="_togglePartyOpen('${_pk}')">${t('partyShowRiders')} ▾</button>
+          ${(!_freeSessIds.has(primary.sessionId)&&pm.due>0)?`<button class="btn-sm btn-green" onclick="groupMarkPaid(${_ja(primary.id)})">✓ ${t('bulkPaidBtn')}</button>`:''}
+          <button type="button" class="btn-sm btn-muted" aria-expanded="false" onclick="_togglePartyOpen(${_ja(_pk)})">${t('partyShowRiders')} ▾</button>
           ${_rowMenu('partycard:'+primary.id,[{label:t('menuBookingNum'),run:`showEditQNumModal('${primary.id}')`,act:()=>showEditQNumModal(primary.id)},{label:t('menuPartyDetails'),run:`showGroupEditModal('${primary.id}')`,act:()=>showGroupEditModal(primary.id)},..._partyMenuExtra(group)])}
         </div>
       </div>`;
@@ -12311,10 +12398,10 @@ function renderQRow(e){
         ${n>1?`<span style="font-size:10px;color:var(--green);font-weight:800">${n} ${t('bike')||'Bikes'}</span>`:''}
         ${primary.groupName?`<span style="font-size:10px;font-weight:900;color:var(--green);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(primary.groupName)}">${esc(primary.groupName)}</span>`:''}
         ${posTag}
-        ${(()=>{const _ciN=n>1?_partyCheckinRows(group).length:0;return _ciN?`<button class="btn-sm btn-green" style="font-size:10px;padding:4px 8px" onclick="groupCheckin('${primary.id}')">${t('bulkCheckinBtn')} (${_ciN})</button>`:'';})()}
+        ${(()=>{const _ciN=n>1?_partyCheckinRows(group).length:0;return _ciN?`<button class="btn-sm btn-green" style="font-size:10px;padding:4px 8px" onclick="groupCheckin(${_ja(primary.id)})">${t('bulkCheckinBtn')} (${_ciN})</button>`:'';})()}
         ${n>1?_partyReturnBtn(group,true):''}
-        ${(n>1&&!S._partyExpandAll)?`<button type="button" class="party-toggle" aria-expanded="true" onclick="_togglePartyOpen('${_pk}')">${t('partyHideRiders')} ▴</button>`:''}
-        ${(n>1&&!_freeSessIds.has(primary.sessionId)&&group.some(e=>!e.paid&&!['cancelled','noshow'].includes(e.status)))?`<button class="btn-sm btn-green" style="font-size:10px;padding:4px 8px" onclick="groupMarkPaid('${primary.id}')">✓ ${t('bulkPaidBtn')}</button>`:''}
+        ${(n>1&&!S._partyExpandAll)?`<button type="button" class="party-toggle" aria-expanded="true" onclick="_togglePartyOpen(${_ja(_pk)})">${t('partyHideRiders')} ▴</button>`:''}
+        ${(n>1&&!_freeSessIds.has(primary.sessionId)&&group.some(e=>!e.paid&&!['cancelled','noshow'].includes(e.status)))?`<button class="btn-sm btn-green" style="font-size:10px;padding:4px 8px" onclick="groupMarkPaid(${_ja(primary.id)})">✓ ${t('bulkPaidBtn')}</button>`:''}
       </div>
       ${sessLabel}
       <div>${riderRows}</div>
@@ -12326,7 +12413,7 @@ function renderQRow(e){
           return`<div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(var(--tint-rgb),.06)">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
               <span style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${n>1?esc(e.name)+' · ':''}${t('addonsLabel')}</span>
-              ${canEdit?`<button type="button" onclick="event.stopPropagation();showAddonPicker('${e.id}')" style="background:var(--s1);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:11px;font-weight:800;padding:6px 10px;min-height:24px;border-radius:3px;cursor:pointer">+ ${t('addonAddBtn')}</button>`:''}
+              ${canEdit?`<button type="button" onclick="event.stopPropagation();showAddonPicker(${_ja(e.id)})" style="background:var(--s1);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:11px;font-weight:800;padding:6px 10px;min-height:24px;border-radius:3px;cursor:pointer">+ ${t('addonAddBtn')}</button>`:''}
             </div>
             ${ad.map(a=>`<div style="display:flex;align-items:center;gap:7px;margin-top:5px;font-size:12px"><span style="flex:1;min-width:0;font-weight:700">${esc(a.name)}${a.qty>1?` ×${a.qty}`:''}</span><bdi style="font-weight:800">SAR ${a.lineTotal}</bdi></div>`).join('')}
           </div>`;
@@ -12392,9 +12479,18 @@ function renderQRow(e){
   // nothing on the screen gave the staffer a reason to suspect a roster was incomplete.
   // The cap stays on the ALL-sessions view, which spans every ride ever run.
   if(S.sfStatus==='active'&&S.sfOverdueFirst)filtered=filtered.slice().sort((a,b)=>(_activeMinutes(b)||0)-(_activeMinutes(a)||0));
-  const _qShown=filtered.slice(0,S.sfSession!=='all'?Infinity:(S.sfLimit||150));
+  // The ALL view is capped, and the cap has to keep the nights it SHOWS first: the rows were
+  // sliced in session-id order (oldest night first), so the 150 on screen were a year-old
+  // night's and tonight's riders sat behind "Show more". Rank by the staff session order
+  // (live nights first, soonest at the top), keeping the chosen sort within each night.
+  const orderedSessions=[...allSessions()].sort(_sessOrder);
+  let _qShown;
   if(S.sfSession==='all'){
-    const orderedSessions=[...allSessions()].sort(_sessOrder);
+    const _rank=new Map(orderedSessions.map((x,i)=>[x.id,i]));
+    const _rk=e=>_rank.has(e.sessionId)?_rank.get(e.sessionId):Infinity;
+    _qShown=filtered.map((e,i)=>({e,i})).sort((a,b)=>(_rk(a.e)-_rk(b.e))||(a.i-b.i)).map(x=>x.e).slice(0,S.sfLimit||150);
+  }else _qShown=filtered;
+  if(S.sfSession==='all'){
     rows=orderedSessions.map(sess=>{
       const sessFiltered=_qShown.filter(e=>e.sessionId===sess.id);
       if(!sessFiltered.length)return'';
@@ -12402,12 +12498,12 @@ function renderQRow(e){
       const nA=sessFiltered.filter(e=>e.status==='active').length;
       const nD=sessFiltered.filter(e=>e.status==='done').length;
       const hdr=`<tr class="sess-group-hdr"><td colspan="14">
-        ${dayLabel(sess.day)} &nbsp;${shortDate(sess.session_date||sess.id)} &nbsp;&middot;&nbsp; ${sessionTime(sess)}
+        ${esc(dayLabel(sess.day))} &nbsp;${esc(shortDate(sess.session_date||sess.id))} &nbsp;&middot;&nbsp; ${esc(sessionTime(sess))}
         &nbsp;&nbsp;
         <span style="color:var(--green)">${nW} ${t('waitingStat').toLowerCase()}</span>
         ${nA?` &middot; <span style="color:var(--text)">${nA} ${t('onBikeStat').toLowerCase()}</span>`:''}
         ${nD?` &middot; <span style="color:var(--muted)">${nD} ${t('doneStat').toLowerCase()}</span>`:''}
-        &nbsp;<span class="badge-${sess.status}" style="margin-left:8px">${{open:t('statusOpen'),closed:t('statusClosed'),full:t('statusFull')}[sess.status]||sess.status}</span>
+        &nbsp;<span class="badge-${esc(sess.status)}" style="margin-left:8px">${{open:t('statusOpen'),closed:t('statusClosed'),full:t('statusFull')}[sess.status]||esc(sess.status)}</span>
       </td></tr>`;
       return hdr+buildQueueGroups(sessFiltered).map(g=>renderGroupRow(g)).join('');
     }).join('');
@@ -12416,7 +12512,7 @@ function renderQRow(e){
     mobileCards=orderedSessions.map(sess=>{
       const sessFiltered=_qShown.filter(e=>e.sessionId===sess.id);
       if(!sessFiltered.length)return'';
-      const hdr=`<div style="font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:6px 0 4px;border-bottom:1px solid rgba(var(--tint-rgb),.06);margin-bottom:8px">${dayLabel(sess.day)} &middot; ${shortDate(sess.session_date||sess.id)} &middot; ${sessionTime(sess)}</div>`;
+      const hdr=`<div style="font-size:10px;font-weight:900;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;padding:6px 0 4px;border-bottom:1px solid rgba(var(--tint-rgb),.06);margin-bottom:8px">${esc(dayLabel(sess.day))} &middot; ${esc(shortDate(sess.session_date||sess.id))} &middot; ${esc(sessionTime(sess))}</div>`;
       return hdr+buildQueueGroups(sessFiltered).map(g=>renderGroupCard(g)).join('');
     }).join('');
     if(!filtered.length)mobileCards=`<div style="padding:8px">${emptyIllustration(ILLUS_PEOPLE,t('noHistory'))}</div>`;
@@ -12464,7 +12560,9 @@ function renderQRow(e){
     return`<div class="stat-strip">
       ${_statChip(total,t('statNumRiders'),null,null,_dlt(total,()=>true),_prevWk&&_prevWk.tip)}${_statChip(nWait,t('statExpected'),'var(--green)')}${nWaitlisted?_statChip(nWaitlisted,t('waitlistLabel'),'var(--orange)',"setSfStatus('waitlist')"):''}${_statChip(nBike,t('onBikeStat'),'var(--green)')}${_statChip(nDonePaid,t('statCompleted'),'var(--green)',null,_dlt(nDonePaid,e=>e.status==='done'&&e.paid),_prevWk&&_prevWk.tip)}${(()=>{ // who to catch BEFORE the ride rolls out, not in History afterwards
         if(!_qc.money)return'';
-        const due=Math.round(base.filter(e=>['waiting','active','done'].includes(e.status)&&!e.paid)
+        // Live nights only on the All view, like Expected and On Bike: a year of old unpaid rows
+        // is not who to catch before tonight's ride rolls out.
+        const due=Math.round(base.filter(e=>['waiting','active','done'].includes(e.status)&&!e.paid&&_isLive(e))
           .reduce((sum,e)=>sum+(e.price??DEFAULT_PRICE)+addonsCost(entryAddons(e)),0)*100)/100;
         return due>0?_statChip(due,t('statSarDue'),'var(--orange)',"setSfPay('pending')"):'';
       })()}
@@ -12484,10 +12582,10 @@ function renderQRow(e){
       return`<div style="margin-bottom:14px">
         ${recent.map(c=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;margin-bottom:6px;background:rgba(var(--red-rgb),.07);border:1px solid rgba(var(--red-rgb),.2);border-radius:4px;font-size:12px">
           <span style="font-weight:800;color:var(--red)">${t('filterCancelled')}</span>
-          <span style="font-weight:700">#${c.queueNum} ${esc(c.name)}</span>
-          <span style="color:var(--muted)">${c.session}</span>
+          <span style="font-weight:700">#${esc(c.queueNum)} ${esc(c.name)}</span>
+          <span style="color:var(--muted)">${esc(c.session)}</span>
           ${c.reason?`<span style="margin-left:auto;background:rgba(var(--tint-rgb),.07);padding:2px 8px;border-radius:2px;color:var(--muted-l);font-size:11px">${esc(c.reason)}</span>`:''}
-          <button onclick="S.cancellationLog=S.cancellationLog.filter(x=>x.entryId!=='${c.entryId}');try{localStorage.setItem('cq_cancellations',JSON.stringify(S.cancellationLog));}catch(e){}renderStaffQueue()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0;margin-left:auto;flex-shrink:0">&#x2715;</button>
+          <button onclick="S.cancellationLog=S.cancellationLog.filter(x=>x.entryId!==${_ja(c.entryId)});try{localStorage.setItem('cq_cancellations',JSON.stringify(S.cancellationLog));}catch(e){}renderStaffQueue()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;line-height:1;padding:0;margin-left:auto;flex-shrink:0">&#x2715;</button>
         </div>`).join('')}
       </div>`;
     })()}
@@ -14241,7 +14339,7 @@ async function doUndoCheckin(id){
 // Return all, Undo check-in and No-show act on every rider of the party they apply to: the
 // riders on a bike, and the riders still waiting. Each asks first, with the names, and one
 // Undo takes the whole party back.
-function _idsArg(ids){return '['+ids.map(id=>`'${esc(String(id).replace(/'/g,''))}'`).join(',')+']';}
+function _idsArg(ids){return '['+ids.map(_ja).join(',')+']';} // each id encoded for the inline handler, like every other argument
 function _liveOf(ids,st){return(ids||[]).map(id=>getQueue().find(e=>e.id===id)).filter(e=>e&&e.status===st);}
 function _partyReturnBtn(group,small){
   const ids=group.filter(e=>e.status==='active').map(e=>e.id);

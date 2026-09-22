@@ -367,7 +367,10 @@ test.describe('staff side', () => {
     expect(gate.ride_kind).toBe('saturday');
     expect(gate.paid_ride).toBe(false);
     expect(gate.needs_approval).toBe(true);
-    expect(gate.title).toBe('Saturday Social Ride');
+    // Not named by staff, so no title is stored: each reader sees the default name in their
+    // own language (_evName), never the staffer's.
+    expect(gate.title).toBeNull();
+    expect(await page.evaluate(`_evName({event_kind:'community',ride_kind:'saturday',title:null})`)).toBe('Saturday Social Ride');
   });
 });
 

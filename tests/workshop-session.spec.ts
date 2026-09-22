@@ -185,7 +185,10 @@ test('creating one stamps the kind, lifts the gate, and keeps the approval shape
   expect(gate.needs_approval).toBe(true);
   expect(gate.hide_queue).toBe(true);
   expect(gate.spots).toBe(30);
-  expect(gate.title).toBe('T100 Triathlon Prep');
+  // The name field was left at its prefilled default, so no title is stored and every reader
+  // sees the default in their own language.
+  expect(gate.title).toBeNull();
+  expect(await page.evaluate(`_evName({event_kind:'community',ride_kind:'workshop',title:null})`)).toBe('T100 Triathlon Prep');
 });
 
 test('editing one keeps it open, and does not turn it into a Saturday ride', async ({ page }) => {

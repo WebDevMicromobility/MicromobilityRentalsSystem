@@ -75,17 +75,54 @@ test('refuses while the rider is on a live booking', async ({ page }) => {
   await expect(page.locator('#confirm-modal')).toBeHidden();
 });
 
-test('offers an undo that puts the account and its links back', async ({ page }) => {
+// There is no Undo: the staff list does not hold the password, the photo or the correction
+// history, so the row it used to re-insert was an account its rider could not sign in to.
+test('offers no undo, and the dialog says so', async ({ page }) => {
   await openEditor(page, [booking('b1', 'c1', 'done')]);
   await page.getByRole('button', { name: /Delete account/i }).click();
+  await expect(page.locator('#confirm-modal .confirm-box')).toBeVisible();
+  await expect(page.locator('#confirm-modal .confirm-box')).not.toContainText(/undone from the bar/i);
   await page.locator('#confirm-modal').getByRole('button', { name: /Delete account/i }).click();
-  await expect(page.locator('#undo-bar-btn')).toBeVisible();
+  await expect(page.locator('.toast').last()).toContainText(/deleted/i);
+  await page.waitForTimeout(300);
+  await expect(page.locator('#undo-bar-btn')).toHaveCount(0);
+});
 
+// A refused delete must not leave the rider half-deleted: their bookings get their link back,
+// and the tags are still there, because tags go only once the account row itself is gone.
+test('a refused delete gives the bookings their link back and keeps the tags', async ({ page }) => {
+  await stubSupabase(page, { sessions, customers, bikes: [], queue_entries: [booking('b1', 'c1', 'done')],
+    customer_tags: [{ customer_id: 'c1', tag_id: 't1', added_at: 1 }], tags: [{ id: 't1', name: 'Member' }] },
+  { table: 'customers', methods: ['DELETE'] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction(`getQueue().length>0`);
+  await page.evaluate(`showEditCustomerModal('c1')`);
   const calls = watchWrites(page);
-  await page.locator('#undo-bar-btn').click();
-  await expect.poll(() => calls.some((c) => c.table === 'customers' && c.method === 'POST')).toBe(true);
-  // the re-link is a second, later write — poll for it rather than racing it
+  await page.getByRole('button', { name: /Delete account/i }).click();
+  await page.locator('#confirm-modal').getByRole('button', { name: /Delete account/i }).click();
   await expect.poll(() => calls.some((c) => c.table === 'queue_entries' && /"customer_id":"c1"/.test(c.body))).toBe(true);
+  const unlink = calls.findIndex((c) => c.table === 'queue_entries' && /"customer_id":null/.test(c.body));
+  const del = calls.findIndex((c) => c.table === 'customers' && c.method === 'DELETE');
+  const relink = calls.findIndex((c) => c.table === 'queue_entries' && /"customer_id":"c1"/.test(c.body));
+  expect(unlink).toBeLessThan(del);
+  expect(del).toBeLessThan(relink);
+  expect(calls.some((c) => c.table === 'customer_tags' && c.method === 'DELETE')).toBe(false);
+  expect(calls.some((c) => c.table === 'push_subscriptions' && c.method === 'DELETE')).toBe(false);
+});
+
+// The unlink covers every booking on the server, not only the months this device has loaded:
+// an account whose rides are all older than the window used to skip it and hit the key.
+test('the unlink runs even when no booking of the account is loaded', async ({ page }) => {
+  await openEditor(page, [booking('b9', 'c2', 'done')]);
+  const calls = watchWrites(page);
+  await page.getByRole('button', { name: /Delete account/i }).click();
+  await page.locator('#confirm-modal').getByRole('button', { name: /Delete account/i }).click();
+  await expect.poll(() => calls.some((c) => c.table === 'customers' && c.method === 'DELETE')).toBe(true);
+  const unlink = calls.findIndex((c) => c.table === 'queue_entries' && c.method === 'PATCH' && /"customer_id":null/.test(c.body));
+  expect(unlink).toBeGreaterThanOrEqual(0);
+  expect(unlink).toBeLessThan(calls.findIndex((c) => c.table === 'customers' && c.method === 'DELETE'));
 });
 
 test('Front Desk never sees the button', async ({ page }) => {
