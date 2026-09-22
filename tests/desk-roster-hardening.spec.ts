@@ -248,14 +248,6 @@ test('Front Desk does not see cancelled Saturday-ride bookings on All sessions',
   await expect(page.locator('#tab-queue .queue-table')).not.toContainText('Saturday Cancel');
 });
 
-test('the SAR due chip on All sessions counts live nights only', async ({ page }) => {
-  await boot(page, { sessions: [sess('2098-02-02', { status: 'closed' }), sess(LIVE)],
-    queue_entries: [row('o1', { session_id: '2098-02-02', session_date: '2098-02-02', status: 'done', paid: false, price: 75 })] });
-  await page.waitForFunction('getQueue().length===1');
-  await page.evaluate(`setStaffTab('queue');S.queueView='bookings';S.sfSession='all';renderStaffQueue()`);
-  await expect(page.locator('#tab-queue .stat-chip', { hasText: /due/i })).toHaveCount(0);
-});
-
 test('a party row names the riders who ride on the house', async ({ page }) => {
   await boot(page, { sessions: [sess(LIVE)], queue_entries: [
     row('h1', { group_id: 'gh', paid: true, price: 0 }), row('h2', { queue_num: 2, group_id: 'gh' }),

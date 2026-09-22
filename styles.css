@@ -3796,9 +3796,6 @@
   .filter-row{flex-wrap:wrap;overflow:visible;}
   .filter-row select.filter-select{flex:1 1 55%;min-width:0 !important;}
   .filter-row .search-wrap{flex:1 1 60%;min-width:0;margin-left:0 !important;}
-  /* the search box already takes the whole row, so Scan ticket gets its own full-width bar
-     under it — the busiest action of the night, and a thumb-sized target for it */
-  body.view-staff .filter-row .scan-inline{flex:1 1 auto;justify-content:center;min-height:42px;margin-left:0 !important;}
 }
 /* the roster's action buttons keep their natural width; stretching them made the last column 258px */
 .queue-table .actions-cell{flex-wrap:nowrap;}
@@ -4734,3 +4731,74 @@ body.view-staff th.th-sort:focus-visible{outline:2px solid var(--sf-green-ink,va
 body.view-staff th.th-sort[aria-sort="ascending"]::after{content:" ↑";}
 body.view-staff th.th-sort[aria-sort="descending"]::after{content:" ↓";}
 body.view-staff th.th-sort[aria-sort="ascending"],body.view-staff th.th-sort[aria-sort="descending"]{color:var(--sf-green-ink,var(--green));}
+
+/* ── Walk-in and Scan float on a phone ──
+   The night's two busiest actions sit above the roster instead of riding away with the header and
+   the filter bar: icons only (a walker, a ticket), a thumb apart, bottom corner. Neither shows on
+   a desktop, where both buttons are on the page already, nor over any modal. */
+.fab-row{display:none;}
+@media (max-width:767px){
+  body.view-staff .fab-row{
+    position:fixed;inset-inline-end:14px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:320;
+    display:flex;gap:12px;align-items:center;
+  }
+  body.view-staff .fab-btn{
+    display:inline-flex;align-items:center;justify-content:center;width:58px;height:58px;padding:0;
+    border:none;border-radius:50%;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.35);
+  }
+  body.view-staff .fab-btn:active{transform:scale(.95);}
+  body.view-staff .walkin-fab{background:var(--sf-card,#fff);color:var(--text);border:1px solid var(--sf-ctl);}
+  body.view-staff .scan-fab{background:var(--sf-green-ink,var(--green));color:#fff;}
+  /* both live on the page too: on a phone the floating pair is the one to use */
+  body.view-staff .filter-row .scan-inline{display:none;}
+  body.view-staff .sf-head-actions .walkin-head{display:none;}
+  body.view-staff #tab-queue{padding-bottom:92px;}
+}
+body.has-modal .fab-row{display:none !important;}
+
+/* ── Community accounts: a list on a big screen, a card on a phone ──
+   The row reads as one line per rider on an iPad or a laptop. On a phone that line squeezed the
+   name and clipped the email beside five buttons, so there each rider becomes a card: everything
+   it knows on its own lines, and every button in reach underneath. */
+.am-cust-main{flex:1;min-width:0;}
+.am-cust-name{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.am-cust-contact{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.am-cust-actions{display:flex;gap:6px;flex-shrink:0;}
+.am-btn-lbl{display:none;}  /* the icons carry their names on a card, not in the desktop list */
+@media (min-width:768px){
+  .am-cust{align-items:flex-start;}
+  .am-cust-actions{align-self:center;}
+}
+@media (max-width:767px){
+  body.view-staff #am-cust-rows .am-cust{
+    display:block;padding:12px 14px;margin-bottom:10px;border:1px solid var(--sf-ctl);border-radius:10px;
+    background:var(--sf-card);
+  }
+  body.view-staff #am-cust-rows .am-cust-name{white-space:normal;font-size:15px;}
+  body.view-staff #am-cust-rows .am-cust-contact{white-space:normal;overflow:visible;font-size:12px;line-height:1.7;word-break:break-word;}
+  body.view-staff #am-cust-rows .am-cust-actions{
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:12px;
+  }
+  body.view-staff #am-cust-rows .am-cust-actions .btn-sm{
+    width:100%;min-width:0;gap:6px;font-size:11.5px;padding-inline:8px;white-space:normal;text-align:center;
+  }
+  body.view-staff #am-cust-rows .am-btn-lbl{display:inline;}
+  body.view-staff #am-cust-rows .am-picker{border-bottom:none;padding:0 0 12px;}
+}
+
+/* ── Check-in modal and the members-only dialog: one size for every button ──
+   Check in stands beside No-show and Cancel (it is an action on the rider); Confirm keeps what
+   the modal changed. Each row shares its width out equally so nothing reads as the odd one out. */
+#checkin-modal .ci-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;}
+#checkin-modal .ci-actions .btn-sm{width:100%;min-height:44px;padding-inline:8px;white-space:normal;text-align:center;}
+#checkin-modal .modal-footer{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+#checkin-modal .modal-footer>button{width:100%;min-height:44px;}
+html[dir="rtl"] #checkin-modal .modal-footer{direction:rtl;}
+#checkin-modal .ci-opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:6px;margin-top:4px;}
+#checkin-modal .ci-opts .toggle-btn{width:100%;min-width:0;min-height:42px;padding-inline:6px;white-space:normal;text-align:center;flex:none;}
+.cm-actions{display:grid;grid-template-columns:1fr;grid-auto-rows:1fr;gap:8px;}  /* one column, one height: three buttons of one size, whatever they say */
+.cm-actions>a,.cm-actions>button{
+  width:100%;min-height:46px;margin:0;box-sizing:border-box;display:inline-flex;align-items:center;
+  justify-content:center;gap:6px;text-align:center;white-space:normal;padding-inline:10px;
+}
+.cm-actions bdi{white-space:nowrap;}

@@ -5547,7 +5547,7 @@ async function commAccess(){
     return ok;
   }catch(e){return false;}
 }
-function showCommMembersModal(sess){
+function showCommMembersModal(){
   const m=document.getElementById('confirm-modal');if(!m)return;
   const lock='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
   const ig='<svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4.5"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg>';
@@ -5560,16 +5560,15 @@ function showCommMembersModal(sess){
           <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:rgba(74,168,248,.12);border:1px solid rgba(74,168,248,.4);color:#4aa8f8;flex-shrink:0">${lock}</span>
           <div style="min-width:0">
             <div style="font-size:18px;font-weight:900">${t('commMembersTitle')}</div>
-            ${sess?`<div class="ev-name ${_evClass(sess)}">${esc(_evName(sess))}</div>`:''}
           </div>
         </div>
         <button onclick="closeConfirm()" aria-label="${t('closeBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 4px;transition:color .15s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&times;</button>
       </div>
       <div style="font-size:14px;color:var(--muted-l);font-weight:700;line-height:1.6;margin-bottom:20px;padding:10px 14px;background:var(--s3);border-radius:4px">${t('commMembersMsg')}</div>
-      <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+      <div class="cm-actions">
         <a href="https://wa.me/966534423513" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp${t('opensNewTab')}" class="btn-secondary" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none;color:#25d366">${wa} <bdi dir="ltr">+966 53 442 3513</bdi></a>
         <a href="https://www.instagram.com/MicroMobilitySA/" target="_blank" rel="noopener noreferrer" class="btn-secondary" style="display:inline-flex;align-items:center;gap:6px;text-decoration:none">${ig} ${t('commMembersIg')}</a>
-        <button class="btn-primary" onclick="closeConfirm()" style="min-width:100px">${t('commMembersOk')}</button>
+        <button class="btn-primary" onclick="closeConfirm()">${t('commMembersOk')}</button>
       </div>
     </div>
   </div>`;
@@ -5607,7 +5606,7 @@ async function selectSessCard(id){
   if(await _profileGate(()=>selectSessCard(id)))return;
   const s=allSessions().find(x=>x.id===id);
   if(_wasRejectedFor(id)){showRejectedModal(s);return;}
-  if(_isCommunity(s)&&!_openToAll(s)&&!(await commAccess())){showCommMembersModal(s);return;}
+  if(_isCommunity(s)&&!_openToAll(s)&&!(await commAccess())){showCommMembersModal();return;}
   // Add-ons are per-session offerings: a switch must drop picks the new session may not sell. The
   // promo code goes too - applied for one ride, it rode along onto the next, including onto a free
   // ride whose box is hidden, where it could not be removed and still spent a use of the code.
@@ -5618,10 +5617,9 @@ async function selectSessCard(id){
 async function selectEvent(ev){
   if(await _profileGate(()=>selectEvent(ev)))return;
   if(ev==='community'&&!(await commAccess())){
-    // Name the ride the card leads to next - live, not yet past. The oldest community session
-    // on record used to stand in, which could be a ride from months ago.
-    const next=(S.sessions||[]).filter(s=>_evMatch(s,'community')&&!_openToAll(s)&&_sessLive(s)&&!_sessPastDay(s)).sort((a,b)=>String(a.session_date||a.id).localeCompare(String(b.session_date||b.id)))[0];
-    showCommMembersModal(next);return;
+    // The ride itself is never named here: somebody who is not a member is told the rides are
+    // invite-only and how to ask, not which ride is on.
+    showCommMembersModal();return;
   }
   S.selEvent=ev;S.selSession=null;
   S.promoApplied=null;S._promoMsg=''; // a code applied on another event's ride does not follow the rider here (see selectSessCard)
@@ -8366,7 +8364,7 @@ function _bookRefused(err,sess){
   if(/STALE_SESSION/.test(m)){doLogout(true);toast(t('errSessionStale'),'warning');return;}
   if(/SESSION_CLOSED/.test(m)){toast(t('errSessionClosed'),'error');loadDataLight().then(()=>{if(S.view==='customer')renderRegister();}).catch(()=>{});return;}
   const rule=_rideRuleRefusal(err);
-  if(rule==='MEMBERS_ONLY'){if(sess)showCommMembersModal(sess);else toast(t('commMembersTitle'),'error');return;}
+  if(rule==='MEMBERS_ONLY'){showCommMembersModal();return;}
   if(rule==='ONE_PER_SESSION'){toast(t('errAlreadyBooked'),'error');return;}
   if(rule==='GROUP_CAP'){const n=(m.match(/Up to (\d+)/)||[])[1]||String(_maxRiders(sess));toast(t('errGroupCap').replace('{0}',n),'error');return;}
   toast(_errMessage(err),'error');
@@ -8420,7 +8418,7 @@ async function _submitReg(){
   if(!_sessLive(_selSess0)||_sessPastDay(_selSess0)){toast(t('errSessionClosed'),'error');return;}
   // Members gate, re-checked at submit: the card/event clicks are already gated, but no
   // state path may insert a community booking for a non-member (the DB trigger backstops this).
-  if(_isCommunity(_selSess0)&&!_openToAll(_selSess0)&&!(await commAccess())){showCommMembersModal(_selSess0);return;}
+  if(_isCommunity(_selSess0)&&!_openToAll(_selSess0)&&!(await commAccess())){showCommMembersModal();return;}
   // Corrections staff asked for, re-checked at submit: the event pick raises them, but no path
   // into the wizard may book past them.
   if(await _fixGate(()=>submitReg()))return;
@@ -10235,6 +10233,8 @@ const _ART={
   key:'<circle opacity=".35" cx="8" cy="8" r="5.5"/><circle cx="8" cy="8" r="2.2"/><path d="m11.5 11.5 2-2L22 18v3h-3l-2.2-2.2v-2.3h-2.3l-3-3Z"/>',
   phone:'<path d="M7.6 2.8c.7-.4 1.6-.1 2 .6l1.6 3a1.5 1.5 0 0 1-.4 1.9l-1.5 1.2a13.4 13.4 0 0 0 5.2 5.2l1.2-1.5a1.5 1.5 0 0 1 1.9-.4l3 1.6c.7.4 1 1.3.6 2l-1 2c-.4.8-1.3 1.3-2.2 1.1C12 18.9 5.1 12 3.5 5.9c-.2-.9.3-1.8 1.1-2.2l3-1Z"/>',
   whatsapp:'<path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>',
+  ticket:'<path opacity=".35" d="M2.6 7.4h18.8a1 1 0 0 1 1 1v2.1a2.4 2.4 0 0 0 0 4.7v2.1a1 1 0 0 1-1 1H2.6a1 1 0 0 1-1-1v-2.1a2.4 2.4 0 0 0 0-4.7V8.4a1 1 0 0 1 1-1Z"/><path d="M15.1 7.4h1.5v2.2h-1.5V7.4Zm0 3.5h1.5v2.2h-1.5v-2.2Zm0 3.5h1.5v2.2h-1.5v-2.2Z"/>',
+  walk:'<circle cx="13.4" cy="4.1" r="2.3"/><path d="M13.1 7.9 9.9 10l-1.3 3.8M13.1 7.9l2.7 2.6 3.1.9M13.2 11.2l-.9 3.9 3 3.9M12.1 15.4l-3.2 4.7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
   filter:'<path opacity=".35" d="M9.5 12.2h5v7.4l-5 2.4v-9.8Z"/><path d="M2.5 3.5h19v2.2l-7 7.2h-5l-7-7.2V3.5Z"/>',
   search:'<circle opacity=".35" cx="10.5" cy="10.5" r="6.5"/><path d="M10.5 6.5a4 4 0 0 1 4 4h-2a2 2 0 0 0-2-2v-2Zm5.6 8.1 5 5-1.5 1.5-5-5a7 7 0 0 0 1.5-1.5Z"/>',
   bike:'<circle opacity=".35" cx="5.5" cy="16.5" r="4"/><circle opacity=".35" cx="18.5" cy="16.5" r="4"/><path d="M9.8 7h4.6v1.6h-1.5l3.2 5.4a2.5 2.5 0 1 1-1.4.8l-1.1-1.9-3.2 3.9a2.5 2.5 0 1 1-1.2-1l3.6-4.4-1.5-2.5-1.5.1V7Z"/>',
@@ -13036,24 +13036,6 @@ function _statChip(n,lbl,color,onclick,delta,tip){
   const inner=`<b${color?` style="color:${color}"`:''}>${esc(String(n))}</b>${esc(lbl)}${d}`;
   return onclick?`<button type="button" class="stat-chip stat-chip-clickable" onclick="${onclick}">${inner}</button>`:`<span class="stat-chip">${inner}</span>`;
 }
-function _fleetStripHtml(){
-  const free=(S.bikes||[]).filter(b=>b.status==='available');
-  const types=['Road','Hybrid','Mountain','Kids'];const sizes=BIKE_SIZES;
-  const known=new Set(types);
-  (S.bikes||[]).forEach(b=>{if(b.type&&!known.has(b.type)){types.push(b.type);known.add(b.type);}});
-  const parts=types.map(ty=>{
-    const of=free.filter(b=>b.type===ty);
-    if(!of.length)return `<span style="color:var(--muted)">${esc(typeLabel(ty))} —</span>`;
-    const bySize=sizes.filter(z=>of.some(b=>b.size===z))
-      .map(z=>`${z}:${of.filter(b=>b.size===z).length}`).join(' ');
-    return `<span><b>${esc(typeLabel(ty))}</b> ${bySize||of.length}</span>`;
-  });
-  return `<div class="fleet-strip" role="status" aria-label="${esc(t('fleetStripLbl'))}"
-    style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12px;font-weight:700;color:var(--text);border:1px solid var(--border);border-radius:5px;padding:7px 12px;margin-bottom:12px">
-    <span style="font-size:10px;font-weight:900;letter-spacing:.6px;text-transform:uppercase;color:var(--muted)">${t('fleetStripLbl')} · ${free.length}</span>
-    ${parts.join('<span style="color:var(--border)">|</span>')}
-  </div>`;
-}
 // ── The Petromin page inside Queue ─────────────────────────────────────────────
 // The /petromin form's registrations (rider_registrations) used to have a Riders tab of
 // their own. They live in Queue now, one page per Petromin night, opened from a chip with the
@@ -13736,7 +13718,7 @@ function renderQRow(e){
           const nPend=getQueue().filter(e=>e.sessionId===S.sfSession&&_apprOf(e)==='pending'&&e.status==='waiting').length;
           return `${nPend?`<button class="btn-sm btn-green" onclick="bulkApprovePending()" style="white-space:nowrap">✓ ${t('bulkApproveBtn').replace('{0}',String(nPend))}</button>`:''}<button class="btn-sm ${_commPublishedById(S.sfSession)?'btn-muted':'btn-green'}" onclick="publishCommResults()" style="white-space:nowrap">${_commPublishedById(S.sfSession)?t('publishedChip'):t('publishBtn')}</button>`;
         })():''}
-        <button class="btn-sm btn-green" onclick="showWalkinModal()" style="white-space:nowrap">${t('addWalkin')}</button><button class="btn-sm btn-muted" onclick="showJccGroupModal()" style="white-space:nowrap">${t('commAddGroupBtn')}</button>${isAdmin()&&allSessions().some(s=>s.status!=='deleted')?`<button class="btn-sm btn-muted" onclick="showCommAddModal()" style="white-space:nowrap">${t('commAddRiderBtn')}</button>`:''}
+        <button class="btn-sm btn-green walkin-head" onclick="showWalkinModal()" style="white-space:nowrap">${t('addWalkin')}</button><button class="btn-sm btn-muted" onclick="showJccGroupModal()" style="white-space:nowrap">${t('commAddGroupBtn')}</button>${isAdmin()&&allSessions().some(s=>s.status!=='deleted')?`<button class="btn-sm btn-muted" onclick="showCommAddModal()" style="white-space:nowrap">${t('commAddRiderBtn')}</button>`:''}
         ${S.sfSession!=='all'?`<button onclick="showPrintReportOptions()" style="background:rgba(var(--tint-rgb),.05);border:1px solid rgba(var(--tint-rgb),.1);border-radius:3px;padding:6px 12px;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);font-family:var(--font-body);transition:background .18s,color .18s,border-color .18s,transform .18s,box-shadow .18s,opacity .18s;line-height:1" onmouseover="this.style.borderColor='rgba(var(--green-rgb),.35)';this.style.color='var(--text)'" onmouseout="this.style.borderColor='rgba(var(--tint-rgb),.1)';this.style.color='var(--muted)'">${ICON_PRINT} ${t('printReportBtn')}</button>`:''}
         <div class="density-toggle hide-mobile">
           <button class="density-btn${S.queueDensity==='comfortable'?' active':''}" onclick="setQueueDensity('comfortable')" title="${t('comfortableTip')}">${_artIcon('grid',13)}</button>
@@ -13854,15 +13836,8 @@ function renderQRow(e){
     // any — an empty "0 waitlisted" on every ordinary session is noise.
     const nWaitlisted=base.filter(e=>e.status==='waitlist'&&_isLive(e)).length;
     return`<div class="stat-strip">
-      ${_statChip(total,t('statNumRiders'),null,null,_dlt(total,()=>true),_prevWk&&_prevWk.tip)}${_statChip(nWait,t('statExpected'),'var(--green)')}${nWaitlisted?_statChip(nWaitlisted,t('waitlistLabel'),'var(--orange)',"setSfStatus('waitlist')"):''}${_statChip(nBike,t('onBikeStat'),'var(--green)')}${_statChip(nDonePaid,t('statCompleted'),'var(--green)',null,_dlt(nDonePaid,e=>e.status==='done'&&e.paid),_prevWk&&_prevWk.tip)}${(()=>{ // who to catch BEFORE the ride rolls out, not in History afterwards
-        if(!_qc.money)return'';
-        // Live nights only on the All view, like Expected and On Bike: a year of old unpaid rows
-        // is not who to catch before tonight's ride rolls out.
-        const due=Math.round(base.filter(e=>['waiting','active','done'].includes(e.status)&&!e.paid&&_isLive(e))
-          .reduce((sum,e)=>sum+(e.price??DEFAULT_PRICE)+addonsCost(entryAddons(e)),0)*100)/100;
-        return due>0?_statChip(due,t('statSarDue'),'var(--orange)',"setSfPay('pending')"):'';
-      })()}
-    </div>${_qc.bike?_fleetStripHtml():''}${(()=>{
+      ${_statChip(total,t('statNumRiders'),null,null,_dlt(total,()=>true),_prevWk&&_prevWk.tip)}${_statChip(nWait,t('statExpected'),'var(--green)')}${nWaitlisted?_statChip(nWaitlisted,t('waitlistLabel'),'var(--orange)',"setSfStatus('waitlist')"):''}${_statChip(nBike,t('onBikeStat'),'var(--green)')}${_statChip(nDonePaid,t('statCompleted'),'var(--green)',null,_dlt(nDonePaid,e=>e.status==='done'&&e.paid),_prevWk&&_prevWk.tip)}
+    </div>${(()=>{
       const od=base.filter(e=>e.status==='active'&&(_activeMinutes(e)||0)>=OVERDUE_RIDE_MIN).length;
       if(!od)return'';
       return`<div class="overdue-banner" role="status"><span>⚠ ${od===1?t('overdueOne'):t('overdueMany').replace('{0}',String(od))}</span><button type="button" class="btn-sm btn-muted" onclick="_showOverdue()">${t('foldShow')}</button></div>`;
@@ -13894,7 +13869,7 @@ function renderQRow(e){
           ${_srchBtn()}
         </div>
         ${_fBtn('q',[S.sfStatus!=='all',S.sfPay&&S.sfPay!=='all',S.sfBike&&S.sfBike!=='all',S.sfSize&&S.sfSize!=='all',_commQueueView()&&S.sfMember&&S.sfMember!=='all'].filter(Boolean).length)}
-        <button class="btn-sm btn-green scan-inline" style="display:inline-flex;align-items:center;gap:6px" onclick="openScanModal()" title="${t('scanTitle')}">
+        <button class="btn-sm btn-green scan-inline" onclick="openScanModal()" title="${t('scanTitle')}">
           ${_artIcon('camera',14)}
           ${t('scanBtn')}
         </button>
@@ -13908,7 +13883,16 @@ function renderQRow(e){
         ${_commQueueView()?_fField(t('colMember'),`<select class="filter-select" onchange="S.sfMember=this.value;renderStaffQueue()" aria-label="${esc(t('colMember'))}">${[['all',t('filterAll')],['yes',t('memberYes')],['no',t('memberNo')]].map(([v,l])=>`<option value="${v}"${(S.sfMember||'all')===v?' selected':''}>${l}</option>`).join('')}</select>`):''}`)}
       <div class="result-count" id="q-result-count">${filtered.length!==base.length?`${filtered.length} ${t('resultOf')} ${base.length} ${t('resultRiders')}`:''}</div>
     </div>
-    <div id="q-results"></div>`;
+    <div id="q-results"></div>
+    <!-- The night's two busiest actions stay within thumb reach on a phone while the roster
+         scrolls, instead of riding away with the filter bar and the header (2026-09-22).
+         Icons only: a ticket to scan one, a walker for a walk-up. -->
+    <div class="fab-row">
+      <button type="button" class="fab-btn walkin-fab" onclick="showWalkinModal()"
+        title="${esc(t('addWalkin').replace(/^\+ /,''))}" aria-label="${esc(t('addWalkin').replace(/^\+ /,''))}">${_artIcon('walk',24)}</button>
+      <button type="button" class="fab-btn scan-fab" onclick="openScanModal()"
+        title="${esc(t('scanBtn'))}" aria-label="${esc(t('scanBtn'))}">${_artIcon('ticket',24)}</button>
+    </div>`;
   // Results live in their own container so a search keystroke can refresh just this part.
   // Re-rendering the whole panel would destroy the focused search input, and on a phone a
   // destroyed input closes the soft keyboard (focus() can't reopen it without a gesture).
@@ -17799,27 +17783,28 @@ function renderCheckinModal(){
           ${all?`<span style="color:var(--muted-l)">·</span><span style="color:var(--muted)">${t(_batch?'ciBatchWord':'ciPartyWord')} <bdi>${_fmtSar(all.total)}</bdi></span><span style="color:${all.due>0?'var(--orange)':'var(--green)'}">${all.due>0?`<bdi>${_fmtSar(all.due)}</bdi> ${t('dueWord')}`:`✓ ${t('settledLabel')}`}</span>`:''}
         </div>`;})()}
       ${free?'':`<div class="form-group" style="margin:8px 0 10px"><label>${t('colPayment')}${!e.paid?` · ${_fmtSar(_ciPendingPrice(e))}`:''}</label>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">
+        <div class="ci-opts">
           ${payBtn('pending',' '+t('pendingLabel'))}
           ${payBtn('card','✓ '+t('paidLabel')+' · '+t('cashCard'))}
           ${payBtn('house',' '+t('onTheHouseLabel'))}
         </div></div>`}
       ${(_bikeless||(S._ciBike&&S._ciBike.bike))?'':`<div class="form-group" style="margin:8px 0 12px"><label>${t('bikeTypeLabel')}</label>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${bikeTypeOpts(_ownOffered(allSessions().find(x=>x.id===e.sessionId)),_noCarbonSessIds.has(e.sessionId)).map(tyBtn).join('')}</div></div>`}
-      <div style="display:flex;gap:6px;margin-top:10px">
+        <div class="ci-opts">${bikeTypeOpts(_ownOffered(allSessions().find(x=>x.id===e.sessionId)),_noCarbonSessIds.has(e.sessionId)).map(tyBtn).join('')}</div></div>`}
+      <div class="ci-actions">
+        <button type="button" id="ci-checkin" class="btn-sm btn-green" onclick="confirmCheckinModal()"${(_ciBikeBlocked()||S._ciSaving)?' disabled':''}>${t('checkInBtn')}</button>
         <button type="button" class="btn-sm btn-muted" onclick="_ciNoShow()">${t('noShowBtn')}</button>
         <button type="button" class="btn-sm btn-red" onclick="_ciCancelBooking()">${t('cancelBookingLabel')}</button>
       </div>
       <div id="ci-error" role="alert" style="color:var(--red);font-size:12.5px;font-weight:700;min-height:0;margin-top:8px">${S._ciErr?esc(S._ciErr):''}</div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeCheckinModal()">${t('closeBtn')}</button>
-        <button id="ci-confirm" class="btn-primary" onclick="confirmCheckinModal()"${(_ciBikeBlocked()||S._ciSaving)?' disabled':''}>${t('confirmCheckin')}</button>
+        <button id="ci-confirm" class="btn-primary" onclick="applyCheckinChanges()"${S._ciSaving?' disabled':''}>${t('confirmBtn')}</button>
       </div>
     </div></div>`;
   // First paint only (the pay/type toggles re-render): Confirm when a bike came with the
   // modal, otherwise the Bike field, which is where the next thing to arrive goes. After the
   // dialog focus manager (_syncModalFocus, 40ms after the mutation) has had its turn.
-  if(S._ciFocusOnce){S._ciFocusOnce=false;setTimeout(()=>{const c=document.getElementById(S._ciBike?'ci-confirm':'ci-bike')||document.getElementById('ci-confirm');if(c&&!c.disabled)c.focus();},120);}
+  if(S._ciFocusOnce){S._ciFocusOnce=false;setTimeout(()=>{const c=document.getElementById(S._ciBike?'ci-checkin':'ci-bike')||document.getElementById('ci-checkin');if(c&&!c.disabled)c.focus();},120);}
 }
 function closeCheckinModal(_noResume,_fromBus){
   const wasOpen=!!S._ciId; // renders call this defensively; only a real close forgets the open check-in
@@ -17908,11 +17893,21 @@ async function _addonsOnLeaveWaitlist(entry,wasWaitlist){
 async function confirmCheckinModal(_bikeId){
   if(S._ciSaving)return;
   S._ciSaving=true;
-  const b=document.getElementById('ci-confirm');if(b)b.disabled=true;
+  const b=document.getElementById('ci-checkin');if(b)b.disabled=true;
   try{await _confirmCheckinRun(_bikeId);}
-  finally{S._ciSaving=false;const c=document.getElementById('ci-confirm');if(c)c.disabled=_ciBikeBlocked();}
+  finally{S._ciSaving=false;const c=document.getElementById('ci-checkin');if(c)c.disabled=_ciBikeBlocked();}
 }
-async function _confirmCheckinRun(_bikeId){
+// Confirm keeps what the modal changed — payment, bike type, and a picked bike held the way
+// Reserve bike holds one — and leaves the rider where they are. Checking them in is its own
+// button beside No-show and Cancel (2026-09-22).
+async function applyCheckinChanges(){
+  if(S._ciSaving)return;
+  S._ciSaving=true;
+  const b=document.getElementById('ci-confirm');if(b)b.disabled=true;
+  try{await _confirmCheckinRun(null,true);}
+  finally{S._ciSaving=false;const c=document.getElementById('ci-confirm');if(c)c.disabled=false;}
+}
+async function _confirmCheckinRun(_bikeId,_applyOnly){
   const e=getQueue().find(x=>x.id===S._ciId);if(!e)return;
   // The Bike field's bike, held for another waiting rider: ask first, as the bike picker does.
   const _fieldBike=S._ciBike&&S._ciBike.bike&&S._ciBike.bike.id;
@@ -17922,7 +17917,7 @@ async function _confirmCheckinRun(_bikeId){
   const _wasWl=e.status==='waitlist'; // a waitlisted rider checks in like any other
   const ty=CUST_TYPES.includes(S._ciType)?S._ciType:(e.typePreference||'Any');
   const comm=_freeSessIds.has(e.sessionId); // only a FREE ride skips the payment step
-  const patch={status:'active'};
+  const patch=_applyOnly?{}:{status:'active'};
   if(ty!==e.typePreference)patch.type_preference=ty;
   // Payment: the full pay-menu states (pending / cash / card / split / house), layered on
   // the type-follows pricing. Protections: promo prices survive; a paid row's recorded
@@ -17966,6 +17961,19 @@ async function _confirmCheckinRun(_bikeId){
   if(S._ciBike&&S._ciBike.bike){
     if(_ciBikeBlocked()){S._ciErr=_ciBikeStatusText(S._ciBike);_ciRenderBikeSpec();return;}
     _bikeId=S._ciBike.bike.id;
+  }
+  // Confirm: save and stand back. The bike is written as a reservation (no claim, no arrival
+  // stamp), exactly as Reserve bike does, so the rider can still be checked in later.
+  if(_applyOnly){
+    if(_bikeId)patch.assigned_bike_id=_bikeId;
+    if(!Object.keys(patch).length){closeCheckinModal();return;}
+    const _qa=await sb.from('queue_entries').update(patch).eq('id',e.id).in('status',['waiting','waitlist']).select('id');
+    if(_writeErr(_qa,'save',()=>applyCheckinChanges()))return;
+    if(!comm&&_method!==undefined){try{await sb.from('queue_entries').update({pay_method:_method,card_amount:_card}).eq('id',e.id);}catch(_){}}
+    if(patch.paid!==undefined||patch.price!==undefined)logAction(`${t('colPayment')}: #${e.queueNum} ${e.name}`);
+    _ciDropDraft(e.id);closeCheckinModal();
+    await _reloadRows([e.id]);renderStaffQueue();
+    return;
   }
   let _viaRpc=false,_gotBikes=[]; // the bikes this rider now has, whose other reservations go
   if(_bikeId){
@@ -23338,9 +23346,9 @@ function _amRowInner(c){
     // Accounts made before signup asked for a gender have none; offer it on the row, one tap.
     const genderAsk=c.gender?'':`<div class="am-gender" role="group" aria-label="${esc(t('genderLabel'))} · ${esc(c.name||'')}"><span>${t('amGenderAsk')}:</span><button type="button" class="am-pick" onclick="_amSetGender(${_ja(c.id)},'male')">${t('genderMale')}</button><button type="button" class="am-pick" onclick="_amSetGender(${_ja(c.id)},'female')">${t('genderFemale')}</button></div>`;
     return `<div class="am-cust">
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.name||'—')}</div>
-        ${contact?`<div style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${contact}</div>`:''}
+      <div class="am-cust-main">
+        <div class="am-cust-name">${esc(c.name||'—')}</div>
+        ${contact?`<div class="am-cust-contact">${contact}</div>`:''}
         ${_socLinksHtml(c)}
         ${S.amMissing&&_amMissingOf(c).length?`<div class="am-meta am-missing">${t('amMissingLine').replace('{0}',_amMissingOf(c).join(', '))}</div>`:''}
         ${_fixPendingLine(c)}
@@ -23348,10 +23356,10 @@ function _amRowInner(c){
         ${S.amSuspect?_sxLineHtml(c):''}
         <div class="am-chips">${chips}</div>${genderAsk}
       </div>
-      <div style="display:flex;gap:6px;flex-shrink:0">
-        <button class="btn-sm btn-secondary am-flag${_flagFieldsOf(c).length?' on':''}" onclick="showFlagFieldsModal(${_ja(c.id)})" title="${esc(t('fixFlagBtn'))}" aria-label="${esc(t('fixFlagBtn'))} · ${esc(c.name||'')}">${_artIcon('flag',14)}</button>
-        ${(()=>{const n=_ahUpcoming(c.id);return `<button class="btn-sm btn-secondary am-hist${n?' on':''}" onclick="openAccountHistory(${_ja(c.id)})" title="${esc(t('ahBtn'))}" aria-label="${esc(t('ahBtn'))} · ${esc(c.name||'')}${n?` · ${esc(t('ahUpcoming'))} ${n}`:''}">${_artIcon('clock',14)}${n?`<span class="am-hist-n">${n}</span>`:''}</button>`;})()}
-        <button class="btn-sm btn-secondary am-vcard" onclick="saveCustomerContact(${_ja(c.id)})" title="${esc(t('amSaveContact'))}" aria-label="${esc(t('amSaveContact'))}">${_artIcon('contact',14)}</button>
+      <div class="am-cust-actions">
+        <button class="btn-sm btn-secondary am-flag${_flagFieldsOf(c).length?' on':''}" onclick="showFlagFieldsModal(${_ja(c.id)})" title="${esc(t('fixFlagBtn'))}" aria-label="${esc(t('fixFlagBtn'))} · ${esc(c.name||'')}">${_artIcon('flag',14)}<span class="am-btn-lbl">${t('fixFlagBtn')}</span></button>
+        ${(()=>{const n=_ahUpcoming(c.id);return `<button class="btn-sm btn-secondary am-hist${n?' on':''}" onclick="openAccountHistory(${_ja(c.id)})" title="${esc(t('ahBtn'))}" aria-label="${esc(t('ahBtn'))} · ${esc(c.name||'')}${n?` · ${esc(t('ahUpcoming'))} ${n}`:''}">${_artIcon('clock',14)}<span class="am-btn-lbl">${t('ahBtn')}</span>${n?`<span class="am-hist-n">${n}</span>`:''}</button>`;})()}
+        <button class="btn-sm btn-secondary am-vcard" onclick="saveCustomerContact(${_ja(c.id)})" title="${esc(t('amSaveContact'))}" aria-label="${esc(t('amSaveContact'))}">${_artIcon('contact',14)}<span class="am-btn-lbl">${t('amSaveContact')}</span></button>
         <button class="btn-sm btn-secondary" onclick="showEditCustomerModal(${_ja(c.id)})">${t('editBtn')}</button>
         <button class="btn-sm ${picking?'btn-green':'btn-secondary'}" onclick="_amPickTags(${_ja(c.id)})">${picking?t('doneBtn'):t('amEditTags')}</button>
       </div>

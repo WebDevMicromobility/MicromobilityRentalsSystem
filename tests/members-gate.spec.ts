@@ -30,7 +30,9 @@ test('non-member clicking the Saturday card in Reserve gets the members-only dia
   await page.locator('.sess-card-comm').click();
   const modal = page.locator('#confirm-modal');
   await expect(modal).toContainText('Community members only');
-  await expect(modal).toContainText('Saturday Social Ride');
+  // the ride itself is never named to somebody who is not a member
+  await expect(modal).not.toContainText('Saturday Social Ride');
+  await expect(modal.locator('.ev-name')).toHaveCount(0);
   // WhatsApp contact: number shown, wa.me link
   await expect(modal.locator('a[href="https://wa.me/966534423513"]')).toContainText('+966 53 442 3513');
   // the session was NOT selected

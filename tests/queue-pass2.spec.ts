@@ -94,21 +94,32 @@ test('a reserved rider shows the held bike under the status', async ({ page }) =
   await expect(cell).toContainText('R-11');
 });
 
-// Every queue action stays on screen on a phone: the header row scrolls sideways rather than
-// folding anything away, and Scan ticket sits under the search box. Nothing floats over the
-// roster any more.
+// Every queue action stays on screen: the header row scrolls sideways rather than folding
+// anything away. The night's two busiest actions — a walk-up and a scanned ticket — sit on the
+// page on a desktop and float within thumb reach on a phone (asked for 2026-09-22), where they
+// stay put as the roster scrolls, and each appears once, never twice.
 test('the phone header keeps every queue action on screen', async ({ page }, info) => {
   await boot(page, [row('q1')]);
   const head = page.locator('#tab-queue .section-header');
-  for (const name of ['+ Walk-in', 'Add group', 'Add rider', 'Print Report']) {
+  for (const name of ['Add group', 'Add rider', 'Print Report']) {
     await expect(head.locator('button', { hasText: name })).toBeVisible();
   }
   await expect(page.locator('#tab-queue button[aria-label="More"]')).toHaveCount(0);
-  await expect(page.locator('#tab-queue .scan-inline')).toBeVisible();
   if (info.project.name === 'mobile') {
-    // the strip scrolls rather than stacking rows of buttons above the roster
+    await expect(page.locator('#tab-queue .scan-fab')).toBeVisible();
+    await expect(page.locator('#tab-queue .walkin-fab')).toBeVisible();
+    await expect(page.locator('#tab-queue .scan-inline')).toBeHidden();
+    await expect(page.locator('#tab-queue .walkin-head')).toBeHidden();
+    // the floating pair says what it does without words
+    await expect(page.locator('#tab-queue .scan-fab')).toHaveAttribute('aria-label', 'Scan ticket');
+    await expect(page.locator('#tab-queue .walkin-fab')).toHaveAttribute('aria-label', 'Walk-in');
+    // what is left of the header fits or scrolls; it never stacks rows of buttons above the roster
     const strip = page.locator('.sf-head-actions');
-    expect(await strip.evaluate((e) => e.scrollWidth > e.clientWidth)).toBe(true);
+    expect(await strip.evaluate((e) => e.getBoundingClientRect().height < 96)).toBe(true);
+  } else {
+    await expect(head.locator('button', { hasText: '+ Walk-in' })).toBeVisible();
+    await expect(page.locator('#tab-queue .scan-inline')).toBeVisible();
+    await expect(page.locator('#tab-queue .fab-row')).toBeHidden();
   }
 });
 

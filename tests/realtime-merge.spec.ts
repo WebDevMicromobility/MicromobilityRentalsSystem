@@ -51,7 +51,7 @@ test('the check-in re-syncs only its own row, not the window', async ({ page }) 
   await page.evaluate("S.staffTab='queue'; renderStaffQueue(); showCheckinModal('e1')");
   const gets: string[] = [];
   page.on('request', (r) => { if (r.method() === 'GET' && r.url().includes('/rest/v1/queue_entries')) gets.push(decodeURIComponent(r.url())); });
-  await page.locator('#checkin-modal #ci-confirm').click();
+  await page.locator('#checkin-modal #ci-checkin').click();
   await expect(page.locator('#checkin-modal')).toBeHidden();
   await expect.poll(() => gets.length).toBeGreaterThan(0);
   expect(gets.some((u) => u.includes('id=in.(e1)'))).toBe(true);

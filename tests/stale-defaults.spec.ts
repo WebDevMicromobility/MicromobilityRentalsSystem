@@ -9,7 +9,9 @@ const past = { id: '2020-01-04', day: 'Saturday', session_date: '2020-01-04', ca
 const next = { id: '2099-01-10', day: 'Saturday', session_date: '2099-01-10', capacity: 20, status: 'open', created_at: 2,
   event_kind: 'community', needs_approval: true, hide_queue: true, spots: 20, title: 'The Next Ride' };
 
-test('the members-only dialog names the next ride, not the oldest one', async ({ page }) => {
+// 2026-09-22: it used to name the ride the card leads to. Somebody who is not a member is told
+// the rides are invite-only and how to ask — never which ride is on.
+test('the members-only dialog names no ride, whatever is coming up', async ({ page }) => {
   await stubSupabase(page, { sessions: [past, next], queue_entries: [] });
   await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
   await page.goto('/');
@@ -17,8 +19,9 @@ test('the members-only dialog names the next ride, not the oldest one', async ({
   await page.evaluate(`selectEvent('community')`);
   const modal = page.locator('#confirm-modal');
   await expect(modal).toContainText('Community members only');
-  await expect(modal).toContainText('The Next Ride');
+  await expect(modal).not.toContainText('The Next Ride');
   await expect(modal).not.toContainText('Ride From Long Ago');
+  await expect(modal.locator('.ev-name')).toHaveCount(0);
 });
 
 test('with nothing coming up, the dialog names no ride at all (never the circuit)', async ({ page }) => {

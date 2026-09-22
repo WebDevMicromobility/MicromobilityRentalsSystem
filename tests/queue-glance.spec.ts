@@ -27,25 +27,18 @@ async function boot(page: import('@playwright/test').Page, queue_entries: Record
   await page.waitForTimeout(250);
 }
 
-test('the fleet strip counts what is free, by type and size', async ({ page }) => {
-  // R-03 needs an actual rider: a bike marked in-use with nobody on it gets self-healed
-  // back to available, so an inconsistent fixture would count 4.
-  await boot(page, [e('a'), e('rider3', { queue_num: 9, status: 'active', assigned_bike_id: 'b3' })]);
-  const strip = await page.evaluate(`(document.querySelector('.fleet-strip')||{}).innerText||''`) as string;
-  expect(strip).toContain('3');            // three free in total
-  expect(strip).toMatch(/Road.*M:2/);      // R-03 is in use, so Road M counts 2
-  expect(strip).toMatch(/Mountain.*—/);    // none owned reads as none, not as zero-hidden
-});
-
-test('SAR due sums the unpaid and clicking it filters to them', async ({ page }) => {
+// Asked for 2026-09-22: the roster carries fewer figures — the bikes-free strip and the SAR due
+// tile are both gone, and what is owed is read in the rows themselves.
+test('the roster shows neither the bikes-free strip nor a SAR due tile', async ({ page }) => {
   await boot(page, [
     e('a', { price: 75 }),                                   // owes 75
     e('b', { queue_num: 2, price: 60, paid: true }),         // settled
-    e('c', { queue_num: 3, price: 40, status: 'cancelled' }),// gone — owes nothing
+    e('rider3', { queue_num: 9, status: 'active', assigned_bike_id: 'b3' }),
   ]);
-  await expect(page.locator('.stat-chip', { hasText: 'SAR due' })).toContainText('75');
-  await page.locator('.stat-chip', { hasText: 'SAR due' }).click();
-  expect(await page.evaluate('S.sfPay')).toBe('pending');
+  await expect(page.locator('.stat-strip')).toBeVisible();   // the rest of the strip stays
+  await expect(page.locator('.fleet-strip')).toHaveCount(0);
+  await expect(page.locator('.stat-chip', { hasText: /due/i })).toHaveCount(0);
+  expect(await page.evaluate(`document.getElementById('tab-queue').innerText`)).not.toContain('Bikes free');
 });
 
 test('a rider out past two hours reads amber with a warning', async ({ page }) => {

@@ -46,7 +46,7 @@ test.describe('unlocked staff panel', () => {
   });
 
   test('bookings tab has the QR scan button and the scanner degrades gracefully without a camera', async ({ page }) => {
-    const scanBtn = page.locator('#tab-queue button', { hasText: 'Scan ticket' }).filter({ visible: true }); // the filter-row copy on desktop, the floating one on phones
+    const scanBtn = page.locator('#tab-queue .scan-inline, #tab-queue .scan-fab').filter({ visible: true }); // the filter-row copy on desktop, the floating ticket icon on phones
     await expect(scanBtn).toBeVisible();
     await scanBtn.click();
     await expect(page.locator('#scan-modal .pin-title')).toHaveText('Scan booking QR');

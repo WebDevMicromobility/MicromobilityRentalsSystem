@@ -93,7 +93,7 @@ test('a Petromin employee retyped at check-in keeps the employee fare', async ({
   await modal.getByRole('button', { name: 'Mountain', exact: true }).click();
   await expect(page.locator('#ci-money')).toContainText('SAR 50');
   await expect(page.locator('#ci-money')).toContainText('party SAR 107.50'); // the website booker beside them pays 57.50
-  await modal.getByRole('button', { name: /Confirm/i }).click();
+  await modal.getByRole('button', { name: 'Check In', exact: true }).click();
   // The booked 50 stands, so there is no price to rewrite.
   await expect.poll(() => patched.some((p) => p.status === 'active')).toBe(true);
   expect(patched.filter((p) => 'price' in p).map((p) => p.price)).toEqual([]);
@@ -112,7 +112,7 @@ test('a website booking on a Petromin night is retyped at the standard fare, not
   const modal = page.locator('#checkin-modal');
   await modal.getByRole('button', { name: 'Mountain', exact: true }).click();
   await expect(page.locator('#ci-money')).toContainText('SAR 57.50');
-  await modal.getByRole('button', { name: /Confirm/i }).click();
+  await modal.getByRole('button', { name: 'Check In', exact: true }).click();
   await expect.poll(() => patched.some((p) => p.status === 'active')).toBe(true);
   expect(patched.filter((p) => 'price' in p).map((p) => p.price)).toEqual([57.5]);
 });

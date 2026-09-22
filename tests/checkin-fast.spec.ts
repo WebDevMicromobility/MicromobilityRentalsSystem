@@ -40,7 +40,7 @@ test('a party shows numbered steps and moves to the next rider after Confirm', a
   const modal = page.locator('#checkin-modal');
   await expect(modal).toContainText('Rider 1 of 2');
   await expect(modal.getByRole('list', { name: 'Riders in this party' }).getByRole('button')).toHaveCount(2);
-  await modal.getByRole('button', { name: /Confirm/i }).click();
+  await modal.getByRole('button', { name: 'Check In', exact: true }).click();
   await expect(modal).toContainText('Second Rider');   // opened by itself
   await expect(modal).toContainText('Rider 2 of 2');
 });
@@ -132,7 +132,7 @@ test('a no-show member can be opened again and brought back to be checked in', a
   await expect(modal).toContainText('is marked no-show');
   await modal.getByRole('button', { name: 'Customer Showed' }).click();
   await expect(modal).toContainText('Rider 1 of 2');
-  await expect(modal.locator('#ci-confirm')).toBeVisible();     // back to a normal check-in
+  await expect(modal.locator('#ci-checkin')).toBeVisible();     // back to a normal check-in
   await expect(modal.getByRole('list', { name: 'Riders in this party' }).getByRole('button', { name: /1 First/ })).toBeVisible();
 });
 

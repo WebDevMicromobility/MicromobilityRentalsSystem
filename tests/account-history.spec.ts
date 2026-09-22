@@ -58,9 +58,10 @@ const box = (page: Page, id: string) => page.locator(`#${id} .modal-box`);
 test('the Accounts row shows what is coming up and opens it over the rider\'s past', async ({ page }) => {
   await staff(page);
   const btn = page.locator('.am-row[data-cust="c1"] .am-hist');
-  await expect(btn).toHaveText('3');                               // today's ride and two ahead; the party is one
+  // the count rides beside the button's name (the name only shows on a phone card)
+  await expect(btn.locator('.am-hist-n')).toHaveText('3');         // today's ride and two ahead; the party is one
   await expect(btn).toHaveClass(/\bon\b/);
-  await expect(page.locator('.am-row[data-cust="c2"] .am-hist')).toHaveText('');
+  await expect(page.locator('.am-row[data-cust="c2"] .am-hist .am-hist-n')).toHaveCount(0);
   await btn.click();
 
   await expect(modal(page).locator('#ah-title')).toHaveText('Lina Haddad');

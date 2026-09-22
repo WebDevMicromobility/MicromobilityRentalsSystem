@@ -25,7 +25,7 @@ test('quick check-in confirms payment + bike type without picking a bike', async
   });
   await modal.getByRole('button', { name: /Paid · Card/ }).click();
   await modal.getByRole('button', { name: 'Road', exact: true }).click();
-  await modal.getByRole('button', { name: /Confirm/ }).click();
+  await modal.getByRole('button', { name: 'Check In', exact: true }).click();
   await expect(modal).toBeHidden();
 
   await expect.poll(() => patches.length).toBeGreaterThanOrEqual(2);
@@ -57,7 +57,7 @@ test('quick check-in claims the reserved bike (available -> in-use)', async ({ p
     showCheckinModal('e1');
   });
   const modal = page.locator('#checkin-modal');
-  await modal.getByRole('button', { name: /Confirm/ }).click();
+  await modal.getByRole('button', { name: 'Check In', exact: true }).click();
   await expect(modal).toBeHidden();
   await expect.poll(() => bikePatches.some((p) => p.status === 'in-use')).toBe(true); // the reservation became a real claim
 });
@@ -96,7 +96,7 @@ test('check-in reprices to the chosen type unless the rider is on the house', as
     }, id);
     const modal = page.locator('#checkin-modal');
     await modal.getByRole('button', { name: 'Road', exact: true }).click();
-    await modal.getByRole('button', { name: /Confirm/ }).click();
+    await modal.getByRole('button', { name: 'Check In', exact: true }).click();
     await expect(modal).toBeHidden();
     await page.waitForTimeout(900); // outlast the row-flash timer + trailing re-render before the next modal
   };
