@@ -93,6 +93,24 @@ test.describe('?lang addressing', () => {
     await expect(page.locator('html')).toHaveAttribute('lang', 'es');
   });
 
+  // One static canonical of "/" told search engines every ?lang address was a copy of the
+  // English root, which voids the hreflang set. Each address must name itself, and only by
+  // ?lang: other parameters and a remembered language do not change what the URL is.
+  test('each language address is its own canonical, and there is only ever one', async ({ page }) => {
+    const html = await readFile(resolve(__dirname, '../index.html'), 'utf8');
+    expect(html).not.toMatch(/<link rel="canonical"/); // written by the head script alone
+    await stubSupabase(page, {});
+    await page.addInitScript(() => localStorage.setItem('cq_lang', 'ar'));
+    for (const [path, search] of [['/?lang=ar', '?lang=ar'], ['/?lang=fr&bike=7', '?lang=fr'], ['/?lang=en', '?lang=en'], ['/', ''], ['/?lang=zz', '']] as const) {
+      await page.goto(path);
+      const hrefs = await page.evaluate(() => [...document.querySelectorAll('link[rel="canonical"]')].map((l) => (l as HTMLLinkElement).href));
+      expect(hrefs, path).toHaveLength(1);
+      const u = new URL(hrefs[0]);
+      expect(u.origin, path).toMatch(/^https:\/\//); // the public origin, not the test server
+      expect(u.pathname + u.search, path).toBe('/' + search);
+    }
+  });
+
   test('switching language writes it back into the URL so the page stays shareable', async ({ page }) => {
     await stubSupabase(page, {});
     await page.goto('/');

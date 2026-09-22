@@ -34,7 +34,13 @@
        carries. logo.png is the wordmark lockup: 241x256, so a tab squashed it, and the
        word under the mark was a grey smudge at 16 px. -->
   <link rel="icon" type="image/png" href="favicon.png">
-  <link rel="canonical" href="__SITE_ORIGIN__/">
+  <!-- Each language address names ITSELF as canonical. One static href="/" told search engines
+       that /?lang=ar and every other alternate below was a copy of the English root, so they
+       dropped those addresses and the hreflang set with them. It is written here, from ?lang
+       alone (a remembered or device language must not change what a URL says it is), and only
+       here: a canonical in the markup that a script then rewrites is what Google warns against.
+       Same ten codes as the alternates. -->
+  <script>(function(){try{var q=new URLSearchParams(location.search).get('lang'),l=document.createElement('link');l.rel='canonical';l.href='__SITE_ORIGIN__/'+(['en','ar','fr','es','pt','ur','hi','tl','ne','bn'].indexOf(q)>=0?'?lang='+q:'');document.head.appendChild(l);}catch(e){}})();</script>
   <!-- Language lived only in localStorage behind a single URL, so no crawler could ever reach
        the Arabic site — backwards in Jeddah. ?lang= now selects the language on load, which
        gives each one an address these alternates can point at. -->
