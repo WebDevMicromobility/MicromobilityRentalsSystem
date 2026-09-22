@@ -86,7 +86,7 @@ test('a waiting row shows Check In and one menu — the rest are inside it', asy
   await expect(row.getByRole('button', { name: /No-Show/i })).toHaveCount(0);  // folded away too
   await expect(row.getByRole('button', { name: /More actions/ })).toBeVisible();
   await expect(row.getByRole('button', { name: /Cancel/i })).toHaveCount(0);   // folded away
-  await expect(row.getByRole('checkbox', { name: /Select booking/ })).toBeVisible(); // a real checkbox, not a button
+  await expect(row.getByRole('checkbox', { name: /#\d+/ })).toBeVisible(); // a real checkbox, not a button; its name is translated (selectBookingAria)
   await row.getByRole('button', { name: /More actions/ }).click();
   const menu = page.locator('.pay-menu-popup');
   await expect(menu.getByRole('menuitem', { name: /No-Show/i })).toBeVisible();

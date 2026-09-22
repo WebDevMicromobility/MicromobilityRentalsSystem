@@ -81,7 +81,7 @@ test('"Not now" backs out, the next pick asks again, and Confirm cannot book pas
   await expect(page.locator('#fix-gate .fx-box')).toBeVisible();
   await page.click('#fix-gate .fx-later');
   // However the wizard was reached, submitting raises the same request and books nothing.
-  await page.evaluate(`S.selEvent='jcc';S.selSession='${S1}';S.regQty=1;submitReg()`);
+  await page.evaluate(`S.selEvent='jcc';S.selSession='${S1}';S.regQty=1;S.waiverOk=true;submitReg()`);
   await expect(page.locator('#fix-gate .fx-box')).toBeVisible();
   expect(bookings).toHaveLength(0);
 });
@@ -102,7 +102,7 @@ test('a booking the server refuses for owed details (FIX_FIRST) opens the reques
   // The device's cached answer says nothing is owed; the server knows better.
   await rider(page, ['gender'], { 'rpc:customer_create_booking': { __rpcError: { status: 400, code: 'P0001', message: 'FIX_FIRST' } } });
   await page.evaluate(`S._fixCache={id:'c1',at:Date.now(),fields:[]}`);
-  await page.evaluate(`S.selEvent='jcc';S.selSession='${S1}';S.regQty=1;S.regBikeHeights=[175];S.regBikeTypes=['Road'];S.regRiderNames=['Spec Rider'];S.promoApplied=null;submitReg()`);
+  await page.evaluate(`S.selEvent='jcc';S.selSession='${S1}';S.regQty=1;S.regBikeHeights=[175];S.regBikeTypes=['Road'];S.regRiderNames=['Spec Rider'];S.promoApplied=null;S.waiverOk=true;submitReg()`);
   await expect(page.locator('#fix-gate .fx-item[data-fx="gender"]')).toBeVisible();
   await expect(page.locator('.toast', { hasText: 'FIX_FIRST' })).toHaveCount(0);
   expect(await page.evaluate('S.regSubmitting')).toBe(false);                 // Confirm is usable again once it is answered

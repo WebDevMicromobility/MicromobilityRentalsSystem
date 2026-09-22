@@ -329,7 +329,7 @@ const FORM_URL = 'https://sacf.sa/?page_id=11138';
 // card, and renderRegister drops a selection that is not in the picked event's own list.
 async function bookInto(page: Page, event: string, sessionId: string) {
   await page.evaluate(`S.selEvent='${event}';S.selSession='${sessionId}';S.regQty=1;S.regBikeHeights=[175];
-    S.regBikeTypes=['Road'];S.regRiderNames=['Spec Rider'];S.promoApplied=null;submitReg();`);
+    S.regBikeTypes=['Road'];S.regRiderNames=['Spec Rider'];S.promoApplied=null;S.waiverOk=true;submitReg();`);
 }
 
 test('booking it asks for the sign-up form, and will not be dismissed at once', async ({ page }) => {
@@ -559,7 +559,7 @@ test('a rider can say they bring their own bike, and it is free', async ({ page 
   expect(types).toContain('Road Carbon');                     // not a community ride: carbon stays
   await expect(page.locator('[data-type-slot="0"][data-type="Own"]')).toHaveText('I have my own bike');
 
-  await page.evaluate(`S.regQty=1;S.regBikeHeights=[175];S.regBikeTypes=['Own'];S.regRiderNames=['Spec Rider'];S.promoApplied=null;submitReg();`);
+  await page.evaluate(`S.regQty=1;S.regBikeHeights=[175];S.regBikeTypes=['Own'];S.regRiderNames=['Spec Rider'];S.promoApplied=null;S.waiverOk=true;submitReg();`);
   await expect.poll(() => rows.length).toBe(1);
   expect(rows[0].type_preference).toBe('Own');
   expect(rows[0].price).toBe(0);
@@ -572,7 +572,7 @@ test('an owner is told their place is booked; a renter, their bike', async ({ pa
   await page.goto('/');
   await waitForSb(page);
   await page.evaluate(`S.selEvent='snd96';S.selSession='snd1';S.regQty=1;S.regBikeHeights=[175];
-    S.regBikeTypes=['Own'];S.regRiderNames=['Spec Rider'];S.promoApplied=null;submitReg();`);
+    S.regBikeTypes=['Own'];S.regRiderNames=['Spec Rider'];S.promoApplied=null;S.waiverOk=true;submitReg();`);
   await expect(page.locator('#booth-popup-msg')).toContainText('Your place is booked');
   await expect(page.locator('#booth-popup-msg')).not.toContainText('Your bike is booked');
   expect(await page.evaluate(`t('snd96FormMsg')`)).toContain('Your bike is booked');

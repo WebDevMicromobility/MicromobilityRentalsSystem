@@ -213,9 +213,9 @@ test.describe('a parked booking carries the roster controls', () => {
 
   test('a waitlisted one gets check-in, payment and the rest — and no Promote', async ({ page }) => {
     const html = await openList(page, [park('m1', 'Rider 2', 'e-wl')]);
-    expect(html).toContain(`showCheckinModal('e-wl')`);   // checks in THAT booking — stays large
-    expect(html).toContain(`showPayMenu('e-wl'`);         // payment, as on the queue page
-    expect(html).toContain(`showEditPriceModal('e-wl')`);
+    expect(html).toContain(`showCheckinModal(&quot;e-wl&quot;)`);   // checks in THAT booking — stays large (ids reach handlers JSON-encoded: _ja)
+    expect(html).toContain(`showPayMenu(&quot;e-wl&quot;`);         // payment, as on the queue page
+    expect(html).toContain(`showEditPriceModal(&quot;e-wl&quot;)`);
     // no-show, edit and cancel folded into the ⋯ menu
     const menu = await page.evaluate(`((S._rowMenus||{})['e-wl']||[]).map(i=>i.run).join('|')`) as string;
     expect(menu).toContain(`confirmNoShow('e-wl')`);
@@ -228,14 +228,14 @@ test.describe('a parked booking carries the roster controls', () => {
 
   test('a queued one gets the same set', async ({ page }) => {
     const html = await openList(page, [park('m2', 'Rider 1', 'e-wait')]);
-    expect(html).toContain(`showCheckinModal('e-wait')`);
-    expect(html).toContain(`showPayMenu('e-wait'`);
+    expect(html).toContain(`showCheckinModal(&quot;e-wait&quot;)`);
+    expect(html).toContain(`showPayMenu(&quot;e-wait&quot;`);
   });
 
   test('a spent booking keeps only the list-side Remove', async ({ page }) => {
     const html = await openList(page, [park('m3', 'Rider 3', 'e-done')]);
-    expect(html).not.toContain(`showCheckinModal('e-done')`);
-    expect(html).not.toContain(`doReopen('e-done')`);     // no second, different Remove either
+    expect(html).not.toContain(`showCheckinModal(&quot;e-done&quot;)`);
+    expect(html).not.toContain(`doReopen(&quot;e-done&quot;)`);     // no second, different Remove either
     expect(html).toContain('resolveDeskWaitlist');        // off the list, not out of the booking
   });
 });
@@ -300,7 +300,7 @@ test.describe('parties, not single riders', () => {
     await expect(card).toContainText('3 riders');
     await expect(card.locator('input[type="number"]')).toHaveCount(1); // ONE position, for the party
     const html = await card.innerHTML();
-    for (const id of ['g1', 'g2', 'g3']) expect(html).toContain(`showCheckinModal('${id}')`);
+    for (const id of ['g1', 'g2', 'g3']) expect(html).toContain(`showCheckinModal(&quot;${id}&quot;)`);
   });
 
   test('a position typed against the party moves every rider in it', async ({ page }) => {

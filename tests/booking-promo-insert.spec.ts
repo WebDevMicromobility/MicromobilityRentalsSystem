@@ -19,7 +19,7 @@ test('a promo booking sends promo_code + discounted price in the insert row', as
   await page.evaluate(`
     S.selSession='s1'; S.regQty=1; S.regBikeHeights=[175]; S.regBikeTypes=['Road']; S.regRiderNames=['Spec Rider'];
     S.promoApplied={ code:'SAVE10', kind:'percent', value:10 };
-    submitReg();
+    S.waiverOk=true;submitReg();
   `);
   await expect.poll(() => inserts.length).toBeGreaterThanOrEqual(1);
   const row = inserts[0];
@@ -37,7 +37,7 @@ test('a non-promo booking sends a null promo_code (trigger will snap price to ca
   await page.goto('/');
   await waitForSb(page);
   const inserts = await captureBookingRows(page);
-  await page.evaluate(`S.selSession='s1'; S.regQty=1; S.regBikeHeights=[175]; S.regBikeTypes=['Road']; S.regRiderNames=['Spec Rider']; S.promoApplied=null; submitReg();`);
+  await page.evaluate(`S.selSession='s1'; S.regQty=1; S.regBikeHeights=[175]; S.regBikeTypes=['Road']; S.regRiderNames=['Spec Rider']; S.promoApplied=null; S.waiverOk=true;submitReg();`);
   await expect.poll(() => inserts.length).toBeGreaterThanOrEqual(1);
   expect(inserts[0].promo_code ?? null).toBeNull();
 });

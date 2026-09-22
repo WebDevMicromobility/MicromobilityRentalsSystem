@@ -17,7 +17,7 @@ test.describe('overbooking guard', () => {
     await waitForSb(page);
     const inserts = await captureBookingRows(page);
     await page.evaluate(`S.selSession='s1';S.regQty=1;S.regBikeHeights=[175];S.regBikeTypes=['Hybrid'];S.regRiderNames=['Spec Rider'];`);
-    await page.evaluate('submitReg()');
+    await page.evaluate('S.waiverOk=true;submitReg()');
     await expect.poll(() => inserts.length).toBeGreaterThanOrEqual(1);
     expect(inserts[0].status).toBe('waitlist'); // was 'waiting' → overbooked
   });
@@ -29,7 +29,7 @@ test.describe('overbooking guard', () => {
     await waitForSb(page);
     const inserts = await captureBookingRows(page);
     await page.evaluate(`S.selSession='s1';S.regQty=2;S.regBikeHeights=[175,170];S.regBikeTypes=['Hybrid','Road'];S.regRiderNames=['A B','C D'];`);
-    await page.evaluate('submitReg()');
+    await page.evaluate('S.waiverOk=true;submitReg()');
     await expect.poll(() => inserts.length).toBe(2);
     expect(inserts.every((r) => r.status === 'waitlist')).toBe(true);
   });
@@ -41,7 +41,7 @@ test.describe('overbooking guard', () => {
     await waitForSb(page);
     const inserts = await captureBookingRows(page);
     await page.evaluate(`S.selSession='s1';S.regQty=1;S.regBikeHeights=[175];S.regBikeTypes=['Hybrid'];S.regRiderNames=['Spec Rider'];`);
-    await page.evaluate('submitReg()');
+    await page.evaluate('S.waiverOk=true;submitReg()');
     await expect.poll(() => inserts.length).toBeGreaterThanOrEqual(1);
     expect(inserts[0].status).toBe('waiting');
   });

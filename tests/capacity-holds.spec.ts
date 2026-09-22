@@ -72,7 +72,7 @@ test('a rider booking into a full session is waitlisted, even after riders finis
   const rows = await captureBookingRows(page);
   await page.evaluate(
     `S.selSession='${sess.id}'; S.regQty=1; S.regBikeHeights=[175]; S.regBikeTypes=['Road'];
-     S.regRiderNames=['Late Rider']; S.promoApplied=null; submitReg();`,
+     S.regRiderNames=['Late Rider']; S.promoApplied=null; S.waiverOk=true;submitReg();`,
   );
   await expect.poll(() => rows.length).toBe(1);
   expect(rows[0].status).toBe('waitlist');

@@ -13,7 +13,7 @@ const bikes = [{ id: 'b1', name: 'B1', size: 'M', type: 'Road', status: 'availab
 
 const book = (page: import('@playwright/test').Page) => page.evaluate(
   `S.selSession='s1'; S.regQty=1; S.regBikeHeights=[175]; S.regBikeTypes=['Road'];
-   S.regRiderNames=['Spec Rider']; S.promoApplied=null; submitReg();`,
+   S.regRiderNames=['Spec Rider']; S.promoApplied=null; S.waiverOk=true;submitReg();`,
 );
 
 /** Records which transport each booking attempt used. */

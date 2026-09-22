@@ -5067,7 +5067,10 @@ async function selectSessCard(id){
   const s=allSessions().find(x=>x.id===id);
   if(_wasRejectedFor(id)){showRejectedModal(s);return;}
   if(_isCommunity(s)&&!_openToAll(s)&&!(await commAccess())){showCommMembersModal(s);return;}
-  if(S.selSession!==id)S.regAddons=[]; // add-ons are per-session offerings: a switch must drop picks the new session may not sell
+  // Add-ons are per-session offerings: a switch must drop picks the new session may not sell. The
+  // promo code goes too - applied for one ride, it rode along onto the next, including onto a free
+  // ride whose box is hidden, where it could not be removed and still spent a use of the code.
+  if(S.selSession!==id){S.regAddons=[];S.promoApplied=null;S._promoMsg='';}
   S._qtyCapNote=false;
   S.selSession=id;renderRegister();
 }
@@ -5080,6 +5083,7 @@ async function selectEvent(ev){
     showCommMembersModal(next);return;
   }
   S.selEvent=ev;S.selSession=null;
+  S.promoApplied=null;S._promoMsg=''; // a code applied on another event's ride does not follow the rider here (see selectSessCard)
   // A one-date event has nothing to choose between. The National Day ride is a single night,
   // so picking its card opens the ride itself rather than a list holding one of it — and if
   // a second one is ever put on, the list comes back on its own.
@@ -5927,6 +5931,8 @@ async function addManagedWl(){
   if(_writeErr(res,'waitlist'))return;
   S.deskWaitlist=[...(S.deskWaitlist||[]),row];
   logAction(`${t('mwTitle')}: ${name}`);
+  S._mwQ='';S._mwShowAll=false;S._mwPh=''; // the boxes empty for the next name (they are painted from these)
+  if(nameEl)nameEl.value='';if(phEl)phEl.value='';
   renderStaffQueue();
   setTimeout(()=>{const i=document.getElementById('mw-name');if(i)i.focus();},60); // rapid entry: keep typing names
   }finally{S._mwBusy=false;}
@@ -6124,13 +6130,13 @@ function _mwSuggestHtml(){
     const tag=n>1?(nums[0]+'…'):nums[0];
     const name=n>1?((e.groupName||e.name||'')+` +${n-1}`):(e.name||'');
     const meta=n>1?t('mwRidersN').replace('{0}',String(n)):`${typeLabel(resolvedType(e))}${e.phone?' · '+fmtPhone(e.phone):''}`;
-    return`<button type="button" class="mw-sug" onclick="mwPickBooking('${esc(g.map(x=>x.id).join(','))}')">
+    return`<button type="button" class="mw-sug" onclick="mwPickBooking(${_ja(g.map(x=>x.id).join(','))})">
       <span class="mw-sug-tag${e.status==='waitlist'?' wl':''}">${esc(tag)}</span>
       <span class="mw-sug-name">${esc(name)}</span>
       <span class="mw-sug-meta">${esc(meta)}</span>
     </button>`;
   };
-  const cRow=c=>`<button type="button" class="mw-sug" onclick="mwPickCustomer('${esc(c.id)}')">
+  const cRow=c=>`<button type="button" class="mw-sug" onclick="mwPickCustomer(${_ja(c.id)})">
       <span class="mw-sug-tag cust">${t('mwCustTag')}</span>
       <span class="mw-sug-name">${esc(c.name||'')}</span>
       <span class="mw-sug-meta">${c.phone?esc(fmtPhone(c.phone)):''}</span>
@@ -6162,9 +6168,11 @@ function mwSetSess(v){
   renderStaffQueue();
 }
 function mwSearch(v){S._mwQ=v;S._mwShowAll=false;_mwRenderSuggest();}
+/** Staff are typing a walk-up into the Staff List (its name/search or phone box has the focus). */
+function _mwTyping(){const a=document.activeElement;return !!a&&(a.id==='mw-name'||a.id==='mw-phone')&&!!document.getElementById('mw-list');}
 function mwToggleAll(){S._mwShowAll=!S._mwShowAll;_mwRenderSuggest();}
 function _mwClearSearch(){
-  S._mwQ='';S._mwShowAll=false;
+  S._mwQ='';S._mwShowAll=false;S._mwPh='';
   const i=document.getElementById('mw-name');if(i){i.value='';i.focus();}
   const p=document.getElementById('mw-phone');if(p)p.value='';
   _mwRenderSuggest();
@@ -6206,7 +6214,7 @@ async function mwPickCustomer(custId){
     const live=items.filter(Boolean);
     if(!live.length)return'';
     (S._rowMenus=S._rowMenus||{})[id]=live;
-    return`<button class="btn-sm btn-muted" aria-haspopup="menu" aria-label="${t('moreActionsLbl')}" title="${t('moreActionsLbl')}" onclick="event.stopPropagation();showRowMenu('${id}',event)" style="min-width:34px;font-weight:900;letter-spacing:1px">⋯</button>`;
+    return`<button class="btn-sm btn-muted" aria-haspopup="menu" aria-label="${t('moreActionsLbl')}" title="${t('moreActionsLbl')}" onclick="event.stopPropagation();showRowMenu(${_ja(id)},event)" style="min-width:34px;font-weight:900;letter-spacing:1px">⋯</button>`;
   }
   // "2 no-shows in the last 5" — the history is all in the data, surfaced at the moment
   // staff choose who gets a freed spot. Counted per PERSON (account id when linked, phone
@@ -6220,10 +6228,22 @@ async function mwPickCustomer(custId){
     if(ns<2)return'';
     return `<span title="${t('noShowHistTip')}" style="font-size:10px;font-weight:900;color:var(--orange);border:1px solid rgba(var(--warn-rgb),.4);border-radius:2px;padding:2px 6px;white-space:nowrap">${t('noShowHistChip').replace('{0}',String(ns)).replace('{1}',String(past.length))}</span>`;
   }
+  // An unlinked booking's account, by name. The roster asked this of every walk-in row on every
+  // repaint by scanning all customers (thousands) - one map per customers array instead, rebuilt
+  // only when that array is replaced or changes length. First match wins, as .find() did.
+  let _cnRef=null,_cnLen=-1,_cnMap=null;
+  function _custIdByName(name){
+    const cs=S.customers;if(!cs||!cs.length)return undefined;
+    if(_cnRef!==cs||_cnLen!==cs.length||!_cnMap){
+      _cnMap=new Map();cs.forEach(c=>{const k=String(c.name||'').trim().toLowerCase();if(!_cnMap.has(k))_cnMap.set(k,c.id);});
+      _cnRef=cs;_cnLen=cs.length;
+    }
+    return _cnMap.get(String(name||'').trim().toLowerCase());
+  }
   function _entryActions(e,_opt){
     // Jump to the ACCOUNT behind the booking (full editor incl. tags/default payment):
     // linked customer, or a name match for walk-ins that were typed in without linking.
-    const _custId=e.customerId||(((S.customers||[]).find(c=>String(c.name||'').trim().toLowerCase()===String(e.name||'').trim().toLowerCase())||{}).id);
+    const _custId=e.customerId||_custIdByName(e.name);
     // Community-event reservations: staff select who rides. Pending rows get Approve/Reject,
     // plus a Waitlist action (usable even with spots free, so staff can park a request
     // without rejecting it); a waitlist approve = hand-picked promotion into a spot.
@@ -6233,19 +6253,19 @@ async function mwPickCustomer(custId){
     if(_comm&&['pending','rejected'].includes(_apprOf(e))&&(e.status==='waiting'||e.status==='waitlist')){
       const _rej=_apprOf(e)==='rejected';
       const chip=`<span style="font-size:10px;font-weight:900;color:${_rej?'var(--red)':'var(--orange)'};border:1px solid rgba(var(${_rej?'--red-rgb':'--warn-rgb'}),.4);border-radius:2px;padding:2px 8px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">${_rej?t('filterRejected'):t('apprPendingChip')}</span>`;
-      const wlBtn=e.status==='waiting'?`<button class="btn-sm btn-muted" onclick="commToWaitlist('${e.id}')" title="${t('waitlistLabel')}">${_artIcon('clock',12)} ${t('waitlistLabel')}</button>`:'';
-      return`${chip}${_noShowChip(e)}<button class="btn-sm btn-green" onclick="approveEntry('${e.id}')">✓ ${t('apprApproveBtn')}</button><button class="btn-sm btn-red" onclick="rejectEntry('${e.id}')">${t('apprRejectBtn')}</button>${wlBtn}${_rowMenu(e.id,[...((_opt&&_opt.extraMenu)||[]),
+      const wlBtn=e.status==='waiting'?`<button class="btn-sm btn-muted" onclick="commToWaitlist(${_ja(e.id)})" title="${t('waitlistLabel')}">${_artIcon('clock',12)} ${t('waitlistLabel')}</button>`:'';
+      return`${chip}${_noShowChip(e)}<button class="btn-sm btn-green" onclick="approveEntry(${_ja(e.id)})">✓ ${t('apprApproveBtn')}</button><button class="btn-sm btn-red" onclick="rejectEntry(${_ja(e.id)})">${t('apprRejectBtn')}</button>${wlBtn}${_rowMenu(e.id,[...((_opt&&_opt.extraMenu)||[]),
         {label:`${ICON_PENCIL} ${t('editBookingBtn')}`,run:`showBookingEditModal('${e.id}')`,act:()=>showBookingEditModal(e.id)},
         _custId?{label:`${_artIcon('person',12)} ${t('custBtn')}`,run:`showEditCustomerModal('${_custId}')`,act:()=>showEditCustomerModal(_custId)}:null])}`;
     }
-    const _apprChip=(_comm&&e.approval==='approved')?`<span style="font-size:10px;font-weight:900;color:var(--green);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">✓ ${t('apprApprovedChip')}</span><button class="btn-sm btn-muted" title="${t('apprUndoBtn')}" onclick="unapproveEntry('${e.id}')">${_artIcon('undo',11)} ${t('apprUndoBtn')}</button>`:'';
+    const _apprChip=(_comm&&e.approval==='approved')?`<span style="font-size:10px;font-weight:900;color:var(--green);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">✓ ${t('apprApprovedChip')}</span><button class="btn-sm btn-muted" title="${t('apprUndoBtn')}" onclick="unapproveEntry(${_ja(e.id)})">${_artIcon('undo',11)} ${t('apprUndoBtn')}</button>`:'';
     // Waitlisted and waiting rows carry the SAME controls. A waitlisted rider is a rider
     // whose place is not held yet, not a different kind of booking: staff check them in, mark
     // them no-show, edit, note and cancel them exactly the same way. What says they are
     // waitlisted is the badge and the W position, not a different set of buttons.
     const _mEdit={label:`${ICON_PENCIL} ${t('editBookingBtn')}`,run:`showBookingEditModal('${e.id}')`,act:()=>showBookingEditModal(e.id)};
     const _mCust=_custId?{label:`${_artIcon('person',12)} ${t('custBtn')}`,run:`showEditCustomerModal('${_custId}')`,act:()=>showEditCustomerModal(_custId)}:null;
-    if(e.status==='waiting'||e.status==='waitlist')return`${_apprChip}${e.status==='waitlist'?_noShowChip(e):''}${(_opt&&_opt.noBulk)?'':_bulkChk(e)}<button class="btn-sm btn-green" onclick="showCheckinModal('${e.id}')">${t('checkInBtn')}</button>${_rowMenu(e.id,[...((_opt&&_opt.extraMenu)||[]),
+    if(e.status==='waiting'||e.status==='waitlist')return`${_apprChip}${e.status==='waitlist'?_noShowChip(e):''}${(_opt&&_opt.noBulk)?'':_bulkChk(e)}<button class="btn-sm btn-green" onclick="showCheckinModal(${_ja(e.id)})">${t('checkInBtn')}</button>${_rowMenu(e.id,[...((_opt&&_opt.extraMenu)||[]),
       {label:t('noShowBtn'),run:`confirmNoShow('${e.id}')`,act:()=>confirmNoShow(e.id)},
       _isReserved(e)?{label:t('menuReleaseBike'),run:`_releaseReserved('${e.id}')`,act:()=>_releaseReserved(e.id)}
         :(resolvedType(e)==='Own'?null:{label:t('menuReserveBike'),run:`_reserveFromMenu('${e.id}')`,act:()=>_reserveFromMenu(e.id)}),
@@ -6253,16 +6273,16 @@ async function mwPickCustomer(custId){
       (_opt&&_opt.noPark)?null:{label:t('mwMoveBtn'),run:`mwFromBooking('${e.id}')`,act:()=>mwFromBooking(e.id)},
       _mEdit,_mCust,
       {label:t('cancelBtn'),run:`staffCancelEntry('${e.id}')`,act:()=>staffCancelEntry(e.id),danger:true}])}`;
-    if(e.status==='active')return`${_apprChip}${(_opt&&_opt.noBulk)?'':_bulkChk(e)}<button class="btn-sm btn-green" onclick="doReturn('${e.id}')">${t('returnBikeBtn')}</button>${_rowMenu(e.id,[...((_opt&&_opt.extraMenu)||[]),
+    if(e.status==='active')return`${_apprChip}${(_opt&&_opt.noBulk)?'':_bulkChk(e)}<button class="btn-sm btn-green" onclick="doReturn(${_ja(e.id)})">${t('returnBikeBtn')}</button>${_rowMenu(e.id,[...((_opt&&_opt.extraMenu)||[]),
       {label:t('changeBikeBtn'),run:`openModal('${e.id}')`,act:()=>openModal(e.id)},
       {label:t('cashierAddBtn'),run:`showCashierModal('${e.id}')`,act:()=>showCashierModal(e.id)},
       _mEdit,_mCust,
       {label:t('undoCheckinBtn'),run:`doUndoCheckin('${e.id}')`,act:()=>doUndoCheckin(e.id)},
       {label:t('cancelBtn'),run:`staffCancelEntry('${e.id}')`,act:()=>staffCancelEntry(e.id),danger:true}])}`;
-    if(e.status==='done')return`<button class="btn-sm btn-green" onclick="doReopen('${e.id}')">${t('reopenBookingBtn')}</button>${_rowMenu(e.id,[...((_opt&&_opt.extraMenu)||[]),_mCust,{label:t('removeBtn'),run:`confirmRemove('${e.id}')`,act:()=>confirmRemove(e.id),danger:true}])}`;
-    if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow('${e.id}')">${t('customerShowedBtn')}</button>${_rowMenu(e.id,[...((_opt&&_opt.extraMenu)||[]),_mCust,{label:t('removeBtn'),run:`confirmRemove('${e.id}')`,act:()=>confirmRemove(e.id),danger:true}])}`;
-    if(e.status==='cancelled')return`<button class="btn-sm btn-green" onclick="doRestoreCancelled('${e.id}')">${t('restoreBookingBtn')}</button>${_rowMenu(e.id,[...((_opt&&_opt.extraMenu)||[]),{label:t('removeBtn'),run:`confirmRemove('${e.id}')`,act:()=>confirmRemove(e.id),danger:true}])}`;
-    return`<button class="btn-sm btn-muted" onclick="confirmRemove('${e.id}')">${t('removeBtn')}</button>`;
+    if(e.status==='done')return`<button class="btn-sm btn-green" onclick="doReopen(${_ja(e.id)})">${t('reopenBookingBtn')}</button>${_rowMenu(e.id,[...((_opt&&_opt.extraMenu)||[]),_mCust,{label:t('removeBtn'),run:`confirmRemove('${e.id}')`,act:()=>confirmRemove(e.id),danger:true}])}`;
+    if(e.status==='noshow')return`<button class="btn-sm btn-green" onclick="doUndoNoShow(${_ja(e.id)})">${t('customerShowedBtn')}</button>${_rowMenu(e.id,[...((_opt&&_opt.extraMenu)||[]),_mCust,{label:t('removeBtn'),run:`confirmRemove('${e.id}')`,act:()=>confirmRemove(e.id),danger:true}])}`;
+    if(e.status==='cancelled')return`<button class="btn-sm btn-green" onclick="doRestoreCancelled(${_ja(e.id)})">${t('restoreBookingBtn')}</button>${_rowMenu(e.id,[...((_opt&&_opt.extraMenu)||[]),{label:t('removeBtn'),run:`confirmRemove('${e.id}')`,act:()=>confirmRemove(e.id),danger:true}])}`;
+    return`<button class="btn-sm btn-muted" onclick="confirmRemove(${_ja(e.id)})">${t('removeBtn')}</button>`;
   }
 
   function showRowMenu(id,evt){
@@ -6291,7 +6311,7 @@ async function mwPickCustomer(custId){
   function _bulkChk(e){
     if(e.status!=='waiting'&&e.status!=='active')return'';
     const on=S.sfSelected.includes(e.id);
-    return`<label class="row-select" title="${t('selectRowTip')}"><input type="checkbox"${on?' checked':''} aria-label="Select booking #${e.queueNum}" onchange="toggleSfSelect('${e.id}')"></label>`;
+    return`<label class="row-select" title="${t('selectRowTip')}"><input type="checkbox"${on?' checked':''} aria-label="${esc(t('selectBookingAria'))} #${e.queueNum}" onchange="toggleSfSelect(${_ja(e.id)})"></label>`;
   }
 
 // The queue's payment pair (toggle + edit price) for a booking shown outside the roster.
@@ -6299,8 +6319,8 @@ async function mwPickCustomer(custId){
 function _bkPayCell(e){
   if(_freeSessIds.has(e.sessionId))return'';
   const isHouse=e.paid&&(e.price??DEFAULT_PRICE)===0;
-  return`<button class="pay-toggle ${isHouse?'house':e.paid?'paid':'pending'}" onclick="event.stopPropagation();showPayMenu('${e.id}',event)">${isHouse?' '+t('onTheHouseLabel'):e.paid?'\u2713 '+t('paidLabel'):' '+t('pendingLabel')}</button>`
-    +`<button onclick="event.stopPropagation();showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" aria-label="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:6px;min-width:24px;min-height:24px;line-height:1">${ICON_PENCIL}</button>`;
+  return`<button class="pay-toggle ${isHouse?'house':e.paid?'paid':'pending'}" onclick="event.stopPropagation();showPayMenu(${_ja(e.id)},event)">${isHouse?' '+t('onTheHouseLabel'):e.paid?'\u2713 '+t('paidLabel'):' '+t('pendingLabel')}</button>`
+    +`<button onclick="event.stopPropagation();showEditPriceModal(${_ja(e.id)})" title="${t('editPriceBtn')}" aria-label="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:6px;min-width:24px;min-height:24px;line-height:1">${ICON_PENCIL}</button>`;
 }
 /** The party's live bookings, in list order. */
 function _mwPartyBookings(rowId){
@@ -6359,7 +6379,7 @@ function _mwTypeCell(w,bk){
   const sess=bk?allSessions().find(x=>x.id===bk.sessionId):null;
   const opts=bk?bikeTypeOpts(_ownOffered(sess),_noCarbon(sess)):bikeTypeOpts(false,false);
   const list=opts.includes(cur)?opts:[cur,...opts];
-  return`<select class="mw-type" aria-label="${esc(t('bikeTypeLabel'))}" onchange="mwSetType('${esc(w.id)}',this.value)">
+  return`<select class="mw-type" aria-label="${esc(t('bikeTypeLabel'))}" onchange="mwSetType(${_ja(w.id)},this.value)">
       ${list.map(ty=>`<option value="${esc(ty)}"${ty===cur?' selected':''}>${esc(typeLabel(ty))}</option>`).join('')}
     </select>${availChip(_wlAvail(cur))}`;
 }
@@ -6386,9 +6406,66 @@ async function mwSetType(rowId,ty){
   logAction(`${t('bikeTypeLabel')}: ${w.name} \u2192 ${typeLabel(ty)}`);
   renderStaffQueue();renderMyRides();
 }
-function renderManagedWl(){
+// listOnly: repaint the list and the picker, but not the inputs above them. A background refresh
+// (any booking changing anywhere, all through an arrival rush) used to rebuild the whole host while
+// staff were typing a walk-up in: the phone number vanished and the keyboard closed mid-name.
+function renderManagedWl(listOnly){
   const el=document.getElementById('mw-host');if(!el)return;
   const groups=_mwGroups();
+  const listHtml=groups.length?groups.map((g,i)=>{
+        const _party=g.length>1;
+        // One card per party. The position box, the drag handle and the card belong to the
+        // PARTY; each rider inside keeps their own booking's controls, because staff still
+        // check riders in one at a time even when they arrived together.
+        const _posBox=id=>`<input type="number" min="1" value="${i+1}" aria-label="#" onclick="event.stopPropagation()" onchange="mwSetPos(${_ja(id)},this.value)" onkeydown="if(event.key==='Enter')this.blur()" style="width:52px;padding:6px 4px;text-align:center;font-weight:900;font-size:14px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.15);border-radius:3px;color:var(--green)">`;
+        const _row=w=>{
+          const bk=w.booking_id?getQueue().find(x=>x.id===w.booking_id):null;
+          // A parked booking is still a booking: it gets the roster's own controls — check in,
+          // no-show, edit, note, cancel — rather than the single Promote button it used to get,
+          // which meant staff had to leave the list to do anything real. Only while it is LIVE,
+          // though: a spent one (ridden, cancelled, no-showed) keeps the list's Remove alone,
+          // so there are never two Removes meaning different things.
+          const _bkLive=bk&&['waiting','waitlist','active'].includes(bk.status);
+          const action=w.booking_id
+            ?(_bkLive?_entryActions(bk,{noBulk:true,noPark:true}):'')
+            :`<button class="btn-sm btn-green" onclick="giveDeskBike(${_ja(w.id)})">${t('checkInBtn')}</button>`;
+          return`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap${_party?';padding-top:7px':''}">
+            <div style="display:flex;align-items:center;gap:9px;min-width:0;flex-wrap:wrap">
+              ${(_party||w._virtual)?'':_posBox(w.id)}
+              <span style="font-weight:800;font-size:13.5px">${esc(w.name)}</span>
+              ${bk?`<span style="font-size:10px;font-weight:900;color:var(--orange);border:1px solid rgba(var(--warn-rgb),.4);border-radius:2px;padding:1px 7px;white-space:nowrap">#${bk.queueNum}${bk.waitlistNum?` \u00b7 W${bk.waitlistNum}`:''}</span>`:''}
+              ${(bk&&bk.status==='waitlist'&&bk.waitlistNum)?`<input type="number" min="1" value="${bk.waitlistNum}" aria-label="W" onclick="event.stopPropagation()" onchange="wlSetPos(${_ja(bk.id)},this.value)" onkeydown="if(event.key==='Enter')this.blur()" style="width:46px;padding:4px 2px;text-align:center;font-weight:900;font-size:12px;background:var(--s3);border:1px solid rgba(var(--warn-rgb),.4);border-radius:3px;color:var(--orange)">`:''}
+              ${(!_party&&w.phone)?`<span style="font-size:11px;color:var(--muted)"><bdi>${esc(fmtPhone(w.phone))}</bdi></span>`:''}
+              ${_mwTypeCell(w,bk)}
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap">
+              ${bk?_bkPayCell(bk):payBtnMw(w)}${w.phone?_contactCell(w.phone,{status:'waiting'}):''}
+              ${(_bkLive&&!_isApprovalRide(allSessions().find(x=>x.id===bk.sessionId)))
+                ?`<button class="btn-sm btn-muted" onclick="mwAddRider(${_ja(bk.id)})" title="${esc(t('beAddRidersLabel'))}">+ ${t('beAddRiderBtn')}</button>`:''}
+              ${action}
+              ${w._virtual?'':`<button class="btn-sm btn-muted" onclick="resolveDeskWaitlist(${_ja(w.id)},'removed')">${t('wlRemoveBtn')}</button>`}
+            </div>
+          </div>`;
+        };
+        // Dragging rewrites sort_order on desk rows. A card of folded-in bookings has none,
+        // so it is not draggable — its order is the W order, editable in the W box on the row.
+        const _drag=!g.some(w=>w._virtual);
+        return`<div class="q-card" style="margin:0;cursor:${_drag?'grab':'default'}" draggable="${_drag?'true':'false'}"${_drag?` ondragstart="_mwDragStart(event,${_ja(g[0].id)})" ondragover="_mwDragOver(event,${_ja(g[0].id)})" ondrop="_mwDrop(event,${_ja(g[0].id)})"`:''}>
+        ${_party?`<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding-bottom:7px;border-bottom:1px solid rgba(var(--tint-rgb),.08)">
+          ${_drag?_posBox(g[0].id):''}
+          <span style="font-weight:900;font-size:13.5px">${esc(_mwGroupName(g))}</span>
+          <span class="mw-party-chip">${t('mwRidersN').replace('{0}',String(g.length))}</span>
+          ${(()=>{const _bk=g.map(w=>w.booking_id&&getQueue().find(x=>x.id===w.booking_id)).filter(Boolean);
+            const _in=_bk.filter(e=>e.status==='waiting'||e.status==='waitlist').length;
+            const _owed=_bk.filter(e=>!e.paid&&!_freeSessIds.has(e.sessionId)&&['waiting','waitlist','active'].includes(e.status)).length;
+            return`${_owed?`<button class="btn-sm btn-muted" onclick="mwPartyPaid(${_ja(g[0].id)})">\u2713 ${t('bulkPaidBtn')} (${_owed})</button>`:''}
+              ${_in?`<button class="btn-sm btn-green" onclick="mwPartyCheckin(${_ja(g[0].id)})">${t('bulkCheckinBtn')} (${_in})</button>`:''}`;})()}
+          ${g.some(w=>!w._virtual)?`<button class="btn-sm btn-muted" style="margin-inline-start:auto" onclick="mwRemoveParty(${_ja(g[0].id)})">${t('wlRemoveBtn')}</button>`:''}
+        </div>`:''}
+        ${g.map(_row).join('')}
+      </div>`;}).join(''):`<div class="empty-state" style="padding:12px;font-size:12.5px">${(S._mwSess&&S._mwSess!=='all')?t('mwEmptyForSess'):t('wlEmpty')}</div>`;
+  const _lh=listOnly&&document.getElementById('mw-list');
+  if(_lh){_lh.innerHTML=listHtml;_mwRenderSuggest();return;}
   el.innerHTML=`
     <div class="section-header">
       <div>
@@ -6400,73 +6477,20 @@ function renderManagedWl(){
       <select id="mw-sess" class="filter-select" style="min-width:190px;flex-shrink:0" aria-label="${esc(t('colSession'))}"
         onchange="mwSetSess(this.value)">
         <option value="all"${(S._mwSess||'all')==='all'?' selected':''}>${t('allSessions')}</option>
-        ${_mwSessOpts().map(x=>`<option value="${esc(x.id)}"${S._mwSess===x.id?' selected':''}>${esc(_evNamed(x)?_evName(x)+' \u00b7 ':'')}${dayLabel(x.day)} ${shortDate(x.session_date||x.id)}</option>`).join('')}
+        ${_mwSessOpts().map(x=>`<option value="${esc(x.id)}"${S._mwSess===x.id?' selected':''}>${esc(_evNamed(x)?_evName(x)+' \u00b7 ':'')}${esc(dayLabel(x.day))} ${esc(shortDate(x.session_date||x.id))}</option>`).join('')}
       </select>
       <input id="mw-name" type="text" maxlength="60" placeholder="${esc(t('mwSearchPh'))}" value="${esc(S._mwQ||'')}" style="flex:1;min-width:160px"
         oninput="mwSearch(this.value)" onkeydown="if(event.key==='Enter')mwEnter()">
-      <input id="mw-phone" type="tel" placeholder="05\u2026" style="width:130px;flex-shrink:0" onkeydown="if(event.key==='Enter')addManagedWl()">
+      <input id="mw-phone" type="tel" placeholder="05\u2026" value="${esc(S._mwPh||'')}" style="width:130px;flex-shrink:0" oninput="S._mwPh=this.value" onkeydown="if(event.key==='Enter')addManagedWl()">
       <button id="mw-browse" class="btn-secondary" style="flex-shrink:0" aria-controls="mw-suggest" aria-expanded="${S._mwShowAll?'true':'false'}" onclick="mwToggleAll()">${S._mwShowAll?t('mwHideBtn'):t('mwBrowseBtn')}</button>
       <button class="btn-primary" style="flex-shrink:0" onclick="addManagedWl()">+ ${t('mwAddBtn')}</button>
       <button class="btn-secondary" style="flex-shrink:0" onclick="showWlAddModal()" title="${esc(t('wlAddBtn'))}">${_artIcon('person',12)} ${t('wlAddBtn')}</button>
     </div>
     <div id="mw-suggest" class="mw-suggest" style="display:none"></div>
-    <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px;max-width:900px">
-      ${groups.length?groups.map((g,i)=>{
-        const _party=g.length>1;
-        // One card per party. The position box, the drag handle and the card belong to the
-        // PARTY; each rider inside keeps their own booking's controls, because staff still
-        // check riders in one at a time even when they arrived together.
-        const _posBox=id=>`<input type="number" min="1" value="${i+1}" aria-label="#" onclick="event.stopPropagation()" onchange="mwSetPos('${id}',this.value)" onkeydown="if(event.key==='Enter')this.blur()" style="width:52px;padding:6px 4px;text-align:center;font-weight:900;font-size:14px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.15);border-radius:3px;color:var(--green)">`;
-        const _row=w=>{
-          const bk=w.booking_id?getQueue().find(x=>x.id===w.booking_id):null;
-          // A parked booking is still a booking: it gets the roster's own controls — check in,
-          // no-show, edit, note, cancel — rather than the single Promote button it used to get,
-          // which meant staff had to leave the list to do anything real. Only while it is LIVE,
-          // though: a spent one (ridden, cancelled, no-showed) keeps the list's Remove alone,
-          // so there are never two Removes meaning different things.
-          const _bkLive=bk&&['waiting','waitlist','active'].includes(bk.status);
-          const action=w.booking_id
-            ?(_bkLive?_entryActions(bk,{noBulk:true,noPark:true}):'')
-            :`<button class="btn-sm btn-green" onclick="giveDeskBike('${esc(w.id)}')">${t('checkInBtn')}</button>`;
-          return`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap${_party?';padding-top:7px':''}">
-            <div style="display:flex;align-items:center;gap:9px;min-width:0;flex-wrap:wrap">
-              ${(_party||w._virtual)?'':_posBox(w.id)}
-              <span style="font-weight:800;font-size:13.5px">${esc(w.name)}</span>
-              ${bk?`<span style="font-size:10px;font-weight:900;color:var(--orange);border:1px solid rgba(var(--warn-rgb),.4);border-radius:2px;padding:1px 7px;white-space:nowrap">#${bk.queueNum}${bk.waitlistNum?` \u00b7 W${bk.waitlistNum}`:''}</span>`:''}
-              ${(bk&&bk.status==='waitlist'&&bk.waitlistNum)?`<input type="number" min="1" value="${bk.waitlistNum}" aria-label="W" onclick="event.stopPropagation()" onchange="wlSetPos('${esc(bk.id)}',this.value)" onkeydown="if(event.key==='Enter')this.blur()" style="width:46px;padding:4px 2px;text-align:center;font-weight:900;font-size:12px;background:var(--s3);border:1px solid rgba(var(--warn-rgb),.4);border-radius:3px;color:var(--orange)">`:''}
-              ${(!_party&&w.phone)?`<span style="font-size:11px;color:var(--muted)"><bdi>${esc(fmtPhone(w.phone))}</bdi></span>`:''}
-              ${_mwTypeCell(w,bk)}
-            </div>
-            <div style="display:flex;gap:6px;flex-shrink:0;align-items:center;flex-wrap:wrap">
-              ${bk?_bkPayCell(bk):payBtnMw(w)}${w.phone?_contactCell(w.phone,{status:'waiting'}):''}
-              ${(_bkLive&&!_isApprovalRide(allSessions().find(x=>x.id===bk.sessionId)))
-                ?`<button class="btn-sm btn-muted" onclick="mwAddRider('${esc(bk.id)}')" title="${esc(t('beAddRidersLabel'))}">+ ${t('beAddRiderBtn')}</button>`:''}
-              ${action}
-              ${w._virtual?'':`<button class="btn-sm btn-muted" onclick="resolveDeskWaitlist('${w.id}','removed')">${t('wlRemoveBtn')}</button>`}
-            </div>
-          </div>`;
-        };
-        // Dragging rewrites sort_order on desk rows. A card of folded-in bookings has none,
-        // so it is not draggable — its order is the W order, editable in the W box on the row.
-        const _drag=!g.some(w=>w._virtual);
-        return`<div class="q-card" style="margin:0;cursor:${_drag?'grab':'default'}" draggable="${_drag?'true':'false'}"${_drag?` ondragstart="_mwDragStart(event,'${g[0].id}')" ondragover="_mwDragOver(event,'${g[0].id}')" ondrop="_mwDrop(event,'${g[0].id}')"`:''}>
-        ${_party?`<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding-bottom:7px;border-bottom:1px solid rgba(var(--tint-rgb),.08)">
-          ${_drag?_posBox(g[0].id):''}
-          <span style="font-weight:900;font-size:13.5px">${esc(_mwGroupName(g))}</span>
-          <span class="mw-party-chip">${t('mwRidersN').replace('{0}',String(g.length))}</span>
-          ${(()=>{const _bk=g.map(w=>w.booking_id&&getQueue().find(x=>x.id===w.booking_id)).filter(Boolean);
-            const _in=_bk.filter(e=>e.status==='waiting'||e.status==='waitlist').length;
-            const _owed=_bk.filter(e=>!e.paid&&!_freeSessIds.has(e.sessionId)&&['waiting','waitlist','active'].includes(e.status)).length;
-            return`${_owed?`<button class="btn-sm btn-muted" onclick="mwPartyPaid('${g[0].id}')">\u2713 ${t('bulkPaidBtn')} (${_owed})</button>`:''}
-              ${_in?`<button class="btn-sm btn-green" onclick="mwPartyCheckin('${g[0].id}')">${t('bulkCheckinBtn')} (${_in})</button>`:''}`;})()}
-          ${g.some(w=>!w._virtual)?`<button class="btn-sm btn-muted" style="margin-inline-start:auto" onclick="mwRemoveParty('${g[0].id}')">${t('wlRemoveBtn')}</button>`:''}
-        </div>`:''}
-        ${g.map(_row).join('')}
-      </div>`;}).join(''):`<div class="empty-state" style="padding:12px;font-size:12.5px">${(S._mwSess&&S._mwSess!=='all')?t('mwEmptyForSess'):t('wlEmpty')}</div>`}
-    </div>`;
+    <div id="mw-list" style="margin-top:14px;display:flex;flex-direction:column;gap:8px;max-width:900px">${listHtml}</div>`;
   _mwRenderSuggest(); // a background refresh rebuilds this host: put the open picker back
 }
-function payBtnMw(w){const isHouse=w.paid&&_wlRowPrice(w)===0;return`<button class="pay-toggle ${isHouse?'house':w.paid?'paid':'pending'}" onclick="showWlPayMenu('${esc(w.id)}',event)">${isHouse?' '+t('onTheHouseLabel'):w.paid?'\u2713 '+t('paidLabel'):' '+t('pendingLabel')}</button>`;}
+function payBtnMw(w){const isHouse=w.paid&&_wlRowPrice(w)===0;return`<button class="pay-toggle ${isHouse?'house':w.paid?'paid':'pending'}" onclick="showWlPayMenu(${_ja(w.id)},event)">${isHouse?' '+t('onTheHouseLabel'):w.paid?'\u2713 '+t('paidLabel'):' '+t('pendingLabel')}</button>`;}
 // How many of a type are free right now, as a chip. Shared by the Waitlist page and the Staff
 // List, which ask the same question next to the same decision.
 const availChip=avail=>avail>0?`<span style="font-size:10px;font-weight:800;color:var(--green);border:1px solid rgba(var(--green-rgb),.35);border-radius:2px;padding:1px 7px;white-space:nowrap">${t('wlAvailNow').replace('{0}',avail)}</span>`:`<span style="color:var(--muted)">—</span>`;
@@ -6482,7 +6506,7 @@ function showWlAddModal(){
   S._wlType=S._wlType||'Any';
   S._wlExtra=S._wlExtra||[]; // riders beyond the first
   const m=document.getElementById('wl-add-modal');if(!m)return;
-  const tyBtn=ty=>`<button type="button" onclick="_wlxSync();S._wlType='${ty}';showWlAddModal()" style="flex:1;padding:9px;border-radius:4px;border:1.5px solid ${S._wlType===ty?'var(--green)':'var(--border)'};background:${S._wlType===ty?'rgba(var(--green-rgb),.12)':'transparent'};color:${S._wlType===ty?'var(--green)':'var(--muted)'};font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">${typeLabel(ty)}</button>`;
+  const tyBtn=ty=>`<button type="button" onclick="_wlxSync();S._wlType=${_ja(ty)};showWlAddModal()" style="flex:1;padding:9px;border-radius:4px;border:1.5px solid ${S._wlType===ty?'var(--green)':'var(--border)'};background:${S._wlType===ty?'rgba(var(--green-rgb),.12)':'transparent'};color:${S._wlType===ty?'var(--green)':'var(--muted)'};font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">${typeLabel(ty)}</button>`;
   const keep=id=>{const el=document.getElementById(id);return el?el.value:'';} // preserve typed values across type-pill re-renders
   const _n=keep('wl-name'),_p=keep('wl-phone');
   m.style.display='flex';
@@ -6515,6 +6539,10 @@ function _wlxAdd(){_wlxSync();S._wlExtra=[...(S._wlExtra||[]),{name:'',type:'Any
 function _wlxRemove(i){_wlxSync();(S._wlExtra||[]).splice(i,1);showWlAddModal();}
 function closeWlAddModal(){const m=document.getElementById('wl-add-modal');if(m){m.style.display='none';m.innerHTML='';}S._wlExtra=[];}
 async function addDeskWaitlist(){
+  if(S._wlAddBusy)return; // a double-click on Add used to insert the whole party twice
+  S._wlAddBusy=true;try{await _addDeskWaitlist();}finally{S._wlAddBusy=false;}
+}
+async function _addDeskWaitlist(){
   _wlxSync();
   const name=_titleCaseName(document.getElementById('wl-name')?.value||'');
   const phone=(document.getElementById('wl-phone')?.value||'').trim();
@@ -6549,7 +6577,7 @@ function showWlPayMenu(id,evt){
   const menu=document.createElement('div');
   menu.className='pay-menu-popup';
   menu.style.cssText='position:fixed;z-index:9001;background:var(--s2);border:1.5px solid var(--border);border-radius:4px;padding:5px;min-width:200px;box-shadow:0 6px 24px rgba(0,0,0,.6)';
-  menu.innerHTML=opts.map(o=>`<button class="pay-menu-opt${o.active?' active':''}" onclick="${o.mode==='split'?`splitWlPayment('${id}')`:`toggleWlPayment('${id}','${o.mode}')`};document.querySelectorAll('.pay-menu-popup').forEach(m=>m.remove())">${o.label}</button>`).join('');
+  menu.innerHTML=opts.map(o=>`<button class="pay-menu-opt${o.active?' active':''}" onclick="${o.mode==='split'?`splitWlPayment(${_ja(id)})`:`toggleWlPayment(${_ja(id)},${_ja(o.mode)})`};document.querySelectorAll('.pay-menu-popup').forEach(m=>m.remove())">${o.label}</button>`).join('');
   document.body.appendChild(menu);
   const r=evt.currentTarget.getBoundingClientRect();
   const mh=menu.offsetHeight||100;
@@ -6646,14 +6674,25 @@ async function _wlDrop(ev,id){
 // (walk-in style, in the session picked in the wl-sess select) — so from here on they get the
 // exact same row options and behavior as any other booking.
 async function giveDeskBike(id){
-  const w=(S.deskWaitlist||[]).find(x=>x.id===id);if(!w)return;
+  // One run per row at a time. The row only reads 'done' after three round trips, so a second
+  // tap in between inserted a second booking for the same walk-up - two queue numbers, two seats.
+  const _g=(S._wlGiving=S._wlGiving||new Set());if(_g.has(id))return;
+  _g.add(id);try{await _giveDeskBike(id);}finally{_g.delete(id);}
+}
+async function _giveDeskBike(id){
+  const w=(S.deskWaitlist||[]).find(x=>x.id===id);if(!w||w.status!=='waiting')return;
   // S._wlSess is set by the Waitlist page's session select; landing here straight from the
   // Staff List (which has no selector) must still work — fall back to the first open session.
   const _open=_wlOpenSess();
   // The Staff List has its own session picker; when it is aimed at a ride, a walk-up handed a
   // bike from there belongs to THAT ride. Falling through to "the first open session" put the
   // rider on tonight's circuit while staff were working Wednesday's.
-  const _aimed=(S.queueView==='managed'&&S._mwSess&&S._mwSess!=='all')?S._mwSess:S._wlSess;
+  const _aimedMw=(S.queueView==='managed'&&S._mwSess&&S._mwSess!=='all')?S._mwSess:null;
+  // ...and when that ride cannot take a walk-up (closed since, or one staff approve rider by
+  // rider), the rider is not quietly booked onto some other night instead: staff are told, and
+  // pick the ride themselves.
+  if(_aimedMw&&!_open.some(x=>x.id===_aimedMw)){toast(t('wlAimedClosedMsg'),'warning');return;}
+  const _aimed=_aimedMw||S._wlSess;
   const sess=_open.find(x=>x.id===_aimed)||_open.find(x=>x.id===S._wlSess)||_open[0];
   if(!sess){toast(t('noSessionsAvail'),'warning');return;}
   S._wlSess=sess.id;
@@ -6779,7 +6818,7 @@ function renderTopbarRight(){
         <button class="${isAdmin()?'on':''}" aria-pressed="${isAdmin()}" ${isAdmin()?'':`onclick="openPinModal(true)" title="${t('switchToAdmin')}"`}>${t('roleAdmin')}</button>
         <button class="${isAdmin()?'':'on'}" aria-pressed="${!isAdmin()}" ${isAdmin()?`onclick="setStaffRole('frontdesk')" title="${t('switchToFrontDesk')}"`:''}>${t('roleFrontDesk')}</button>
       </div>
-      ${last?`<button class="topbar-btn undo-btn" onclick="doUndo()" title="${esc(last.label)}" style="animation:undoPulse 2s ease-in-out infinite">${_artIcon('undo',13)} Undo</button>`:''}
+      ${last?`<button class="topbar-btn undo-btn" onclick="doUndo()" title="${esc(last.label)}" style="animation:undoPulse 2s ease-in-out infinite">${_artIcon('undo',13)} ${t('undoBtn')}</button>`:''}
       ${S._staffAuthed?`<button class="topbar-btn icon" onclick="openStaffPwdModal()" title="${t('staffPwdTitle')}" aria-label="${t('staffPwdTitle')}">${_artIcon('key',14)}</button>`:''}
       <button class="topbar-btn danger icon" onclick="lockStaff()" title="${t('lockBtn')}" aria-label="${t('lockBtn')}">${_artIcon('lock',15)}</button>`;
   } else {
@@ -6998,6 +7037,8 @@ function renderRegister(){
   // ONLY the event picked on the landing page: JCC rides for 'jcc', Saturday Social Rides
   // for 'community' - switching events happens on the landing event cards.
   const _ev=S.selEvent||'jcc';
+  // A tick given for another session does not carry over: the waiver step shows it unticked.
+  if(S.waiverOk&&S._waiverSess&&S._waiverSess!==S.selSession){S.waiverOk=false;S._waiverSess=null;}
   const _selSessObj=allSessions().find(s=>s.id===S.selSession);
   const _commSel=_isCommunity(_selSessObj); // selected session is a community ride
   const _apprSel=_isApprovalRide(_selSessObj); // ...that staff approve rider by rider
@@ -7032,11 +7073,11 @@ function renderRegister(){
         // status at the far end, then the time. Everything that used to sit on one line and
         // push its neighbour along - a long weekday, a ride name, a gathering time - now owns
         // a line, so a card's height no longer depends on how wide its words happen to be.
-        return`<button type="button" class="sess-card ${_evClass(s)}${sel?' sess-selected':''}${_c?' sess-card-comm':''}${_rej?' sess-card-rej':''}" onclick="selectSessCard('${s.id}')">
+        return`<button type="button" class="sess-card ${_evClass(s)}${sel?' sess-selected':''}${_c?' sess-card-comm':''}${_rej?' sess-card-rej':''}" onclick="selectSessCard(${_ja(s.id)})">
           ${_c?`<span class="sess-card-kicker"><span class="sess-comm-chip ${_evClass(s)}">${esc(_evName(s))}</span>${_partnerHtml(s,'sess-partner')}</span>`:''}
           <span class="sess-card-head">
             <span class="sess-card-dot${sel?' on':''}"></span>
-            <span class="sess-card-date">${dayLabel(s.day)} &middot; ${shortDate(s.session_date||s.id)}</span>
+            <span class="sess-card-date">${esc(dayLabel(s.day))} &middot; ${esc(shortDate(s.session_date||s.id))}</span>
             <span class="sess-card-spots ${_rej?'spots-rej':isFull?'spots-red':_low?'spots-low':'spots-green'}">${_rej?t('rejCardNote'):isFull?t('waitlistLabel'):t('availLabel')}</span>
           </span>
           <span class="sess-card-time">${sessionTime(s)}</span>
@@ -7065,15 +7106,13 @@ function renderRegister(){
   if(S.selSession&&cust&&cust.id&&!_apprSel){
     // waitlist included: My Rides offers Edit for waitlisted bookings too — without matching
     // here they'd land in fresh-booking mode and loop on the "already booked" banner forever.
-    existingEntries=getQueue().filter(e=>
-      e.customerId===cust.id&&
-      e.sessionId===S.selSession&&
-      (e.status==='waiting'||e.status==='waitlist')
-    );
+    existingEntries=_modEntries(cust,S.selSession);
     if(existingEntries.length>0){
-      const firstId=existingEntries[0].id;
-      if(S.modifyEntryId!==firstId){
-        
+      const firstId=existingEntries[0].id,_key=existingEntries.map(e=>e.id).join(',');
+      // Seeded again whenever the set of rows changes, not only the first one: a co-rider staff
+      // cancelled mid-edit would otherwise leave the form one row longer than the booking.
+      if(S.modifyEntryId!==firstId||S._modKey!==_key){
+        S._modKey=_key;
         S.modifyEntryId=firstId;
         S.regQty=existingEntries.length;
         S.regBikeSizes=existingEntries.map(()=>'');
@@ -7082,10 +7121,10 @@ function renderRegister(){
         S.regRiderNames=existingEntries.map(e=>e.name);
       }
     }else{
-      S.modifyEntryId=null;
+      S.modifyEntryId=null;S._modKey=null;
     }
   }else{
-    existingEntries=[];S.modifyEntryId=null;
+    existingEntries=[];S.modifyEntryId=null;S._modKey=null;
   }
   const isModifyMode=existingEntries.length>0;
 
@@ -7153,7 +7192,7 @@ function renderRegister(){
     let _tyOpts=bikeTypeOpts(_ownOffered(_selSessObj),_noCarbonSel).filter(ty=>!_regTypeHidden(ty));
     if(!_tyOpts.length)_tyOpts=bikeTypeOpts(_ownOffered(_selSessObj),_noCarbonSel);
     const typeBtns=_tyOpts.map(ty=>
-      `<button class="toggle-btn${selTy===ty?' active':''}" data-type-slot="${i}" data-type="${ty}" onclick="setBikeType(${i},'${ty}')">${typePillLabel(ty)}</button>`
+      `<button class="toggle-btn${selTy===ty?' active':''}" data-type-slot="${i}" data-type="${ty}" onclick="setBikeType(${i},${_ja(ty)})">${typePillLabel(ty)}</button>`
     ).join('');
 
     const divider=(S.regQty>1&&i<S.regQty-1)?`<div style="border-top:1px solid var(--border);margin:20px 0"></div>`:'';
@@ -7165,7 +7204,7 @@ function renderRegister(){
       <input type="text" id="reg-rider-name-${i}" placeholder="${t('riderNamePlaceholder')||'Enter rider\'s full name'}"
         autocapitalize="words" autocomplete="name" enterkeyhint="done"
         value="${esc(S.regRiderNames[i]!==undefined?S.regRiderNames[i]:riderDefaultName)}"
-        oninput="S.regRiderNames[${i}]=this.value" onblur="_vBlur(this,'name')">
+        oninput="S.regRiderNames[${i}]=this.value" onblur="_vBlur(this,'name')"${_modNameLocked(i)?' readonly aria-readonly="true" style="opacity:.7"':''}>
     </div>`:'';
 
     return`${S.regQty>1?`<div style="font-size:11px;font-weight:900;color:var(--green);text-transform:uppercase;letter-spacing:.7px;margin-bottom:14px;display:flex;align-items:center;gap:8px">
@@ -7191,7 +7230,10 @@ function renderRegister(){
   const hasRange=S.regBikeTypes.slice(0,S.regQty).some((ty,i)=>ty==='Any'&&!_hFree(i));
   const totalDisplay=_freeSel?t('freeLabel'):hasRange?(totalMin===totalMax?`SAR ${totalMin}`:`SAR ${totalMin} - ${totalMax}`):`SAR ${totalMin.toFixed(2).replace(/\.00$/,'')}`;
   const addonTotal=addonsCost(S.regAddons);
-  const _promoAf=(S.promoApplied&&!isModifyMode)?Math.max(0,Math.round((totalMin-_promoDiscount(totalMin))*100)/100):null;
+  // An edit's code discounts only the riders it adds, and the total says so (it used to drop the
+  // discount altogether on an edit while the added rows were stored discounted).
+  const _promoDisc=_freeSel?0:_regPromoDisc();
+  const _promoAf=_promoDisc>0?Math.max(0,Math.round((totalMin-_promoDisc)*100)/100):null;
   const grandTotalStr=_freeSel?t('freeLabel'):_promoAf!=null
     ?`SAR ${Math.round((_promoAf+addonTotal)*100)/100}`
     :(hasRange?(()=>{const lo=Math.round((totalMin+addonTotal)*100)/100,hi=Math.round((totalMax+addonTotal)*100)/100;return lo===hi?`SAR ${lo}`:`SAR ${lo} - ${hi}`;})():`SAR ${Math.round((totalMin+addonTotal)*100)/100}`);
@@ -7205,7 +7247,7 @@ function renderRegister(){
 
   const selSess=allSessions().find(s=>s.id===S.selSession);
   const summaryPanel=selSess?`<div class="reg-summary-panel">
-    <div class="reg-summary-row"><span>${t('colSession')}</span><span>${dayLabel(selSess.day)} &middot; ${shortDate(selSess.session_date||selSess.id)}</span></div>
+    <div class="reg-summary-row"><span>${t('colSession')}</span><span>${esc(dayLabel(selSess.day))} &middot; ${esc(shortDate(selSess.session_date||selSess.id))}</span></div>
     <div class="reg-summary-row"><span>${t('numBikes')}</span><span>${S.regQty}</span></div>
     <div class="reg-summary-total"><span>${t('reviewTotalLabel')}</span><span>${grandTotalStr}</span></div>
   </div>`:'';
@@ -7245,13 +7287,13 @@ function renderRegister(){
         <div class="ticket-qr-wrap">${qrHtml}</div>
       </div>`}
       <div class="ticket-cols">
-        <div class="ticket-col"><div class="ticket-label">${t('colSession')}</div><div class="ticket-value">${dayLabel(tkt.sessionDay)} ${shortDate(tkt.sessionDate)}</div></div>
+        <div class="ticket-col"><div class="ticket-label">${t('colSession')}</div><div class="ticket-value">${esc(dayLabel(tkt.sessionDay))} ${esc(shortDate(tkt.sessionDate))}</div></div>
         ${_collect?`<div class="ticket-col"><div class="ticket-label">${esc(_collectLbl)}</div><div class="ticket-value">${esc(_collect)}</div></div>`:''}
         <div class="ticket-col"><div class="ticket-label">${t('timeLabel')}</div><div class="ticket-value">${sessTime}</div></div>
         <div class="ticket-col"><div class="ticket-label">${t('nameLabel')}</div><div class="ticket-value">${esc(tkt.name)}</div></div>
       </div>
       <div style="padding:0 24px 18px;display:flex;gap:8px">
-        <button type="button" onclick="downloadBookingICS('${tkt.sessionId}')" class="btn-secondary" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px" aria-label="${t('ticketAddCal')}">
+        <button type="button" onclick="downloadBookingICS(${_ja(tkt.sessionId)})" class="btn-secondary" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px" aria-label="${t('ticketAddCal')}">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
           ${t('ticketAddCal')}
         </button>
@@ -7260,7 +7302,7 @@ function renderRegister(){
           ${_commT?t('meetPointLbl'):t('ticketDirections')}
         </a>
       </div>
-      ${(_hasWallet()&&_walletOk(_sess,[tkt]))?`<div class="wallet-slot" style="padding:0 24px 18px"><button type="button" class="btn-wallet" onclick="addBookingToWallet('${tkt.id}',this)" aria-label="${t('addToWallet')}">${WALLET_GLYPH} ${t('addToWallet')}</button></div>`:''}
+      ${(_hasWallet()&&_walletOk(_sess,[tkt]))?`<div class="wallet-slot" style="padding:0 24px 18px"><button type="button" class="btn-wallet" onclick="addBookingToWallet(${_ja(tkt.id)},this)" aria-label="${t('addToWallet')}">${WALLET_GLYPH} ${t('addToWallet')}</button></div>`:''}
     </div>`;
   }
   const tickets=S.lastTickets||[];
@@ -7312,7 +7354,7 @@ function renderRegister(){
       ${qtyStepper}
       ${bikeSections}
       <div id="price-preview-wrap" style="margin-top:16px">${pricePreview}</div>
-      ${_promoBoxHtml('step2',totalMin,_freeSel||(isModifyMode&&S.regQty<=existingEntries.length),isModifyMode)}
+      ${_promoBoxHtml('step2',_promoDisc,_freeSel||(isModifyMode&&S.regQty<=existingEntries.length),isModifyMode)}
     </div>
     <div class="mm-reg-foot" style="display:flex;gap:10px;margin-top:16px">
       <button class="btn-secondary" onclick="regGoStep(1)">${t('regBackBtn')}</button>
@@ -7330,22 +7372,27 @@ function renderRegister(){
         <div style="font-weight:800;font-size:14px">${esc(nm||(t('riderLabel')+' '+(i+1)))}</div>
         ${_needsBike(_selSessObj)?`<div style="font-size:12px;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">${typeBadge(ty)}${h?`<span><bdi>${h} ${t('cmUnit')}</bdi></span>`:''}</div>`:''}
       </div>
-      <div style="font-weight:800;font-size:13px;color:var(--green);white-space:nowrap">${(_freeSel||ty==='Own')?t('freeLabel'):priceDisplay(ty)}</div>
+      <div style="font-weight:800;font-size:13px;color:var(--green);white-space:nowrap">${(_freeSel||ty==='Own')?t('freeLabel'):_hFree(i)?t('onTheHouseLabel'):priceDisplay(ty)}</div>
     </div>`;
-  }).join('');
+  }).join(''); // a rider on the house reads as such here too - the total below already counts them at 0
   // Chosen add-ons summary shown before confirming
   const _raItems=addonLineItems(S.regAddons||[]);
   const reviewAddons=_raItems.length?`<div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 0">${t('addonsLabel')} (${_raItems.reduce((s,a)=>s+(a.qty||0),0)})</div>${_raItems.map(a=>`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">${a.photo?`<img loading="lazy" decoding="async" src="${esc(a.photo)}" alt="${esc(a.name)}" class="addon-thumb addon-thumb-sm" role="button" tabindex="0" aria-label="${esc(a.name)}" onclick="_photoZoom(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_photoZoom(this);}">`:''}<div style="flex:1;min-width:0"><span style="font-weight:800;font-size:14px">${esc(a.name)}</span>${a.qty>1?` <span style="color:var(--muted);font-weight:700">×${a.qty}</span>`:''}${a.brand?`<div style="font-size:11px;color:var(--muted)">${esc(a.brand)}</div>`:''}</div><div style="font-weight:800;font-size:13px;color:var(--green);white-space:nowrap">SAR ${a.lineTotal}</div></div>`).join('')}`:'';
+  // The banner offers Modify only when there is something to modify. A booking already on a bike,
+  // or one on a ride staff approve, loads no edit form, so Modify led straight back to this same
+  // banner, over and over; such a booking is looked after from My Bookings instead.
   const alreadyHere=S._alreadyBookedSession===S.selSession&&S.selSession;
   const alreadyBanner=alreadyHere?`
     <div id="already-booked-banner" class="mm-note" style="margin-top:16px;padding:16px 18px">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
         <div>
           <div style="font-size:14px;font-weight:800;color:var(--orange)">${t('errAlreadyBooked')}</div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px">${t('errAlreadyBookedSub')}</div>
+          ${isModifyMode?`<div style="font-size:12px;color:var(--muted);margin-top:2px">${t('errAlreadyBookedSub')}</div>`:''}
         </div>
       </div>
-      <button class="btn-primary" style="width:100%" onclick="S._alreadyBookedSession=null;S.modifyEntryId=null;S.regStep=2;renderRegister()"> ${t('modifyExistingBtn')}</button>
+      ${isModifyMode
+        ?`<button class="btn-primary" style="width:100%" onclick="S._alreadyBookedSession=null;S.modifyEntryId=null;S.regStep=2;renderRegister()"> ${t('modifyExistingBtn')}</button>`
+        :`<button class="btn-primary" style="width:100%" onclick="S._alreadyBookedSession=null;goCustomer('myrides')">${t('myRidesTitle')}</button>`}
     </div>`:'';
   const confirmBtns=alreadyHere?'':`
     <div class="mm-reg-foot" style="display:flex;gap:10px;margin-top:16px">
@@ -7356,7 +7403,7 @@ function renderRegister(){
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-bottom:14px;border-bottom:1px solid var(--border)">
         <div>
           <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:3px">${t('reviewSessionLabel')}</div>
-          <div style="font-weight:800;font-size:15px">${selSess?dayLabel(selSess.day):''} · ${selSess?shortDate(selSess.session_date||selSess.id):''}</div>
+          <div style="font-weight:800;font-size:15px">${selSess?esc(dayLabel(selSess.day)):''} · ${selSess?esc(shortDate(selSess.session_date||selSess.id)):''}</div>
           <div style="font-size:12px;color:var(--muted);margin-top:2px">${sessionTime(selSess)}</div>
         </div>
         ${cust?`<div style="text-align:right">
@@ -7367,7 +7414,7 @@ function renderRegister(){
       <div style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 0">${t(_needsBike(_selSessObj)?'reviewRidersLabel':'reviewPartLabel')} (${S.regQty})</div>
       ${reviewRiders}
       ${reviewAddons}
-      ${_promoBoxHtml('review',totalMin,_freeSel||(isModifyMode&&S.regQty<=existingEntries.length),isModifyMode)}
+      ${_promoBoxHtml('review',_promoDisc,_freeSel||(isModifyMode&&S.regQty<=existingEntries.length),isModifyMode)}
     </div>`;
   const panelWaiver=`
     ${stepHeader(_waiverCopy(_selSessObj).title,t('waiverSub'))}
@@ -7392,16 +7439,16 @@ function renderRegister(){
       // soft green wash when selected). Quantity stepper appears once selected (the real app
       // supports multi-qty + stock caps, which the prototype's plain checkboxes don't).
       const _aCard=it=>{const qn=_regAddonQty(it.id);const stock=Number(it.qty)||0;const cap=stock>0?stock:10;const sel=qn>0;return`<div class="addon-row${sel?' sel':''}">
-            <button type="button" class="addon-check${sel?' on':''}" onclick="_setRegAddonQty('${it.id}',${sel?-qn:1})" aria-pressed="${sel}" aria-label="${esc(it.name)}">${sel?'✓':''}</button>
+            <button type="button" class="addon-check${sel?' on':''}" onclick="_setRegAddonQty(${_ja(it.id)},${sel?-qn:1})" aria-pressed="${sel}" aria-label="${esc(it.name)}">${sel?'✓':''}</button>
             ${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="${esc(it.name)}" class="addon-thumb" role="button" tabindex="0" aria-label="${esc(it.name)}" onclick="_photoZoom(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_photoZoom(this);}">`:''}
             <div style="flex:1;min-width:0">
               <div style="font-weight:600;font-size:14px;line-height:1.25">${esc(it.name)}${it.brand?` <span style="font-size:11.5px;color:var(--muted);font-weight:600">· ${esc(it.brand)}</span>`:''}</div>
-              ${_hasNutri(it)?`<button type="button" onclick="showNutrition('${it.id}')" style="margin-top:2px;background:none;border:none;padding:0;color:var(--green-d);font-family:inherit;font-size:11px;font-weight:700;text-decoration:underline;text-underline-offset:2px;cursor:pointer">${t('nuButton')}</button>`:''}
+              ${_hasNutri(it)?`<button type="button" onclick="showNutrition(${_ja(it.id)})" style="margin-top:2px;background:none;border:none;padding:0;color:var(--green-d);font-family:inherit;font-size:11px;font-weight:700;text-decoration:underline;text-underline-offset:2px;cursor:pointer">${t('nuButton')}</button>`:''}
             </div>
             ${sel&&cap>1?`<span class="addon-qty">
-              <button type="button" onclick="_setRegAddonQty('${it.id}',-1)" aria-label="−">−</button>
+              <button type="button" onclick="_setRegAddonQty(${_ja(it.id)},-1)" aria-label="−">−</button>
               <span>${qn}</span>
-              <button type="button" onclick="_setRegAddonQty('${it.id}',1)" ${qn>=cap?'disabled':''} aria-label="+">+</button>
+              <button type="button" onclick="_setRegAddonQty(${_ja(it.id)},1)" ${qn>=cap?'disabled':''} aria-label="+">+</button>
             </span>`:''}
             <span style="font-weight:700;color:var(--green-d);font-size:13.5px;white-space:nowrap">${_priceLabel(it.price)}</span>
           </div>`;};
@@ -7455,11 +7502,11 @@ function renderRegister(){
   document.getElementById('tab-register').innerHTML=_sndHead+body;
 }
 
-function toggleWaiver(on){S.waiverOk=!!on;renderRegister();}
-// The waiver gates the review step, not the booking: a rider who has not agreed never
-// reaches a confirm button, so there is nothing to re-check at submit.
+function toggleWaiver(on){S.waiverOk=!!on;S._waiverSess=on?S.selSession:null;renderRegister();}
+// The waiver gates the review step. Not every path to the review walks through here ("Book my
+// usual" jumped straight to it), so the submit checks the tick again (submitReg).
 function regWaiverContinue(){
-  if(!S.waiverOk){toast(t('waiverRequired'),'error');return;}
+  if(!_waiverAgreed()){toast(t('waiverRequired'),'error');return;}
   S.regStep=3;renderRegister();_pushNav();try{window.scrollTo({top:0,behavior:_sb()});}catch(e){}
 }
 function regGoStep(n){S.regStep=n;renderRegister();_pushNav();try{window.scrollTo({top:0,behavior:_sb()});}catch(e){}}
@@ -7489,7 +7536,9 @@ function regBookAnother(){
   renderRegister();try{window.scrollTo({top:0,behavior:_sb()});}catch(e){}
 }
 // Promo codes: discount on the booking total
-function _promoDiscount(total){
+// `from` is the first rider the code can reach: 0 for a new booking, the number of riders already
+// booked when an edit adds more (the code discounts only the added ones - promoAddedOnly).
+function _promoDiscount(total,from){
   const p=S.promoApplied;if(!p)return 0;
   if(p.applies_to){
     // Type-restricted code: discount each matching bike in the booking, nothing else.
@@ -7497,6 +7546,7 @@ function _promoDiscount(total){
     // rows, so it must not count here either or the preview promises more off than is charged.
     let d=0;
     S.regBikeTypes.slice(0,S.regQty).forEach((ty,i)=>{
+      if(i<(from||0))return;
       if(i===0&&_regHouseSelf()&&_regHouseFor(ty||'Any'))return;
       if(ty===p.applies_to){
         const base=priceForType(ty);
@@ -7514,9 +7564,8 @@ function _promoDiscount(total){
 // running total, where the discount is visible immediately) and again at review. Modify mode
 // gets it too — a code is just as valid when changing a booking as when making one.
 // Community rides are free, so a discount there is meaningless and the box stays hidden.
-function _promoBoxHtml(slot,totalMin,hide,isModify){
+function _promoBoxHtml(slot,disc,hide,isModify){
   if(hide)return'';
-  const disc=isModify?0:_promoDiscount(totalMin);
   return`<div style="margin-top:14px">
     <label for="reg-promo-${slot}" style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">${t('promoLabel')}</label>
     ${isModify?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:3px">${t('promoAddedOnly')}</div>`:''}
@@ -7528,14 +7577,32 @@ function _promoBoxHtml(slot,totalMin,hide,isModify){
         :`<button class="btn-secondary" style="flex-shrink:0" onclick="applyPromoCode()">${t('promoApplyBtn')}</button>`}
     </div>
     ${S._promoMsg?`<div style="font-size:11px;color:var(--red);font-weight:700;margin-top:5px">${S._promoMsg}</div>`:''}
-    ${disc>0?`<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--green);margin-top:8px"><span>${t('promoDiscountLabel')} (${esc(S.promoApplied.code)})</span><span>- SAR ${disc}</span></div>`:''}
+    <div id="reg-promo-disc-${slot}">${_promoDiscLine(disc)}</div>
   </div>`;
+}
+// The discount line under the box, alone, so a bike-type change (setBikeType, which repaints in
+// place) can bring it up to date: it used to keep promising the old type's discount.
+function _promoDiscLine(disc){
+  return(disc>0&&S.promoApplied)?`<div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700;color:var(--green);margin-top:8px"><span>${t('promoDiscountLabel')} (${esc(S.promoApplied.code)})</span><span>- SAR ${disc}</span></div>`:'';
+}
+// What the applied code takes off the booking on screen: every rider on a new booking, only the
+// riders being added on an edit (the ones _applyPromoToEntries will actually discount).
+function _regPromoDisc(){
+  if(!S.promoApplied)return 0;
+  const from=S.modifyEntryId&&S._modKey?S._modKey.split(',').length:0;
+  const _cm=_isFreeRide(allSessions().find(s=>s.id===S.selSession));if(_cm)return 0;
+  const base=S.regBikeTypes.slice(from,S.regQty).reduce((sum,ty,j)=>{
+    const i=from+j;
+    return sum+((i===0&&_regHouseSelf()&&_regHouseFor(ty||'Any'))?0:priceForType(ty||'Any'));
+  },0);
+  return _promoDiscount(base,from);
 }
 function applyPromoCode(){
   // Whichever copy of the box the customer typed into — the boxes mirror one value.
-  const v=Array.from(document.querySelectorAll('.reg-promo')).map(i=>(i.value||'').trim()).find(x=>x)||'';
+  // Digits typed on an Arabic keyboard (٢٠) are the same code as 20: compare in ASCII digits.
+  const v=_asciiDigits(Array.from(document.querySelectorAll('.reg-promo')).map(i=>(i.value||'').trim()).find(x=>x)||'');
   if(!v){S.promoApplied=null;S._promoMsg='';renderRegister();return;}
-  const match=(S.promoCodes||[]).find(c=>c.active&&String(c.code).toLowerCase()===v.toLowerCase());
+  const match=(S.promoCodes||[]).find(c=>c.active&&_asciiDigits(String(c.code)).toLowerCase()===v.toLowerCase());
   if(!match){S.promoApplied=null;S._promoMsg=t('promoInvalidMsg');renderRegister();return;}
   // Limits are enforced by the price trigger; checking here is so the customer is told why
   // rather than watching the discount silently fail to stick.
@@ -7555,6 +7622,7 @@ function removePromo(){S.promoApplied=null;S._promoMsg='';renderRegister();}
 function _applyPromoToEntries(entries){
   if(!S.promoApplied||!entries||!entries.length)return;
   const p=S.promoApplied;
+  const before=entries.map(e=>e.price||0);
   if(p.applies_to){
     // Type-restricted code (e.g. MMTEAM on Road Carbon): discount lands exactly on the
     // matching bikes, per bike — other riders in the group keep their full price.
@@ -7570,12 +7638,18 @@ function _applyPromoToEntries(entries){
     if(base>0&&disc>0){
       const f=(base-disc)/base,target=Math.round((base-disc)*100)/100;
       entries.forEach(e=>{e.price=Math.max(0,Math.round((e.price||0)*f*100)/100);});
-      // per-rider rounding can drift a halala or two off the promised total — the last rider absorbs it
+      // per-rider rounding can drift a halala or two off the promised total — the last rider who
+      // pays absorbs it (never a free one: an own-bike rider must not be handed a 0.01 fare)
       const sum=Math.round(entries.reduce((s2,e)=>s2+e.price,0)*100)/100,drift=Math.round((target-sum)*100)/100;
-      if(drift!==0&&entries.length)entries[entries.length-1].price=Math.max(0,Math.round((entries[entries.length-1].price+drift)*100)/100);
+      let li=-1;entries.forEach((e,i)=>{if(before[i]>0)li=i;});
+      if(drift!==0&&li>=0)entries[li].price=Math.max(0,Math.round((entries[li].price+drift)*100)/100);
     }
   }
-  if(p.code)entries.forEach(e=>{e.promoCode=String(p.code);}); // carry the code at insert so the price trigger allows the discount
+  // Carry the code at insert so the price trigger allows the discount - on the riders it actually
+  // discounted, and only them. The server counts one use per row that carries the code, so tagging
+  // everyone spent a use on a co-rider whose type the code does not cover, an own-bike rider, a
+  // rider on the house, and every seat of a free ride - the limit ran out on discounts never given.
+  if(p.code)entries.forEach((e,i)=>{if((e.price||0)<before[i])e.promoCode=String(p.code);});
 }
 
 function validateRegInputs(){
@@ -7644,6 +7718,9 @@ function setBikeType(idx,type){
       </div>`;
     }
   }
+  // The code's discount line follows the type as well: a Road-only code stops applying the moment
+  // the rider switches to a Hybrid, and the line kept promising the old discount.
+  const dl=document.getElementById('reg-promo-disc-step2');if(dl)dl.innerHTML=_promoDiscLine(_regPromoDisc());
   // The sticky summary shows the grand total too - keep it in sync with the type change
   // (this partial-update path deliberately avoids a full re-render, so refresh it by hand).
   const st=document.querySelector('.reg-summary-total span:last-child');
@@ -7654,7 +7731,7 @@ function setBikeType(idx,type){
     const tMax=S.regBikeTypes.slice(0,q).reduce((s,ty,i)=>s+(_hf2(i)?0:priceForTypeMax(ty||'Any')),0);
     const hR=S.regBikeTypes.slice(0,q).some((ty,i)=>ty==='Any'&&!_hf2(i));
     const at=addonsCost(S.regAddons);
-    const af=(S.promoApplied&&!S.modifyEntryId)?Math.max(0,Math.round((tMin-_promoDiscount(tMin))*100)/100):null;
+    const _pd=_regPromoDisc(),af=_pd>0?Math.max(0,Math.round((tMin-_pd)*100)/100):null;
     st.textContent=af!=null
       ?`SAR ${Math.round((af+at)*100)/100}`
       :(hR?(()=>{const lo=Math.round((tMin+at)*100)/100,hi=Math.round((tMax+at)*100)/100;return lo===hi?`SAR ${lo}`:`SAR ${lo} - ${hi}`;})():`SAR ${Math.round((tMin+at)*100)/100}`);
@@ -7698,8 +7775,55 @@ function _renderStaffTab(){
   try{_ahRefresh();}catch(_){} // an open Bookings & history window follows the data too
 }
 
+// Whether the rider agreed to the waiver for the session on screen. The tick is kept with the
+// session it was given for (toggleWaiver), so a tick given on one ride - or on the pool, whose
+// waiver is a different text - is never carried onto another.
+function _waiverAgreed(){return !!S.waiverOk&&(!S._waiverSess||S._waiverSess===S.selSession);}
+// A booking queued offline lands through customer_create_booking later, like an online one, so it
+// has to carry the waiver it was agreed under; entryToDB alone left waiver_at empty on the row.
+function _outboxRow(e,sess){const r=entryToDB(e),wv=_waiverVersionFor(sess);return wv?{...r,waiver_version:wv}:r;}
+// A booking the server refused, said in the rider's language. The booking RPC and its triggers
+// raise codes (SESSION_CLOSED, STALE_SESSION) and a few English sentences, and those used to be
+// toasted as they came - "SESSION_CLOSED" on an Arabic screen, and a rider with a dead token
+// left signed in, failing every retry.
+function _bookRefused(err,sess){
+  const m=((err&&err.code)||'')+' '+((err&&err.message)||'');
+  if(/STALE_SESSION/.test(m)){doLogout(true);toast(t('errSessionStale'),'warning');return;}
+  if(/SESSION_CLOSED/.test(m)){toast(t('errSessionClosed'),'error');loadDataLight().then(()=>{if(S.view==='customer')renderRegister();}).catch(()=>{});return;}
+  if(/community members only/i.test(m)){if(sess)showCommMembersModal(sess);else toast(t('commMembersTitle'),'error');return;}
+  if(/One place per person/i.test(m)){toast(t('errAlreadyBooked'),'error');return;}
+  if(/riders per booking/i.test(m)){const n=(m.match(/Up to (\d+)/)||[])[1]||String(_maxRiders(sess));toast(t('errGroupCap').replace('{0}',n),'error');return;}
+  toast(_errMessage(err),'error');
+}
+// The first height a rider gives is kept on the account, so the next booking starts from it.
+// A customer's own write to customers is refused by RLS without an error (no row matches), so the
+// direct update saved nothing while the device claimed it had. customer_update_profile replaces
+// every field it is handed, so it gets the account's own fresh row with only the height changed.
+async function _saveFirstHeight(cust,h){
+  try{
+    if(_asCustomer()){
+      const{data}=await sb.rpc('customer_profile',{p_id:cust.id,p_token:cust.session_token});
+      const r=data&&data[0];if(!r||r.id!==cust.id)return;
+      if(!r.height){
+        const{data:ok,error}=await sb.rpc('customer_update_profile',{p_id:cust.id,p_token:cust.session_token,p_name:r.name,p_email:r.email??null,p_phone:r.phone??null,p_height:h,p_type_preference:r.type_preference??null,p_birth_date:r.birth_date??null,p_country:r.country??null,p_city:r.city??null,p_nationality:r.nationality??null});
+        if(error||ok!==true)return;
+      }else h=r.height; // saved from another device meanwhile: that one stands
+    }else{
+      const{error}=await sb.from('customers').update({height:h}).eq('id',cust.id);if(error)return;
+    }
+    S.loggedIn={...(S.loggedIn||cust),height:h};setSession(S.loggedIn);
+  }catch(e){}
+}
+// A booking run is claimed before the first await, not after the checks: those checks can
+// wait on the network (the corrections lookup, the members gate), and a second tap in that
+// window used to run a whole second booking - both runs fetched the queue before either had
+// inserted, both passed the duplicate check, and the circuit has no per-account cap in the DB.
 async function submitReg(){
-  if(S.regSubmitting)return;
+  if(S.regSubmitting||S._regBusy)return;
+  S._regBusy=true;
+  try{await _submitReg();}finally{S._regBusy=false;}
+}
+async function _submitReg(){
   const cust=S.loggedIn||getSession();
   if(!cust){toast(t('errLoginFirst'),'error');return;}
   if(!S.selSession){
@@ -7777,6 +7901,14 @@ async function submitReg(){
     setTimeout(()=>{const b=document.getElementById('already-booked-banner');if(b)b.scrollIntoView({behavior:_sb(),block:'center'});},80);
     return;
   }
+  // The waiver is agreed on its own step, and every rider row carries it (waiver_version). A path
+  // that lands on the review without passing that step ("Book my usual" jumped straight there)
+  // must not post an acceptance nobody gave: it goes back to the waiver instead.
+  if(_needsWaiver(sess0)&&!_waiverAgreed()){
+    toast(t('waiverRequired'),'error');
+    S.regStep=2.5;renderRegister();_pushNav();try{window.scrollTo({top:0,behavior:_sb()});}catch(e){}
+    return;
+  }
 
   S.regSubmitting=true;
   renderRegister();
@@ -7825,7 +7957,7 @@ async function submitReg(){
       // If the device cannot even store the queue - a full localStorage - there is nothing to
       // sync later and nothing on the server, so the rider must NOT be handed a ticket and a
       // queue number for a booking that exists only until they close the tab.
-      if(!entries.map(e=>_bookOutboxAdd(entryToDB(e))).every(Boolean)){S.regSubmitting=false;renderRegister();return;} // _lsSetCritical has already said why
+      if(!entries.map(e=>_bookOutboxAdd(_outboxRow(e,sess))).every(Boolean)){S.regSubmitting=false;renderRegister();return;} // _lsSetCritical has already said why
       S.queue=[...(S.queue||[]),...entries.map(e=>entryFromDB(entryToDB(e)))];
       _queued=true;_bookOutboxFlush();
     }else{
@@ -7849,7 +7981,7 @@ async function submitReg(){
           if(typeof navigator!=='undefined'&&navigator.onLine===false){
             // Connection dropped mid-submit: queue instead of losing the booking - unless the
             // queue itself cannot be written, which is the one case where confirming would lie.
-            if(!entries.map(e=>_bookOutboxAdd(entryToDB(e))).every(Boolean)){S.regSubmitting=false;renderRegister();return;} // _lsSetCritical has already said why
+            if(!entries.map(e=>_bookOutboxAdd(_outboxRow(e,sess))).every(Boolean)){S.regSubmitting=false;renderRegister();return;} // _lsSetCritical has already said why
             S.queue=[...(S.queue||[]),...entries.map(e=>entryFromDB(entryToDB(e)))];
             _queued=true;_ok=true;_bookOutboxFlush();
           }else{
@@ -7869,7 +8001,7 @@ async function submitReg(){
               const _cu=S.loggedIn||getSession();
               if(_cu){await _fixLoad(_cu,true);if(await _fixGate(()=>submitReg()))return;}
             }
-            toast((err&&err.message)||t('errConnection'),'error');
+            _bookRefused(err,sess);
             return;
           }
         }
@@ -7892,12 +8024,7 @@ async function submitReg(){
     }
 
     
-    if(!cust.height&&heights[0]){
-      try{
-        await sb.from('customers').update({height:heights[0]}).eq('id',cust.id);
-        S.loggedIn.height=heights[0];setSession(S.loggedIn);
-      }catch(e){}
-    }
+    if(!cust.height&&heights[0])await _saveFirstHeight(cust,heights[0]);
     // Save selected add-ons on every entry (tolerant: a missing 'addons' column won't break the booking).
     // NEVER on a community ride: those are free with no billable add-ons, so shipping stock against
     // a price-0 entry would leak inventory with no way to collect. The picker is hidden for community,
@@ -7909,13 +8036,15 @@ async function submitReg(){
       if(entries[0].status!=='waitlist')await _addonStockQ(S.regAddons,-1); // add-ons ride on the account holder's row; a capacity-coerced waitlist row must not reserve stock
     }
     // Record the promo code used (tolerant) so redemptions can be reported
-    if(S.promoApplied&&S.promoApplied.code){const _pc=String(S.promoApplied.code);try{await Promise.all(entries.map(e=>_ownEntryUpdate(e.id,{promo_code:_pc})));}catch(e){}}
+    // Only on the riders the code actually discounted: the server counts a use per row carrying it.
+    if(S.promoApplied&&S.promoApplied.code){const _pc=String(S.promoApplied.code);try{await Promise.all(entries.filter(e=>e.promoCode).map(e=>_ownEntryUpdate(e.id,{promo_code:_pc})));}catch(e){}}
 
     await loadDataLight(); // slim parallel refresh - the ticket needs the queue, not photos/inventory
     _sendBookingEmail(entries[0]); // confirmation email (no-op unless Brevo is configured server-side)
     S.lastTickets=entries.map(e=>getQueue().find(q=>q.id===e.id)||e);
     S._rHeight='';S._rDate='';S.selSession=null;S.regType=null;
     S.regQty=1;S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regRiderNames=[];S._alreadyBookedSession=null;S.regStep=1;S.promoApplied=null;S._promoMsg='';S.regAddons=[];
+    S.waiverOk=false;S._waiverSess=null; // agreed for THIS booking; the next one asks again
     const _qn=entries.map(e=>e.queueNum);
     const numStr=qty>1?`#${_qn[0]} – #${_qn[_qn.length-1]}`:`#${_qn[0]}`;
     logAction(`${bookingStatus==='waitlist'?t('logWaitlistedWord'):t('logBookedWord')} ${numStr} (${(S.loggedIn&&S.loggedIn.name)||'rider'})`);
@@ -7931,6 +8060,23 @@ async function submitReg(){
   }
 }
 
+// A booking's own live rows, in ONE order for the edit form and for its save: queue number, then
+// id. The form used to take them in whatever order the queue array held them - for a customer
+// that is my_bookings(), which has no ORDER BY, and a row moves to the end once it is updated -
+// while the save walked them by queue number, so saving an edit with nothing changed could hand
+// the account holder the co-rider's bike type and height (and the fare to match).
+function _modEntries(cust,sid){
+  if(!cust||!cust.id||!sid)return[];
+  return getQueue().filter(e=>e.customerId===cust.id&&e.sessionId===sid&&(e.status==='waiting'||e.status==='waitlist'))
+    .sort((a,b)=>((a.queueNum||0)-(b.queueNum||0))||String(a.id).localeCompare(String(b.id)));
+}
+// While editing, a rider row that already exists shows its name read-only where the save could
+// not write it: rider 1 is the account holder and never renamed here, and a customer's own
+// update (customer_booking_update) has no name column at all. Riders being added stay editable.
+function _modNameLocked(i){
+  if(!S.modifyEntryId||!S._modKey)return false;
+  return i<S._modKey.split(',').length&&(i===0||_asCustomer());
+}
 async function submitModifyBooking(){
   const cust=S.loggedIn||getSession();
   if(!cust){toast(t('errLoginFirst'),'error');return;}
@@ -7938,9 +8084,15 @@ async function submitModifyBooking(){
   if(S.regSubmitting)return;S.regSubmitting=true; // double-tap would insert added riders twice
   try{
 
-  const existing=getQueue().filter(e=>
-    e.customerId===cust.id&&e.sessionId===S.selSession&&(e.status==='waiting'||e.status==='waitlist')
-  ).sort((a,b)=>a.queueNum-b.queueNum);
+  // The same rows, in the same order, that the form was filled from (_modEntries): form row i
+  // is saved onto existing[i]. If the booking changed underneath the edit - staff cancelled a
+  // co-rider, a rider was added from another device - the form no longer lines up with it, so
+  // it is filled again from the booking as it now stands and the rider checks it once more.
+  const existing=_modEntries(cust,S.selSession);
+  if(S._modKey&&existing.map(e=>e.id).join(',')!==S._modKey){
+    S.modifyEntryId=null;S._modKey=null;S.regStep=2;
+    toast(t('modifyChangedMsg'),'warning');renderRegister();return;
+  }
 
   const newQty=S.regQty||1;
   ensureBikeSizes();
@@ -7956,6 +8108,12 @@ async function submitModifyBooking(){
 
   const sess=allSessions().find(s=>s.id===S.selSession)||{day:'',session_date:S.selSession};
   if(sess.status&&!_sessLive(sess)){toast(t('errSelectSession'),'error');return;} // session closed under them mid-edit
+  // Riders added here are new bookings and carry the waiver like any other (see submitReg).
+  if(newQty>existing.length&&_needsWaiver(sess)&&!_waiverAgreed()){
+    toast(t('waiverRequired'),'error');
+    S.regStep=2.5;renderRegister();_pushNav();try{window.scrollTo({top:0,behavior:_sb()});}catch(e){}
+    return;
+  }
   const calls=[];
   let _addedRes=null; // rows the booking RPC returns for riders added during this edit
 
@@ -7964,10 +8122,13 @@ async function submitModifyBooking(){
     const entry=existing[i];
     const newType=S.regBikeTypes[i];
     const patch={};
-    // The form invites size/height (and co-rider name) edits — persist them, don't just toast success.
+    // The form invites size/height edits — persist them, don't just toast success. A co-rider's
+    // name is offered only where it can be written: customer_booking_update has no name column,
+    // so a customer's rename was dropped while the toast said "updated" (the form now shows
+    // those names read-only - _modNameLocked).
     const modH=parseInt(S.regBikeHeights[i])||null;
     if(modH&&modH!==entry.height){patch.height=modH;patch.size=heightToSize(modH);}
-    if(i>0){const nm=_titleCaseName((S.regRiderNames[i]||'').trim());if(nm&&nm!==entry.name)patch.name=nm;}
+    if(i>0&&!_modNameLocked(i)){const nm=_titleCaseName((S.regRiderNames[i]||'').trim());if(nm&&nm!==entry.name)patch.name=nm;}
     if(entry.typePreference!==newType){
       // Reprice only a plain unpaid row. A PAID row keeps its recorded amount (money is in the
       // drawer); a promo row keeps its discounted price (repricing would silently strip the
@@ -8021,7 +8182,9 @@ async function submitModifyBooking(){
   if(calls.length>0){
     const res=await Promise.all(calls);
     const fail=res.find(r=>r&&r.error);
-    if(fail){toast(_errMessage(fail.error),'error');return;}
+    // Some of the writes may have landed (the added riders, say) before one was refused: reload,
+    // so a second press of the button starts from the booking as it is and does not add them twice.
+    if(fail){_bookRefused(fail.error,sess);await loadDataLight();renderRegister();return;}
     // Added rows: the DB assigns the real number and may capacity-coerce to waitlist —
     // the toast below must follow what actually landed (same rule as submitReg).
     if(addedEntries.length&&_addedRes&&_addedRes.data){
@@ -8045,7 +8208,7 @@ async function submitModifyBooking(){
     toast(t('toastBookingUpdated'));
   }
 
-  S.modifyEntryId=null;S.selSession=null;S.regStep=1;
+  S.modifyEntryId=null;S._modKey=null;S.selSession=null;S.regStep=1;S.waiverOk=false;S._waiverSess=null;
   S.regBikeSizes=[];S.regBikeTypes=[];S.regRiderNames=[];S.regQty=1;S.regBikeHeights=[];
   S.regSubmitting=false; // before the render so the confirm button comes back enabled
   renderRegister();renderMyRides();
@@ -11924,6 +12087,7 @@ function renderStaffQueue(_resultsOnly){
   }
   if(S.queueView==='managed'){ // Staff Managed Waitlist: its own section beside Waitlist
     const _qh=document.getElementById('tab-queue');
+    if(_qh&&_mwTyping()){renderManagedWl(true);return;} // never rebuild the inputs staff are typing in
     if(_qh){_qh.innerHTML=_qvPills+'<div id="mw-host"></div>';renderManagedWl();}
     return;
   }
