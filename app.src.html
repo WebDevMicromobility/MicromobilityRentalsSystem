@@ -1291,11 +1291,19 @@ async function loadLangPack(code){
         ?window.__langPack
         :fetch(_langPackUrl(code)).then(r=>r.ok?r.json():null).catch(()=>null);
     }
-    const data=await _langFetches[code];
-    if(!data||typeof data!=='object')return false;
+    const p=_langFetches[code];
+    const data=await p;
+    if(!data||typeof data!=='object'){_langPackForget(code,p);return false;}
     LANG[code]=data;
     return true;
-  }catch(e){return false;}
+  }catch(e){_langPackForget(code,_langFetches[code]);return false;}
+}
+// A pack that did not arrive is forgotten, head start included, so choosing the language
+// again asks the network again. Kept, the failed answer stood for the rest of the visit and
+// a rider on patchy data stayed in English however many times they picked their language.
+function _langPackForget(code,p){
+  if(_langFetches[code]===p)delete _langFetches[code];
+  if(window.__langPackCode===code&&window.__langPack===p)window.__langPack=null;
 }
 
 // Every language the site speaks. `label` is the language's own name (what the dropdown
@@ -1350,7 +1358,7 @@ function showLangMenu(evt){
   const menu=document.createElement('div');
   menu.className='pay-menu-popup';menu.setAttribute('role','listbox');menu.setAttribute('aria-label',t('switchLangTip'));
   menu.style.cssText='position:fixed;z-index:9001;background:var(--s2);border:1.5px solid var(--border);border-radius:4px;padding:5px;min-width:150px;box-shadow:0 6px 24px rgba(0,0,0,.6)';
-  menu.innerHTML=LANGS.map(l=>`<button class="pay-menu-opt${S.lang===l.code?' active':''}" role="option" aria-selected="${S.lang===l.code}" onclick="setLang('${l.code}');document.querySelectorAll('.pay-menu-popup').forEach(m=>m.remove())">${l.label}</button>`).join('');
+  menu.innerHTML=LANGS.map(l=>`<button class="pay-menu-opt${S.lang===l.code?' active':''}" role="option" aria-selected="${S.lang===l.code}" onclick="setLang(${_ja(l.code)});document.querySelectorAll('.pay-menu-popup').forEach(m=>m.remove())">${esc(l.label)}</button>`).join('');
   document.body.appendChild(menu);
   const r=(evt&&evt.currentTarget&&evt.currentTarget.getBoundingClientRect)?evt.currentTarget.getBoundingClientRect():{left:20,bottom:60,right:170};
   const w=menu.offsetWidth||150;
@@ -1479,8 +1487,34 @@ async function _staffLoginEmail(identifier){
   const e164=_staffPhoneE164(id);
   // The hardcoded phone map is gone: three staff personal mobiles were riding in the public
   // bundle. Every staff phone now lives in staff_phones, added with one INSERT and no deploy.
-  try{const{data}=await sb.rpc('staff_email_for_phone',{p_phone:e164});if(data&&typeof data==='string')return data.toLowerCase();}catch(e){}
+  // null = no staff account has this phone; undefined = the lookup itself failed, which the
+  // sign-in reports as a connection problem instead of telling staff their password is wrong.
+  try{const{data,error}=await sb.rpc('staff_email_for_phone',{p_phone:e164});if(error)return undefined;if(data&&typeof data==='string')return data.toLowerCase();}catch(e){return undefined;}
   return null;
+}
+// The role to use when the staff row could not be read. Only the role this device last
+// confirmed for this very account counts; otherwise front desk, the smaller of the two. A
+// failed lookup used to mean admin, and setStaffRole saved that guess to cq_role, where the
+// next boot kept it - a front-desk account kept every admin section.
+function _staffRoleGuess(uid){
+  try{if(uid&&localStorage.getItem('cq_role_uid')===String(uid))return localStorage.getItem('cq_role')==='frontdesk'?'frontdesk':'admin';}catch(e){}
+  return'frontdesk';
+}
+// A role read from the staff row: applied, and remembered as belonging to this account.
+function _staffRoleConfirmed(uid,role){
+  setStaffRole(role==='frontdesk'?'frontdesk':'admin');
+  try{if(uid)localStorage.setItem('cq_role_uid',String(uid));}catch(e){}
+}
+// After a sign-in whose staff lookup failed, keep asking in the background so the guess is
+// replaced by the real role once the network answers.
+function _staffRoleRetry(uid,n){
+  n=n||0;if(n>=4)return;
+  setTimeout(async()=>{
+    if(!S._staffAuthed||!sb)return;
+    let r=null;try{r=await sb.from('staff').select('role').eq('user_id',uid).maybeSingle();}catch(e){r=null;}
+    if(r&&!r.error&&r.data)_staffRoleConfirmed(uid,r.data.role);
+    else if(!r||r.error)_staffRoleRetry(uid,n+1);
+  },[5000,15000,45000,120000][n]);
 }
 // Reject a promise that never settles, so a stuck network/auth call surfaces an error instead of
 // hanging the sign-in button forever.
@@ -1488,6 +1522,7 @@ function _withTimeout(p,ms,label){return Promise.race([p,new Promise((_,rej)=>se
 async function staffAuthSignIn(identifier,password){
   try{
     const email=await _staffLoginEmail(identifier);
+    if(email===undefined)return{ok:false,msg:t('errConnection')}; // the phone lookup did not answer
     if(!email)return{ok:false,msg:t('errInvalidCredentials')}; // phone not registered to a staff account
     const{data,error}=await _withTimeout(sb.auth.signInWithPassword({email,password}),20000,'sign-in');
     if(error||!data||!data.user)return{ok:false,msg:(error&&/invalid/i.test(error.message||''))?t('errInvalidCredentials'):((error&&error.message)||t('errConnection'))};
@@ -1497,12 +1532,12 @@ async function staffAuthSignIn(identifier,password){
     if(!row){
       // Lookup FAILED (timeout/error): only staff hold a password Auth account, so trust the valid
       // session rather than freezing — the DB still enforces is_staff() on every write.
-      if(lookupFailed){S._staffAuthed=true;S._mustChangePwd=false;setStaffRole('admin');setupRefRealtime();return{ok:true};}
+      if(lookupFailed){S._staffAuthed=true;S._mustChangePwd=false;setStaffRole(_staffRoleGuess(data.user.id));_staffRoleRetry(data.user.id);setupRefRealtime();return{ok:true};}
       // Lookup SUCCEEDED but returned no row: this Auth user is genuinely not staff — deny.
       try{await sb.auth.signOut();}catch(e){}
       return{ok:false,msg:t('errStaffNotAuthorized')};
     }
-    S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;setStaffRole(row.role==='frontdesk'?'frontdesk':'admin');
+    S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;_staffRoleConfirmed(data.user.id,row.role);
     setupRefRealtime();
     return{ok:true};
   }catch(e){return{ok:false,msg:(e&&e.message)||t('errConnection')};}
@@ -1563,7 +1598,7 @@ async function staffAuthRestore(){
     if(SECURE_AUTH){try{localStorage.removeItem('cq_staff');}catch(_){}_clearActiveCheckin(false);} // the unlock goes, so does the open check-in
     S._staffAuthed=false;return;
   }
-  S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;setStaffRole(row.role==='frontdesk'?'frontdesk':'admin');
+  S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;_staffRoleConfirmed(uid,row.role);
   setupRefRealtime();
 }
 async function lockStaff(){try{localStorage.removeItem('cq_staff');}catch(e){}_clearActiveCheckin(false);await staffAuthSignOut();window.location.href='./';}
@@ -1976,7 +2011,7 @@ function _socFieldsHtml(prefix,vals,open){
   return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px">${SOCIAL_NETS.map(([net,lbl])=>{
     const h=_socNorm(v[net]||'');
     const link=open?`<a id="${prefix}-soc-${net}-open" class="soc-open" href="${h?_socUrl(net,h):'#'}" target="_blank" rel="noopener noreferrer"${h?'':' hidden'} aria-label="${esc(t(lbl))}: ${esc(t('socOpenBtn'))}${t('opensNewTab')}">${t('socOpenBtn')} ↗</a>`:'';
-    return `<div class="form-group" style="margin:0"><label for="${prefix}-soc-${net}" style="font-size:11px">${t(lbl)}</label><div class="soc-field"><input id="${prefix}-soc-${net}" type="text" value="${esc(v[net]||'')}" placeholder="${esc(net==='linkedin'?t('socPhLinkedin'):t('socPh'))}" autocomplete="off" autocapitalize="off" spellcheck="false" dir="ltr"${open?` oninput="_socOpenSync('${prefix}','${net}',this.value)"`:''}>${link}</div></div>`;}).join('')}</div>`;
+    return `<div class="form-group" style="margin:0"><label for="${prefix}-soc-${net}" style="font-size:11px">${t(lbl)}</label><div class="soc-field"><input id="${prefix}-soc-${net}" type="text" value="${esc(v[net]||'')}" placeholder="${esc(net==='linkedin'?t('socPhLinkedin'):t('socPh'))}" autocomplete="off" autocapitalize="off" spellcheck="false" dir="ltr"${open?` oninput="_socOpenSync(${_ja(prefix)},${_ja(net)},this.value)"`:''}>${link}</div></div>`;}).join('')}</div>`;
 }
 function _socOpenSync(prefix,net,raw){
   const a=document.getElementById(`${prefix}-soc-${net}-open`);if(!a)return;
@@ -2231,6 +2266,22 @@ function entryFromDB(e){
     approval:e.approval||null, // community events: pending / approved / rejected (null = ordinary booking)
     purchases:(()=>{try{return e.purchases?(Array.isArray(e.purchases)?e.purchases:JSON.parse(e.purchases)):[];}catch(_){return[];}})()};
 }
+// The fields the PII-free queue_public view carries, in entry form. Everything else on a row -
+// the name and contact, the account link, the group, add-ons, payment method, stamps - is not
+// in it, so a row rebuilt from the view alone has lost them.
+const _PUBLIC_ENTRY_KEYS=['id','sessionId','sessionDay','sessionDate','queueNum','status','size','typePreference','paid','price','assignedBikeId','walkIn','rideDuration'];
+// A staff device that briefly lost its Auth session reads the view. A row from it (it has no
+// name key at all) keeps everything this device already knew, with the view's fresh columns
+// laid on top: keeping the name alone left add-ons, payment methods and account links blank,
+// and the desk's totals and house-pay checks wrong until the session came back. A row from
+// the table keeps the old rule: only a blank name, phone, email, height or size is filled in.
+function _carryKnown(e,p){
+  if(!e||!p)return;
+  if(e.name===undefined){const keep={...p};_PUBLIC_ENTRY_KEYS.forEach(k=>{keep[k]=e[k];});Object.assign(e,keep);return;}
+  if(!(e.name||'').trim()&&(p.name||'').trim()){e.name=p.name;if(!e.phone)e.phone=p.phone;if(!e.email)e.email=p.email;if(e.height==null)e.height=p.height;if(!e.size)e.size=p.size;}
+}
+// A booking reduced to what anybody may see (the view's fields), for when its owner signs out.
+function _publicOnly(e){const o=entryFromDB({});_PUBLIC_ENTRY_KEYS.forEach(k=>{o[k]=e[k];});return o;}
 // ── Creating a booking ────────────────────────────────────────────────────
 // The customer path goes through customer_create_booking, a SECURITY DEFINER RPC that
 // inserts and returns the rows. That matters because the client NEEDS the rows back — the
@@ -2336,16 +2387,30 @@ function _applyDefaultPay(e,first){
 // PostgREST silently caps every request at 1000 rows. Once the queue crossed that,
 // single-shot fetches dropped the LAST rows in sort order - which, ordered by session_id,
 // are the NEWEST sessions. Page until a short page arrives so nothing is ever truncated.
-async function _pagedAll(makeSel){
-  const PAGE=1000;let all=[],from=0;
+//
+// Offset pages are separate queries, so they only line up when the sort is a total order and
+// nothing moves between them. Every caller therefore ends its sort on a unique column (ties
+// otherwise come back in a different order per page, repeating one row and dropping another),
+// and a row that arrives twice all the same - a row inserted into an earlier page mid-sequence
+// pushes the next one across the boundary - is kept once. `key` names a unique column the
+// whole sort is on (cashier_sales and desk_waitlist: `id`, random ids that land anywhere in
+// the order): those page by "after the last key" instead of by offset, which a sale rung up
+// or voided mid-sequence cannot shift, so no sale is repeated into the till's takings or
+// skipped out of them.
+async function _pagedAll(makeSel,key){
+  const PAGE=1000;let all=[],from=0,after=null;const seen=new Set();
   for(;;){
-    const{data,error}=await makeSel().range(from,from+PAGE-1);
+    let sel=makeSel();
+    sel=key?(after==null?sel:sel.gt(key,after)).limit(PAGE):sel.range(from,from+PAGE-1);
+    const{data,error}=await sel;
     // On a mid-sequence failure return NO data (not the partial pages): a truncated set that looks
     // successful is worse than a clean error - callers keep their prior state instead of silently
     // dropping the newest rows.
     if(error)return{data:null,error};
-    all=all.concat(data||[]);
-    if(!data||data.length<PAGE)break;
+    const rows=data||[];
+    rows.forEach(r=>{const id=r&&r.id;if(id==null)all.push(r);else if(!seen.has(id)){seen.add(id);all.push(r);}});
+    if(rows.length<PAGE)break;
+    if(key)after=rows[rows.length-1][key];
     from+=PAGE;
   }
   return{data:all,error:null};
@@ -2370,8 +2435,18 @@ let _refAt=0,_refDirty=true,_refInFlight=null,_refByStaff=false,_refLive=false; 
 const REF_TTL_MS=5*60*1000;
 const REF_TTL_LIVE_MS=30*60*1000;
 const CUST_REF_COLS='id,name,email,phone,height,type_preference,gender,birth_date,country,city,nationality,socials,created_at,default_pay,hidden_types';
-function refDirty(){_refDirty=true;}
-function _refNeeded(){return _refDirty||!_refAt||(Date.now()-_refAt)>((_refLive&&_refByStaff)?REF_TTL_LIVE_MS:REF_TTL_MS);}
+// _refGen counts refDirty() calls, so a fetch can tell whether something was written while it
+// was on the wire; _refMissed holds the staff-ref changes that arrived meanwhile.
+let _refGen=0,_refFetching=false,_refMissed=[];
+function refDirty(){_refDirty=true;_refGen++;}
+// Every staff-ref change passes through here (from _rtRefMerge). While the lists are being
+// fetched it is also kept, and laid again over what the fetch brings back: the fetch read
+// its pages before the change landed, and without this its older copy replaced the merged
+// one wholesale and the change stayed invisible until the next refetch, half an hour later.
+function _refNoteMerge(kind,p){if(_refFetching)_refMissed.push([kind,p]);}
+// A list read before the staff session existed is RLS's empty answer, not the customer base:
+// once the session is up it is read again at the next load rather than after the five minutes.
+function _refNeeded(){return _refDirty||!_refAt||(!!S._staffAuthed&&!_refByStaff)||(Date.now()-_refAt)>((_refLive&&_refByStaff)?REF_TTL_LIVE_MS:REF_TTL_MS);}
 // Staff-only: the Sales tab's saved-customer picker needs them. Visitors never download the
 // customer list. Tolerant throughout: RLS may deny the read until the staff Auth session is
 // established, and pre-migration databases have no tags tables at all.
@@ -2412,20 +2487,30 @@ async function _refFetch(onCustomers){
   // real customer as "not found" or a tagged rider as untagged. The four run TOGETHER; only the
   // pages within each one are sequential.
   _refInFlight=(async()=>{
-    const [r,rt,rct,rbs,rso]=await Promise.all([
-      _custListFetch(),
-      sb.from('tags').select('*').then(x=>x,e=>({data:null,error:e})),
-      _pagedAll(()=>sb.from('customer_tags').select('*').order('customer_id').order('tag_id')).catch(e=>({data:null,error:e})),
-      sb.from('breakfast_spots').select('*').then(x=>x,e=>({data:null,error:e})),
-      sb.from('staff_options').select('*').then(x=>x,e=>({data:null,error:e})),
-    ]);
+    const gen=_refGen;_refFetching=true;_refMissed=[];
+    let res;
+    try{
+      res=await Promise.all([
+        _custListFetch(),
+        sb.from('tags').select('*').then(x=>x,e=>({data:null,error:e})),
+        _pagedAll(()=>sb.from('customer_tags').select('*').order('customer_id').order('tag_id')).catch(e=>({data:null,error:e})),
+        sb.from('breakfast_spots').select('*').then(x=>x,e=>({data:null,error:e})),
+        sb.from('staff_options').select('*').then(x=>x,e=>({data:null,error:e})),
+      ]);
+    }finally{_refFetching=false;}
+    const [r,rt,rct,rbs,rso]=res;
     if(rt&&!rt.error&&rt.data)S.tags=rt.data;
     if(rct&&!rct.error&&rct.data)S.customerTags=rct.data;
     if(rbs&&!rbs.error&&rbs.data)S.breakfastSpots=rbs.data;
     if(rso&&!rso.error&&rso.data)S.staffOptions=Object.fromEntries(rso.data.map(r=>[r.key,r.items]));
     // Only a fully successful pass counts as fresh, or one denied read would silence the
-    // retry for five minutes and leave the picker empty for the rest of the shift.
-    if(r&&!r.error&&r.data){S.customers=r.data;_refAt=Date.now();_refDirty=false;_refByStaff=!!S._staffAuthed;}
+    // retry for five minutes and leave the picker empty for the rest of the shift. And only a
+    // pass nothing was written during clears the dirty mark: a customer or tag saved while the
+    // pages were in flight may not be in them, so the next load asks again.
+    if(r&&!r.error&&r.data){S.customers=r.data;_refAt=Date.now();if(_refGen===gen)_refDirty=false;_refByStaff=!!S._staffAuthed;}
+    // The changes that arrived while the pages were on the wire, laid over them in order.
+    const missed=_refMissed;_refMissed=[];
+    missed.forEach(([k,p])=>{try{_rtRefMerge(k,p);}catch(e){}});
     return r;
   })();
   let out=null;
@@ -2439,10 +2524,10 @@ async function _refFetch(onCustomers){
 async function _optionalFetch(){
   await Promise.all([
     (async()=>{try{const inv=await sb.from('inventory').select('*');if(!inv.error)S.inventory=inv.data||[];}catch(e){}})(),
-    (async()=>{try{const wl=await _pagedAll(()=>sb.from('desk_waitlist').select('*').order('id'));if(!wl.error)S.deskWaitlist=wl.data||[];}catch(e){}})(),
+    (async()=>{try{const wl=await _pagedAll(()=>sb.from('desk_waitlist').select('*').order('id'),'id');if(!wl.error)S.deskWaitlist=wl.data||[];}catch(e){}})(),
     (async()=>{try{const pc=await sb.from('promo_codes').select('*');if(!pc.error)S.promoCodes=pc.data||[];}catch(e){}})(),
     // cashier_sales grows one row per POS sale forever - page it or revenue reports silently under-count past 1000.
-    (async()=>{try{const cs=await _pagedAll(()=>sb.from('cashier_sales').select('*').order('id'));if(!cs.error)S.cashSales=cs.data||[];}catch(e){}})(),
+    (async()=>{try{const cs=await _pagedAll(()=>sb.from('cashier_sales').select('*').order('id'),'id');if(!cs.error)S.cashSales=cs.data||[];}catch(e){}})(),
   ]);
 }
 const REF_TABLES=['customers','tags','customer_tags','breakfast_spots','staff_options'];
@@ -2465,7 +2550,7 @@ async function _queueFetch(windowed,days){
     return _pagedAll(()=>{
       let sel=sb.from('queue_entries').select('*');
       if(windowed)sel=sel.gte('session_date',_qWindowCut(days));
-      return sel.order('session_id').order('queue_num');
+      return sel.order('session_id').order('queue_num').order('id'); // id last: cancelled rows share numbers with live ones, and paging needs a total order
     });
   }
   const cust=S.loggedIn||getSession();
@@ -2481,12 +2566,17 @@ async function _queueFetch(windowed,days){
   // One day back, not today, so a session that runs past midnight is still there at 00:30.
   const _pubCut=new Date(Date.now()-864e5).toLocaleDateString('en-CA',{timeZone:KSA_TZ});
   const [pub,mine]=await Promise.all([
-    _pagedAll(()=>sb.from('queue_public').select('*').gte('session_date',_pubCut).order('session_id').order('queue_num')),
+    _pagedAll(()=>sb.from('queue_public').select('*').gte('session_date',_pubCut).order('session_id').order('queue_num').order('id')),
     (cust&&cust.session_token)?sb.rpc('my_bookings',{p_id:cust.id,p_token:cust.session_token}):Promise.resolve({data:[]}),
   ]);
   const mineRows=(mine&&!mine.error&&mine.data)||[];
   const mineIds=new Set(mineRows.map(r=>r.id));
-  return{data:[...mineRows,...((pub&&pub.data)||[]).filter(r=>!mineIds.has(r.id))],error:pub&&pub.error};
+  // The customer's own rows are what My Rides and the "already booked" check stand on. A
+  // my_bookings that failed fails the load, so the rows already in hand stay: returned as a
+  // success without them, one dropped request emptied My Rides and invited a second booking.
+  // Only a database that predates the function answers with the public half alone.
+  const mineErr=(mine&&mine.error&&!_rpcAbsent(mine.error))?mine.error:null;
+  return{data:[...mineRows,...((pub&&pub.data)||[]).filter(r=>!mineIds.has(r.id))],error:(pub&&pub.error)||mineErr};
 }
 // Sessions. Staff read the table directly (their RLS policy returns everything, incl.
 // private events). Customers go through list_sessions(), the only route that can return a
@@ -2497,10 +2587,14 @@ async function _sessionsFetch(){
   const isStaffDevice=(typeof localStorage!=='undefined'&&localStorage.getItem('cq_staff')==='1');
   if(!isStaffDevice){
     const cust=S.loggedIn||getSession();
-    try{
-      const r=await sb.rpc('list_sessions',{p_id:(cust&&cust.id)||null,p_token:(cust&&cust.session_token)||null});
-      if(!r.error&&Array.isArray(r.data))return{data:r.data,error:null};
-    }catch(e){/* RPC missing (pre-migration): fall through */}
+    // Only a database without the function falls through. Any other failure is a failed load:
+    // the plain select cannot see a member's private rides, so falling back on a dropped
+    // request quietly took their community ride off the page and their ticket lost its session.
+    let r;
+    try{r=await sb.rpc('list_sessions',{p_id:(cust&&cust.id)||null,p_token:(cust&&cust.session_token)||null});}
+    catch(e){return{data:null,error:e};}
+    if(!r.error&&Array.isArray(r.data))return{data:r.data,error:null};
+    if(!r.error||!_rpcAbsent(r.error))return{data:null,error:r.error||{message:'list_sessions: no rows array'}};
   }
   // Paged, ordered ascending: an unpaged fetch would drop the HIGHEST dates first once past 1000
   // sessions - i.e. the newest/upcoming ones - hiding new sessions from the picker. (id tiebreaker
@@ -2516,7 +2610,9 @@ let _loadInFlight=null,_loadQueued=null,_lightInFlight=null,_lightQueued=null;
 // just wrote, so they would render their own change away and not see it until the next poll
 // thirty seconds later. Callers that arrive mid-flight share ONE follow-up load instead, so a
 // burst still costs two round trips rather than N, and nobody is answered with a fetch that
-// predates their write.
+// predates their write. The shared follow-up stops taking passengers the moment it actually
+// starts (loadData and loadDataLight clear the slot as a load leaves): a caller who wrote
+// after that point waits for a load of its own, instead of being handed one already on the wire.
 function _coalesce(get,set,run){
   const q=get();
   if(q)return q;
@@ -2530,6 +2626,7 @@ async function loadData(showLoader=false){
     return _coalesce(()=>_loadQueued,v=>{_loadQueued=v;},
       ()=>_loadInFlight.catch(()=>{}).then(()=>loadData(showLoader)));
   }
+  _loadQueued=null; // this load leaves now: anyone asking from here on wrote after it and gets the next one
   _loadInFlight=_loadDataInner(showLoader);
   try{return await _loadInFlight;}finally{_loadInFlight=null;}
 }
@@ -2544,8 +2641,10 @@ async function _loadDataInner(showLoader){
   // Three groups of fetches, none of which depends on another's result. They used to run as
   // three waves; they now all leave together and are awaited where their results are first
   // needed, so the round trip is paid once rather than three times over.
-  let c={data:[],error:null};
-  const _refP=_refFetch(r=>{if(r)c=r;});
+  // The reference lists set S.customers themselves when they fetch. This load used to take a
+  // copy of S.customers here and write it back after its own round trip, which undid every
+  // staff-ref change (a signup, an edit) that arrived in between - for up to half an hour.
+  const _refP=_refFetch();
   const _optP=_optionalFetch();
   const _qs=_qSlice();
   try{
@@ -2566,10 +2665,9 @@ async function _loadDataInner(showLoader){
   if(!_firstLoad)await _refP;
   if(q.error)console.error('loadData queue error:',q.error.message);
   if(b.error)console.error('loadData bikes error:',b.error.message);
-  if(!_firstLoad&&c.error)console.error('loadData customers error:',c.error.message);
   if(ses.error)console.error('loadData sessions error:',ses.error.message);
-  // Total failure = the three core fetches all errored (c starts as a success placeholder, so it
-  // can't participate in this test — the old !c.data condition made this branch unreachable).
+  // Total failure = the three core fetches all errored (the customer list is not part of this
+  // test - the old !c.data condition made this branch unreachable).
   if(q.error&&b.error&&ses.error){S.dataLoaded=true;try{_applyBookOutbox();}catch(_){}_bookOutboxFlush();toast(t('toastConnStale'),'error');return;}
 
   if(_bootDone&&startToken<_bootReadyAt)return;
@@ -2585,13 +2683,12 @@ async function _loadDataInner(showLoader){
     if(_keepPII)(S.queue||[]).forEach(e=>{if(e&&e.id&&((e.name||'').trim()||(e.phone||'').trim()))_prevPII[e.id]=e;});
     S.queue=_qMerge((q.data||[]).map(entryFromDB),_qs&&_qs.cut);
     _qWholeAt=_qs?(_qs.whole?Date.now():_qWholeAt):0;
-    if(_keepPII)S.queue.forEach(e=>{const p=_prevPII[e.id];if(p&&!(e.name||'').trim()&&(p.name||'').trim()){e.name=p.name;if(!e.phone)e.phone=p.phone;if(!e.email)e.email=p.email;if(e.height==null)e.height=p.height;if(!e.size)e.size=p.size;}});
+    if(_keepPII)S.queue.forEach(e=>_carryKnown(e,_prevPII[e.id]));
   }
   try{_applyBookOutbox();}catch(_){}_bookOutboxFlush(); // surface + sync any bookings queued while offline
   // Error-guarded like queue/sessions: a transient failed refresh must not blank the bikes
   // list or the customer picker mid-shift (and then snapshot the emptiness into cq_snapshot).
   if(!b.error)S.bikes=b.data||[];
-  if(!_firstLoad&&!c.error)S.customers=c.data||[]; // on the first load _refFetch sets it itself when it lands
   if(!ses.error)S.sessions=ses.data||[];
   S.dataLoaded=true; // first successful load - render real content instead of skeletons
   S._cacheOnly=false; // the queue's opening session can now be chosen from real data (_sfDefaultToToday)
@@ -2634,7 +2731,14 @@ function _cacheSave(){try{
   // heavy base64 data: URIs (those would bloat localStorage). This is why add-on/inventory
   // photos used to appear blank until the network reload finished.
   const strip=a=>(a||[]).map(x=>{if(x&&typeof x.photo==='string'&&x.photo.indexOf('data:')===0){const{photo,...r}=x;return r;}return x;});
-  localStorage.setItem('cq_snapshot',JSON.stringify({q:S.queue,ses:S.sessions,bk:strip(S.bikes),inv:strip(S.inventory),cs:S.cashSales}));
+  const put=(q,cs)=>localStorage.setItem('cq_snapshot',JSON.stringify({q,ses:S.sessions,bk:strip(S.bikes),inv:strip(S.inventory),cs}));
+  try{put(S.queue,S.cashSales);return;}catch(e){/* over quota: try the smaller copy below */}
+  // Too big for the quota (a staff device holding a year of bookings and every sale): keep the
+  // nights the boot window covers, which is all the first paint shows. If even that does not
+  // fit, the snapshot goes: a failed write used to leave the PREVIOUS one in place, so a later
+  // boot painted a roster days or weeks old as if it were tonight's.
+  try{const cut=_qWindowCut(QUEUE_BOOT_DAYS);put((S.queue||[]).filter(e=>String(e.sessionDate||e.sessionId||'')>=cut),(S.cashSales||[]).filter(r=>String(r.created_at||'')>=cut));return;}catch(e){/* still over: drop it */}
+  localStorage.removeItem('cq_snapshot');
 }catch(e){}}
 function _cacheRestore(){try{const s=JSON.parse(localStorage.getItem('cq_snapshot')||'null');if(s&&s.q){S.queue=s.q||[];S.sessions=s.ses||[];S.bikes=s.bk||[];S.inventory=s.inv||[];S.cashSales=s.cs||[];S.dataLoaded=true;S._cacheOnly=true;}}catch(e){}}
 
@@ -2726,7 +2830,7 @@ const QR=(function(){
       logoSvg='<rect x="'+(lx-pad).toFixed(2)+'" y="'+(ly-pad).toFixed(2)+'" width="'+(ls+2*pad).toFixed(2)+'" height="'+(ls+2*pad).toFixed(2)+'" rx="'+(cell*1.3).toFixed(2)+'" fill="'+light+'"/>'
         +'<image href="'+logoSrc+'" xlink:href="'+logoSrc+'" x="'+lx.toFixed(2)+'" y="'+ly.toFixed(2)+'" width="'+ls.toFixed(2)+'" height="'+ls.toFixed(2)+'" preserveAspectRatio="xMidYMid meet"/>';
     }
-    return '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+px+'" height="'+px+'" viewBox="0 0 '+px+' '+px+'" role="img" aria-label="Booking QR code">'
+    return '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+px+'" height="'+px+'" viewBox="0 0 '+px+' '+px+'" role="img" aria-label="'+esc(opts.label||t('ticketQrLabel'))+'">'
       +'<rect width="'+px+'" height="'+px+'" fill="'+light+'"/>'
       +'<g fill="'+dark+'" shape-rendering="crispEdges">'+rects+'</g>'+eyes+logoSvg+'</svg>';
   }
@@ -2768,11 +2872,14 @@ function ticketQR(payload,px){
 
 function bookingRef(e){
   if(!e)return 'MMC';
-  const ref=e.id?String(e.id).slice(0,6):'';
+  const ref=e.id?String(e.id).slice(0,6).replace(/[^\w-]/g,''):''; // ids are word characters; anything else never reaches a ticket's markup or its QR
   // Community rides never reveal a queue number, and the QR payload is customer-visible
   // (any camera decodes it) - so their ref carries only the id part. The staff scanner
-  // accepts both the numbered and the number-free format.
-  if(_apprSessIds.has(e.sessionId))return ['MMC',ref].filter(Boolean).join('-');
+  // accepts both the numbered and the number-free format. A session this device cannot see
+  // counts as one of those: list_sessions stops returning a private ride once the member's tag
+  // lapses, while my_bookings still returns their booking on it.
+  const sess=(S.sessions||[]).find(s=>s.id===e.sessionId);
+  if(!sess||_isApprovalRide(sess))return ['MMC',ref].filter(Boolean).join('-');
   const num=e.queueNum!=null?String(e.queueNum):'';
   return ['MMC',num,ref].filter(Boolean).join('-');
 }
@@ -2884,10 +2991,16 @@ function shortDate(ds){
   const ck=lang+'|'+ds;
   const hit=_shortDateCache.get(ck);if(hit!==undefined)return hit;
   let out;
+  // A bare day ('2026-09-20', or a session id that starts with one) is noon in Riyadh, spelled
+  // with the offset: read as the device's own noon it became the next day on a phone west of
+  // UTC-9. A timestamp (last_serviced_at and the like) is its own instant, shown as the Riyadh
+  // day; appending a time to one used to print "Invalid Date". Anything else prints nothing
+  // rather than raw text, since callers put the answer straight into markup.
+  const s=String(ds),m=/^(\d{4}-\d{2}-\d{2})(.*)$/.exec(s);
   try{
-    const d=new Date(ds+'T12:00:00');
-    out=d.toLocaleDateString(_locale(),{day:'numeric',month:'short',year:'numeric',timeZone:KSA_TZ});
-  }catch{out=ds;}
+    const d=typeof ds==='number'?new Date(ds):m&&/^[T ]\d/.test(m[2])?new Date(s.replace(' ','T').replace(/([+-]\d{2})$/,'$1:00')):m?new Date(m[1]+'T12:00:00+03:00'):new Date(NaN);
+    out=isNaN(d)?(m?m[1]:''):d.toLocaleDateString(_locale(),{day:'numeric',month:'short',year:'numeric',timeZone:KSA_TZ});
+  }catch{out=m?m[1]:'';}
   if(_shortDateCache.size>2000)_shortDateCache.clear();
   _shortDateCache.set(ck,out);
   return out;
@@ -2909,18 +3022,21 @@ function fmt12h(timeStr){
 const COLLECT_BEFORE_MIN=45;
 function _hhmmToMin(v){const m=/^(\d{1,2}):(\d{2})$/.exec(String(v||'').trim());return m?(+m[1])*60+(+m[2]):null;}
 function _minToHhmm(n){return n==null?'':`${String(Math.floor(n/60)%24).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`;}
+// A session's stored times, as text that is safe to drop into markup. The settings blob is
+// free text in the database, and every card, ticket and roster header prints these unescaped.
+function _timeText(v){return String(v==null?'':v).replace(/[<>"'&`]/g,'');}
 function sessionCollectTime(sess){
   const sl=parseSlots(sess&&sess.bike_slots)||{};
-  const parts=String(sl._time||'').split('-').map(x=>x.trim());
+  const parts=_timeText(sl._time).split('-').map(x=>x.trim());
   if(_gathersTime(sess))return parts[0]||''; // the gathering IS the moment to turn up
-  if(sl._collect)return sl._collect;
+  if(sl._collect)return _timeText(sl._collect);
   const st=_hhmmToMin(parts[0]);
   return st==null?'':_minToHhmm(Math.max(0,st-COLLECT_BEFORE_MIN));
 }
 function sessionTime(sess){
   if(!sess)return fmt12h('09:00 - 11:00');
   const s=parseSlots(sess.bike_slots);
-  const raw=(s&&s._time)||'09:00 - 11:00';
+  const raw=_timeText((s&&s._time)||'09:00 - 11:00');
   // An approval ride stores "gathering - start": label the two times instead of showing a
   // range. Every other session, the Petromin ride included, runs to a plain start-end window.
   if(_gathersTime(sess)){
@@ -3003,7 +3119,7 @@ function _wlCapFieldHtml(pfx){
   const isNew=pfx==='ns';
   const mode=(isNew?S.newSessWlMode:S.editSessWlMode)||'count';
   const val=(isNew?S.newSessWlVal:S.editSessWlVal);
-  const mk=(m,lbl)=>`<button type="button" class="toggle-btn${mode===m?' active':''}" onclick="S.${isNew?'newSessWlMode':'editSessWlMode'}='${m}';renderSessions()">${lbl}</button>`;
+  const mk=(m,lbl)=>`<button type="button" class="toggle-btn${mode===m?' active':''}" onclick="S.${isNew?'newSessWlMode':'editSessWlMode'}=${_ja(m)};renderSessions()">${lbl}</button>`;
   return `<div class="form-group" style="margin-bottom:16px">
     <label>${t('wlCapLabel')}</label>
     <div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap">
@@ -3173,19 +3289,45 @@ function getAssignedBikeIds(entry){
 function getAssignedBikes(entry){return getAssignedBikeIds(entry).map(id=>bikeById(id)).filter(Boolean);}
 
 
+// An in-use bike with nobody on it is freed - but not the moment one is seen. Handing a bike
+// over is two writes: the bike goes in-use, then the booking goes active one round trip later,
+// and the bike's realtime event repaints every roster in between. Freeing on sight wrote
+// 'available' for a bike a rider was being handed, from any staff screen showing the roster,
+// and the rider then rode a bike the database called free. So a candidate is freed only once
+// it has stayed unheld for ORPHAN_GRACE_MS on this device AND the database, asked just before
+// the write, has no active booking holding it; the write itself only moves a bike still in-use.
+const ORPHAN_GRACE_MS=45*1000;
+const _orphanSeen=new Map(); // bike id -> when this device first saw it in-use and unheld
+let _orphanTimer=null;
 async function reconcileOrphanBikes(){
   if(!sb||S.view!=='staff'||S._reconcilingBikes)return;
+  if(SECURE_AUTH&&!S._staffAuthed)return; // no read of the bookings on this device: nothing here can vouch for a bike
   const used=new Set();
   getQueue().filter(e=>e.status==='active').forEach(e=>getAssignedBikeIds(e).forEach(id=>used.add(id)));
-  const orphans=getBikes().filter(b=>b.status==='in-use'&&!used.has(b.id));
-  if(!orphans.length)return;
+  const now=Date.now();
+  const cands=getBikes().filter(b=>b.status==='in-use'&&!used.has(b.id));
+  const candIds=new Set(cands.map(b=>b.id));
+  [..._orphanSeen.keys()].forEach(id=>{if(!candIds.has(id))_orphanSeen.delete(id);}); // held again, or freed: the wait starts over
+  cands.forEach(b=>{if(!_orphanSeen.has(b.id))_orphanSeen.set(b.id,now);});
+  const due=cands.filter(b=>now-_orphanSeen.get(b.id)>=ORPHAN_GRACE_MS);
+  // A roster nobody touches may not repaint for a while: look again once the wait is over.
+  if(cands.length&&!_orphanTimer)_orphanTimer=setTimeout(()=>{_orphanTimer=null;try{reconcileOrphanBikes();}catch(e){}},ORPHAN_GRACE_MS+1000);
+  if(!due.length)return;
   S._reconcilingBikes=true;
+  const freed=[];
   try{
-    await Promise.all(orphans.map(b=>sb.from('bikes').update({status:'available'}).eq('id',b.id)));
-    orphans.forEach(b=>{b.status='available';});
+    const{data,error}=await sb.from('queue_entries').select('id,status,assigned_bike_id').eq('status','active');
+    if(!error&&Array.isArray(data)){
+      const held=new Set();
+      data.filter(r=>r&&r.status==='active').forEach(r=>getAssignedBikeIds({id:r.id,assignedBikeId:r.assigned_bike_id}).forEach(id=>held.add(id)));
+      const res=await Promise.all(due.filter(b=>!held.has(b.id)).map(b=>
+        sb.from('bikes').update({status:'available'}).eq('id',b.id).eq('status','in-use').select('id').then(r=>({b,r}),()=>({b,r:null}))));
+      res.forEach(({b,r})=>{if(r&&!r.error&&r.data&&r.data.length){b.status='available';freed.push(b);}});
+    }
   }catch(e){console.warn('reconcileOrphanBikes failed:',e);}
   S._reconcilingBikes=false;
-  renderStaffQueue();renderBikes();
+  due.forEach(b=>_orphanSeen.delete(b.id)); // freed, or held after all: a later sighting waits again
+  if(freed.length){renderStaffQueue();renderBikes();}
 }
 function resolvedType(entry){
   if(!entry||entry.typePreference!=='Any')return entry?entry.typePreference:'Any';
@@ -3196,7 +3338,9 @@ function resolvedType(entry){
 // bike the check-in 'Size match' badge and never refuses a booking, so an XL rider with no
 // XL bike free simply gets no badge, exactly as an L rider does when every L is out.
 function heightToSize(h){if(h<=166)return'XS';if(h<=172)return'S';if(h<=178)return'M';if(h<=186)return'L';return'XL';}
-function sizeLabel(sz){return{XS:'XS (166 cm & under)',S:'S (167-172 cm)',M:'M (173-178 cm)',L:'L (179-186 cm)',XL:'XL (187 cm & up)'}[sz]||sz;}
+// The bands in numbers and signs, the unit from the language pack: 'cm & under' was English
+// on every staff screen whatever language it was set to.
+function sizeLabel(sz){const cm=t('cmUnit'),m={XS:`XS (≤ 166 ${cm})`,S:`S (167-172 ${cm})`,M:`M (173-178 ${cm})`,L:`L (179-186 ${cm})`,XL:`XL (≥ 187 ${cm})`};return _own(m,sz)?m[sz]:sz;}
 function bikeGradient(c){if(!c||!c.length)return'var(--green)';if(c.length===1)return c[0];return`linear-gradient(135deg,${c.join(',')})`;}
 const DAY_NAMES=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 const DAY_NAMES_AR={Sunday:'الأحد',Monday:'الاثنين',Tuesday:'الثلاثاء',Wednesday:'الأربعاء',Thursday:'الخميس',Friday:'الجمعة',Saturday:'السبت'};
@@ -3205,11 +3349,13 @@ const DAY_NAMES_AR={Sunday:'الأحد',Monday:'الاثنين',Tuesday:'الث�
 const DAY_NAMES_NE={Sunday:'आइतबार',Monday:'सोमबार',Tuesday:'मङ्गलबार',Wednesday:'बुधबार',Thursday:'बिहिबार',Friday:'शुक्रबार',Saturday:'शनिबार'};
 const _dayLabelCache=new Map();
 function dayLabel(day){
+  // Anything that is not a weekday name is stored text (session_day comes back from every
+  // booking row) and goes into markup as it is returned, so it is returned escaped.
+  const idx=DAY_NAMES.indexOf(day);if(idx<0)return day==null?'':esc(day);
   const lang=S.lang||'en';
   if(lang==='en')return day;
   if(lang==='ar')return DAY_NAMES_AR[day]||day;
   if(lang==='ne')return DAY_NAMES_NE[day]||day;
-  const idx=DAY_NAMES.indexOf(day);if(idx<0)return day;
   const ck=lang+idx;let v=_dayLabelCache.get(ck);
   if(!v){
     // 7 Jan 2024 is a Sunday; the browser's own weekday names, in the visitor's language.
@@ -3223,7 +3369,12 @@ function spotsLeftLabel(n){
   return t(n===1?'spotsLeft1':'spotsLeftN').replace('{0}',n);
 }
 const TYPE_CLS={Road:'type-road',Hybrid:'type-hybrid',Mountain:'type-mountain',Kids:'type-kids',Gravel:'type-gravel',Any:'type-any','Road Carbon':'type-roadcarbon'};
-function typeLabel(ty){const m={Road:t('typeRoad'),Hybrid:t('typeHybrid'),Mountain:t('typeMountain'),Kids:t('typeKids'),Gravel:t('typeGravel'),Any:t('typeAny'),'Road Carbon':t('typeRoadCarbon'),Own:t('typeOwn')};return m[ty]||ty||t('typeAny');} // null/legacy rows read as 'Any', never the literal 'undefined'
+// Own-property lookup: a stored value such as 'constructor' must not find Object's own members.
+function _own(o,k){return k!=null&&Object.prototype.hasOwnProperty.call(o,k);}
+// A type this list does not know is stored text (type_preference is written by customers'
+// bookings) and every roster, badge and report prints the label straight into markup, so the
+// raw fallback is escaped here, once, for all of them.
+function typeLabel(ty){const m={Road:t('typeRoad'),Hybrid:t('typeHybrid'),Mountain:t('typeMountain'),Kids:t('typeKids'),Gravel:t('typeGravel'),Any:t('typeAny'),'Road Carbon':t('typeRoadCarbon'),Own:t('typeOwn')};return _own(m,ty)?m[ty]:(ty?esc(ty):t('typeAny'));} // null/legacy rows read as 'Any', never the literal 'undefined'
 // The bike-type preference PILL wording differs from the staff badge for 'Own': customers see
 // "I have my own bike"; staff (typeBadge) see the shorter "Bike owner" via typeLabel above.
 function typePillLabel(ty){return ty==='Own'?t('typeOwnPref'):typeLabel(ty);}
@@ -3257,12 +3408,21 @@ function haptic(){
 }
 // While the on-screen keyboard is open (visual viewport shrinks by >150px), unstick the
 // sticky footer bars so they never float over the field being typed in (iOS Safari quirk).
+// The keyboard only opens for a focused field, so while none has focus the viewport's height
+// IS the full height and becomes the new baseline. The baseline used to only ever grow: after
+// turning a phone from portrait to landscape (or shrinking a desktop window) the gap stayed
+// over 150px for good, and the footers came unstuck with no keyboard anywhere.
+function _kbTyping(){
+  const a=document.activeElement;if(!a)return false;
+  if(a.isContentEditable||a.tagName==='TEXTAREA'||a.tagName==='SELECT')return true; // a phone's picker wheel takes the same room
+  return a.tagName==='INPUT'&&!/^(button|checkbox|radio|range|submit|reset|file|color|image|hidden)$/i.test(a.type||'');
+}
 if(window.visualViewport){
   let _kbBase=window.visualViewport.height;
   window.visualViewport.addEventListener('resize',()=>{
-    const vv=window.visualViewport;
-    _kbBase=Math.max(_kbBase,vv.height);
-    document.documentElement.classList.toggle('kb-open',_kbBase-vv.height>150);
+    const vv=window.visualViewport,typing=_kbTyping();
+    _kbBase=typing?Math.max(_kbBase,vv.height):vv.height;
+    document.documentElement.classList.toggle('kb-open',typing&&_kbBase-vv.height>150);
   });
 }
 // The Apple Wallet app icon: black tile, fanned blue/yellow/green cards, coral card and the
@@ -3355,10 +3515,10 @@ function genBikeName(type,frame,num,size){
   const pn=String(Number(num)||0).padStart(4,'0');
   return `${tc}-${fc}-${pn}-${size||''}`;
 }
-const typeBadge=ty=>`<span class="type-badge ${TYPE_CLS[ty]||'type-any'}">${bikeTypeIcon(ty,12)} ${typeLabel(ty)}</span>`;
+const typeBadge=ty=>{const k=_own(TYPE_CLS,ty)?ty:'Any';return`<span class="type-badge ${TYPE_CLS[k]}">${bikeTypeIcon(k,12)} ${typeLabel(ty)}</span>`;}; // typeLabel escapes an unknown type
 const STATUS_CLS={waiting:'badge-waiting',waitlist:'badge-waitlist',active:'badge-active',done:'badge-done',noshow:'badge-noshow',cancelled:'badge-noshow',removed:'badge-noshow'};
 const STATUS_KEY={waiting:'statusWaiting',waitlist:'statusWaitlist',active:'statusActive',done:'statusDone',noshow:'statusNoshow',cancelled:'statusCancelled',removed:'removedLabel'};
-const statusBadge=s=>`<span class="status-badge ${STATUS_CLS[s]||'badge-done'}">${t(STATUS_KEY[s]||'statusDone')}</span>`;
+const statusBadge=s=>`<span class="status-badge ${_own(STATUS_CLS,s)?STATUS_CLS[s]:'badge-done'}">${t(_own(STATUS_KEY,s)?STATUS_KEY[s]:'statusDone')}</span>`;
 // The same badge, but able to say WHO cancelled. Every cancellation used to read "by
 // Customer" because the label hung off the status word alone — including the ones staff
 // cancelled and the 37 they rejected. Null (anything cancelled before the column existed)
@@ -3398,10 +3558,14 @@ function _foldLine(groups){
 // their size first. Null when the fleet has nothing that fits.
 function _bestFreeBike(e){
   const ty=resolvedType(e);if(ty==='Own')return null;
+  // A premium tier has no fleet type of its own: Road Carbon is ridden on a Road bike, a carbon
+  // frame first. Matching the tier's name against bike types found nothing, every time.
+  const base=PREMIUM_TIERS[ty]||ty,carbon=ty==='Road Carbon';
   const sz=e.size||(e.height?heightToSize(Number(e.height)):null);
   const held=new Set();getQueue().forEach(x=>{if(x.id!==e.id&&['waiting','waitlist','active'].includes(x.status))getAssignedBikeIds(x).forEach(b=>held.add(b));});
-  const free=(S.bikes||[]).filter(b=>b.status==='available'&&!held.has(b.id)&&(!ty||ty==='Any'||b.type===ty));
-  return free.find(b=>sz&&b.size===sz)||free[0]||null;
+  const free=(S.bikes||[]).filter(b=>b.status==='available'&&!held.has(b.id)&&(!base||base==='Any'||b.type===base));
+  const pick=list=>list.find(b=>sz&&b.size===sz)||list[0]||null;
+  return (carbon&&pick(free.filter(b=>b.frame_type==='Carbon')))||pick(free);
 }
 // From the row's menu: the bike picker opens with the best free bike already selected, so
 // Reserve bike is one tap; with nothing that fits it opens empty for staff to choose.
@@ -4384,6 +4548,11 @@ function doLogout(silent){
   S.promoApplied=null;S._promoMsg='';S.regAddons=[];S.modifyEntryId=null;
   S.selEvent='jcc';
   S.sessions=(S.sessions||[]).filter(s=>!_isCommunity(s)); // drop private events from memory the moment they sign out
+  // Their own bookings arrived whole (name, email, phone, from my_bookings) and stayed in memory
+  // and in the device's snapshot after they left. Only what anybody may see stays now. Not on a
+  // staff device, whose queue is the desk's own full copy.
+  let _staffDev=false;try{_staffDev=localStorage.getItem('cq_staff')==='1';}catch(e){}
+  if(!_staffDev){S.queue=(S.queue||[]).map(e=>e&&e.customerId?_publicOnly(e):e);_cacheSave();}
   renderTopbarRight();
   goLanding();
   if(!silent)toast(t('toastLoggedOut')); // silent = caller shows its own message (stale-session check)
@@ -22776,6 +22945,7 @@ async function loadDataLight(){
     return _coalesce(()=>_lightQueued,v=>{_lightQueued=v;},
       ()=>_lightInFlight.catch(()=>{}).then(()=>loadDataLight()));
   }
+  _lightQueued=null; // as in loadData: a caller from here on gets a load that starts after their write
   _lightInFlight=_loadDataLightInner();
   try{return await _lightInFlight;}finally{_lightInFlight=null;}
 }
@@ -22791,7 +22961,7 @@ async function _loadDataLightInner(){
   try{[q,ses,cs,bk,wl]=await Promise.all([
     _queueFetch(true,_qs?_qs.days:_lightDays),
     _sessionsFetch(),
-    _pagedAll(()=>{let cs=sb.from('cashier_sales').select('*');if(_cut)cs=cs.gte('created_at',_cut);return cs.order('id');}), // paged like loadData; the same two-month window once the year is in
+    _pagedAll(()=>{let cs=sb.from('cashier_sales').select('*');if(_cut)cs=cs.gte('created_at',_cut);return cs.order('id');},'id'), // paged like loadData; the same two-month window once the year is in
     sb.from('bikes').select('id,status'), // status-only (no photos) so availability stays fresh on the poll without a heavy payload
     sb.from('desk_waitlist').select('*'), // small table; error-tolerant below (pre-migration DBs)
   ]);}catch(e){S._netDown=true;_updateConnUI();return;} // unreachable: keep current state, flag the connection
@@ -22990,6 +23160,7 @@ let _refCh=null,_refChRetry=0,_refWasLive=false; // _refLive is declared with th
 // Lays one broadcast change over the lists in hand. True when something changed.
 function _rtRefMerge(kind,p){
   if(!p||!p.op)return false;
+  _refNoteMerge(kind,p); // kept too while the lists are being refetched, and laid again over them
   const del=p.op==='DELETE';
   if(kind==='customers'){
     const id=p.id||(p.row&&p.row.id);if(!id)return false;

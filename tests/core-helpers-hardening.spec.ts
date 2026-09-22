@@ -1,0 +1,175 @@
+import { test, expect } from '@playwright/test';
+import { stubSupabase, loginCustomer, waitForSb } from './helpers/supabase';
+
+// The small shared helpers every screen leans on: labels that go straight into markup, dates,
+// the bike suggestion, language packs, the staff role, the snapshot and signing out.
+
+const S1 = '2099-12-01';
+const sessions = [{ id: S1, session_date: S1, day: 'Tuesday', status: 'open', capacity: 10, created_at: 1 }];
+
+async function boot(page: import('@playwright/test').Page, fixtures: Record<string, unknown> = {}) {
+  await stubSupabase(page, { sessions, queue_entries: [], bikes: [], ...fixtures });
+  await page.goto('/');
+  await waitForSb(page);
+}
+
+test('an unknown stored type, day or time cannot put markup on the page', async ({ page }) => {
+  await boot(page);
+  const out = await page.evaluate(`(()=>{
+    const bad='<img src=x onerror="window.__pwned=1">';
+    const host=document.createElement('div');document.body.appendChild(host);
+    host.innerHTML=typeBadge(bad)+statusBadge(bad)+dayLabel(bad)+sessionTime({bike_slots:JSON.stringify({_time:bad+' - 23:00'})});
+    const r={imgs:host.querySelectorAll('img').length,label:typeLabel(bad),proto:typeLabel('constructor'),badge:typeBadge('constructor'),
+      road:typeLabel('Road'),own:typeBadge('Own').includes('type-any')};
+    host.remove();return r;
+  })()`) as Record<string, unknown>;
+  expect(out.imgs).toBe(0);
+  expect(out.label).toContain('&lt;img');
+  expect(out.proto).toBe('constructor');
+  expect(String(out.badge)).not.toContain('native code');
+  expect(out.road).toBe('Road');
+  expect(out.own).toBe(true);
+});
+
+test('shortDate: a timestamp is its own Riyadh day, a date-prefixed id reads as its date, junk prints nothing', async ({ page }) => {
+  await boot(page);
+  const out = await page.evaluate(`[shortDate('2026-09-04T22:22:11.123+00:00'),shortDate('2026-09-20-pt'),shortDate('<b>x</b>'),shortDate('2026-09-20')]`);
+  expect(out).toEqual(['5 Sept 2026', '20 Sept 2026', '', '20 Sept 2026']);
+});
+
+test.describe('west of UTC-9', () => {
+  test.use({ timezoneId: 'Pacific/Honolulu' });
+  test('a session day is not moved to the next day', async ({ page }) => {
+    await boot(page);
+    expect(await page.evaluate(`shortDate('2026-09-20')`)).toBe('20 Sept 2026');
+  });
+});
+
+test('Reserve bike suggests a Road bike, carbon first, for a Road Carbon booking', async ({ page }) => {
+  await boot(page);
+  const out = await page.evaluate(`(()=>{
+    S.bikes=[{id:'al',type:'Road',size:'M',status:'available',frame_type:'Aluminum'},{id:'cf',type:'Road',size:'L',status:'available',frame_type:'Carbon'},{id:'hy',type:'Hybrid',size:'M',status:'available'}];
+    const carbon=_bestFreeBike({id:'x',typePreference:'Road Carbon',size:'M',status:'waiting'});
+    S.bikes=S.bikes.filter(b=>b.id!=='cf');
+    const road=_bestFreeBike({id:'x',typePreference:'Road Carbon',size:'M',status:'waiting'});
+    return [carbon&&carbon.id,road&&road.id];
+  })()`);
+  expect(out).toEqual(['cf', 'al']);
+});
+
+test('a language pack that failed to arrive is asked for again', async ({ page }) => {
+  let hits = 0;
+  await page.route(/\/lang\/hi\.json/, (r) => { hits++; return hits === 1 ? r.abort() : r.fallback(); });
+  await boot(page);
+  const first = await page.evaluate(`loadLangPack('hi')`);
+  const second = await page.evaluate(`loadLangPack('hi')`);
+  expect(first).toBe(false);
+  expect(second).toBe(true);
+  expect(hits).toBe(2);
+});
+
+test('a staff sign-in whose role lookup failed is front desk unless this account was confirmed here', async ({ page }) => {
+  await boot(page);
+  const out = await page.evaluate(`(()=>{
+    localStorage.removeItem('cq_role_uid');localStorage.setItem('cq_role','admin');
+    const fresh=_staffRoleGuess('u1');
+    localStorage.setItem('cq_role_uid','u1');
+    const same=_staffRoleGuess('u1'),other=_staffRoleGuess('u2');
+    return [fresh,same,other];
+  })()`);
+  expect(out).toEqual(['frontdesk', 'admin', 'frontdesk']);
+});
+
+test('a staff phone lookup that fails is a connection problem, not a wrong password', async ({ page }) => {
+  await boot(page);
+  await page.route(/\/rest\/v1\/rpc\/staff_email_for_phone/, (r) => r.fulfill({
+    status: 503, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' },
+    body: JSON.stringify({ code: 'XX000', message: 'upstream timed out' }),
+  }));
+  expect(await page.evaluate(`_staffLoginEmail('0501234567').then(v=>v===undefined?'undefined':v)`)).toBe('undefined');
+  expect(await page.evaluate(`staffAuthSignIn('0501234567','x').then(r=>r.msg===t('errConnection'))`)).toBe(true);
+});
+
+test('a snapshot that no longer fits is trimmed, and dropped rather than left stale', async ({ page }) => {
+  await boot(page);
+  const out = await page.evaluate(`(()=>{
+    const real=Storage.prototype.setItem;
+    localStorage.setItem('cq_snapshot','OLD');
+    S.queue=[{id:'old',sessionDate:'2001-01-01'},{id:'new',sessionDate:'2099-01-01'}];
+    let limit=Infinity;
+    Storage.prototype.setItem=function(k,v){if(k==='cq_snapshot'&&String(v).length>limit)throw new DOMException('quota','QuotaExceededError');return real.call(this,k,v);};
+    try{
+      const full=JSON.stringify({q:S.queue,ses:S.sessions,bk:S.bikes,inv:S.inventory,cs:S.cashSales}).length;
+      limit=full-1;_cacheSave();
+      const trimmed=JSON.parse(localStorage.getItem('cq_snapshot')).q.map(e=>e.id);
+      localStorage.setItem('cq_snapshot','OLD');limit=5;_cacheSave();
+      return {trimmed,gone:localStorage.getItem('cq_snapshot')===null};
+    }finally{Storage.prototype.setItem=real;}
+  })()`);
+  expect(out).toEqual({ trimmed: ['new'], gone: true });
+});
+
+test('signing out leaves none of the customer\'s details on the device', async ({ page }) => {
+  const mine = { id: 'q1', session_id: S1, session_day: 'Tuesday', session_date: S1, queue_num: 1, name: 'Spec Rider', email: 'spec@example.com', phone: '0500000001', customer_id: 'c1', status: 'waiting', type_preference: 'Any', paid: false, price: 30, registered_at: '2099-01-01T10:00:00Z' };
+  await stubSupabase(page, { sessions, queue_entries: [mine], bikes: [] });
+  await loginCustomer(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await expect.poll(() => page.evaluate(`!!getQueue().find(e=>e.id==='q1'&&e.name==='Spec Rider')`)).toBe(true);
+  await page.evaluate(`doLogout(true)`);
+  const out = await page.evaluate(`(()=>{const e=getQueue().find(x=>x.id==='q1');return {kept:!!e,status:e&&e.status,name:e&&e.name,cust:e&&e.customerId,snap:localStorage.getItem('cq_snapshot')||''};})()`) as Record<string, unknown>;
+  expect(out.kept).toBe(true);           // still counts toward the night's places
+  expect(out.status).toBe('waiting');
+  expect(out.name).toBeUndefined();
+  expect(out.cust).toBeUndefined();
+  expect(String(out.snap)).not.toContain('Spec Rider');
+  expect(String(out.snap)).not.toContain('spec@example.com');
+});
+
+test('a row read from the public view keeps what the staff device already knew', async ({ page }) => {
+  await boot(page);
+  const out = await page.evaluate(`(()=>{
+    const prev={id:'x',name:'Known',customerId:'c1',addons:[{id:'i1',qty:1}],pay_method:'card',status:'waiting',paid:false};
+    const e=entryFromDB({id:'x',session_id:'s',session_day:'Friday',session_date:'2099-01-01',queue_num:4,status:'active',paid:true,price:0});
+    _carryKnown(e,prev);
+    return {name:e.name,cust:e.customerId,addons:e.addons.length,pay:e.pay_method,status:e.status,paid:e.paid,q:e.queueNum};
+  })()`);
+  expect(out).toEqual({ name: 'Known', cust: 'c1', addons: 1, pay: 'card', status: 'active', paid: true, q: 4 });
+});
+
+test('a booking on a session this device cannot see carries no queue number in its reference', async ({ page }) => {
+  await boot(page);
+  expect(await page.evaluate(`bookingRef({id:'abc123xyz',sessionId:'not-here',queueNum:7})`)).toBe('MMC-abc123');
+  expect(await page.evaluate(`bookingRef({id:'def456xyz',sessionId:'${S1}',queueNum:3})`)).toBe('MMC-3-def456');
+});
+
+test('size labels come in the page language\'s unit, with no English words', async ({ page }) => {
+  await boot(page);
+  const out = await page.evaluate(`(async()=>{const r=[sizeLabel('XS'),sizeLabel('XL')];await loadLangPack('ar');S.lang='ar';r.push(sizeLabel('XS'));S.lang='en';return r;})()`) as string[];
+  expect(out[0]).toBe('XS (≤ 166 cm)');
+  expect(out[1]).toBe('XL (≥ 187 cm)');
+  expect(out[2]).toContain('سم');
+});
+
+test('inline handlers still work with their arguments encoded (social link sync, language menu)', async ({ page }) => {
+  await boot(page);
+  const out = await page.evaluate(`(()=>{
+    const host=document.createElement('div');host.innerHTML=_socFieldsHtml('pf',{instagram:'rider'},true);document.body.appendChild(host);
+    const inp=document.getElementById('pf-soc-instagram');inp.value='https://instagram.com/new.handle';inp.dispatchEvent(new Event('input'));
+    const href=document.getElementById('pf-soc-instagram-open').getAttribute('href');host.remove();
+    showLangMenu();const btn=[...document.querySelectorAll('.pay-menu-popup .pay-menu-opt')].find(b=>b.textContent==='Français');btn.click();
+    const lang=S.lang;setLang('en');return {href,lang};
+  })()`);
+  expect(out).toEqual({ href: 'https://www.instagram.com/new.handle', lang: 'fr' });
+});
+
+test('turning the screen with no field focused does not leave the footers unstuck; a keyboard still does', async ({ page }) => {
+  await page.setViewportSize({ width: 412, height: 860 });
+  await boot(page);
+  await page.setViewportSize({ width: 860, height: 412 }); // portrait to landscape, nothing focused
+  await expect.poll(() => page.evaluate(`document.documentElement.classList.contains('kb-open')`)).toBe(false);
+  await page.setViewportSize({ width: 412, height: 860 });
+  await page.evaluate(`(()=>{const i=document.createElement('input');i.id='kb-probe';document.body.appendChild(i);i.focus();})()`);
+  await page.setViewportSize({ width: 412, height: 560 }); // a keyboard's worth of height gone while typing
+  await expect.poll(() => page.evaluate(`document.documentElement.classList.contains('kb-open')`)).toBe(true);
+});

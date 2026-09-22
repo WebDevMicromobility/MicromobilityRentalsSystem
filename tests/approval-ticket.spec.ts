@@ -31,8 +31,9 @@ async function myBookings(page: import('@playwright/test').Page, sessions: unkno
   await page.evaluate(`showView('customer');setCustTab('myrides')`);
   return page.locator('#tab-myrides');
 }
-/** The booking QR itself: the library draws an SVG labelled for screen readers. */
-const qr = (p: import('@playwright/test').Page) => p.locator('#tab-myrides svg[aria-label="Booking QR code"]');
+/** The booking QR itself: the library draws an SVG labelled for screen readers (the label is
+ *  translated, so the code is found by its drawing, not by the English words). */
+const qr = (p: import('@playwright/test').Page) => p.locator('#tab-myrides svg[role="img"][aria-label]:has(g[shape-rendering="crispEdges"])');
 
 test('while the list is being decided: no code, and the card says why', async ({ page }) => {
   const card = await myBookings(page, [satur()], [row()]);
