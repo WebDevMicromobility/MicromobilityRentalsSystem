@@ -19542,8 +19542,8 @@ function _riderReportRows(co){
 }
 function _riderPrice(r){return r.price!=null?Number(r.price):(EMPLOYEE_PRICES[r.type_preference]??priceForType(r.type_preference));} // the employee fare, as _rider_price sets it
 function _ridersRepScope(){return S.ridersSession!=='all'?shortDate(S.ridersSession.slice(0,10)):t('ridersFilterAll');}
-function openRidersReport(){S._ridersRepOpen=true;_renderRidersReport();}
-function closeRidersReport(){S._ridersRepOpen=false;const m=document.getElementById('rider-report-modal');if(m){m.style.display='none';m.innerHTML='';}}
+function openRidersReport(){S._ridersRepOpen=true;S._ridersRepHtml='';_renderRidersReport();}
+function closeRidersReport(){S._ridersRepOpen=false;S._ridersRepHtml='';const m=document.getElementById('rider-report-modal');if(m){m.style.display='none';m.innerHTML='';}}
 function _renderRidersReport(){
   const m=document.getElementById('rider-report-modal');if(!m||!S._ridersRepOpen)return;
   const coRow=co=>{
@@ -19556,8 +19556,7 @@ function _renderRidersReport(){
       </div></div>`;
   };
   const none=_riderReportRows('');
-  m.style.display='flex';
-  m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeRidersReport()">
+  const html=`<div class="modal-backdrop" onclick="if(event.target===this)closeRidersReport()">
     <div class="modal-box" role="dialog" aria-modal="true" aria-label="${esc(t('ridersReport'))}" style="max-width:460px">
       <div class="modal-title">${esc(t('ridersReport'))} · ${esc(_ridersRepScope())}</div>
       <div style="margin-top:4px">${RIDER_COMPANIES.map(coRow).join('')}</div>
@@ -19565,6 +19564,11 @@ function _renderRidersReport(){
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${none.map(r=>`<button class="btn-sm btn-muted" onclick="closeRidersReport();showRiderEdit(${_ja(r.id)})">${esc(r.booking_no||r.name||'')}</button>`).join('')}</div></div>`:''}
       <div class="modal-footer"><button class="btn-secondary" onclick="closeRidersReport()">${t('closeBtn')}</button></div>
     </div></div>`;
+  // renderRiders repaints an open report whenever the list changes: one opened before the list
+  // had arrived used to show nothing to bill, buttons off, for as long as it stayed open. The
+  // same report is not written again, so a button in focus keeps its focus.
+  if(html===S._ridersRepHtml&&m.innerHTML)return;
+  S._ridersRepHtml=html;m.style.display='flex';m.innerHTML=html;
 }
 function exportRidersReportCsv(co){
   const rows=_riderReportRows(co);if(!rows.length){toast(t('ridersReportEmpty'));return;}
@@ -20030,6 +20034,7 @@ async function _rwFinish(d,res,r){
 function renderRiders(_resultsOnly){
   const host=document.getElementById('pm-host');if(!host)return;
   if(!S.ridersLoaded&&!_ridersLoading){loadRiders().then(()=>{if(_pmOpen())renderRiders();});}
+  _renderRidersReport(); // the billing report follows the list (it does nothing while closed)
   if(!_resultsOnly&&document.activeElement&&document.activeElement.id==='riders-search-input'&&document.getElementById('riders-results'))_resultsOnly=true;
   const all=S.riders||[],rows=_ridersFiltered();
   const night=S.ridersSession&&S.ridersSession!=='all'?all.filter(r=>r.session_id===S.ridersSession):all; // the pills count the night on show

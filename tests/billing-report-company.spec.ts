@@ -101,8 +101,30 @@ test('a company with nothing to bill cannot print an empty report; Escape closes
   await page.goto('/');
   await waitForSb(page);
   await page.evaluate(`setStaffTab('riders');openRidersReport()`);
-  await expect(page.locator('.rider-rep-co[data-co="Petrolube"] button').first()).toBeDisabled();
+  // Petromin first: its button turns on once the riders are in, and only then does a disabled
+  // Petrolube button say anything (before the list arrives, every button is off).
   await expect(page.locator('.rider-rep-co[data-co="Petromin"] button').first()).toBeEnabled();
+  await expect(page.locator('.rider-rep-co[data-co="Petrolube"] button').first()).toBeDisabled();
   await page.keyboard.press('Escape');
   await expect(page.locator('#rider-report-modal .modal-box')).toHaveCount(0);
+});
+
+test('a report opened before the riders arrive fills in when they do', async ({ page }) => {
+  await stubSupabase(page, { sessions, queue_entries: [], rider_registrations });
+  // The list is held back until the report is on screen: a busy phone opens it that early,
+  // and the report used to stay at nothing to bill for as long as it was open.
+  let release = () => {};
+  const held = new Promise<void>((r) => { release = r; });
+  await page.route(/\/rest\/v1\/rider_registrations/, async (route) => { await held; await route.fallback(); });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`setStaffTab('riders');openRidersReport()`);
+  const min = page.locator('.rider-rep-co[data-co="Petromin"]');
+  await expect(min).toContainText('Completed rides: 0');
+  await expect(min.locator('button').first()).toBeDisabled();
+  release();
+  await expect(min).toContainText('Completed rides: 3');
+  await expect(min.locator('button').first()).toBeEnabled();
+  await expect(page.locator('#rider-rep-noco')).toContainText('no company');
 });

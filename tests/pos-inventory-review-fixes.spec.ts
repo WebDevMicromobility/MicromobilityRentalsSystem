@@ -101,8 +101,10 @@ test.describe('cashier tab', () => {
     expect(await page.evaluate('S.cashSales.length')).toBe(1); // nothing happens before the answer
     await page.locator('#confirm-modal .btn-red').click();
     await expect.poll(() => page.evaluate('S.cashSales.length')).toBe(0);
+    // The stock count moves on screen before its write goes out, and the void is logged once
+    // that write has come back, so the log is waited for on its own, not read after the count.
     await expect.poll(() => page.evaluate('S.inventory.find(i=>i.id==="i1").qty')).toBe(12);
-    expect(await page.evaluate('S.fullLog.some(l=>/SAR 24/.test(l.label)&&l.label.includes(t("cashVoid")))')).toBe(true);
+    await expect.poll(() => page.evaluate('S.fullLog.some(l=>/SAR 24/.test(l.label)&&l.label.includes(t("cashVoid")))')).toBe(true);
   });
 
   test('refund, mark-paid and edit of a receipt are written to the action log', async ({ page }) => {
@@ -119,6 +121,8 @@ test.describe('cashier tab', () => {
     await page.evaluate(`_ctRefundReceipt('rp')`);
     await page.locator('#confirm-modal .btn-muted').click();
     await expect.poll(() => page.evaluate('S.cashSales.find(r=>r.id==="p1").pay')).toBe('refunded');
+    // As with a void, the refund is logged after its restock write, a moment after the row turns.
+    await expect.poll(() => page.evaluate('S.fullLog.some(l=>l.label.includes(t("cashRefund")))')).toBe(true);
     const [labels, markPaid, refund, edit] = await page.evaluate(`[S.fullLog.map(l=>l.label), t('cashMarkPaid'), t('cashRefund'), t('receiptEditTitle')]`) as [string[], string, string, string];
     expect(labels.some((l) => l.includes(markPaid) && l.includes('SAR 12'))).toBe(true);
     expect(labels.some((l) => l.includes(refund) && l.includes('SAR 12'))).toBe(true);

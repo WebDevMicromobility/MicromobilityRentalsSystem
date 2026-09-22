@@ -166,10 +166,21 @@ test('inline handlers still work with their arguments encoded (social link sync,
 test('turning the screen with no field focused does not leave the footers unstuck; a keyboard still does', async ({ page }) => {
   await page.setViewportSize({ width: 412, height: 860 });
   await boot(page);
-  await page.setViewportSize({ width: 860, height: 412 }); // portrait to landscape, nothing focused
-  await expect.poll(() => page.evaluate(`document.documentElement.classList.contains('kb-open')`)).toBe(false);
-  await page.setViewportSize({ width: 412, height: 860 });
+  // The page hears of a new size in a visualViewport 'resize' event at its next frame, and a
+  // busy machine can fold two quick size changes into one event: the portrait height and the
+  // keyboard height then reached the page together, with the field already focused, and the
+  // keyboard was never seen. Each step waits until the page has had the event for its size.
+  // This listener is added after the app's own, so when it has heard a size, so has the app.
+  await page.evaluate(`window.__vvSeen=[];visualViewport.addEventListener('resize',()=>window.__vvSeen.push(Math.round(visualViewport.height)))`);
+  const resize = async (width: number, height: number) => {
+    const n = await page.evaluate('window.__vvSeen.length') as number;
+    await page.setViewportSize({ width, height });
+    await page.waitForFunction(([n, h]) => (window as unknown as { __vvSeen: number[] }).__vvSeen.slice(n).includes(h), [n, height]);
+  };
+  await resize(860, 412); // portrait to landscape, nothing focused
+  expect(await page.evaluate(`document.documentElement.classList.contains('kb-open')`)).toBe(false);
+  await resize(412, 860);
   await page.evaluate(`(()=>{const i=document.createElement('input');i.id='kb-probe';document.body.appendChild(i);i.focus();})()`);
-  await page.setViewportSize({ width: 412, height: 560 }); // a keyboard's worth of height gone while typing
-  await expect.poll(() => page.evaluate(`document.documentElement.classList.contains('kb-open')`)).toBe(true);
+  await resize(412, 560); // a keyboard's worth of height gone while typing
+  expect(await page.evaluate(`document.documentElement.classList.contains('kb-open')`)).toBe(true);
 });
