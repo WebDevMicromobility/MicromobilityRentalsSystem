@@ -38,7 +38,9 @@ test('History: the dropdowns open under the Filter button, named, and the button
   await expect(btn).toHaveAttribute('aria-expanded', 'false');
   await btn.click();
   await expect(panel).toBeVisible();
-  await expect(panel.locator('.filter-field-lbl')).toHaveText(['Status', 'Pay', 'Type', 'Size', 'Session', 'Range']);
+  await expect(panel.locator('.filter-field-lbl')).toHaveText(['Status', 'Pay', 'Type', 'Size', 'Range']);
+  // the session picker is the view's context: it stands in the bar, never behind the button
+  await expect(page.locator('#tab-history .filter-sess select')).toBeVisible();
   await panel.locator('select').first().selectOption('done');
   // the re-render keeps the panel open and the button now says one filter is on
   await expect(page.locator('#fm-hist')).toBeVisible();
