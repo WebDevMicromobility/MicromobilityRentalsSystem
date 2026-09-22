@@ -20,9 +20,10 @@ async function record(page: import('@playwright/test').Page, cart: unknown[], di
     S._ctCart = JSON.parse(${JSON.stringify(JSON.stringify(cart))});
     S._ctDisc = '${disc}'; S._ctDiscPct = ${pct}; S._ctCard = ''; S._ctCardPct = false;
     const captured = [];
-    const orig = window._salesUpsert;
-    window._salesUpsert = (r) => { captured.push(r); };
-    try { _ctRecord(); } finally { window._salesUpsert = orig; }
+    // The receipt is stored as one batch; answering "not stored" stops _ctRecord before stock moves.
+    const orig = window._salesApply;
+    window._salesApply = (rows) => { captured.push(...rows); return false; };
+    try { _ctRecord(); } finally { window._salesApply = orig; }
     const sum = (pay) => Math.round(captured
       .filter((r) => r.pay === pay && r.category !== '__cardmeta__')
       .reduce((s, r) => s + r.qty * r.price, 0) * 100) / 100;

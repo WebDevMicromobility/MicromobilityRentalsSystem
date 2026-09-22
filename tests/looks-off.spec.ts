@@ -125,3 +125,42 @@ test('the checks themselves: providers, endings, Saudi shapes, dates and heights
     diacritics: [], kid: [], tallKid: ['sxHeightAge'], afterSignup: ['sxDobYoung'],
   });
 });
+
+// Valid names and numbers the checks used to call wrong (review of 2026-09-22).
+test('names in scripts with vowel signs, names written without spaces and Kyrgyz riders are not "off"', async ({ page }) => {
+  await accounts(page);
+  const r = await page.evaluate(`(()=>{
+    const run=c=>{const o=[];_sxName(c.name,o);_sxPhone(c,o,'');return o.map(x=>x.k);};
+    return {
+      bengali: run({name:'মোহাম্মদ রহিম',phone:'+966551876215'}),
+      hindi: run({name:'राम कुमार',phone:'+966551876215'}),
+      nepali: run({name:'सुनिल थापा',phone:'+966551876215'}),
+      chinese: run({name:'王伟',phone:'+966551876215'}),
+      korean: run({name:'김민준',phone:'+966551876215'}),
+      kgNational: run({name:'Aibek Asanov',phone:'+996551876215',nationality:'Kyrgyzstan'}),
+      kgResident: run({name:'Aibek Asanov',phone:'+996551876215',country:'Kyrgyzstan'}),
+      stillInitial: run({name:'Ahmed A',phone:'+966551876215'}),
+      stillOneWord: run({name:'Sara',phone:'+966551876215'}),
+    };})()`);
+  expect(r).toEqual({
+    bengali: [], hindi: [], nepali: [], chinese: [], korean: [], kgNational: [], kgResident: [],
+    stillInitial: ['sxNameInitial'], stillOneWord: ['sxNameOneWord'],
+  });
+});
+
+test('a phone-rules file that cannot be loaded is not asked for again on every redraw', async ({ page }) => {
+  await stubSupabase(page, { sessions: [], queue_entries: [], bikes: [], customers, tags: [], customer_tags: [], staff_options: [] });
+  let asked = 0;
+  await page.route(/assets\/phone-rules\.json/, (r) => { asked++; return r.fulfill({ status: 404, body: 'Not found' }); });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.waitForFunction('(S.customers||[]).length>0');
+  await page.evaluate(`setStaffTab('community');S.communityTab='accounts';renderCommunity()`);
+  await expect.poll(() => asked).toBe(1);
+  await page.waitForFunction('!_phoneRulesReq');
+  await page.evaluate(`renderCommunity();renderCommunity();_amFilter('amSuspect',true)`);
+  await page.waitForTimeout(300);
+  expect(asked).toBe(1);
+  await expect(page.locator('.am-row[data-cust="short"] .am-sx')).toContainText('Saudi number too short'); // the Saudi rules still run
+});

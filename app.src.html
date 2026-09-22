@@ -19508,7 +19508,7 @@ function showNutrition(id){
   const it=(S.inventory||[]).find(x=>x.id===id);if(!it)return;
   const nu=_itemNutri(it)||{};
   const serv=nu.serving||(it.volume_ml?(it.volume_ml+' ml'):'');
-  const row=(lbl,val,unit)=>(val!=null&&val!=='')?`<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px"><span style="font-weight:700">${t(lbl)}</span><span style="font-weight:800">${val}${unit?' '+unit:''}</span></div>`:'';
+  const row=(lbl,val,unit)=>(val!=null&&val!=='')?`<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:6px 0;font-size:13px"><span style="font-weight:700">${t(lbl)}</span><span style="font-weight:800">${esc(val)}${unit?' '+unit:''}</span></div>`:'';
   const rows=NUTRI_FIELDS.filter(([k])=>k!=='kcal').map(([k,lbl,unit])=>row(lbl,nu[k],unit)).join('');
   const micros=Array.isArray(nu.micros)?nu.micros:[];
   const microRows=micros.map(mc=>`<div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding:5px 0;font-size:12px"><span style="font-weight:700">${esc(mc.n)}</span><span style="font-weight:700">${esc(mc.a)}${mc.u?' '+esc(mc.u):''}${mc.nrv?` <span style="color:var(--muted);font-weight:600">${esc(mc.nrv)}%</span>`:''}</span></div>`).join('');
@@ -19525,7 +19525,7 @@ function showNutrition(id){
       ${serv?`<div style="font-size:12px;color:var(--muted);font-weight:700;margin-bottom:5px">${t('servingSize')}: ${esc(serv)}</div>`:''}
       <div style="display:flex;justify-content:space-between;align-items:baseline;border-bottom:4px solid var(--text);padding:3px 0;margin-bottom:3px">
         <span style="font-size:16px;font-weight:900">${t('nuCalories')}</span>
-        <span style="font-size:24px;font-weight:900">${(nu.kcal!=null&&nu.kcal!=='')?nu.kcal:'—'}</span>
+        <span style="font-size:24px;font-weight:900">${(nu.kcal!=null&&nu.kcal!=='')?esc(nu.kcal):'—'}</span>
       </div>
       ${rows}
       ${microRows?`<div style="border-bottom:4px double var(--text);margin:5px 0 3px"></div>${microRows}`:''}
@@ -19639,18 +19639,20 @@ function _cashPayBadge(pay,team){
 }
 // MM Team roster (editable, persisted in localStorage; seeded once from past sales in loadData)
 function teamNames(){return[...new Set((S.teamMembers||[]).filter(Boolean))].sort();}
-function _teamRosterSave(){try{localStorage.setItem('cq_team',JSON.stringify(S.teamMembers||[]));}catch(e){}_teamRosterSyncDB();}
-// Push the roster to the shared team_members table so every device sees the same names.
-async function _teamRosterSyncDB(){
+function _teamRosterSave(added,removed){try{localStorage.setItem('cq_team',JSON.stringify(S.teamMembers||[]));}catch(e){}_teamRosterSyncDB(added,removed);}
+// Push what THIS device changed to the shared team_members table so every device sees it.
+// Only the change: syncing the whole list made this device's copy the truth, so a name added on
+// another desk since this one last loaded was deleted the next time anyone here added a name,
+// and a name deleted there came back.
+async function _teamRosterSyncDB(added,removed){
   if(!sb)return;
-  const names=[...new Set((S.teamMembers||[]).filter(Boolean))];
+  const add=[...new Set((added||[]).filter(Boolean))],del=[...new Set((removed||[]).filter(Boolean))].filter(n=>!add.includes(n));
   try{
-    if(names.length)await sb.from('team_members').upsert(names.map(n=>({name:n})),{onConflict:'name'});
-    const{data,error}=await sb.from('team_members').select('name'); // drop names removed from the roster
-    if(!error&&Array.isArray(data)){const remove=data.map(r=>r.name).filter(n=>n&&!names.includes(n));if(remove.length)await sb.from('team_members').delete().in('name',remove);}
+    if(add.length)await sb.from('team_members').upsert(add.map(n=>({name:n})),{onConflict:'name'});
+    if(del.length)await sb.from('team_members').delete().in('name',del);
   }catch(e){/* table not created yet — localStorage still holds it on this device */}
 }
-function _teamRosterAdd(name){const n=(name||'').trim();if(!n)return'';if(!(S.teamMembers||[]).includes(n)){S.teamMembers=[...(S.teamMembers||[]),n];_teamRosterSave();}return n;}
+function _teamRosterAdd(name){const n=(name||'').trim();if(!n)return'';if(!(S.teamMembers||[]).includes(n)){S.teamMembers=[...(S.teamMembers||[]),n];_teamRosterSave([n],[]);}return n;}
 async function _ctTeamCustom(){const n=_teamRosterAdd(await promptDialog({title:t('teamCustomPrompt')}));if(!n)return;S._ctTeam=n;renderCashier();}
 // Roster manager: rename / delete / add team members
 function showTeamManager(){S._teamDraft=[...teamNames()];renderTeamManager();}
@@ -19658,8 +19660,9 @@ function closeTeamManager(){const m=document.getElementById('team-mgr-modal');if
 function _teamDel(i){S._teamDraft=(S._teamDraft||[]).filter((_,idx)=>idx!==i);renderTeamManager();}
 function _teamAddRow(){S._teamDraft=[...(S._teamDraft||[]),''];renderTeamManager();}
 function saveTeamManager(){
+  const before=teamNames();
   S.teamMembers=[...new Set((S._teamDraft||[]).map(s=>(s||'').trim()).filter(Boolean))];
-  _teamRosterSave();
+  _teamRosterSave(S.teamMembers.filter(n=>!before.includes(n)),before.filter(n=>!S.teamMembers.includes(n))); // a rename is one of each
   if(S._ctTeam&&!S.teamMembers.includes(S._ctTeam))S._ctTeam='';
   if(S._cashTeam&&!S.teamMembers.includes(S._cashTeam))S._cashTeam='';
   closeTeamManager();toast(t('cashSavedToast'));
@@ -19698,27 +19701,45 @@ function showCashierModal(id){
   renderCashierModal();
 }
 function closeCashierModal(){const m=document.getElementById('cashier-modal');if(m){m.style.display='none';m.innerHTML='';}S._cashEntry=null;if(S.view==='staff'){if(S.staffTab==='cashier')renderCashier();else renderStaffQueue();}}
+// Saves a booking's purchase list; false (with the old list put back) when the row was not written.
+// supabase-js reports a refused or dropped write in `error` rather than throwing, so the try/catch
+// these paths used caught nothing: a sale rung up on a dead connection said "added" and took the
+// stock off the shelf, then vanished on the next reload; a void put the stock back while the sale
+// stayed on the booking, so voiding it again restocked it twice.
+async function _savePurchases(e,next,ctx){
+  const prev=e.purchases;e.purchases=next;
+  let res;try{res=await sb.from('queue_entries').update({purchases:JSON.stringify(next)}).eq('id',e.id).select('id');}catch(err){res={error:err};}
+  if(_writeErr(res,ctx)){e.purchases=prev;return false;}
+  if(!(res&&Array.isArray(res.data)&&res.data.length)){e.purchases=prev;errorBar(t('errSomethingWrong'));return false;} // no row took it (the booking is gone)
+  return true;
+}
+// Where a purchase sits in the booking's list NOW: the list can be reloaded while a confirm is open.
+function _purchaseIdx(arr,line){const i=arr.indexOf(line);return i>=0?i:arr.findIndex(p=>p&&p.at===line.at&&p.name===line.name&&Number(p.qty)===Number(line.qty));}
 // Delete a rental sale (a purchase recorded on a booking) straight from the Sales ledger: remove it + restock
 async function _rentalSaleDelete(entryId,pidx){
   const e=getQueue().find(x=>x.id===entryId);if(!e)return;
-  const arr=entryPurchases(e);const line=arr[pidx];if(!line)return;
+  const line=entryPurchases(e)[pidx];if(!line)return;
   confirmDialog({title:t('cashVoid'),body:esc(line.name),confirmLabel:t('cashVoid'),confirmClass:'btn-red',onConfirm:async()=>{
-    const next=arr.filter((_,i)=>i!==pidx);
-    e.purchases=next;
-    try{await sb.from('queue_entries').update({purchases:JSON.stringify(next)}).eq('id',entryId);}catch(_){}
+    const cur=entryPurchases(e),at=_purchaseIdx(cur,line);if(at<0){renderCashier();return;}
+    if(!await _savePurchases(e,cur.filter((_,i)=>i!==at),'void rental sale')){renderCashier();return;}
     if(line.id)await _addonStock([line.id],Number(line.qty)||1);
+    logAction(`${t('cashierTitle')}: ${t('cashVoid')} · ${line.name} ×${Number(line.qty)||1} - #${e.queueNum} ${e.name}`);
     toast(t('cashVoidedToast'));renderCashier();
   }});
 }
 // Field setter; picking an inventory item prefills its price + category
+// The amount always follows the latest choice: an item with no price clears it (it used to keep
+// the last item's price), and leaving "on the house" brings the item's price back (it used to
+// stay at 0, so switching to Paid rang up a paid sale for nothing).
 function _cashSet(k,v){
-  S[k]=v;
+  const prev=S[k];S[k]=v;
   if(k==='_cashItem'){
     const it=(S.inventory||[]).find(x=>x.id===v);
-    if(it){S._cashName=it.name;S._cashCat=it.category||'Other';if(it.price!=null)S._cashAmt=String(it.price);}
-    else if(v==='__custom__'){S._cashName='';S._cashCat=INV_CATS[0]||'Other';}
+    if(it){S._cashName=it.name;S._cashCat=it.category||'Other';S._cashAmt=S._cashPay==='house'?'0':(it.price!=null?String(it.price):'');}
+    else if(v==='__custom__'){S._cashName='';S._cashCat=INV_CATS[0]||'Other';if(S._cashPay!=='house')S._cashAmt='';}
   }
   if(k==='_cashPay'&&v==='house')S._cashAmt='0'; // on the house is always free
+  else if(k==='_cashPay'&&prev==='house'){const it=(S.inventory||[]).find(x=>x.id===S._cashItem);S._cashAmt=(it&&it.price!=null)?String(it.price):'';}
   renderCashierModal();
 }
 async function _cashTeamCustom(){const n=_teamRosterAdd(await promptDialog({title:t('teamCustomPrompt')}));if(!n)return;S._cashTeam=n;renderCashierModal();}
@@ -19736,9 +19757,7 @@ async function _cashAddLine(){
   if(isNaN(price)||price<0){toast(t('cashAmtRequired'),'error');return;}
   const cat=isCustom?(S._cashCat||'Other'):(it?(it.category||'Other'):'Other');
   const line={id:it?it.id:null,name,cat,qty,price:Math.round(price*100)/100,pay,team:pay==='team'?(S._cashTeam||'').trim():'',at:new Date().toISOString()};
-  const next=[...entryPurchases(e),line];
-  e.purchases=next;
-  try{await sb.from('queue_entries').update({purchases:JSON.stringify(next)}).eq('id',e.id);}catch(_){}
+  if(!await _savePurchases(e,[...entryPurchases(e),line],'ring up sale')){renderCashierModal();return;} // not saved: the stock stays and the form keeps the sale to try again
   if(it)await _addonStock([it.id],-qty); // point-of-sale: decrement inventory stock by quantity sold
   S._cashItem='';S._cashQty='1';S._cashAmt='';S._cashName='';S._cashCat='Other'; // keep payment selection
   logAction(`${t('cashierTitle')}: ${name} ×${qty} - #${e.queueNum} ${e.name}`);
@@ -19746,16 +19765,20 @@ async function _cashAddLine(){
   renderCashierModal();
   if(S.view==='staff')renderStaffQueue();
 }
-async function _cashVoid(i){
+// Voiding a sale deletes it, so it asks first - the same question the Sales ledger asks for the same line.
+function _cashVoid(i){
   const e=getQueue().find(x=>x.id===S._cashEntry);if(!e)return;
   const arr=entryPurchases(e);const line=arr[i];if(!line)return;
-  const next=arr.filter((_,idx)=>idx!==i);
-  e.purchases=next;
-  try{await sb.from('queue_entries').update({purchases:JSON.stringify(next)}).eq('id',e.id);}catch(_){}
-  if(line.id)await _addonStock([line.id],Number(line.qty)||1); // void restocks inventory items
-  toast(t('cashVoidedToast'));
-  renderCashierModal();
-  if(S.view==='staff')renderStaffQueue();
+  confirmDialog({title:t('cashVoid'),body:esc(line.name),confirmLabel:t('cashVoid'),confirmClass:'btn-red',onConfirm:async()=>{
+    const cur=entryPurchases(e),at=_purchaseIdx(cur,line);
+    if(at<0){renderCashierModal();return;}
+    if(!await _savePurchases(e,cur.filter((_,idx)=>idx!==at),'void sale')){renderCashierModal();return;} // still on the booking: nothing goes back on the shelf
+    if(line.id)await _addonStock([line.id],Number(line.qty)||1); // void restocks inventory items
+    logAction(`${t('cashierTitle')}: ${t('cashVoid')} · ${line.name} ×${Number(line.qty)||1} - #${e.queueNum} ${e.name}`);
+    toast(t('cashVoidedToast'));
+    renderCashierModal();
+    if(S.view==='staff')renderStaffQueue();
+  }});
 }
 function renderCashierModal(){
   const e=getQueue().find(x=>x.id===S._cashEntry);if(!e){closeCashierModal();return;}
@@ -19766,13 +19789,13 @@ function renderCashierModal(){
   const _inp='padding:9px 11px;border-radius:4px;border:1px solid var(--border);background:var(--in-bg);color:var(--text);font-family:inherit;font-size:13px;width:100%';
   const lines=purchases.length?purchases.map((p,i)=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border)">
       ${_itemThumb(p.id,30)}<div style="flex:1;min-width:0">
-        <div style="font-weight:700;font-size:13px">${esc(p.name)}${Number(p.qty)>1?` <span style="color:var(--muted)">×${p.qty}</span>`:''}</div>
+        <div style="font-weight:700;font-size:13px">${esc(p.name)}${Number(p.qty)>1?` <span style="color:var(--muted)">×${esc(p.qty)}</span>`:''}</div>
         <div style="font-size:11px;color:var(--muted)">${esc(_invCatLabel(p.cat))} · ${_cashPayBadge(p.pay,p.team)}</div>
       </div>
       <div style="font-weight:800;white-space:nowrap"><bdi>SAR ${Math.round((Number(p.qty)||0)*(Number(p.price)||0)*100)/100}</bdi></div>
       <button class="btn-sm btn-muted" onclick="_cashVoid(${i})" aria-label="${t('cashVoid')}">${t('cashVoid')}</button>
     </div>`).join(''):`<div class="empty-state" style="padding:18px">${t('cashNoSales')}</div>`;
-  const payBtn=(val,label)=>`<button onclick="_cashSet('_cashPay','${val}')" style="flex:1;padding:9px;border-radius:4px;border:1.5px solid ${S._cashPay===val?'var(--green)':'var(--border)'};background:${S._cashPay===val?'rgba(var(--green-rgb),.12)':'transparent'};color:${S._cashPay===val?'var(--green)':'var(--muted)'};font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">${label}</button>`;
+  const payBtn=(val,label)=>`<button onclick="_cashSet('_cashPay',${_ja(val)})" style="flex:1;padding:9px;border-radius:4px;border:1.5px solid ${S._cashPay===val?'var(--green)':'var(--border)'};background:${S._cashPay===val?'rgba(var(--green-rgb),.12)':'transparent'};color:${S._cashPay===val?'var(--green)':'var(--muted)'};font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">${label}</button>`;
   const m=document.getElementById('cashier-modal');m.style.display='flex';
   m.innerHTML=`<div class="modal-backdrop" style="z-index:250" onclick="if(event.target===this)closeCashierModal()">
     <div class="modal-box" role="dialog" aria-modal="true" style="max-width:440px">
@@ -19789,11 +19812,11 @@ function renderCashierModal(){
       <div style="background:var(--s2);border:1px solid var(--border);border-radius:6px;padding:13px;display:flex;flex-direction:column;gap:9px">
         <select onchange="_cashSet('_cashItem',this.value)" style="${_inp}">
           <option value="">${t('cashSelectItem')}</option>
-          ${invItems.map(it=>`<option value="${it.id}"${S._cashItem===it.id?' selected':''}>${esc(it.name)} (${esc(_invCatLabel(it.category))}${_priceLabel(it.price)?`, ${_priceLabel(it.price)}`:''})</option>`).join('')}
+          ${invItems.map(it=>`<option value="${esc(it.id)}"${S._cashItem===it.id?' selected':''}>${esc(it.name)} (${esc(_invCatLabel(it.category))}${_priceLabel(it.price)?`, ${_priceLabel(it.price)}`:''})</option>`).join('')}
           <option value="__custom__"${isCustom?' selected':''}>${t('cashCustomOpt')}</option>
         </select>
         ${isCustom?`<input type="text" value="${esc(S._cashName)}" oninput="S._cashName=this.value" placeholder="${t('cashNameLabel')}" style="${_inp}">
-        <select onchange="_cashSet('_cashCat',this.value)" style="${_inp}">${INV_CATS.map(c=>`<option value="${c}"${S._cashCat===c?' selected':''}>${esc(_invCatLabel(c))}</option>`).join('')}</select>`:''}
+        <select onchange="_cashSet('_cashCat',this.value)" style="${_inp}">${INV_CATS.map(c=>`<option value="${esc(c)}"${S._cashCat===c?' selected':''}>${esc(_invCatLabel(c))}</option>`).join('')}</select>`:''}
         <div style="display:flex;gap:9px">
           <div style="flex:1"><label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${t('cashQtyLabel')}</label>
             <div style="display:flex;align-items:center;gap:6px">
@@ -19829,7 +19852,7 @@ function _ctCustSuggest(focus){
   const hits=(q.length<2
     ?(S.customers||[]).slice().sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0))
     :(S.customers||[]).filter(c=>(c.name||'').toLowerCase().includes(q)||(c.phone||'').includes(q)||(c.email||'').toLowerCase().includes(q))).slice(0,6);
-  box.innerHTML=hits.length?`<div style="background:var(--s1);border:1px solid var(--border);border-radius:4px;box-shadow:var(--sh-2);overflow:hidden;margin-top:4px">${hits.map(c=>`<button type="button" onclick="_ctCustPick('${c.id}')" style="display:block;width:100%;text-align:start;background:none;border:none;border-bottom:1px solid var(--border);padding:8px 11px;cursor:pointer;font-family:inherit;color:var(--text)"><div style="font-weight:800;font-size:13px">${esc(c.name||'')}</div><div style="font-size:11px;color:var(--muted)">${esc([c.phone,c.email].filter(Boolean).join(' · '))}</div></button>`).join('')}</div>`:'';
+  box.innerHTML=hits.length?`<div style="background:var(--s1);border:1px solid var(--border);border-radius:4px;box-shadow:var(--sh-2);overflow:hidden;margin-top:4px">${hits.map(c=>`<button type="button" onclick="_ctCustPick(${_ja(c.id)})" style="display:block;width:100%;text-align:start;background:none;border:none;border-bottom:1px solid var(--border);padding:8px 11px;cursor:pointer;font-family:inherit;color:var(--text)"><div style="font-weight:800;font-size:13px">${esc(c.name||'')}</div><div style="font-size:11px;color:var(--muted)">${esc([c.phone,c.email].filter(Boolean).join(' · '))}</div></button>`).join('')}</div>`:'';
 }
 function _ctCustPick(id){
   const c=(S.customers||[]).find(x=>x.id===id);if(!c)return;
@@ -19839,14 +19862,17 @@ function _ctCustPick(id){
 // Quantity steppers for the sale forms: +/- buttons around the qty field (min 1)
 function _ctQtyStep(d){S._ctQty=String(Math.max(1,(parseInt(S._ctQty)||1)+d));renderCashier();}
 function _cashQtyStep(d){S._cashQty=String(Math.max(1,(parseInt(S._cashQty)||1)+d));renderCashierModal();}
+// The amount follows the latest choice, as in _cashSet: no stale price from the last item, and
+// leaving "on the house" does not leave a paid sale at 0.
 function _ctSet(k,v){
-  S[k]=v;
+  const prev=S[k];S[k]=v;
   if(k==='_ctItem'){
     const it=(S.inventory||[]).find(x=>x.id===v);
-    if(it){S._ctName=it.name;S._ctCat=it.category||'Other';if(it.price!=null)S._ctAmt=String(it.price);}
-    else if(v==='__custom__'){S._ctName='';S._ctCat=INV_CATS[0]||'Other';}
+    if(it){S._ctName=it.name;S._ctCat=it.category||'Other';S._ctAmt=S._ctPay==='house'?'0':(it.price!=null?String(it.price):'');}
+    else if(v==='__custom__'){S._ctName='';S._ctCat=INV_CATS[0]||'Other';if(S._ctPay!=='house')S._ctAmt='';}
   }
   if(k==='_ctPay'&&v==='house')S._ctAmt='0'; // on the house is always free
+  else if(k==='_ctPay'&&prev==='house'){const it=(S.inventory||[]).find(x=>x.id===S._ctItem);S._ctAmt=(it&&it.price!=null)?String(it.price):'';}
   renderCashier();
 }
 // Add the current form item to the in-progress receipt cart (does not persist yet)
@@ -19898,19 +19924,29 @@ function _lsSetCritical(key,val){
 function _outbox(){try{const o=JSON.parse(localStorage.getItem('cq_sales_outbox')||'[]');let ch=false;o.forEach(op=>{if(!op.oid){op.oid=uid();ch=true;}});if(ch)_outboxSave(o);return o;}catch(_){return[];}}
 function _outboxSave(o){return _lsSetCritical('cq_sales_outbox',JSON.stringify(o));}
 function _outboxCount(){return _outbox().length;}
-// Returns false when the op could not even be stored: the caller must then NOT report the
+// Returns false when the ops could not even be stored: the caller must then NOT report the
 // sale as recorded, or it sits in the day's takings and is gone on the next reload.
-function _outboxEnqueue(kind,id,data){const o=_outbox();o.push({oid:uid(),kind,id,data:data||null});const ok=_outboxSave(o);_outboxFlush();return ok;}
+// A batch is ONE stored write, so a receipt's rows are all kept or none are (row by row, a full
+// store kept the first lines and dropped the rest). An op replaces any op still waiting for the
+// same sale - an upsert carries the whole row, a delete ends it - so two ops for one sale can
+// never land in the wrong order: a refund replayed under an older "paid", or a void under the
+// sale it voided.
+function _outboxEnqueueMany(ops){const ids=new Set(ops.map(x=>x.id));const o=_outbox().filter(op=>!ids.has(op.id));ops.forEach(x=>o.push({oid:uid(),kind:x.kind,id:x.id,data:x.data||null}));const ok=_outboxSave(o);_outboxFlush();return ok;}
+function _outboxEnqueue(kind,id,data){return _outboxEnqueueMany([{kind,id,data}]);}
 let _outboxBusy=false;
 async function _outboxFlush(){
   if(_outboxBusy||!sb||(typeof navigator!=='undefined'&&navigator.onLine===false))return;
   _outboxBusy=true;
-  const snapshot=_outbox();const doneIds=[];
+  const snapshot=_outbox();const doneIds=[];const stuck=new Set();
   for(const op of snapshot){
+    // An outbox written before ops were merged can still hold two for one sale. Once the older
+    // one fails, the newer waits behind it: sent now, it would be overwritten when the older
+    // one is retried.
+    if(stuck.has(op.id))continue;
     try{
       const res=op.kind==='delete'?await sb.from('cashier_sales').delete().eq('id',op.id):await sb.from('cashier_sales').upsert(op.data);
-      if(!(res&&res.error))doneIds.push(op.oid);
-    }catch(_){/* keep op for retry */}
+      if(!(res&&res.error))doneIds.push(op.oid);else stuck.add(op.id);
+    }catch(_){stuck.add(op.id);/* keep op for retry */}
   }
   // Re-read the live outbox (ops may have been queued during the awaits) and drop only the ones we actually completed
   const cur=_outbox().filter(op=>doneIds.indexOf(op.oid)<0);
@@ -19933,9 +19969,21 @@ async function _outboxRetryOrClear(){
     onConfirm:()=>{_outboxSave([]);toast(t('syncDiscardedToast'));if(S.view==='staff'&&S.staffTab==='cashier')renderCashier();}
   });
 }
-// Local + queued upsert/delete of a sale row (never lost on refresh; syncs to the DB when online)
-function _salesUpsert(row){const i=(S.cashSales||[]).findIndex(r=>r.id===row.id);if(i>=0)S.cashSales[i]=row;else S.cashSales=[...(S.cashSales||[]),row];return _outboxEnqueue('upsert',row.id,row);}
-function _salesDelete(id){_voidedAdd(id);S.cashSales=(S.cashSales||[]).filter(r=>r.id!==id);_outboxEnqueue('delete',id,null);}
+// Local + queued upsert/delete of sale rows (never lost on refresh; syncs to the DB when online).
+// All-or-nothing: when the device cannot store the ops, the ledger on screen is put back too.
+function _salesApply(upserts,deletes){
+  const had=(S.cashSales||[]).slice(),del=new Set(deletes||[]);
+  let cs=(S.cashSales||[]).filter(r=>!del.has(r.id));
+  (upserts||[]).forEach(row=>{const i=cs.findIndex(r=>r.id===row.id);if(i>=0)cs[i]=row;else cs=[...cs,row];});
+  S.cashSales=cs;
+  const ok=_outboxEnqueueMany([...(upserts||[]).map(r=>({kind:'upsert',id:r.id,data:r})),...[...del].map(id=>({kind:'delete',id}))]);
+  if(!ok){S.cashSales=had;return false;}
+  del.forEach(id=>_voidedAdd(id));
+  return true;
+}
+function _salesUpsert(row){return _salesApply([row],[]);}
+// A receipt's money, as the ledger shows it (the card/cash metadata line is not a sale).
+function _rcTotal(rows){return Math.round((rows||[]).filter(r=>r.category!=='__cardmeta__').reduce((s,r)=>s+(Number(r.qty)||0)*(Number(r.price)||0),0)*100)/100;}
 // ── Offline-safe bookings: queue queue_entries inserts locally and sync when the connection returns ──
 function _bookOutbox(){try{const r=JSON.parse(localStorage.getItem('cq_book_outbox')||'[]');return Array.isArray(r)?r:[];}catch(_){try{localStorage.setItem('cq_book_outbox_bad',localStorage.getItem('cq_book_outbox')||'');localStorage.removeItem('cq_book_outbox');console.error('book outbox corrupted; preserved in cq_book_outbox_bad');}catch(__){}return[];}}
 function _bookOutboxSave(o){return _lsSetCritical('cq_book_outbox',JSON.stringify(o));}
@@ -20013,13 +20061,22 @@ function _ctDiscountSplit(cart,discSAR){
   return {paidSub,onPaid,onPending};
 }
 function _ctDiscountSAR(cartTotal){const v=parseFloat(S._ctDisc);if(isNaN(v)||v<=0)return 0;const d=S._ctDiscPct?cartTotal*(v/100):v;return Math.min(Math.max(0,cartTotal),Math.round(d*100)/100);}
+// The cart's figures exactly as _ctRecord will book them: the discount is sized from the lines the
+// customer is charged for and comes off the paid lines first. The full render used to size it from
+// the whole cart and take all of it off the paid side, so after any tap that redrew the tab
+// (the %/SAR toggle, adding an item) the card figure the cashier keyed into the terminal was not
+// the one the receipt recorded (100 paid + 100 team at 10% off: screen 80, receipt 90).
+function _ctCartTotals(cart){
+  cart=cart||[];
+  const tot=Math.round(cart.reduce((s,l)=>s+(Number(l.qty)||0)*(Number(l.price)||0),0)*100)/100;
+  const paidNum=cart.filter(l=>l.pay==='paid').reduce((s,l)=>s+(Number(l.qty)||0)*(Number(l.price)||0),0);
+  const disc=_ctDiscountSAR(_ctChargeableTotal(cart)),after=Math.round((tot-disc)*100)/100;
+  const paidAfter=Math.max(0,Math.round((paidNum-_ctDiscountSplit(cart,disc).onPaid)*100)/100),card=_ctCardSAR(paidAfter),cash=Math.max(0,Math.round((paidAfter-card)*100)/100);
+  return{tot,paidNum,disc,after,paidAfter,card,cash};
+}
 // Live preview of discounted total + card/cash split without a full re-render (avoids swallowing the next click)
 function _ctPreview(){
-  const cart=S._ctCart||[];
-  const cartTot=Math.round(cart.reduce((s,l)=>s+(Number(l.qty)||0)*(Number(l.price)||0),0)*100)/100;
-  const cartPaidNum=cart.filter(l=>l.pay==='paid').reduce((s,l)=>s+(Number(l.qty)||0)*(Number(l.price)||0),0);
-  const disc=_ctDiscountSAR(_ctChargeableTotal(cart)),after=Math.round((cartTot-disc)*100)/100;
-  const paidAfter=Math.round((cartPaidNum-_ctDiscountSplit(cart,disc).onPaid)*100)/100,card=_ctCardSAR(paidAfter),cash=Math.max(0,Math.round((paidAfter-card)*100)/100);
+  const{after,card,cash}=_ctCartTotals(S._ctCart);
   const g=document.getElementById('ct-grand');if(g)g.textContent='SAR '+after;
   const sp=document.getElementById('ct-split');if(sp)sp.innerHTML=card>0?`<span>${t('cashCard')} SAR ${card}</span><span>${t('cashCash')} SAR ${cash}</span>`:'';
 }
@@ -20047,26 +20104,39 @@ async function _ctRecord(){
   // Queued for offline-safe sync. A row the device could not store reaches neither the server
   // nor a later flush, so it must not be reported as taken: the receipt stays on screen to be
   // re-entered once there is room.
-  const _stored=rows.map(r=>_salesUpsert(r)).every(Boolean);
-  if(!_stored){renderCashier();return;} // _lsSetCritical has already said why
+  if(!_salesApply(rows,[])){renderCashier();return;} // _lsSetCritical has already said why
   await _addonStockBatch(rows,-1); // decrement stock for stocked items (summed per item — no concurrent-write race)
   logAction(`${t('cashierTitle')}: ${t('cashReceiptWord')} ×${S._ctCart.length}${cust?` (${cust})`:''}`);
-  S._ctCart=[];S._ctDisc='';S._ctCard='';
+  // The next receipt is the next customer's. The name and the linked account used to stay in the
+  // box, so the following walk-up's purchase went onto the previous rider's account unless
+  // someone remembered to clear it. Payment and team choice stay, as they do between items.
+  S._ctCart=[];S._ctDisc='';S._ctCard='';S._ctCust='';S._ctCustId='';
   toast(t('cashReceiptRecorded'));
   renderCashier();
 }
-async function _ctVoidReceipt(key){
+// Every change to a recorded receipt goes into the shared action log, like the sale itself: a
+// receipt that can be voided, refunded or re-priced without a trace is money nobody can ask about.
+function _rcLog(what,rows,extra){const r0=(rows||[])[0]||{};const cust=r0.customer_name||'';logAction(`${t('cashierTitle')}: ${what} · ${t('cashReceiptWord')} SAR ${_rcTotal(rows)}${extra||''}${cust?` (${cust})`:''}`);}
+// Voiding deletes the receipt outright (a refund keeps it), so it asks first.
+function _ctVoidReceipt(key){
   const rows=(S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key);if(!rows.length)return;
-  rows.forEach(r=>_salesDelete(r.id)); // local + queued
-  await _addonStockBatch(rows.filter(r=>r.pay!=='refunded'),1); // restock (refunded items were already restocked)
-  toast(t('cashVoidedToast'));renderCashier();
+  const cust=(rows.find(r=>r.customer_name)||{}).customer_name||t('cashWalkup');
+  confirmDialog({title:t('cashVoid'),body:`${esc(cust)} · <bdi>SAR ${_rcTotal(rows)}</bdi>`,confirmLabel:t('cashVoid'),confirmClass:'btn-red',onConfirm:async()=>{
+    const cur=(S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key);if(!cur.length)return;
+    if(!_salesApply([],cur.map(r=>r.id))){renderCashier();return;} // not stored: nothing voided, nothing restocked
+    await _addonStockBatch(cur.filter(r=>r.pay!=='refunded'),1); // restock (refunded items were already restocked)
+    _rcLog(t('cashVoid'),cur);
+    toast(t('cashVoidedToast'));renderCashier();
+  }});
 }
 // Refund: keep the receipt in the ledger as an audit record (pay='refunded'), restock items
 async function _ctRefundReceipt(key){
   const rows=(S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key&&r.pay!=='refunded'&&r.category!=='__cardmeta__');if(!rows.length)return;
   confirmDialog({title:t('cashRefund'),body:t('cashRefundConfirm'),confirmLabel:t('cashRefund'),confirmClass:'btn-muted',onConfirm:async()=>{
-    (S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key).forEach(r=>{r.pay='refunded';_salesUpsert({...r});});
+    const all=(S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key);
+    if(!_salesApply(all.map(r=>({...r,pay:'refunded'})),[])){renderCashier();return;} // not stored: not refunded, not restocked
     await _addonStockBatch(rows,1); // restock refunded items (summed per item — no concurrent-write race)
+    _rcLog(t('cashRefund'),all);
     toast(t('cashRefundedToast'));renderCashier();
   }});
 }
@@ -20075,7 +20145,8 @@ function _ctReprint(key){const rows=(S.cashSales||[]).filter(r=>(r.receipt_id||r
 async function _ctMarkReceiptPaid(key){
   const rows=(S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key&&r.pay==='pending');
   if(!rows.length)return;
-  rows.forEach(r=>{r.pay='paid';_salesUpsert({...r});});
+  if(!_salesApply(rows.map(r=>({...r,pay:'paid'})),[])){renderCashier();return;}
+  _rcLog(t('cashMarkPaid'),rows);
   toast(t('cashSavedToast'));renderCashier();
 }
 // Edit a recorded receipt: change each line's payment / amount / team member
@@ -20089,13 +20160,37 @@ function closeReceiptEdit(){const m=document.getElementById('receipt-edit-modal'
 function _reSetSilent(i,k,v){const l=(S._reEdit||[])[i];if(l)l[k]=v;}
 function _reSet(i,k,v){const l=(S._reEdit||[])[i];if(!l)return;l[k]=v;if(k==='pay'&&v==='house')l.price=0;renderReceiptEdit();}
 async function saveReceiptEdit(){
-  const lines=S._reEdit||[];
+  const lines=S._reEdit||[],key=S._reKey,upd=[];
   for(const l of lines){
-    let price=parseFloat(l.price);if(l.pay==='house')price=0;if(isNaN(price)||price<0)price=0;price=Math.round(price*100)/100;
+    let price=parseFloat(l.price);if(l.pay==='house')price=0;
+    if(isNaN(price)||price<0){toast(t('cashAmtRequired'),'error');return;} // an emptied box is a slip, not "free": it used to save as 0
+    price=Math.round(price*100)/100;
     const team=l.pay==='team'?((l.team_name||'').trim()||null):null;
     const row=(S.cashSales||[]).find(r=>r.id===l.id);
-    if(row){row.pay=l.pay;row.price=price;row.team_name=team;_salesUpsert({...row});}
+    if(row)upd.push({...row,pay:l.pay,price,team_name:team});
   }
+  const before=(S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key&&r.pay!=='refunded');
+  const after=before.map(r=>upd.find(u=>u.id===r.id)||r);
+  // The receipt's discount was sized from what was chargeable when it was rung up, and it is not
+  // on the form. Left alone, making a line free or a team member's drove the receipt negative (a
+  // 50 gel with 10 off, made on-the-house, read -10 and took 10 off Collected). Keep the amount,
+  // cap it at what is still chargeable, and book it against paid then pending the way the sale did.
+  const discRows=after.filter(r=>r.category==='__discount__'),del=[];
+  if(discRows.length){
+    const goods=after.filter(r=>r.category!=='__discount__'&&r.category!=='__cardmeta__').map(r=>({qty:r.qty,price:r.price,pay:r.pay}));
+    const had=Math.round(discRows.reduce((s,r)=>s-(Number(r.qty)||1)*(Number(r.price)||0),0)*100)/100;
+    const ds=_ctDiscountSplit(goods,Math.min(Math.max(0,had),_ctChargeableTotal(goods)));
+    const want={paid:ds.onPaid,pending:ds.onPending};
+    ['paid','pending'].forEach(p=>{
+      const ex=discRows.filter(r=>r.pay===p);
+      if(want[p]>0){upd.push({...(ex[0]||discRows[0]),id:ex[0]?ex[0].id:uid(),qty:1,price:-want[p],pay:p});ex.slice(1).forEach(r=>del.push(r.id));}
+      else ex.forEach(r=>del.push(r.id));
+    });
+    discRows.filter(r=>r.pay!=='paid'&&r.pay!=='pending').forEach(r=>del.push(r.id));
+  }
+  if(!_salesApply(upd,del)){renderReceiptEdit();return;} // not stored: the form stays open with the changes
+  const now=(S.cashSales||[]).filter(r=>(r.receipt_id||r.id)===key&&r.pay!=='refunded');
+  if(before.some(b=>{const n=now.find(x=>x.id===b.id);return !n||n.pay!==b.pay||Number(n.price)!==Number(b.price)||(n.team_name||'')!==(b.team_name||'');})||now.length!==before.length)_rcLog(t('receiptEditTitle'),now,` (${_rcTotal(before)} → ${_rcTotal(now)})`);
   closeReceiptEdit();toast(t('cashSavedToast'));renderCashier();
 }
 function renderReceiptEdit(){
@@ -20113,7 +20208,7 @@ function renderReceiptEdit(){
       </div>
       <div style="display:flex;flex-direction:column;gap:12px;max-height:60vh;overflow-y:auto">
         ${lines.map((l,i)=>`<div style="border:1px solid var(--border);border-radius:4px;padding:10px 12px">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">${_itemThumb(l.item_id,24)}<span style="font-weight:700;font-size:13px;flex:1;min-width:0">${esc(l.name)}${Number(l.qty)>1?` ×${l.qty}`:''}</span></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">${_itemThumb(l.item_id,24)}<span style="font-weight:700;font-size:13px;flex:1;min-width:0">${esc(l.name)}${Number(l.qty)>1?` ×${esc(l.qty)}`:''}</span></div>
           <div style="display:flex;gap:8px;align-items:flex-end">
             <div style="flex:1"><label style="${_lb}">${t('cashAmtLabel')}</label><input type="number" min="0" step="0.5" value="${esc(l.price)}" oninput="_reSetSilent(${i},'price',this.value)" ${l.pay==='house'?'disabled':''} style="${_inp}"></div>
             <div style="flex:1"><label style="${_lb}">${t('cashPayLabel')}</label><select onchange="_reSet(${i},'pay',this.value)" style="${_inp}">${payOpts.map(([v,lab])=>`<option value="${v}"${l.pay===v?' selected':''}>${lab}</option>`).join('')}</select></div>
@@ -20140,7 +20235,7 @@ function _ctPrintReceipt(rows,cust,at){
   const logoUrl=new URL('logo.png',location.href).href;
   const total=Math.round(rows.reduce((s,r)=>s+(Number(r.qty)||0)*(Number(r.price)||0),0)*100)/100;
   const sess=allSessions().find(s=>s.id===rows[0].session_id);
-  const body=rows.map(r=>`<tr><td>${esc(r.name)}</td><td style="text-align:center">${r.qty}</td><td style="text-align:end">SAR ${Math.round((Number(r.qty)||0)*(Number(r.price)||0)*100)/100}</td></tr>`).join('');
+  const body=rows.map(r=>`<tr><td>${esc(r.name)}</td><td style="text-align:center">${esc(r.qty)}</td><td style="text-align:end">SAR ${Math.round((Number(r.qty)||0)*(Number(r.price)||0)*100)/100}</td></tr>`).join('');
   const html=`<!DOCTYPE html><html lang="${S.lang}" dir="${ar?'rtl':'ltr'}"><head><meta charset="UTF-8"><title>${t('cashReceiptWord')}</title><link href="/fonts/fonts.css" rel="stylesheet"><style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:${ar?"'IBM Plex Sans Arabic',":''}'Barlow',system-ui,sans-serif;color:#111512;padding:14px;max-width:320px;margin:0 auto;font-size:13px}.mm-banner{background:#123019;color:#e9f4ec;border-radius:10px;padding:12px 14px;text-align:center}.mm-banner img{height:36px;display:block;margin:0 auto 4px;object-fit:contain}.mm-banner strong{font-size:12.5px;font-weight:800;display:block}.mm-banner .doc{font-size:9.5px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:#03ff89;display:block;margin-top:3px}.mm-rule{height:4px;background:linear-gradient(90deg,#03ff89,#0c7a3d);border-radius:2px;margin:8px 0 10px}.sub{text-align:center;color:#5a635c;font-size:10.5px;margin-bottom:8px;line-height:1.5}table{width:100%;border-collapse:collapse;margin-top:6px;font-size:11px}td{padding:6px 5px;border-bottom:1px dashed #cfd6c9;text-align:start;font-weight:700}.tot{display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:14px;margin-top:10px;background:#123019;color:#fff;border-radius:8px;padding:9px 12px}.tot span:last-child{color:#03ff89}@media print{button{display:none}}</style></head><body>
     <div class="mm-banner"><img src="${logoUrl}" alt="Micromobility"><strong>Micromobility Co.</strong><span class="doc">${t('cashReceiptWord')}</span></div>
     <div class="mm-rule"></div>
@@ -20239,17 +20334,11 @@ function renderCashier(){
   const isCustom=S._ctItem==='__custom__';
   const ar=_isRtl();
   const cart=S._ctCart||[];
-  const cartTot=Math.round(cart.reduce((s,l)=>s+(Number(l.qty)||0)*(Number(l.price)||0),0)*100)/100;
-  const cartPaidNum=cart.filter(l=>l.pay==='paid').reduce((s,l)=>s+(Number(l.qty)||0)*(Number(l.price)||0),0);
-  const cartDiscSAR=_ctDiscountSAR(cartTot);
-  const cartAfterDisc=Math.round((cartTot-cartDiscSAR)*100)/100;
-  const cartPaidAfterDisc=Math.max(0,Math.round((cartPaidNum-cartDiscSAR)*100)/100);
-  const cartCardSAR=_ctCardSAR(cartPaidAfterDisc);
-  const cartCashSAR=Math.max(0,Math.round((cartPaidAfterDisc-cartCardSAR)*100)/100);
+  const{paidNum:cartPaidNum,after:cartAfterDisc,card:cartCardSAR,cash:cartCashSAR}=_ctCartTotals(cart); // the same figures _ctPreview shows and _ctRecord books
   const _tgl='padding:8px 10px;border-radius:3px;border:1px solid var(--border);background:var(--s2);color:var(--text);font-weight:800;font-size:12px;cursor:pointer;font-family:inherit;flex-shrink:0;min-width:46px';
   const _inp='padding:9px 11px;border-radius:4px;border:1px solid var(--border);background:var(--in-bg);color:var(--text);font-family:inherit;font-size:13px;width:100%';
   // Category-first item picker for Sales: pick a category, then see the items inside it
-  const _ctItemBtn=it=>{const sel=S._ctItem===it.id;const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;const lowB=(q<=0||(lo>0&&q<=lo));return`<button type="button" onclick="_ctSet('_ctItem','${it.id}')" title="${esc(it.name)}" style="position:relative;text-align:start;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(var(--green-rgb),.08)':'var(--s2)'};border-radius:4px;padding:0;overflow:hidden;cursor:pointer;font-family:inherit">${lowB?`<span title="${q<=0?t('invOutStock'):t('invLowStock')}" style="position:absolute;top:4px;${ar?'left':'right'}:4px;z-index:1;background:${q<=0?'var(--red)':'var(--orange)'};color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:2px;line-height:1.5">${q}</span>`:''}${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="" style="width:100%;height:62px;object-fit:contain;background:var(--photo-bg);display:block">`:`<div style="width:100%;height:62px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:10px;text-align:center;padding:4px">${esc(_invCatLabel(it.category))}</div>`}<div style="padding:5px 7px"><div style="font-weight:700;font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.name)}</div><div style="font-size:11px;color:var(--green);font-weight:700">${_priceLabel(it.price)||'—'}</div></div></button>`;};
+  const _ctItemBtn=it=>{const sel=S._ctItem===it.id;const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;const lowB=(q<=0||(lo>0&&q<=lo));return`<button type="button" onclick="_ctSet('_ctItem',${_ja(it.id)})" title="${esc(it.name)}" style="position:relative;text-align:start;border:1.5px solid ${sel?'var(--green)':'var(--border)'};background:${sel?'rgba(var(--green-rgb),.08)':'var(--s2)'};border-radius:4px;padding:0;overflow:hidden;cursor:pointer;font-family:inherit">${lowB?`<span title="${q<=0?t('invOutStock'):t('invLowStock')}" style="position:absolute;top:4px;${ar?'left':'right'}:4px;z-index:1;background:${q<=0?'var(--red)':'var(--orange)'};color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:2px;line-height:1.5">${q}</span>`:''}${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="" style="width:100%;height:62px;object-fit:contain;background:var(--photo-bg);display:block">`:`<div style="width:100%;height:62px;background:var(--s3);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:10px;text-align:center;padding:4px">${esc(_invCatLabel(it.category))}</div>`}<div style="padding:5px 7px"><div style="font-weight:700;font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(it.name)}</div><div style="font-size:11px;color:var(--green);font-weight:700">${_priceLabel(it.price)||'—'}</div></div></button>`;};
   const _ctCustomBtn=`<button type="button" onclick="_ctSet('_ctItem','__custom__')" style="border:1.5px dashed ${isCustom?'var(--green)':'var(--border)'};background:${isCustom?'rgba(var(--green-rgb),.08)':'transparent'};border-radius:4px;cursor:pointer;font-family:inherit;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:96px;color:${isCustom?'var(--green)':'var(--muted)'}"><span style="font-size:20px;line-height:1">+</span><span style="font-size:10px;font-weight:700;text-align:center;padding:0 4px">${t('cashCustomOpt')}</span></button>`;
   const _ctGrid=inner=>`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;max-height:248px;overflow-y:auto;margin-top:4px;padding:2px">${inner}</div>`;
   const _ctCats=[...new Set(invItems.map(it=>it.category||'Other'))].sort((a,b)=>_invCatLabel(a).localeCompare(_invCatLabel(b)));
@@ -20259,7 +20348,7 @@ function renderCashier(){
   // Back button: a clip-art back-arrow (with shaft) + "Back", pinned to the start (left in EN,
   // right in AR — the arrow flips). Shown at every drill-in level of the item picker. The
   // destination stays as a tooltip so context isn't lost.
-  const _ctBack=(target,label)=>`<div style="margin-bottom:8px"><button type="button" onclick="_ctSet('_ctPickCat','${target}')" title="${esc(label)}" aria-label="${t('regBackBtn')}" style="display:inline-flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--border);border-radius:4px;color:var(--green);font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;padding:6px 12px 6px 10px"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;${ar?'transform:scaleX(-1)':''}"><path d="M19 12H5M11 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>${t('regBackBtn')}</button></div>`;
+  const _ctBack=(target,label)=>`<div style="margin-bottom:8px"><button type="button" onclick="_ctSet('_ctPickCat',${_ja(target)})" title="${esc(label)}" aria-label="${t('regBackBtn')}" style="display:inline-flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--border);border-radius:4px;color:var(--green);font-family:inherit;font-size:12px;font-weight:800;cursor:pointer;padding:6px 12px 6px 10px"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;${ar?'transform:scaleX(-1)':''}"><path d="M19 12H5M11 18l-6-6 6-6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>${t('regBackBtn')}</button></div>`;
   // Sectioned flat layout (the "All items" style): category headers with the items inline,
   // same top-seller ordering everywhere - no per-category buttons to drill through.
   const _flatGrid=inner=>`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:8px;padding:2px">${inner}</div>`;
@@ -20295,8 +20384,8 @@ function renderCashier(){
     _ctItemPicker=_ctGrid(_allCard+_suppCard+_equipCard+_ctCustomBtn);
   }
   const _lbl='font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.5px';
-  const payBtn=(val,label)=>`<button onclick="_ctSet('_ctPay','${val}')" style="flex:1;padding:9px;border-radius:4px;border:1.5px solid ${S._ctPay===val?'var(--green)':'var(--border)'};background:${S._ctPay===val?'rgba(var(--green-rgb),.12)':'transparent'};color:${S._ctPay===val?'var(--green)':'var(--muted)'};font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">${label}</button>`;
-  const sessOpts=sessions.map(s=>`<option value="${s.id}"${sessId===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${s.status&&s.status!=='open'?` (${{full:t('statusFull'),closed:t('statusClosed')}[s.status]||esc(s.status)})`:''}</option>`).join('');
+  const payBtn=(val,label)=>`<button onclick="_ctSet('_ctPay',${_ja(val)})" style="flex:1;padding:9px;border-radius:4px;border:1.5px solid ${S._ctPay===val?'var(--green)':'var(--border)'};background:${S._ctPay===val?'rgba(var(--green-rgb),.12)':'transparent'};color:${S._ctPay===val?'var(--green)':'var(--muted)'};font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">${label}</button>`;
+  const sessOpts=sessions.map(s=>`<option value="${esc(s.id)}"${sessId===s.id?' selected':''}>${dayLabel(s.day)} ${shortDate(s.session_date||s.id)}${s.status&&s.status!=='open'?` (${{full:t('statusFull'),closed:t('statusClosed')}[s.status]||esc(s.status)})`:''}</option>`).join('');
   // Ledger: cashier-tab sales grouped into receipts (printable/voidable) + rental add-ons shown individually
   const csRows=(S.cashSales||[]).filter(r=>r.session_id===sessId);
   const byR={};const rOrder=[];
@@ -20315,19 +20404,19 @@ function renderCashier(){
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
         <div style="font-size:11px;color:var(--muted)">${esc(rc.cust||t('cashWalkup'))}${rc.at?` · ${new Date(rc.at).toLocaleTimeString(_locale(),{hour:'2-digit',minute:'2-digit',timeZone:KSA_TZ})}`:''}${refunded?` · <span style="color:var(--orange);font-weight:800">${t('cashRefunded')}</span>`:''}</div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
-          ${refunded?'':`${disp.some(l=>l.pay==='pending')?`<button class="btn-sm btn-green" onclick="_ctMarkReceiptPaid('${rc.key}')">${t('cashMarkPaid')}</button>`:''}<button class="btn-sm btn-muted" onclick="showReceiptEdit('${rc.key}')">${t('cashEditBtn')}</button><button class="btn-sm btn-muted" onclick="_ctReprint('${rc.key}')">${t('repPrintNow')}</button><button class="btn-sm btn-muted" onclick="_ctShareReceipt('${rc.key}')">${t('cashShare')}</button><button class="btn-sm btn-muted" onclick="_ctRefundReceipt('${rc.key}')">${t('cashRefund')}</button>`}
-          <button class="btn-sm btn-muted" onclick="_ctVoidReceipt('${rc.key}')" aria-label="${t('cashVoid')}">${t('cashVoid')}</button>
+          ${refunded?'':`${disp.some(l=>l.pay==='pending')?`<button class="btn-sm btn-green" onclick="_ctMarkReceiptPaid(${_ja(rc.key)})">${t('cashMarkPaid')}</button>`:''}<button class="btn-sm btn-muted" onclick="showReceiptEdit(${_ja(rc.key)})">${t('cashEditBtn')}</button><button class="btn-sm btn-muted" onclick="_ctReprint(${_ja(rc.key)})">${t('repPrintNow')}</button><button class="btn-sm btn-muted" onclick="_ctShareReceipt(${_ja(rc.key)})">${t('cashShare')}</button><button class="btn-sm btn-muted" onclick="_ctRefundReceipt(${_ja(rc.key)})">${t('cashRefund')}</button>`}
+          <button class="btn-sm btn-muted" onclick="_ctVoidReceipt(${_ja(rc.key)})" aria-label="${t('cashVoid')}">${t('cashVoid')}</button>
         </div>
       </div>
-      ${disp.map(l=>`<div style="display:flex;align-items:center;gap:7px;font-size:12px;padding:2px 0">${_itemThumb(l.item_id,22)}<span style="flex:1;min-width:0">${esc(l.name)}${Number(l.qty)>1?` <span style="color:var(--muted)">×${l.qty}</span>`:''}${l.category==='__discount__'?'':` <span style="color:var(--muted)">· ${_cashPayBadge(l.pay,l.team_name)}</span>`}</span><bdi style="font-weight:700;white-space:nowrap">SAR ${Math.round((Number(l.qty)||0)*(Number(l.price)||0)*100)/100}</bdi></div>`).join('')}
+      ${disp.map(l=>`<div style="display:flex;align-items:center;gap:7px;font-size:12px;padding:2px 0">${_itemThumb(l.item_id,22)}<span style="flex:1;min-width:0">${esc(l.name)}${Number(l.qty)>1?` <span style="color:var(--muted)">×${esc(l.qty)}</span>`:''}${l.category==='__discount__'?'':` <span style="color:var(--muted)">· ${_cashPayBadge(l.pay,l.team_name)}</span>`}</span><bdi style="font-weight:700;white-space:nowrap">SAR ${Math.round((Number(l.qty)||0)*(Number(l.price)||0)*100)/100}</bdi></div>`).join('')}
       <div style="display:flex;justify-content:space-between;font-weight:800;border-top:1px solid var(--border);margin-top:5px;padding-top:5px;font-size:12px"><span>${t('repTotal')}</span><bdi>SAR ${rt}</bdi></div>
       ${(cardAmt>0&&!refunded)?`<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:2px"><span>${t('cashCard')} SAR ${cardShown}</span><span>${t('cashCash')} SAR ${cashShown}</span></div>`:''}
     </div>`;}).join('');
   const rentalRows=rentalLines.map(p=>`<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border);flex-wrap:wrap">
-      ${_itemThumb(p.id,28)}<div style="flex:1;min-width:120px"><div style="font-weight:700;font-size:13px">${esc(p.name)}${Number(p.qty)>1?` <span style="color:var(--muted)">×${p.qty}</span>`:''}</div>
+      ${_itemThumb(p.id,28)}<div style="flex:1;min-width:120px"><div style="font-weight:700;font-size:13px">${esc(p.name)}${Number(p.qty)>1?` <span style="color:var(--muted)">×${esc(p.qty)}</span>`:''}</div>
       <div style="font-size:11px;color:var(--muted)">${esc(_invCatLabel(p.cat))} · ${_cashPayBadge(p.pay,p.team)} · ${esc(p.who)} <span style="opacity:.65">(${t('cashRentalTag')})</span></div></div>
       <bdi style="font-weight:800;white-space:nowrap">SAR ${Math.round((Number(p.qty)||0)*(Number(p.price)||0)*100)/100}</bdi>
-      <div style="display:flex;gap:6px"><button class="btn-sm btn-muted" onclick="showCashierModal('${p.entryId}')">${t('cashEditBtn')}</button><button class="btn-sm btn-muted" onclick="_rentalSaleDelete('${p.entryId}',${p.pidx})">${t('cashVoid')}</button></div>
+      <div style="display:flex;gap:6px"><button class="btn-sm btn-muted" onclick="showCashierModal(${_ja(p.entryId)})">${t('cashEditBtn')}</button><button class="btn-sm btn-muted" onclick="_rentalSaleDelete(${_ja(p.entryId)},${Number(p.pidx)})">${t('cashVoid')}</button></div>
     </div>`).join('');
   const ledger=(receipts.length||rentalLines.length)?`${receiptCards}${rentalRows}`:`<div class="empty-state" style="padding:24px">${t('cashNoSalesSession')}</div>`;
   const catRows=tot.cats.map(c=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span style="color:var(--muted)">${esc(_invCatLabel(c.cat))} <span style="opacity:.6">×${c.qty}</span></span><span style="font-weight:700"><bdi>SAR ${c.value}</bdi></span></div>`).join('');
@@ -20357,7 +20446,7 @@ function renderCashier(){
             ${_ctItemPicker}
           </div>
           ${isCustom?`<div><label style="${_lbl}">${t('cashNameLabel')}</label><input type="text" value="${esc(S._ctName)}" oninput="S._ctName=this.value" style="${_inp}"></div>
-          <div><label style="${_lbl}">${t('invCategory')}</label><select onchange="_ctSet('_ctCat',this.value)" style="${_inp}">${INV_CATS.map(c=>`<option value="${c}"${S._ctCat===c?' selected':''}>${esc(_invCatLabel(c))}</option>`).join('')}</select></div>`:''}
+          <div><label style="${_lbl}">${t('invCategory')}</label><select onchange="_ctSet('_ctCat',this.value)" style="${_inp}">${INV_CATS.map(c=>`<option value="${esc(c)}"${S._ctCat===c?' selected':''}>${esc(_invCatLabel(c))}</option>`).join('')}</select></div>`:''}
           <div style="display:flex;gap:9px">
             <div style="flex:1"><label style="${_lbl}">${t('cashQtyLabel')}</label>
               <div style="display:flex;align-items:center;gap:6px">
@@ -20379,7 +20468,7 @@ function renderCashier(){
           ${cart.length?`<div style="border-top:1px solid var(--border);margin-top:4px;padding-top:8px">
             <div style="${_lbl};margin-bottom:5px">${t('cashCartTitle')}</div>
             ${cart.map((l,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px">
-              ${_itemThumb(l.item_id,24)}<div style="flex:1;min-width:0"><span style="font-weight:700">${esc(l.name)}</span>${l.qty>1?` <span style="color:var(--muted)">×${l.qty}</span>`:''} <span style="color:var(--muted)">· ${_cashPayBadge(l.pay,l.team)}</span></div>
+              ${_itemThumb(l.item_id,24)}<div style="flex:1;min-width:0"><span style="font-weight:700">${esc(l.name)}</span>${l.qty>1?` <span style="color:var(--muted)">×${esc(l.qty)}</span>`:''} <span style="color:var(--muted)">· ${_cashPayBadge(l.pay,l.team)}</span></div>
               <bdi style="font-weight:700;white-space:nowrap">SAR ${Math.round(l.qty*l.price*100)/100}</bdi>
               <button onclick="_ctCartRemove(${i})" aria-label="${t('cashVoid')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;line-height:1;padding:0 2px">&times;</button>
             </div>`).join('')}
@@ -20423,12 +20512,12 @@ function _invSelHtml(id,value,addMode,options,addLabel){
   if(addMode){
     return`<div style="display:flex;gap:6px">
       <input id="${id}" type="text" value="${esc(value==='__pending__'?'':value)}" placeholder="${addLabel}" style="flex:1"
-        onkeydown="if(event.key==='Enter'){event.preventDefault();_invOptSave('${id}')}">
-      <button class="btn-primary" style="padding:8px 12px;flex-shrink:0" onclick="_invOptSave('${id}')">✓</button>
-      <button class="btn-secondary" style="padding:8px 10px;flex-shrink:0" onclick="_invOptCancel('${id}')" aria-label="${t('cancelBtn')}">${_artIcon('close',11)}</button>
+        onkeydown="if(event.key==='Enter'){event.preventDefault();_invOptSave(${_ja(id)})}">
+      <button class="btn-primary" style="padding:8px 12px;flex-shrink:0" onclick="_invOptSave(${_ja(id)})">✓</button>
+      <button class="btn-secondary" style="padding:8px 10px;flex-shrink:0" onclick="_invOptCancel(${_ja(id)})" aria-label="${t('cancelBtn')}">${_artIcon('close',11)}</button>
     </div>`;
   }
-  return`<select id="${id}" onchange="_invSelChange('${id}',this.value)">
+  return`<select id="${id}" onchange="_invSelChange(${_ja(id)},this.value)">
     ${options.map(o=>`<option value="${esc(o.v)}"${o.v===value?' selected':''}>${esc(o.l)}</option>`).join('')}
     <option value="__add__">+ ${addLabel}</option>
   </select>`;
@@ -20543,7 +20632,7 @@ function renderInventory(){
       ${S._invNutriOpen?`<div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
         <div class="form-group"><label>${t('servingSize')}</label><input type="text" value="${esc(S._invNutri.serving||'')}" oninput="S._invNutri.serving=this.value" placeholder="${t('nuServingPh')}"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          ${NUTRI_FIELDS.map(([k,lbl,unit])=>`<div class="form-group"><label>${t(lbl)} (${unit})</label><input type="number" min="0" step="any" value="${esc(S._invNutri[k]==null?'':S._invNutri[k])}" oninput="S._invNutri['${k}']=this.value"></div>`).join('')}
+          ${NUTRI_FIELDS.map(([k,lbl,unit])=>`<div class="form-group"><label>${t(lbl)} (${unit})</label><input type="number" min="0" step="any" value="${esc(S._invNutri[k]==null?'':S._invNutri[k])}" oninput="S._invNutri[${_ja(k)}]=this.value"></div>`).join('')}
         </div>
         <div>
           <label style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:6px">${t('nuMicros')}</label>
@@ -20564,7 +20653,7 @@ function renderInventory(){
       <button class="btn-secondary" onclick="cancelInvForm()">${t('cancelBtn')}</button>
     </div>
   </div>`:'';
-  const stInput=(it,qty)=>{const v=(S.invCounts||{})[it.id];const diff=v!==undefined&&v!==''&&Math.max(0,parseInt(v)||0)!==qty;return`<input type="number" min="0" inputmode="numeric" value="${v!=null?esc(String(v)):''}" placeholder="${qty}" oninput="S.invCounts['${it.id}']=this.value" onchange="renderInventory()" style="width:84px;text-align:center;font-weight:700;background:${diff?'rgba(var(--warn-rgb),.15)':'var(--s2)'};border:1.5px solid ${diff?'var(--orange)':'var(--border)'};border-radius:4px;padding:7px 6px;color:var(--text);font-family:var(--font-body);font-size:14px;outline:none">`;};
+  const stInput=(it,qty)=>{const v=(S.invCounts||{})[it.id];const diff=v!==undefined&&v!==''&&Math.max(0,parseInt(v)||0)!==qty;return`<input type="number" min="0" inputmode="numeric" value="${v!=null?esc(String(v)):''}" placeholder="${qty}" oninput="S.invCounts[${_ja(it.id)}]=this.value" onchange="renderInventory()" style="width:84px;text-align:center;font-weight:700;background:${diff?'rgba(var(--warn-rgb),.15)':'var(--s2)'};border:1.5px solid ${diff?'var(--orange)':'var(--border)'};border-radius:4px;padding:7px 6px;color:var(--text);font-family:var(--font-body);font-size:14px;outline:none">`;};
   const invRow=it=>{
     const qty=Number(it.qty)||0,low=Number(it.low_threshold)||0;
     const state=qty<=0?'out':qty<=low?'low':'in';
@@ -20573,20 +20662,20 @@ function renderInventory(){
     return`<tr>
       <td><div style="display:flex;align-items:center;gap:10px">
         ${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="" style="width:38px;height:38px;border-radius:3px;object-fit:contain;border:1px solid var(--border);flex-shrink:0">`:''}
-        <div><div class="rider-name">${esc(it.name)}</div>${it.volume_ml?`<div style="font-size:11px;color:var(--muted-l);font-weight:600;margin-top:1px">${it.volume_ml} ml</div>`:''}${_priceLabel(it.price)?`<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:1px">${_priceLabel(it.price)}</div>`:''}</div>
+        <div><div class="rider-name">${esc(it.name)}</div>${it.volume_ml?`<div style="font-size:11px;color:var(--muted-l);font-weight:600;margin-top:1px">${esc(it.volume_ml)} ml</div>`:''}${_priceLabel(it.price)?`<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:1px">${_priceLabel(it.price)}</div>`:''}</div>
       </div></td>
       <td style="font-size:13px;font-weight:600">${it.brand?esc(it.brand):'<span style="color:var(--muted)">—</span>'}</td>
       ${isSupp?`<td style="font-size:13px;font-weight:600">${(it.flavour&&!_badFlav(it.flavour))?esc(it.flavour):'<span style="color:var(--muted)">—</span>'}</td>`:''}
       <td><div style="display:flex;align-items:center;gap:8px">
-        ${S.invCount?stInput(it,qty):`<button class="btn-sm btn-muted" onclick="adjInv('${it.id}',-1)" aria-label="Decrease quantity">-</button>
+        ${S.invCount?stInput(it,qty):`<button class="btn-sm btn-muted" onclick="adjInv(${_ja(it.id)},-1)" aria-label="Decrease quantity">-</button>
         <span style="font-weight:900;font-size:15px;min-width:28px;text-align:center">${qty}</span>
-        <button class="btn-sm btn-muted" onclick="adjInv('${it.id}',1)" aria-label="Increase quantity">+</button>`}
+        <button class="btn-sm btn-muted" onclick="adjInv(${_ja(it.id)},1)" aria-label="Increase quantity">+</button>`}
       </div></td>
       <td><span style="color:${stClr};font-weight:800;font-size:12px">${stTxt}</span></td>
       <td><div class="actions-cell">
-        ${_hasNutri(it)?`<button class="btn-sm btn-muted" onclick="showNutrition('${it.id}')">${t('nuButton')}</button>`:''}
-        <button class="btn-sm btn-green" onclick="startInvEdit('${it.id}')">${t('editBtn')}</button>
-        ${isAdmin()?`<button class="btn-sm btn-red" onclick="delInvItem('${it.id}')">${t('deleteBtn')}</button>`:''}
+        ${_hasNutri(it)?`<button class="btn-sm btn-muted" onclick="showNutrition(${_ja(it.id)})">${t('nuButton')}</button>`:''}
+        <button class="btn-sm btn-green" onclick="startInvEdit(${_ja(it.id)})">${t('editBtn')}</button>
+        ${isAdmin()?`<button class="btn-sm btn-red" onclick="delInvItem(${_ja(it.id)})">${t('deleteBtn')}</button>`:''}
       </div></td>
     </tr>`;
   };
@@ -20602,18 +20691,18 @@ function renderInventory(){
     return`<div class="bike-grid-card" style="border-color:${borderClr};display:flex;flex-direction:column;gap:8px">
       ${it.photo?`<img loading="lazy" decoding="async" src="${esc(it.photo)}" alt="" style="width:100%;aspect-ratio:1/1;border-radius:4px;object-fit:contain;background:var(--photo-bg);border:1px solid var(--border)">`:`<div style="width:100%;aspect-ratio:1/1;border-radius:4px;background:var(--s3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;color:var(--muted-l);font-size:30px;opacity:.5">${_itemIcon(it)}</div>`}
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px">
-        <div style="min-width:0"><div style="font-weight:900;font-size:13px;line-height:1.3">${esc(it.name)}</div>${it.brand?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">${esc(it.brand)}</div>`:''}${it.volume_ml?`<div style="font-size:11px;color:var(--muted-l);font-weight:600;margin-top:1px">${it.volume_ml} ml</div>`:''}${_priceLabel(it.price)?`<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:1px">${_priceLabel(it.price)}</div>`:''}</div>
+        <div style="min-width:0"><div style="font-weight:900;font-size:13px;line-height:1.3">${esc(it.name)}</div>${it.brand?`<div style="font-size:11px;color:var(--muted);font-weight:600;margin-top:1px">${esc(it.brand)}</div>`:''}${it.volume_ml?`<div style="font-size:11px;color:var(--muted-l);font-weight:600;margin-top:1px">${esc(it.volume_ml)} ml</div>`:''}${_priceLabel(it.price)?`<div style="font-size:11px;color:var(--green);font-weight:700;margin-top:1px">${_priceLabel(it.price)}</div>`:''}</div>
         <span style="font-size:10px;font-weight:800;color:${stClr};white-space:nowrap;flex-shrink:0">${stTxt}</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:auto">
-        ${S.invCount?stInput(it,qty):`<button class="btn-sm btn-muted" onclick="adjInv('${it.id}',-1)" aria-label="Decrease quantity">-</button>
+        ${S.invCount?stInput(it,qty):`<button class="btn-sm btn-muted" onclick="adjInv(${_ja(it.id)},-1)" aria-label="Decrease quantity">-</button>
         <span style="font-weight:900;font-size:16px;min-width:28px;text-align:center">${qty}</span>
-        <button class="btn-sm btn-muted" onclick="adjInv('${it.id}',1)" aria-label="Increase quantity">+</button>`}
+        <button class="btn-sm btn-muted" onclick="adjInv(${_ja(it.id)},1)" aria-label="Increase quantity">+</button>`}
       </div>
-      ${_hasNutri(it)?`<button class="btn-sm btn-muted" style="width:100%" onclick="showNutrition('${it.id}')">${t('nuButton')}</button>`:''}
+      ${_hasNutri(it)?`<button class="btn-sm btn-muted" style="width:100%" onclick="showNutrition(${_ja(it.id)})">${t('nuButton')}</button>`:''}
       <div style="display:flex;gap:4px">
-        <button class="btn-sm btn-green" style="flex:1" onclick="startInvEdit('${it.id}')">${t('editBtn')}</button>
-        ${isAdmin()?`<button class="btn-sm btn-red" style="flex:1" onclick="delInvItem('${it.id}')">${t('deleteBtn')}</button>`:''}
+        <button class="btn-sm btn-green" style="flex:1" onclick="startInvEdit(${_ja(it.id)})">${t('editBtn')}</button>
+        ${isAdmin()?`<button class="btn-sm btn-red" style="flex:1" onclick="delInvItem(${_ja(it.id)})">${t('deleteBtn')}</button>`:''}
       </div>
     </div>`;
   };
@@ -20625,7 +20714,7 @@ function renderInventory(){
   </div>`;
   const suppItems=items.filter(it=>_isSuppCat(it.category));
   const equipItems=items.filter(it=>!_isSuppCat(it.category));
-  const navbtn=(k,label)=>`<button class="inv-navbtn${sec===k?' active':''}" onclick="setInvSection('${k}')">${label}</button>`;
+  const navbtn=(k,label)=>`<button class="inv-navbtn${sec===k?' active':''}" onclick="setInvSection(${_ja(k)})">${label}</button>`;
   const addBtn=`<button class="btn-primary" onclick="toggleAddInv()">${t('invAddBtn')}</button>`;
   const secHead=(title,withAdd,withToggle)=>`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px"><div class="page-title" style="font-size:18px;margin:0">${title}</div><div style="display:flex;align-items:center;gap:8px">${withToggle?viewToggle:''}${withAdd?addBtn:''}</div></div>`;
   // Split a section's items into sub-sections by category (presets first, then any custom categories), each with its own heading.
@@ -20662,7 +20751,7 @@ function renderInventory(){
   const _stD=_stockTakeDiffs();
   const ctlBar=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0 2px">
       <input id="inv-search" type="text" value="${esc(S.invSearch||'')}" placeholder="${esc(t('invSearchPh'))}" oninput="S.invSearch=this.value;_debRender('inv',renderInventory)" style="flex:1;min-width:160px;background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:8px 12px;color:var(--text);font-family:var(--font-body);font-size:13px;outline:none">
-      <select class="filter-select" aria-label="${esc(t('sortLabel'))}" onchange="S.invSort=this.value;renderInventory()">${[['cat',t('invSortCat')],['name',t('sortName')],['stock',t('invSortStock')],['sales',t('invSortSales')]].map(([v,l])=>`<option value="${v}"${(S.invSort||'cat')===v?' selected':''}>${l}</option>`).join('')}</select>
+      <select class="filter-select" aria-label="${esc(t('sortBy'))}" onchange="S.invSort=this.value;renderInventory()">${[['cat',t('invSortCat')],['name',t('sortName')],['stock',t('invSortStock')],['sales',t('invSortSales')]].map(([v,l])=>`<option value="${v}"${(S.invSort||'cat')===v?' selected':''}>${l}</option>`).join('')}</select>
       <button class="btn-secondary" onclick="toggleStockTake()" style="white-space:nowrap;${S.invCount?'border-color:var(--green);color:var(--green)':''}">${S.invCount?t('stCancelBtn'):t('stStartBtn')}</button>
     </div>
     ${S.invCount?`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:rgba(var(--green-rgb),.06);border:1px solid rgba(var(--green-rgb),.25);border-radius:4px;padding:9px 12px;margin-top:6px">
@@ -20715,7 +20804,7 @@ function toggleAddInv(){S.showAddInv=true;S.editInvId=null;S._invName='';S._invC
 function cancelInvForm(){S.showAddInv=false;S.editInvId=null;S._invCatAdd=false;S._invBrandAdd=false;renderInventory();}
 function startInvEdit(id){
   const it=(S.inventory||[]).find(x=>x.id===id);if(!it)return;
-  S.editInvId=id;S.showAddInv=false;S._invName=it.name||'';const _ic=it.category||'Helmet';const _ip=_catParent(_ic)==='ProteinSnacks';S._invCat=_ip?'ProteinSnacks':_ic;S._invSubtype=_ip?(_leafSubtype(_ic)||_defaultSubtype()):(_ic==='ProteinSnacks'?_defaultSubtype():'');S._invSubtypeAdd=false;S._invQty=String(it.qty??'');S._invLow=String(it.low_threshold??'');S._invFree=(Number(it.price)===0&&it.price!=null);S._invPrice=(it.price!=null&&Number(it.price)>0)?String(it.price):'';S._invCost=(it.cost!=null?String(it.cost):'');S._invBrand=it.brand||'';S._invFlav=it.flavour||'';S._invMl=it.volume_ml!=null?String(it.volume_ml):'';S._invNutri=_itemNutri(it)||{};S._invNutriOpen=false;S._invPhoto=it.photo||'';S._invCatAdd=false;S._invBrandAdd=false;S._invFlavAdd=false;
+  S.editInvId=id;S.showAddInv=false;S._invName=it.name||'';const _ic=it.category||'Helmet';const _ip=_catParent(_ic)==='ProteinSnacks';S._invCat=_ip?'ProteinSnacks':_ic;S._invSubtype=_ip?(_leafSubtype(_ic)||_defaultSubtype()):(_ic==='ProteinSnacks'?_defaultSubtype():'');S._invSubtypeAdd=false;S._invQty=String(it.qty??'');S._invQty0=S._invQty;S._invLow=String(it.low_threshold??'');S._invFree=(Number(it.price)===0&&it.price!=null);S._invPrice=(it.price!=null&&Number(it.price)>0)?String(it.price):'';S._invCost=(it.cost!=null?String(it.cost):'');S._invBrand=it.brand||'';S._invFlav=it.flavour||'';S._invMl=it.volume_ml!=null?String(it.volume_ml):'';S._invNutri=_itemNutri(it)||{};S._invNutriOpen=false;S._invPhoto=it.photo||'';S._invCatAdd=false;S._invBrandAdd=false;S._invFlavAdd=false;
   S.invSection=_invSecOf(it.category);
   // Make sure a custom category/brand/flavour on this item appears in this section's dropdowns
   const isSupp=S.invSection==='supplements';
@@ -20746,9 +20835,16 @@ async function saveInvEdit(){
   const name=(S._invName||'').trim();if(!name){toast(t('invItemName'),'error');return;}
   const brand=(document.getElementById('inv-brand')?.value||S._invBrand||'').trim();
   const cat=_invResolveCat();
-  const upd={name,brand:(brand&&brand!=='__add__')?brand:null,category:cat,qty:parseInt(S._invQty)||0,low_threshold:parseInt(S._invLow)||0,updated_at:new Date().toISOString()};
+  // The quantity is not written as a number. The form shows what was on the shelf when it opened;
+  // writing the box back overwrote every sale rung up while it was open (open at 10, two gels sold,
+  // save a price fix: the shelf read 10 again). A change typed into the box is applied as a
+  // movement, read-and-compare like every other stock movement (_invApplyDelta); an untouched
+  // box leaves the stock alone. Stock-take is the place to set an absolute count.
+  const upd={name,brand:(brand&&brand!=='__add__')?brand:null,category:cat,low_threshold:parseInt(S._invLow)||0,updated_at:new Date().toISOString()};
   const{error}=await sb.from('inventory').update(upd).eq('id',id);
   if(error){toast(error.message,'error');return;}
+  {const q1=parseInt(S._invQty),q0=parseInt(S._invQty0);const d=(isNaN(q1)||isNaN(q0))?0:q1-q0; // no baseline, no guess
+    if(d){const it=(S.inventory||[]).find(x=>x.id===id);if(await _invApplyDelta(id,d)!==null)logAction(t('logStockAdj').replace('{0}',it?it.name:name).replace('{1}',(d>0?'+':'')+d));}}
   // Photo and price saved separately (each tolerant) so a missing column can't fail the whole edit
   try{await sb.from('inventory').update({photo:S._invPhoto||null}).eq('id',id);}catch(e){}
   {const _p=parseFloat(S._invPrice);const pv=S._invFree?0:(isNaN(_p)?null:_p);try{await sb.from('inventory').update({price:pv}).eq('id',id);}catch(e){}}
@@ -20759,15 +20855,44 @@ async function saveInvEdit(){
   await loadData();S.editInvId=null;toast(t('invSaved'));renderInventory();
 }
 let _invAdjPend={},_invAdjTimer=null;
-async function adjInv(id,delta){
+// Debounced audit log: rapid +/- taps collapse into one net entry per item. Only movements the
+// row actually took are logged.
+function _invAdjLog(id,d){if(!d)return;_invAdjPend[id]=(_invAdjPend[id]||0)+d;clearTimeout(_invAdjTimer);_invAdjTimer=setTimeout(()=>{const pend=_invAdjPend;_invAdjPend={};Object.keys(pend).forEach(iid=>{const n=pend[iid];if(!n)return;const item=(S.inventory||[]).find(x=>x.id===iid);logAction(t('logStockAdj').replace('{0}',item?item.name:iid).replace('{1}',(n>0?'+':'')+n));});},2500);}
+// The +/- buttons. Each tap moves the count on screen at once; the row is then moved by the taps as
+// a DELTA, read-and-compare like every other stock movement. The old write sent "the count this
+// screen last loaded, plus one", which overwrote whatever a till had sold since (inventory has no
+// live feed, so a desk could be hours behind). Taps made while a write is out are sent together
+// once it lands, one write per item at a time.
+const _invAdjQ={};
+function adjInv(id,delta){
   const it=(S.inventory||[]).find(x=>x.id===id);if(!it)return;
-  const q=Math.max(0,(Number(it.qty)||0)+delta);
-  const applied=q-(Number(it.qty)||0); // clamped at 0, so a - tap on an empty item logs nothing
-  it.qty=q;renderInventory();
-  // Debounced audit log: rapid +/- taps collapse into one net entry per item
-  if(applied){_invAdjPend[id]=(_invAdjPend[id]||0)+applied;clearTimeout(_invAdjTimer);_invAdjTimer=setTimeout(()=>{const pend=_invAdjPend;_invAdjPend={};Object.keys(pend).forEach(iid=>{const d=pend[iid];if(!d)return;const item=(S.inventory||[]).find(x=>x.id===iid);logAction(t('logStockAdj').replace('{0}',item?item.name:iid).replace('{1}',(d>0?'+':'')+d));});},2500);}
-  const{error}=await sb.from('inventory').update({qty:q,updated_at:new Date().toISOString()}).eq('id',id);
-  if(error){toast(error.message,'error');await loadData();renderInventory();}
+  const cur=Number(it.qty)||0;
+  // Nothing on the shelf to take away. An oversold item sits below zero on purpose (_invApplyDelta);
+  // a - tap used to clamp it UP to 0 and log "+2" for pressing minus.
+  if(delta<0&&cur<=0)return;
+  it.qty=cur+delta;
+  const q=_invAdjQ[id]||(_invAdjQ[id]={pend:0,busy:false});q.pend+=delta;
+  renderInventory();
+  if(!q.busy)_invAdjDrain(id);
+}
+async function _invAdjDrain(id){
+  const q=_invAdjQ[id];q.busy=true;
+  try{
+    while(q.pend){
+      const d=q.pend;q.pend=0;
+      const it=(S.inventory||[]).find(x=>x.id===id);
+      if(it)it.qty=(Number(it.qty)||0)-d; // back to the count the row was last known to hold: _invApplyDelta bets on it and re-applies d
+      const next=await _invApplyDelta(id,d);
+      const it2=(S.inventory||[]).find(x=>x.id===id);
+      if(next===null){ // refused or unreadable (the error is already on screen): show what the row really holds
+        q.pend=0;
+        try{const r=await sb.from('inventory').select('qty').eq('id',id).maybeSingle();if(r&&!r.error&&r.data&&it2)it2.qty=Number(r.data.qty)||0;}catch(_){}
+        break;
+      }
+      if(it2)it2.qty=next+q.pend; // taps made while this one was out stay on screen
+      _invAdjLog(id,d);
+    }
+  }finally{q.busy=false;if(S.view==='staff'&&S.staffTab==='inventory')renderInventory();}
 }
 function toggleStockTake(){S.invCount=!S.invCount;S.invCounts={};renderInventory();}
 function _stockTakeDiffs(){
@@ -20811,7 +20936,7 @@ function delInvItem(id){
   // refuse to be deleted out from under their bookings; so does this.
   const _live=getQueue().filter(e=>['waiting','waitlist','active'].includes(e.status)&&entryAddons(e).some(a=>String((a&&typeof a==='object')?a.id:a)===String(id))).length;
   if(_live){toast(t('invDelInUse').replace('{0}',_live),'error');return;}
-  confirmDialog({title:t('deleteBtn'),body:it.name,confirmLabel:t('deleteBtn'),confirmClass:'btn-red',onConfirm:async()=>{
+  confirmDialog({title:t('deleteBtn'),body:esc(it.name),confirmLabel:t('deleteBtn'),confirmClass:'btn-red',onConfirm:async()=>{
     const{error}=await sb.from('inventory').delete().eq('id',id);
     if(error){toast(error.message,'error');return;}
     await loadData();renderInventory();
@@ -20823,11 +20948,14 @@ function delInvItem(id){
 ══════════════════════════════════════════════ */
 function setLb(k,v){S[k]=v;if(k==='lbScope')S.lbMetric=(v==='rider'?'duration':'count');renderCommunity();}
 function _lbWeekStart(d){const x=new Date(d);x.setHours(0,0,0,0);x.setDate(x.getDate()-x.getDay());return x;}
+// Today on the KSA calendar, as a local-midnight Date - the same form the ride dates below are
+// parsed into - so "this week" and "this month" are Riyadh's on a device set to any timezone.
+function _lbToday(){return new Date(todayStr()+'T00:00:00');}
 function _lbInWindow(e,win,ref){
   const ds=(e.sessionDate||e.registeredAt||'').slice(0,10);if(!ds)return false;
   const d=new Date(ds+'T00:00:00');if(isNaN(d))return false;
   if(win==='all')return true;
-  const now=ref||new Date();
+  const now=ref||_lbToday();
   if(win==='week'){const s=_lbWeekStart(now);const e2=new Date(s);e2.setDate(s.getDate()+7);return d>=s&&d<e2;}
   if(win==='month')return d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();
   return true;
@@ -20836,23 +20964,37 @@ function _lbInWindow(e,win,ref){
 // scope 'rider' = each individual rider counted on their own.
 function _lbAgg(win,scope,ref){
   const locOf=id=>{const s=(S.sessions||[]).find(x=>x.id===id);return s?s.location:null;};
+  // An account is shown under its own name. Every rider in a booking carries the booker's
+  // account, so the old "name on the lowest queue number" could be a companion's - a child who
+  // happened to be #2 one night named the parent's account. That stays only as the fallback
+  // for an account this device does not hold.
+  const acct=scope==='owner'?new Map((S.customers||[]).map(c=>[String(c.id),c.name])):null;
   const rides=getQueue().filter(e=>e.status==='done'&&e.paid&&_lbInWindow(e,win,ref)&&(S.lbBranch==='all'||locOf(e.sessionId)===S.lbBranch));
   const map={};
   rides.forEach(e=>{
     const key=scope==='owner'?(e.customerId||('walk:'+e.id)):((e.name||'?').trim().toLowerCase());
     let m=map[key];if(!m)m=map[key]={key,name:e.name||'?',count:0,duration:0,spent:0,minQ:Infinity,weeks:new Set()};
     m.count++;m.duration+=(e.rideDuration||0);m.spent+=(e.price??DEFAULT_PRICE);
-    if(scope==='owner'){if((e.queueNum||0)<m.minQ){m.minQ=e.queueNum||0;m.name=e.name||m.name;}}else{m.name=e.name||m.name;}
+    if(scope==='owner'){const an=e.customerId&&acct.get(String(e.customerId));if(an)m.name=an;else if((e.queueNum||0)<m.minQ){m.minQ=e.queueNum||0;m.name=e.name||m.name;}}else{m.name=e.name||m.name;}
     const ds=(e.sessionDate||e.registeredAt||'').slice(0,10);if(ds){const w=_lbWeekStart(new Date(ds+'T00:00:00')).getTime();if(!isNaN(w))m.weeks.add(w);}
   });
   return map;
 }
-function _lbStreak(weeks){if(!weeks||!weeks.size)return 0;const wk=6048e5;const arr=[...weeks].sort((a,b)=>b-a);let s=1;for(let i=1;i<arr.length;i++){if(arr[i-1]-arr[i]===wk)s++;else break;}return s;}
+// Weeks in a row the rider has ridden, up to now. A streak whose last ride was before last week is
+// over (it used to count back from the rider's LAST ride, so a run that ended a year ago still
+// showed). Days, not milliseconds, between week starts: a device on daylight saving has 7-day
+// weeks that are an hour off.
+function _lbStreak(weeks){
+  if(!weeks||!weeks.size)return 0;
+  const days=(a,b)=>Math.round((a-b)/864e5),arr=[...weeks].sort((a,b)=>b-a);
+  if(days(_lbWeekStart(_lbToday()).getTime(),arr[0])>7)return 0;
+  let s=1;for(let i=1;i<arr.length;i++){if(days(arr[i-1],arr[i])===7)s++;else break;}return s;
+}
 function _riderTier(n){const tiers=[[50,'tierLegend'],[25,'tierElite'],[10,'tierPro'],[3,'tierRegular']];for(const[th,k]of tiers)if(n>=th)return t(k);return t('tierNewcomer');}
 
 // ── Tag system (staff-only; customers never see any of this) ─────────────────
 function _tagsById(){const m={};(S.tags||[]).forEach(tg=>m[tg.id]=tg);return m;}
-function _tagsForCust(cid){const m=_tagsById();return _ctRowsFor(cid).map(ct=>m[ct.tag_id]).filter(Boolean);}
+function _tagsForCust(cid){const m=_tagsById();return _ctRowsFor(cid).filter(ct=>!_tagLapsed(ct)).map(ct=>m[ct.tag_id]).filter(Boolean);} // held or starting later; a lapsed grant is not held
 function setCommTab(k){S.communityTab=k;S.tagEdit=null;S.tagCustId=null;renderCommunity();}
 function openTagEdit(id){S.tagEdit=id?((S.tags||[]).find(x=>x.id===id)||{}):{};renderCommunity();}
 async function saveTag(){
@@ -20870,7 +21012,7 @@ async function saveTag(){
       const slug=(name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,''))||id;
       const row={id,slug,name,color,description:desc,auto_grant:false,locked:false,created_at:Date.now()};
       const{error}=await sb.from('tags').insert(row);if(error)throw error;
-      S.tags=[...(S.tags||[]),row];
+      S.tags=[...(S.tags||[]).filter(x=>x.id!==id),row]; // by id: the staff-ref echo can land before the answer
     }
     S.tagEdit=null;toast(t('amTagSaved'),'success');renderCommunity();
   }catch(e){toast((e&&e.message)||t('errServerError'),'error');}
@@ -20883,10 +21025,18 @@ async function deleteTag(id){
     S.tags=(S.tags||[]).filter(x=>x.id!==id);
     S.customerTags=(S.customerTags||[]).filter(ct=>ct.tag_id!==id);
     toast(t('amTagDeleted'),'success');renderCommunity();
+    // The undo checks each write (they used to be fire-and-forget: a refused insert still showed
+    // the tag and every holder as restored while the database had none) and returns false so the
+    // undo is offered again. Upserts, so a second try finishes a half-done one instead of failing
+    // on the rows that landed. The lists are merged by key, not appended: the staff-ref echo of
+    // the insert often arrives first, and appending showed the tag twice.
     pushUndo(`${t('amTagDeleted')}: ${tg.name}`,async()=>{
-      await sb.from('tags').insert(tg);
-      if(removedCT.length)await sb.from('customer_tags').insert(removedCT);
-      S.tags=[...(S.tags||[]),tg];S.customerTags=[...(S.customerTags||[]),...removedCT];renderCommunity();
+      try{
+        const r1=await sb.from('tags').upsert(tg,{onConflict:'id'});if(_writeErr(r1,'restore tag'))return false;
+        S.tags=[...(S.tags||[]).filter(x=>x.id!==tg.id),tg];
+        if(removedCT.length){const r2=await sb.from('customer_tags').upsert(removedCT,{onConflict:'customer_id,tag_id'});if(_writeErr(r2,'restore tag holders')){renderCommunity();return false;}}
+        _ctMerge(removedCT);renderCommunity();
+      }catch(e){toast((e&&e.message)||t('errServerError'),'error');return false;}
     });
   }catch(e){toast((e&&e.message)||t('errServerError'),'error');}
 }
@@ -20908,9 +21058,17 @@ async function _amSetGender(cid,g){
     toast(t('amGenderSaved'),'success');
   }catch(e){toast((e&&e.message)||t('errServerError'),'error');}
 }
+// Put customer_tags rows into the list by (customer, tag), replacing what is there: a grant can
+// arrive twice (our own write, then its staff-ref echo) and must still count once.
+function _ctMerge(rows){const key=x=>x.customer_id+'\u0000'+x.tag_id,k=new Set((rows||[]).map(key));S.customerTags=[...(S.customerTags||[]).filter(x=>!k.has(key(x))),...(rows||[])];}
+// A temporary grant whose window has closed. It stays on file (the chip reads "expired"), but it
+// is not a tag the rider holds: the picker shows it off, and tapping it grants the tag afresh
+// instead of deleting the old row. A grant that has not started yet still counts as held there,
+// so it can be taken back before it starts.
+function _tagLapsed(ct){return !!ct&&ct.expires_at!=null&&ct.expires_at<=Date.now();}
 async function toggleCustTag(cid,tid){
-  const has=(S.customerTags||[]).some(ct=>ct.customer_id===cid&&ct.tag_id===tid);
-  if(!has){showTagGrantModal(cid,tid);return;} // adding asks permanent vs temporary first
+  const has=(S.customerTags||[]).some(ct=>ct.customer_id===cid&&ct.tag_id===tid&&!_tagLapsed(ct));
+  if(!has){showTagGrantModal(cid,tid);return;} // adding (or renewing a lapsed grant) asks permanent vs temporary first
   try{
     const{error}=await sb.from('customer_tags').delete().eq('customer_id',cid).eq('tag_id',tid);if(error)throw error;
     S.customerTags=(S.customerTags||[]).filter(ct=>!(ct.customer_id===cid&&ct.tag_id===tid));
@@ -20983,17 +21141,24 @@ async function saveTagGrant(){
       const DAYS={'1d':1,'3d':3,'1w':7,'2w':14,'1m':30,'3m':90,'6m':180,'1y':365};
       row.starts_at=Date.now();row.expires_at=row.starts_at+(DAYS[st.dur]||7)*864e5;
     }else{
-      const start=st.today?Date.now():new Date(String(st.start)+'T00:00:00').getTime();
+      // The days are Riyadh's, the clock the chip prints them on and the one the rides run on.
+      // Read on the device's clock, a grant made from a desk set to another timezone opened and
+      // closed hours off (UTC+5: "until 30 Sep" ended at 21:59 on the 30th, before the evening ride).
+      const start=st.today?Date.now():Date.parse(String(st.start)+'T00:00:00+03:00');
       if(!st.end){toast(t('tagEndRequired'),'error');return;}
-      const end=new Date(String(st.end)+'T23:59:59.999').getTime(); // end date is inclusive
+      const end=Date.parse(String(st.end)+'T23:59:59.999+03:00'); // end date is inclusive
       if(isNaN(start)||isNaN(end)){toast(t('tagEndRequired'),'error');return;}
       if(end<=start){toast(t('tagEndAfterStart'),'error');return;}
       row.starts_at=start;row.expires_at=end;
     }
   }
   try{
+    // A lapsed grant of the same tag is still on file under the same key; it gives way to the new one.
+    if((S.customerTags||[]).some(ct=>ct.customer_id===st.cid&&ct.tag_id===st.tid&&_tagLapsed(ct))){
+      const d=await sb.from('customer_tags').delete().eq('customer_id',st.cid).eq('tag_id',st.tid);if(d.error)throw d.error;
+    }
     const{error}=await sb.from('customer_tags').insert(row);if(error)throw error;
-    S.customerTags=[...(S.customerTags||[]),row];
+    _ctMerge([row]);
     S._tg=null;closeConfirm();
     if(!_amRepaintRow(st.cid))renderCommunity();
   }catch(e){toast((e&&e.message)||t('errServerError'),'error');}
@@ -21053,12 +21218,16 @@ function _amMissingOf(c){return [[!c.gender,'genderLabel'],[!c.birth_date,'birth
 // details it was made on (staff_options, key accounts_look_fine), so a later change is checked again.
 const PHONE_RULES_V='1.13.13';
 const SX_FINE_KEY='accounts_look_fine';
-let _phoneRules=null,_phoneRulesReq=null;
+let _phoneRules=null,_phoneRulesReq=null,_phoneRulesFailAt=0;
 const _sxRe={};
+// A failed load is remembered: every Accounts redraw asked again, and while the file was not
+// being served that was one 404 (and one Pages Function run) per redraw. Try again after a while.
+const PHONE_RULES_RETRY_MS=10*60*1000;
 function _loadPhoneRules(){
   if(_phoneRules||_phoneRulesReq||typeof fetch!=='function')return;
+  if(_phoneRulesFailAt&&Date.now()-_phoneRulesFailAt<PHONE_RULES_RETRY_MS)return;
   _phoneRulesReq=fetch('assets/phone-rules.json?v='+PHONE_RULES_V).then(r=>r.ok?r.json():null).then(j=>{
-    if(!j||!j.codes)return;
+    if(!j||!j.codes){_phoneRulesFailAt=Date.now();return;}
     _phoneRules=j.codes;
     // Only what the checks feed is touched: the filter's count and, while it is on, the rows.
     // A whole redraw here would undo row-level repaints (the tag picker) and move the list
@@ -21069,7 +21238,7 @@ function _loadPhoneRules(){
       const w=document.getElementById('am-cust-rows');if(w)w.innerHTML=_amCustRows();
       const n=document.getElementById('am-cust-count');if(n)n.textContent='('+(S._amShownCount||0)+')';
     }
-  }).catch(()=>{}).finally(()=>{_phoneRulesReq=null;});
+  }).catch(()=>{_phoneRulesFailAt=Date.now();}).finally(()=>{_phoneRulesReq=null;});
 }
 // Real two-letter endings (country codes, and .uk .eu .su and the rest IANA hands out).
 const SX_CCTLD=new Set('ac ad ae af ag ai al am ao aq ar as at au aw ax az ba bb bd be bf bg bh bi bj bl bm bn bo bq br bs bt bv bw by bz ca cc cd cf cg ch ci ck cl cm cn co cr cu cv cw cx cy cz de dj dk dm do dz ec ee eg eh er es et eu fi fj fk fm fo fr ga gb gd ge gf gg gh gi gl gm gn gp gq gr gs gt gu gw gy hk hm hn hr ht hu id ie il im in io iq ir is it je jm jo jp ke kg kh ki km kn kp kr kw ky kz la lb lc li lk lr ls lt lu lv ly ma mc md me mf mg mh mk ml mm mn mo mp mq mr ms mt mu mv mw mx my mz na nc ne nf ng ni nl no np nr nu nz om pa pe pf pg ph pk pl pm pn pr ps pt pw py qa re ro rs ru rw sa sb sc sd se sg sh si sj sk sl sm sn so sr ss st su sv sx sy sz tc td tf tg th tj tk tl tm tn to tr tt tv tw tz ua ug uk um us uy uz va vc ve vg vi vn vu wf ws ye yt za zm zw'.split(' '));
@@ -21097,9 +21266,13 @@ function _sxName(name,out){
   // Arabic vowel marks and direction marks are not letters: strip them before judging the rest.
   const letters=s.replace(/[ً-ٰٟ​-‏‪-‮⁦-⁩﻿]/g,'');
   if(/[A-Za-z]/.test(letters)&&/[؀-ۿ]/.test(letters))out.push({f:'name',k:'sxNameMixed',v:s});
-  const parts=letters.replace(/[^\p{L}\s'’.-]/gu,' ').split(/\s+/).filter(p=>p.replace(/[.'’-]/g,''));
-  const bare=p=>p.replace(/[.'’-]/g,'');
-  if(parts.length===1)out.push({f:'name',k:'sxNameOneWord',v:s});
+  // Combining marks stay with their letters: Bengali, Hindi and Nepali names are written with vowel
+  // signs that are marks, not letters, and turning them into spaces split every such name into
+  // one-letter pieces that all read as initials.
+  const parts=letters.replace(/[^\p{L}\p{M}\s'’.-]/gu,' ').split(/\s+/).filter(p=>p.replace(/[.'’\p{M}-]/gu,''));
+  const bare=p=>p.replace(/[.'’-]/g,''); // a letter with its vowel sign is a syllable, not an initial
+  // Chinese, Japanese and Korean names are written without a space between family and given name.
+  if(parts.length===1&&!/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(parts[0]))out.push({f:'name',k:'sxNameOneWord',v:s});
   else if(parts.length>1&&(bare(parts[0]).length===1||bare(parts[parts.length-1]).length===1))out.push({f:'name',k:'sxNameInitial',v:s}); // a middle initial is normal
   if(/(\p{L})\1\1/iu.test(letters))out.push({f:'name',k:'sxNameRepeat',v:s});
   if(parts.some(p=>/^(test|asdf|qwerty|user|admin|none|null|name|x{2,}|abc|unknown|other|guest)$/i.test(bare(p))))out.push({f:'name',k:'sxNameFake',v:s});
@@ -21145,7 +21318,7 @@ function _sxPhone(c,out,sharedWith){
     else if(n.length<9)out.push({f:'phone',k:'sxPhoneSaShort',v:raw});
     else if(n.length>9)out.push({f:'phone',k:'sxPhoneSaLong',v:raw});
     else if(!_sxMobileOk('966',n))out.push({f:'phone',k:'sxPhoneBad',v:raw,a:['+966']});
-  }else if(d.startsWith('996')&&d.length===12&&d[3]==='5'&&c.nationality!=='Kyrgyzstan'){
+  }else if(d.startsWith('996')&&d.length===12&&d[3]==='5'&&c.nationality!=='Kyrgyzstan'&&c.country!=='Kyrgyzstan'){ // +996 5… is also a real Kyrgyz mobile: not for a rider who is Kyrgyz or lives there
     out.push({f:'phone',k:'sxPhoneKg',v:raw}); // a Saudi mobile with two digits of the code swapped
   }else{
     const cc=_sxCallingCode(d);
@@ -21225,7 +21398,7 @@ function _sxOf(c){
 function _sxText(s){let m=t(s.k);(s.a||[]).forEach((v,i)=>{m=m.replace('{'+i+'}',String(v));});return m;}
 function _sxLineHtml(c){
   const x=_sxOf(c);if(!x)return'';
-  return `<div class="am-meta am-sx"><span>${esc(t('sxLine').replace('{0}',x.list.map(_sxText).join(' · ')))}</span><button type="button" class="am-fine" onclick="_sxLooksFine('${esc(c.id)}')">${t('sxFineBtn')}</button></div>`;
+  return `<div class="am-meta am-sx"><span>${esc(t('sxLine').replace('{0}',x.list.map(_sxText).join(' · ')))}</span><button type="button" class="am-fine" onclick="_sxLooksFine(${_ja(c.id)})">${t('sxFineBtn')}</button></div>`;
 }
 async function _sxLooksFine(id){
   const c=(S.customers||[]).find(x=>String(x.id)===String(id));
@@ -21261,8 +21434,10 @@ function _amFiltered(){
   const custs=(S.customers||[]).slice().sort((a,b)=>String(b.created_at||'').localeCompare(String(a.created_at||'')));
   const q=(S.amSearch||'').trim().toLowerCase();
   let shown=q?custs.filter(c=>[c.name,c.email,c.phone,c.apple_email].some(v=>String(v||'').toLowerCase().includes(q))):custs;
-  // Tag filter: only customers holding the selected tag. Through the index, not a scan.
-  if(S.amTagFilter)shown=shown.filter(c=>_ctRowsFor(c.id).some(ct=>ct.tag_id===S.amTagFilter));
+  // Tag filter: only customers holding the selected tag NOW - the same test as the count on its
+  // pill (and the DB's gate). It used to list expired and not-yet-started grants too, so the pill
+  // said 120 and the list showed 135. Through the index, not a scan.
+  if(S.amTagFilter)shown=shown.filter(c=>_ctRowsFor(c.id).some(ct=>ct.tag_id===S.amTagFilter&&_tagActive(ct)));
   if(S.amMissing)shown=shown.filter(c=>_amMissingOf(c).length);
   if(S.amFixing)shown=shown.filter(c=>_flagFieldsOf(c).length);
   if(S.amSuspect)shown=shown.filter(c=>_sxOf(c));
@@ -21303,11 +21478,11 @@ function _amRowInner(c){
     const myCT=_ctRowsFor(c.id).filter(ct=>_tm[ct.tag_id]);
     const chips=myCT.length?myCT.map(ct=>_tagChip(_tm[ct.tag_id],ct)).join(''):`<span class="am-meta">${t('amNoTags')}</span>`;
     const picking=S.tagCustId===c.id;
-    const picker=picking?`<div class="am-picker">${(S.tags||[]).map(tg=>{const on=myTags.some(x=>x.id===tg.id);return `<button class="am-pick${on?' on':''}" onclick="toggleCustTag('${c.id}','${tg.id}')" style="--tc:${esc(_tagColor(tg))}" title="${esc(tg.name)}">${on?'✓ ':'+ '}${_tagFace(tg)}</button>`;}).join('')||`<span class="am-meta">${t('amNoTags')}</span>`}</div>`:'';
+    const picker=picking?`<div class="am-picker">${(S.tags||[]).map(tg=>{const on=myTags.some(x=>x.id===tg.id);return `<button class="am-pick${on?' on':''}" onclick="toggleCustTag(${_ja(c.id)},${_ja(tg.id)})" style="--tc:${esc(_tagColor(tg))}" title="${esc(tg.name)}">${on?'✓ ':'+ '}${_tagFace(tg)}</button>`;}).join('')||`<span class="am-meta">${t('amNoTags')}</span>`}</div>`:'';
     const contact=[c.email,c.phone].filter(Boolean)
       .map(v=>`<bdi>${esc(v)}</bdi>`).join(' <span style="opacity:.5">·</span> ');
     // Accounts made before signup asked for a gender have none; offer it on the row, one tap.
-    const genderAsk=c.gender?'':`<div class="am-gender" role="group" aria-label="${esc(t('genderLabel'))} · ${esc(c.name||'')}"><span>${t('amGenderAsk')}:</span><button type="button" class="am-pick" onclick="_amSetGender('${c.id}','male')">${t('genderMale')}</button><button type="button" class="am-pick" onclick="_amSetGender('${c.id}','female')">${t('genderFemale')}</button></div>`;
+    const genderAsk=c.gender?'':`<div class="am-gender" role="group" aria-label="${esc(t('genderLabel'))} · ${esc(c.name||'')}"><span>${t('amGenderAsk')}:</span><button type="button" class="am-pick" onclick="_amSetGender(${_ja(c.id)},'male')">${t('genderMale')}</button><button type="button" class="am-pick" onclick="_amSetGender(${_ja(c.id)},'female')">${t('genderFemale')}</button></div>`;
     return `<div class="am-cust">
       <div style="flex:1;min-width:0">
         <div style="font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(c.name||'—')}</div>
@@ -21319,11 +21494,11 @@ function _amRowInner(c){
         <div class="am-chips">${chips}</div>${genderAsk}
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
-        <button class="btn-sm btn-secondary am-flag${_flagFieldsOf(c).length?' on':''}" onclick="showFlagFieldsModal('${c.id}')" title="${esc(t('fixFlagBtn'))}" aria-label="${esc(t('fixFlagBtn'))} · ${esc(c.name||'')}">${_artIcon('flag',14)}</button>
-        ${(()=>{const n=_ahUpcoming(c.id);return `<button class="btn-sm btn-secondary am-hist${n?' on':''}" onclick="openAccountHistory('${c.id}')" title="${esc(t('ahBtn'))}" aria-label="${esc(t('ahBtn'))} · ${esc(c.name||'')}${n?` · ${esc(t('ahUpcoming'))} ${n}`:''}">${_artIcon('clock',14)}${n?`<span class="am-hist-n">${n}</span>`:''}</button>`;})()}
-        <button class="btn-sm btn-secondary am-vcard" onclick="saveCustomerContact('${c.id}')" title="${esc(t('amSaveContact'))}" aria-label="${esc(t('amSaveContact'))}">${_artIcon('contact',14)}</button>
-        <button class="btn-sm btn-secondary" onclick="showEditCustomerModal('${c.id}')">${t('editBtn')}</button>
-        <button class="btn-sm ${picking?'btn-green':'btn-secondary'}" onclick="_amPickTags('${c.id}')">${picking?t('doneBtn'):t('amEditTags')}</button>
+        <button class="btn-sm btn-secondary am-flag${_flagFieldsOf(c).length?' on':''}" onclick="showFlagFieldsModal(${_ja(c.id)})" title="${esc(t('fixFlagBtn'))}" aria-label="${esc(t('fixFlagBtn'))} · ${esc(c.name||'')}">${_artIcon('flag',14)}</button>
+        ${(()=>{const n=_ahUpcoming(c.id);return `<button class="btn-sm btn-secondary am-hist${n?' on':''}" onclick="openAccountHistory(${_ja(c.id)})" title="${esc(t('ahBtn'))}" aria-label="${esc(t('ahBtn'))} · ${esc(c.name||'')}${n?` · ${esc(t('ahUpcoming'))} ${n}`:''}">${_artIcon('clock',14)}${n?`<span class="am-hist-n">${n}</span>`:''}</button>`;})()}
+        <button class="btn-sm btn-secondary am-vcard" onclick="saveCustomerContact(${_ja(c.id)})" title="${esc(t('amSaveContact'))}" aria-label="${esc(t('amSaveContact'))}">${_artIcon('contact',14)}</button>
+        <button class="btn-sm btn-secondary" onclick="showEditCustomerModal(${_ja(c.id)})">${t('editBtn')}</button>
+        <button class="btn-sm ${picking?'btn-green':'btn-secondary'}" onclick="_amPickTags(${_ja(c.id)})">${picking?t('doneBtn'):t('amEditTags')}</button>
       </div>
     </div>${picker}`;
   }
@@ -21344,8 +21519,8 @@ function _commAccounts(){
       ${_tagChip(tg)}
       <span class="am-meta">${tg.auto_grant?t('amAutoTag')+' · ':''}${t('amHolders').replace('{0}',cnt)}</span>
       <div style="margin-left:auto;display:flex;gap:6px;flex-shrink:0">
-        <button class="btn-sm btn-secondary" onclick="openTagEdit('${tg.id}')">${t('editBtn')}</button>
-        ${tg.locked?'':`<button class="btn-sm btn-red" onclick="deleteTag('${tg.id}')">${t('deleteBtn')}</button>`}
+        <button class="btn-sm btn-secondary" onclick="openTagEdit(${_ja(tg.id)})">${t('editBtn')}</button>
+        ${tg.locked?'':`<button class="btn-sm btn-red" onclick="deleteTag(${_ja(tg.id)})">${t('deleteBtn')}</button>`}
       </div>
     </div>`;
   }).join('')||`<div class="empty-state">${t('amNoTags')}</div>`;
@@ -21369,7 +21544,7 @@ function _commAccounts(){
     ${(S.tags||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(tg=>{
       const cnt=(S.customerTags||[]).filter(ct=>ct.tag_id===tg.id&&_tagActive(ct)).length;
       const on=S.amTagFilter===tg.id;
-      return `<button class="am-pick${on?' on':''}" style="--tc:${esc(_tagColor(tg))}" title="${esc(tg.name)}" onclick="_amFilter('amTagFilter',${on?`''`:`'${tg.id}'`})">${_tagFace(tg)} (${cnt})</button>`;
+      return `<button class="am-pick${on?' on':''}" style="--tc:${esc(_tagColor(tg))}" title="${esc(tg.name)}" onclick="_amFilter('amTagFilter',${_ja(on?'':tg.id)})">${_tagFace(tg)} (${cnt})</button>`;
     }).join('')}
     ${missingPill}${fixingPill}${sxPill}
   </div>`;
@@ -21390,15 +21565,17 @@ function renderCommunity(){
   const list=Object.values(agg).filter(m=>m.count>0).sort((a,b)=>mv(b)-mv(a)||b.count-a.count);
   let prevRank={};
   if(win!=='all'){
-    const ref=new Date();if(win==='week')ref.setDate(ref.getDate()-7);else ref.setMonth(ref.getMonth()-1);
-    Object.values(_lbAgg(win,scope,ref)).sort((a,b)=>mv(b)-mv(a)).forEach((m,i)=>{prevRank[m.key]=i;});
+    // Day 1 before stepping back a month: from the 29th-31st, setMonth(-1) overflowed back into
+    // THIS month (31 Oct -> "31 Sep" -> 1 Oct), and every arrow read "no change".
+    const ref=_lbToday();if(win==='week')ref.setDate(ref.getDate()-7);else{ref.setDate(1);ref.setMonth(ref.getMonth()-1);}
+    Object.values(_lbAgg(win,scope,ref)).sort((a,b)=>mv(b)-mv(a)||b.count-a.count).forEach((m,i)=>{prevRank[m.key]=i;}); // same order as the board itself, or ties read as moves
   }
   const medals=[]; // ranks render as plain numbers (1,2,3) with the top-3 highlighted in green
   const fmtVal=m=>metric==='duration'?fmtDur(m.duration):metric==='spent'?('SAR '+m.spent):String(m.count);
   const valUnit=metric==='count'?(scope==='owner'?t('lbRidersBooked').toLowerCase():t('commRides')):'';
   function rowInner(m,i){
     const initials=(m.name||'?').split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
-    const streak=_lbStreak(m.weeks);
+    const streak=_lbStreak((allAgg[m.key]||m).weeks); // the rider's real run, whatever window the board shows
     const tier=_riderTier(allAgg[m.key]?allAgg[m.key].count:m.count);
     let move='';
     if(win!=='all'){const pr=prevRank[m.key];
@@ -21425,7 +21602,7 @@ function renderCommunity(){
   const searchBox=list.length>=6?`<div style="margin-bottom:12px"><input id="lb-search" type="text" value="${esc(S.lbSearch||'')}" placeholder="${esc(t('commSearchPh'))}" oninput="S.lbSearch=this.value;_debRender('lb',renderCommunity)" onfocus="S._lbSearchFocused=true" onblur="S._lbSearchFocused=false" style="width:100%;box-sizing:border-box;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.15);border-radius:4px;padding:9px 12px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:600;outline:none"></div>`:'';
   // Stash top-10 (first names only, no PII) for the Share button
   S._lbShareTxt=list.length?`${t('commLeaderboard')} · ${({week:t('lbWindowWeek'),month:t('lbWindowMonth'),all:t('lbWindowAll')}[win]||'')}\n`+list.slice(0,10).map((m,i)=>`${i+1}. ${(m.name||'?').split(/\s+/)[0]} - ${fmtVal(m)}`).join('\n'):'';
-  const pill=(stateKey,val,label)=>`<button class="filter-pill${S[stateKey]===val?' active':''}" onclick="setLb('${stateKey}','${val}')">${label}</button>`;
+  const pill=(stateKey,val,label)=>`<button class="filter-pill${S[stateKey]===val?' active':''}" onclick="setLb(${_ja(stateKey)},${_ja(val)})">${label}</button>`;
   const metricPills=scope==='owner'
     ?[['count',t('lbRidersBooked')],['duration',t('lbMinutes')],['spent',t('lbSpent')]]
     :[['duration',t('lbMinutes')],['count',t('commRides')],['spent',t('lbSpent')]];
@@ -21445,7 +21622,7 @@ function renderCommunity(){
   // Upcoming rides: future-dated sessions, soonest first, with live spots-left
   const _today=_todayISO();
   const _sessStatusLbl={open:t('statusOpen'),full:t('statusFull'),closed:t('statusClosed')};
-  const upcoming=(S.sessions||[]).filter(s=>String(s.session_date||s.id||'')>=_today)
+  const upcoming=(S.sessions||[]).filter(s=>s.status!=='deleted'&&String(s.session_date||s.id||'')>=_today)
     .sort((a,b)=>String(a.session_date||a.id).localeCompare(String(b.session_date||b.id))).slice(0,6);
   const upcomingHtml=upcoming.length?upcoming.map(s=>{
     const sl=spotsLeft(s.id);
@@ -21513,7 +21690,7 @@ function renderCommunity(){
       <div style="flex:1 1 300px;min-width:0">${milestoneHtml||`<div class="form-section" style="margin-top:0"><div class="form-title">${t('commMilestones')}</div><div class="empty-state">${t('commNoLeaders')}</div></div>`}</div>
     </div>`;
   const sub=S.communityTab||'leaderboard';
-  const navBtn=(k,label)=>`<button class="filter-pill${sub===k?' active':''}" onclick="setCommTab('${k}')">${label}</button>`;
+  const navBtn=(k,label)=>`<button class="filter-pill${sub===k?' active':''}" onclick="setCommTab(${_ja(k)})">${label}</button>`;
   el.innerHTML=`
     <div class="page-title">${t('commTitle')}</div>
     <div class="page-sub">${t('commSub')}</div>
