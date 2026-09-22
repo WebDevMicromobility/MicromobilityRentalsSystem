@@ -16876,7 +16876,7 @@ function renderBikes(_resultsOnly){
   const formNum=isEdit?(S._bkNumber||''):(S._bkNumber||_nextBikeNumber());
   S._bkNumber=String(Number(formNum)||'');
   const _numTaken=_bkNumberTaken(formNum,isEdit?S.editBikeId:null);
-  const numField=`<input id="bk-number" type="number" inputmode="numeric" min="1" step="1" value="${Number(formNum)||''}" oninput="S._bkNumber=this.value;_updateBkNamePreview();_bkNumberHint(this.value)" style="${_numTaken?'border-color:var(--red)':''}"><div id="bk-number-hint" style="font-size:11px;font-weight:700;margin-top:4px;color:${_numTaken?'var(--red)':'var(--muted)'}">${_numTaken?esc(t('bikeNumberTaken').replace('{0}',_numTaken.name)):t('bikeNumberEditHint')}</div>`;
+  const numField=`<input id="bk-number" type="number" inputmode="numeric" min="1" max="9999" step="1" value="${Number(formNum)||''}" oninput="S._bkNumber=this.value;_updateBkNamePreview();_bkNumberHint(this.value)" style="${_numTaken?'border-color:var(--red)':''}"><div id="bk-number-hint" style="font-size:11px;font-weight:700;margin-top:4px;color:${_numTaken?'var(--red)':'var(--muted)'}">${_numTaken?esc(t('bikeNumberTaken').replace('{0}',_numTaken.name)):t('bikeNumberEditHint')}</div>`;
   const _autoNm=genBikeName(S.addBikeType,S._bkFrame,formNum,curSize);
   const _nameVal=(S._bkNameCustom&&S._bkName)?S._bkName:_autoNm;
   const autoNamePreview=`<div class="form-group full" style="margin-bottom:16px"><label>${t('bikeNameLabel')} <span class="label-hint">${t('bikeNameHint')}</span></label>
@@ -17335,7 +17335,7 @@ function _showCustomPriceModal(){
         <button onclick="document.getElementById('confirm-modal').style.display='none';document.getElementById('confirm-modal').innerHTML='';renderBikes()" aria-label="${t('closeBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 4px" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&times;</button>
       </div>
       <div style="margin-bottom:20px">
-        <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:8px">Price (SAR)</label>
+        <label style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:8px" for="custom-price-inp">${t('repPriceSar')}</label>
         <input id="custom-price-inp" type="number" min="1" step="0.5" placeholder="${t('phHeightEg')}"
           style="width:100%;background:var(--s2);border:1px solid rgba(var(--tint-rgb),.12);border-radius:6px;padding:12px 14px;font-size:16px;font-weight:700;color:var(--text);font-family:var(--font-body);outline:none"
           onfocus="this.style.borderColor='var(--green)'" onblur="this.style.borderColor='rgba(var(--tint-rgb),.12)'"
@@ -17379,7 +17379,19 @@ function _bikeLifespan(b){
   if(s&&e){const d=Math.max(0,Math.round((new Date(e)-new Date(s))/86400000));days=` · ${d} ${t('daysLabel')||'days'}`;}
   return `${fmt(s)} → ${fmt(e)}${days}`;
 }
-async function addBike(){
+// One bike save at a time. A second tap on Add while the first insert was still in flight
+// passed the duplicate check against the same stale fleet list, and the second bike landed too.
+let _bkSaving=false;
+// The check-in keypad, the NFC/QR resolver and staff_resolve_bike() read a code as a bike
+// number only when it is ^\d{1,4}$, so a longer number is a bike nobody can ever scan.
+const BIKE_NUM_MAX=9999;
+function _bkNumOk(n){
+  if(!n||n<1){toast(t('errBikeNumberReq'),'error');return false;}
+  if(n>BIKE_NUM_MAX){toast(t('errBikeNumberMax'),'error');return false;}
+  return true;
+}
+async function addBike(){if(_bkSaving)return;_bkSaving=true;try{await _addBikeNow();}finally{_bkSaving=false;}}
+async function _addBikeNow(){
   const size=document.getElementById('bk-size').value||'M';
   const brandRaw=document.getElementById('bk-brand')?.value.trim();
   const brand=(brandRaw&&brandRaw!=='__add__')?brandRaw:null;
@@ -17392,7 +17404,7 @@ async function addBike(){
   if(!S.addBikeType){toast(t('errBikeTypeReq'),'error');return;}
   if(!S._bkFrame){toast(t('errBikeFrameReq'),'error');return;}
   const bikeNum=parseInt(document.getElementById('bk-number')?.value||S._bkNumber||'');
-  if(!bikeNum||bikeNum<1){toast(t('errBikeNumberReq'),'error');return;}
+  if(!_bkNumOk(bikeNum))return;
   if(getBikes().some(b=>Number(b.bike_number)===bikeNum)){toast(t('errBikeNumberDup'),'error');return;}
   const customName=(document.getElementById('bk-name')?.value||'').trim();
   const name=customName||genBikeName(S.addBikeType,S._bkFrame,bikeNum,size);
@@ -17401,14 +17413,15 @@ async function addBike(){
   const rentalPrice=S._bkRentalPrice?parseFloat(S._bkRentalPrice)||null:null;
   const startDate=(document.getElementById('bk-start')?.value||S._bkStartDate||_todayISO());
   const bike={id:uid(),name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:colorNames,status:'available',brand,model,groupset,speeds,rental_price:rentalPrice,frame_type:S._bkFrame,bike_number:bikeNum,in_service_date:startDate,retired_date:null,wheel_size:S._bkWheel||null,brake_type:S._bkBrake||null,weight_kg:_bkWeightVal()};
-  let{error:insErr}=await sb.from('bikes').insert(bike);
-  // Race/unique-violation guard: another bike grabbed this number — retry once with a fresh number
-  if(insErr){
-    await loadData();
-    const retryNum=_nextBikeNumber();
-    bike.bike_number=retryNum;bike.name=customName||genBikeName(S.addBikeType,S._bkFrame,retryNum,size);
-    ({error:insErr}=await sb.from('bikes').insert(bike));
-    if(insErr){toast(insErr.message||t('errBikeNumberDup'),'error');return;}
+  const ins=await sb.from('bikes').insert(bike);
+  if(ins.error){
+    // Another device took this number between the check above and the insert. It used to be
+    // swapped for the next free one and saved anyway, under a name still carrying the old
+    // number - but the number is the sticker on the frame, so the desk picks it, not the code:
+    // the fleet reloads, the form stays open with the number flagged as taken.
+    const e=ins.error,dup=String(e.code||'')==='23505'||/duplicate|unique/i.test(e.message||'');
+    if(dup){await loadData();renderBikes();toast(t('errBikeNumberDup'),'error');return;}
+    _writeErr(ins,'add bike');return;
   }
   // Photo saved separately so a missing 'photo' column can't block adding a bike
   if(S._bkPhoto){try{await sb.from('bikes').update({photo:S._bkPhoto}).eq('id',bike.id);}catch(e){}}
@@ -17416,7 +17429,8 @@ async function addBike(){
   _resetBikeForm();
   toast(`${bike.name} ${t('toastAddedToFleet')}`);
   pushUndo(`${t('undoAddBike')} ${name}`,async()=>{
-    await sb.from('bikes').delete().eq('id',bike.id);
+    const r=await sb.from('bikes').delete().eq('id',bike.id);
+    if(_writeErr(r,'undo add bike'))return false;
     await loadData();renderBikes();
   });
   renderBikes();
@@ -17462,7 +17476,8 @@ function startClone(id){
   S._bkStartDate=_todayISO();
   renderBikes();_scrollToBikeForm();
 }
-async function saveBikeEdit(){
+async function saveBikeEdit(){if(_bkSaving)return;_bkSaving=true;try{await _saveBikeEditNow();}finally{_bkSaving=false;}}
+async function _saveBikeEditNow(){
   const size=document.getElementById('bk-size').value||'M';
   const brandRaw=document.getElementById('bk-brand')?.value.trim();
   const brand=(brandRaw&&brandRaw!=='__add__')?brandRaw:null;
@@ -17475,7 +17490,7 @@ async function saveBikeEdit(){
   if(!S.addBikeType){toast(t('errBikeTypeReq'),'error');return;}
   if(!S._bkFrame){toast(t('errBikeFrameReq'),'error');return;}
   const bikeNum=parseInt(document.getElementById('bk-number')?.value||S._bkNumber||'');
-  if(!bikeNum||bikeNum<1){toast(t('errBikeNumberReq'),'error');return;}
+  if(!_bkNumOk(bikeNum))return;
   if(getBikes().some(b=>b.id!==S.editBikeId&&Number(b.bike_number)===bikeNum)){toast(t('errBikeNumberDup'),'error');return;}
   const name=(document.getElementById('bk-name')?.value||'').trim()||genBikeName(S.addBikeType,S._bkFrame,bikeNum,size);
   _autoSaveBkOpts(brand,model,groupset);
@@ -17491,16 +17506,23 @@ async function saveBikeEdit(){
   const editColorNames=S.addBikeColorNames.slice(0,S.addBikeColors.length).map(n=>n||'');
   const rentalPrice=S._bkRentalPrice?parseFloat(S._bkRentalPrice)||null:null;
   const startDate=(document.getElementById('bk-start')?.value||S._bkStartDate||existing.in_service_date||_todayISO());
-  const prev={name:existing.name,size:existing.size,type:existing.type,colors:[...existing.colors],color_names:[...(existing.color_names||[])],status:existing.status,brand:existing.brand||null,model:existing.model||null,groupset:existing.groupset||null,speeds:existing.speeds||null,rental_price:existing.rental_price??null,frame_type:existing.frame_type||null,bike_number:existing.bike_number??null,in_service_date:existing.in_service_date||null};
+  // The status is not the form's to write, and neither is its undo's: the edit sent back the
+  // status this device last saw and the undo restored the one from edit time, so undoing an
+  // edit after the bike was retired (or handed out) put it back in the pool as available.
+  // Retire, maintenance, check-in and return own the status.
+  const prev={name:existing.name,size:existing.size,type:existing.type,colors:[...(existing.colors||[])],color_names:[...(existing.color_names||[])],brand:existing.brand||null,model:existing.model||null,groupset:existing.groupset||null,speeds:existing.speeds||null,rental_price:existing.rental_price??null,frame_type:existing.frame_type||null,bike_number:existing.bike_number??null,in_service_date:existing.in_service_date||null,wheel_size:existing.wheel_size||null,brake_type:existing.brake_type||null,weight_kg:existing.weight_kg??null};
+  const prevPhoto=existing.photo||null;
   const bid=S.editBikeId;
-  const{error}=await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:editColorNames,status:existing.status,brand,model,groupset,speeds,rental_price:rentalPrice,frame_type:S._bkFrame,bike_number:bikeNum,in_service_date:startDate,wheel_size:S._bkWheel||null,brake_type:S._bkBrake||null,weight_kg:_bkWeightVal()}).eq('id',bid);
-  if(error){toast(error.message||'Save failed','error');return;}
+  const{error}=await sb.from('bikes').update({name,size,type:S.addBikeType,colors:[...S.addBikeColors],color_names:editColorNames,brand,model,groupset,speeds,rental_price:rentalPrice,frame_type:S._bkFrame,bike_number:bikeNum,in_service_date:startDate,wheel_size:S._bkWheel||null,brake_type:S._bkBrake||null,weight_kg:_bkWeightVal()}).eq('id',bid);
+  if(error){toast(error.message||t('errSomethingWrong'),'error');return;}
   try{await sb.from('bikes').update({photo:S._bkPhoto||null}).eq('id',bid);}catch(e){}
   await loadData();
   _resetBikeForm();
   toast(t('toastBikeUpdated'));
   pushUndo(`${t('undoEditBike')} ${name}`,async()=>{
-    await sb.from('bikes').update(prev).eq('id',bid);
+    const r=await sb.from('bikes').update(prev).eq('id',bid);
+    if(_writeErr(r,'undo edit bike'))return false;
+    try{await sb.from('bikes').update({photo:prevPhoto}).eq('id',bid);}catch(e){}
     await loadData();renderBikes();
   });
   renderBikes();
@@ -17525,11 +17547,13 @@ async function toggleRetire(id){
 }
 async function releaseBike(id){
   const bike=getBikes().find(x=>x.id===id);if(!bike)return;
-  await sb.from('bikes').update({status:'available'}).eq('id',id);
+  const r=await sb.from('bikes').update({status:'available'}).eq('id',id);
+  if(_writeErr(r,'release bike')){await loadData();renderBikes();return;} // refused: no "released" toast over a bike still in use
   await loadData();
   toast(`${bike.name} ${t('releaseBikeToast')}`);
   pushUndo(`${t('undoRelease')} ${bike.name}`,async()=>{
-    await sb.from('bikes').update({status:'in-use'}).eq('id',id);
+    const u=await sb.from('bikes').update({status:'in-use'}).eq('id',id);
+    if(_writeErr(u,'undo release'))return false;
     await loadData();renderBikes();
   });
   renderBikes();
@@ -17566,16 +17590,37 @@ function _bkSelectMany(ids,checked){
 function bkClearSel(){S.bkSelected=[];renderBikes();}
 function _bkSelectedBikes(){return (S.bkSelected||[]).map(id=>getBikes().find(b=>b.id===id)).filter(Boolean);}
 
+// A bulk write, one PATCH per bike, answered per bike. The refusals used to be dropped on the
+// floor: the toast said every bike changed and the undo "restored" bikes that never moved.
+// Returns the bikes that did change; the error bar says once that some did not, and those
+// stay selected so the desk can try them again.
+async function _bkBulkWrite(bikes,patch,ctx){
+  const res=await Promise.all(bikes.map(b=>sb.from('bikes').update(patch).eq('id',b.id)));
+  const ok=bikes.filter((b,i)=>!(res[i]&&res[i].error));
+  _writeErr(res,ctx);
+  S.bkSelected=bikes.filter(b=>!ok.includes(b)).map(b=>b.id);
+  return ok;
+}
+// Its undo: each bike back to what it was, and a refusal reported rather than struck through.
+function _bkBulkUndo(label,prev){
+  pushUndo(label,async()=>{
+    const res=await Promise.all(prev.map(p=>{const{id,...was}=p;return sb.from('bikes').update(was).eq('id',id);}));
+    const bad=_writeErr(res,'undo bulk');
+    await loadData();renderBikes();
+    if(bad)return false;
+  });
+}
 async function bkBulkRetire(){
   const picked=_bkSelectedBikes();
   const eligible=picked.filter(b=>b.status!=='in-use'&&b.status!=='retired');
   if(!eligible.length){toast(t('bkBulkNoneEligible'),'error');return;}
-  confirmDialog({title:t('bkBulkRetire'),body:t('bkBulkRetireConfirm').replace('{0}',eligible.length),confirmLabel:t('bkBulkRetire'),confirmClass:'btn-muted',onConfirm:async()=>{
-    const prev=eligible.map(b=>({id:b.id,status:b.status,retired_date:b.retired_date||null}));
-    await Promise.all(eligible.map(b=>sb.from('bikes').update({status:'retired',retired_date:_todayISO()}).eq('id',b.id)));
-    await loadData();S.bkSelected=[];
-    toast(t('bkBulkUpdated').replace('{0}',eligible.length));
-    pushUndo(`${t('undoRetire')} (${eligible.length})`,async()=>{await Promise.all(prev.map(p=>sb.from('bikes').update({status:p.status,retired_date:p.retired_date}).eq('id',p.id)));await loadData();renderBikes();});
+  confirmDialog({title:t('bkBulkRetire'),body:esc(t('bkBulkRetireConfirm').replace('{0}',eligible.length)),confirmLabel:t('bkBulkRetire'),confirmClass:'btn-muted',onConfirm:async()=>{
+    const ok=await _bkBulkWrite(eligible,{status:'retired',retired_date:_todayISO()},'bulk retire');
+    await loadData();
+    if(ok.length){
+      toast(t('bkBulkUpdated').replace('{0}',ok.length));
+      _bkBulkUndo(`${t('undoRetire')} (${ok.length})`,ok.map(b=>({id:b.id,status:b.status,retired_date:b.retired_date||null})));
+    }
     renderBikes();
   }});
 }
@@ -17583,12 +17628,13 @@ async function bkBulkMaintenance(){
   const picked=_bkSelectedBikes();
   const eligible=picked.filter(b=>b.status!=='in-use'&&b.status!=='maintenance');
   if(!eligible.length){toast(t('bkBulkNoneEligible'),'error');return;}
-  confirmDialog({title:t('bkBulkMaint'),body:t('bkBulkMaintConfirm').replace('{0}',eligible.length),confirmLabel:t('bkBulkMaint'),confirmClass:'btn-muted',onConfirm:async()=>{
-    const prev=eligible.map(b=>({id:b.id,status:b.status,retired_date:b.retired_date||null}));
-    await Promise.all(eligible.map(b=>sb.from('bikes').update({status:'maintenance',retired_date:_todayISO()}).eq('id',b.id)));
-    await loadData();S.bkSelected=[];
-    toast(t('bkBulkUpdated').replace('{0}',eligible.length));
-    pushUndo(`${t('maintBtn')} (${eligible.length})`,async()=>{await Promise.all(prev.map(p=>sb.from('bikes').update({status:p.status,retired_date:p.retired_date}).eq('id',p.id)));await loadData();renderBikes();});
+  confirmDialog({title:t('bkBulkMaint'),body:esc(t('bkBulkMaintConfirm').replace('{0}',eligible.length)),confirmLabel:t('bkBulkMaint'),confirmClass:'btn-muted',onConfirm:async()=>{
+    const ok=await _bkBulkWrite(eligible,{status:'maintenance',retired_date:_todayISO()},'bulk maintenance');
+    await loadData();
+    if(ok.length){
+      toast(t('bkBulkUpdated').replace('{0}',ok.length));
+      _bkBulkUndo(`${t('maintBtn')} (${ok.length})`,ok.map(b=>({id:b.id,status:b.status,retired_date:b.retired_date||null})));
+    }
     renderBikes();
   }});
 }
@@ -17598,11 +17644,12 @@ async function bkBulkPrice(){
   const price=parseFloat(raw);
   if(!(price>=0)){toast(t('bkBulkPickPrice'),'error');return;}
   const picked=_bkSelectedBikes();if(!picked.length)return;
-  const prev=picked.map(b=>({id:b.id,rental_price:b.rental_price??null}));
-  await Promise.all(picked.map(b=>sb.from('bikes').update({rental_price:price}).eq('id',b.id)));
-  await loadData();S.bkSelected=[];
-  toast(t('bkBulkUpdated').replace('{0}',picked.length));
-  pushUndo(`${t('bkBulkSetPrice')} (${picked.length})`,async()=>{await Promise.all(prev.map(p=>sb.from('bikes').update({rental_price:p.rental_price}).eq('id',p.id)));await loadData();renderBikes();});
+  const ok=await _bkBulkWrite(picked,{rental_price:price},'bulk price');
+  await loadData();
+  if(ok.length){
+    toast(t('bkBulkUpdated').replace('{0}',ok.length));
+    _bkBulkUndo(`${t('bkBulkSetPrice')} (${ok.length})`,ok.map(b=>({id:b.id,rental_price:b.rental_price??null})));
+  }
   renderBikes();
 }
 function bkBulkExport(){
@@ -17660,8 +17707,11 @@ function openBikeProfile(id){
         ${(()=>{ // rides since the last recorded service; the history was always there, the
                  // "since when" was not. Amber past the threshold; never-recorded reads as
                  // untracked, not overdue — the fleet predates the column.
+          // Counted by when the ride happened, not when it was booked: a ride booked on Monday
+          // and ridden on Wednesday, after a service on Tuesday, is a ride since that service.
           const since=bike.last_serviced_at?Date.parse(bike.last_serviced_at):null;
-          const n=since==null?null:done.filter(e=>Date.parse(e.registeredAt||0)>since).length;
+          const rodeAt=e=>Date.parse(e.checkedOutAt||e.checkedInAt||'')||(e.sessionDate?Date.parse(String(e.sessionDate).slice(0,10)+'T23:59:59+03:00'):NaN)||Date.parse(e.registeredAt||0);
+          const n=since==null?null:done.filter(e=>rodeAt(e)>since).length;
           const due=n!=null&&n>=SERVICE_EVERY_RIDES;
           const v=n==null?t('bpSvcNever'):String(n);
           return `<div style="flex:1;min-width:90px;background:${due?'rgba(var(--warn-rgb),.12)':'var(--s1)'};border:1px solid ${due?'rgba(var(--warn-rgb),.5)':'var(--border)'};border-radius:5px;padding:8px 10px;text-align:center">
@@ -17670,7 +17720,7 @@ function openBikeProfile(id){
           </div>`;})()}
       </div>
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
-        <button class="btn-sm btn-muted" onclick="markBikeServiced('${bike.id}')">${t('bpMarkServiced')}</button>
+        <button class="btn-sm btn-muted" onclick="markBikeServiced(${_ja(bike.id)})">${t('bpMarkServiced')}</button>
         ${bike.last_serviced_at?`<span style="font-size:11px;color:var(--muted);font-weight:700">${t('bpLastServiced')} ${shortDate(bike.last_serviced_at)}</span>`:''}
       </div>
       <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:12px 0 4px">${t('bpSpecsTitle')}</div>
@@ -17678,15 +17728,15 @@ function openBikeProfile(id){
         ${spec(t('bikeBrand'),bike.brand)}${spec(t('bikeModel'),bike.model)}${spec(t('bikeGroupset'),bike.groupset)}
         ${spec(t('bikeSpeeds'),bike.speeds)}${spec(t('bikeRentalPrice'),bike.rental_price!=null?'SAR '+bike.rental_price:'')}
         ${spec(t('lifespanLabel'),_bikeLifespan(bike)!=='—'?_bikeLifespan(bike):(bike.in_service_date?t('bpInServiceLabel')+' '+shortDate(bike.in_service_date):''))}
-        <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0"><span style="color:var(--muted);font-size:12px">${t('bpColorsLabel')}</span><span style="display:flex;gap:4px">${colors.map(c=>`<span style="width:14px;height:14px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3)"></span>`).join('')}</span></div>
+        <div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0"><span style="color:var(--muted);font-size:12px">${t('bpColorsLabel')}</span><span style="display:flex;gap:4px">${colors.map(c=>`<span style="width:14px;height:14px;border-radius:50%;background:${esc(c)};border:1.5px solid rgba(0,0,0,.3)"></span>`).join('')}</span></div>
       </div>
       <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 4px">${t('bpHistoryTitle')}</div>
       <div style="max-height:260px;overflow-y:auto">${histRows}</div>
       ${fbHtml}
       <div style="display:flex;gap:8px;margin-top:16px">
-        ${(()=>{const h=bike.status==='in-use'?getQueue().find(e=>e.status==='active'&&getAssignedBikeIds(e).includes(bike.id)):null;return h?`<button class="btn-primary" onclick="closeBikeProfile();doReturn('${h.id}')">${t('returnBikeBtn')} · #${h.queueNum} ${esc(h.name)}</button>`:'';})()}
-        <button class="btn-secondary" onclick="closeBikeProfile();startEdit('${bike.id}')">${t('editBtn')}</button>
-        <button class="btn-secondary" onclick="closeBikeProfile();startClone('${bike.id}')">${t('cloneBtn')}</button>
+        ${(()=>{const h=bike.status==='in-use'?getQueue().find(e=>e.status==='active'&&getAssignedBikeIds(e).includes(bike.id)):null;return h?`<button class="btn-primary" onclick="closeBikeProfile();doReturn(${_ja(h.id)})">${t('returnBikeBtn')} · #${h.queueNum} ${esc(h.name)}</button>`:'';})()}
+        <button class="btn-secondary" onclick="closeBikeProfile();startEdit(${_ja(bike.id)})">${t('editBtn')}</button>
+        <button class="btn-secondary" onclick="closeBikeProfile();startClone(${_ja(bike.id)})">${t('cloneBtn')}</button>
       </div>
     </div>
   </div>`;
@@ -17700,11 +17750,15 @@ function delBike(id){
   if(!bike||bike.status==='in-use'){toast(t('errBikeInUse'),'error');return;}
   confirmDialog({
     title:t('confirmDeleteBikeTitle'),
-    body:bike.name,
+    body:esc(bike.name), // confirmDialog's body is HTML
     confirmLabel:t('deleteBtn'),
     confirmClass:'btn-red',
     onConfirm:async()=>{
-      const saved={id:bike.id,name:bike.name,size:bike.size,type:bike.type,colors:[...(bike.colors||[])],color_names:[...(bike.color_names||[])],brand:bike.brand||null,model:bike.model||null,groupset:bike.groupset||null,speeds:bike.speeds||null,status:'available',location:bike.location||null,frame_type:bike.frame_type||null,bike_number:bike.bike_number??null,rental_price:bike.rental_price??null,in_service_date:bike.in_service_date||null,photo:bike.photo||null}; // undo must bring back the premium price + service date, not type defaults
+      // Undo brings back the bike as it was: the premium price, the service date, the specs and
+      // the service record, and the status it had (a bike in maintenance comes back in
+      // maintenance, not straight into the pool). Only the columns this device reads can be
+      // put back; the tag id is not among them, so a deleted bike's NFC tag is re-linked by hand.
+      const saved={id:bike.id,name:bike.name,size:bike.size,type:bike.type,colors:[...(bike.colors||[])],color_names:[...(bike.color_names||[])],brand:bike.brand||null,model:bike.model||null,groupset:bike.groupset||null,speeds:bike.speeds||null,status:bike.status||'available',retired_date:bike.retired_date||null,location:bike.location||null,frame_type:bike.frame_type||null,bike_number:bike.bike_number??null,rental_price:bike.rental_price??null,in_service_date:bike.in_service_date||null,photo:bike.photo||null,wheel_size:bike.wheel_size||null,brake_type:bike.brake_type||null,weight_kg:bike.weight_kg??null,last_serviced_at:bike.last_serviced_at||null};
       // bike_assignments references bikes(id) with no ON DELETE, so any bike that has been
       // handed out since the assignments table shipped cannot be deleted. Unchecked, the toast
       // claimed it was removed and the fleet list quietly showed it still there.
@@ -17712,7 +17766,8 @@ function delBike(id){
       if(_writeErr(_db,'delete bike',()=>delBike(id))){await loadData();renderBikes();return;}
       await loadData();toast(`${bike.name} ${t('toastBikeRemoved')}`);
       pushUndo(`${t('undoDeleteBike')} ${bike.name}`,async()=>{
-        await sb.from('bikes').insert(saved);
+        const r=await sb.from('bikes').insert(saved);
+        if(_writeErr(r,'undo delete bike'))return false;
         await loadData();renderBikes();
       });
       renderBikes();
@@ -17726,9 +17781,9 @@ function _bkFieldHtml(id,val,addMode,list){
     return`<div style="display:flex;gap:6px">
       <input id="${id}" type="text" value="${esc(val)}" placeholder="${t('typeNewLabel')||'Type new...'}"
         style="flex:1"
-        onkeydown="if(event.key==='Enter'){event.preventDefault();_bkOptSave('${id}');}">
-      <button class="btn-primary" style="padding:8px 14px;flex-shrink:0;white-space:nowrap" onclick="_bkOptSave('${id}')">✓ ${t('saveBtn')||'Save'}</button>
-      <button class="btn-secondary" style="padding:8px 10px;flex-shrink:0" onclick="_bkOptCancel('${id}')" aria-label="${t('cancelBtn')}">${_artIcon('close',11)}</button>
+        onkeydown="if(event.key==='Enter'){event.preventDefault();_bkOptSave(${_ja(id)});}">
+      <button class="btn-primary" style="padding:8px 14px;flex-shrink:0;white-space:nowrap" onclick="_bkOptSave(${_ja(id)})">✓ ${t('saveBtn')||'Save'}</button>
+      <button class="btn-secondary" style="padding:8px 10px;flex-shrink:0" onclick="_bkOptCancel(${_ja(id)})" aria-label="${t('cancelBtn')}">${_artIcon('close',11)}</button>
     </div>`;
   }
   // A value the list does not hold still has to be selectable, or the field silently empties
@@ -17738,7 +17793,7 @@ function _bkFieldHtml(id,val,addMode,list){
   // source's options are only on their way into the list as the form renders.
   const _list=(val&&!list.includes(val))?[val,...list]:list;
   const opts=_list.map(v=>`<option value="${esc(v)}"${v===val?' selected':''}>${esc(v)}</option>`).join('');
-  return`<select id="${id}" onchange="_bkSelChange('${id}',this.value)">
+  return`<select id="${id}" onchange="_bkSelChange(${_ja(id)},this.value)">
     <option value=""${!val?' selected':''}>—</option>
     ${opts}
     <option value="__add__">+ ${t('addNewOption')||'Add new...'}</option>
@@ -17818,7 +17873,7 @@ async function _optListSave(){
   if(!ok)return;
   closeOptListModal();renderBikes();
 }
-function _optEditBtn(kind){return`<button type="button" class="opt-edit" title="${esc(t('optEditList'))}" aria-label="${esc(t('optEditList'))}" onclick="showOptListModal('${kind}')">✎</button>`;}
+function _optEditBtn(kind){return`<button type="button" class="opt-edit" title="${esc(t('optEditList'))}" aria-label="${esc(t('optEditList'))}" onclick="showOptListModal(${_ja(kind)})">✎</button>`;}
 function _bkSelChange(id,val){
   if(val==='__add__'){
     if(id==='bk-brand'){S._bkBrand='';S._bkBrandAdd=true;}
@@ -17866,7 +17921,9 @@ async function _autoSaveBkOpts(brand,model,groupset){
 
 
 function fmtStamp(iso){if(!iso)return'';try{return new Date(iso).toLocaleString(_locale(),{timeZone:KSA_TZ,day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});}catch(_){return'';}}
-function fmtDur(min){if(!min||min<1)return'—';if(min<60)return`${min} min`;return`${Math.floor(min/60)}h ${min%60}m`;}
+// Minutes as "35 min" / "1 h 35 min" in the reader's language (the units were English in every
+// language). Rounded first: the averages handed in here are fractional.
+function fmtDur(min){min=Math.round(Number(min)||0);if(min<1)return'—';if(min<60)return`${min} ${t('unitMin')}`;return`${Math.floor(min/60)} ${t('unitHour')} ${min%60} ${t('unitMin')}`;}
 
 // ── A rider's bookings, for staff ────────────────────────────────────────────────
 // One window per rider: what they have coming up, each with Edit, and every booking before
@@ -18009,7 +18066,7 @@ function _ahRender(force){
         </div>
         ${statusBadgeFor(x)}
         <bdi class="ah-price${x.paid?' paid':''}">${_fmtSar(price)}</bdi>
-        ${canEdit?`<button type="button" class="btn-sm btn-secondary ah-edit" onclick="showBookingEditModal('${esc(x.id)}')" aria-label="${esc(t('editBtn'))} · #${esc(x.queueNum)} ${esc(x.name||'')}">${ICON_PENCIL} ${t('editBtn')}</button>`:''}
+        ${canEdit?`<button type="button" class="btn-sm btn-secondary ah-edit" onclick="showBookingEditModal(${_ja(x.id)})" aria-label="${esc(t('editBtn'))} · #${esc(x.queueNum)} ${esc(x.name||'')}">${ICON_PENCIL} ${t('editBtn')}</button>`:''}
       </div>`;
     }).join('');
     return`<div class="ah-bk ${s?_evClass(s):''}">
@@ -18023,7 +18080,7 @@ function _ahRender(force){
     </div>`;
   };
   const head=c?`<span id="cp-flag-wrap" data-cust="${esc(c.id)}">${_cfFlagHtml(c)}</span>
-      <button type="button" class="btn-sm btn-secondary" onclick="_ahEditAccount('${esc(c.id)}')">${ICON_PENCIL} ${t('naEditTitle')}</button>`:'';
+      <button type="button" class="btn-sm btn-secondary" onclick="_ahEditAccount(${_ja(c.id)})">${ICON_PENCIL} ${t('naEditTitle')}</button>`:'';
   const chips=c?(()=>{const tm=_tagsById();return _ctRowsFor(c.id).filter(ct=>tm[ct.tag_id]).map(ct=>_tagChip(tm[ct.tag_id],ct)).join('');})():'';
   const contact=c?[c.phone,c.email].filter(Boolean):(a.custId?[a.phone]:[]).filter(Boolean);
   const ptot=Math.round(purch.reduce((sum,r)=>sum+(Number(r.qty)||0)*(Number(r.price)||0),0)*100)/100;
@@ -18075,7 +18132,10 @@ async function loadRiders(){
   _ridersLoading=(async()=>{
     try{
       await _sbReady;if(!sb)return;
-      const r=await _pagedAll(()=>sb.from('rider_registrations').select('*').order('updated_at',{ascending:false}));
+      // id breaks the ties: rows touched in the same instant (a party's companions, a burst of
+      // check-ins) have no order of their own, so one could land on both sides of a page break
+      // and another on neither.
+      const r=await _pagedAll(()=>sb.from('rider_registrations').select('*').order('updated_at',{ascending:false}).order('id'));
       if(r.error)throw r.error;
       S.riders=r.data||[];S.ridersLoaded=true;
     }catch(e){console.warn('riders load failed',e);if(!S.ridersLoaded)toast(t('ridersLoadErr'),'error');}
@@ -18129,8 +18189,8 @@ function _ridersFiltered(){
   if(q)rows=rows.filter(r=>String(r.badge||'').toLowerCase().includes(q)||String(r.name||'').toLowerCase().includes(q)||String(r.phone||'').includes(q)||String(r.booking_no||'').toLowerCase().includes(q)||String(r.company||'').toLowerCase().includes(q)||(()=>{const e=_riderEntry(r);return !!e&&String(e.queueNum)===q;})());
   return rows;
 }
-// Minutes between check-in and return, shown under the check-out time as 1h 35m.
-function _riderDur(a,b){const ms=new Date(b)-new Date(a);if(!(ms>0))return '';const m=Math.round(ms/60000),h=Math.floor(m/60);return h?`${h}h ${String(m%60).padStart(2,'0')}m`:`${m}m`;}
+// Minutes between check-in and return, shown under the check-out time as "1 h 35 min".
+function _riderDur(a,b){const ms=new Date(b)-new Date(a);if(!(ms>0))return '';const m=Math.round(ms/60000),h=Math.floor(m/60);return h?`${h} ${t('unitHour')} ${String(m%60).padStart(2,'0')} ${t('unitMin')}`:`${m} ${t('unitMin')}`;} // units in the reader's language
 function _riderClock(iso){try{return new Date(iso).toLocaleTimeString(_locale(),{timeZone:KSA_TZ,hour:'2-digit',minute:'2-digit'});}catch(e){return '';}}
 // Check-in / return: paint first, reconcile after (same order as the queue actions). The price is
 // set by a database trigger at return time and is never rendered in this tab.
@@ -18214,9 +18274,9 @@ function _renderRiderModal(){
       </div>
       ${(()=>{const pl=_riderParty(r);if(pl.length<2)return'';
         const st=x=>x.checked_out_at?[t('ridersFilterReturned'),'var(--muted)']:x.checked_in_at?[t('ridersFilterRiding'),'var(--green)']:[t('ridersFilterWaiting'),'var(--orange)'];
-        const act=x=>!x.checked_in_at?`<button class="btn-sm btn-green" onclick="riderCheckin('${x.id}')">${t('ridersCheckIn')}</button>`
-          :!x.checked_out_at?`<button class="btn-sm btn-green" onclick="riderReturn('${x.id}')">${t('ridersReturn')}</button><button class="btn-sm btn-muted" onclick="riderUndoCheckin('${x.id}')">${t('ridersUndoCheckin')}</button>`
-          :`<button class="btn-sm btn-muted" onclick="riderUndoReturn('${x.id}')">${t('ridersUndoReturn')}</button>`;
+        const act=x=>!x.checked_in_at?`<button class="btn-sm btn-green" onclick="riderCheckin(${_ja(x.id)})">${t('ridersCheckIn')}</button>`
+          :!x.checked_out_at?`<button class="btn-sm btn-green" onclick="riderReturn(${_ja(x.id)})">${t('ridersReturn')}</button><button class="btn-sm btn-muted" onclick="riderUndoCheckin(${_ja(x.id)})">${t('ridersUndoCheckin')}</button>`
+          :`<button class="btn-sm btn-muted" onclick="riderUndoReturn(${_ja(x.id)})">${t('ridersUndoReturn')}</button>`;
         return`<div id="rider-party" style="margin-top:14px"><div style="font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)">${esc(t('ciPartyLabel'))} · ${pl.length}</div>
         ${pl.map(x=>`<div class="rider-party-row" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
           <div style="min-width:0"><b>${esc(x.name)}</b>${x.id===r.id?` <span style="color:var(--muted);font-size:11px">· ${esc(t('ridersPartyOf').replace('{0}',_riderPartyNo(x)).replace('{1}',pl.length))}</span>`:''}
@@ -18225,11 +18285,11 @@ function _renderRiderModal(){
           <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end">${act(x)}</div></div>`).join('')}</div>`;})()}
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeRiderModal()">${t('closeBtn')}</button>
-        ${_riderParty(r).some(x=>!x.checked_in_at)&&_riderParty(r).length>1?`<button id="rider-checkin-all" class="btn-primary" onclick="riderCheckinParty('${r.id}')">${t('ridersCheckInAll')}</button>`:''}
-        <button class="btn-secondary" onclick="showRiderEdit('${r.id}')">${t('editBtn')}</button>
-        ${!r.checked_in_at?`<button id="rider-checkin" class="btn-primary" onclick="riderCheckin('${r.id}')">${t('ridersCheckIn')}</button>`
-        :!r.checked_out_at?`<button class="btn-secondary" onclick="riderUndoCheckin('${r.id}')">${t('ridersUndoCheckin')}</button><button id="rider-return" class="btn-primary" onclick="riderReturn('${r.id}')">${t('ridersReturn')}</button>`
-        :`<button class="btn-secondary" onclick="riderUndoReturn('${r.id}')">${t('ridersUndoReturn')}</button>`}
+        ${_riderParty(r).some(x=>!x.checked_in_at)&&_riderParty(r).length>1?`<button id="rider-checkin-all" class="btn-primary" onclick="riderCheckinParty(${_ja(r.id)})">${t('ridersCheckInAll')}</button>`:''}
+        <button class="btn-secondary" onclick="showRiderEdit(${_ja(r.id)})">${t('editBtn')}</button>
+        ${!r.checked_in_at?`<button id="rider-checkin" class="btn-primary" onclick="riderCheckin(${_ja(r.id)})">${t('ridersCheckIn')}</button>`
+        :!r.checked_out_at?`<button class="btn-secondary" onclick="riderUndoCheckin(${_ja(r.id)})">${t('ridersUndoCheckin')}</button><button id="rider-return" class="btn-primary" onclick="riderReturn(${_ja(r.id)})">${t('ridersReturn')}</button>`
+        :`<button class="btn-secondary" onclick="riderUndoReturn(${_ja(r.id)})">${t('ridersUndoReturn')}</button>`}
       </div>
     </div></div>`;
 }
@@ -18338,8 +18398,12 @@ function _splitPhone(p){ // stored E.164 -> the form's code + local part, by the
 function showRiderEdit(id){
   const r=(S.riders||[]).find(x=>String(x.id)===String(id));if(!r)return;
   const ph=_splitPhone(r.phone);
+  // The night belongs to the whole party - one badge, one number - so it moves only from the
+  // employee's row, and only while nobody in the party is on a bike (checked in here or on the
+  // queue). Moving a companion alone, or a party with someone already out, split it in two.
+  const onBike=x=>!!x.checked_in_at||(e=>!!e&&e.status==='active')(_riderEntry(x));
   S._rw={editId:String(r.id),session:r.session_id||'',company:r.company||'',badge:r.badge||'',name:r.name||'',cc:ph.cc,phone:ph.local,
-    height:r.height?String(r.height):'',type:r.type_preference||'',checkin:false,err:'',saving:false,locked:!!r.checked_in_at,badgeLocked:_riderPartyNo(r)>1,bookingNo:r.booking_no||'',
+    height:r.height?String(r.height):'',type:r.type_preference||'',checkin:false,err:'',saving:false,locked:_riderPartyNo(r)>1||_riderParty(r).some(onBike),badgeLocked:_riderPartyNo(r)>1,bookingNo:r.booking_no||'',
     // the companions already on this number, editable in place; a removed one is remembered for the save
     riders:_riderParty(r).filter(x=>_riderPartyNo(x)>1).map(x=>({id:x.id,name:x.name||'',height:x.height?String(x.height):'',type:x.type_preference||'',locked:!!x.checked_in_at})),removed:[]};
   // The pop-up sits above the form and would take the taps; dismiss it without the
@@ -18362,15 +18426,19 @@ function renderRiderWalkin(){
   // Editing: the row's own session stays listed even if it is over or closed, so the form
   // can show it (and leave it) rather than silently moving the rider.
   if(edit&&d.session&&!sess.some(x=>x.id===d.session)){const cur=allSessions().find(x=>x.id===d.session);if(cur)sess=[cur,...sess];}
-  const sessOpts=sess.map(s=>`<option value="${esc(s.id)}"${d.session===s.id?' selected':''}>${shortDate(String(s.session_date||s.id).slice(0,10))} · ${esc(sessionTime(s))}</option>`).join('');
+  // A registration made before rides had sessions has none. The picker used to show the first
+  // night as if it were chosen while the form held nothing, so Save failed "pick a session"
+  // with no way to pick the one on screen; a "—" now stands for "no session" and can be kept.
+  const noSess=edit&&!d.session;
+  const sessOpts=(noSess?'<option value="" selected>—</option>':'')+sess.map(s=>`<option value="${esc(s.id)}"${d.session===s.id?' selected':''}>${shortDate(String(s.session_date||s.id).slice(0,10))} · ${esc(sessionTime(s))}</option>`).join('');
   const ccOpts=COUNTRY_CODES.map(([code])=>`<option value="${code}"${d.cc===code?' selected':''}>${code}</option>`).join('');
-  const typeBtns=['Road','Hybrid','Mountain'].map(ty=>`<button type="button" class="toggle-btn${d.type===ty?' active':''}" onclick="_rwInput('type','${ty}');renderRiderWalkin()">${typeLabel(ty)}</button>`).join('');
-  const coBtns=['Petromin','Petrolube'].map(c=>`<button type="button" class="toggle-btn${d.company===c?' active':''}" onclick="_rwInput('company',S._rw.company==='${c}'?'':'${c}');renderRiderWalkin()">${c}</button>`).join('');
+  const typeBtns=['Road','Hybrid','Mountain'].map(ty=>`<button type="button" class="toggle-btn${d.type===ty?' active':''}" onclick="_rwInput('type',${_ja(ty)});renderRiderWalkin()">${typeLabel(ty)}</button>`).join('');
+  const coBtns=['Petromin','Petrolube'].map(c=>`<button type="button" class="toggle-btn${d.company===c?' active':''}" onclick="_rwInput('company',S._rw.company===${_ja(c)}?'':${_ja(c)});renderRiderWalkin()">${c}</button>`).join('');
   m.style.display='flex';
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeRiderWalkin()"><div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="rw-title" style="max-width:460px">
     <div class="modal-title" id="rw-title">${edit?`${t('ridersEditTitle')}${d.bookingNo?` · <span style="font-variant-numeric:tabular-nums">${esc(d.bookingNo)}</span>`:''}`:t('ridersWalkinTitle')}</div>
     <div class="modal-sub">${edit?t('ridersEditSub'):t('ridersWalkinSub')}</div>
-    ${sess.length?`<div class="form-group"><label for="rw-session">${t('colSession')}</label><select id="rw-session" onchange="_rwInput('session',this.value)"${d.locked?' disabled':''}>${sessOpts}</select></div>`:`<div class="pg-msg" role="alert">${t('ridersWalkinNoSess')}</div>`}
+    ${sess.length||noSess?`<div class="form-group"><label for="rw-session">${t('colSession')}</label><select id="rw-session" onchange="_rwInput('session',this.value)"${d.locked?' disabled':''}>${sessOpts}</select></div>`:`<div class="pg-msg" role="alert">${t('ridersWalkinNoSess')}</div>`}
     <div class="form-group"><label>${t('ridersCompany')} <span class="label-hint">(${t('optionalLabel')})</span></label><div style="display:flex;gap:6px">${coBtns}</div></div>
     <div class="form-group"><label for="rw-badge">${t('colBadge')}</label><input id="rw-badge" value="${esc(d.badge)}" oninput="_rwInput('badge',this.value)" autocomplete="off" maxlength="40"${d.badgeLocked?' disabled':''}></div>
     <div class="form-group"><label for="rw-name">${t('ridersWalkinName')}</label><input id="rw-name" value="${esc(d.name)}" oninput="_rwInput('name',this.value)" autocomplete="off" maxlength="120"></div>
@@ -18393,7 +18461,7 @@ function renderRiderWalkin(){
     </div>`:''}
     <div class="modal-footer"><button type="button" class="btn-muted" onclick="closeRiderWalkin()">${t('cancelBtn')}</button>${d.retry
       ?`<button type="button" id="rw-submit" class="btn-green" onclick="_rwRetry()"${d.saving?' disabled':''}>${d.saving?t('pgSaving'):t('retryBtn')}</button>`
-      :`<button type="button" id="rw-submit" class="btn-green" onclick="${edit?'saveRiderEdit()':'submitRiderWalkin()'}"${d.saving||d.dup||!sess.length?' disabled':''}>${d.saving?t('pgSaving'):edit?t('saveBtn'):t('ridersWalkinAdd')}</button>`}</div>
+      :`<button type="button" id="rw-submit" class="btn-green" onclick="${edit?'saveRiderEdit()':'submitRiderWalkin()'}"${d.saving||d.dup||(!sess.length&&!edit)?' disabled':''}>${d.saving?t('pgSaving'):edit?t('saveBtn'):t('ridersWalkinAdd')}</button>`}</div>
   </div></div>`;
 }
 // The form's own checks - the same ones rider_register() applies, so the desk hears about a
@@ -18405,7 +18473,7 @@ function _rwValidate(d){
   const phoneRaw=String(d.phone||'').trim();const phoneDigits=phoneRaw.replace(/\D/g,'');
   const phone=phoneDigits?_normPhone(phoneRaw,d.cc||'+966'):null;
   d.err='';
-  if(!d.session)d.err=t('ridersWalkinErrSession');
+  if(!d.session&&!d.editId)d.err=t('ridersWalkinErrSession'); // an edit may keep a registration that never had one
   else if(!badge)d.err=t('ridersWalkinErrBadge');
   else if(!name||!/\s/.test(name))d.err=t('ridersWalkinErrName');
   else if(phoneDigits&&!/^\+\d{8,15}$/.test(phone||''))d.err=t('ridersWalkinErrPhone');
@@ -18430,6 +18498,28 @@ function _rwValidate(d){
   });
   return d.err?null:{badge,name,h,phone,riders};
 }
+// A booking write that landed, mirrored on this tab's copy of the row (a fresh array, so
+// nothing keyed on the old one keeps a stale answer). The rest of the save, and a retry of it,
+// then work from what the server now holds: the next queue number counts a rider just moved
+// in, and a retry does not move anyone a second time.
+const _RW_BK_COLS={name:'name',phone:'phone',height:'height',size:'size',type_preference:'typePreference',price:'price',session_id:'sessionId',session_day:'sessionDay',session_date:'sessionDate',queue_num:'queueNum',status:'status'};
+function _rwBookingLanded(id,p){
+  const up={};Object.keys(p).forEach(k=>{if(_RW_BK_COLS[k])up[_RW_BK_COLS[k]]=p[k];});
+  S.queue=(S.queue||[]).map(x=>x.id===id?{...x,...up}:x);
+}
+// What one rider's live booking has to change to follow the form: the fields the staff
+// booking editor covers, with its repricing rule, measured against the booking itself.
+function _rwBookingPatch(e,want){
+  const p={};
+  if(want.name&&want.name!==e.name)p.name=want.name;
+  if(want.phone!==undefined&&(want.phone||'')!==(e.phone||''))p.phone=want.phone||'';
+  if(want.height!=null&&want.height!==e.height){p.height=want.height;p.size=heightToSize(want.height);}
+  if(want.type&&want.type!==e.typePreference){
+    p.type_preference=want.type;
+    if(!e.paid&&(e.price??DEFAULT_PRICE)===priceForEntryType(e,e.typePreference||'Any'))p.price=priceForEntryType(e,want.type);
+  }
+  return p;
+}
 async function saveRiderEdit(){
   const d=S._rw;if(!d||!d.editId||d.saving)return;
   const r=(S.riders||[]).find(x=>String(x.id)===d.editId);if(!r){closeRiderWalkin();return;}
@@ -18446,30 +18536,8 @@ async function saveRiderEdit(){
   if(d.type!==r.type_preference)patch.type_preference=d.type;
   const moving=!d.locked&&!!d.session&&d.session!==(r.session_id||'');
   if(moving)patch.session_id=d.session;
-  // The rider's booking, while it is live, follows: the same fields the staff booking editor
-  // covers, with its repricing rule and its capacity check on a move.
-  const e=r.matched_entry_id?getQueue().find(x=>x.id===r.matched_entry_id&&['waiting','waitlist','active'].includes(x.status)):null;
-  let ePatch=null;
-  if(e){
-    ePatch={};
-    if(patch.name!==undefined)ePatch.name=name;
-    if(patch.phone!==undefined)ePatch.phone=phone||'';
-    if(patch.height!==undefined){ePatch.height=h;ePatch.size=heightToSize(h);}
-    if(patch.type_preference!==undefined&&d.type!==e.typePreference){
-      ePatch.type_preference=d.type;
-      if(!e.paid&&(e.price??DEFAULT_PRICE)===priceForEntryType(e,e.typePreference||'Any'))ePatch.price=priceForEntryType(e,d.type);
-    }
-    if(moving&&e.status!=='active'){
-      const ns=allSessions().find(x=>x.id===d.session);
-      if(!ns){d.err=t('ridersWalkinErrSession');renderRiderWalkin();return;}
-      if(e.status!=='waitlist'&&spotsLeft(d.session)<1){d.err=t('rescheduleFull');renderRiderWalkin();return;}
-      ePatch.session_id=d.session;ePatch.session_day=ns.day;ePatch.session_date=ns.session_date||d.session;
-      ePatch.queue_num=nextQNum(d.session); // fresh number in the target session; the old number's gap stays
-      if(e.status==='waitlist')ePatch.status='waiting';
-    }
-    if(!Object.keys(ePatch).length)ePatch=null;
-  }
-  // Companions: what changed on the saved ones, which were dropped, which are new.
+  // Companions: what changed on the saved ones, which were dropped, which are new. The party
+  // shares one night, so a move takes every companion's row with it.
   const compUpd=[];
   for(const c of v.riders.filter(c=>c.id)){
     const ex=(S.riders||[]).find(x=>String(x.id)===String(c.id));if(!ex)continue;
@@ -18484,8 +18552,42 @@ async function saveRiderEdit(){
     if(Object.keys(cp).length)compUpd.push([ex.id,cp]);
   }
   const compDel=(d.removed||[]).slice(),compNew=v.riders.filter(c=>!c.id);
+  // What the bookings have to follow, kept on the form between attempts. Once a registration
+  // row is saved, a retry compares the form with it and finds nothing left to do, so a booking
+  // write that failed after it used to be dropped: the modal closed with the booking still on
+  // the old night under the old name. The wish stays until the bookings match it.
+  const bk=d._bk=d._bk||{emp:{},comp:{},to:null,cancel:[],add:[]};
+  if(patch.name!==undefined)bk.emp.name=name;
+  if(patch.phone!==undefined)bk.emp.phone=phone;
+  if(patch.height!==undefined)bk.emp.height=h;
+  if(patch.type_preference!==undefined)bk.emp.type=d.type;
+  if(moving)bk.to=d.session;
+  for(const [id,cp] of compUpd){const w=bk.comp[id]=bk.comp[id]||{};if(cp.name!==undefined)w.name=cp.name;if(cp.height!==undefined)w.height=cp.height;if(cp.type_preference!==undefined)w.type=cp.type_preference;}
+  const live=x=>!!x&&['waiting','waitlist','active'].includes(x.status);
+  const bkOf=reg=>{const x=reg&&reg.matched_entry_id?getQueue().find(q=>q.id===reg.matched_entry_id):null;return live(x)?x:null;};
+  const e=bkOf(r);
+  // A dropped companion's booking goes with them: remembered before their row is deleted,
+  // cancelled below. It used to stay on the night, holding a place nobody would take.
+  compDel.forEach(id=>{const reg=(S.riders||[]).find(y=>String(y.id)===String(id)),x=reg&&!reg.checked_in_at?bkOf(reg):null;if(x&&!bk.cancel.some(c=>c.id===x.id))bk.cancel.push({reg:id,id:x.id});});
+  bk.add=bk.add.filter(a=>!compDel.some(id=>String(id)===String(a.id)));
+  // Every booking in the party that has to change, and the night they move to. The rider's
+  // booking follows the edit; so does each companion's, which used to stay behind on the old
+  // night while the employee's moved on.
+  const ns=bk.to?allSessions().find(x=>x.id===bk.to):null;
+  if(bk.to&&!ns){d.err=t('ridersWalkinErrSession');renderRiderWalkin();return;}
+  const keep=new Set(v.riders.filter(c=>c.id).map(c=>String(c.id)));
+  const jobs=[];
+  const plan=(x,want)=>{if(!x)return;const p=_rwBookingPatch(x,want||{});const mv=!!ns&&x.sessionId!==ns.id;if(mv||Object.keys(p).length)jobs.push({id:x.id,p,mv,x});};
+  plan(e,bk.emp);
+  _riderParty(r).filter(c=>String(c.id)!==String(r.id)&&keep.has(String(c.id))).forEach(c=>plan(bkOf(c),bk.comp[c.id]));
+  const movers=jobs.filter(j=>j.mv);
+  if(movers.some(j=>j.x.status==='active')){d.err=t('ridersEditOnBike');renderRiderWalkin();return;}
+  // Room for everyone who moves, as the staff booking editor and the party reschedule count
+  // it. A waitlisted booking is no exception: the move makes it a booking on the new night, so
+  // letting it skip the check put a full night over its capacity.
+  if(movers.length&&spotsLeft(ns.id)<movers.length){d.err=t('rescheduleFull');renderRiderWalkin();return;}
   const compWork=compUpd.length||compDel.length||compNew.length;
-  if(!Object.keys(patch).length&&!ePatch&&!compWork){closeRiderWalkin();return;}
+  if(!Object.keys(patch).length&&!jobs.length&&!compWork&&!bk.cancel.length&&!bk.add.length){closeRiderWalkin();return;}
   d.saving=true;d.err='';renderRiderWalkin();
   if(Object.keys(patch).length){
     const res=await sb.from('rider_registrations').update(patch).eq('id',r.id);
@@ -18493,24 +18595,59 @@ async function saveRiderEdit(){
       const dup=res.error.code==='23505'||/duplicate|unique/i.test(res.error.message||'');
       d.saving=false;d.err=dup?t('ridersEditDup'):t('ridersWalkinErr');renderRiderWalkin();return;
     }
-    await loadRiders(); // the row is saved: a retry after a booking slip below recomputes an empty patch here
-  }
-  if(ePatch){
-    const res=await sb.from('queue_entries').update(ePatch).eq('id',e.id);
-    if(_writeErr(res,'edit booking',()=>saveRiderEdit())){d.saving=false;renderRiderWalkin();return;}
+    await loadRiders();
   }
   let compErr=null;
   for(const [id,cp] of compUpd){const res=await sb.from('rider_registrations').update(cp).eq('id',id);if(res.error)compErr=res.error;}
-  for(const id of compDel){const res=await sb.from('rider_registrations').delete().eq('id',id).is('checked_in_at',null);if(res.error)compErr=res.error;}
+  for(const id of compDel){const res=await sb.from('rider_registrations').delete().eq('id',id).is('checked_in_at',null);if(res.error)compErr=res.error;else d.removed=(d.removed||[]).filter(x=>String(x)!==String(id));}
+  // The bookings, one write each, mirrored locally as they land (see _rwBookingLanded).
+  let touched=false;
+  for(const j of jobs){
+    const p={...j.p};
+    if(j.mv){
+      const cur=getQueue().find(x=>x.id===j.id)||j.x;
+      p.session_id=ns.id;p.session_day=ns.day;p.session_date=ns.session_date||ns.id;
+      p.queue_num=nextQNum(ns.id); // a fresh number on the new night; the old number's gap stays
+      if(cur.status==='waitlist')p.status='waiting';
+    }
+    const res=await sb.from('queue_entries').update(p).eq('id',j.id);
+    if(_writeErr(res,'edit booking',()=>saveRiderEdit())){d.saving=false;renderRiderWalkin();return;}
+    _rwBookingLanded(j.id,p);touched=true;
+  }
+  // The night the employee's booking is on now: the new one after a move. Settled here, from
+  // the move itself - the booking in hand from before it still names the old night, which is
+  // where companions added in the same save used to be booked.
+  const night=e?(ns?ns.id:e.sessionId):null;
+  for(const c of bk.cancel.slice()){
+    if((d.removed||[]).some(x=>String(x)===String(c.reg)))continue; // their row is still there (the delete was refused): so is their place
+    const x=getQueue().find(q=>q.id===c.id);
+    if(live(x)&&x.status!=='active'){await _staffCancelNow(c.id);touched=true;} // the desk's own cancel: the place is handed on, add-ons go back, and it can be undone
+    const after=getQueue().find(q=>q.id===c.id);
+    if(live(after)&&after.status!=='active'){d.saving=false;d.err=t('ridersWalkinErr');renderRiderWalkin();return;} // refused: the error bar says why, Save tries again
+    bk.cancel=bk.cancel.filter(y=>y.id!==c.id);
+  }
   if(compNew.length&&!compErr){
     const {data,error}=await sb.rpc('rider_party_add',{p_id:r.id,p_riders:compNew.map(c=>({name:c.name,height:c.height,type:c.type}))});
     if(error||!data||!data.ok)compErr=error||data||{};
-    else if(e&&['waiting','waitlist','active'].includes(e.status)){
-      // They ride tonight with the employee: a booking each, like a walk-in party, linked back.
-      const entries=await _wiInsertRiders(e.sessionId,compNew.map(c=>({name:c.name,height:c.height,type:c.type})),phone||'',null);
+    else{
+      // They are on the party now: the form holds their ids (and the names they were given), so
+      // a retry edits these rows instead of adding the same people a second time.
       const ids=Array.isArray(data.ids)?data.ids:[];
-      for(let i=0;i<ids.length;i++){const en=entries&&entries[i];if(en)await sb.from('rider_registrations').update({matched_entry_id:en.id,matched_customer_id:en.customerId||null,match_kind:'booking'}).eq('id',ids[i]);}
+      (d.riders||[]).filter(c=>!c.id).forEach((c,i)=>{if(ids[i]!=null){c.id=ids[i];c.name=compNew[i].name;}});
+      if(e)ids.forEach((id,i)=>{if(compNew[i])bk.add.push({id,name:compNew[i].name,height:compNew[i].height,type:compNew[i].type});});
     }
+  }
+  if(bk.add.length){
+    // They ride with the employee: a booking each, on the employee's night (see above).
+    if(night){
+      // No phone: the booking that carries it is the employee's, and _linkCustomer would read
+      // it as the companion's own and file their booking under the employee's account.
+      const entries=await _wiInsertRiders(night,bk.add.map(c=>({name:c.name,height:c.height,type:c.type})),'',null);
+      if(!entries){closeErrorBar();d.saving=false;d.err=t('ridersWalkinHalfDone');renderRiderWalkin();return;} // one error, in the form, and Save finishes it
+      touched=true;
+      for(let i=0;i<bk.add.length;i++){const en=entries[i];if(en)await sb.from('rider_registrations').update({matched_entry_id:en.id,matched_customer_id:en.customerId||null,match_kind:'booking'}).eq('id',bk.add[i].id);}
+    }
+    bk.add=[];
   }
   if(compErr){
     console.warn('companions save failed',compErr);
@@ -18520,7 +18657,7 @@ async function saveRiderEdit(){
   closeRiderWalkin();
   logAction(`${t('ridersEditTitle')}: ${r.booking_no||''} ${name}`);
   toast(t('ridersEditSaved').replace('{0}',name));
-  await Promise.all([loadRiders(),ePatch?loadDataLight():Promise.resolve()]);
+  await Promise.all([loadRiders(),touched?loadDataLight():Promise.resolve()]);
   renderRiders();
   openRiderModal(r.id); // the pop-up the Edit was opened from comes back, showing the saved row
 }
@@ -18669,7 +18806,7 @@ function renderRiders(_resultsOnly){
     const sess=r.session_id?(_sessById.get(r.session_id)||null):null;
     const _pl=_riderParty(r),_ps=_pl.length,_pn=_riderPartyNo(r),_lead=_pn>1?_pl[0]:null;
     return`<tr${ctx.party?' class="party-row" style="border-left:2px solid rgba(var(--green-rgb),.2)"':''}>
-      <td><button type="button" class="status-badge badge-active" style="font-variant-numeric:tabular-nums;font:inherit;font-weight:800;cursor:pointer;border:0" onclick="openRiderModal('${r.id}')">${esc(r.booking_no||'')}</button>${_ps>1?`<div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(t('ridersPartyOf').replace('{0}',_pn).replace('{1}',_ps))}</div>`:''}${(ctx.party&&ctx.first)?`${ctx.party.some(x=>!x.checked_in_at)?`<div><button class="btn-sm btn-green" style="margin-top:4px;white-space:nowrap" onclick="riderCheckinParty('${r.id}')">${t('ridersCheckInAll')} (${ctx.party.filter(x=>!x.checked_in_at).length})</button></div>`:''}${ctx.party.some(x=>x.checked_in_at&&!x.checked_out_at)?`<div><button class="btn-sm btn-green" style="margin-top:4px;white-space:nowrap" onclick="riderReturnParty('${r.id}')">${t('returnAllBtn')} (${ctx.party.filter(x=>x.checked_in_at&&!x.checked_out_at).length})</button></div>`:''}<div><button type="button" class="party-toggle" aria-expanded="true" onclick="_toggleRiderParty('${esc(r.booking_no)}')">${t('partyHideRiders')} ▴</button></div>`:''}</td>
+      <td><button type="button" class="status-badge badge-active" style="font-variant-numeric:tabular-nums;font:inherit;font-weight:800;cursor:pointer;border:0" onclick="openRiderModal(${_ja(r.id)})">${esc(r.booking_no||'')}</button>${_ps>1?`<div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(t('ridersPartyOf').replace('{0}',_pn).replace('{1}',_ps))}</div>`:''}${(ctx.party&&ctx.first)?`${ctx.party.some(x=>!x.checked_in_at)?`<div><button class="btn-sm btn-green" style="margin-top:4px;white-space:nowrap" onclick="riderCheckinParty(${_ja(r.id)})">${t('ridersCheckInAll')} (${ctx.party.filter(x=>!x.checked_in_at).length})</button></div>`:''}${ctx.party.some(x=>x.checked_in_at&&!x.checked_out_at)?`<div><button class="btn-sm btn-green" style="margin-top:4px;white-space:nowrap" onclick="riderReturnParty(${_ja(r.id)})">${t('returnAllBtn')} (${ctx.party.filter(x=>x.checked_in_at&&!x.checked_out_at).length})</button></div>`:''}<div><button type="button" class="party-toggle" aria-expanded="true" onclick="_toggleRiderParty(${_ja(r.booking_no)})">${t('partyHideRiders')} ▴</button></div>`:''}</td>
       <td><strong>${esc(r.badge)}</strong>${r.company?`<div style="font-size:11px;color:var(--muted)">${esc(r.company)}</div>`:''}</td>
       <td>${esc(r.name)}${r.phone?`<div style="font-size:12px"><a href="https://wa.me/${esc(_waDigits(r.phone))}" target="_blank" rel="noopener" dir="ltr" style="color:var(--green)">${esc(r.phone)}</a></div>`:''}${_lead?`<div style="font-size:11px;color:var(--muted)">${esc(t('ridersWith').replace('{0}',_lead.name||''))}</div>`:''}${Number(r.submissions)>1?`<div style="font-size:11px;color:var(--muted)">${esc(t('ridersResub').replace('{0}',r.submissions))}</div>`:''}</td>
       <td>${r.height?`${esc(String(r.height))} ${t('cmUnit')}`:`<span style="color:var(--muted)">·</span>`}</td>
@@ -18677,8 +18814,8 @@ function renderRiders(_resultsOnly){
       <td>${r.session_id?`${shortDate(r.session_id.slice(0,10))}${sess?`<div style="font-size:11px;color:var(--muted)">${esc(sessionTime(sess))}</div>`:''}`:`<span style="color:var(--muted)">·</span>`}</td>
       <td class="rider-time" style="white-space:nowrap">${r.checked_in_at?`<strong dir="ltr">${esc(_riderClock(r.checked_in_at))}</strong>${r.checked_in_by?`<div style="font-size:11px;color:var(--muted)">${esc(t('ridersBy').replace('{0}',r.checked_in_by))}</div>`:''}`:`<span style="color:var(--muted)">·</span>`}</td>
       <td class="rider-time" style="white-space:nowrap">${r.checked_out_at?`<strong dir="ltr">${esc(_riderClock(r.checked_out_at))}</strong>${_riderDur(r.checked_in_at,r.checked_out_at)?`<div style="font-size:11px;color:var(--muted)">${esc(t('ridersRideTime').replace('{0}',_riderDur(r.checked_in_at,r.checked_out_at)))}</div>`:''}${r.checked_out_by?`<div style="font-size:11px;color:var(--muted)">${esc(t('ridersBy').replace('{0}',r.checked_out_by))}</div>`:''}`:`<span style="color:var(--muted)">·</span>`}</td>
-      <td style="white-space:nowrap">${!r.checked_in_at?`<button class="btn-sm btn-green" onclick="riderCheckin('${r.id}')">${t('ridersCheckIn')}</button>`:!r.checked_out_at?`<button class="btn-sm btn-green" onclick="riderReturn('${r.id}')">${t('ridersReturn')}</button> <button class="btn-sm btn-muted" onclick="riderUndoCheckin('${r.id}')">${t('ridersUndoCheckin')}</button>`:`<button class="btn-sm btn-muted" onclick="riderUndoReturn('${r.id}')">${t('ridersUndoReturn')}</button>`}
-        <button class="btn-sm btn-muted" onclick="showRiderEdit('${r.id}')">${t('editBtn')}</button> <button class="btn-sm btn-muted" onclick="confirmRiderRemove('${r.id}')">${t('ridersRemove')}</button></td>
+      <td style="white-space:nowrap">${!r.checked_in_at?`<button class="btn-sm btn-green" onclick="riderCheckin(${_ja(r.id)})">${t('ridersCheckIn')}</button>`:!r.checked_out_at?`<button class="btn-sm btn-green" onclick="riderReturn(${_ja(r.id)})">${t('ridersReturn')}</button> <button class="btn-sm btn-muted" onclick="riderUndoCheckin(${_ja(r.id)})">${t('ridersUndoCheckin')}</button>`:`<button class="btn-sm btn-muted" onclick="riderUndoReturn(${_ja(r.id)})">${t('ridersUndoReturn')}</button>`}
+        <button class="btn-sm btn-muted" onclick="showRiderEdit(${_ja(r.id)})">${t('editBtn')}</button> <button class="btn-sm btn-muted" onclick="confirmRiderRemove(${_ja(r.id)})">${t('ridersRemove')}</button></td>
     </tr>`;
   };
   // A folded party: the employee's row stands for everyone, with the counts and the desk
@@ -18689,15 +18826,15 @@ function renderRiders(_resultsOnly){
     const counts=[[nWait,'ridersFilterWaiting'],[nIn,'ridersFilterRiding'],[nOut,'ridersFilterReturned']].filter(([c])=>c>0).map(([c,k])=>`${c} ${t(k).toLowerCase()}`).join(' · ');
     const types=[...new Set(g.map(x=>x.type_preference).filter(Boolean))];
     return`<tr class="party-row" style="border-left:2px solid rgba(var(--green-rgb),.2)">
-      <td><button type="button" class="status-badge badge-active" style="font-variant-numeric:tabular-nums;font:inherit;font-weight:800;cursor:pointer;border:0" onclick="openRiderModal('${r.id}')">${esc(r.booking_no||'')}</button><div style="font-size:10px;color:var(--green);font-weight:800;margin-top:3px">${esc(t('ridersPartyCount').replace('{0}',n))}</div></td>
+      <td><button type="button" class="status-badge badge-active" style="font-variant-numeric:tabular-nums;font:inherit;font-weight:800;cursor:pointer;border:0" onclick="openRiderModal(${_ja(r.id)})">${esc(r.booking_no||'')}</button><div style="font-size:10px;color:var(--green);font-weight:800;margin-top:3px">${esc(t('ridersPartyCount').replace('{0}',n))}</div></td>
       <td><strong>${esc(r.badge)}</strong>${r.company?`<div style="font-size:11px;color:var(--muted)">${esc(r.company)}</div>`:''}</td>
-      <td>${esc(r.name)}${r.phone?`<div style="font-size:12px"><a href="https://wa.me/${esc(_waDigits(r.phone))}" target="_blank" rel="noopener" dir="ltr" style="color:var(--green)">${esc(r.phone)}</a></div>`:''}<div style="font-size:11px;color:var(--muted)">${esc(counts)}</div><button type="button" class="party-toggle" aria-expanded="false" onclick="_toggleRiderParty('${esc(r.booking_no)}')">${t('partyShowRiders')} ▾</button></td>
+      <td>${esc(r.name)}${r.phone?`<div style="font-size:12px"><a href="https://wa.me/${esc(_waDigits(r.phone))}" target="_blank" rel="noopener" dir="ltr" style="color:var(--green)">${esc(r.phone)}</a></div>`:''}<div style="font-size:11px;color:var(--muted)">${esc(counts)}</div><button type="button" class="party-toggle" aria-expanded="false" onclick="_toggleRiderParty(${_ja(r.booking_no)})">${t('partyShowRiders')} ▾</button></td>
       <td>${r.height?`${esc(String(r.height))} ${t('cmUnit')}`:`<span style="color:var(--muted)">·</span>`}</td>
       <td><div style="display:flex;gap:4px;flex-wrap:wrap">${types.map(ty=>typeBadge(ty)).join('')}</div></td>
       <td>${r.session_id?`${shortDate(r.session_id.slice(0,10))}${sess?`<div style="font-size:11px;color:var(--muted)">${esc(sessionTime(sess))}</div>`:''}`:`<span style="color:var(--muted)">·</span>`}</td>
       <td class="rider-time" style="white-space:nowrap"><strong>${n-nWait}/${n}</strong></td>
       <td class="rider-time" style="white-space:nowrap"><strong>${nOut}/${n}</strong></td>
-      <td style="white-space:nowrap">${nWait?`<button class="btn-sm btn-green" onclick="riderCheckinParty('${r.id}')">${t('ridersCheckInAll')}</button> `:''}${nIn?`<button class="btn-sm btn-green" onclick="riderReturnParty('${r.id}')">${t('returnAllBtn')} (${nIn})</button> <button class="btn-sm btn-muted" onclick="riderUndoCheckinParty('${r.id}')">${t('undoCheckinBtn')} (${nIn})</button> `:''}<button class="btn-sm btn-muted" onclick="showRiderEdit('${r.id}')">${t('editBtn')}</button></td>
+      <td style="white-space:nowrap">${nWait?`<button class="btn-sm btn-green" onclick="riderCheckinParty(${_ja(r.id)})">${t('ridersCheckInAll')}</button> `:''}${nIn?`<button class="btn-sm btn-green" onclick="riderReturnParty(${_ja(r.id)})">${t('returnAllBtn')} (${nIn})</button> <button class="btn-sm btn-muted" onclick="riderUndoCheckinParty(${_ja(r.id)})">${t('undoCheckinBtn')} (${nIn})</button> `:''}<button class="btn-sm btn-muted" onclick="showRiderEdit(${_ja(r.id)})">${t('editBtn')}</button></td>
     </tr>`;
   };
   // Group the filtered rows by booking number, in the order they appear.
@@ -18713,7 +18850,7 @@ function renderRiders(_resultsOnly){
     <thead><tr><th>${t('colBookingNo')}</th><th>${t('colBadge')}</th><th>${t('colRider')}</th><th>${t('colHeight')}</th><th>${t('bikeTypeLabel')}</th><th>${t('colSession')}</th><th>${t('colCheckedIn')}</th><th>${t('colCheckedOut')}</th><th></th></tr></thead>
     <tbody>${body}${emptyRow}</tbody></table></div>`;
   if(_resultsOnly){const el=document.getElementById('riders-results');if(el){el.innerHTML=results;return;}}
-  const pill=(v,label,n)=>`<button class="filter-pill${S.ridersFilter===v?' active':''}" onclick="setRidersFilter('${v}')">${label} <span style="opacity:.7">${n}</span></button>`;
+  const pill=(v,label,n)=>`<button class="filter-pill${S.ridersFilter===v?' active':''}" onclick="setRidersFilter(${_ja(v)})">${label} <span style="opacity:.7">${n}</span></button>`;
   // Every night with registrations, plus the open Petromin nights (tonight's page exists before anyone registers).
   const sessIds=[...new Set([...all.map(r=>r.session_id).filter(Boolean),..._pmNights().filter(_sessLive).map(x=>x.id),...(S.ridersSession&&S.ridersSession!=='all'?[S.ridersSession]:[])])].sort().reverse();
   const sessSel=sessIds.length?`<select class="filter-select" onchange="setRidersSession(this.value)" aria-label="${esc(t('colSession'))}"><option value="all"${S.ridersSession==='all'?' selected':''}>${t('ridersFilterAll')}</option>${sessIds.map(id=>`<option value="${esc(id)}"${S.ridersSession===id?' selected':''}>${shortDate(id.slice(0,10))} (${all.filter(r=>r.session_id===id).length})</option>`).join('')}</select>`:'';
@@ -18738,6 +18875,35 @@ function renderRiders(_resultsOnly){
     <div id="riders-results">${results}</div>`;
 }
 
+// The History tab's rows, filtered and sorted exactly as the screen shows them. Shared with
+// the CSV export, which used to apply only the session and the date range, so a list narrowed
+// to "Pending" or one rider's name exported every ride of the night.
+function _histRows(){
+  const hist=getQueue().filter(e=>e.status==='done'||e.status==='noshow'||e.status==='cancelled'||e.status==='removed');
+  // The range runs up to today, not open-ended: a booking cancelled for next week is not
+  // "today's" history, and it used to sit under Today, 7 days and 30 days alike.
+  const today=todayStr();
+  const cut=S.histRange==='today'?today:S.histRange==='7d'?fmtDate(new Date(Date.now()-7*864e5)):S.histRange==='30d'?fmtDate(new Date(Date.now()-30*864e5)):null;
+  const inRange=e=>{if(!cut)return true;const d=String(e.sessionDate||'').slice(0,10);return d>=cut&&d<=today;};
+  const sessionFiltered=(S.histSess!=='all'?hist.filter(e=>e.sessionId===S.histSess):hist).filter(inRange);
+  let filtered=sessionFiltered.slice();
+  if(S.histStatus!=='all') filtered=filtered.filter(e=>e.status===S.histStatus);
+  if(S.histPay==='paid')   filtered=filtered.filter(e=>e.paid);
+  if(S.histPay==='pending')filtered=filtered.filter(e=>!e.paid&&e.status==='done');
+  if(S.histType!=='all')   filtered=filtered.filter(e=>resolvedType(e)===S.histType);
+  if(S.histSize!=='all')   filtered=filtered.filter(e=>e.size===S.histSize);
+  if((S.histSearch||'').trim()){const q=S.histSearch.trim().toLowerCase().replace(/^#/,'');filtered=filtered.filter(e=>String(e.name||'').toLowerCase().includes(q)||(e.phone||'').includes(q)||(e.email||'').toLowerCase().includes(q)||String(e.queueNum)===q||_matchesRef(e,q));}
+  const _hd=S.histSortDir;
+  filtered.sort((a,b)=>{
+    if(S.histSort==='name')   return _hd*String(a.name||'').localeCompare(String(b.name||''));
+    if(S.histSort==='amount') return _hd*((a.price||0)-(b.price||0));
+    if(S.histSort==='type')   return _hd*(resolvedType(a)||'').localeCompare(resolvedType(b)||'');
+    if(S.histSort==='status') return _hd*(a.status||'').localeCompare(b.status||'');
+    if(S.histSort==='dur')    return _hd*((a.rideDuration||0)-(b.rideDuration||0));
+    return _hd*(new Date(a.registeredAt)-new Date(b.registeredAt));
+  });
+  return{hist,sessionFiltered,filtered};
+}
 function renderHistory(_resultsOnly){
   if(!_resultsOnly&&document.activeElement&&document.activeElement.id==='hist-search-input'&&document.getElementById('hist-results'))_resultsOnly=true;
   const _hvPills=`<div class="filter-row" style="margin-bottom:12px">
@@ -18749,39 +18915,18 @@ function renderHistory(_resultsOnly){
     if(_hl){_hl.innerHTML=`<div class="section-header" style="margin-bottom:8px"><div><div class="page-title">${t('historyTitle')}</div></div></div>${_hvPills}<div id="hist-log-host"></div>`;renderLogs();}
     return;
   }
-  const queue=getQueue();const hist=queue.filter(e=>e.status==='done'||e.status==='noshow'||e.status==='cancelled'||e.status==='removed');
   const sessions=allSessions();
-  const _hrCut=S.histRange==='today'?todayStr():S.histRange==='7d'?fmtDate(new Date(Date.now()-7*864e5)):S.histRange==='30d'?fmtDate(new Date(Date.now()-30*864e5)):null;
-  const _hrOk=e=>!_hrCut||String(e.sessionDate||'')>=_hrCut;
-  S.histSelected=(S.histSelected||[]).filter(id=>{const e=hist.find(x=>x.id===id);return e&&e.status==='done'&&!e.paid;}); // drop rows that got paid/removed since selection
-  const sessionFiltered=(S.histSess!=='all'?hist.filter(e=>e.sessionId===S.histSess):hist).filter(_hrOk);
+  const {hist,sessionFiltered,filtered}=_histRows();
+  S.histSelected=(S.histSelected||[]).filter(id=>{const e=hist.find(x=>x.id===id);return e&&e.status==='done'&&!e.paid&&!_freeSessIds.has(e.sessionId);}); // drop rows that got paid/removed since selection
   const nDone=sessionFiltered.filter(e=>e.status==='done').length,nPaid=sessionFiltered.filter(e=>e.status==='done'&&e.paid).length,
         nPend=sessionFiltered.filter(e=>e.status==='done'&&!e.paid).length,nNoShow=sessionFiltered.filter(e=>e.status==='noshow').length;
   const _hr2=n=>Math.round(n*100)/100;
   const sarCollected=_hr2(sessionFiltered.filter(e=>e.status==='done'&&e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0));
   const sarPending=_hr2(sessionFiltered.filter(e=>e.status==='done'&&!e.paid).reduce((s,e)=>s+(e.price??DEFAULT_PRICE),0));
-  let filtered=[...hist];
-  if(S.histSess!=='all')   filtered=filtered.filter(e=>e.sessionId===S.histSess);
-  filtered=filtered.filter(_hrOk);
-  if(S.histStatus!=='all') filtered=filtered.filter(e=>e.status===S.histStatus);
-  if(S.histPay==='paid')   filtered=filtered.filter(e=>e.paid);
-  if(S.histPay==='pending')filtered=filtered.filter(e=>!e.paid&&e.status==='done');
-  if(S.histType!=='all')   filtered=filtered.filter(e=>resolvedType(e)===S.histType);
-  if(S.histSize!=='all')   filtered=filtered.filter(e=>e.size===S.histSize);
-  if(S.histSearch.trim()){const q=S.histSearch.trim().toLowerCase().replace(/^#/,'');filtered=filtered.filter(e=>e.name.toLowerCase().includes(q)||(e.phone||'').includes(q)||(e.email||'').toLowerCase().includes(q)||String(e.queueNum)===q||_matchesRef(e,q));}
-  const _hd=S.histSortDir;
-  filtered.sort((a,b)=>{
-    if(S.histSort==='name')   return _hd*a.name.localeCompare(b.name);
-    if(S.histSort==='amount') return _hd*((a.price||0)-(b.price||0));
-    if(S.histSort==='type')   return _hd*(resolvedType(a)||'').localeCompare(resolvedType(b)||'');
-    if(S.histSort==='status') return _hd*(a.status||'').localeCompare(b.status||'');
-    if(S.histSort==='dur')    return _hd*((a.rideDuration||0)-(b.rideDuration||0));
-    return _hd*(new Date(a.registeredAt)-new Date(b.registeredAt));
-  });
   function thHistSort(col,label,cls=''){
     const active=S.histSort===col;
     const arrow=active?(S.histSortDir===1?'↑':'↓'):'';
-    return`<th class="an-sort-th${active?' an-sort-active':''}${cls?' '+cls:''}" onclick="setHistSort('${col}')">${label}${active?' '+arrow:''}</th>`;
+    return`<th class="an-sort-th${active?' an-sort-active':''}${cls?' '+cls:''}" onclick="setHistSort(${_ja(col)})">${label}${active?' '+arrow:''}</th>`;
   }
   const hStatusOpts=['all','done','noshow','cancelled','removed'].map(s=>{
     const l={all:t('filterAll'),done:t('filterDone'),noshow:t('filterNoshow'),cancelled:t('statusCancelled'),removed:t('removedLabel')||'Removed'}[s];
@@ -18794,7 +18939,7 @@ function renderHistory(_resultsOnly){
   const hSortOpts=[['date',t('sortNewest')],['name',t('sortName')],['type',t('sortType')],['amount',t('colPayment')],['status',t('colStatus')],['dur',t('colDuration')]].map(([v,l])=>
     `<option value="${v}"${S.histSort===v?' selected':''}>${l}</option>`).join('');
   const sessOpts=`<option value="all"${S.histSess==='all'?' selected':''}>${t('allSessions')}</option>`+
-    sessions.filter(s=>s.status!=='deleted').sort(_sessOrder).map(s=>`<option value="${s.id}"${S.histSess===s.id?' selected':''}>${dayLabel(s.day)} ${s.display}</option>`).join('');
+    sessions.filter(s=>s.status!=='deleted').sort(_sessOrder).map(s=>`<option value="${esc(s.id)}"${S.histSess===s.id?' selected':''}>${esc(dayLabel(s.day))} ${esc(s.display||'')}</option>`).join('');
   const hRangeOpts=[['all',t('filterAll')],['today',t('histRangeToday')],['7d',t('histRange7')],['30d',t('histRange30')]].map(([v,l])=>`<option value="${v}"${S.histRange===v?' selected':''}>${l}</option>`).join('');
   const _histShown=filtered.slice(0,S.histLimit||60);
   const _hc=_listCols(_histShown);
@@ -18811,7 +18956,7 @@ function renderHistory(_resultsOnly){
         ${regDate?`<div style="font-size:10px;color:var(--muted);margin-top:3px;font-weight:600">${regDate}</div>`:''}
       </td>
       <td>
-        <div class="rider-name" role="button" tabindex="0" onclick="openCustomerProfile('${e.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCustomerProfile('${e.id}');}" style="cursor:pointer;text-decoration:underline;text-decoration-color:rgba(var(--tint-rgb),.2);text-underline-offset:2px" title="${t('custProfileTitle')}">${esc(e.name)}${wiTag}${noShowFlag(e)}</div>
+        <div class="rider-name" role="button" tabindex="0" onclick="openCustomerProfile(${_ja(e.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openCustomerProfile(${_ja(e.id)});}" style="cursor:pointer;text-decoration:underline;text-decoration-color:rgba(var(--tint-rgb),.2);text-underline-offset:2px" title="${t('custProfileTitle')}">${esc(e.name)}${wiTag}${noShowFlag(e)}</div>
         <div class="rider-sub" style="margin-top:3px"><bdi>${esc(fmtPhone(e.phone))||'—'}</bdi></div>
         <div class="rider-sub">${hasEmail?esc(em):`<span style="font-style:italic;color:var(--muted)">${t('noEmailLabel')}</span>`}</div>
       </td>
@@ -18824,14 +18969,14 @@ function renderHistory(_resultsOnly){
       </td>
       ${_hc.bike?`<td style="font-weight:700;font-size:13px">${bike?esc(bike.name):`<span style="color:var(--muted)">—</span>`}</td>`:''}
       ${_hc.bike?`<td><div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap">
-        ${bike&&bike.colors&&bike.colors.length?bike.colors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${c};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join(''):'<span style="color:var(--muted)">—</span>'}
+        ${bike&&bike.colors&&bike.colors.length?bike.colors.map(c=>`<span style="display:inline-block;width:13px;height:13px;border-radius:50%;background:${esc(c)};border:1.5px solid rgba(0,0,0,.3);flex-shrink:0"></span>`).join(''):'<span style="color:var(--muted)">—</span>'}
       </div></td>`:''}
       ${_hc.money?`<td style="font-weight:900;font-size:15px;white-space:nowrap;color:${payColor}">SAR ${e.price??DEFAULT_PRICE}</td>`:''}
       ${_hc.money?`<td onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-          ${e.status==='done'&&!e.paid?`<button class="btn-sm" title="${t('selectRowTip')}" onclick="toggleHistSelect('${e.id}')" style="padding:4px 8px;background:${S.histSelected.includes(e.id)?'rgba(var(--green-rgb),.18)':'rgba(var(--tint-rgb),.04)'};border:1px solid ${S.histSelected.includes(e.id)?'var(--green)':'rgba(var(--tint-rgb),.14)'};color:${S.histSelected.includes(e.id)?'var(--green)':'var(--muted)'}">${S.histSelected.includes(e.id)?_artIcon('boxOn',13):_artIcon('boxOff',13)}</button>`:''}
-          ${_freeSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu('${e.id}',event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
-          <button onclick="showEditPriceModal('${e.id}')" title="${t('editPriceBtn')}" aria-label="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:6px;min-width:24px;min-height:24px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>
+          ${e.status==='done'&&!e.paid&&!_freeSessIds.has(e.sessionId)?`<button class="btn-sm" title="${t('selectRowTip')}" onclick="toggleHistSelect(${_ja(e.id)})" style="padding:4px 8px;background:${S.histSelected.includes(e.id)?'rgba(var(--green-rgb),.18)':'rgba(var(--tint-rgb),.04)'};border:1px solid ${S.histSelected.includes(e.id)?'var(--green)':'rgba(var(--tint-rgb),.14)'};color:${S.histSelected.includes(e.id)?'var(--green)':'var(--muted)'}">${S.histSelected.includes(e.id)?_artIcon('boxOn',13):_artIcon('boxOff',13)}</button>`:''}
+          ${_freeSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu(${_ja(e.id)},event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
+          <button onclick="showEditPriceModal(${_ja(e.id)})" title="${t('editPriceBtn')}" aria-label="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:6px;min-width:24px;min-height:24px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>
         </div>
       </td>`:''}
       <td>${statusBadgeFor(e)}</td>
@@ -18842,10 +18987,10 @@ function renderHistory(_resultsOnly){
       <td>${_contactCell(e.phone,e)}</td>
       <td><div class="actions-cell">
         ${e.status==='removed'
-          ?`<button class="btn-sm btn-green" onclick="doRestoreEntry('${e.id}')">${t('restoreEntryBtn')||'Restore'}</button>`
+          ?`<button class="btn-sm btn-green" onclick="doRestoreEntry(${_ja(e.id)})">${t('restoreEntryBtn')||'Restore'}</button>`
           :`<div style="display:flex;gap:5px;flex-wrap:nowrap;align-items:center">
-              ${hasEmail&&e.status==='done'?`<button class="btn-sm btn-green" onclick="showReceipt('${e.id}')">${t('sendReceipt')}</button>`:''}
-              <button class="btn-sm btn-muted" onclick="confirmHistRemove('${e.id}')">${t('removeBtn')}</button>
+              ${hasEmail&&e.status==='done'?`<button class="btn-sm btn-green" onclick="showReceipt(${_ja(e.id)})">${t('sendReceipt')}</button>`:''}
+              <button class="btn-sm btn-muted" onclick="confirmHistRemove(${_ja(e.id)})">${t('removeBtn')}</button>
             </div>`}
       </div></td>
     </tr>`;
@@ -18870,11 +19015,11 @@ function renderHistory(_resultsOnly){
         ?`<div style="color:var(--muted);font-size:13px">${t('logsEmpty')}</div>`
         :S.histLog.map(l=>`<div style="display:flex;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid rgba(var(--tint-rgb),.05);font-size:13px">
             <span style="color:var(--muted);font-size:10px;white-space:nowrap;flex-shrink:0">${l.time}</span>
-            <span style="font-weight:800;color:${l.action==='Removed'?'var(--red)':'var(--green)'}${l.undone?';text-decoration:line-through;opacity:.5':''}">${l.action}</span>
+            <span style="font-weight:800;color:${l.action===t('histRemoved')?'var(--red)':'var(--green)'}${l.undone?';text-decoration:line-through;opacity:.5':''}">${l.action}</span>
             <span style="font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">#${l.queueNum} ${esc(l.name)}</span>
             <span style="color:var(--muted);font-size:11px;white-space:nowrap">${l.session}</span>
             ${l.undoFn&&!l.undone
-              ?`<button onclick="undoHistLog('${l.id}')" style="flex-shrink:0;padding:3px 8px;border-radius:2px;border:1px solid rgba(var(--green-rgb),.3);background:rgba(var(--green-rgb),.08);color:var(--green);font-family:var(--font-body);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">${_artIcon('undo',12)} ${t('undoBtn')||'Undo'}</button>`
+              ?`<button onclick="undoHistLog(${_ja(l.id)})" style="flex-shrink:0;padding:3px 8px;border-radius:2px;border:1px solid rgba(var(--green-rgb),.3);background:rgba(var(--green-rgb),.08);color:var(--green);font-family:var(--font-body);font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">${_artIcon('undo',12)} ${t('undoBtn')||'Undo'}</button>`
               :l.undone?`<span style="font-size:10px;color:var(--muted)">${t('undoneTag')}</span>`:''}
           </div>`).join('')}
     </div>`:''}
@@ -18938,9 +19083,16 @@ function setHistStatus(v){S.histStatus=v;renderHistory();}
 function setHistRange(v){S.histRange=v;S.histLimit=60;renderHistory();}
 function toggleHistSelect(id){S.histSelected=S.histSelected||[];const i=S.histSelected.indexOf(id);if(i>=0)S.histSelected.splice(i,1);else S.histSelected.push(id);renderHistory();}
 async function bulkHistMarkPaid(){
-  const ids=(S.histSelected||[]).slice();if(!ids.length)return;
-  const res=await Promise.all(ids.map(id=>sb.from('queue_entries').update({paid:true,pay_method:'card'}).eq('id',id)));
+  // Only rides that still owe something. A free ride has nothing to collect - its row offers no
+  // selection any more, and one picked before that is dropped here.
+  const rows=(S.histSelected||[]).map(id=>getQueue().find(e=>e.id===id)).filter(e=>e&&e.status==='done'&&!e.paid&&!_freeSessIds.has(e.sessionId));
+  if(!rows.length){S.histSelected=[];renderHistory();return;}
+  // The same write as marking one row paid from its pill (togglePayment): card, any split
+  // cleared, and an incidental price of 0 (no promo) back to the bike's price - otherwise the
+  // row turned into "on the house" by accident. A promo's deliberate 0 stays 0.
+  const res=await Promise.all(rows.map(e=>{const p={paid:true,pay_method:'card',card_amount:null};if(e.price===0&&!e.promoCode)p.price=_entryFallbackPrice(e);return sb.from('queue_entries').update(p).eq('id',e.id);}));
   if(_writeErr(res,'bulk mark paid')){await loadDataLight();renderHistory();return;}
+  const ids=rows.map(e=>e.id);
   logAction(t('logBulkPaid').replace('{0}',ids.length));
   S.histSelected=[];
   await loadDataLight();renderHistory();
@@ -18966,10 +19118,7 @@ function setBkStatus(v){S.bkStatus=v;renderBikes();}
 function setBkSize(v){S.bkSize=v;renderBikes();}
 
 function exportHistoryCSV(){
-  let hist=getQueue().filter(e=>['done','noshow','cancelled','removed'].includes(e.status));
-  if(S.histSess!=='all') hist=hist.filter(e=>e.sessionId===S.histSess);
-  const _xCut=S.histRange==='today'?todayStr():S.histRange==='7d'?fmtDate(new Date(Date.now()-7*864e5)):S.histRange==='30d'?fmtDate(new Date(Date.now()-30*864e5)):null;
-  if(_xCut)hist=hist.filter(e=>String(e.sessionDate||'')>=_xCut);
+  const hist=_histRows().filtered; // what the list shows: every filter, the search and the sort
   const sess=S.histSess!=='all'?allSessions().find(s=>s.id===S.histSess):null;
   const filename=sess
     ?`rides_${dayLabel(sess.day)}_${sess.session_date||sess.id}.csv`
@@ -18998,8 +19147,10 @@ function exportHistoryCSV(){
   const csv=[headers.map(_csvCell).join(','),...rows.map(r=>r.join(','))].join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');a.href=url;a.download=filename;a.click();
-  URL.revokeObjectURL(url);
+  // In the page and revoked a moment later, as the other exports do: an anchor outside the
+  // document, or a URL revoked in the same tick as the click, loses the download in Safari.
+  const a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();
+  setTimeout(()=>{a.remove();URL.revokeObjectURL(url);},4000);
 }
 
 function showReceipt(id){
@@ -19016,8 +19167,9 @@ function showReceipt(id){
     `${t('queueNumLabel').padEnd(14)}:  #${e.queueNum}`,
     `${t('colSession').padEnd(14)}:  ${dayLabel(e.sessionDay)}, ${shortDate(e.sessionDate)}`,
     `${t('timeLabel').padEnd(14)}:  ${sessionTime(allSessions().find(s=>s.id===e.sessionId))}`,
-    `${t('colBike').padEnd(14)}:  ${bike?bike.name:'N/A'}`,
-    `${t('bikeTypeLabel').padEnd(14)}:  ${resolvedType(e)}`,
+    `${t('colBike').padEnd(14)}:  ${bike?bike.name:'—'}`,
+    `${t('bikeTypeLabel').padEnd(14)}:  ${typeLabel(resolvedType(e))}`,
+    `${t('colPrice').padEnd(14)}:  ${_fmtSar(Number(e.price??DEFAULT_PRICE)||0)}`, // a receipt that never said how much
     `${t('colPayment').padEnd(14)}:  ${e.paid?t('paidLabel')+' ✓':t('pendingLabel')+' '}`,
     '──────────────────────────────────────','',
     t('receiptSeeYou'),'',
@@ -19140,7 +19292,7 @@ function _donut(segs,size=110){
     off+=pct;
     return`<circle class="an-hit" cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${d.c}" stroke-width="${sw}" stroke-dasharray="${(C*pct).toFixed(2)} ${(C*(1-pct)).toFixed(2)}" transform="rotate(${rot} ${cx} ${cy})"><title>${d.label?d.label+': ':''}${d.v} (${Math.round(pct*100)}%)</title></circle>`;
   }).join('');
-  return`<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" style="display:block;flex-shrink:0"><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(var(--tint-rgb),.07)" stroke-width="${sw}"/>${arcs}<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" font-size="14" font-weight="900" fill="white">${total}</text></svg>`;
+  return`<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" style="display:block;flex-shrink:0"><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(var(--tint-rgb),.07)" stroke-width="${sw}"/>${arcs}<text x="${cx}" y="${cy}" text-anchor="middle" dominant-baseline="middle" font-size="14" font-weight="900" style="fill:var(--text)">${total}</text></svg>`; // the theme's ink: a white total vanished on the white card of the light theme
 }
 
 function _vbars(data,opts={}){

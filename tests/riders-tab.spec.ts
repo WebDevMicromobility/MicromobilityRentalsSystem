@@ -133,7 +133,7 @@ test('check-in and check-out times show in their own columns, with who stamped t
   const r2 = rows(page).nth(2);
   await expect(r2.locator('td.rider-time').nth(0)).toContainText('19:00');
   await expect(r2.locator('td.rider-time').nth(1)).toContainText('20:35');
-  await expect(r2.locator('td.rider-time').nth(1)).toContainText('Ride 1h 35m');
+  await expect(r2.locator('td.rider-time').nth(1)).toContainText('Ride 1 h 35 min');
   await expect(r2.locator('td.rider-time').nth(1)).toContainText('by Desk Two');
   await expect(r2.getByRole('button', { name: /^Check in$|Return bike/ })).toHaveCount(0);
   await expect(r2.getByRole('button', { name: 'Undo return' })).toHaveCount(1);
