@@ -14736,7 +14736,8 @@ async function _confirmReturnModal(){
   await _finishReturn(id,paid,cond,notes);
 }
 // The write half of a return, shared by one rider and by many (a party's Return all, the
-// selection bar). Resolves {ok:true,bikeIds} or {ok:false,...}; the caller says why and reloads.
+// selection bar). Resolves {ok:true,bikeIds}, {ok:false,handled:true} (the bike is back, the payment
+// write failed and already offers its retry) or {ok:false,...}; the caller says why and reloads.
 async function _returnWrite(id,markPaid,cond,notes){
   const entry=getQueue().find(e=>e.id===id);if(!entry)return{ok:false};
   const bikeIds=getAssignedBikeIds(entry);
@@ -14760,7 +14761,9 @@ async function _returnWrite(id,markPaid,cond,notes){
       return true;
     };
     if(Object.keys(updates).length&&!(await _saveRest(false))){
-      entry.status='done';await _reloadRows([id]);try{localStorage.removeItem('cq_ct_'+id);}catch(e){}renderStaffQueue();return;
+      // The bike is back but the payment is not saved: the error bar already offers the retry,
+      // so the caller reports nothing more (no success toast, no undo for a half-done return).
+      entry.status='done';await _reloadRows([id]);try{localStorage.removeItem('cq_ct_'+id);}catch(e){}renderStaffQueue();return{ok:false,handled:true};
     }
   }else{
     const _rr=await Promise.all([
@@ -14793,6 +14796,7 @@ async function _finishReturn(id,markPaid,cond,notes){
   const name=entry.name;const qn=entry.queueNum;
   const w=await _returnWrite(id,markPaid,cond,notes);
   if(!w.ok){
+    if(w.handled)return;
     if(w.rpcError)errorBar(_rpcMessage(w.rpcError),()=>_finishReturn(id,markPaid,cond,notes),(w.rpcError&&w.rpcError.message)||'');
     else if(w.writes)_writeErr(w.writes,'return bike');
     await loadData();renderStaffQueue();return;

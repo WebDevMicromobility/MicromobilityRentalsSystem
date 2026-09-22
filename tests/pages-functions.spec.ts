@@ -75,8 +75,11 @@ test.describe('the error ping to Discord', () => {
 
   test('one sender posting junk does not silence another sender', async () => {
     const post = await load('functions/api/log-error.js', 'onRequestPost');
-    await ping(post, { msg: 'junk' });
-    expect(await (await ping(post, { msg: 'junk again' })).json()).toMatchObject({ skipped: 'throttled' });
+    // A sender of its own: the module's throttle outlives a test, and another test in this
+    // worker may already have pinged from the default address.
+    const junk = { 'cf-connecting-ip': '198.51.100.77' };
+    await ping(post, { msg: 'junk' }, junk);
+    expect(await (await ping(post, { msg: 'junk again' }, junk)).json()).toMatchObject({ skipped: 'throttled' });
     await ping(post, { msg: 'a real error' }, { 'cf-connecting-ip': '203.0.113.9' });
     expect(sent.map((s) => s.content.includes('a real error'))).toEqual([false, true]);
   });

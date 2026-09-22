@@ -33,7 +33,8 @@ test('Escape closes only the top dialog of a stack', async ({ page }) => {
 });
 
 for (const snapshot of [false, true]) {
-  test(`a reload on Riders comes back to Riders${snapshot ? ' (snapshot painted first)' : ''}`, async ({ page }) => {
+  // Riders is the Petromin page inside Queue now (7d0c58a): a reload there comes back to that page.
+  test(`a reload on Riders comes back to the Petromin page${snapshot ? ' (snapshot painted first)' : ''}`, async ({ page }) => {
     await stubSupabase(page, { sessions, queue_entries: queue });
     await unlockStaff(page);
     await page.addInitScript((snap) => {
@@ -42,7 +43,7 @@ for (const snapshot of [false, true]) {
     }, snapshot);
     await page.goto('/');
     await waitForSb(page);
-    await expect.poll(() => page.evaluate('S.staffTab')).toBe('riders');
+    await expect.poll(() => page.evaluate('S.staffTab+":"+S.queueView')).toBe('queue:petromin');
   });
 }
 
