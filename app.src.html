@@ -12189,7 +12189,7 @@ function _pmChipHtml(sid){
   const regs=(S.riders||[]).filter(r=>r.session_id===sid);
   const nIn=regs.filter(r=>r.checked_in_at&&!r.checked_out_at).length,nOut=regs.filter(r=>r.checked_out_at).length;
   const on=S.queueView==='petromin'&&S.ridersSession===sid;
-  return`<div class="sess-summary-chip pm-chip community ev-petromin${on?' active-sess':''}" onclick="openPetrominPage('${esc(sid)}')" title="${esc(t('pmChipTitle'))} · ${dayLabel(s.day)} ${shortDate(_pmDate(s))} · ${esc(sessionTime(s))}">
+  return`<div class="sess-summary-chip pm-chip community ev-petromin${on?' active-sess':''}" onclick="openPetrominPage(${_ja(sid)})" title="${esc(t('pmChipTitle'))} · ${dayLabel(s.day)} ${shortDate(_pmDate(s))} · ${esc(sessionTime(s))}">
     <div class="sess-chip-info">
       <div class="pm-chip-head"><img class="pm-logo" src="assets/petromin-logo.png" alt="Petromin" width="58" height="24"><span class="pm-chip-lbl">${t('pmChipLabel')}</span></div>
       <div class="sess-chip-date">${dayLabel(s.day)}, ${shortDate(_pmDate(s))} &nbsp;·&nbsp; ${sessionTime(s)}</div>
@@ -14827,7 +14827,7 @@ function renderBulkReturn(){
   const ta=document.getElementById('br-notes');if(ta)b.notes=ta.value;
   const owe=es.filter(_brOwes),oweAmt=Math.round(owe.reduce((sum,e)=>sum+(Number(e.price??DEFAULT_PRICE)||0),0)*100)/100;
   const anyOff=es.some(e=>(b.cond[e.id]||'ok')!=='ok');
-  const seg=(e,v,lbl)=>`<button type="button" class="br-seg${(b.cond[e.id]||'ok')===v?' on '+v:''}" aria-pressed="${(b.cond[e.id]||'ok')===v}" onclick="_brSetCond('${e.id}','${v}')">${lbl}</button>`;
+  const seg=(e,v,lbl)=>`<button type="button" class="br-seg${(b.cond[e.id]||'ok')===v?' on '+v:''}" aria-pressed="${(b.cond[e.id]||'ok')===v}" onclick="_brSetCond(${_ja(e.id)},'${v}')">${lbl}</button>`;
   const rows=es.map(e=>{
     const bikes=getAssignedBikes(e).map(x=>x.name).join(', ');
     const needs=_needsBike(allSessions().find(x=>x.id===e.sessionId));
