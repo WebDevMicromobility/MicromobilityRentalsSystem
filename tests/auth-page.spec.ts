@@ -437,3 +437,17 @@ test('the auth page is a clean page under the header', async ({ page }) => {
   expect(box!.y).toBeGreaterThanOrEqual(topbar!.y + topbar!.height - 1);
   await expect(page.locator('#topbar')).toBeVisible();
 });
+
+// Sign in with Apple is a black button on the white box. A "dark theme" variant painted it
+// white with a white border, and it always won because the head script sets data-theme="dark"
+// on every load: the button was an outline-less white box with a line of text in it.
+test('the Apple button is black on the white sign-in box', async ({ page }) => {
+  await boot(page);
+  const apple = page.locator('#auth-modal .btn-apple');
+  await expect(apple).toBeVisible();
+  const look = await apple.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return { bg: cs.backgroundColor, ink: cs.color };
+  });
+  expect(look).toEqual({ bg: 'rgb(0, 0, 0)', ink: 'rgb(255, 255, 255)' });
+});

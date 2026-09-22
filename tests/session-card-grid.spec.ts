@@ -96,3 +96,27 @@ test('a card marked full or turned down is still the same card', async ({ page }
   expect(same(rows, (r) => r.height)).toBe(1);
   expect(same(rows, (r) => r.spotsEnd)).toBe(1); // "Full for this week" ends where "Available" does
 });
+
+// Off-screen session cards used to skip rendering (content-visibility:auto) with a 100px
+// placeholder. In a grid of 1fr rows that placeholder set the height of EVERY row, so a long
+// list opened with every card twice its size and collapsed under the rider's finger once the
+// last card scrolled into view.
+test('a long list keeps its cards at their own height, before and after scrolling', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 700 });
+  // 16 open nights: enough that the tail of the list is well outside the viewport
+  const many = Array.from({ length: 16 }, (_, i) => jcc(`2099-02-${String(i + 1).padStart(2, '0')}`, 'Friday', '19:00 - 21:00'));
+  await stubSupabase(page, { sessions: many, bikes: [], queue_entries: [] });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`S.selEvent='jcc';setCustTab('register')`);
+  await expect(page.locator('.sess-card')).toHaveCount(16);
+
+  const before = await cards(page);
+  expect(same(before, (r) => r.height)).toBe(1);
+  expect(before[0].height).toBeLessThan(100); // a card is its own height, not a placeholder's
+  for (let y = 0; y <= 3200; y += 400) { await page.evaluate((v) => window.scrollTo(0, v), y); await page.waitForTimeout(60); }
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const after = await cards(page);
+  expect(after.map((r) => r.height)).toEqual(before.map((r) => r.height)); // nothing moved
+});

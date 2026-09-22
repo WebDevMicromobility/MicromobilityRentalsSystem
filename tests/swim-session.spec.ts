@@ -270,3 +270,21 @@ test('a ride keeps what staff entered', async ({ page }) => {
   expect(row.type_preference).toBe('Own');
   expect(row.height).toBe(174);
 });
+
+// The pool's teal had a light "dark theme" twin (#3fc9dd) that won on every page, because the
+// head script always sets data-theme="dark" while every surface is white paper - so the ride's
+// name was drawn at about 2:1. It has to read at the 4.5:1 body-text minimum on its card.
+test('the pool session name on its card reads at 4.5:1 or better', async ({ page }) => {
+  await asMember(page);
+  const chip = page.locator('.sess-card .sess-comm-chip.ev-swim').first();
+  await expect(chip).toBeVisible();
+  const ratio = await chip.evaluate((el) => {
+    const rgb = (c: string) => (c.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+    const lum = (c: number[]) => { const f = (v: number) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+    let bgEl: Element | null = el, bg = 'rgba(0, 0, 0, 0)';
+    while (bgEl && /rgba\(\d+, \d+, \d+, 0\)|transparent/.test(bg)) { bg = getComputedStyle(bgEl).backgroundColor; bgEl = bgEl.parentElement; }
+    const a = lum(rgb(getComputedStyle(el).color)), b = lum(rgb(bg));
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  });
+  expect(ratio).toBeGreaterThanOrEqual(4.5);
+});

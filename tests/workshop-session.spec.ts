@@ -209,3 +209,23 @@ test('editing one keeps it open, and does not turn it into a Saturday ride', asy
   expect(ce.breakfast_name).toBeNull();
   expect(ce.needs_approval).toBe(true);
 });
+
+// Same trap as the pool session: a light orange "dark theme" twin (#fb923c) always won on the
+// white cards, at about 2.3:1. The workshop's name has to read at 4.5:1 or better.
+test('the workshop name on its card reads at 4.5:1 or better', async ({ page }) => {
+  // two workshop dates, so the picker lists cards instead of the single-session summary
+  const second = { ...sessions[0], id: '2099-03-17-tw', session_date: '2099-03-17' };
+  await asAnyone(page, { sessions: [...sessions, second] });
+  await page.evaluate(`S.selEvent='workshop';goCustomer('register');S.regStep=1;renderRegister()`);
+  const chip = page.locator('.sess-card .sess-comm-chip.ev-workshop').first();
+  await expect(chip).toBeVisible();
+  const ratio = await chip.evaluate((el) => {
+    const rgb = (c: string) => (c.match(/[\d.]+/g) || []).slice(0, 3).map(Number);
+    const lum = (c: number[]) => { const f = (v: number) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
+    let bgEl: Element | null = el, bg = 'rgba(0, 0, 0, 0)';
+    while (bgEl && /rgba\(\d+, \d+, \d+, 0\)|transparent/.test(bg)) { bg = getComputedStyle(bgEl).backgroundColor; bgEl = bgEl.parentElement; }
+    const a = lum(rgb(getComputedStyle(el).color)), b = lum(rgb(bg));
+    return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  });
+  expect(ratio).toBeGreaterThanOrEqual(4.5);
+});

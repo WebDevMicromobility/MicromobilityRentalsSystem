@@ -316,8 +316,8 @@
       padding:6px 14px;font-family:var(--font-body);font-size:12px;font-weight:700;
       cursor:pointer;flex-shrink:0;transition:background .18s,color .18s,border-color .18s,transform .18s,box-shadow .18s,opacity .18s;letter-spacing:.2px;}
     .undo-bar-action:hover{background:var(--ac-fill-h);transform:scale(1.04);}
-    .undo-bar-progress{position:absolute;bottom:0;left:0;height:3px;background:rgba(var(--green-rgb),.4);
-      border-radius:0 0 0 7px;transition:width linear;}
+    .undo-bar-progress{position:absolute;bottom:0;inset-inline-start:0;height:3px;background:rgba(var(--green-rgb),.4);
+      border-end-start-radius:7px;transition:width linear;}
     /* Write failures: same strip, red, and it stays until dismissed or retried. */
     .err-bar{border-color:rgba(var(--red-rgb),.55);background:#2a1414;}
     .err-bar .undo-bar-action{background:var(--red);color:#fff;}
@@ -513,7 +513,7 @@
     .inv-layout{display:flex;gap:16px;align-items:flex-start;margin-top:14px;}
     .inv-sidebar{flex:0 0 168px;display:flex;flex-direction:column;gap:6px;}
     .inv-content{flex:1;min-width:0;max-width:100%;}
-    .inv-navbtn{text-align:left;padding:12px 14px;border-radius:5px;border:1px solid var(--border);background:var(--s1);color:var(--muted);font-family:var(--font-body);font-size:13px;font-weight:700;cursor:pointer;transition:background .15s,color .15s,border-color .15s,transform .15s,box-shadow .15s,opacity .15s;display:flex;align-items:center;gap:8px;}
+    .inv-navbtn{text-align:start;padding:12px 14px;border-radius:5px;border:1px solid var(--border);background:var(--s1);color:var(--muted);font-family:var(--font-body);font-size:13px;font-weight:700;cursor:pointer;transition:background .15s,color .15s,border-color .15s,transform .15s,box-shadow .15s,opacity .15s;display:flex;align-items:center;gap:8px;}
     .inv-navbtn:hover{border-color:rgba(var(--tint-rgb),.2);color:var(--text);}
     .inv-navbtn.active{background:rgba(var(--green-rgb),.1);border-color:rgba(var(--green-rgb),.4);color:var(--green);}
     @media(max-width:640px){.inv-layout{flex-direction:column;}.inv-sidebar{flex:none;flex-direction:row;flex-wrap:wrap;}.inv-navbtn{flex:1;justify-content:center;}}
@@ -581,7 +581,9 @@
     html[dir="rtl"] .analytics-highlight-card{direction:rtl;}
     html[dir="rtl"] .analytics-bars-card{direction:rtl;}
     html[dir="rtl"] .chart-card{direction:rtl;}
-    html[dir="rtl"] .analytics-bar-row{direction:rtl;flex-direction:row-reverse;}
+    /* direction alone mirrors a flex row; row-reverse on top of it flipped the row back to
+       label-left / value-right while the fill still grew from the right. */
+    html[dir="rtl"] .analytics-bar-row{direction:rtl;}
     html[dir="rtl"] .sess-card{direction:rtl;}
     html[dir="rtl"] .receipt-box{direction:ltr;text-align:left;}
     html[dir="rtl"] .color-slots{direction:ltr;}
@@ -794,7 +796,7 @@
     .reg-summary-panel{border:1px solid var(--line2);border-radius:var(--r-lg);padding:22px 24px;}
     .reg-summary-row{display:flex;justify-content:space-between;gap:12px;font-size:13.5px;padding:8px 0;}
     .reg-summary-row span:first-child{color:var(--muted);}
-    .reg-summary-row span:last-child{font-weight:600;text-align:right;}
+    .reg-summary-row span:last-child{font-weight:600;text-align:end;}
     .reg-summary-total{display:flex;align-items:baseline;justify-content:space-between;border-top:1px solid var(--line2);margin-top:10px;padding-top:14px;}
     .reg-summary-total span:first-child{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;}
     .reg-summary-total span:last-child{font-size:22px;font-weight:600;letter-spacing:-.5px;color:var(--text);}
@@ -1107,7 +1109,7 @@
     .rider-sub{font-size:11px;color:var(--muted);margin-top:2px;}
     .actions-cell{display:flex;gap:6px;flex-wrap:wrap;align-items:stretch;}
     .actions-cell .btn-sm{flex:1;min-width:72px;text-align:center;justify-content:center;}
-    .walk-in-badge{font-size:10px;font-weight:700;background:rgba(var(--tint-rgb),.09);color:var(--muted-l);padding:1px 7px;border-radius:3px;margin-left:5px;}
+    .walk-in-badge{font-size:10px;font-weight:700;background:rgba(var(--tint-rgb),.09);color:var(--muted-l);padding:1px 7px;border-radius:3px;margin-inline-start:5px;}
     .pay-cell{display:flex;align-items:center;gap:7px;cursor:pointer;}
     .pay-cb{display:none;}
     .pay-toggle{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;min-height:26px;border-radius:3px;border:1.5px solid transparent;
@@ -1119,7 +1121,7 @@
     .pay-toggle.pending:hover{background:rgba(var(--warn-rgb),.1);border-color:rgba(var(--warn-rgb),.8);}
     .pay-toggle.house{color:var(--purple);border-color:rgba(var(--purple-rgb),.4);background:rgba(var(--purple-rgb),.09);}
     .pay-toggle.house:hover{background:rgba(var(--purple-rgb),.18);border-color:rgba(var(--purple-rgb),.7);}
-    .pay-menu-opt{display:block;width:100%;padding:8px 12px;text-align:left;background:none;border:none;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;cursor:pointer;border-radius:3px;transition:background .1s;}
+    .pay-menu-opt{display:block;width:100%;padding:8px 12px;text-align:start;background:none;border:none;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;cursor:pointer;border-radius:3px;transition:background .1s;}
     .pay-menu-opt:hover{background:rgba(var(--tint-rgb),.08);}
     .pay-menu-opt.active{color:var(--green);background:rgba(var(--green-rgb),.08);}
     .pay-label{font-size:12px;font-weight:700;white-space:nowrap;}
@@ -1214,7 +1216,7 @@
     .sort-pill{padding:6px 14px;background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:var(--font-body);font-size:12px;font-weight:700;cursor:pointer;transition:background .2s,color .2s,border-color .2s,transform .2s,box-shadow .2s,opacity .2s;}
     .sort-pill:hover{border-color:rgba(var(--tint-rgb),.2);color:var(--text);}
     .sort-pill.active{background:var(--ac-fill);border-color:var(--ac-fill);color:var(--acink);}
-    .sort-pill .sort-arrow{font-size:10px;margin-left:4px;opacity:.7;}
+    .sort-pill .sort-arrow{font-size:10px;margin-inline-start:4px;opacity:.7;}
     .bike-card{background:var(--s1);border:1px solid var(--border);border-radius:7px;padding:16px;display:flex;flex-direction:column;gap:7px;transition:border-color .2s,transform .2s;}
     
     .bike-assign-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:16px;}
@@ -1243,9 +1245,9 @@
 
     
     .modal-backdrop{position:fixed;inset:0;background:rgba(16,19,18,.5);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;}
-    :root[data-theme="dark"] .modal-backdrop{background:rgba(0,0,0,.85);}
-    :root[data-theme="dark"] .auth-backdrop{background:rgba(0,0,0,.92);}
-    :root[data-theme="dark"] .pin-backdrop{background:rgba(0,0,0,.88);}
+    /* No dark-theme scrims here any more. The head script sets data-theme="dark" on every load
+       (it is the name of the one look, not a choice), so the near-black :root[data-theme="dark"]
+       scrims that used to sit here outranked the customer skin's own softer ones on every page. */
     .modal-box{background:var(--s1);border:1px solid var(--border);border-radius:var(--r-xl);padding:28px;width:100%;max-width:580px;max-height:82vh;overflow-y:auto;box-shadow:var(--sh-3);}
     .modal-title{font-size:18px;font-weight:700;margin-bottom:6px;}
     .modal-sub{font-size:13px;color:var(--muted);margin-bottom:20px;}
@@ -1258,7 +1260,9 @@
     .receipt-box{background:#111;border-radius:6px;padding:20px;font-family:monospace;font-size:12px;line-height:1.8;white-space:pre-wrap;margin-bottom:20px;color:rgba(var(--green-rgb),.85);border:1px solid rgba(var(--green-rgb),.12);box-shadow:0 0 20px rgba(var(--green-rgb),.05) inset;}
 
     
-    #toast-container{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:400;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;}
+    /* z-index above the 9500/9600 inline overlays (add-on picker, nutrition, cancel night, staff
+       password): a toast or error bar raised from inside one of them used to land under its scrim. */
+    #toast-container{position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:9700;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;}
     .toast{background:var(--s2);border:1px solid var(--border);border-inline-start:3px solid var(--green);border-radius:6px;padding:12px 22px;font-size:13px;font-weight:700;white-space:nowrap;pointer-events:all;box-shadow:0 4px 24px rgba(16,19,18,.14);animation:toastIn .28s cubic-bezier(.2,.8,.2,1);backdrop-filter:blur(12px);}
     .toast.error{border-inline-start-color:var(--red);}
     .toast.warning{border-inline-start-color:var(--muted-l);}
@@ -1442,6 +1446,7 @@
       input[type="date"],input[type="time"],input[type="password"],select{
         padding:12px 14px;font-size:16px;border-radius:4px;min-height:46px;
       }
+      select{padding-right:34px;} /* the shorthand above took back the room the chevron sits in */
       .filter-select{height:40px;font-size:13px;min-height:40px;}
 
       
@@ -1621,27 +1626,29 @@
       .btn-sm{padding:5px 8px;font-size:11px;}
     }
 
-    /* ── Sessions tab (phones <=480px): stack the admin tables into label/value cards so every
+    /* ── Sessions (phones <=480px): stack the admin tables into label/value cards so every
        session is fully visible with vertical-only scrolling. No contained horizontal table scroll.
-       Desktop/tablet are untouched (these rules only apply under 480px). ── */
+       Desktop/tablet are untouched (these rules only apply under 480px). The sessions list moved
+       from its own #tab-sessions tab into #sess-host on the Bookings tab, and these rules had
+       kept the old id, so the deleted-sessions and promo-code tables scrolled sideways again. ── */
     @media(max-width:480px){
-      #tab-sessions .table-wrapper{overflow-x:visible;border:none;border-radius:0;}
-      #tab-sessions .sess-admin-table,
-      #tab-sessions .sess-admin-table tbody,
-      #tab-sessions .sess-admin-table tr,
-      #tab-sessions .sess-admin-table td{display:block;width:100%;max-width:100%;box-sizing:border-box;}
-      #tab-sessions .sess-admin-table thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);border:0;}
-      #tab-sessions .sess-admin-table tr{background:var(--s1);border:1px solid var(--border);border-radius:6px;margin-bottom:10px;padding:2px;overflow:hidden;}
-      #tab-sessions .sess-admin-table td{border:none;border-bottom:1px solid rgba(var(--tint-rgb),.05);padding:8px 14px;font-size:13px;text-align:left;overflow-wrap:anywhere;}
-      #tab-sessions .sess-admin-table td:last-child{border-bottom:none;}
-      #tab-sessions .sess-admin-table td::before{content:attr(data-label);display:block;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;}
-      #tab-sessions .sess-admin-table td[colspan]{text-align:center;}
-      #tab-sessions .sess-admin-table td[colspan]::before{display:none;}
-      #tab-sessions .sess-admin-table td.cell-actions::before{display:none;}
-      #tab-sessions .sess-admin-table td.cell-actions .actions-cell{gap:8px;}
-      #tab-sessions .sess-admin-table td.cell-actions .btn-sm{flex:1 1 calc(50% - 5px);min-width:0;padding:10px;font-size:12px;}
+      #sess-host .table-wrapper{overflow-x:visible;border:none;border-radius:0;}
+      #sess-host .sess-admin-table,
+      #sess-host .sess-admin-table tbody,
+      #sess-host .sess-admin-table tr,
+      #sess-host .sess-admin-table td{display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box;}
+      #sess-host .sess-admin-table thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);border:0;}
+      #sess-host .sess-admin-table tr{background:var(--s1);border:1px solid var(--border);border-radius:6px;margin-bottom:10px;padding:2px;overflow:hidden;}
+      #sess-host .sess-admin-table td{border:none;border-bottom:1px solid rgba(var(--tint-rgb),.05);padding:8px 14px;font-size:13px;text-align:start;overflow-wrap:anywhere;}
+      #sess-host .sess-admin-table td:last-child{border-bottom:none;}
+      #sess-host .sess-admin-table td::before{content:attr(data-label);display:block;font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--muted);margin-bottom:3px;}
+      #sess-host .sess-admin-table td[colspan]{text-align:center;}
+      #sess-host .sess-admin-table td[colspan]::before{display:none;}
+      #sess-host .sess-admin-table td.cell-actions::before{display:none;}
+      #sess-host .sess-admin-table td.cell-actions .actions-cell{gap:8px;}
+      #sess-host .sess-admin-table td.cell-actions .btn-sm{flex:1 1 calc(50% - 5px);min-width:0;padding:10px;font-size:12px;}
       /* keep the "new session" add-form fleet-count grid contained (admin entry), not page-wide */
-      #tab-sessions .inline-form table{min-width:0;}
+      #sess-host .inline-form table{min-width:0;}
     }
 
     /* ── iOS touch & feedback polish (HIG: 44pt targets, no grey tap-flash, press feedback) ── */
@@ -1682,7 +1689,7 @@
     .sess-twopane{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:16px;align-items:start;}
     .sess-list-pane{min-width:0;}
     .sess-list-scroll{display:flex;flex-direction:column;gap:8px;max-height:calc(100vh - 300px);max-height:calc(100dvh - 300px);overflow-y:auto;padding-right:2px;-webkit-overflow-scrolling:touch;}
-    .sess-lc{display:block;width:100%;text-align:left;background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:12px 14px;cursor:pointer;font-family:var(--font-body);transition:border-color .15s,background .15s;}
+    .sess-lc{display:block;width:100%;text-align:start;background:var(--s1);border:1px solid var(--border);border-radius:6px;padding:12px 14px;cursor:pointer;font-family:var(--font-body);transition:border-color .15s,background .15s;}
     .sess-lc:hover{border-color:rgba(var(--green-rgb),.35);background:var(--s2);}
     .sess-lc.selected{border-color:var(--green);background:rgba(var(--green-rgb),.08);}
     .sess-lc-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;}
@@ -1740,6 +1747,9 @@
     @media(max-width:767px){
       html[dir="rtl"] .section-header{flex-direction:column;align-items:stretch;}
       html[dir="rtl"] .section-header>div{text-align:start;}
+      /* The same trap for dialog buttons: html[dir="rtl"] .modal-footer{row-reverse} outranks
+         the phone rule that stacks them full width, so Arabic and Urdu kept a squeezed row. */
+      html[dir="rtl"] .modal-footer{flex-direction:column-reverse;}
     }
     /* Wide tables scroll inside their own wrapper instead of widening the whole page */
     .table-wrapper{max-width:100%;}
@@ -1762,7 +1772,7 @@
     .analytics-bar-label{font-size:12px;font-weight:700;min-width:68px;color:var(--text);}
     .analytics-bar-track{flex:1;height:7px;background:rgba(var(--tint-rgb),.06);border-radius:4px;overflow:hidden;}
     .analytics-bar-fill{height:100%;border-radius:4px;transition:width .25s cubic-bezier(.2,.8,.2,1);box-shadow:inset 0 1px 0 rgba(255,255,255,.3);}
-    .analytics-bar-value{font-size:12px;font-weight:700;min-width:44px;text-align:right;color:var(--text);}
+    .analytics-bar-value{font-size:12px;font-weight:700;min-width:44px;text-align:end;color:var(--text);}
     .analytics-trend-table{width:100%;border-collapse:collapse;}
     .analytics-trend-table th{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;text-align:left;padding:10px 14px;border-bottom:1px solid var(--line2);white-space:nowrap;background:none;}
     .analytics-trend-table td{padding:12px 14px;border-bottom:1px solid rgba(var(--tint-rgb),.04);font-size:13px;vertical-align:middle;}
@@ -1800,7 +1810,7 @@
     .an-nav-btn.active{background:var(--ac-fill);border-color:var(--ac-fill);color:var(--acink);}
     @media(max-width:767px){.an-subnav{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin:0 -16px;padding:2px 16px;}.an-subnav::-webkit-scrollbar{display:none;}.an-nav-btn{padding:7px 13px;font-size:11px;}}
     /* Period-over-period delta pill on KPI labels */
-    .an-delta{display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:700;letter-spacing:0;margin-left:5px;padding:1px 6px;border-radius:3px;background:rgba(var(--tint-rgb),.06);vertical-align:middle;text-transform:none;white-space:nowrap;}
+    .an-delta{display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:700;letter-spacing:0;margin-inline-start:5px;padding:1px 6px;border-radius:3px;background:rgba(var(--tint-rgb),.06);vertical-align:middle;text-transform:none;white-space:nowrap;}
     /* Chart hover targets get a pointer + subtle highlight so tooltips feel interactive */
     .an-hit{cursor:pointer;transition:opacity .12s ease,filter .12s ease;}
     svg:hover .an-hit{opacity:.45;}
@@ -1873,7 +1883,7 @@
     
     #booth-popup{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:500;align-items:center;justify-content:center;padding:24px;}
     .booth-popup-box{background:var(--s2);border:1px solid rgba(var(--green-rgb),.3);border-radius:7px;padding:32px;max-width:380px;width:100%;text-align:center;position:relative;}
-    .booth-popup-close{position:absolute;top:14px;right:14px;background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1;font-family:var(--font-body);}
+    .booth-popup-close{position:absolute;top:14px;inset-inline-end:14px;background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;line-height:1;font-family:var(--font-body);}
     .booth-popup-close:hover{color:var(--text);}
     .booth-popup-icon{font-size:48px;margin-bottom:16px;}
     .booth-popup-title{font-size:20px;font-weight:700;margin-bottom:10px;}
@@ -1898,11 +1908,12 @@
     -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
     box-shadow:0 -10px 20px -12px rgba(0,0,0,.55);}
 }
-    /* Perf: let the browser skip rendering + layout for off-screen cards (big analytics/ session
-   lists). contain-intrinsic-size 'auto <len>' remembers the real size once rendered, so the
-   scrollbar stays stable. */
+    /* Perf: let the browser skip rendering + layout for off-screen cards (big analytics lists).
+   contain-intrinsic-size 'auto <len>' remembers the real size once rendered, so the
+   scrollbar stays stable. Not on .sess-card: the session picker is a grid of 1fr rows, and an
+   off-screen card's 100px placeholder set the height of EVERY row - the cards opened at twice
+   their size and collapsed under the rider's finger once the last one scrolled into view. */
 .chart-card{content-visibility:auto;contain-intrinsic-size:auto 240px;}
-.sess-card{content-visibility:auto;contain-intrinsic-size:auto 100px;}
     .tab-badge{display:inline-flex;align-items:center;justify-content:center;min-width:16px;height:16px;padding:0 4px;border-radius:3px;background:var(--orange);color:#1a1200;font-size:10px;font-weight:700;line-height:1;vertical-align:middle;}
 
     /* ── iPhone / iOS UI enhancements ─────────────────────────────────────── */
@@ -2266,11 +2277,11 @@
       .addon-thumb:hover{transform:none;}
     }
 
-    /* Sign in with Apple: black button per Apple's HIG (white in dark theme surface) */
+    /* Sign in with Apple: black button per Apple's HIG. The white "dark theme" variant is gone:
+       the head script sets data-theme="dark" on every load, so that variant always won and
+       painted a white, white-bordered button on the white sign-in box. */
     .btn-apple{background:#000;color:#fff;border-color:#000;margin-top:8px;}
     .btn-apple:hover{background:#1a1a1a;color:#fff;}
-    :root[data-theme="dark"] .btn-apple{background:#fff;color:#000;border-color:#fff;}
-    :root[data-theme="dark"] .btn-apple:hover{background:#e8e8e8;color:#000;}
 
     /* Add to Apple Wallet: a mini "pass" - matte-black card, hairline green edge,
        matching the black/green pass it generates. Same look in both themes. */
@@ -2346,6 +2357,9 @@
     body select,body textarea{
       background:#ffffff;border:1px solid rgba(26,25,25,.16);border-radius:8px;color:var(--text);
       min-height:46px;font-size:16px;}
+    /* Selects get their chevron back. The `background` shorthand above also cleared the
+       chevron image the base select rule draws, so every dropdown read as an empty text box. */
+    body select{background:#ffffff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M6 8L0 0h12z'/%3E%3C/svg%3E") no-repeat right 13px center;}
     body input:focus,body select:focus,body textarea:focus{
       border-color:#077a4b;box-shadow:inset 0 0 0 1px #077a4b;outline:none;}
     body input[type="checkbox"]{accent-color:#00b467;width:22px;height:22px;border-radius:6px;}
@@ -2454,7 +2468,17 @@
       --sf-card:#ffffff; --sf-line:#e2e2d8; --sf-line2:#dfe4e6; --sf-ctl:#cfd6d9;
       --sf-ctl-h:#b7c0c4; --sf-head:#f7f7f2; --sf-zebra:#fafcfa; --sf-hover:#f4f6f3;
       --sf-hover2:#f7f9f9; --sf-sep:#eef1ec; --sf-chip:#f2f2ec; --sf-green-ink:#0c7a3d;
+      /* The ink bar's height, and the line everything that sticks while scrolling has to stop
+         under. --staff-safe-top is the status-bar inset of an installed app (0 in a browser tab,
+         and 0 when the status bar is opaque, because the page then starts below it).
+         --staff-stick adds the 48px sections bar on phones and tablets (set below 1024px). */
+      --staff-bar-h:56px; --staff-safe-top:0px;
+      --staff-top:calc(var(--staff-bar-h) + var(--staff-safe-top));
+      --staff-stick:var(--staff-top);
     }
+    @media(max-width:1023px){body.view-staff{--staff-stick:calc(var(--staff-top) + 48px);}}
+    @media(max-width:767px){body.view-staff{--staff-bar-h:52px;}}
+    @media all and (display-mode: standalone){body.view-staff{--staff-safe-top:env(safe-area-inset-top,0px);}}
     :is(html[lang="ar"],html[lang="ur"]) body.view-staff{
       --font-body:'IBM Plex Sans Arabic','Barlow',sans-serif;
       --font-display:'IBM Plex Sans Arabic','Barlow',sans-serif;
@@ -2464,7 +2488,7 @@
     /* ── Topbar: 56px ink strip, neon accent segment, white logo mark ──
        (#topbar doubled so this outranks the :root[data-theme] topbar recipes) */
     body.view-staff #topbar#topbar{
-      background:#0f1215;border-bottom:none;height:56px;padding:0 clamp(12px,2.5vw,24px);
+      background:#0f1215;border-bottom:none;height:var(--staff-top);padding:var(--staff-safe-top) clamp(12px,2.5vw,24px) 0;
       backdrop-filter:none;-webkit-backdrop-filter:none;position:sticky;
     }
     /* the mark art is already brand green — no white filter, it reads as the accent on ink */
@@ -2500,7 +2524,7 @@
     body.view-staff #staff-tab-nav{
       display:flex;flex-direction:column;justify-content:flex-start;gap:2px;
       background:#0f1215;border-bottom:none;border-inline-end:1px solid rgba(255,255,255,.07);
-      padding:14px 10px;position:sticky;top:56px;height:calc(100vh - 56px);height:calc(100dvh - 56px);
+      padding:14px 10px;position:sticky;top:var(--staff-top);height:calc(100vh - var(--staff-top));height:calc(100dvh - var(--staff-top));
       overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#2a3138 #0f1215;
     }
     body.view-staff #view-staff .view-main{max-width:none;padding:26px clamp(18px,3vw,40px) 80px;min-width:0;}
@@ -2536,7 +2560,7 @@
 
       body.view-staff .snav-burger{
         display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;
-        position:sticky;top:0;z-index:62;padding:11px 14px;min-height:48px;
+        position:sticky;top:var(--staff-top);z-index:62;padding:11px 14px;min-height:48px;
         border:none;border-bottom:1px solid rgba(255,255,255,.1);
         background:#0f1215;color:#e6ebe8;
         font-family:var(--font-body);font-size:13px;font-weight:800;letter-spacing:.2px;
@@ -2559,7 +2583,8 @@
          its group heading. Shut, it takes no room at all. */
       body.view-staff #staff-tab-nav{
         display:none;flex-direction:column;align-items:stretch;height:auto;
-        position:sticky;top:48px;z-index:61;max-height:calc(100vh - 48px);overflow-y:auto;
+        position:sticky;top:var(--staff-stick);z-index:61;overflow-y:auto;
+        max-height:calc(100vh - var(--staff-stick));max-height:calc(100dvh - var(--staff-stick));
         padding:8px 10px 14px;border-inline-end:none;
         border-bottom:1px solid rgba(255,255,255,.1);
         box-shadow:0 14px 28px rgba(0,0,0,.45);
@@ -2573,7 +2598,7 @@
       body.view-staff #rail-pin{display:none;}
 
       body.snav-open.view-staff #snav-scrim{
-        display:block;position:fixed;inset:48px 0 0;z-index:59;background:rgba(0,0,0,.45);
+        display:block;position:fixed;inset:var(--staff-stick) 0 0;z-index:59;background:rgba(0,0,0,.45);
       }
       body.view-staff #view-staff .view-main{padding:16px 14px 40px;}
     }
@@ -2626,6 +2651,9 @@
       background:var(--sf-card);border:1px solid var(--sf-ctl);border-radius:8px;color:var(--text);
       font-size:13.5px;min-height:42px;padding:9px 13px;
     }
+    /* Same trap as the customer skin: the shorthand above wiped the select chevron, and the
+       13px end padding left no room for it. Chevron back, and room for it at the end. */
+    body.view-staff select{background:var(--sf-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23888' d='M6 8L0 0h12z'/%3E%3C/svg%3E") no-repeat right 13px center;padding-right:34px;}
     body.view-staff input:focus,body.view-staff select:focus,body.view-staff textarea:focus{
       border-color:var(--sf-green-ink);box-shadow:0 0 0 2px rgba(12,122,61,.14);
     }
@@ -2696,7 +2724,7 @@
     body.view-staff .queue-table thead th.an-sort-active{color:var(--sf-green-ink);}
     body.view-staff .queue-table thead th.an-sort-th:hover{color:var(--text);}
     @media(min-width:1024px){
-      body.view-staff .queue-table-desktop-wrap .queue-table th{top:56px;background:var(--sf-head);box-shadow:0 1px 0 var(--border);}
+      body.view-staff .queue-table-desktop-wrap .queue-table th{top:var(--staff-top);background:var(--sf-head);box-shadow:0 1px 0 var(--border);}
     }
     body.view-staff .queue-table td{padding:9px 10px;border-bottom:1px solid var(--sf-sep);}
     body.view-staff .queue-table tbody tr:nth-child(odd) td{background:var(--sf-zebra);}
@@ -2809,6 +2837,9 @@
     body.view-staff .dash-allclear{background:rgba(12,122,61,.06);border:1px solid rgba(12,122,61,.2);border-radius:8px;color:var(--sf-green-ink);}
     body.view-staff .an-range-bar{background:var(--sf-card);border:1px solid var(--sf-line2);border-radius:10px;box-shadow:none;}
     body.view-staff .an-sticky{background:linear-gradient(180deg,var(--bg) 72%,transparent);}
+    /* Sticky bars stop under the ink bar (and under the sections bar on phones and tablets).
+       At top:0 they slid beneath the sticky header, which is painted above them. */
+    body.view-staff .an-sticky,body.view-staff .bk-bulk-bar{top:var(--staff-stick);}
     body.view-staff .chart-card,body.view-staff .analytics-highlight-card{
       background:var(--sf-card);border:1px solid var(--sf-line2);border-radius:10px;box-shadow:none;
     }
@@ -2877,6 +2908,11 @@
     }
     body.view-staff .toast.error{border-inline-start-color:#ff6f66;}
     body.view-staff .toast.warning{border-inline-start-color:#f2b43f;}
+    /* A long message wraps inside the screen instead of running off both edges of a tablet
+       (toasts were nowrap above 767px). The container sizes to its content, capped at the
+       screen, because a left:50% box would otherwise shrink to half the width and wrap early. */
+    body.view-staff .toast{white-space:normal;max-width:100%;}
+    @media(min-width:768px){body.view-staff #toast-container{width:max-content;max-width:calc(100vw - 32px);}}
     body.view-staff .undo-bar{background:#0f1215;border:1px solid rgba(3,255,137,.3);border-radius:10px;}
     body.view-staff .undo-bar-text{color:#e9edee;}
     body.view-staff .undo-bar-action{background:#03ff89;color:#06130c;border-radius:7px;}
@@ -2911,7 +2947,7 @@
 
     /* ── Staff phone polish (≤767px): tidy topbar, wrapping filter rows, comfy targets ── */
     @media(max-width:767px){
-      body.view-staff #topbar#topbar{padding:0 10px;gap:6px;height:52px;}
+      body.view-staff #topbar#topbar{padding:var(--staff-safe-top) 10px 0;gap:6px;height:var(--staff-top);}
       body.view-staff #topbar-logo-img{height:20px;max-width:56px;}
       body.view-staff #topbar .role-seg{height:34px;border-radius:6px;}
       body.view-staff #topbar .role-seg button{padding:0 9px;font-size:11px;}
@@ -3029,6 +3065,15 @@
       /* the bar is ~78px tall, so the footer's stock 70px let the copyright slip under it */
       body.view-customer #app-footer,
       body.view-picker #app-footer{padding-bottom:calc(88px + env(safe-area-inset-bottom));}
+      /* The booking steps' Continue bar sticks to the bottom of the screen, which is where the
+         bar sits, and the bar is painted above it: the sticky button was hidden until the rider
+         scrolled to the very end. The tabs get one known height (72px, what the tallest script
+         needs), so the Continue bar can sit exactly on top of the bar: 72 + its 1px rule + its
+         bottom padding. The bar already clears the home indicator, so this one does not. */
+      .cust-bnav-btn{min-height:72px;}
+    }
+    @media(max-width:720px){ /* the width the Continue bar turns sticky at */
+      body.view-customer .mm-reg-foot{bottom:calc(73px + max(8px,env(safe-area-inset-bottom)));padding-bottom:8px;}
     }
 
     /* ════════════════════════════════════════════════════════════════════════
@@ -3066,7 +3111,7 @@
     html[data-staff-theme="dark"] body.view-staff select,
     html[data-staff-theme="dark"] body.view-staff textarea,
     html[data-staff-theme="dark"] body.view-staff .filter-select,
-    html[data-staff-theme="dark"] body.view-staff .search-input{background:var(--in-bg);color:var(--text);}
+    html[data-staff-theme="dark"] body.view-staff .search-input{background-color:var(--in-bg);color:var(--text);}
     html[data-staff-theme="dark"] body.view-staff select option{background:#14171c;color:#e8ebed;}
     /* status ink: the print-weight amber/red are unreadable on #08090b */
     html[data-staff-theme="dark"] body.view-staff .badge-waiting,
@@ -3169,13 +3214,16 @@
     }
     .search-clear:hover{background:rgba(var(--tint-rgb),.1);color:var(--text);}
     input.has-clear{padding-inline-end:34px;}
+    /* The RTL search recipe pins padding-left to 12px (the icon moved to the right) and it
+       outranks the line above, so in Arabic and Urdu the text ran under the × at the left. */
+    html[dir="rtl"] input.search-input.has-clear{padding-left:34px;}
 
     /* ── Staff topbar on small phones ───────────────────────────────────────
        The role switch + undo + password + Lock could overflow the bar in portrait,
        pushing Lock off-screen (it was only reachable in landscape). Everything
        shrinks and the right-hand group is allowed to compress so Lock always fits. */
     @media(max-width:520px){
-      body.view-staff #topbar#topbar{gap:4px;padding:0 8px;}
+      body.view-staff #topbar#topbar{gap:4px;padding:var(--staff-safe-top) 8px 0;}
       body.view-staff #topbar .topbar-logo{flex-shrink:1;min-width:0;}
       body.view-staff #topbar-logo-img{max-width:38px;}
       body.view-staff #topbar > div{min-width:0;gap:4px;}
@@ -3348,6 +3396,9 @@
     .ev-jcc{--ev:var(--blue);--ev-rgb:var(--blue-rgb);}
     .ev-saturday{--ev:var(--green);--ev-rgb:var(--green-rgb);}
     .ev-petromin{--ev:var(--red);--ev-rgb:var(--red-rgb);}
+    /* The staff skin collapses --blue to ink (one accent colour for status), which turned the
+       circuit's colour black on every staff screen. The ride keeps the house blue there. */
+    body.view-staff .ev-jcc{--ev:#2f63ad;--ev-rgb:47,99,173;}
 
     /* the ride's name, wherever it is stamped on something */
     body .ev-chip{display:inline-block;font-size:9px;font-weight:900;color:var(--ev);
@@ -3430,10 +3481,15 @@
 
     /* the bike-type picker on a Staff List row: a control, not a form field */
     /* Selects are full-width form fields by default; this one is an inline control on a row,
-       so it takes its own width and never pushes the chip beside it onto a second line. */
-    body .mw-type{width:auto;max-width:150px;flex:0 0 auto;padding:3px 22px 3px 8px;min-height:26px;
-      border:1px solid rgba(var(--tint-rgb),.18);border-radius:3px;background:var(--s3);color:var(--text);
-      font-family:var(--font-body);font-size:11px;font-weight:800;cursor:pointer;}
+       so it takes its own width and never pushes the chip beside it onto a second line.
+       select.mw-type under body.view-staff: the staff form-field recipe (body.view-staff select)
+       outranked the plain class and made the picker a 42px field. background-color, not the
+       shorthand, so the base select chevron stays, pulled in to fit the 22px end padding. */
+    body .mw-type,body.view-staff select.mw-type{width:auto;max-width:150px;flex:0 0 auto;padding:3px 22px 3px 8px;min-height:26px;
+      border:1px solid rgba(var(--tint-rgb),.18);border-radius:3px;background-color:var(--s3);color:var(--text);
+      font-family:var(--font-body);font-size:11px;font-weight:800;cursor:pointer;
+      background-position:right 7px center;background-size:9px 6px;}
+    html[dir="rtl"] body .mw-type,html[dir="rtl"] body.view-staff select.mw-type{padding:3px 8px 3px 22px;background-position:left 7px center;}
 
     /* ════════════════════════════════════════════════════════════════════════
        CUSTOMER RESKIN — platform light identity (Rides handoff, theme decision b)
@@ -3590,12 +3646,13 @@
     /* Swim sessions carry their own identity colour. JCC already owns blue, so this is a
        deeper water teal rather than a second blue nobody could tell apart at a glance. */
     .ev-swim{--ev:#0d7d8f;--ev-rgb:13,125,143;}
-    :root[data-theme="dark"] .ev-swim{--ev:#3fc9dd;--ev-rgb:63,201,221;}
 
     /* The Triathlon Workshop: a burnt orange, because every other hue on the page already
-       names a ride — blue circuit, green Saturday, red Petromin, teal pool. */
+       names a ride — blue circuit, green Saturday, red Petromin, teal pool.
+       Neither colour has a dark-theme variant any more: data-theme="dark" is on every page
+       while every surface these names sit on is white, so the light cyan and light orange that
+       used to take over drew the ride's name at 2:1 on paper. */
     .ev-workshop{--ev:#c2410c;--ev-rgb:194,65,12;}
-    :root[data-theme="dark"] .ev-workshop{--ev:#fb923c;--ev-rgb:251,146,60;}
     body .landing-event-card.ev-workshop::before{background:var(--ev);}
     body .landing-event-card.ev-workshop:hover{border-color:rgba(var(--ev-rgb),.5);}
     body .landing-event-card.ev-workshop .lec-kicker,body .landing-event-card.ev-workshop .lec-arrow{color:var(--ev);}
@@ -3679,6 +3736,12 @@
     html[dir="rtl"] .queue-table th:first-child,html[dir="rtl"] .queue-table td:first-child{
       box-shadow:-1px 0 0 var(--border);
     }
+    /* The staff row tints (on a bike, no-show) are see-through washes, and they outrank the
+       pinned cell's solid fill - the columns scrolling under the booking number showed through
+       it. On the pinned cell the wash is laid over the card colour as an image layer instead. */
+    body.view-staff .queue-table tbody tr.row-active td:first-child{background:linear-gradient(rgba(12,122,61,.05),rgba(12,122,61,.05)) var(--sf-card);}
+    body.view-staff .queue-table tbody tr.row-active:hover td:first-child{background:linear-gradient(rgba(12,122,61,.08),rgba(12,122,61,.08)) var(--sf-card);}
+    body.view-staff .queue-table tbody tr.row-noshow-cancel td:first-child{background:linear-gradient(rgba(163,59,46,.05),rgba(163,59,46,.05)) var(--sf-card);}
 
 /* ── Roster header, 2026-09-13: the figures as one line, the filters folded on phones ── */
 .stat-strip{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
@@ -3848,6 +3911,11 @@ body.view-staff .q-card.row-reserved{background:rgba(29,78,216,.04);border-color
 /* tablets: the table scrolls sideways inside its box; the booking number stays put */
 @media (min-width:768px) and (max-width:1023px){
   .queue-table-desktop-wrap .queue-table th:first-child,.queue-table-desktop-wrap .queue-table td:first-child{position:sticky;left:0;z-index:3;background:var(--s1);box-shadow:1px 0 0 var(--border);}
+  /* The other header cells are z-index 3 as well and come later in the row, so they painted
+     over the pinned "#" as they scrolled under it. The pinned one sits a layer above them,
+     in the header colour rather than the row colour. */
+  .queue-table-desktop-wrap .queue-table th:first-child{z-index:4;}
+  body.view-staff .queue-table-desktop-wrap .queue-table thead th:first-child{background:var(--sf-head);}
 }
 /* the chips' delta against the same night last week */
 .stat-delta{font-style:normal;font-size:11px;font-weight:800;margin-inline-start:6px;color:var(--muted-l);}
@@ -3999,27 +4067,37 @@ body.view-staff .q-card.row-toreserve{background:rgba(109,40,217,.04);border-col
        like the button it replaced; the wrapper draws the chevron so the many `background:`
        shorthands on .lang-toggle never have to know about it. Hindi and Nepali point
        --font-* at the self-hosted Devanagari face and Bengali at the Bengali one, since
-       Barlow carries neither script. NOTE: the later brand pass sets font-family on body
-       directly ('Space Grotesk','IBM Plex Sans Arabic',sans-serif) rather than through
-       var(--font-body), so today BOTH self-hosted faces are declared but never selected
-       and those scripts render in the device's own font. The variables are kept so the
-       two move together if that stack is ever put back on var(--font-body).
-       What does bite today is the metrics: both scripts stack marks above and below the
+       neither skin's Latin face carries either script. The tokens are set on BODY, and on the
+       staff body: both skins re-declare --font-* there, so a value set on <html> (where these
+       used to live) was shadowed before it reached a single element and those scripts fell
+       back to the device's own font. Each stack keeps its skin's Latin face first, so digits
+       and Latin names do not change; only the Devanagari / Bengali glyphs come from Noto.
+       The metrics matter as well: both scripts stack marks above and below the
        line, hence the looser body line-height and the display titles dropping the tight
        negative tracking, which crowds their conjuncts. */
     .lang-wrap{position:relative;display:inline-flex;align-items:center;flex-shrink:0;}
     .lang-wrap::after{content:'';position:absolute;inset-inline-end:10px;top:50%;width:5px;height:5px;border-inline-end:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-65%) rotate(45deg);pointer-events:none;opacity:.6;}
     select.lang-toggle{appearance:none;-webkit-appearance:none;padding-inline-end:24px!important;padding-top:0!important;padding-bottom:0!important;line-height:1.5;max-width:160px;overflow:hidden;text-overflow:ellipsis;} /* line-height 1 clipped Devanagari vowel marks */
     select.lang-toggle option{color:#111;background:#fff;font-weight:500;}
-    html[lang="hi"],html[lang="ne"]{
-      --font-body:'Barlow','Noto Sans Devanagari',sans-serif;
-      --font-display:'Barlow Condensed','Noto Sans Devanagari','Barlow',sans-serif;
-      --font-mono:'Chakra Petch','Noto Sans Devanagari','Barlow',sans-serif;
+    :is(html[lang="hi"],html[lang="ne"]) body{
+      --font-body:'Space Grotesk','Noto Sans Devanagari','IBM Plex Sans Arabic',sans-serif;
+      --font-display:'Space Grotesk','Noto Sans Devanagari','IBM Plex Sans Arabic',sans-serif;
+      --font-mono:'Space Grotesk','Noto Sans Devanagari','IBM Plex Sans Arabic',sans-serif;
     }
-    html[lang="bn"]{
-      --font-body:'Barlow','Noto Sans Bengali',sans-serif;
-      --font-display:'Barlow Condensed','Noto Sans Bengali','Barlow',sans-serif;
-      --font-mono:'Chakra Petch','Noto Sans Bengali','Barlow',sans-serif;
+    :is(html[lang="hi"],html[lang="ne"]) body.view-staff{
+      --font-body:'Barlow','Noto Sans Devanagari','IBM Plex Sans Arabic',sans-serif;
+      --font-display:'Barlow','Noto Sans Devanagari','IBM Plex Sans Arabic',sans-serif;
+      --font-mono:'Barlow','Noto Sans Devanagari','IBM Plex Sans Arabic',sans-serif;
+    }
+    html[lang="bn"] body{
+      --font-body:'Space Grotesk','Noto Sans Bengali','IBM Plex Sans Arabic',sans-serif;
+      --font-display:'Space Grotesk','Noto Sans Bengali','IBM Plex Sans Arabic',sans-serif;
+      --font-mono:'Space Grotesk','Noto Sans Bengali','IBM Plex Sans Arabic',sans-serif;
+    }
+    html[lang="bn"] body.view-staff{
+      --font-body:'Barlow','Noto Sans Bengali','IBM Plex Sans Arabic',sans-serif;
+      --font-display:'Barlow','Noto Sans Bengali','IBM Plex Sans Arabic',sans-serif;
+      --font-mono:'Barlow','Noto Sans Bengali','IBM Plex Sans Arabic',sans-serif;
     }
     html[lang="hi"] body,html[lang="ne"] body,html[lang="bn"] body{line-height:1.55;}
     html[lang="hi"] .lec-title,html[lang="ne"] .lec-title,html[lang="bn"] .lec-title,html[lang="hi"] .landing-main-title,html[lang="ne"] .landing-main-title,html[lang="bn"] .landing-main-title{font-style:normal;text-transform:none;letter-spacing:0;}
@@ -4126,8 +4204,10 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
 
     /* The walk-in's namesake question. A name is not a person: when the desk types a rider
        who shares a name with someone already booked on the night and no mobile settles it,
-       the form asks rather than merging the two behind the staffer's back. */
-    .rw-dup{border:1px solid rgba(var(--orange-rgb),.45);background:rgba(var(--orange-rgb),.08);
+       the form asks rather than merging the two behind the staffer's back. --warn-rgb, not
+       --orange-rgb: that one only exists inside the National Day takeover, so everywhere the
+       desk actually sees this box its border and wash were invalid and dropped. */
+    .rw-dup{border:1px solid rgba(var(--warn-rgb),.45);background:rgba(var(--warn-rgb),.08);
       border-radius:4px;padding:10px 12px;margin:10px 0;font-size:13px;font-weight:600;
       color:var(--text);line-height:1.45;}
     .rw-dup-btns{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
@@ -4258,6 +4338,7 @@ html[dir="rtl"] .dob-row select{background-position:left 8px center;}
     body.snd96 input[type="date"],body.snd96 input[type="password"],
     body.snd96 input[type="url"],body.snd96 select,body.snd96 textarea{
       background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.22);color:#fff;}
+    body.snd96 select{background:rgba(255,255,255,.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23cfe3d8' d='M6 8L0 0h12z'/%3E%3C/svg%3E") no-repeat right 13px center;}
     body.snd96 input::placeholder,body.snd96 textarea::placeholder{color:rgba(255,255,255,.45);}
     body.snd96 input:focus,body.snd96 select:focus,body.snd96 textarea:focus{
       border-color:var(--snd-lime-lt);box-shadow:inset 0 0 0 1px var(--snd-lime-lt);}
