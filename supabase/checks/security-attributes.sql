@@ -50,6 +50,7 @@ with expected(fname, want_definer, note) as (values
   ('_staff_ref_broadcast',   true,  'inserts into realtime.messages whoever made the change'),
   ('customer_ride_news',     true,  'reads and sets the caller''s own ride-news consent; token-checked'),
   ('customer_consents',      true,  'reads and records the caller''s own privacy confirmation and ride-news answer; token-checked'),
+  ('customer_deletion_request', true, 'reads, makes or withdraws the caller''s own deletion request; token-checked'),
   -- Invoker on purpose: pure logic, no privileged read.
   ('_name_chars_ok',         false, 'pure regex test, no read'),
   ('_customer_name_ok',      false, 'name-rule trigger; is_staff() does its own privileged read'),

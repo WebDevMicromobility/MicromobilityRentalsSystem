@@ -59,3 +59,18 @@ test('Community keeps accounts, the flagged list and the membership applications
   await page.evaluate(`S.communityTab='leaderboard';renderCommunity()`);
   await expect(pills.first()).toHaveClass(/active/);
 });
+
+test('the date range bar goes on the two views that keep their own window, and comes back', async ({ page }) => {
+  await staff(page);
+  await page.evaluate(`setStaffTab('analytics')`);
+  const bar = page.locator('#tab-analytics .an-range-bar');
+  await expect(bar).toBeVisible();
+  await page.evaluate(`setAnView('leaderboard')`);
+  await expect(bar).toBeHidden();
+  await page.evaluate(`setLb('lbWindow','week')`); // a repaint keeps it hidden
+  await expect(page.locator('#tab-analytics .an-range-bar')).toBeHidden();
+  await page.evaluate(`setAnView('stats')`);
+  await expect(page.locator('#tab-analytics .an-range-bar')).toBeHidden();
+  await page.evaluate(`setAnView('revenue')`);
+  await expect(page.locator('#tab-analytics .an-range-bar')).toBeVisible();
+});

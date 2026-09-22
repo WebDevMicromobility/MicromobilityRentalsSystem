@@ -1,8 +1,9 @@
 -- ============================================================================
 -- A first answer to ride news is recorded, even when it is "no".
 --
--- APPLIED AND VERIFIED 2026-09-22 (SQL editor, history row recorded). Superseded for the app
--- by customer_consents (20260922140000), which records the answer the same way.
+-- APPLIED AND VERIFIED 2026-09-22 (SQL editor). Renumbered from 20260922130000, which
+-- cancel_reason also took; its history row is recorded under 20260922130500. Superseded for
+-- the app by customer_consents (20260922140000), which records the answer the same way.
 --
 -- 20260922120000 stamped ride_news_at only when the answer CHANGED. Every account starts at
 -- false, so a rider who answers "No thanks" changed nothing and was left looking as if never
