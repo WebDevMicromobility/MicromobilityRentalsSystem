@@ -5,7 +5,7 @@
 import { minify } from 'html-minifier-terser';
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { FILES as DIST_FILES, DIRS as DIST_DIRS } from './assemble-dist.mjs';
 
@@ -172,8 +172,10 @@ if (out === beforeCss && /styles\.css\?v=/.test(beforeCss)) {
 //   styles.css      - already in, through cssHash
 //   functions/      - not static files
 //   lang/, cities/  - asked for with their own content hash (?v=), so a change is a new URL
-// Only files git tracks are read: a stray local file (.DS_Store, work in progress) must not make
-// this machine's cache name differ from the one CI rebuilds and compares.
+// The list is read from disk, exactly what assemble-dist would copy, so a new asset counts the
+// moment it is there - build, then commit, the usual order here. Dotfiles (.DS_Store and the
+// like) and anything .gitignore'd are left out: they are on this machine only, and CI, whose
+// checkout is the committed tree, has to rebuild the very same name.
 const swUrl = new URL('../service-worker.js', import.meta.url);
 let sw = await readFile(swUrl, 'utf8');
 const swBefore = sw;
@@ -190,16 +192,30 @@ for (const rel of new Set(shellList)) {
   catch { throw new Error(`build: service-worker.js precaches ${rel}, which is not in the repo`); }
 }
 const rootDir = fileURLToPath(new URL('../', import.meta.url));
-const tracked = execFileSync('git', ['ls-files', '-z', '--', ...DIST_FILES, ...DIST_DIRS], { cwd: rootDir, encoding: 'utf8' })
-  .split('\0').filter(Boolean);
-const cacheFirst = tracked
-  .filter((rel) => !NOT_CACHE_FIRST.has(rel) && !VERSIONED_DIRS.has(rel.split('/')[0]))
-  .sort();
-for (const rel of DIST_FILES) {
-  if (!NOT_CACHE_FIRST.has(rel) && !cacheFirst.includes(rel)) throw new Error(`build: ${rel} ships but git does not track it`);
+async function walk(rel) {
+  const out = [];
+  for (const d of await readdir(new URL(`../${rel}/`, import.meta.url), { withFileTypes: true })) {
+    if (d.name.startsWith('.')) continue;
+    const child = `${rel}/${d.name}`;
+    if (d.isDirectory()) out.push(...(await walk(child)));
+    else if (d.isFile()) out.push(child);
+  }
+  return out;
 }
+let onDisk = DIST_FILES.filter((rel) => !rel.startsWith('.'));
+for (const dir of DIST_DIRS) if (!VERSIONED_DIRS.has(dir)) onDisk.push(...(await walk(dir)));
+// git check-ignore answers from the ignore rules, not from what is committed; without git (a
+// tarball build) nothing is filtered, which is still the same answer CI would give.
+const ign = spawnSync('git', ['check-ignore', '--stdin', '-z'], { cwd: rootDir, input: onDisk.join('\0'), encoding: 'utf8' });
+if (ign.status === 0) { const ignored = new Set(ign.stdout.split('\0').filter(Boolean)); onDisk = onDisk.filter((rel) => !ignored.has(rel)); }
+const cacheFirst = onDisk.filter((rel) => !NOT_CACHE_FIRST.has(rel)).sort();
 const shellHasher = createHash('sha256').update(cssHash);
-for (const rel of cacheFirst) shellHasher.update(rel).update(await readFile(new URL(`../${rel}`, import.meta.url)));
+for (const rel of cacheFirst) {
+  let bytes;
+  try { bytes = await readFile(new URL(`../${rel}`, import.meta.url)); }
+  catch { throw new Error(`build: scripts/assemble-dist.mjs ships ${rel}, which is not in the repo`); }
+  shellHasher.update(rel).update(bytes);
+}
 const shellHash = shellHasher.digest('hex').slice(0, 10);
 sw = sw
   .replace(/styles\.css\?v=[a-z0-9]+/g, `styles.css?v=${cssHash}`)
