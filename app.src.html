@@ -3772,7 +3772,9 @@ function renderAuthModal(){
       ${mode==='gcomplete'||isForgot?'':`<button type="button" class="staff-access-btn" style="width:100%;margin-top:14px" onclick="staffAccessClick()">${t('staffAccess')}</button>`}
     </div>
   </div>`;
-  Object.keys(_snap).forEach(id=>{const el=document.getElementById(id);if(el&&!el.value)el.value=_snap[id];});
+  // A country-code select is never empty (+966 comes pre-selected), so "only fill an empty box"
+  // skipped it: a language switch kept the typed number and quietly put it back under +966.
+  Object.keys(_snap).forEach(id=>{const el=document.getElementById(id);if(el&&(el.tagName==='SELECT'||!el.value))el.value=_snap[id];});
   S._authRenderMode=mode;
 }
 
@@ -3834,6 +3836,10 @@ async function doResetPassword(){
   const pwd2=(document.getElementById('a-reset-pwd2')?.value||'');
   if(pwd.length<8||!/[A-Z]/.test(pwd)||!/[0-9]/.test(pwd)){authErr(t('errPasswordLen'));return;}
   if(pwd!==pwd2){authErr(t('errPasswordMatch'));return;}
+  // One reset at a time. Every call rotates the account's token, so a second tap while the
+  // first is still out started a second rotation (and a second full reload); if the answers
+  // came back in the other order, the device kept a token the server had already replaced.
+  if(S._authBusy)return;S._authBusy=true;_authBtnBusy(true);
   try{
     if(CUST_RPC){
       const ph=_normPhone(S.forgotPhoneRaw||'',S.forgotCc||'+966'); // cc+raw kept the trunk 0 ("+9660…") and could never match
@@ -3867,6 +3873,7 @@ async function doResetPassword(){
     logAction(t('logPwdResetSelf')+(customer.email||''));
     toast(t('toastPwReset'));
   }catch(e){authErr(t('errConnection'));}
+  finally{S._authBusy=false;_authBtnBusy(false);}
 }
 function authErr(msg){const el=document.getElementById('auth-err');if(el){el.textContent=msg;if(msg){try{el.scrollIntoView({block:'center',behavior:_sb()});}catch(e){}}}}
 
@@ -4021,17 +4028,49 @@ function _nameErr3(first,middle,last){
 // Accept only real http(s) links (pasted Google Maps URLs); anything else becomes ''.
 function _safeUrl(v){const s=_cleanIdent(v).slice(0,500);return /^https?:\/\/\S+$/i.test(s)?s:'';}
 function _asciiDigits(v){return String(v==null?'':v).replace(/[٠-٩]/g,c=>String.fromCharCode(c.charCodeAt(0)-1584)).replace(/[۰-۹]/g,c=>String.fromCharCode(c.charCodeAt(0)-1728));}
-// Live phone mask: groups digits as "5XX XXX XXXX" while typing (display only; saved value is stripped to digits)
+// The country codes the pickers offer, as digits. They are prefix-free (no code begins
+// another), so the first one a run of digits starts with is the only one it can start with.
+const _CC_DIGITS=new Set(COUNTRY_CODES.map(([c])=>c.slice(1)));
+function _ccOf(d){for(let n=1;n<=3&&n<=d.length;n++){if(_CC_DIGITS.has(d.slice(0,n)))return d.slice(0,n);}return '';}
+// Do these digits already start with the country code, or is this a national number that only
+// begins with the same digits? India (+91) hands out mobiles that start 91…, every mobile in
+// Kazakhstan (+7) starts with 7 and Syrian ones (+963) with 9…; the old test (the code plus six
+// more digits) filed all of them without their country. With the libphonenumber mobile rules
+// in hand (the staff panel loads them) the number itself decides; without them a national
+// number is taken to be at most ten digits and a full one at least eleven.
+function _ccIncluded(d,ccd){
+  if(!ccd||d.indexOf(ccd)!==0)return false;
+  const nat=d.slice(ccd.length);
+  try{if(_phoneRules&&_phoneRules[ccd]){if(_sxMobileOk(ccd,d))return false;if(_sxMobileOk(ccd,nat))return true;}}catch(e){}
+  return d.length>=11&&nat.length>=8;
+}
+// Live phone mask: groups digits as "5XX XXX XXXX" while typing (display only; the saved value is
+// stripped to digits and joined to the country picker beside the box). Nothing below the E.164
+// fifteen is cut: an Egyptian, Pakistani or Filipino mobile typed with its 0 is eleven digits and
+// a Chinese one eleven without it, and a ten-digit cap silently dropped the last one.
+// A number that says it is international - a leading + or 00, which is what autofill and a paste
+// bring - carries its own country: the picker follows it (autofill of +20… used to be filed under
+// +966) and the code comes off the box. A code typed without the + comes off only when the digits
+// are more than a national number (_ccIncluded). Saudi numbers keep the 05… riders know them by.
 function fmtPhoneInput(el){
   if(!el)return;
-  let d=_asciiDigits(el.value).replace(/\D/g,'');
-  if(d.slice(0,2)==='00')d=d.slice(2);                 // pasted 00966…
-  if(d.indexOf('966')===0&&d.length>=11)d='0'+d.slice(3); // pasted +966… → local 05…, keeping ALL digits (slicing first corrupted the number)
-  d=d.slice(0,10);
+  const raw=_asciiDigits(el.value).trim();
+  let d=raw.replace(/\D/g,'');
+  const row=el.closest&&el.closest('.auth-cc-row,.phone-row'),pick=row&&row.querySelector('select');
+  let ccd=String((pick&&pick.value)||'+966').replace(/\D/g,'');
+  const intl=raw[0]==='+'||d.slice(0,2)==='00';
+  if(d.slice(0,2)==='00')d=d.slice(2);
+  let cut=false,plus=false;
+  if(intl){
+    if(pick&&d.indexOf(ccd)!==0){const k=_ccOf(d);if(k){pick.value='+'+k;ccd=k;}}
+    if(d.indexOf(ccd)===0){d=d.slice(ccd.length);cut=true;}else plus=true; // no code recognised yet: keep the + so the next keystroke still reads as international
+  }else if(_ccIncluded(d,ccd)){d=d.slice(ccd.length);cut=true;}
+  if(cut&&ccd==='966'&&d&&d[0]!=='0')d='0'+d;
+  d=d.slice(0,15);
   let out=d;
   if(d.length>6)out=d.slice(0,3)+' '+d.slice(3,6)+' '+d.slice(6);
   else if(d.length>3)out=d.slice(0,3)+' '+d.slice(3);
-  el.value=out;
+  el.value=(plus?'+':'')+out;
 }
 // Compose a clean E.164 phone from whatever the customer typed + the selected country
 // code, WITHOUT doubling the code. Handles +966…, 966…, 00966…, 0562…, 562… → +966562….
@@ -4062,7 +4101,7 @@ function _normPhone(raw,cc){
   s=s.replace(/\D/g,'');
   if(!s)return '';
   if(s.slice(0,2)==='00')return '+'+s.slice(2);                // 00 international prefix
-  if(ccd&&s.indexOf(ccd)===0&&s.length>=ccd.length+6)return '+'+s; // already includes the country code
+  if(_ccIncluded(s,ccd))return '+'+s;                          // already includes the country code
   if(s[0]==='0')return cc+s.slice(1);                          // strip national trunk 0
   return cc+s;                                                 // bare local number
 }
@@ -4180,8 +4219,17 @@ async function handleGoogleReturn(){
   if(!email)return false;
   if(CUST_RPC){
     // Locked table: the RPC verifies the caller's Google Auth session carries this email.
-    let cust=null;
-    try{const{data}=await sb.rpc('customer_oauth_login',{p_email:email});cust=(data&&data[0])||null;}catch(e){}
+    // Only an ANSWER of "no account" means a new rider. A request that failed used to read the
+    // same way, and sent an existing rider to the new-account form, where their own phone then
+    // came back "already registered". On a failure the sign-in page stays up with the reason;
+    // the Google session is kept, so the next load tries again.
+    let cust=null,err=null;
+    try{const r=await _rpcResilient('customer_oauth_login',{p_email:email});err=r&&r.error;cust=(r&&r.data&&r.data[0])||null;}catch(e){err=e;}
+    if(err){
+      try{_logError('auth:oauth '+((((err.code||'')+' '+(err.message||'')).trim())||'fail'),'auth',true);}catch(_){}
+      toast(navigator.onLine===false?t('errNoInternet'):t('errConnection'),'error');
+      return false;
+    }
     if(cust){
       if(!cust.photo&&gphoto){try{await sb.rpc('customer_set_photo',{p_id:cust.id,p_token:cust.session_token,p_photo:gphoto});cust={...cust,photo:gphoto};}catch(e){}}
       S.rememberMe=true;S.loggedIn=cust;setSession(cust);
@@ -4233,10 +4281,12 @@ async function doCompleteGoogle(){
   if(S._authBusy)return;S._authBusy=true;_authBtnBusy(true);
   try{
     if(CUST_RPC){
-      try{const{data:ex}=await sb.rpc('customer_exists',{p_email:'',p_phone:fullPhone});if(ex===true){authErr(t('errPhoneExists'));return;}}catch(e){}
+      let _phoneFree=false;
+      try{const{data:ex,error:exErr}=await sb.rpc('customer_exists',{p_email:'',p_phone:fullPhone});if(ex===true){authErr(t('errPhoneExists'));return;}_phoneFree=!exErr&&ex===false;}catch(e){}
       const newId=uid();
       const{data,error}=await sb.rpc('customer_oauth_signup',{p_id:newId,p_name:name,p_email:g.email||'',p_phone:fullPhone,p_height:heightRaw,p_type_preference:S.signupTypePref||'Any',p_gender:S.signupGender,p_photo:g.photo||null});
-      if(error){if(_isNameCharsErr(error))authErr(t('errNameChars'));else if(/DUPLICATE|23505/i.test((error.message||'')+(error.code||'')))authErr(t('errPhoneExists'));else _authFail('gcomplete',error);return;}
+      // The phone was checked just above, so a duplicate the signup still finds is the email.
+      if(error){if(_isNameCharsErr(error))authErr(t('errNameChars'));else if(/DUPLICATE|23505/i.test((error.message||'')+(error.code||'')))authErr(t(_phoneFree?'errEmailExists':'errPhoneExists'));else _authFail('gcomplete',error);return;}
       const tok=(data&&data[0]&&data[0].session_token)||null;
       const safe={id:newId,name,email:g.email||'',phone:fullPhone,height:heightRaw,type_preference:S.signupTypePref||'Any',created_at:new Date().toISOString(),photo:g.photo||null,session_token:tok};
       S.rememberMe=true;S.loggedIn=safe;setSession(safe);S._pendingGoogle=null;
@@ -4273,9 +4323,16 @@ async function doLogin(){
       // stored +966… form or phone login always fails with "invalid credentials".
       const ident=identifier.includes('@')?identifier:(_normPhone(rawInput,'+966')||identifier);
       const{data,error}=await _rpcResilient('customer_login',{p_identifier:ident,p_pwd:pwd});
-      if(error){if(/LOCKED/.test((error.message||'')+(error.hint||'')))authErr(t('errLoginLocked'));else if(/PGRST|Failed to fetch|network/i.test((error.code||'')+(error.message||'')))_authFail('login',error);else authErr(t('errInvalidCredentials'));return;}
+      // A request that never arrived is a connection problem, not a wrong password. Safari names
+      // it "TypeError: Load failed", which the old test here did not know, so iPhone riders on a
+      // weak signal were told their password was wrong and went to reset it.
+      if(error){if(/LOCKED/.test((error.message||'')+(error.hint||'')))authErr(t('errLoginLocked'));else if(_isNetErr(error)||/PGRST|Failed to fetch|network/i.test((error.code||'')+(error.message||'')))_authFail('login',error);else authErr(t('errInvalidCredentials'));return;}
       const customer=(data&&data[0])||null;
-      if(!customer){authErr(t('errInvalidCredentials'));return;}
+      // The box has no country picker, so a number typed without its + is read as Saudi. One that
+      // is not a Saudi mobile that way (an Egyptian 010…, a Pakistani 03…) can never match; say
+      // that it needs its country code rather than calling the password wrong.
+      const _ccHint=ident!==identifier&&!/^\s*(\+|00)/.test(rawInput)&&!/^\+9665\d{8}$/.test(ident);
+      if(!customer){authErr(t(_ccHint?'errLoginPhoneCc':'errInvalidCredentials'));return;}
       S.loggedIn=customer;setSession(customer);
       await loadData();
       closeAuthModal();prefillFromAccount();renderTopbarRight();renderRegister();renderMyRides();if(S.view!=='customer'){renderCustomerTabs();goLanding();} // signing in on the link lands on PICK YOUR EVENT, sections bar ready
@@ -4322,6 +4379,9 @@ function doLogout(silent){
   if(sb&&sb.auth)try{sb.auth.signOut();}catch(e){}
   S._rName='';S._rEmail='';S._rPhone='';S._rHeight='';
   S.regBikeSizes=[];S.regBikeHeights=[];S.regBikeTypes=[];S.regRiderNames=[];S.regQty=1;S.regType=null;S.selSession=null;S.lastTickets=[];S._alreadyBookedSession=null;S.regSubmitting=false;S.waiverOk=false;S.regStep=1;
+  // The next person on this device starts clean: a code, add-ons or a booking being changed
+  // belonged to the account that just left (a promo can be tied to one customer).
+  S.promoApplied=null;S._promoMsg='';S.regAddons=[];S.modifyEntryId=null;
   S.selEvent='jcc';
   S.sessions=(S.sessions||[]).filter(s=>!_isCommunity(s)); // drop private events from memory the moment they sign out
   renderTopbarRight();
@@ -4735,14 +4795,14 @@ function _bfPickerHtml(selVar,nameVar,urlVar,rerender){
   const sel=S[selVar]||'';
   const isNew=sel==='__new';
   return `<div class="form-group"><label>${t('sessBfNameLabel')} &nbsp;<span class="label-hint">(${t('optionalLabel')})</span></label>
-    <select onchange="S['${selVar}']=this.value;const _s=(S.breakfastSpots||[]).find(x=>x.id===this.value);if(_s){S['${nameVar}']=_s.name||'';S['${urlVar}']=_s.url||'';}else if(this.value!=='__new'){S['${nameVar}']='';S['${urlVar}']='';}${rerender}()">
+    <select onchange="S[${_ja(selVar)}]=this.value;const _s=(S.breakfastSpots||[]).find(x=>x.id===this.value);if(_s){S[${_ja(nameVar)}]=_s.name||'';S[${_ja(urlVar)}]=_s.url||'';}else if(this.value!=='__new'){S[${_ja(nameVar)}]='';S[${_ja(urlVar)}]='';}${rerender}()">
       <option value="">${t('bfNoneOpt')}</option>
       ${spots.map(sp=>`<option value="${esc(sp.id)}"${sel===sp.id?' selected':''}>${esc(sp.name)}</option>`).join('')}
       <option value="__new"${isNew?' selected':''}>${t('bfNewOpt')}</option>
     </select>
     ${isNew?`<div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">
-      <input type="text" maxlength="80" value="${esc(S[nameVar]||'')}" placeholder="${esc(t('sessBfNamePh'))}" oninput="S['${nameVar}']=this.value">
-      <input type="url" inputmode="url" value="${esc(S[urlVar]||'')}" placeholder="${esc(t('sessMapPh'))}" oninput="S['${urlVar}']=this.value">
+      <input type="text" maxlength="80" value="${esc(S[nameVar]||'')}" placeholder="${esc(t('sessBfNamePh'))}" oninput="S[${_ja(nameVar)}]=this.value">
+      <input type="url" inputmode="url" value="${esc(S[urlVar]||'')}" placeholder="${esc(t('sessMapPh'))}" oninput="S[${_ja(urlVar)}]=this.value">
     </div>`:''}
   </div>`;
 }
@@ -4789,7 +4849,7 @@ function showCommMembersModal(sess){
           <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:50%;background:rgba(74,168,248,.12);border:1px solid rgba(74,168,248,.4);color:#4aa8f8;flex-shrink:0">${lock}</span>
           <div style="min-width:0">
             <div style="font-size:18px;font-weight:900">${t('commMembersTitle')}</div>
-            <div class="ev-name ${_evClass(sess)}">${esc(_evName(sess))}</div>
+            ${sess?`<div class="ev-name ${_evClass(sess)}">${esc(_evName(sess))}</div>`:''}
           </div>
         </div>
         <button onclick="closeConfirm()" aria-label="${t('closeBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:22px;line-height:1;padding:0 4px;transition:color .15s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">&times;</button>
@@ -4844,7 +4904,9 @@ async function selectSessCard(id){
 async function selectEvent(ev){
   if(await _profileGate(()=>selectEvent(ev)))return;
   if(ev==='community'&&!(await commAccess())){
-    const next=(S.sessions||[]).filter(s=>_isCommunity(s)&&!_openToAll(s)&&s.status!=='deleted').sort((a,b)=>String(a.session_date||a.id).localeCompare(String(b.session_date||b.id)))[0];
+    // Name the ride the card leads to next - live, not yet past. The oldest community session
+    // on record used to stand in, which could be a ride from months ago.
+    const next=(S.sessions||[]).filter(s=>_evMatch(s,'community')&&!_openToAll(s)&&_sessLive(s)&&!_sessPastDay(s)).sort((a,b)=>String(a.session_date||a.id).localeCompare(String(b.session_date||b.id)))[0];
     showCommMembersModal(next);return;
   }
   S.selEvent=ev;S.selSession=null;
@@ -4898,7 +4960,7 @@ function dobFieldHtml(id,value,opts){
   const dim=(y&&m)?new Date(y,m,0).getDate():31;
   const lim=_dobLimits(y,m);
   const dis=o.disabled?' disabled':'';
-  const sel=(part,options,cur,ph)=>`<select id="${id}-${part}" class="dob-part dob-${part}${cur?'':' ph'}" aria-label="${esc(ph)}" onchange="_dobSync('${id}')"${dis}>${options}</select>`;
+  const sel=(part,options,cur,ph)=>`<select id="${id}-${part}" class="dob-part dob-${part}${cur?'':' ph'}" aria-label="${esc(ph)}" onchange="_dobSync(${_ja(id)})"${dis}>${options}</select>`;
   const mos=_dobMonthOpts(m,lim.mMax);
   let yrs=`<option value="">${esc(t('dobYear'))}</option>`;
   // A stored year outside the list still shows, so the rider sees what is wrong and the save says why.
@@ -4981,13 +5043,22 @@ async function _pgSave(){
   if(g.errBirth||g.errNat){renderProfileGate();setTimeout(()=>{const f=document.getElementById(g.errBirth?'pg-birth-d':'pg-nat');if(f)f.focus();},120);return;}
   g.saving=true;g.net=false;renderProfileGate();
   try{
+    let fresh={};
     if(CUST_RPC){
-      const{data:ok,error}=await sb.rpc('customer_update_profile',{p_id:cust.id,p_token:cust.session_token,p_name:cust.name,p_email:cust.email??null,p_phone:cust.phone??null,p_height:cust.height??null,p_type_preference:cust.type_preference||'Any',p_birth_date:g.birth,p_country:cust.country??null,p_city:cust.city??null,p_nationality:g.nat});
+      // The gate asks two things, but the save writes the whole profile. Everything else is taken
+      // from the account as it is NOW, never from the copy this device kept at sign-in: staff
+      // correct names and phones in Accounts, and writing that old copy back undid their fix
+      // without a trace. No fresh read, no save - the rider sees the connection message.
+      const{data:pd,error:pe}=await sb.rpc('customer_profile',{p_id:cust.id,p_token:cust.session_token});
+      const cur=!pe&&pd&&pd[0];
+      if(!cur||cur.id!==cust.id)throw(pe||new Error('profile'));
+      fresh={name:cur.name,email:cur.email??null,phone:cur.phone??null,height:cur.height??null,type_preference:cur.type_preference||'Any',country:cur.country??null,city:cur.city??null};
+      const{data:ok,error}=await sb.rpc('customer_update_profile',{p_id:cust.id,p_token:cust.session_token,p_name:fresh.name,p_email:fresh.email,p_phone:fresh.phone,p_height:fresh.height,p_type_preference:fresh.type_preference,p_birth_date:g.birth,p_country:fresh.country,p_city:fresh.city,p_nationality:g.nat});
       if(error||!ok)throw(error||new Error('denied'));
     }else{
       const{error}=await sb.from('customers').update({birth_date:g.birth,nationality:g.nat}).eq('id',cust.id);if(error)throw error;
     }
-    S.loggedIn={...cust,birth_date:g.birth,nationality:g.nat};setSession(S.loggedIn);
+    S.loggedIn={...cust,...fresh,birth_date:g.birth,nationality:g.nat};setSession(S.loggedIn);
     const next=g.next;S._pg=null;renderProfileGate();
     if(next)next(); // the event they picked, now that the profile is complete
   }catch(e){g.saving=false;g.net=true;renderProfileGate();}
@@ -5077,9 +5148,9 @@ function _fixItemHtml(k,g,c){
   let body='';
   if(k==='name'){const n=v.name||{};
     body=`<div class="fx-row3">
-      <input id="fx-first" oninput="_nameInput(this)" type="text" autocapitalize="words" autocomplete="given-name" value="${esc(n.first||'')}" placeholder="${esc(t('firstName'))}" aria-label="${esc(t('firstName'))}" oninput="_fixClearErr('name')"${dis}>
-      <input id="fx-middle" oninput="_nameInput(this)" type="text" autocapitalize="words" autocomplete="additional-name" value="${esc(n.middle||'')}" placeholder="${esc(t('middleName'))}" aria-label="${esc(t('middleName'))}"${dis}>
-      <input id="fx-last" oninput="_nameInput(this)" type="text" autocapitalize="words" autocomplete="family-name" value="${esc(n.last||'')}" placeholder="${esc(t('lastName'))}" aria-label="${esc(t('lastName'))}" oninput="_fixClearErr('name')"${dis}>
+      <input id="fx-first" oninput="_nameInput(this);_fixClearErr('name')" type="text" autocapitalize="words" autocomplete="given-name" value="${esc(n.first||'')}" placeholder="${esc(t('firstName'))}" aria-label="${esc(t('firstName'))}"${dis}>
+      <input id="fx-middle" oninput="_nameInput(this);_fixClearErr('name')" type="text" autocapitalize="words" autocomplete="additional-name" value="${esc(n.middle||'')}" placeholder="${esc(t('middleName'))}" aria-label="${esc(t('middleName'))}"${dis}>
+      <input id="fx-last" oninput="_nameInput(this);_fixClearErr('name')" type="text" autocapitalize="words" autocomplete="family-name" value="${esc(n.last||'')}" placeholder="${esc(t('lastName'))}" aria-label="${esc(t('lastName'))}"${dis}>
     </div>`;}
   else if(k==='email')body=`<input id="fx-email" type="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" value="${esc(v.email||'')}" placeholder="your@email.com" aria-labelledby="fx-l-email" oninput="_fixClearErr('email')"${dis}>${_isRelay(c.email)?`<div class="fx-hint">${t('fixEmailAppleHint')}</div>`:''}`;
   // Values are put back as properties after the paint (_fixRefill), never into the markup.
@@ -5089,7 +5160,7 @@ function _fixItemHtml(k,g,c){
   else if(k==='phone'){const p=v.phone||{};const cc=p.cc||'+966';
     body=`<div class="phone-row"><select class="phone-cc" id="fx-cc" aria-label="${esc(t('phoneNum'))}"${dis}>${COUNTRY_CODES.map(([code])=>`<option value="${code}"${cc===code?' selected':''}>${code}</option>`).join('')}</select><input class="phone-num" id="fx-phone" type="tel" inputmode="tel" autocomplete="tel" value="${esc(p.num||'')}" placeholder="5x xxx xxxx" aria-labelledby="fx-l-phone" oninput="fmtPhoneInput(this);_fixClearErr('phone')"${dis}></div>`;}
   else if(k==='birth_date')body=dobFieldHtml('fx-birth',v.birth_date||'',{onchange:'_fixBirth',disabled:!!g.saving});
-  else if(k==='gender')body=`<div class="fx-seg" role="group" aria-labelledby="fx-l-gender">${['male','female'].map(x=>`<button type="button" class="fx-opt${v.gender===x?' on':''}" aria-pressed="${v.gender===x?'true':'false'}" onclick="_fixGender('${x}',this)"${dis}>${t(x==='male'?'genderMale':'genderFemale')}</button>`).join('')}</div>`;
+  else if(k==='gender')body=`<div class="fx-seg" role="group" aria-labelledby="fx-l-gender">${['male','female'].map(x=>`<button type="button" class="fx-opt${v.gender===x?' on':''}" aria-pressed="${v.gender===x?'true':'false'}" onclick="_fixGender(${_ja(x)},this)"${dis}>${t(x==='male'?'genderMale':'genderFemale')}</button>`).join('')}</div>`;
   else if(k==='nationality')body=`<select id="fx-nat" class="${v.nationality?'':'ph'}" aria-labelledby="fx-l-nationality" onchange="this.classList.toggle('ph',!this.value);_fixClearErr('nationality')"${dis}><option value="">${esc(t('selectNationalityOpt'))}</option>${nationalityOpts(v.nationality||'')}</select>`;
   else if(k==='residence')body=`<div class="fx-row2">
       <select id="fx-country" class="${v.country?'':'ph'}" aria-label="${esc(t('countryLabel'))}" onchange="_fixCountry(this)"${dis}>${countryOpts(v.country||'')}</select>

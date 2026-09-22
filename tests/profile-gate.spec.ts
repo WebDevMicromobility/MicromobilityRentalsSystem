@@ -138,3 +138,41 @@ test('the birth chooser: month names in the rider\'s language, and the day list 
   const ar = await page.evaluate(`document.querySelector('#pg-birth-m option[value="1"]').textContent`);
   expect(ar).toBe('يناير');
 });
+
+// The save writes the whole profile, so everything but the two answers must be what the account
+// holds NOW. This device's sign-in copy still says 'Spec Rider' / 0500000001; staff have since
+// corrected the account, and the gate must not write the old copy back over their fix.
+test('the save carries the account as it is now, not the copy kept at sign-in', async ({ page }) => {
+  await boot(page, eight, { nationality: null, birth_date: null, name: 'Spec Rider Corrected', phone: '+966500000009', email: 'fixed@example.com', country: 'SA', city: 'Jeddah', height: 181 });
+  const calls: string[] = [];
+  page.on('request', r => { if (/rpc\/customer_update_profile/.test(r.url())) calls.push(r.postData() || ''); });
+  await page.evaluate(`selectEvent('jcc')`);
+  await pickBirth(page, 'pg-birth', '1996-03-14');
+  await page.selectOption('#pg-nat', 'Egypt');
+  await page.click('#pg-save');
+  await expect(page.locator('#profile-gate .pg-box')).toBeHidden();
+  const body = JSON.parse(calls[0]);
+  expect([body.p_name, body.p_phone, body.p_email, body.p_country, body.p_city, body.p_height])
+    .toEqual(['Spec Rider Corrected', '+966500000009', 'fixed@example.com', 'SA', 'Jeddah', 181]);
+  expect(await page.evaluate('[S.loggedIn.name,S.loggedIn.phone]')).toEqual(['Spec Rider Corrected', '+966500000009']); // the device's copy catches up too
+});
+
+test('no fresh read, no save: the old copy is never written back', async ({ page }) => {
+  await boot(page, eight, { nationality: null, birth_date: null });
+  let failReads = false;
+  // The gate's own first look succeeds; the read the save makes fails.
+  await page.route(/\/rest\/v1\/rpc\/customer_profile/, async (route) => {
+    if (!failReads) return route.fallback();
+    await route.fulfill({ status: 503, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify({ code: '', message: 'unavailable' }) });
+  });
+  const calls: string[] = [];
+  page.on('request', r => { if (/rpc\/customer_update_profile/.test(r.url())) calls.push(r.url()); });
+  await page.evaluate(`S.selEvent='none';selectEvent('jcc')`);
+  await pickBirth(page, 'pg-birth', '1996-03-14');
+  await page.selectOption('#pg-nat', 'Egypt');
+  failReads = true;
+  await page.click('#pg-save');
+  await expect(page.locator('#profile-gate .pg-net')).toBeVisible();
+  expect(calls).toHaveLength(0);
+  expect(await page.evaluate('S.selEvent')).toBe('none');
+});
