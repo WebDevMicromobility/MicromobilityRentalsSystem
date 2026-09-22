@@ -9471,9 +9471,8 @@ async function _addonStockQ(arr,sign){
     norm.forEach(({id,qty})=>{const it=(S.inventory||[]).find(x=>x.id===id);if(it)it.qty=(Number(it.qty)||0)+sign*qty;});
     // Inventory writes are staff-only after Section 6; a customer's add-on stock
     // change (book/cancel) goes through the token-checked RPC instead.
-    // The answer is read, not assumed: the RPC refuses a caller with no live booking, and a
-    // refusal used to leave this device showing stock the database never got back. Callers
-    // that move stock as a booking ends do it while the booking is still live (cancelBooking).
+    // The answer is read, not assumed: a refusal used to leave this device showing stock the
+    // database never moved (see cancelBooking for the call a refusal is expected on).
     const c=S.loggedIn||getSession();
     let ok=false;
     if(c&&c.session_token){try{const r=await sb.rpc('customer_addon_stock',{p_id:c.id,p_token:c.session_token,p_items:norm.map(({id,qty})=>({id,delta:sign*qty}))});ok=!r.error&&r.data!==false;}catch(e){}}
@@ -13753,16 +13752,19 @@ async function cancelBooking(id,reason,why){
   const saved=live.map(e=>({id:e.id,status:e.status,queueNum:e.queueNum,bikeIds:getAssignedBikeIds(e)}));
   // The reason rides on the cancel itself, for every rider of the booking.
   const _why=(why&&why.code)?{cancel_reason:why.code,...(why.note?{cancel_note:why.note}:{})}:{};
-  // Add-ons go back to stock only for riders who held them (waitlist rows never reserved any).
-  // A customer returns them BEFORE the cancel: the stock RPC answers only a caller who still
-  // has a live booking, so afterwards the last booking on the account restocked nothing, and
-  // an Undo then took the same add-ons a second time. A write that fails takes them again.
+  // Add-ons go back to stock only for riders who held them (waitlist rows never reserved any),
+  // after the cancel. When it is the account's LAST live booking a customer also gives them
+  // back before it: the stock RPC as it stands answers only a caller who still has a live
+  // booking, so afterwards it refused - nothing came back, and an Undo then took the add-ons a
+  // second time. The reworked RPC (stock held per booking) gives back only from a booking that
+  // no longer holds its place. Either way one of the two calls moves the stock and the other
+  // moves nothing. A cancel that fails takes back what the first call returned.
   const _restock=live.filter(e=>(saved.find(x=>x.id===e.id)||{}).status==='waiting');
-  const _custStock=_asCustomer();
-  if(_custStock)for(const e of _restock)await _restockAddonsOnExit(e);
+  const _lastLive=_asCustomer()&&!getQueue().some(e=>e.customerId===entry.customerId&&['waiting','waitlist','active'].includes(e.status)&&!live.some(x=>x.id===e.id));
+  if(_lastLive)for(const e of _restock)await _restockAddonsOnExit(e);
   const res=await Promise.all(live.map(e=>_ownEntryUpdate(e.id,{status:'cancelled',assigned_bike_id:null,..._why})));
   if(_writeErr(res,'cancel')){ // e.g. offline: don't toast success over a booking that's still live
-    if(_custStock)for(const e of _restock){const i=live.indexOf(e);if(res[i]&&res[i].error)await _consumeAddonsOnEnter(e);}
+    if(_lastLive)for(const e of _restock){const i=live.indexOf(e);if(res[i]&&res[i].error)await _consumeAddonsOnEnter(e);}
     await loadData();renderMyRides();return;
   }
   const allBikes=saved.flatMap(s=>s.bikeIds);
@@ -13779,7 +13781,7 @@ async function cancelBooking(id,reason,why){
     try{localStorage.setItem('cq_cancellations',JSON.stringify(S.cancellationLog));}catch(e){}
   }
   await loadData();
-  if(!_custStock)for(const e of _restock)await _restockAddonsOnExit(e); // staff/open mode write the stock themselves, after the fact
+  for(const e of _restock)await _restockAddonsOnExit(e);
   toast(t('toastBookingCancelled'));
   pushUndo(`${t('undoCancelBooking')} #${savedQNum} ${entry.name}`,async()=>{
     // A customer's restore goes through their own door, which gives a place back only if there is

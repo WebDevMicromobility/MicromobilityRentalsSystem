@@ -161,7 +161,7 @@ test('an edit keeps a typed ride name and stores no stock name, so each viewer r
 });
 
 // ── Customer cancel returns the add-ons while the booking is still live ───────
-test("a customer's cancel returns the add-ons first, and takes them again if the cancel fails", async ({ page }) => {
+test("a customer's last booking returns its add-ons around the cancel, and takes them again if the cancel fails", async ({ page }) => {
   const s = jcc('s1', dayOff(3));
   const calls: string[] = [];
   let refuseCancel = false;
@@ -177,12 +177,32 @@ test("a customer's cancel returns the add-ons first, and takes them again if the
     return r.fulfill({ status: 200, headers: head, body: refuseCancel ? 'false' : 'true' });
   });
   await page.evaluate(`cancelBooking('b1','Change of plans')`);
-  await expect.poll(() => calls.join(' ')).toBe('stock:2 cancel');       // stock back BEFORE the booking stops being live
+  // The account's last live booking: stock goes back on both sides of the cancel. The RPC as it
+  // stands answers only the first (the rider still has a live booking), the reworked one only
+  // the second (the booking no longer holds its place); the stub says yes to both.
+  await expect.poll(() => calls.join(' ')).toBe('stock:2 cancel stock:2');
 
   calls.length = 0;
   refuseCancel = true;
   await page.evaluate(`S.queue=[entryFromDB(${JSON.stringify(booking({ session_id: 's1', session_date: dayOff(3), addons: '[{"id":"gel","qty":2}]' }))})];cancelBooking('b1','Change of plans')`);
   await expect.poll(() => calls.join(' ')).toBe('stock:2 cancel stock:-2');  // refused: the add-ons are taken again
+});
+
+test('with another live booking on the account, the add-ons go back after the cancel only', async ({ page }) => {
+  const s = jcc('s1', dayOff(3)), s2 = jcc('s2', dayOff(5));
+  const calls: string[] = [];
+  await customer(page, {
+    sessions: [s, s2], inventory: [{ id: 'gel', name: 'Gel', qty: 5, price: 10 }],
+    queue_entries: [booking({ session_id: 's1', session_date: dayOff(3), addons: '[{"id":"gel","qty":2}]' }),
+      booking({ id: 'b2', session_id: 's2', session_date: dayOff(5), queue_num: 4 })],
+  });
+  await page.route(/\/rest\/v1\/rpc\/customer_(addon_stock|booking_update)/, async (r) => {
+    const b = r.request().postDataJSON();
+    calls.push(/addon_stock/.test(r.request().url()) ? 'stock:' + b.p_items.map((i: { delta: number }) => i.delta).join(',') : 'cancel');
+    return r.fulfill({ status: 200, headers: head, body: 'true' });
+  });
+  await page.evaluate(`cancelBooking('b1','Change of plans')`);
+  await expect.poll(() => calls.join(' ')).toBe('cancel stock:2');
 });
 
 // ── My Account saves over the account as it is now ───────────────────────────
