@@ -172,8 +172,9 @@ test('the list never shows a price; the billing report CSV carries per-ride pric
     expect(c).not.toContain('75.00');
   }
 
+  await page.getByRole('button', { name: 'Billing report' }).click(); // one report per company: P-003 is Petromin's
   const dl = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Report CSV' }).click();
+  await page.locator('.rider-rep-co[data-co="Petromin"]').getByRole('button', { name: 'CSV' }).click();
   const file = await dl;
   const text = await (await import('node:fs/promises')).readFile(await file.path() as string, 'utf8');
   const lines = text.replace(/^\uFEFF/, '').trim().split('\n');
