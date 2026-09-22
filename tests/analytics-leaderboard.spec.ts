@@ -48,11 +48,11 @@ test('the leaderboard controls repaint Analytics and keep its view', async ({ pa
   await expect(page.locator('#tab-analytics .form-title', { hasText: 'Leaderboard' }).filter({ visible: true })).toHaveCount(1);
 });
 
-test('Community keeps accounts and the flagged list, and opens on accounts', async ({ page }) => {
+test('Community keeps accounts, the flagged list and the membership applications, and opens on accounts', async ({ page }) => {
   await staff(page);
   await page.evaluate(`setStaffTab('community')`);
   const pills = page.locator('#tab-community .filter-row').first().locator('.filter-pill');
-  await expect(pills).toHaveText(['Accounts', 'Flagged']);
+  await expect(pills).toHaveText(['Accounts', 'Flagged', /^Applications/]); // the pill carries the pending count
   await expect(pills.first()).toHaveClass(/active/);
   await expect(page.locator('#tab-community')).not.toContainText('Leaderboard');
   // a device that last had the leaderboard open lands on accounts
