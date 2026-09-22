@@ -191,6 +191,46 @@ test.describe('refusals from the server', () => {
     await expect.poll(() => page.evaluate('S.loggedIn')).toBeNull();
     await expect(page.locator('.toast')).not.toContainText('STALE_SESSION');
   });
+
+  // The three ride rules name themselves in the error's DETAIL (migration 20260922150000). The
+  // code is what the app goes by, so a sentence it does not know still lands on the right
+  // message; a database without the codes is still read by its English sentence.
+  const rule = (message: string, details?: string) =>
+    ({ 'rpc:customer_create_booking': { __rpcError: { status: 400, code: 'P0001', message, details } } });
+
+  test('ONE_PER_SESSION in the detail is the already-booked message, whatever the sentence', async ({ page }) => {
+    await boot(page, rule('Une place par personne.', 'ONE_PER_SESSION'));
+    await page.evaluate(atReview('S.waiverOk=true;'));
+    await page.evaluate(`submitReg()`);
+    await expect(page.locator('.toast').last()).toContainText(await page.evaluate(`t('errAlreadyBooked')`) as string);
+  });
+
+  test('GROUP_CAP in the detail is the group-cap message; the number comes from the sentence', async ({ page }) => {
+    await boot(page, rule('Up to 2 riders per booking on this ride.', 'GROUP_CAP'));
+    await page.evaluate(atReview('S.waiverOk=true;'));
+    await page.evaluate(`submitReg()`);
+    await expect(page.locator('.toast').last()).toContainText(await page.evaluate(`t('errGroupCap').replace('{0}','2')`) as string);
+  });
+
+  test('MEMBERS_ONLY in the detail opens the members dialog', async ({ page }) => {
+    await boot(page, rule('refused', 'MEMBERS_ONLY'));
+    await page.evaluate(atReview('S.waiverOk=true;'));
+    await page.evaluate(`submitReg()`);
+    await expect(page.locator('#confirm-modal')).toContainText('Community members only');
+  });
+
+  test('without a detail, the English sentences are still read', async ({ page }) => {
+    await boot(page, rule('One place per person on this session.'));
+    await page.evaluate(atReview('S.waiverOk=true;'));
+    await page.evaluate(`submitReg()`);
+    await expect(page.locator('.toast').last()).toContainText(await page.evaluate(`t('errAlreadyBooked')`) as string);
+    expect(await page.evaluate(`[
+      _rideRuleRefusal({message:'This ride is for community members only.'}),
+      _rideRuleRefusal({message:'Up to 2 riders per booking on this ride.'}),
+      _rideRuleRefusal({message:'x',details:'GROUP_CAP'}),
+      _rideRuleRefusal({message:'x',details:'session_id'}),
+      _rideRuleRefusal({message:'SESSION_CLOSED'})]`)).toEqual(['MEMBERS_ONLY', 'GROUP_CAP', 'GROUP_CAP', '', '']);
+  });
 });
 
 test('an already-booked rider on a bike is pointed to My Bookings, not round the loop', async ({ page }) => {
@@ -213,10 +253,12 @@ test('an already-booked rider on a bike is pointed to My Bookings, not round the
 });
 
 test('the first height is saved through the account RPC, not a direct write RLS drops', async ({ page }) => {
+  // No customer_set_height here (the stub answers it as missing): the whole-profile save.
   await boot(page, {
     'rpc:customer_profile': [{ id: 'c1', name: 'Spec Rider', email: 'spec@example.com', phone: '0500000001', height: null, type_preference: 'Road', birth_date: '1990-01-01', country: 'SA', city: 'Jeddah', nationality: 'SA' }],
     'rpc:customer_update_profile': true,
   }, { height: null });
+  const tried = rpcCalls(page, 'customer_set_height');
   const saves = rpcCalls(page, 'customer_update_profile');
   const direct: string[] = [];
   page.on('request', (r) => { if (r.method() === 'PATCH' && r.url().includes('/rest/v1/customers')) direct.push(r.url()); });
@@ -227,5 +269,32 @@ test('the first height is saved through the account RPC, not a direct write RLS 
   expect(saves[0].p_country).toBe('SA');      // the rest of the account is written back as it was
   expect(saves[0].p_birth_date).toBe('1990-01-01');
   expect(direct.length).toBe(0);
+  expect(tried.length).toBe(1);               // the narrow save was tried first
   expect(await page.evaluate('S.loggedIn.height')).toBe(175);
+});
+
+test('with customer_set_height, the height is the only thing written', async ({ page }) => {
+  await boot(page, { 'rpc:customer_set_height': true, 'rpc:customer_update_profile': true }, { height: null });
+  const narrow = rpcCalls(page, 'customer_set_height');
+  const whole = rpcCalls(page, 'customer_update_profile');
+  const reads = rpcCalls(page, 'customer_profile');
+  await page.evaluate(atReview('S.waiverOk=true;'));
+  await page.evaluate(`submitReg()`);
+  await expect.poll(() => narrow.length).toBe(1);
+  expect(narrow[0]).toEqual({ p_id: 'c1', p_token: 'tok-spec', p_height: 175 });
+  await expect.poll(() => page.evaluate('S.loggedIn.height')).toBe(175);
+  expect(whole.length).toBe(0);
+  expect(reads.length).toBe(0);
+});
+
+test('a height the server does not take is not claimed, and not written another way', async ({ page }) => {
+  await boot(page, { 'rpc:customer_set_height': false, 'rpc:customer_update_profile': true }, { height: null });
+  const narrow = rpcCalls(page, 'customer_set_height');
+  const whole = rpcCalls(page, 'customer_update_profile');
+  await page.evaluate(atReview('S.waiverOk=true;'));
+  await page.evaluate(`submitReg()`);
+  await expect.poll(() => narrow.length).toBe(1);
+  await page.waitForTimeout(300);
+  expect(whole.length).toBe(0);
+  expect(await page.evaluate('S.loggedIn.height||null')).toBeNull();
 });

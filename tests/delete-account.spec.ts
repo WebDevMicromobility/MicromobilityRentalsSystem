@@ -6,6 +6,10 @@ import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
 // read exactly as they did. The order matters more than it looks: queue_entries.customer_id is
 // a real foreign key, so the bookings have to be unlinked BEFORE the account row goes, or
 // Postgres refuses the delete and the staffer is left with a half-deleted account.
+//
+// With staff_delete_customer (migration 20260922150000) the server does all of it in one
+// transaction. The stub answers that function as missing unless a spec provides it, so the
+// specs below that do not are the device-side steps a database without it still gets.
 
 const sessions = [{
   id: '2099-07-05', day: 'Sunday', session_date: '2099-07-05', capacity: 9, status: 'open',
@@ -23,17 +27,17 @@ const booking = (id: string, cust: string, status: string) => ({
 
 /** Every write the client sent, in order, so the FK-safe sequence can be asserted. */
 function watchWrites(page: import('@playwright/test').Page) {
-  const calls: { method: string; table: string; body: string }[] = [];
+  const calls: { method: string; table: string; body: string; url: string }[] = [];
   page.on('request', (r) => {
     const m = r.url().match(/\/rest\/v1\/([^/?]+)/);
     if (!m || !['POST', 'PATCH', 'DELETE'].includes(r.method())) return;
-    calls.push({ method: r.method(), table: m[1], body: r.postData() || '' });
+    calls.push({ method: r.method(), table: m[1], body: r.postData() || '', url: r.url() });
   });
   return calls;
 }
 
-async function openEditor(page: import('@playwright/test').Page, queue_entries: Record<string, unknown>[], admin = true) {
-  await stubSupabase(page, { sessions, customers, bikes: [], queue_entries });
+async function openEditor(page: import('@playwright/test').Page, queue_entries: Record<string, unknown>[], admin = true, extra: Record<string, unknown> = {}) {
+  await stubSupabase(page, { sessions, customers, bikes: [], queue_entries, ...extra });
   await unlockStaff(page);
   await page.goto('/');
   await waitForSb(page);
@@ -128,4 +132,61 @@ test('the unlink runs even when no booking of the account is loaded', async ({ p
 test('Front Desk never sees the button', async ({ page }) => {
   await openEditor(page, [booking('b1', 'c1', 'done')], false);
   await expect(page.getByRole('button', { name: /Delete account/i })).toHaveCount(0);
+});
+
+test.describe('with staff_delete_customer on the server', () => {
+  const ACCOUNT_TABLES = ['queue_entries', 'cashier_sales', 'customers', 'customer_tags', 'push_subscriptions'];
+  const confirmDelete = async (page: import('@playwright/test').Page) => {
+    await page.getByRole('button', { name: /Delete account/i }).click();
+    await page.locator('#confirm-modal').getByRole('button', { name: /Delete account/i }).click();
+  };
+
+  test('one server call does the whole delete; the device writes no table itself', async ({ page }) => {
+    await openEditor(page, [booking('b1', 'c1', 'done')], true, {
+      'rpc:staff_delete_customer': { ok: true, bookings: 1, sales: 0, tags: 1, push_subscriptions: 0, flags: 0, rider_links: 0 },
+    });
+    const calls = watchWrites(page);
+    await confirmDelete(page);
+    await expect(page.locator('.toast').last()).toContainText(/deleted/i);
+    const rpc = calls.filter((c) => /\/rpc\/staff_delete_customer/.test(c.url));
+    expect(rpc).toHaveLength(1);
+    expect(JSON.parse(rpc[0].body)).toEqual({ p_id: 'c1' });
+    expect(calls.filter((c) => ACCOUNT_TABLES.includes(c.table))).toEqual([]);
+    expect(await page.evaluate('S._cf')).toBeNull(); // the editor closed
+  });
+
+  test('a live booking the server finds (made on another device) stops it, with the count', async ({ page }) => {
+    await openEditor(page, [booking('b1', 'c1', 'done')], true, {
+      'rpc:staff_delete_customer': { ok: false, error: 'LIVE_BOOKINGS', live: 2 },
+    });
+    const calls = watchWrites(page);
+    await confirmDelete(page);
+    await expect(page.locator('.toast').last()).toContainText(/2 live booking/i);
+    await page.waitForTimeout(300);
+    expect(calls.filter((c) => ACCOUNT_TABLES.includes(c.table))).toEqual([]); // no fallback to the device's own steps
+    expect(await page.evaluate(`S.fullLog.some(l=>l.label.includes(t('naDelTitle')))`)).toBe(false);
+  });
+
+  test('a refusal that is not a missing function is shown, never worked around', async ({ page }) => {
+    await openEditor(page, [booking('b1', 'c1', 'done')], true, {
+      'rpc:staff_delete_customer': { __rpcError: { status: 403, code: '42501', message: 'FORBIDDEN' } },
+    });
+    const calls = watchWrites(page);
+    await confirmDelete(page);
+    await expect(page.locator('#err-bar-el')).toBeVisible();
+    await page.waitForTimeout(300);
+    expect(calls.filter((c) => ACCOUNT_TABLES.includes(c.table))).toEqual([]);
+  });
+
+  test('a database without the function gets the device-side steps, unlink first', async ({ page }) => {
+    await openEditor(page, [booking('b1', 'c1', 'done')]); // the stub's default: PGRST202
+    const calls = watchWrites(page);
+    await confirmDelete(page);
+    await expect.poll(() => calls.some((c) => c.table === 'customers' && c.method === 'DELETE')).toBe(true);
+    const tried = calls.findIndex((c) => /\/rpc\/staff_delete_customer/.test(c.url));
+    const unlink = calls.findIndex((c) => c.table === 'queue_entries' && c.method === 'PATCH' && /"customer_id":null/.test(c.body));
+    expect(tried).toBeGreaterThanOrEqual(0);
+    expect(tried).toBeLessThan(unlink);
+    expect(unlink).toBeLessThan(calls.findIndex((c) => c.table === 'customers' && c.method === 'DELETE'));
+  });
 });

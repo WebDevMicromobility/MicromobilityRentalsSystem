@@ -86,7 +86,11 @@ with expected(fname, want_definer, note) as (values
   ('_type_ok',               false, 'pure list test, used by CHECK constraints'),
   ('_ymd_ok',                false, 'pure date test'),
   ('_session_has_room',      false, 'counts queue_entries, only ever inside customer_booking_update; revoked'),
-  ('_session_fill_recount',  false, 'the fill rule for one session, only ever inside the definer trigger; revoked')
+  ('_session_fill_recount',  false, 'the fill rule for one session, only ever inside the definer trigger; revoked'),
+  -- One-step account delete and the narrow profile saves (20260922150000)
+  ('staff_delete_customer',  true,  'unlinks bookings and sales, deletes tags, push rows and the account in one go; admin only'),
+  ('customer_set_height',    true,  'writes the caller''s own height; token-checked'),
+  ('customer_set_birth_nat', true,  'writes the caller''s own birth date and nationality; token-checked')
 )
 select e.fname,
        case when p.oid is null then 'MISSING FROM DATABASE'

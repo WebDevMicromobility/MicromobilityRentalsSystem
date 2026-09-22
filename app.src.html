@@ -5582,11 +5582,16 @@ async function _pgSave(){
   g.saving=true;g.net=false;renderProfileGate();
   try{
     let fresh={};
-    if(CUST_RPC){
-      // The gate asks two things, but the save writes the whole profile. Everything else is taken
-      // from the account as it is NOW, never from the copy this device kept at sign-in: staff
-      // correct names and phones in Accounts, and writing that old copy back undid their fix
-      // without a trace. No fresh read, no save - the rider sees the connection message.
+    // The gate asks two things, and customer_set_birth_nat (20260922150000) writes those two and
+    // nothing else. A database without it takes the whole-profile save below.
+    const two=CUST_RPC?await sb.rpc('customer_set_birth_nat',{p_id:cust.id,p_token:cust.session_token,p_birth_date:g.birth,p_nationality:g.nat}):null;
+    if(two&&!two.error){if(two.data!==true)throw new Error('denied');}
+    else if(two&&!_rpcAbsent(two.error))throw two.error;
+    else if(CUST_RPC){
+      // The whole-profile save: everything but the two answers is taken from the account as it
+      // is NOW, never from the copy this device kept at sign-in. Staff correct names and phones
+      // in Accounts, and writing that old copy back undid their fix without a trace. No fresh
+      // read, no save - the rider sees the connection message.
       const{data:pd,error:pe}=await sb.rpc('customer_profile',{p_id:cust.id,p_token:cust.session_token});
       const cur=!pe&&pd&&pd[0];
       if(!cur||cur.id!==cust.id)throw(pe||new Error('profile'));
@@ -8167,28 +8172,47 @@ function _outboxRow(e,sess){const r=entryToDB(e),wv=_waiverVersionFor(sess);retu
 // raise codes (SESSION_CLOSED, STALE_SESSION) and a few English sentences, and those used to be
 // toasted as they came - "SESSION_CLOSED" on an Arabic screen, and a rider with a dead token
 // left signed in, failing every retry.
+// The three ride rules also say which rule it was in the error's DETAIL (MEMBERS_ONLY,
+// ONE_PER_SESSION, GROUP_CAP, since 20260922150000). The code is read first; the English sentence
+// stays the fallback for a database without it, and it is still what staff screens show.
+const _RIDE_RULE_CODES=['MEMBERS_ONLY','ONE_PER_SESSION','GROUP_CAP'];
+function _rideRuleRefusal(err){
+  const d=String((err&&(err.details||err.detail))||'').trim();
+  if(_RIDE_RULE_CODES.includes(d))return d;
+  const m=String((err&&err.message)||'');
+  return /community members only/i.test(m)?'MEMBERS_ONLY':/One place per person/i.test(m)?'ONE_PER_SESSION':/riders per booking/i.test(m)?'GROUP_CAP':'';
+}
 function _bookRefused(err,sess){
   const m=((err&&err.code)||'')+' '+((err&&err.message)||'');
   if(/STALE_SESSION/.test(m)){doLogout(true);toast(t('errSessionStale'),'warning');return;}
   if(/SESSION_CLOSED/.test(m)){toast(t('errSessionClosed'),'error');loadDataLight().then(()=>{if(S.view==='customer')renderRegister();}).catch(()=>{});return;}
-  if(/community members only/i.test(m)){if(sess)showCommMembersModal(sess);else toast(t('commMembersTitle'),'error');return;}
-  if(/One place per person/i.test(m)){toast(t('errAlreadyBooked'),'error');return;}
-  if(/riders per booking/i.test(m)){const n=(m.match(/Up to (\d+)/)||[])[1]||String(_maxRiders(sess));toast(t('errGroupCap').replace('{0}',n),'error');return;}
+  const rule=_rideRuleRefusal(err);
+  if(rule==='MEMBERS_ONLY'){if(sess)showCommMembersModal(sess);else toast(t('commMembersTitle'),'error');return;}
+  if(rule==='ONE_PER_SESSION'){toast(t('errAlreadyBooked'),'error');return;}
+  if(rule==='GROUP_CAP'){const n=(m.match(/Up to (\d+)/)||[])[1]||String(_maxRiders(sess));toast(t('errGroupCap').replace('{0}',n),'error');return;}
   toast(_errMessage(err),'error');
 }
 // The first height a rider gives is kept on the account, so the next booking starts from it.
 // A customer's own write to customers is refused by RLS without an error (no row matches), so the
-// direct update saved nothing while the device claimed it had. customer_update_profile replaces
-// every field it is handed, so it gets the account's own fresh row with only the height changed.
+// direct update saved nothing while the device claimed it had. customer_set_height writes the
+// height and nothing else (20260922150000); the height typed here is the rider's latest word, so
+// it stands even over one another device saved a moment ago. Without that function,
+// customer_update_profile replaces every field it is handed, so it gets the account's own fresh
+// row with only the height changed (and one another device saved meanwhile stands).
 async function _saveFirstHeight(cust,h){
   try{
     if(_asCustomer()){
-      const{data}=await sb.rpc('customer_profile',{p_id:cust.id,p_token:cust.session_token});
-      const r=data&&data[0];if(!r||r.id!==cust.id)return;
-      if(!r.height){
-        const{data:ok,error}=await sb.rpc('customer_update_profile',{p_id:cust.id,p_token:cust.session_token,p_name:r.name,p_email:r.email??null,p_phone:r.phone??null,p_height:h,p_type_preference:r.type_preference??null,p_birth_date:r.birth_date??null,p_country:r.country??null,p_city:r.city??null,p_nationality:r.nationality??null});
-        if(error||ok!==true)return;
-      }else h=r.height; // saved from another device meanwhile: that one stands
+      const one=await sb.rpc('customer_set_height',{p_id:cust.id,p_token:cust.session_token,p_height:h});
+      if(!one.error){if(one.data!==true)return;}
+      else if(!_rpcAbsent(one.error))return;
+      else{
+        const{data}=await sb.rpc('customer_profile',{p_id:cust.id,p_token:cust.session_token});
+        const r=data&&data[0];if(!r||r.id!==cust.id)return;
+        if(!r.height){
+          const{data:ok,error}=await sb.rpc('customer_update_profile',{p_id:cust.id,p_token:cust.session_token,p_name:r.name,p_email:r.email??null,p_phone:r.phone??null,p_height:h,p_type_preference:r.type_preference??null,p_birth_date:r.birth_date??null,p_country:r.country??null,p_city:r.city??null,p_nationality:r.nationality??null});
+          if(error||ok!==true)return;
+        }else h=r.height; // saved from another device meanwhile: that one stands
+      }
     }else{
       const{error}=await sb.from('customers').update({height:h}).eq('id',cust.id);if(error)return;
     }
@@ -11944,12 +11968,39 @@ function renderCustFormModal(){
 // account under a rider who is on tonight's roster leaves the booth holding a booking nobody
 // can look up, and the rider unable to see it in My Rides — finish or cancel the ride first.
 //
+// The server does all of it in one transaction when it can (staff_delete_customer,
+// 20260922150000): it refuses an account with a live booking itself, so a booking made on
+// another device since this one loaded is caught too, and a dropped connection cannot leave an
+// account half-deleted. A database without that function gets the steps below from here.
+//
 // The steps are ordered so a failure part-way loses nothing: the unlink covers every booking
 // on the server (not only the months this device holds - an account with only older rides
 // used to hit the key), a refused delete puts the links it just took back, and tags and push
 // subscriptions go only once the account itself is gone. There is no Undo: the staff list does
 // not hold the password, the photo or the correction history, so a re-inserted row came back
 // as an account its rider could not sign in to.
+async function _deleteCustomerSteps(id,past){
+  const ids=r=>((r&&!r.error&&Array.isArray(r.data))?r.data:[]).map(x=>x&&x.id).filter(Boolean);
+  // 1. Unlink first, or the delete below hits the foreign key. Every booking the server
+  //    holds for the account, whatever this device has loaded.
+  const ub=await sb.from('queue_entries').update({customer_id:null}).eq('customer_id',id).select('id');
+  if(_writeErr(ub,'unlink bookings'))return false;
+  const bookingIds=[...new Set([...ids(ub),...past.map(e=>e.id)])];
+  let saleIds=[];
+  try{saleIds=ids(await sb.from('cashier_sales').update({customer_id:null}).eq('customer_id',id).select('id'));}catch(e){} // tolerant: column may predate the FK
+  // 2. The account itself. Refused: give the bookings and sales their link back, so the
+  //    rider still finds them in My Rides, and leave everything else as it was.
+  const del=await sb.from('customers').delete().eq('id',id);
+  if(del&&del.error){
+    if(bookingIds.length)try{await sb.from('queue_entries').update({customer_id:id}).in('id',bookingIds);}catch(e){}
+    if(saleIds.length)try{await sb.from('cashier_sales').update({customer_id:id}).in('id',saleIds);}catch(e){}
+    _writeErr(del,'delete account');await loadData();return false;
+  }
+  // 3. What hung off it: no key ties these to the account, so they go last.
+  try{await sb.from('customer_tags').delete().eq('customer_id',id);}catch(e){}
+  try{await sb.from('push_subscriptions').delete().eq('customer_id',id);}catch(e){}
+  return true;
+}
 async function deleteCustomerAccount(id){
   if(!isAdmin()){toast(t('errAdminOnly'),'error');return;}
   const c=(S.customers||[]).find(x=>String(x.id)===String(id));
@@ -11965,25 +12016,17 @@ async function deleteCustomerAccount(id){
     onConfirm:async()=>{
       if(S._cfBusy)return;S._cfBusy=true;
       try{
-        const ids=r=>((r&&!r.error&&Array.isArray(r.data))?r.data:[]).map(x=>x&&x.id).filter(Boolean);
-        // 1. Unlink first, or the delete below hits the foreign key. Every booking the server
-        //    holds for the account, whatever this device has loaded.
-        const ub=await sb.from('queue_entries').update({customer_id:null}).eq('customer_id',id).select('id');
-        if(_writeErr(ub,'unlink bookings'))return;
-        const bookingIds=[...new Set([...ids(ub),...past.map(e=>e.id)])];
-        let saleIds=[];
-        try{saleIds=ids(await sb.from('cashier_sales').update({customer_id:null}).eq('customer_id',id).select('id'));}catch(e){} // tolerant: column may predate the FK
-        // 2. The account itself. Refused: give the bookings and sales their link back, so the
-        //    rider still finds them in My Rides, and leave everything else as it was.
-        const del=await sb.from('customers').delete().eq('id',id);
-        if(del&&del.error){
-          if(bookingIds.length)try{await sb.from('queue_entries').update({customer_id:id}).in('id',bookingIds);}catch(e){}
-          if(saleIds.length)try{await sb.from('cashier_sales').update({customer_id:id}).in('id',saleIds);}catch(e){}
-          _writeErr(del,'delete account');await loadData();return;
+        const r=await sb.rpc('staff_delete_customer',{p_id:id});
+        if(r.error&&!_rpcAbsent(r.error)){_writeErr(r,'delete account');return;}
+        if(r.error){if(!(await _deleteCustomerSteps(id,past)))return;}
+        else if(!r.data||r.data.ok!==true){
+          const why=(r.data&&r.data.error)||'';
+          // Gone already (another device deleted it): nothing left to do but show the list as it is.
+          if(why==='NOT_FOUND'){closeCustFormModal();await loadData();renderCommunity();renderStaffQueue();return;}
+          if(why==='LIVE_BOOKINGS')toast(t('naDelLiveMsg').replace('{0}',String(r.data.live||1)),'warning');
+          else errorBar(t('errSomethingWrong'),null,String(why||'staff_delete_customer'));
+          await loadData();return; // the booking that stopped it is on this device's roster now
         }
-        // 3. What hung off it: no key ties these to the account, so they go last.
-        try{await sb.from('customer_tags').delete().eq('customer_id',id);}catch(e){}
-        try{await sb.from('push_subscriptions').delete().eq('customer_id',id);}catch(e){}
         logAction(`${t('naDelTitle')}: ${c.name||id}`);
         closeCustFormModal();
         await loadData();

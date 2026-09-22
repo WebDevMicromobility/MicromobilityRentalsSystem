@@ -176,3 +176,62 @@ test('no fresh read, no save: the old copy is never written back', async ({ page
   expect(calls).toHaveLength(0);
   expect(await page.evaluate('S.selEvent')).toBe('none');
 });
+
+// customer_set_birth_nat (migration 20260922150000) writes the gate's two answers and nothing
+// else, so nothing is read first and nothing else on the account can be written back stale.
+// The specs above run without it (the stub answers it as missing): the whole-profile save.
+test.describe('with customer_set_birth_nat on the server', () => {
+  const watch = (page: import('@playwright/test').Page) => {
+    const calls: { name: string; body: string }[] = [];
+    page.on('request', (r) => { const m = r.url().match(/\/rpc\/(customer_set_birth_nat|customer_update_profile|customer_profile)/); if (m) calls.push({ name: m[1], body: r.postData() || '' }); });
+    return calls;
+  };
+
+  test('the two answers are all that is written', async ({ page }) => {
+    await boot(page, eight, { nationality: null, birth_date: null }, { 'rpc:customer_set_birth_nat': true });
+    await page.evaluate(`S.selEvent='none';selectEvent('jcc')`);
+    await expect(page.locator('#profile-gate .pg-box')).toBeVisible();
+    await pickBirth(page, 'pg-birth', '1996-03-14');
+    await page.selectOption('#pg-nat', 'Egypt');
+    const calls = watch(page);
+    await page.click('#pg-save');
+    await expect(page.locator('#profile-gate .pg-box')).toBeHidden();
+    expect(calls.map((c) => c.name)).toEqual(['customer_set_birth_nat']);
+    expect(JSON.parse(calls[0].body)).toEqual({ p_id: 'c1', p_token: 'tok-spec', p_birth_date: '1996-03-14', p_nationality: 'Egypt' });
+    expect(await page.evaluate('[S.selEvent,S.loggedIn.nationality,S.loggedIn.birth_date]')).toEqual(['jcc', 'Egypt', '1996-03-14']);
+  });
+
+  test('a refused save keeps the gate up and is not retried as a whole-profile save', async ({ page }) => {
+    await boot(page, eight, { nationality: null, birth_date: null }, { 'rpc:customer_set_birth_nat': false });
+    await page.evaluate(`S.selEvent='none';selectEvent('jcc')`);
+    await pickBirth(page, 'pg-birth', '1996-03-14');
+    await page.selectOption('#pg-nat', 'Egypt');
+    const calls = watch(page);
+    await page.click('#pg-save');
+    await expect(page.locator('#profile-gate .pg-net')).toBeVisible();
+    expect(calls.map((c) => c.name)).toEqual(['customer_set_birth_nat']);
+    expect(await page.evaluate('S.selEvent')).toBe('none');
+  });
+
+  test('a server error is the connection message, not a fall back', async ({ page }) => {
+    await boot(page, eight, { nationality: null, birth_date: null }, { 'rpc:customer_set_birth_nat': { __rpcError: { status: 500, code: 'XX000', message: 'boom' } } });
+    await page.evaluate(`S.selEvent='none';selectEvent('jcc')`);
+    await pickBirth(page, 'pg-birth', '1996-03-14');
+    await page.selectOption('#pg-nat', 'Egypt');
+    const calls = watch(page);
+    await page.click('#pg-save');
+    await expect(page.locator('#profile-gate .pg-net')).toBeVisible();
+    expect(calls.map((c) => c.name)).toEqual(['customer_set_birth_nat']);
+  });
+
+  test('a database without it: tried once, then the fresh read and the whole-profile save', async ({ page }) => {
+    await boot(page, eight, { nationality: null, birth_date: null });
+    await page.evaluate(`S.selEvent='none';selectEvent('jcc')`);
+    await pickBirth(page, 'pg-birth', '1996-03-14');
+    await page.selectOption('#pg-nat', 'Egypt');
+    const calls = watch(page);
+    await page.click('#pg-save');
+    await expect(page.locator('#profile-gate .pg-box')).toBeHidden();
+    expect(calls.map((c) => c.name)).toEqual(['customer_set_birth_nat', 'customer_profile', 'customer_update_profile']);
+  });
+});

@@ -16,6 +16,9 @@ export type FailWrite = {
   message?: string;
 };
 
+/** RPCs a spec must opt into: see the stub's answer for them below. */
+const NOT_YET_IN_DB = new Set(['staff_delete_customer', 'customer_set_height', 'customer_set_birth_nat']);
+
 // Intercepts every request to *.supabase.co so tests never touch the real
 // database. GETs return the fixture rows for the table (default: empty),
 // writes are echoed back as if they succeeded. RPCs answer with the fixture
@@ -58,15 +61,23 @@ export async function stubSupabase(page: Page, fixtures: Fixtures = {}, failWrit
     const rpc = url.pathname.match(/\/rest\/v1\/rpc\/([^/?]+)/);
     if (rpc) {
       let body = (fixtures as Record<string, unknown>)[`rpc:${rpc[1]}`];
+      // Functions that migration 20260922150000 adds. A spec that does not provide one gets
+      // the answer a database without it gives (PGRST202), so every other spec runs the
+      // client's fallback, which is also what production runs until the migration is applied.
+      // A spec that covers the new path stubs `rpc:<name>` itself.
+      if (body === undefined && NOT_YET_IN_DB.has(rpc[1])) {
+        body = { __rpcError: { status: 404, code: 'PGRST202', message: `Could not find the function public.${rpc[1]} in the schema cache` } };
+      }
       // An `rpc:<name>` fixture of { __rpcError: {...} } answers with a PostgREST error
       // instead of rows. Needed to cover the two branches a client has to tell apart: a
-      // function that is missing (fall back) and one that refused (surface it).
+      // function that is missing (fall back) and one that refused (surface it). `details`
+      // is Postgres's DETAIL, where a refusal can carry its code.
       if (body && typeof body === 'object' && '__rpcError' in (body as Record<string, unknown>)) {
         const e = (body as { __rpcError: Record<string, unknown> }).__rpcError;
         return route.fulfill({
           status: Number(e.status) || 404,
           headers: { ...cors(), 'content-type': 'application/json' },
-          body: JSON.stringify({ code: e.code, message: e.message, details: null, hint: null }),
+          body: JSON.stringify({ code: e.code, message: e.message, details: e.details ?? null, hint: e.hint ?? null }),
         });
       }
       // list_sessions is how customers read sessions since tag-gated events: the real RPC
