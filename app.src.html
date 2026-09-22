@@ -9127,7 +9127,7 @@ async function saveAccount(){
     toast(t('accountSaved'));
     renderAccount();
     renderTopbarRight();
-  }catch(e){setErr(_isNameCharsErr(e)?t('errNameChars'):t('errSaveAccount'));}
+  }catch(e){setErr(_isNameCharsErr(e)?t('errNameChars'):/phone_taken/.test(String((e&&e.message)||e||''))?t('errPhoneExists'):t('errSaveAccount'));} // phone_taken: customer_update_profile refuses a number another account holds
 }
 
 // Output a resized canvas as a small image: upload to the public Supabase Storage bucket 'photos' (tiny

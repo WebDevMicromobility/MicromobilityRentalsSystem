@@ -7,7 +7,8 @@ import { stubSupabase, loginCustomer, waitForSb } from './helpers/supabase';
 //     typed - and falls back to the loaded list on a database that has no such function yet;
 //   · inventory is read by named columns (cost is staff-only), and staff get the costs from
 //     staff_inventory_costs();
-//   · photos upload with upsert:false - the bucket grants INSERT only.
+//   · photos upload with upsert:false - the bucket grants INSERT only;
+//   · My Account names a phone another account holds (customer_update_profile's phone_taken).
 
 const sessions = [{
   id: 's0', day: 'Sunday', session_date: '2099-02-08', capacity: 9,
@@ -109,4 +110,16 @@ test('a photo is uploaded without upsert (the bucket grants INSERT only)', async
   expect(uploads[0].url).toMatch(/\/photos\/p\/[a-z0-9]+\.jpg/);
   expect(uploads[0].upsert).toBe('false');
   expect(String(out)).toContain('/photos/p/');
+});
+
+test('My Account says the phone is taken when the server refuses it', async ({ page }) => {
+  await stubSupabase(page, { sessions: [], queue_entries: [], bikes: [],
+    'rpc:customer_update_profile': { __rpcError: { status: 409, code: '23505', message: 'phone_taken' } } });
+  await loginCustomer(page, { id: 'c1', name: 'Lina Haddad', email: 'lina@example.com', phone: '+966500000001', session_token: 'tok' });
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`setCustTab('account')`);
+  await expect(page.locator('#acc-err')).toBeAttached();
+  await page.evaluate(`saveAccount()`);
+  await expect(page.locator('#acc-err')).toHaveText(await page.evaluate(`t('errPhoneExists')`) as string);
 });
