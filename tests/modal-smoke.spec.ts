@@ -60,6 +60,8 @@ const MODALS: [string, string][] = [
   ['JCC group', `showJccGroupModal()`],
   ['community add', `S.sfSession='2099-11-07';showCommAddModal()`],
   ['customer editor', `showEditCustomerModal('c1')`],
+  ['bookings & history', `openAccountHistory('c1')`],
+  ['bookings & history from a booking', `openCustomerProfile('q1')`],
   ['new account', `showNewAcctModal()`],
   ['tag grant', `showTagGrantModal('c1')`],
   ['team manager', `showTeamManager()`],
