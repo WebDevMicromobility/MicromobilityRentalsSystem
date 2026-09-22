@@ -72,12 +72,13 @@ test.describe('signup', () => {
     await page.fill('#a-pwd', 'Zq8xTselah');
     await page.fill('#a-pwd2', 'Zq8xTselah');
     await page.fill('#a-height', '175');
+    await page.locator('#su-ack-box').click(); // the Privacy Notice confirmation is required
   }
 
   test('validation cascade fires in order', async ({ page }) => {
     await boot(page);
     await page.evaluate('switchAuthMode("signup")');
-    const errAfter = async () => { await page.evaluate('doSignup()'); return (await page.locator('#auth-err').textContent()) || ''; };
+    const errAfter = async () => { await page.evaluate('S.signupAck=true;doSignup()'); return (await page.locator('#auth-err').textContent()) || ''; };
     expect(await errAfter()).toBeTruthy();                       // name
     await page.fill('#a-first', 'One');                          // first name only → still name error (last required)
     expect(await errAfter()).toBeTruthy();
@@ -113,7 +114,7 @@ test.describe('signup', () => {
     await boot(page);
     const calls = await captureRpc(page, 'customer_signup', [{ session_token: 't' }]);
     await fillSignup(page);
-    await page.evaluate('doSignup();doSignup();doSignup()');
+    await page.evaluate('S.signupAck=true;doSignup();doSignup();doSignup()');
     await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
     expect(calls.length).toBe(1);
   });
@@ -125,7 +126,7 @@ test.describe('signup', () => {
       body: JSON.stringify({ code: '23505', message: 'duplicate key value violates unique constraint' }),
     }));
     await fillSignup(page);
-    await page.evaluate('doSignup()');
+    await page.evaluate('S.signupAck=true;doSignup()');
     const err = await page.locator('#auth-err').textContent();
     expect(err).toMatch(/already|مسجل|exists/i);
   });
@@ -198,12 +199,12 @@ test.describe('google complete-profile', () => {
     await boot(page);
     const calls = await captureRpc(page, 'customer_oauth_signup', [{ session_token: 'gtok' }]);
     await page.evaluate('S._pendingGoogle={email:"g@x.com",name:"Gee User"};openGoogleComplete()');
-    await page.evaluate('doCompleteGoogle()');
+    await page.evaluate('S.signupAck=true;doCompleteGoogle()');
     await expect(page.locator('#auth-err')).not.toBeEmpty(); // gender required
     await page.evaluate('setSignupGender("female")');
     await page.fill('#a-height', '156');
     await page.fill('#a-phone', '0508727012');
-    await page.evaluate('doCompleteGoogle();doCompleteGoogle()');
+    await page.evaluate('S.signupAck=true;doCompleteGoogle();doCompleteGoogle()');
     await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
     expect(calls.length).toBe(1); // double-tap guard
     expect(calls[0].p_phone).toBe('+966508727012');
@@ -224,7 +225,7 @@ test('the auth modal renders every mode in Arabic with zero console errors', asy
     switchAuthMode('signup');
     switchAuthMode('forgot');
     S.forgotStep=2; renderAuthModal();
-    S._pendingGoogle={email:'g@x.com',name:'Gee'}; openGoogleComplete();
+    S._pendingGoogle={email:'g@x.com',name:'Gee'}; openGoogleComplete(); S.signupAck=true;
   `);
   expect(errs, errs.join('\n')).toEqual([]);
 });
@@ -265,7 +266,7 @@ test.describe('remaining hardening', () => {
     await page.fill('#a-pwd', 'Zq8xTselah');
     await page.fill('#a-pwd2', 'Zq8xTselah');
     await page.fill('#a-height', '175');
-    await page.evaluate('doSignup()');
+    await page.evaluate('S.signupAck=true;doSignup()');
     const err = await page.locator('#auth-err').textContent();
     expect(err).toMatch(/phone|هاتف|جوال/i);
     expect(signupCalls.length).toBe(0);
@@ -283,7 +284,7 @@ test.describe('remaining hardening', () => {
     await page.fill('#a-pwd', 'Zq8xTselah');
     await page.fill('#a-pwd2', 'Zq8xTselah');
     await page.fill('#a-height', '175');
-    await page.evaluate('doSignup()');
+    await page.evaluate('S.signupAck=true;doSignup()');
     await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
     expect(await page.evaluate('S.rememberMe')).toBe(true);
     expect(await page.evaluate(`(localStorage.getItem('cq_session')||'').includes('tok-new')`)).toBe(true);
@@ -388,7 +389,7 @@ test.describe('round 4: invisible characters & post-login flow', () => {
     await page.fill('#a-pwd', 'Zq8xTselah');
     await page.fill('#a-pwd2', 'Zq8xTselah');
     await page.fill('#a-height', '175');
-    await page.evaluate('doSignup()');
+    await page.evaluate('S.signupAck=true;doSignup()');
     await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
     expect(calls[0].p_email).toBe('faisal@example.com');
   });

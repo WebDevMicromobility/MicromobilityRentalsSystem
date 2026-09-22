@@ -119,7 +119,7 @@ test('Apple sign-up with a hidden email asks nothing extra; the check-up comes a
   const plain = rpcBodies(page, 'customer_oauth_signup');
   await expect(page.locator('#a-email')).toHaveCount(0);
   await expect(page.locator('#a-pwd')).toHaveCount(0);
-  await page.evaluate('doCompleteGoogle()');
+  await page.evaluate('S.signupAck=true;doCompleteGoogle()');
   await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
   expect(plain).toHaveLength(1);
   expect(plain[0].p_email).toBe('n1@privaterelay.appleid.com');

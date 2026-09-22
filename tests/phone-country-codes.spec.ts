@@ -61,7 +61,7 @@ test('an eleven-digit number keeps every digit, and signs up under its own count
   await page.locator('#a-phone').pressSequentially('01012345678');
   await expect(page.locator('#a-phone')).toHaveValue('010 123 45678'); // the eighth… eleventh digit survives
   await fillRest(page);
-  await page.evaluate('doSignup()');
+  await page.evaluate('S.signupAck=true;doSignup()');
   await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
   expect(calls[0].p_phone).toBe('+201012345678');
 });
@@ -73,7 +73,7 @@ test('an Indian mobile that starts 91 signs up with +91 in front', async ({ page
   await page.locator('#a-phone').pressSequentially('9123456789');
   await expect(page.locator('#a-phone')).toHaveValue('912 345 6789');
   await fillRest(page);
-  await page.evaluate('doSignup()');
+  await page.evaluate('S.signupAck=true;doSignup()');
   await page.waitForFunction('document.getElementById("auth-modal").style.display==="none"');
   expect(calls[0].p_phone).toBe('+919123456789');
 });
