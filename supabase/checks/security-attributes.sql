@@ -69,7 +69,22 @@ with expected(fname, want_definer, note) as (values
   -- The employee fare (20260921190000)
   ('_employee_fare',         false, 'pure price table'),
   ('_booking_fare',          false, 'reads rider_registrations, but only ever runs inside the definer triggers; revoked from anon+authenticated'),
-  ('_rider_link_reprice',    true,  'trigger: reprices the linked queue_entries row whoever made the link, anon form included')
+  ('_rider_link_reprice',    true,  'trigger: reprices the linked queue_entries row whoever made the link, anon form included'),
+  -- The 2026-09-22 review fixes (20260922120000 … 124000)
+  ('promo_lookup',           true,  'answers one code for the booking form; promo_codes is staff-only'),
+  ('_ip_gate',               true,  'writes login_throttle for every per-network meter; internal only'),
+  ('staff_inventory_costs',  true,  'reads inventory.cost, which anon and authenticated cannot'),
+  ('_addons_held_sync',      true,  'trigger: fires on staff writes, whatever the caller may execute'),
+  ('_client_ip',             false, 'reads a request header, nothing else'),
+  ('_fare_now',              false, 'reads sessions/ride_prices, only ever inside the definer trigger and RPC; revoked'),
+  ('_promo_fare',            false, 'pure arithmetic on the code row it is handed'),
+  ('_addon_map',             false, 'pure JSON reshaping'),
+  ('_addons_ok',             false, 'pure shape test, used by a CHECK constraint'),
+  ('_socials_ok',            false, 'pure shape test, used by a CHECK constraint'),
+  ('_type_ok',               false, 'pure list test, used by CHECK constraints'),
+  ('_ymd_ok',                false, 'pure date test'),
+  ('_session_has_room',      false, 'counts queue_entries, only ever inside customer_booking_update; revoked'),
+  ('_session_fill_recount',  false, 'the fill rule for one session, only ever inside the definer trigger; revoked')
 )
 select e.fname,
        case when p.oid is null then 'MISSING FROM DATABASE'
