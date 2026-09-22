@@ -18614,7 +18614,9 @@ async function onRequestPost(context) {
     return new Response(pkpass, {
       headers: {
         "Content-Type": "application/vnd.apple.pkpass",
-        "Content-Disposition": `attachment; filename="booking-${b.queue_num}.pkpass"`,
+        // Named by the booking ref, not the queue number: on a ride staff approve the number is
+        // never the rider's to see, and a file name is somewhere they would see it.
+        "Content-Disposition": `attachment; filename="booking-${String(b.id || "").slice(0, 6)}.pkpass"`,
         "Cache-Control": "no-store"
       }
     });
@@ -18628,21 +18630,28 @@ async function buildPkpass(b, cfg) {
   const group = Array.isArray(cfg.group) && cfg.group.length ? cfg.group : [b];
   const single = group.length === 1;
   const ref6 = b.id ? String(b.id).slice(0, 6) : "";
-  const primaryNum = b.queue_num != null ? String(b.queue_num) : "";
-  // Same reference as the app's bookingRef: a ride staff approve never puts its queue number in
-  // the QR (any camera reads it), only the id part. The staff scanner reads both forms.
-  const barcodeMsg = ["MMC", cfg.approvalRide ? "" : primaryNum, ref6].filter(Boolean).join("-");
-  const nums = group.map((r) => r.queue_num != null ? Number(r.queue_num) : null).filter((n) => n != null).sort((a, c) => a - c);
-  const numsDisplay = _numsDisplay(nums) || `#${primaryNum}`;
-  const when = `${b.session_day || ""} ${b.session_date || ""}`.trim();
-  const shortWhen = _shortWhen(b.session_day, b.session_date);
   const sess = cfg.sess || null;
   const ride = _rideOf(sess);
   const skin = RIDES[ride] || RIDES.jcc;
+  // A ride staff approve never shows a rider their place in the order - not on the app's card,
+  // not in its QR code - and the pass is the same ticket. It names the ride where the number
+  // goes, and its code carries the ref alone (the desk scanner reads both forms, like the app's
+  // bookingRef). Without the session to ask, a booking that carries an approval verdict is
+  // taken to be one of those rides: hiding a number wrongly costs less than showing one.
+  // onRequestPost has already decided (cfg.approvalRide, from _isApprovalRide) when it could.
+  const hideNum = cfg.approvalRide != null ? !!cfg.approvalRide : sess
+    ? sess.event_kind === "community" && sess.ride_kind !== "snd96" && sess.needs_approval !== false
+    : b.approval != null && b.approval !== "";
+  const primaryNum = !hideNum && b.queue_num != null ? String(b.queue_num) : "";
+  const barcodeMsg = ["MMC", primaryNum, ref6].filter(Boolean).join("-");
+  const nums = group.map((r) => r.queue_num != null ? Number(r.queue_num) : null).filter((n) => n != null).sort((a, c) => a - c);
+  const when = `${b.session_day || ""} ${b.session_date || ""}`.trim();
+  const shortWhen = _shortWhen(b.session_day, b.session_date);
   const clock = _sessTimes(sess);
   const collectStr = clock ? _hhmm(clock.collectMin) : "";
   const startStr = clock ? _hhmm(clock.startMin) : "";
   const rideName = (sess && sess.title) || skin.venue;
+  const numsDisplay = hideNum ? rideName : _numsDisplay(nums) || `#${primaryNum}`;
   const time = _sessClock(sess) || b.session_time || "";
   const dates = _sessionDates(b, clock);
   // A booking that is over, or was called off, must not read as a live ticket. Apple cannot
@@ -18662,7 +18671,7 @@ async function buildPkpass(b, cfg) {
   // the desk reads a number and a person off one line. The two clock times sit together below,
   // where collection followed by departure reads as one sequence rather than as two starts.
   const primary = [];
-  primary.push({ key: "queue", label: single ? "QUEUE" : "QUEUE NUMBERS", value: numsDisplay });
+  primary.push({ key: "queue", label: hideNum ? "RIDE" : single ? "QUEUE" : "QUEUE NUMBERS", value: numsDisplay });
   if (ridersValue) primary.push({ key: "riders", label: single ? "RIDER" : "RIDERS", value: ridersValue });
   const secondary = [];
   // A ride that gathers has no bikes to collect: that time is when to turn up.
@@ -18678,7 +18687,7 @@ async function buildPkpass(b, cfg) {
   const ridersBack = single ? [] : [{
     key: "riders_list",
     label: "Riders",
-    value: group.slice().sort((a, c) => (a.queue_num || 0) - (c.queue_num || 0)).map((r) => `#${r.queue_num} ${r.name || ""}${_bikeLabel(r.type_preference) ? " - " + _bikeLabel(r.type_preference) : ""}`.trim()).join("\n")
+    value: group.slice().sort((a, c) => (a.queue_num || 0) - (c.queue_num || 0)).map((r) => `${hideNum ? "" : `#${r.queue_num} `}${r.name || ""}${_bikeLabel(r.type_preference) ? " - " + _bikeLabel(r.type_preference) : ""}`.trim()).join("\n")
   }];
   const addonsBack = addons.length ? [{ key: "addons", label: "Add-ons", value: addons.map((a) => `${a.n}${a.q > 1 ? " x" + a.q : ""} - SAR ${a.p}`).join("\n") }] : [];
   const meetUrl = _meetUrl(sess);
@@ -18689,7 +18698,7 @@ async function buildPkpass(b, cfg) {
     teamIdentifier: cfg.teamId,
     serialNumber: String(b.id),
     organizationName: "MicroMobility Rentals",
-    description: `Booking ${numsDisplay} - ${rideName}`,
+    description: hideNum ? `Booking - ${rideName}` : `Booking ${numsDisplay} - ${rideName}`,
     foregroundColor: "rgb(242,245,242)",
     backgroundColor: skin.bg,
     labelColor: skin.label,
