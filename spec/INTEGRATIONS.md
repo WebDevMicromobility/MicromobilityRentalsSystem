@@ -196,8 +196,10 @@ both `#08090b`, icons 192/512 plus a 512 `maskable`.
 
 ### 3.3 iOS specifics
 
-`apple-mobile-web-app-capable`, `black-translucent` status bar, and **11 per-device
-`apple-touch-startup-image` splash screens** matched on device width/height/pixel-ratio
+`apple-mobile-web-app-capable`, `default` status bar (dark icons on a light bar, the page
+starts below it; `black-translucent` put white icons over the white header), and **11 per-device
+`apple-touch-startup-image` splash screens** matched on device width/height/pixel-ratio, each
+exactly the device's pixel size (iOS ignores any other size)
 ([app.src.html:89](../app.src.html#L89)–[99](../app.src.html#L99)).
 
 ---

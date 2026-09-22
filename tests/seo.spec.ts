@@ -143,3 +143,47 @@ test.describe('the tab icon', () => {
     expect(dist).toContain("'favicon.png'"); // left out, the tab 404s in production only
   });
 });
+
+test.describe('installed app chrome', () => {
+  // black-translucent draws white status-bar icons over the page; the header is white.
+  test('the iPhone status bar keeps its own light ground with dark icons', async () => {
+    const html = await readFile(resolve(__dirname, '../index.html'), 'utf8');
+    expect(html).toContain('<meta name="apple-mobile-web-app-status-bar-style" content="default">');
+  });
+
+  // Chromium only hands a preload to a request with the same SRI metadata; a bare preload
+  // was discarded and the library downloaded twice.
+  test('the supabase-js preload carries the same integrity as its script tag', async () => {
+    const html = await readFile(resolve(__dirname, '../index.html'), 'utf8');
+    const pre = html.match(/<link rel="preload" as="script" href="\.\/vendor\/supabase-js[^"]*"[^>]*integrity="([^"]+)"/)?.[1];
+    const tag = html.match(/<script[^>]* src="\.\/vendor\/supabase-js[^"]*"[^>]*integrity="([^"]+)"/)?.[1];
+    expect(pre).toBeTruthy();
+    expect(pre).toBe(tag);
+  });
+
+  // The loading-screen mark had the same problem from the other side: it is a CSS mask, and
+  // masks are fetched in CORS mode, so a preload without crossorigin never matched either.
+  test('no preload is thrown away and fetched a second time', async ({ page }) => {
+    const warnings: string[] = [];
+    page.on('console', (m) => { if (/preload .* is found, but is not used/i.test(m.text())) warnings.push(m.text()); });
+    await stubSupabase(page, {});
+    await page.goto('/');
+    await waitForSb(page);
+    await page.waitForTimeout(500); // the unused-preload warning lands a moment after load
+    expect(warnings).toEqual([]);
+  });
+
+  // iOS shows a launch image only when it is exactly the screen's pixel size; the dark set
+  // was exported at twice that and every one was silently ignored.
+  test('every launch image is exactly the pixel size of the screen it is declared for', async () => {
+    const html = await readFile(resolve(__dirname, '../index.html'), 'utf8');
+    const links = [...html.matchAll(/<link rel="apple-touch-startup-image" media="([^"]+)" href="([^"]+)"/g)];
+    expect(links.length).toBeGreaterThan(10);
+    for (const [, media, href] of links) {
+      const n = (k: string) => Number(media.match(new RegExp(`${k}:\\s*([\\d.]+)`))?.[1]);
+      const ratio = n('-webkit-device-pixel-ratio');
+      const png = await readFile(resolve(__dirname, '..', href.replace(/\?.*$/, '')));
+      expect([png.readUInt32BE(16), png.readUInt32BE(20)], href).toEqual([n('device-width') * ratio, n('device-height') * ratio]);
+    }
+  });
+});
