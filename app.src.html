@@ -2524,9 +2524,22 @@ async function _refFetch(onCustomers){
 }
 // Inventory + promo codes are optional/error-tolerant (tables may not exist until migration
 // is run). Fetched IN PARALLEL - these used to run serially and added 4 round trips to boot.
+const INV_COLS='id,name,category,qty,low_threshold,updated_at,brand,photo,price,flavour,volume_ml,nutrition';
 async function _optionalFetch(){
   await Promise.all([
-    (async()=>{try{const inv=await sb.from('inventory').select('*');if(!inv.error)S.inventory=inv.data||[];}catch(e){}})(),
+    // What the shop pays per unit (cost) is staff-only (20260922124000): the other columns are
+    // named, and staff merge the costs in from their own RPC. '*' is the fallback for a database
+    // missing one of the named columns; after that migration it is refused like any cost read.
+    (async()=>{try{
+      let inv=await sb.from('inventory').select(INV_COLS);
+      if(inv.error)inv=await sb.from('inventory').select('*');
+      if(inv.error)return;
+      const rows=inv.data||[];
+      // Until that migration lands the RPC does not exist and the column is still readable, so
+      // staff fall back to reading it directly: the costs must not vanish for the day in between.
+      if(S._staffAuthed){try{let c=await sb.rpc('staff_inventory_costs');if(c.error)c=await sb.from('inventory').select('id,cost');if(!c.error&&Array.isArray(c.data)&&c.data.length){const m=new Map(c.data.map(r=>[r.id,r.cost]));rows.forEach(r=>{if(m.has(r.id))r.cost=m.get(r.id);});}}catch(e){}}
+      S.inventory=rows;
+    }catch(e){}})(),
     (async()=>{try{const wl=await _pagedAll(()=>sb.from('desk_waitlist').select('*').order('id'),'id');if(!wl.error)S.deskWaitlist=wl.data||[];}catch(e){}})(),
     (async()=>{try{const pc=await sb.from('promo_codes').select('*');if(!pc.error)S.promoCodes=pc.data||[];}catch(e){}})(),
     // cashier_sales grows one row per POS sale forever - page it or revenue reports silently under-count past 1000.
@@ -7609,12 +7622,27 @@ function _regPromoDisc(){
   },0);
   return _promoDiscount(base,from);
 }
-function applyPromoCode(){
+async function applyPromoCode(){
   // Whichever copy of the box the customer typed into — the boxes mirror one value.
   // Digits typed on an Arabic keyboard (٢٠) are the same code as 20: compare in ASCII digits.
   const v=_asciiDigits(Array.from(document.querySelectorAll('.reg-promo')).map(i=>(i.value||'').trim()).find(x=>x)||'');
   if(!v){S.promoApplied=null;S._promoMsg='';renderRegister();return;}
-  const match=(S.promoCodes||[]).find(c=>c.active&&_asciiDigits(String(c.code)).toLowerCase()===v.toLowerCase());
+  // A rider's device cannot read the promo table (staff-only since 20260922122000): it asks the
+  // server about this one code. Staff keep their loaded list, and so does a database without
+  // promo_lookup yet - its reply is then no answer, and the list is used as before.
+  let match=null;
+  if(!S._staffAuthed&&sb){
+    try{
+      const c=S.loggedIn||getSession();
+      const r=await sb.rpc('promo_lookup',{p_code:v,p_id:c?c.id:null,p_token:c?c.session_token:null});
+      const d=(r&&!r.error)?r.data:null;
+      if(d&&typeof d==='object'&&!Array.isArray(d)&&'ok' in d){
+        if(!d.ok){S.promoApplied=null;S._promoMsg=t({expired:'promoExpiredMsg',used_up:'promoUsedUpMsg',not_yours:'promoNotYoursMsg'}[d.reason]||'promoInvalidMsg');renderRegister();return;}
+        match={code:d.code,kind:d.kind,value:d.value,applies_to:d.applies_to||null,active:true};
+      }
+    }catch(e){}
+  }
+  if(!match)match=(S.promoCodes||[]).find(c=>c.active&&_asciiDigits(String(c.code)).toLowerCase()===v.toLowerCase());
   if(!match){S.promoApplied=null;S._promoMsg=t('promoInvalidMsg');renderRegister();return;}
   // Limits are enforced by the price trigger; checking here is so the customer is told why
   // rather than watching the discount silently fail to stick.
@@ -9113,7 +9141,9 @@ function _photoOut(c,cb){
       if(!blob){cb(dataUrl);return;}
       try{
         const path='p/'+uid()+'.jpg';
-        const{error}=await sb.storage.from('photos').upload(path,blob,{contentType:'image/jpeg',upsert:true,cacheControl:'31536000'}); // 1-year cache: photos are content-addressed by uid, so they never change
+        // upsert:false - the name is a fresh uid, so nothing is ever overwritten, and an upsert needs
+        // SELECT+UPDATE policies the bucket deliberately does not grant (only INSERT under p/).
+        const{error}=await sb.storage.from('photos').upload(path,blob,{contentType:'image/jpeg',upsert:false,cacheControl:'31536000'}); // 1-year cache: photos are content-addressed by uid, so they never change
         if(error){cb(dataUrl);return;}
         const{data}=sb.storage.from('photos').getPublicUrl(path);
         cb((data&&data.publicUrl)?data.publicUrl:dataUrl);

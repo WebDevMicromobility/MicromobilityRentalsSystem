@@ -18,12 +18,14 @@ const code = (over: Record<string, unknown>) => ({
 
 /** Types the code into the register form's promo box and returns the resulting state. */
 async function apply(page: import('@playwright/test').Page) {
-  return page.evaluate(`(() => {
+  // applyPromoCode is async: a rider's device asks promo_lookup() first (unstubbed here, so it
+  // falls back to the loaded list these specs are about).
+  return page.evaluate(`(async () => {
     S.regBikeTypes = ['Hybrid']; S.regQty = 1;
     const box = document.createElement('input');
     box.className = 'reg-promo'; box.value = 'SUMMER10';
     document.body.appendChild(box);
-    try { applyPromoCode(); } finally { box.remove(); }
+    try { await applyPromoCode(); } finally { box.remove(); }
     return { applied: !!S.promoApplied, msg: S._promoMsg };
   })()`) as Promise<{ applied: boolean; msg: string }>;
 }
