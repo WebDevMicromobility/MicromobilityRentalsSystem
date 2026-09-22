@@ -3408,7 +3408,13 @@ function statusBadgeFor(e){
     :e.cancelledBy==='customer'?'statusCancelledByCustomer':'statusCancelled';
   return`<span class="status-badge ${STATUS_CLS.cancelled||'badge-done'}">${t(k)}</span>`;
 }
-function esc(s){return s==null?'':String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function esc(s){return s==null?'':String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+// A value as a JavaScript string argument inside a double-quoted inline handler:
+// onclick="f(${_ja(id)})". esc() alone does not protect that spot - the browser decodes the
+// entities back to quotes before the handler runs - so the value is JSON-encoded first and
+// only then HTML-escaped. Every id, name or other stored value handed to an inline handler
+// goes through this, never through a bare '${x}' or '${esc(x)}'.
+function _ja(v){return esc(JSON.stringify(v==null?'':String(v)));}
 // Scroll behavior that honors the OS 'reduce motion' setting (CSS can't gate JS smooth scroll).
 function _sb(){try{return (window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches)?'auto':'smooth';}catch(e){return 'smooth';}}
 // Debounced re-render: coalesce rapid state changes (typing in a search box, tapping a number
