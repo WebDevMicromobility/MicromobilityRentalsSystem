@@ -1,4 +1,4 @@
--- Rollback of 20260922120000_ids_and_types_have_a_shape.sql.
+-- Rollback of 20260922120100_ids_and_types_have_a_shape.sql.
 -- Run the rollbacks newest first (124000, 123000, 122000, 121000, then this one): the later
 -- migrations' functions call the helpers this one drops.
 -- Restores the constraint-free tables and the sign-up functions exactly as they were live on

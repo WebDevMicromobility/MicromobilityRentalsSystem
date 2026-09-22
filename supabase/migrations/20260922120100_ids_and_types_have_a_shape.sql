@@ -23,7 +23,7 @@
 -- every later update of that customer), promo_code (staff choose codes; the price trigger
 -- only ever keeps a code that exists).
 --
--- Rollback: supabase/rollbacks/20260922120000_ids_and_types_have_a_shape.sql
+-- Rollback: supabase/rollbacks/20260922120100_ids_and_types_have_a_shape.sql
 -- Verify:   supabase/checks/review-fixes-2026-09-22.sql
 -- ============================================================================
 

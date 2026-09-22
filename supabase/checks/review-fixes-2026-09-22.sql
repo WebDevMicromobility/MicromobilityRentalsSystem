@@ -1,5 +1,5 @@
 -- ─────────────────────────────────────────────────────────────────────────────
--- Proof that the five 2026-09-22 review migrations are live (20260922120000 … 124000).
+-- Proof that the five 2026-09-22 review migrations are live (20260922120100 … 124000).
 -- Read-only: catalogue lookups and one count. Prints one row per check (44); every `ok` must be
 -- true. Run after applying, and again after any later migration that touches these objects.
 -- Also run supabase/checks/security-attributes.sql (it expects the new helpers too).
