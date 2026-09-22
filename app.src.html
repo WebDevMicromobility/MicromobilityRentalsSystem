@@ -2573,6 +2573,7 @@ async function _loadDataInner(showLoader){
   if(!_firstLoad&&!c.error)S.customers=c.data||[]; // on the first load _refFetch sets it itself when it lands
   if(!ses.error)S.sessions=ses.data||[];
   S.dataLoaded=true; // first successful load - render real content instead of skeletons
+  S._cacheOnly=false; // the queue's opening session can now be chosen from real data (_sfDefaultToToday)
   if(_firstLoad){
     Promise.all([_refP,_optP]).then(async()=>{
       try{await _afterOptional();}catch(e){}
@@ -2614,7 +2615,7 @@ function _cacheSave(){try{
   const strip=a=>(a||[]).map(x=>{if(x&&typeof x.photo==='string'&&x.photo.indexOf('data:')===0){const{photo,...r}=x;return r;}return x;});
   localStorage.setItem('cq_snapshot',JSON.stringify({q:S.queue,ses:S.sessions,bk:strip(S.bikes),inv:strip(S.inventory),cs:S.cashSales}));
 }catch(e){}}
-function _cacheRestore(){try{const s=JSON.parse(localStorage.getItem('cq_snapshot')||'null');if(s&&s.q){S.queue=s.q||[];S.sessions=s.ses||[];S.bikes=s.bk||[];S.inventory=s.inv||[];S.cashSales=s.cs||[];S.dataLoaded=true;}}catch(e){}}
+function _cacheRestore(){try{const s=JSON.parse(localStorage.getItem('cq_snapshot')||'null');if(s&&s.q){S.queue=s.q||[];S.sessions=s.ses||[];S.bikes=s.bk||[];S.inventory=s.inv||[];S.cashSales=s.cs||[];S.dataLoaded=true;S._cacheOnly=true;}}catch(e){}}
 
 
 function hashPwd(s){
@@ -5456,6 +5457,7 @@ async function _bikeArrived(code,src){
 // staff sign-in (PIN, or email+password under SECURE_AUTH) - same rule as the /staff URL.
 function staffAccessClick(){if(localStorage.getItem('cq_staff')==='1')goStaff();else openPinModal();}
 function goStaff(){
+  const _onQueue=S.view==='staff'&&S.staffTab==='queue'; // the queue is already open: not a new opening
   localStorage.setItem('cq_staff','1');
   showView('staff');
   // The signed-out landing keeps the auth page open; entering staff must clear it or the
@@ -5463,8 +5465,8 @@ function goStaff(){
   try{const m=document.getElementById('auth-modal');if(m){m.style.display='none';m.classList.remove('as-page');}document.body.classList.remove('auth-page');}catch(e){}
   renderStaffTabs();
   _bikeResume(); // a tag tapped before sign-in completes now that the panel is open
-  
-  _autoSelectSession();
+
+  if(!_onQueue)_autoSelectSession();
   renderStaffQueue();
   renderSessions();
   renderBikes();
@@ -5474,15 +5476,26 @@ function goStaff(){
   // panel — the modal is blocking and re-appears on every entry until they change it.
   if(S._staffAuthed&&S._mustChangePwd)openStaffPwdModal(true);
 }
+// The queue always opens on the current session: on every load, whenever Bookings is chosen
+// from another section, and on Back into it. A session picked on the page holds until the page
+// is left. A pick made from the snapshot (cached data) is made again once the first real load
+// lands (_sfDefaultToToday), unless the staffer has picked one in between.
 function _autoSelectSession(){
-  if(_restoreQueueView()){S._sfDefaulted=true;return;} // this tab remembers where the staffer was: a refresh comes back there
-  const today=new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});
-  const open=allSessions().filter(s=>_sessLive(s))
-    .sort((a,b)=>new Date(a.session_date||a.id)-new Date(b.session_date||b.id));
-  if(!open.length){S.sfSession='all';return;}
-  
-  const todaySess=open.find(s=>(s.session_date||s.id)===today);
-  S.sfSession=(todaySess||open[0]).id;
+  if(!S._qvRestored){S._qvRestored=true;_restoreQueueView();} // once per load, before anything is saved over it
+  S.sfSession=_currentSessId();S.sfLimit=150;S._sfPicked=false;
+  S._sfDefaulted=!!S.dataLoaded&&!S._cacheOnly;
+}
+// Current = tonight's ride while it is open or full (of two, one not yet over first). No live
+// ride today: the latest ride dated today or earlier, whatever its status - last night's, the
+// morning after. Nothing has run yet: the next live one. KSA_TZ via todayStr(): the till is in
+// Jeddah even when a tester is not. Front Desk never lands on a ride it cannot see.
+function _currentSessId(){
+  const fd=!isAdmin(),today=todayStr(),day=s=>String(s.session_date||s.id).slice(0,10);
+  const ss=allSessions().filter(s=>s.status!=='deleted'&&!(fd&&_isApprovalRide(s)));
+  const s=ss.filter(x=>_sessLive(x)&&day(x)===today).sort((a,b)=>_sessEnded(a)-_sessEnded(b)||_sessOrder(a,b))[0]
+    ||ss.filter(x=>day(x)<=today).sort((a,b)=>day(b).localeCompare(day(a))||String(b.id).localeCompare(String(a.id)))[0]
+    ||ss.filter(_sessLive).sort(_sessOrder)[0];
+  return s?s.id:'all';
 }
 
 function setCustTab(tab){
@@ -5502,6 +5515,7 @@ function setStaffTab(tab){
   if(tab==='waitlist'){S.queueView='waitlist';tab='queue';} // Waitlist lives there too (third pill)
   if(tab==='riders'){S.queueView='petromin';if(!S.ridersSession||S.ridersSession==='all')S.ridersSession=_pmDefaultNight()||'all';tab='queue';} // the Riders tab is the Petromin page in Queue now
   if(!_deskTabOk(tab))tab='queue'; // Front Desk mode: only its own sections (DESK_TABS)
+  if(tab==='queue'&&S.staffTab!=='queue')_autoSelectSession(); // opening the queue: back to the current session
   S.staffTab=tab;
   closeStaffNav(); // a choice is the end of the menu
   try{sessionStorage.setItem('cq_nav_stab',tab);}catch(e){}
@@ -11320,34 +11334,24 @@ function _keepScroll(){
   };
   requestAnimationFrame(restore);
 }
-// The desk opens on tonight's session, not on All Sessions: every shift began with the same
-// tap, and the All view is also the one place the roster is capped at 150 rows. Only the boot
-// default is replaced — once anybody has picked anything (or there is no session today), the
-// choice is theirs. KSA_TZ, not the device clock's zone: the till is in Jeddah even when a
-// tester is not.
-// The queue's view - which session, Bookings / Sessions / Waitlist, the status filter - is
-// remembered for this tab, so a refresh comes back where the staffer was. Restored only if
-// the session still exists; otherwise the default-to-today rule below applies.
-function _saveQueueView(){try{sessionStorage.setItem('cq_queue_view',JSON.stringify({sfSession:S.sfSession,queueView:S.queueView,sfStatus:S.sfStatus,ridersSession:S.ridersSession}));}catch(e){}}
+// The queue's view - Bookings / Sessions / Waitlist / the Petromin page (and its night), and
+// the status filter - is remembered for this tab, so a refresh comes back to it. The session is
+// not: opening the queue always lands on the current one (_autoSelectSession), a refresh included.
+function _saveQueueView(){try{sessionStorage.setItem('cq_queue_view',JSON.stringify({queueView:S.queueView,sfStatus:S.sfStatus,ridersSession:S.ridersSession}));}catch(e){}}
 function _restoreQueueView(){
   let st=null;try{st=JSON.parse(sessionStorage.getItem('cq_queue_view')||'null');}catch(e){}
-  if(!st||!st.sfSession)return false;
-  if(st.sfSession!=='all'&&!allSessions().some(x=>x.id===st.sfSession&&x.status!=='deleted'))return false;
-  S.sfSession=st.sfSession;
+  if(!st)return;
   if(['bookings','sessions','managed','petromin'].includes(st.queueView))S.queueView=st.queueView;
   if(st.queueView==='petromin'&&typeof st.ridersSession==='string')S.ridersSession=st.ridersSession;
   if(typeof st.sfStatus==='string')S.sfStatus=st.sfStatus;
-  return true;
 }
+// Every repaint asks; it acts once, on the first paint from real data - the opening session
+// picked before that (no data yet, or only the snapshot) is picked again, unless the staffer
+// has chosen one since.
 function _sfDefaultToToday(){
-  if(S._sfDefaulted||!S.dataLoaded)return;
-  S._sfDefaulted=true;
-  if(_restoreQueueView())return; // back where the staffer was before the refresh - this tab's memory wins over any boot default
-  if(S.sfSession!=='all')return; // something picked it already (a scan, a link): keep it
-  const today=new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ});
-  const s=allSessions().filter(x=>_sessLive(x)&&(x.session_date||x.id)===today)
-    .sort((a,b)=>(b.created_at||0)-(a.created_at||0))[0];
-  if(s)S.sfSession=s.id;
+  if(S._sfDefaulted||!S.dataLoaded||S._cacheOnly)return;
+  if(S._sfPicked){S._sfDefaulted=true;return;}
+  _autoSelectSession();
 }
 // ── Tomorrow's heat, on the chip that plans for it ───────────────────────────
 // Staffing calls (open a second session? brace for no-shows?) get made off the strip, so the
@@ -11525,7 +11529,7 @@ function renderStaffQueue(_resultsOnly){
   try{const tb=document.getElementById('topbar');if(tb)document.documentElement.style.setProperty('--topbar-h',tb.offsetHeight+'px');}catch(_){}
   S._qScrollY=window.scrollY; // a repaint replaces the whole tab; the page must not move under the staffer
   _sfDefaultToToday();
-  if(S._sfDefaulted)_saveQueueView(); // here, before any view-specific early return; and not before the restore has had its turn
+  if(S._qvRestored)_saveQueueView(); // here, before any view-specific early return; and not before the restore has had its turn
   // The open check-in modal follows every repaint of the queue - price edits, add-ons,
   // payments, realtime - unless the bike field is being typed in, when a repaint would eat
   // the caret. Its amounts are read from the rows, so they move with them.
@@ -11572,7 +11576,7 @@ function renderStaffQueue(_resultsOnly){
   // Front Desk accounts never see the Saturday (community) side: those sessions are hidden
   // from the roster, the session filter, and the community add button.
   const _fd=!isAdmin();
-  if(_fd&&S.sfSession!=='all'&&_apprSessIds.has(S.sfSession))S.sfSession='all';
+  if(_fd&&S.sfSession!=='all'&&_apprSessIds.has(S.sfSession))S.sfSession=_currentSessId(); // one Front Desk cannot see
   const queue=getQueue();const sessions=allSessions().filter(s=>!(_fd&&_isApprovalRide(s)));
   const base=(S.sfSession!=='all'
     ?queue.filter(e=>e.sessionId===S.sfSession&&e.status!=='removed'&&e.status!=='cancelled')
@@ -12302,9 +12306,9 @@ function renderQRow(e){
 function _qKeepScroll(){const y=S._qScrollY;if(y==null)return;if(Math.abs(window.scrollY-y)>1)try{window.scrollTo({top:y,behavior:'auto'});}catch(_){window.scrollTo(0,y);}}
 let _qPaintGen=0;
 function _qPaintRest(){
+  const gen=++_qPaintGen; // every paint, even one with nothing left over: an older paint's rows must not land in it
   const rest=S._qRowsRest;S._qRowsRest='';
   if(!rest)return;
-  const gen=++_qPaintGen;
   requestAnimationFrame(()=>{
     if(gen!==_qPaintGen)return;                 // a newer render owns the table now
     const tb=document.getElementById('q-tbody');
@@ -12522,7 +12526,7 @@ function _showOverdue(){S.sfStatus='active';S.sfOverdueFirst=true;S.sfLimit=150;
 function setSfSession(v){
   if(String(v).startsWith('pm:')){openPetrominPage(String(v).slice(3));return;}
   if(S.queueView==='petromin')S.queueView='bookings';
-  S.sfSession=v;S.sfLimit=150;renderStaffQueue();
+  S.sfSession=v;S.sfLimit=150;S._sfPicked=true;renderStaffQueue();
 }
 function setSfSort(col){
   if(S.sfSort===col) S.sfSortDir=-S.sfSortDir;

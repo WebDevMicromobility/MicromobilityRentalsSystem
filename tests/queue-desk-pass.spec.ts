@@ -31,7 +31,7 @@ test('the queue opens on tonight, not on All Sessions', async ({ page }) => {
   expect(await page.evaluate('S.sfSession')).toBe(KSA_TODAY);
 });
 
-test('with no session today it stays on All, and a made choice is never overridden', async ({ page }) => {
+test('with no session today and none run yet it opens on the next ride, and a made choice is never overridden', async ({ page }) => {
   await stubSupabase(page, { sessions: [sessions[0]], queue_entries: [], bikes: [] });
   await unlockStaff(page);
   await page.goto('/');
@@ -39,9 +39,9 @@ test('with no session today it stays on All, and a made choice is never overridd
   await page.waitForFunction(`S.dataLoaded===true`);
   await page.evaluate(`setStaffTab('queue')`);
   await page.waitForTimeout(250);
-  expect(await page.evaluate('S.sfSession')).toBe('all');
-  await page.evaluate(`S.sfSession='${OLD}';renderStaffQueue();renderStaffQueue()`);
   expect(await page.evaluate('S.sfSession')).toBe(OLD);
+  await page.evaluate(`setSfSession('all');renderStaffQueue();renderStaffQueue()`);
+  expect(await page.evaluate('S.sfSession')).toBe('all');
 });
 
 test('before publish: reservation time, and a W-number for the waitlisted', async ({ page }) => {

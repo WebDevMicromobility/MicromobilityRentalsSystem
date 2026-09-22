@@ -26,7 +26,7 @@ test('front desk mode limits the staff tabs to Sales, Bookings & Riders', async 
   expect(await vis()).toEqual(expect.arrayContaining(['cashier', 'queue', 'inventory', 'analytics', 'history']));
 
   // Admin sees the Sessions pill, the Saturday session in the filter, and its riders
-  await page.evaluate('setStaffTab("queue")');
+  await page.evaluate('setStaffTab("queue");setSfSession("all")'); // the queue opens on the next ride; All shows both
   const panel = page.locator('#tab-queue');
   await expect(panel.getByRole('button', { name: 'Sessions' })).toBeVisible();
   await expect(panel.locator('tr, .q-card').filter({ hasText: 'Sat Rider' }).filter({ visible: true })).toHaveCount(1);

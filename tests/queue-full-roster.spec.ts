@@ -78,3 +78,12 @@ test('the cap lifts as soon as a session is picked', async ({ page }) => {
   await page.waitForTimeout(300);
   expect(await shownNums(page, 'Rider', 189)).toContain(189);
 });
+
+test('a long session\'s late rows never land in the view that replaced it', async ({ page }) => {
+  await open(page, S1);
+  // The long list paints its tail a frame later; switching away inside that frame used to
+  // append S1's tail to the capped All view.
+  await page.evaluate(`setSfSession('${S1}');setSfSession('all')`);
+  await page.waitForTimeout(300);
+  expect(await shownNums(page, 'Rider', 189)).not.toContain(189);
+});
