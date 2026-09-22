@@ -18581,20 +18581,36 @@ async function onRequestPost(context) {
   // the clock - so the pass had none, and every pass expired at midnight. Read the session
   // itself, through the same door the rider's own app uses: list_sessions answers with what
   // THIS customer may see, so a tag-gated ride still resolves and nothing else leaks.
+  // PostgREST filters a set-returning RPC like a table, so asking for the one id brings back
+  // that row alone instead of every session ever run - egress is metered, and a pass needs one.
+  // The find() below still picks by id, so the answer is right even if the filter were ignored.
   let sess = null;
+  if (b.session_id != null) {
+    try {
+      const sr = await fetch(`${SUPA}/rest/v1/rpc/list_sessions?id=eq.${encodeURIComponent(b.session_id)}`, {
+        method: "POST",
+        headers: { apikey: ANON, Authorization: `Bearer ${ANON}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ p_id: customerId, p_token: token })
+      });
+      if (sr.ok) {
+        const all = await sr.json();
+        if (Array.isArray(all)) sess = all.find((x) => x && x.id === b.session_id) || null;
+      }
+    } catch (e) { /* the pass is still worth issuing without it */ }
+  }
+  // A ride staff approve: the app offers the pass only once the rider is approved AND the list
+  // is published (_walletOk), and its QR carries no queue number (bookingRef). The server has to
+  // hold the same line, or a rider asking here directly gets a signed ticket - queue number and
+  // all - for a place they have not been given. A booking that carries an approval state but
+  // whose session could not be read cannot be checked, so it is not issued either.
+  const approvalRide = sess ? _isApprovalRide(sess) : b.approval != null;
+  if (approvalRide) {
+    if (!sess) return json({ ok: false, error: "session unavailable" }, 503);
+    if (b.approval !== "approved" || !_commPublished(sess)) return json({ ok: false, error: "not confirmed" }, 409);
+    group = group.filter((r) => r.approval === "approved");
+  }
   try {
-    const sr = await fetch(`${SUPA}/rest/v1/rpc/list_sessions`, {
-      method: "POST",
-      headers: { apikey: ANON, Authorization: `Bearer ${ANON}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ p_id: customerId, p_token: token })
-    });
-    if (sr.ok) {
-      const all = await sr.json();
-      if (Array.isArray(all)) sess = all.find((x) => x && x.id === b.session_id) || null;
-    }
-  } catch (e) { /* the pass is still worth issuing without it */ }
-  try {
-    const pkpass = await buildPkpass(b, { p12b64, p12pw, passTypeId, teamId, addons, group, sess });
+    const pkpass = await buildPkpass(b, { p12b64, p12pw, passTypeId, teamId, addons, group, sess, approvalRide });
     return new Response(pkpass, {
       headers: {
         "Content-Type": "application/vnd.apple.pkpass",
@@ -18603,7 +18619,9 @@ async function onRequestPost(context) {
       }
     });
   } catch (e) {
-    return json({ ok: false, error: "sign failed: " + (e && e.message) }, 500);
+    // The detail (a p12 password, a failed certificate fetch) is for the logs, not the rider's toast.
+    console.error("wallet-pass: sign failed", (e && e.stack) || e);
+    return json({ ok: false, error: "sign failed" }, 500);
   }
 }
 async function buildPkpass(b, cfg) {
@@ -18611,7 +18629,9 @@ async function buildPkpass(b, cfg) {
   const single = group.length === 1;
   const ref6 = b.id ? String(b.id).slice(0, 6) : "";
   const primaryNum = b.queue_num != null ? String(b.queue_num) : "";
-  const barcodeMsg = ["MMC", primaryNum, ref6].filter(Boolean).join("-");
+  // Same reference as the app's bookingRef: a ride staff approve never puts its queue number in
+  // the QR (any camera reads it), only the id part. The staff scanner reads both forms.
+  const barcodeMsg = ["MMC", cfg.approvalRide ? "" : primaryNum, ref6].filter(Boolean).join("-");
   const nums = group.map((r) => r.queue_num != null ? Number(r.queue_num) : null).filter((n) => n != null).sort((a, c) => a - c);
   const numsDisplay = _numsDisplay(nums) || `#${primaryNum}`;
   const when = `${b.session_day || ""} ${b.session_date || ""}`.trim();
@@ -18661,6 +18681,8 @@ async function buildPkpass(b, cfg) {
     value: group.slice().sort((a, c) => (a.queue_num || 0) - (c.queue_num || 0)).map((r) => `#${r.queue_num} ${r.name || ""}${_bikeLabel(r.type_preference) ? " - " + _bikeLabel(r.type_preference) : ""}`.trim()).join("\n")
   }];
   const addonsBack = addons.length ? [{ key: "addons", label: "Add-ons", value: addons.map((a) => `${a.n}${a.q > 1 ? " x" + a.q : ""} - SAR ${a.p}`).join("\n") }] : [];
+  const meetUrl = _meetUrl(sess);
+  const place = _meetPlace(sess);
   const pass = {
     formatVersion: 1,
     passTypeIdentifier: cfg.passTypeId,
@@ -18679,12 +18701,15 @@ async function buildPkpass(b, cfg) {
     barcodes: [{ format: "PKBarcodeFormatQR", message: barcodeMsg, messageEncoding: "iso-8859-1", altText: numsDisplay }],
     // keep the legacy single-barcode field too for older iOS
     barcode: { format: "PKBarcodeFormatQR", message: barcodeMsg, messageEncoding: "iso-8859-1", altText: numsDisplay },
-    locations: [{ latitude: 21.6266, longitude: 39.1099, relevantText: "Your ride is nearby - the Circuit is just ahead" }],
+    // Lock-screen relevance at the place the ride actually meets. Only the circuit's own meeting
+    // point, or a custom one whose link carries coordinates, can be placed; a ride that meets
+    // somewhere the pass cannot pin gets no location rather than the circuit's.
+    ...place ? { locations: [{ latitude: place.lat, longitude: place.lng, relevantText: place.text }] } : {},
     // Semantic tags let iOS drive Live Activities, lock-screen relevance and the event guide.
     semantics: {
       eventName: rideName,
       venueName: skin.venue,
-      venueLocation: { latitude: 21.6266, longitude: 39.1099 },
+      ...place ? { venueLocation: { latitude: place.lat, longitude: place.lng } } : {},
       eventType: "PKEventTypeGeneric",
       ...dates ? { eventStartDate: dates.start, eventEndDate: dates.end } : {}
     },
@@ -18699,7 +18724,8 @@ async function buildPkpass(b, cfg) {
         { key: "when", label: "Session", value: `${when}${time ? " \xB7 " + time : ""}`.trim() },
         ...collectStr ? [{ key: "collect_b", label: "Collect your bike", value: `From ${collectStr}${startStr ? ` \xB7 the ride leaves at ${startStr}` : ""}` }] : [],
         { key: "venue", label: "Venue", value: skin.venue },
-        { key: "directions", label: "Directions", value: `<a href="${_meetUrl(sess)}">Open in Maps</a>` },
+        // Wallet reads link markup only in attributedValue; in value it printed the raw <a> tag.
+        { key: "directions", label: "Directions", value: meetUrl, attributedValue: `<a href="${_attr(meetUrl)}">Open in Maps</a>` },
         ...ridersBack,
         ...addonsBack,
         { key: "pay", label: "Payment", value: "Pay at the booth \u2014 cash, mada or STC Pay." },
@@ -18738,6 +18764,35 @@ function _meetUrl(sess) {
   const u = sess && sess.meet_url ? String(sess.meet_url) : "";
   return /^https:\/\//.test(u) ? u : DIRECTIONS;
 }
+var CIRCUIT = { lat: 21.6266, lng: 39.1099, text: "Your ride is nearby - the Circuit is just ahead" };
+// Where the ride meets, as coordinates. No link of its own means the circuit (the directions
+// link is the circuit's too). A link of its own is placed only when it spells out coordinates
+// (".../@21.5,39.1,17z", "?q=21.5,39.1", "?query=..." and the like); a short maps.app.goo.gl
+// link does not, and then there is no place rather than the wrong one.
+function _meetPlace(sess) {
+  const u = _meetUrl(sess);
+  if (u === DIRECTIONS) return CIRCUIT;
+  let s = u;
+  try { s = decodeURIComponent(u); } catch (e) { /* keep the raw link */ }
+  const m = s.match(/@(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/) || s.match(/[?&](?:q|query|ll|destination|daddr)=(?:loc:)?(-?\d{1,2}\.\d+),\s*(-?\d{1,3}\.\d+)/);
+  if (!m) return null;
+  const lat = +m[1], lng = +m[2];
+  if (!(Math.abs(lat) <= 90 && Math.abs(lng) <= 180)) return null;
+  return { lat, lng, text: "Your ride's meeting point is nearby" };
+}
+function _attr(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+// The app's own tests (_isCommunity, _isApprovalRide, _commPublished), read off the same row.
+function _isCommunity(s) {
+  return !!s && s.event_kind === "community" && s.ride_kind !== "snd96";
+}
+function _isApprovalRide(s) {
+  return _isCommunity(s) && s.needs_approval !== false;
+}
+function _commPublished(s) {
+  return _isCommunity(s) && s.hide_queue === false;
+}
 function _sessionDates(b, clock) {
   try {
     // queue_entries stores the date as plain ISO, so that is the form to read first. The
@@ -18753,7 +18808,13 @@ function _sessionDates(b, clock) {
     if (!mo) return null;
     const day = _iso ? +_iso[3] : +md[1], year = _iso ? +_iso[1] : +md[3];
     const p2 = (n) => String(n).padStart(2, "0");
-    const iso = (h, min) => `${year}-${p2(mo)}-${p2(day)}T${p2(h)}:${p2(min)}:00+03:00`;
+    // Minutes from the start of the session's own day, as a Jeddah timestamp. Counting past 24:00
+    // rolls into the next day, so a ride that ends at or after midnight ends the day after.
+    const at = (min) => {
+      const t = new Date(Date.UTC(year, mo - 1, day) + min * 6e4);
+      return `${t.getUTCFullYear()}-${p2(t.getUTCMonth() + 1)}-${p2(t.getUTCDate())}T${p2(t.getUTCHours())}:${p2(t.getUTCMinutes())}:00+03:00`;
+    };
+    const endOfDay = (min) => Math.floor(min / 1440) * 1440 + 23 * 60 + 59;
     const parseT = (s) => {
       const t = s.match(/(\d{1,2})(?::(\d{2}))?\s*([AaPp])/);
       let h = +t[1];
@@ -18761,21 +18822,21 @@ function _sessionDates(b, clock) {
       const pm = /p/i.test(t[3]);
       if (pm && h !== 12) h += 12;
       if (!pm && h === 12) h = 0;
-      return iso(h, min);
+      return h * 60 + min;
     };
     if (clock) {
-      const at = (min) => iso(Math.floor(min / 60), min % 60);
       return {
         collect: clock.collectMin != null ? at(clock.collectMin) : null,
         start: at(clock.startMin),
         // A ride with no end on its clock (the ones staff approve) runs out at the end of its day.
-        end: clock.endMin != null ? at(clock.endMin) : iso(23, 59)
+        end: at(clock.endMin != null ? clock.endMin : endOfDay(clock.startMin))
       };
     }
     const times = String(b.session_time || "").match(/\d{1,2}(?::\d{2})?\s*[AaPp][Mm]/g) || [];
-    const start = times.length ? parseT(times[0]) : iso(0, 0);
-    const end = times.length >= 2 ? parseT(times[times.length - 1]) : iso(23, 59);
-    return { collect: null, start, end };
+    const startMin = times.length ? parseT(times[0]) : 0;
+    let endMin = times.length >= 2 ? parseT(times[times.length - 1]) : endOfDay(startMin);
+    if (times.length >= 2 && endMin <= startMin) endMin += 1440; // "9:00 PM - 12:30 AM"
+    return { collect: null, start: at(startMin), end: at(endMin) };
   } catch (e) {
     return null;
   }
@@ -18800,14 +18861,19 @@ function _sessTimes(sess) {
   if (parts.length < 1) return null;
   const approval = _gathersTime(sess);
   const toMin = (t) => { const m = /^(\d{1,2}):(\d{2})$/.exec(t); return m ? (+m[1]) * 60 + (+m[2]) : null; };
-  const startMin = toMin(approval ? parts[1] || parts[0] : parts[0]);
+  let startMin = toMin(approval ? parts[1] || parts[0] : parts[0]);
   if (startMin == null) return null;
   // Staff set the collection time on the session itself. A ride they approve keeps its
   // gathering time as that moment; anything with no time set falls back to three quarters
   // of an hour before the ride leaves.
   const set = toMin(_sessSlot(sess, "_collect"));
   const collectMin = approval ? toMin(parts[0]) : (set != null ? set : Math.max(0, startMin - COLLECT_BEFORE_MIN));
-  const endMin = approval ? null : toMin(parts[1] || "");
+  // Gathering before midnight for a ride that leaves after it: the ride leaves the next day.
+  if (approval && collectMin != null && startMin < collectMin) startMin += 1440;
+  let endMin = approval ? null : toMin(parts[1] || "");
+  // A ride that runs past midnight ("21:00 - 00:30") ends the next day. Read as the same day,
+  // its end fell before its start, and the pass expired on the morning of the ride.
+  if (endMin != null && endMin <= startMin) endMin += 1440;
   return { collectMin, startMin, endMin };
 }
 function _sessSlot(sess, key) {
