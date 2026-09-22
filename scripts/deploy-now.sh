@@ -14,6 +14,12 @@
 #
 # Flags: --dirty  ship despite uncommitted changes (the guard exists because a
 #                 live site running code that is in no commit is undebuggable).
+#
+# Two guards have no flag. Untracked files inside a folder that ships are refused: dist/ copies
+# those folders whole, so a work-in-progress functions/api/x.js would go live as an endpoint.
+# And HEAD must be exactly origin/main: CI deploys origin/main, so shipping from a checkout that
+# is behind it rolls production back, and shipping unpushed commits puts code live that CI will
+# overwrite on its next run. Push or pull first.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 t0=$(date +%s)
@@ -23,6 +29,26 @@ t0=$(date +%s)
 if [ "${1:-}" != "--dirty" ] && ! git diff --quiet HEAD -- . ':!dist'; then
   echo "✗ uncommitted changes — commit first, or run with --dirty" >&2
   git status --short | head -5 >&2
+  exit 1
+fi
+
+# The folders dist/ copies whole (DIRS in scripts/assemble-dist.mjs). Ignored files count too,
+# except macOS's .DS_Store, which wrangler never uploads.
+SHIPPED_DIRS=$(node -e "import('./scripts/assemble-dist.mjs').then(m=>console.log(m.DIRS.join(' ')))")
+# shellcheck disable=SC2086
+stray=$(git ls-files --others -- $SHIPPED_DIRS | grep -Ev '(^|/)\.DS_Store$' || true)
+if [ -n "$stray" ]; then
+  echo "✗ files git does not track would ship — commit or remove them:" >&2
+  echo "$stray" | head -10 >&2
+  exit 1
+fi
+
+if ! git fetch --quiet origin main; then
+  echo "✗ could not fetch origin/main to check this is what CI would ship — no deploy" >&2
+  exit 1
+fi
+if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+  echo "✗ HEAD $(git rev-parse --short HEAD) is not origin/main $(git rev-parse --short origin/main) — push or pull first" >&2
   exit 1
 fi
 
