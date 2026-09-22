@@ -2413,7 +2413,7 @@ extracted pack [lang/ar.json](../lang/ar.json).
 | `profilePhotoLabel` | Profile Photo | صورة الملف |
 | `promoteBtn` | Promote | ترقية |
 | `publishBtn` | Publish | نشر |
-| `publishConfirmBody` | {0} approved rider(s) will immediately see that they are confirmed, along with their queue number. This cannot be undone from here. | سيرى {0} مشارك مقبول تأكيد مشاركته ورقمه في الطابور فوراً. لا يمكن التراجع عن ذلك من هنا. |
+| `publishConfirmBody` | {0} approved rider(s) will immediately see that they are confirmed. This cannot be undone from here. | سيرى {0} مشارك مقبول تأكيد مشاركته فوراً. لا يمكن التراجع عن ذلك من هنا. |
 | `publishConfirmTitle` | Publish the rider list? | نشر قائمة المشاركين؟ |
 | `publishedAlready` | Results are already published for this ride. | تم نشر نتائج هذه الجولة بالفعل. |
 | `publishedChip` | Published | تم النشر |
