@@ -4,7 +4,7 @@ import { stubSupabase, unlockStaff, loginCustomer, waitForSb } from './helpers/s
 // Community > Flagged: every request staff made for a rider to correct their account, kept in
 // customer_flags because the request itself (customers.fix_fields) is cleared the moment it is
 // answered. And the rule for what a name may hold: letters of any script and their combining
-// marks, spaces and a hyphen - nothing else - wherever a customer's name is set.
+// marks and spaces - no dashes, nothing else - wherever a customer's name is set.
 
 const customers = [
   { id: 'c1', name: 'Amal Al Rashid', email: 'amal@example.test', phone: '+966500000001', height: 181, created_at: '2026-01-05T10:00:00Z' },
@@ -82,15 +82,17 @@ test('Flag again reopens the dialog with the same fields and asks through staff_
 });
 
 // ── the name rule ─────────────────────────────────────────────────────────────
-test('a name may hold letters of any script, spaces and a hyphen - nothing else', async ({ page }) => {
+test('a name may hold letters of any script and spaces - nothing else, not even a dash', async ({ page }) => {
   await stubSupabase(page, {});
   await page.goto('/');
   await waitForSb(page);
-  const ok = ['Malik Anas', 'Anne-Marie', 'محمد عبد الرحمن', 'مُحَمَّد', 'अमित कुमार', 'सुनिल श्रेष्ठ', 'রবীন্দ্রনাথ ঠাকুর', 'عمران خان', 'José Müller'];
-  const bad = ['Malik 2', 'محمد ٣', 'अमित ५', 'রবি ৭', "O'Brien", 'Mohd. Ali', 'ali@x', 'Malik 😀', 'Sara ❤', 'a_b', 'علي، محمد'];
+  const ok = ['Malik Anas', 'Anne Marie', 'Al Harbi', 'محمد عبد الرحمن', 'مُحَمَّد', 'अमित कुमार', 'सुनिल श्रेष्ठ', 'রবীন্দ্রনাথ ঠাকুর', 'عمران خان', 'José Müller'];
+  const bad = ['Malik 2', 'محمد ٣', 'अमित ५', 'রবি ৭', "O'Brien", 'Mohd. Ali', 'ali@x', 'Malik 😀', 'Sara ❤', 'a_b', 'علي، محمد', 'Anne-Marie', 'Al–Harbi'];
   expect(await page.evaluate(`${JSON.stringify(ok)}.map(n=>_nameCharsOk(n))`)).toEqual(ok.map(() => true));
   expect(await page.evaluate(`${JSON.stringify(bad)}.map(n=>_nameCharsOk(n))`)).toEqual(bad.map(() => false));
   expect(await page.evaluate(`_isNameCharsErr({message:'name_chars'})`)).toBe(true);
+  // where a name is cleaned rather than filtered as typed (the walk-in box also searches by phone)
+  expect(await page.evaluate(`['Al-Harbi','Kerry–Ann  Stander','Soso —','Malik 2'].map(_nameClean)`)).toEqual(['Al Harbi', 'Kerry Ann Stander', 'Soso', 'Malik']);
 });
 
 test('sign-up: signs are dropped as they are typed, and a name that still carries one never leaves', async ({ page }) => {
@@ -102,8 +104,8 @@ test('sign-up: signs are dropped as they are typed, and a name that still carrie
   await page.evaluate('openAuthModal()');
   await page.evaluate('switchAuthMode("signup")');
   await page.fill('#a-first', "Mal1k😀-Ann'e");
-  await expect(page.locator('#a-first')).toHaveValue('Malk-Anne');                     // digit, emoji and apostrophe gone
-  await expect(page.locator('.toast').last()).toContainText('letters, spaces and a hyphen');
+  await expect(page.locator('#a-first')).toHaveValue('Malk Anne');                     // digit, emoji and apostrophe gone; the dash is a space
+  await expect(page.locator('.toast').last()).toContainText('letters and spaces');
   await page.fill('#a-last', 'Babalghoum');
   await page.evaluate('setSignupGender("male")');
   await page.fill('#a-email', 'faisal@example.com');
@@ -114,14 +116,14 @@ test('sign-up: signs are dropped as they are typed, and a name that still carrie
   // a value that arrives without typing (autofill, a script) is still judged at submit
   await page.evaluate(`document.getElementById('a-last').value='Babalghoum 2'`);
   await page.evaluate('S.signupAck=true;doSignup()');
-  await expect(page.locator('#auth-err')).toContainText('Names can only contain letters, spaces and a hyphen (-).');
+  await expect(page.locator('#auth-err')).toContainText('Names can only contain letters and spaces.');
   expect(calls).toHaveLength(0);
 });
 
 test('sign-up: the server refusing the name reads as the same message', async ({ page }) => {
   await stubSupabase(page, {});
   await page.route(/\/rest\/v1\/rpc\/customer_signup/, r => r.fulfill({ status: 400, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' },
-    body: JSON.stringify({ code: '22023', message: 'name_chars', hint: 'A name may contain letters, spaces and a hyphen only.' }) }));
+    body: JSON.stringify({ code: '22023', message: 'name_chars', hint: 'A name may contain letters and spaces only.' }) }));
   await page.goto('/');
   await waitForSb(page);
   await page.evaluate('openAuthModal()');
@@ -135,7 +137,7 @@ test('sign-up: the server refusing the name reads as the same message', async ({
   await page.fill('#a-pwd2', 'Zq8xTselah');
   await page.fill('#a-height', '175');
   await page.evaluate('S.signupAck=true;doSignup()');
-  await expect(page.locator('#auth-err')).toContainText('Names can only contain letters, spaces and a hyphen (-).');
+  await expect(page.locator('#auth-err')).toContainText('Names can only contain letters and spaces.');
 });
 
 test('My Account: an existing name is not re-judged, a new one is', async ({ page }) => {
@@ -154,6 +156,16 @@ test('My Account: an existing name is not re-judged, a new one is', async ({ pag
   // changed to something with a digit: refused here, before the server
   await page.evaluate(`document.getElementById('acc-first').value='Malik3'`);
   await page.evaluate('saveAccount()');
-  await expect(page.locator('#acc-err')).toHaveText('Names can only contain letters, spaces and a hyphen (-).');
+  await expect(page.locator('#acc-err')).toHaveText('Names can only contain letters and spaces.');
   expect(saves).toHaveLength(1);
+});
+
+test('a name from Google or Apple arrives with its dashes turned into spaces', async ({ page }) => {
+  await stubSupabase(page, {});
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`S._pendingGoogle={email:'k@x.com',name:'Kerry-Ann Al–Stander'};openGoogleComplete()`);
+  const both = await page.evaluate(`[document.getElementById('a-first').value, document.getElementById('a-last').value].join(' ')`) as string;
+  expect(both).not.toMatch(/[-–—]/);
+  expect(both.replace(/\s+/g, ' ')).toBe('Kerry Ann Al Stander');
 });
