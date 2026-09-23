@@ -17,6 +17,8 @@ const base = {
 const apps = [
   { ...base, id: 'a1', status: 'pending', name: 'Karim Mansour', email: 'karim.mansour@gmail.com', phone: '+966552468013', instagram: 'karim.rides', linkedin: 'karim-mansour-arch' },
   { ...base, id: 'a2', status: 'pending', name: 'Huda Al Saleh', email: 'huda.saleh@gmail.com', phone: '+966551239876', gender: 'female', instagram: 'huda.s', linkedin: 'huda-alsaleh', lang: 'ar', bike_type: 'Hybrid', created_at: '2026-09-21T08:00:00Z' },
+  // approved, then the account it made was deleted: customer_id is cleared with it
+  { ...base, id: 'a4', status: 'approved', name: 'Gone Account', email: 'gone@gmail.com', phone: '+966554445566', instagram: 'gone.a', linkedin: 'gone-a', existing_account: false, customer_id: null, decided_at: '2026-09-22T08:00:00Z', decided_by: 'Desk A' },
   { ...base, id: 'a3', status: 'rejected', name: 'Old Applicant', email: 'old.applicant@gmail.com', phone: '+966553579024', instagram: 'old.a', linkedin: 'old-a', bike_type: 'Mountain', decided_at: '2026-09-20T08:00:00Z', decided_by: 'Desk B' },
 ];
 
@@ -167,4 +169,28 @@ test('No password screen for a rider who chose their own', async ({ page }) => {
   await waitForSb(page);
   await expect.poll(() => asked).toBeGreaterThan(0);
   await expect(page.locator('#pwd-gate')).toHaveCount(0);
+});
+
+// An application whose account was deleted afterwards used to offer a new temporary password for
+// an account that was not there, and the server's "not_new" came back to staff as "check the
+// connection" (2026-09-23).
+test('an approved application whose account is gone says so and offers the way back', async ({ page }) => {
+  await applicationsTab(page);
+  await page.locator('.filter-pill[data-ca-filter="approved"]').click();
+  const gone = row(page, 'a4');
+  await expect(gone).toContainText('The account made for this application is gone');
+  await expect(gone.locator('.ca-newpwd')).toHaveCount(0);      // nothing to give a password to
+  await expect(gone.locator('.ca-reopen')).toBeVisible();       // back to pending, then approve again
+});
+
+test('the server saying there is no account is not reported as a connection fault', async ({ page }) => {
+  await applicationsTab(page, { 'rpc:staff_community_new_password': { ok: false, error: 'not_new' } });
+  await page.locator('.filter-pill[data-ca-filter="approved"]').click();
+  // force the old path: a row that still believes it has an account
+  await page.evaluate(`(S._caApps||[]).forEach(a=>{if(a.id==='a4')a.customer_id='ca-gone';});renderCommunity()`);
+  await row(page, 'a4').locator('.ca-newpwd').click();
+  await page.locator('#confirm-modal .btn-primary').click();
+  const toast = page.locator('#toast-container .toast').first();
+  await expect(toast).toContainText('is gone');
+  await expect(toast).not.toContainText('connection');
 });
