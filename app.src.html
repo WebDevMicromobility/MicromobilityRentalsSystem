@@ -5153,7 +5153,14 @@ function _syncCustNav(){
   _cl.toggle('view-picker',_wantP);
   if(_wantC||_wantP)renderCustomerTabs();
 }
+// ── staff.micromobility.sa ───────────────────────────────────────────────────
+// The staff address serves this same app, locked to its staff side: it opens on the staff
+// sign-in or the panel, never on the customer pages, and the sign-in cannot be closed onto
+// them. The customer site and the old /staff/ link are unchanged.
+function _isStaffHost(){try{return /^staff\./i.test(location.hostname);}catch(e){return false;}}
+function _staffHostGate(){if(localStorage.getItem('cq_staff')==='1')goStaff();else{showView('landing');openPinModal();}}
 function showView(v){
+  if(_isStaffHost()&&v==='customer')v='landing'; // no customer pages here; landing is blank on this host
   S.view=v;
   if(S._pg){S._pg=null;renderProfileGate();} // leaving through the header drops the gate; the next event pick raises it again
   if(S._fix){S._fix=null;renderFixGate();} // same for a correction request
@@ -5162,7 +5169,7 @@ function showView(v){
   document.getElementById('view-staff').classList.toggle('active',v==='staff');
   document.body.classList.toggle('view-staff',v==='staff');
   _syncCustNav();
-  document.title='Micromobility Experiences'; // one name on the tab, staff side and rider side
+  document.title=_isStaffHost()?'Micromobility Staff':'Micromobility Experiences'; // one name per address
   renderTopbarRight();
   applyThemeIcon(); // topbar logo art follows the view's surface (white paper vs asphalt)
   _opGateCheck(); // staff view is unusable until the operator says who they are
@@ -5202,7 +5209,7 @@ function _applyNav(st){
 }
 window.addEventListener('popstate',function(e){_applyNav(e.state||_loadNav());});
 
-function goLanding(){showView('landing');renderLandingAvail();_pushNav();}
+function goLanding(){if(_isStaffHost()){_staffHostGate();return;}showView('landing');renderLandingAvail();_pushNav();}
 // Which event a session belongs to: 'community' rows are private events (the customer only
 // ever RECEIVES those rows if the server let them, so their mere presence means access).
 // The National Day ride is never under the umbrella, whatever its row says. Rows written
@@ -6052,6 +6059,7 @@ function _commInfoHtml(sess){
 }
 function landHeroClick(){const c=getSession();if(!c){goCustomer('register');return;}selectEvent('jcc');}
 function renderLandingAvail(){
+  if(_isStaffHost())return; // the staff address has no landing page
   const strip=document.getElementById('land-avail-strip');if(!strip)return;
   const cust=S.loggedIn||getSession();
   // Auth-first: for a signed-out visitor the sign in / sign up screen is the FIRST page,
@@ -6141,6 +6149,7 @@ function custBack(){
   goLanding();
 }
 function goCustomer(tab){
+  if(_isStaffHost()){_staffHostGate();return;}
   S.loggedIn=getSession();
   if(!S.loggedIn){
     showView('customer');
@@ -7577,6 +7586,9 @@ function closePinModal(){
   if(S.pinCountdownInterval){clearInterval(S.pinCountdownInterval);S.pinCountdownInterval=null;}
   document.getElementById('pin-modal').style.display='none';
   S.pinDigits='';S.pinError=false;S._pinStage=null;
+  // On the staff address there is nothing behind the sign-in: closing it without signing in
+  // brings it straight back. A sign-in that succeeds has moved to the staff view by then.
+  if(_isStaffHost())setTimeout(()=>{if(S.view!=='staff')openPinModal();},0);
 }
 
 
@@ -25353,7 +25365,8 @@ function _bootStaffTab(nav){
   // view draws, is parked for goStaff() to consume once a staff session is confirmed, and a
   // device without one lands on the PIN screen with no bike on it anywhere.
   const _bikeCode=_readBikeParam();
-  const _isStaffUrl=new URLSearchParams(window.location.search).has('staff')||_staffEntry||!!_bikeCode;
+  const _isStaffUrl=new URLSearchParams(window.location.search).has('staff')||_staffEntry||!!_bikeCode||_isStaffHost();
+  if(_isStaffHost())document.body.classList.add('staff-host');
 
   if(!S.loggedIn&&localStorage.getItem('cq_staff')!=='1'&&!_isStaffUrl){
     const g=await handleGoogleReturn();
@@ -25391,7 +25404,7 @@ function _bootStaffTab(nav){
     goCustomer(ctab&&['register','myrides','account'].includes(ctab)?ctab:'register');
   } else if(target==='pin'){
     showView('landing');
-    renderLandingAvail();
+    if(!_isStaffHost())renderLandingAvail(); // the staff address shows the sign-in alone
     openPinModal();
   } else {
     showView('landing');

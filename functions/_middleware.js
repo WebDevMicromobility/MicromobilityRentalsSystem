@@ -44,7 +44,19 @@ export async function onRequest(context) {
     /(^|\/)\.(?!well-known\/)[^/]+\//.test(path) ||
     /(^|\/)\.[^/]+$/.test(path);                                        // dotfiles (.gitignore, .prettierrc, …)
 
-  return blocked ? notFound() : context.next();
+  if (blocked) return notFound();
+
+  // staff.micromobility.sa serves the same app, and nothing on it is for search engines: its
+  // robots.txt shuts every crawler out and every answer carries noindex.
+  const staffHost = /^staff\./i.test(new URL(context.request.url).hostname);
+  if (staffHost && path === '/robots.txt') {
+    return new Response('User-agent: *\nDisallow: /\n', { headers: { 'content-type': 'text/plain; charset=utf-8' } });
+  }
+  const res = await context.next();
+  if (!staffHost) return res;
+  const out = new Response(res.body, res);
+  out.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  return out;
 }
 
 function notFound() {
