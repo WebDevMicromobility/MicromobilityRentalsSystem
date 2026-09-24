@@ -82,7 +82,7 @@ with expected(fname, want_definer, note) as (values
   ('_workshop_log',         true,  'writes workshop_job_events, which has no write policy for anyone'),
   ('_workshop_stamp',       false, 'sets updated_at/updated_by on NEW only'),
   -- Messages from the website (20260924170000)
-  ('site_message_send',     true,  'the business and help forms write site_messages, which anon cannot touch; metered'),
+  ('site_message_send',     true,  'the business, help and job application forms write site_messages, which anon cannot touch; metered'),
   ('_site_messages_stamp',  false, 'sets updated_at/updated_by on NEW only'),
   -- Ambassadors and the Club (20260924180000)
   ('ambassador_apply',      true,  'the website form writes ambassadors, which anon cannot touch; metered'),

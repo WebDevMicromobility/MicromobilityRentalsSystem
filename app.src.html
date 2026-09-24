@@ -21922,6 +21922,7 @@ const SITE_PAGES=[
   {key:'events',en:'Events',ar:'الفعاليات',built:true},
   {key:'gallery',en:'Gallery',ar:'المعرض',built:true},
   {key:'routes',en:'Routes',ar:'المسارات',built:true},
+  {key:'journal',en:'Journal',ar:'المدونة',built:true},
   {key:'store',en:'Store',ar:'المتجر',built:false},
 ];
 function _web(){return S.web||(S.web={rows:{},draft:{},hist:[],loaded:false,busy:false,missing:false,err:null,saving:false});}
@@ -22238,7 +22239,7 @@ function _webFieldHtml(k,f,v,i,fid){
     case 'text':case 'longtext':{
       const tag=f.type==='longtext'?'textarea':'input';
       const one=(lang,dir)=>tag==='textarea'
-        ?`<textarea id="${lang==='en'?id:id+'-ar'}" dir="${dir}" lang="${lang}" rows="3" maxlength="${f.max}" placeholder="${lang==='en'?'English':'العربية'}" oninput="${call(lang,'this.value')}">${esc((v&&v[lang])||'')}</textarea>`
+        ?`<textarea id="${lang==='en'?id:id+'-ar'}" dir="${dir}" lang="${lang}" rows="${f.max>=1000?14:3}" maxlength="${f.max}" placeholder="${lang==='en'?'English':'العربية'}" oninput="${call(lang,'this.value')}">${esc((v&&v[lang])||'')}</textarea>`
         :`<input id="${lang==='en'?id:id+'-ar'}" type="text" dir="${dir}" lang="${lang}" maxlength="${f.max}" placeholder="${lang==='en'?'English':'العربية'}" value="${esc((v&&v[lang])||'')}" oninput="${call(lang,'this.value')}">`;
       return`<div class="web-ed-field">${lbl}<div class="web-ed-bi">${one('en','ltr')}${one('ar','rtl')}</div></div>`;
     }
