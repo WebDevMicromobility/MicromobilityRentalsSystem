@@ -76,6 +76,11 @@ with expected(fname, want_definer, note) as (values
   -- The website content store (20260924150000)
   ('_site_content_log',     true,  'writes site_content_history, which has no write policy for anyone'),
   ('_site_content_stamp',   false, 'sets updated_at/updated_by on NEW only'),
+  -- Workshop service requests (20260924160000)
+  ('workshop_request',      true,  'the website form writes workshop_jobs, which anon cannot touch; metered'),
+  ('workshop_track',        true,  'reads one job for its reference + phone; metered'),
+  ('_workshop_log',         true,  'writes workshop_job_events, which has no write policy for anyone'),
+  ('_workshop_stamp',       false, 'sets updated_at/updated_by on NEW only'),
   -- The 2026-09-22 review fixes (20260922120100 … 124000)
   ('promo_lookup',           true,  'answers one code for the booking form; promo_codes is staff-only'),
   ('_ip_gate',               true,  'writes login_throttle for every per-network meter; internal only'),

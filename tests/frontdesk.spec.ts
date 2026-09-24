@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { stubSupabase, unlockStaff, waitForSb, staffReady } from './helpers/supabase';
 
-test('front desk mode limits the staff tabs to Sales, Bookings & Riders', async ({ page }) => {
+test('front desk mode limits the staff tabs to Sales, Bookings & Riders, and the Workshop', async ({ page }) => {
   const sessions = [
     { id: 's-jcc', day: 'Friday', session_date: '2099-02-13', capacity: 12, status: 'open', created_at: 1 },
     { id: 's-sat', day: 'Saturday', session_date: '2099-02-14', capacity: 12, status: 'open', created_at: 2, event_kind: 'community', title: 'Saturday Social Ride' },
@@ -31,10 +31,10 @@ test('front desk mode limits the staff tabs to Sales, Bookings & Riders', async 
   await expect(panel.getByRole('button', { name: 'Sessions' })).toBeVisible();
   await expect(panel.locator('tr, .q-card').filter({ hasText: 'Sat Rider' }).filter({ visible: true })).toHaveCount(1);
 
-  // Switch to Front Desk -> only Sales (cashier) and Bookings (queue); the Petromin
-  // registrations are a page inside Queue now, not a tab
+  // Switch to Front Desk -> only Sales (cashier), Bookings (queue) and the Workshop, whose
+  // bikes come in at the desk; the Petromin registrations are a page inside Queue, not a tab
   await page.evaluate('setStaffRole("frontdesk")');
-  expect((await vis()).sort()).toEqual(['cashier', 'queue']);
+  expect((await vis()).sort()).toEqual(['cashier', 'queue', 'workshop']);
 
   // Trying to open a hidden tab bounces back to queue
   await page.evaluate('setStaffTab("analytics")');
