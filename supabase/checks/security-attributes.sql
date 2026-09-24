@@ -102,6 +102,11 @@ with expected(fname, want_definer, note) as (values
   ('_try_ts',               false, 'parses a text time; pure'),
   -- Staff devices' delta sync (20260924230000)
   ('staff_sync',            false, 'invoker on purpose: the tables'' own staff policies decide what it returns, and it refuses non-staff itself'),
+  ('staff_operator_list',    true,  'reads team_members.pin_hash, which no client can select'),
+  ('staff_set_operator_pin', true,  'writes team_members.pin_hash; admins only'),
+  ('staff_check_operator_pin',true, 'reads the hash, writes login_throttle'),
+  ('staff_team_list',        true,  'reads staff and auth.users; admins only'),
+  ('staff_set_access',       true,  'writes staff rows, which no client can update; admins only'),
   ('_sync_touch',           false, 'sets updated_at on NEW only'),
   ('_sync_tombstone',       true,  'writes sync_deletions, which the deleting role cannot'),
   -- The 2026-09-22 review fixes (20260922120100 … 124000)

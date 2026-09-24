@@ -328,8 +328,10 @@ window.mmLoading=(function(){
     <button class="tab-btn"        data-stab="analytics" onclick="setStaffTab('analytics')"><span class="snav-ico" aria-hidden="true"></span><span class="snav-lbl">Analytics</span></button>
     <span class="snav-group" data-group="snavSystem" aria-hidden="true">System</span>
     <button class="tab-btn"        data-stab="history"   onclick="setStaffTab('history')"><span class="snav-ico" aria-hidden="true"></span><span class="snav-lbl">History</span></button>
+    <button class="tab-btn"        data-stab="team"      onclick="setStaffTab('team')"><span class="snav-ico" aria-hidden="true"></span><span class="snav-lbl">Team</span></button>
   </nav>
   <div class="view-main">
+    <div id="ro-banner" class="ro-banner" role="status" hidden></div>
     <div id="tab-queue"     class="tab-panel active"></div>
     <div id="tab-inventory"  class="tab-panel"></div>
     <div id="tab-cashier"   class="tab-panel"></div>
@@ -340,6 +342,7 @@ window.mmLoading=(function(){
     <div id="tab-workshop"  class="tab-panel"></div>
     <div id="tab-messages"  class="tab-panel"></div>
     <div id="tab-ambassadors" class="tab-panel"></div>
+    <div id="tab-team"      class="tab-panel"></div>
   </div>
 </div>
 
@@ -818,7 +821,7 @@ en:{landMainTitleHtml:'Reserve Your <span>Bicycle Now!</span>',spotsFull:'Full',
   receiptBtn:'Receipt',receiptPrintBtn:'Print / Save as PDF',receiptRefLabel:'Booking ref',receiptDateLabel:'Issued',receiptPaidLabel:'Payment',
   typeRoad:'Road',typeHybrid:'Hybrid',typeMountain:'Mountain',typeGravel:'Gravel',typeKids:'Kids',typeAny:'Any',typeRoadCarbon:'Road Carbon',typeOwn:'Bike owner',typeOwnPref:'I have my own bike',
   
-  liveLabel:'Live',bpSvcSince:'Rides since service',bpMarkServiced:'Mark serviced',bpLastServiced:'Last serviced',attnTitle:'Bikes needing attention',attnInMaint:'In maintenance',attnDue:'Service due · {0} rides',attnNever:'Never serviced',attnLow:'Low rating {0}/10',attnHide:'Hide',sendWorkshop:'Send to workshop',svcRecent:'Recent service log',svcKindService:'Serviced',svcKindWorkshop:'Sent to workshop',svcEveryN:'Service every {0} rides',gsOpenBtn:'Search',gsPh:'Search bookings, accounts, bikes…',gsNone:'Nothing found.',gsMin:'Type two or more letters or digits.',gsKindBooking:'Booking',gsKindAccount:'Account',gsKindBike:'Bike',gsKindItem:'Item',gsKindSession:'Session',gsKindWorkshop:'Workshop',ntOpen:'Notifications',ntMarkRead:'Mark all read',ntEmpty:'Nothing needs attention.',ntLong:'{0} rides running over 2 hours',ntApps:'{0} membership applications waiting',ntMsgs:'{0} new website messages',ntWs:'{0} new workshop requests',ntAttn:'{0} bikes need attention',ntStock:'{0} items low on stock',syncNowBtn:'Sync now',syncingLbl:'Syncing…',syncDone:'Up to date',syncLeft:'{0} changes still waiting to sync',tbMore:'More',daySheetBtn:'Print day sheet',daySheetTitle:'Day sheet',daySheetNone:'No session today.',daySheetRiders:'Riders',daySheetWs:'Workshop today',logPrintedDaySheet:'Printed the day sheet',drawerCountBtn:'Count the drawer',drawerCountTitle:'Drawer count',drawerCountBody:'Expected cash for this day: SAR {0}. Enter what the drawer actually holds:',drawerExpected:'expected',drawerCounted:'counted',drawerExactToast:'Drawer matches — recorded',drawerDiffToast:'Recorded — drawer is off by {0}',cnBtn:'Cancel the night',cnTitle:'Cancel the night',cnSub:'{0} live booking(s). Tell the riders first — then cancel. To MOVE the whole night, edit the session\u2019s date instead: bookings follow it.',cnMsgLabel:'Message to riders',cnMsgDefault:'Salam! Tonight\u2019s MicroMobility session ({0}) is cancelled — sorry for the short notice. Your booking is cancelled automatically; we hope to see you at the next one.',cnCopyNumbers:'Copy all numbers',cnCopiedToast:'Numbers copied',cnConfirmBtn:'Cancel {0} booking(s)',cnDoneToast:'Night cancelled — {0} booking(s) cancelled, riders keep their history',wxTip:'Forecast: {0}\u00b0C high, wind up to {1} km/h',noShowHistChip:'{0}/{1} no-shows',noShowHistTip:'No-shows across this rider\u2019s last five decided bookings',bulkApproveBtn:'Approve all ({0})',bulkApproveTitle:'Approve every pending request',bulkApproveBody:'{0} pending request(s) will be approved. Waitlisted requests are left for you to pick individually. Riders see nothing until you publish.',bulkApprovedToast:'{0} request(s) approved',ciPrev:'Previous',ciNext:'Next',ciChainLabel:'Riders to check in',ciStepOf:'Rider {0} of {1}',ciPartyLabel:'Riders in this party',dupPhoneTip:'This phone number is on another live booking in this session',statSarDue:'SAR due',overdueRideTip:'On the bike for over two hours',fleetStripLbl:'Bikes free',wiStockHint:'{0} {1} free on the rack',wiNoStockHint:'No {0} left on the rack — riders on the waitlist may be counting on returns.',moreActionsLbl:'More actions',closeOutBtn:'Close out',closeOutHint:'Finish the night: checked-in riders become Completed, no-arrivals become No-show.',closeOutTitle:'Close out the night',closeOutBody:'{0} checked-in rider(s) will be marked Completed and {1} who never arrived will be marked No-show. Waitlisted riders are not touched. This can be undone from the bar at the top.',closeOutDoneToast:'Night closed out — {0} completed, {1} no-shows',closeOutBikes:'{0} bike(s) will be returned.',bookSyncPending:'Your booking has not reached the booth yet — it will keep trying while the app is open.',bookSyncRefused:'Your booking could not be sent. Please show this phone at the booth.',updateReadyToast:'A new version is ready — refresh the page to update.',justNow:'just now',secondsAgo:'s ago',minutesAgo:'m ago',offlineLabel:'Offline',offlineBanner:'You are offline - changes are saved and will sync when the connection returns.',unreachableBanner:'Connected to wifi but the server is not reachable - you may need to sign in to this network.',retryBtn:'Try again',errWritePerm:'That did not save - your staff session may have expired. Unlock again and retry.',errWriteDup:'That booking number was just taken by another device. Reload and try again.',
+  liveLabel:'Live',bpSvcSince:'Rides since service',bpMarkServiced:'Mark serviced',bpLastServiced:'Last serviced',attnTitle:'Bikes needing attention',attnInMaint:'In maintenance',attnDue:'Service due · {0} rides',attnNever:'Never serviced',attnLow:'Low rating {0}/10',attnHide:'Hide',sendWorkshop:'Send to workshop',svcRecent:'Recent service log',svcKindService:'Serviced',svcKindWorkshop:'Sent to workshop',svcEveryN:'Service every {0} rides',gsOpenBtn:'Search',gsPh:'Search bookings, accounts, bikes…',gsNone:'Nothing found.',gsMin:'Type two or more letters or digits.',gsKindBooking:'Booking',gsKindAccount:'Account',gsKindBike:'Bike',gsKindItem:'Item',gsKindSession:'Session',gsKindWorkshop:'Workshop',ntOpen:'Notifications',ntMarkRead:'Mark all read',ntEmpty:'Nothing needs attention.',ntLong:'{0} rides running over 2 hours',ntApps:'{0} membership applications waiting',ntMsgs:'{0} new website messages',ntWs:'{0} new workshop requests',ntAttn:'{0} bikes need attention',ntStock:'{0} items low on stock',syncNowBtn:'Sync now',syncingLbl:'Syncing…',syncDone:'Up to date',syncLeft:'{0} changes still waiting to sync',tbMore:'More',daySheetBtn:'Print day sheet',daySheetTitle:'Day sheet',daySheetNone:'No session today.',daySheetRiders:'Riders',daySheetWs:'Workshop today',logPrintedDaySheet:'Printed the day sheet',tabTeam:'Team',teamPageSub:'Who works the desk: operator PINs, and what each sign-in account can open and change.',opsTitle:'Operators',opsSub:'The names at the operator gate. A name with a PIN asks for it.',opsPinSet:'PIN set',opsPinNone:'No PIN',opsSetPin:'Set PIN',opsClearPin:'Clear PIN',opsPinPrompt:'New 4-digit PIN for {0}',opsPinBad:'A PIN is 4 digits.',opsPinSaved:'PIN saved for {0}',opsPinCleared:'PIN cleared for {0}',opsAdd:'Add name',opsAddPh:'Name',acctTitle:'Sign-in accounts',acctSub:'Each account\'s role, and the sections it can open and change. Nobody changes their own.',acctYou:'You',acctView:'Can open',acctEdit:'Can change',acctSaved:'Access saved for {0}',dbPending:'Waiting for the database update.',opSwitch:'Switch operator',opPinTitle:'PIN for {0}',opPinWrong:'Wrong PIN. {0} tries left.',opPinLocked:'Too many tries. Wait {0} seconds.',roMode:'Read-only mode: no changes allowed',drawerCountBtn:'Count the drawer',drawerCountTitle:'Drawer count',drawerCountBody:'Expected cash for this day: SAR {0}. Enter what the drawer actually holds:',drawerExpected:'expected',drawerCounted:'counted',drawerExactToast:'Drawer matches — recorded',drawerDiffToast:'Recorded — drawer is off by {0}',cnBtn:'Cancel the night',cnTitle:'Cancel the night',cnSub:'{0} live booking(s). Tell the riders first — then cancel. To MOVE the whole night, edit the session\u2019s date instead: bookings follow it.',cnMsgLabel:'Message to riders',cnMsgDefault:'Salam! Tonight\u2019s MicroMobility session ({0}) is cancelled — sorry for the short notice. Your booking is cancelled automatically; we hope to see you at the next one.',cnCopyNumbers:'Copy all numbers',cnCopiedToast:'Numbers copied',cnConfirmBtn:'Cancel {0} booking(s)',cnDoneToast:'Night cancelled — {0} booking(s) cancelled, riders keep their history',wxTip:'Forecast: {0}\u00b0C high, wind up to {1} km/h',noShowHistChip:'{0}/{1} no-shows',noShowHistTip:'No-shows across this rider\u2019s last five decided bookings',bulkApproveBtn:'Approve all ({0})',bulkApproveTitle:'Approve every pending request',bulkApproveBody:'{0} pending request(s) will be approved. Waitlisted requests are left for you to pick individually. Riders see nothing until you publish.',bulkApprovedToast:'{0} request(s) approved',ciPrev:'Previous',ciNext:'Next',ciChainLabel:'Riders to check in',ciStepOf:'Rider {0} of {1}',ciPartyLabel:'Riders in this party',dupPhoneTip:'This phone number is on another live booking in this session',statSarDue:'SAR due',overdueRideTip:'On the bike for over two hours',fleetStripLbl:'Bikes free',wiStockHint:'{0} {1} free on the rack',wiNoStockHint:'No {0} left on the rack — riders on the waitlist may be counting on returns.',moreActionsLbl:'More actions',closeOutBtn:'Close out',closeOutHint:'Finish the night: checked-in riders become Completed, no-arrivals become No-show.',closeOutTitle:'Close out the night',closeOutBody:'{0} checked-in rider(s) will be marked Completed and {1} who never arrived will be marked No-show. Waitlisted riders are not touched. This can be undone from the bar at the top.',closeOutDoneToast:'Night closed out — {0} completed, {1} no-shows',closeOutBikes:'{0} bike(s) will be returned.',bookSyncPending:'Your booking has not reached the booth yet — it will keep trying while the app is open.',bookSyncRefused:'Your booking could not be sent. Please show this phone at the booth.',updateReadyToast:'A new version is ready — refresh the page to update.',justNow:'just now',secondsAgo:'s ago',minutesAgo:'m ago',offlineLabel:'Offline',offlineBanner:'You are offline - changes are saved and will sync when the connection returns.',unreachableBanner:'Connected to wifi but the server is not reachable - you may need to sign in to this network.',retryBtn:'Try again',errWritePerm:'That did not save - your staff session may have expired. Unlock again and retry.',errWriteDup:'That booking number was just taken by another device. Reload and try again.',
   selectSessionPrompt:'Select a session above',selectSessionSub:'Click a session chip to view and manage its queue independently.',
   undoBtn:'Undo',undoneMsg:'Undone.',undoFailed:'Undo failed.',errStorageFull:'Device storage is full — free some space; unsynced sales/bookings may not be saved.',errStockWrite:'Stock for {0} was not saved — the count on screen has been put back.',themeLight:'Sunlight mode',themeDark:'Night mode',
   fleetBadge:'Fleet',altBadge:'Alt',
@@ -1233,7 +1236,7 @@ ar:{landMainTitleHtml:'احجز <span>دراجتك الآن!</span>',spotsFull:'
   receiptSeeYou:'نأمل رؤيتك في حلبة الكورنيش مجدداً!',
   receiptBtn:'الإيصال',receiptPrintBtn:'طباعة / حفظ PDF',receiptRefLabel:'رقم الحجز',receiptDateLabel:'تاريخ الإصدار',receiptPaidLabel:'الدفع',
   typeRoad:'طريق',typeHybrid:'هجين',typeMountain:'جبلي',typeGravel:'حصى',typeKids:'أطفال',typeAny:'أي نوع',typeRoadCarbon:'طريق كربون',typeOwn:'صاحب دراجة',typeOwnPref:'لدي دراجتي الخاصة',
-  liveLabel:'مباشر',bpSvcSince:'رحلات منذ الصيانة',bpMarkServiced:'تسجيل صيانة',bpLastServiced:'آخر صيانة',attnTitle:'دراجات تحتاج انتباهاً',attnInMaint:'في الصيانة',attnDue:'موعد الصيانة · {0} رحلة',attnNever:'لم تُصان بعد',attnLow:'تقييم منخفض {0}/10',attnHide:'إخفاء',sendWorkshop:'إلى الورشة',svcRecent:'آخر سجلات الصيانة',svcKindService:'صيانة',svcKindWorkshop:'أُرسلت للورشة',svcEveryN:'صيانة كل {0} رحلة',gsOpenBtn:'بحث',gsPh:'ابحث في الحجوزات والحسابات والدراجات…',gsNone:'لا نتائج.',gsMin:'اكتب حرفين أو رقمين على الأقل.',gsKindBooking:'حجز',gsKindAccount:'حساب',gsKindBike:'دراجة',gsKindItem:'صنف',gsKindSession:'جلسة',gsKindWorkshop:'الورشة',ntOpen:'الإشعارات',ntMarkRead:'تعليم الكل كمقروء',ntEmpty:'لا شيء يحتاج انتباهاً.',ntLong:'{0} رحلات تجاوزت ساعتين',ntApps:'{0} طلبات عضوية بانتظار الرد',ntMsgs:'{0} رسائل جديدة من الموقع',ntWs:'{0} طلبات ورشة جديدة',ntAttn:'{0} دراجات تحتاج انتباهاً',ntStock:'{0} أصناف منخفضة المخزون',syncNowBtn:'زامن الآن',syncingLbl:'جارٍ المزامنة…',syncDone:'كل شيء محدّث',syncLeft:'{0} تغييرات بانتظار المزامنة',tbMore:'المزيد',daySheetBtn:'طباعة كشف اليوم',daySheetTitle:'كشف اليوم',daySheetNone:'لا جلسة اليوم.',daySheetRiders:'الراكبون',daySheetWs:'الورشة اليوم',logPrintedDaySheet:'طُبع كشف اليوم',drawerCountBtn:'جرد الدرج',drawerCountTitle:'جرد الدرج',drawerCountBody:'النقد المتوقع لهذا اليوم: {0} ريال. أدخل ما في الدرج فعلياً:',drawerExpected:'المتوقع',drawerCounted:'المعدود',drawerExactToast:'الدرج مطابق — تم التسجيل',drawerDiffToast:'تم التسجيل — فرق الدرج {0}',cnBtn:'إلغاء الليلة',cnTitle:'إلغاء الليلة',cnSub:'{0} حجز قائم. أبلغ المشاركين أولاً ثم ألغِ. لنقل الليلة كاملة عدّل تاريخ الجلسة بدلاً من ذلك — الحجوزات تتبعه.',cnMsgLabel:'رسالة للمشاركين',cnMsgDefault:'سلام! جلسة مايكروموبيليتي لهذه الليلة ({0}) أُلغيت — نعتذر عن قصر المهلة. أُلغي حجزك تلقائياً، ونأمل رؤيتك في الجلسة القادمة.',cnCopyNumbers:'نسخ جميع الأرقام',cnCopiedToast:'تم نسخ الأرقام',cnConfirmBtn:'إلغاء {0} حجز',cnDoneToast:'أُلغيت الليلة — {0} حجز أُلغي مع بقاء السجل',wxTip:'التوقعات: {0} درجة عظمى، رياح حتى {1} كم/س',noShowHistChip:'{0}/{1} غياب',noShowHistTip:'مرات الغياب في آخر خمسة حجوزات محسومة لهذا الراكب',bulkApproveBtn:'الموافقة على الكل ({0})',bulkApproveTitle:'الموافقة على جميع الطلبات المعلقة',bulkApproveBody:'سيتم قبول {0} من الطلبات المعلقة. تُترك طلبات قائمة الانتظار لتختارها بنفسك. لن يرى المشاركون شيئاً حتى تنشر النتائج.',bulkApprovedToast:'تمت الموافقة على {0} من الطلبات',ciPrev:'السابق',ciNext:'التالي',ciChainLabel:'الراكبون بانتظار تسجيل الحضور',ciStepOf:'الراكب {0} من {1}',ciPartyLabel:'ركّاب هذه المجموعة',dupPhoneTip:'رقم الجوال هذا موجود في حجز آخر قائم في هذه الجلسة',statSarDue:'ريال مستحق',overdueRideTip:'على الدراجة منذ أكثر من ساعتين',fleetStripLbl:'الدراجات المتاحة',wiStockHint:'{0} {1} متاحة على الرف',wiNoStockHint:'لا يوجد {0} متبقٍ على الرف — قد يعتمد منتظرو القائمة على المرتجعات.',moreActionsLbl:'مزيد من الإجراءات',closeOutBtn:'إنهاء الليلة',closeOutHint:'إنهاء الليلة: من سجّل حضوره يُعتبر مكتملاً، ومن لم يحضر يُسجّل كغياب.',closeOutTitle:'إنهاء الليلة',closeOutBody:'سيتم تسجيل {0} من الحاضرين كمكتملين و{1} ممن لم يحضروا كغياب. لن يتم المساس بقائمة الانتظار. يمكن التراجع من الشريط في الأعلى.',closeOutDoneToast:'تم إنهاء الليلة — {0} مكتمل، {1} غياب',closeOutBikes:'سيتم إرجاع {0} دراجة.',bookSyncPending:'لم يصل حجزك إلى الكشك بعد — سيستمر بالمحاولة ما دام التطبيق مفتوحاً.',bookSyncRefused:'تعذّر إرسال حجزك. يرجى إظهار هذا الهاتف عند الكشك.',updateReadyToast:'يتوفر إصدار جديد — حدّث الصفحة للتحديث.',justNow:'الآن',secondsAgo:'ث مضت',minutesAgo:'د مضت',offlineLabel:'غير متصل',offlineBanner:'أنت غير متصل - يتم حفظ التغييرات وستتم المزامنة عند عودة الاتصال.',unreachableBanner:'متصل بالشبكة لكن تعذّر الوصول إلى الخادم - قد تحتاج إلى تسجيل الدخول إلى هذه الشبكة.',retryBtn:'إعادة المحاولة',errWritePerm:'لم يتم الحفظ - ربما انتهت جلسة الموظف. أعد فتح القفل ثم حاول مجددًا.',errWriteDup:'تم أخذ رقم الحجز للتو من جهاز آخر. أعد التحميل وحاول مجددًا.',
+  liveLabel:'مباشر',bpSvcSince:'رحلات منذ الصيانة',bpMarkServiced:'تسجيل صيانة',bpLastServiced:'آخر صيانة',attnTitle:'دراجات تحتاج انتباهاً',attnInMaint:'في الصيانة',attnDue:'موعد الصيانة · {0} رحلة',attnNever:'لم تُصان بعد',attnLow:'تقييم منخفض {0}/10',attnHide:'إخفاء',sendWorkshop:'إلى الورشة',svcRecent:'آخر سجلات الصيانة',svcKindService:'صيانة',svcKindWorkshop:'أُرسلت للورشة',svcEveryN:'صيانة كل {0} رحلة',gsOpenBtn:'بحث',gsPh:'ابحث في الحجوزات والحسابات والدراجات…',gsNone:'لا نتائج.',gsMin:'اكتب حرفين أو رقمين على الأقل.',gsKindBooking:'حجز',gsKindAccount:'حساب',gsKindBike:'دراجة',gsKindItem:'صنف',gsKindSession:'جلسة',gsKindWorkshop:'الورشة',ntOpen:'الإشعارات',ntMarkRead:'تعليم الكل كمقروء',ntEmpty:'لا شيء يحتاج انتباهاً.',ntLong:'{0} رحلات تجاوزت ساعتين',ntApps:'{0} طلبات عضوية بانتظار الرد',ntMsgs:'{0} رسائل جديدة من الموقع',ntWs:'{0} طلبات ورشة جديدة',ntAttn:'{0} دراجات تحتاج انتباهاً',ntStock:'{0} أصناف منخفضة المخزون',syncNowBtn:'زامن الآن',syncingLbl:'جارٍ المزامنة…',syncDone:'كل شيء محدّث',syncLeft:'{0} تغييرات بانتظار المزامنة',tbMore:'المزيد',daySheetBtn:'طباعة كشف اليوم',daySheetTitle:'كشف اليوم',daySheetNone:'لا جلسة اليوم.',daySheetRiders:'الراكبون',daySheetWs:'الورشة اليوم',logPrintedDaySheet:'طُبع كشف اليوم',tabTeam:'الفريق',teamPageSub:'من يعمل على المكتب: الأرقام السرية للمشغّلين، وما يستطيع كل حساب فتحه وتعديله.',opsTitle:'المشغّلون',opsSub:'الأسماء في شاشة المشغّل. الاسم الذي له رقم سري يطلبه.',opsPinSet:'له رقم سري',opsPinNone:'بلا رقم سري',opsSetPin:'تعيين الرقم السري',opsClearPin:'حذف الرقم السري',opsPinPrompt:'رقم سري جديد من 4 أرقام لـ {0}',opsPinBad:'الرقم السري 4 أرقام.',opsPinSaved:'حُفظ الرقم السري لـ {0}',opsPinCleared:'حُذف الرقم السري لـ {0}',opsAdd:'إضافة اسم',opsAddPh:'الاسم',acctTitle:'حسابات الدخول',acctSub:'دور كل حساب، والأقسام التي يستطيع فتحها وتعديلها. لا أحد يغيّر حسابه بنفسه.',acctYou:'أنت',acctView:'يستطيع فتح',acctEdit:'يستطيع تعديل',acctSaved:'حُفظت الصلاحيات لـ {0}',dbPending:'بانتظار تحديث قاعدة البيانات.',opSwitch:'تبديل المشغّل',opPinTitle:'الرقم السري لـ {0}',opPinWrong:'رقم سري خاطئ. تبقّت {0} محاولات.',opPinLocked:'محاولات كثيرة. انتظر {0} ثانية.',roMode:'وضع القراءة فقط: لا يمكن التعديل',drawerCountBtn:'جرد الدرج',drawerCountTitle:'جرد الدرج',drawerCountBody:'النقد المتوقع لهذا اليوم: {0} ريال. أدخل ما في الدرج فعلياً:',drawerExpected:'المتوقع',drawerCounted:'المعدود',drawerExactToast:'الدرج مطابق — تم التسجيل',drawerDiffToast:'تم التسجيل — فرق الدرج {0}',cnBtn:'إلغاء الليلة',cnTitle:'إلغاء الليلة',cnSub:'{0} حجز قائم. أبلغ المشاركين أولاً ثم ألغِ. لنقل الليلة كاملة عدّل تاريخ الجلسة بدلاً من ذلك — الحجوزات تتبعه.',cnMsgLabel:'رسالة للمشاركين',cnMsgDefault:'سلام! جلسة مايكروموبيليتي لهذه الليلة ({0}) أُلغيت — نعتذر عن قصر المهلة. أُلغي حجزك تلقائياً، ونأمل رؤيتك في الجلسة القادمة.',cnCopyNumbers:'نسخ جميع الأرقام',cnCopiedToast:'تم نسخ الأرقام',cnConfirmBtn:'إلغاء {0} حجز',cnDoneToast:'أُلغيت الليلة — {0} حجز أُلغي مع بقاء السجل',wxTip:'التوقعات: {0} درجة عظمى، رياح حتى {1} كم/س',noShowHistChip:'{0}/{1} غياب',noShowHistTip:'مرات الغياب في آخر خمسة حجوزات محسومة لهذا الراكب',bulkApproveBtn:'الموافقة على الكل ({0})',bulkApproveTitle:'الموافقة على جميع الطلبات المعلقة',bulkApproveBody:'سيتم قبول {0} من الطلبات المعلقة. تُترك طلبات قائمة الانتظار لتختارها بنفسك. لن يرى المشاركون شيئاً حتى تنشر النتائج.',bulkApprovedToast:'تمت الموافقة على {0} من الطلبات',ciPrev:'السابق',ciNext:'التالي',ciChainLabel:'الراكبون بانتظار تسجيل الحضور',ciStepOf:'الراكب {0} من {1}',ciPartyLabel:'ركّاب هذه المجموعة',dupPhoneTip:'رقم الجوال هذا موجود في حجز آخر قائم في هذه الجلسة',statSarDue:'ريال مستحق',overdueRideTip:'على الدراجة منذ أكثر من ساعتين',fleetStripLbl:'الدراجات المتاحة',wiStockHint:'{0} {1} متاحة على الرف',wiNoStockHint:'لا يوجد {0} متبقٍ على الرف — قد يعتمد منتظرو القائمة على المرتجعات.',moreActionsLbl:'مزيد من الإجراءات',closeOutBtn:'إنهاء الليلة',closeOutHint:'إنهاء الليلة: من سجّل حضوره يُعتبر مكتملاً، ومن لم يحضر يُسجّل كغياب.',closeOutTitle:'إنهاء الليلة',closeOutBody:'سيتم تسجيل {0} من الحاضرين كمكتملين و{1} ممن لم يحضروا كغياب. لن يتم المساس بقائمة الانتظار. يمكن التراجع من الشريط في الأعلى.',closeOutDoneToast:'تم إنهاء الليلة — {0} مكتمل، {1} غياب',closeOutBikes:'سيتم إرجاع {0} دراجة.',bookSyncPending:'لم يصل حجزك إلى الكشك بعد — سيستمر بالمحاولة ما دام التطبيق مفتوحاً.',bookSyncRefused:'تعذّر إرسال حجزك. يرجى إظهار هذا الهاتف عند الكشك.',updateReadyToast:'يتوفر إصدار جديد — حدّث الصفحة للتحديث.',justNow:'الآن',secondsAgo:'ث مضت',minutesAgo:'د مضت',offlineLabel:'غير متصل',offlineBanner:'أنت غير متصل - يتم حفظ التغييرات وستتم المزامنة عند عودة الاتصال.',unreachableBanner:'متصل بالشبكة لكن تعذّر الوصول إلى الخادم - قد تحتاج إلى تسجيل الدخول إلى هذه الشبكة.',retryBtn:'إعادة المحاولة',errWritePerm:'لم يتم الحفظ - ربما انتهت جلسة الموظف. أعد فتح القفل ثم حاول مجددًا.',errWriteDup:'تم أخذ رقم الحجز للتو من جهاز آخر. أعد التحميل وحاول مجددًا.',
   selectSessionPrompt:'اختر جلسة من الأعلى',selectSessionSub:'انقر على إحدى الجلسات لعرض طابورها وإدارته بشكل مستقل.',
   undoBtn:'تراجع',undoneMsg:'تم التراجع.',undoFailed:'فشل التراجع.',errStorageFull:'ذاكرة الجهاز ممتلئة — أفرغ بعض المساحة؛ قد لا تُحفظ المبيعات/الحجوزات غير المتزامنة.',errStockWrite:'لم يتم حفظ مخزون {0} — تمت إعادة العدد الظاهر على الشاشة.',themeLight:'وضع النهار',themeDark:'الوضع الليلي',
   fleetBadge:'الأسطول',altBadge:'بديل',
@@ -1450,6 +1453,7 @@ function setLang(lang,_fromUrl){
     if(b.dataset.stab==='workshop')_l.innerHTML=_wsTabLabel(); // with the count of new requests
     if(b.dataset.stab==='messages')_l.innerHTML=_smTabLabel(); // with the count of new messages
     if(b.dataset.stab==='ambassadors')_l.innerHTML=_ambTabLabel(); // with applications and rewards waiting
+    if(b.dataset.stab==='team')_l.textContent=t('tabTeam');
   });
   // ERP sidebar suite labels (presentational chrome only)
   document.querySelectorAll('#staff-tab-nav .snav-group').forEach(s=>{s.textContent=t(s.dataset.group);});
@@ -1475,7 +1479,7 @@ function isAdmin(){return S.staffRole!=='frontdesk';}
 // form's registrations, which the same desk checks in). Any other section bounces to Bookings.
 // Inside Riders the summary report stays admin-only (renderRiders).
 const DESK_TABS=['queue','cashier','workshop']; // the Petromin registrations are a page inside Queue; workshop bikes come in at the desk
-function _deskTabOk(tab){return isAdmin()||DESK_TABS.includes(tab);}
+function _deskTabOk(tab){return (isAdmin()||DESK_TABS.includes(tab))&&_viewOk(tab);} // the role's sections, then the account's own list (#8)
 function setStaffRole(role){
   S.staffRole=role==='frontdesk'?'frontdesk':'admin';
   try{localStorage.setItem('cq_role',S.staffRole);}catch(e){}
@@ -1554,13 +1558,14 @@ async function staffAuthSignIn(identifier,password){
       try{await sb.auth.signOut();}catch(e){}
       return{ok:false,msg:t('errStaffNotAuthorized')};
     }
-    S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;_staffRoleConfirmed(data.user.id,row.role);
+    S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;_staffRoleConfirmed(data.user.id,row.role);_accessSet(row,data.user.id);
     setupRefRealtime();
     return{ok:true};
   }catch(e){return{ok:false,msg:(e&&e.message)||t('errConnection')};}
 }
 async function staffAuthSignOut(){
   S._staffAuthed=false;
+  S._myView=S._myEdit=null;try{localStorage.removeItem('cq_access');}catch(_){} // the next account brings its own lists
   _refLiveStop();
   _syncDrop(); // the device's copy of the bookings and riders leaves with the account
   // The operator name belongs to the account that just left: drop the device copy so the
@@ -1616,7 +1621,7 @@ async function staffAuthRestore(){
     if(SECURE_AUTH){try{localStorage.removeItem('cq_staff');}catch(_){}_clearActiveCheckin(false);_syncDrop();_rtEnsureMode();} // the unlock goes, so do the open check-in, the device's copy of the lists and the staff tables on the live channel
     S._staffAuthed=false;return;
   }
-  S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;_staffRoleConfirmed(uid,row.role);
+  S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;_staffRoleConfirmed(uid,row.role);_accessSet(row,uid);
   setupRefRealtime();
 }
 async function lockStaff(){try{localStorage.removeItem('cq_staff');}catch(e){}_clearActiveCheckin(false);await staffAuthSignOut();window.location.href='./';}
@@ -2178,7 +2183,7 @@ const _sbReady=new Promise(res=>{
   (function w(){
     if(sb)return; // client already built
     if(window.supabase&&window.supabase.createClient){
-      try{sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);}catch(e){console.error('Supabase init failed:',e.message);}
+      try{sb=_roWrap(window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY));}catch(e){console.error('Supabase init failed:',e.message);}
       // Any write to a reference table marks the cached copy stale, wherever it comes from.
       // One wrapper rather than a refDirty() call at twenty-five sites, which the next write
       // added would quietly forget — and a forgotten one shows a real customer as "not found".
@@ -3634,6 +3639,7 @@ function _errMessage(err){
 function _writeErr(res,ctx,retry){
   const bad=[].concat(res).find(r=>r&&r.error);
   if(!bad)return false;
+  if(bad.error.code==='READONLY')return true; // the read-only notice has said why
   console.error((ctx||'save')+' failed',bad.error);
   const kind=_errKind(bad.error);
   if(kind==='net')S._netDown=true,_updateConnUI();
@@ -6554,7 +6560,7 @@ function setStaffTab(tab){
   if(tab==='sessions'){S.queueView='sessions';tab='queue';} // Sessions merged into the Bookings tab
   if(tab==='waitlist'){S.queueView='waitlist';tab='queue';} // Waitlist lives there too (third pill)
   if(tab==='riders'){S.queueView='petromin';if(!S.ridersSession||S.ridersSession==='all')S.ridersSession=_pmDefaultNight()||'all';tab='queue';} // the Riders tab is the Petromin page in Queue now
-  if(!_deskTabOk(tab))tab='queue'; // Front Desk mode: only its own sections (DESK_TABS)
+  if(!_deskTabOk(tab))tab=_firstTab(); // Front Desk mode: only its own sections (DESK_TABS); an account: only its own list
   if(tab==='queue'&&S.staffTab!=='queue')_autoSelectSession(); // opening the queue: back to the current session
   S.staffTab=tab;
   closeStaffNav(); // a choice is the end of the menu
@@ -6571,6 +6577,7 @@ function setStaffTab(tab){
   else if(tab==='workshop')renderWorkshop();
   else if(tab==='messages')renderMessages();
   else if(tab==='ambassadors')renderAmbassadors();
+  else if(tab==='team')renderTeam();
   _pushNav();
 }
 
@@ -6599,7 +6606,7 @@ function renderCustomerTabs(){
   const al=document.getElementById('bnav-account-lbl');if(al)al.textContent=t('tabAccount');
 }
 
-const _SNAV_ICON={website:'globe',workshop:'wrench',messages:'contact',ambassadors:'star',queue:'bike',cashier:'cart',inventory:'box',community:'people',riders:'person',analytics:'chart',history:'clock',notes:'note'};
+const _SNAV_ICON={team:'person',website:'globe',workshop:'wrench',messages:'contact',ambassadors:'star',queue:'bike',cashier:'cart',inventory:'box',community:'people',riders:'person',analytics:'chart',history:'clock',notes:'note'};
 // Icons make the collapsed hover-rail usable (64px shows art only, labels appear on hover).
 function _fillNavIcons(){
   document.querySelectorAll('#staff-tab-nav .tab-btn').forEach(b=>{
@@ -6651,7 +6658,7 @@ function renderStaffTabs(){
   // Front Desk mode is limited to its own sections (DESK_TABS); hide the rest and keep the
   // active tab valid.
   const _desk=!isAdmin();
-  if(!_deskTabOk(S.staffTab))S.staffTab='queue';
+  if(!_deskTabOk(S.staffTab))S.staffTab=_firstTab();
   document.getElementById('staff-tab-nav').classList.toggle('desk-mode',_desk); // ERP rail: suite labels hide in Front Desk mode
   document.querySelectorAll('#staff-tab-nav .tab-btn').forEach(b=>{
     b.style.display=_deskTabOk(b.dataset.stab)?'':'none';
@@ -6670,6 +6677,8 @@ function renderStaffTabs(){
   document.getElementById('tab-workshop')  .classList.toggle('active',S.staffTab==='workshop');
   document.getElementById('tab-messages')  .classList.toggle('active',S.staffTab==='messages');
   document.getElementById('tab-ambassadors').classList.toggle('active',S.staffTab==='ambassadors');
+  document.getElementById('tab-team').classList.toggle('active',S.staffTab==='team');
+  const _ro=document.getElementById('ro-banner');if(_ro){const ro=!_editOk(S.staffTab);_ro.hidden=!ro;_ro.textContent=ro?t('roMode'):'';}
   try{_tbRender();_ntSync();}catch(e){} // the phone's bottom bar and the bell follow every section change
 }
 
@@ -7603,7 +7612,7 @@ function renderTopbarRight(){
     // Role switcher is ONE segmented control (active side lit) instead of a badge + a
     // separate mode button - the pair read as two unrelated boxes before.
     el.innerHTML=`
-      ${_gsBtnHtml()}${_ntBtnHtml()}
+      ${_gsBtnHtml()}${_ntBtnHtml()}${_opChipHtml()}
       <div class="role-seg" role="group" aria-label="${t('roleAdmin')} / ${t('roleFrontDesk')}">
         <button class="${isAdmin()?'on':''}" aria-pressed="${isAdmin()}" ${isAdmin()?'':`onclick="openPinModal(true)" title="${t('switchToAdmin')}"`}>${t('roleAdmin')}</button>
         <button class="${isAdmin()?'':'on'}" aria-pressed="${!isAdmin()}" ${isAdmin()?`onclick="setStaffRole('frontdesk')" title="${t('switchToFrontDesk')}"`:''}>${t('roleFrontDesk')}</button>
@@ -8792,6 +8801,7 @@ function _renderStaffTab(){
   else if(tab==='messages'){const a=document.activeElement;renderMessages(!!(a&&a.id==='sm-search-input'));}
   else if(tab==='ambassadors'){const a=document.activeElement;renderAmbassadors(!!(a&&a.id==='amb-search-input'));}
   else if(tab==='website'){} // its own loader and its own drafts: a repaint of the queue data has nothing for it
+  else if(tab==='team'){} // its own loader too
   else renderStaffQueue();
   try{_ahRefresh();}catch(_){} // an open Bookings & history window follows the data too
   try{_ntSync();}catch(_){} // and the bell's counts
@@ -14952,6 +14962,7 @@ function _opName(){try{return localStorage.getItem('cq_op_name')||'';}catch(_){r
 function setOpName(v){
   const nv=String(v||'').trim().slice(0,40);const old=_opName();
   try{localStorage.setItem('cq_op_name',nv);}catch(_){}
+  try{if(S.view==='staff')renderTopbarRight();}catch(_){} // the operator chip shows the new name
   if(nv&&nv!==old){
     logAction(t('logOperatorSet').replace('{0}',nv)); // hand-overs are themselves on the record
     // Mirror onto the signed-in staff account (auth user metadata) so a new device or a
@@ -14978,28 +14989,229 @@ async function _opGateCheck(){
   }catch(_){}
   if(S.view==='staff'&&!_opName())showOpGate();
 }
-function showOpGate(){
+// The gate lists the team's names. A name with a PIN (#7) opens a keypad and is checked on the
+// server: five wrong tries lock that name for a minute. While any name has a PIN, a name can no
+// longer be typed in, so nobody signs as someone else. Switching (the bar's operator chip) may
+// be cancelled; the first gate on a device may not.
+async function _opList(){try{const r=await sb.rpc('staff_operator_list');return r&&!r.error?(r.data||[]):null;}catch(_){return null;}}
+function showOpGate(switching){
   const m=document.getElementById('op-gate-modal');if(!m||m.style.display==='flex')return;
-  const names=(S.teamMembers||[]).slice(0,12);
-  m.style.display='flex';
-  // No backdrop-close and no cancel: anonymous staff actions are what this prevents.
-  m.innerHTML=`<div class="modal-backdrop" style="z-index:290">
-    <div class="modal-box" role="dialog" aria-modal="true" style="max-width:380px">
-      <div class="modal-title">${t('opGateTitle')}</div>
+  S._opg={switching:!!switching,list:null,pick:null,digits:'',msg:'',busy:false,shake:false};
+  m.style.display='flex';_opGateRender();
+  _opList().then(l=>{if(!S._opg)return;S._opg.list=l;_opGateRender();});
+}
+function _opGateRender(){
+  const m=document.getElementById('op-gate-modal'),G=S._opg;if(!m||!G)return;
+  const withPin=Array.isArray(G.list)&&G.list.some(x=>x.has_pin);
+  const names=Array.isArray(G.list)&&G.list.length?G.list:(S.teamMembers||[]).map(n=>({name:n,has_pin:false}));
+  let body;
+  if(G.pick){
+    const dots=[0,1,2,3].map(i=>`<span class="opg-dot${i<G.digits.length?' on':''}"></span>`).join('');
+    const key=d=>d?`<button type="button" class="opg-key" data-key="${d}" onclick="_opgKey('${d}')"${d==='del'?` aria-label="⌫"`:''}>${d==='del'?'⌫':d}</button>`:'<span></span>';
+    body=`<div class="modal-title">${esc(t('opPinTitle').replace('{0}',G.pick))}</div>
+      <div class="opg-dots${G.shake?' shake':''}">${dots}</div>
+      <div class="opg-msg" role="alert">${esc(G.msg||'')}</div>
+      <div class="opg-pad">${['1','2','3','4','5','6','7','8','9','','0','del'].map(key).join('')}</div>
+      <button type="button" class="btn-secondary" style="width:100%;margin-top:10px" onclick="S._opg.pick=null;S._opg.digits='';S._opg.msg='';_opGateRender()">${t('cancelBtn')}</button>`;
+  }else{
+    body=`<div class="modal-title">${G.switching?t('opSwitch'):t('opGateTitle')}</div>
       <div style="font-size:13px;color:var(--muted);margin:6px 0 14px">${t('opGateMsg')}</div>
-      ${names.length?`<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">${names.map(n=>`<button type="button" class="btn-secondary" style="width:100%" onclick="_opGatePick(this.textContent)">${esc(n)}</button>`).join('')}</div>`:''}
-      <div class="form-group" style="margin-bottom:12px"><label for="op-gate-name">${t('logsOperator')}</label>
+      ${names.length?`<div class="opg-names">${names.slice(0,24).map(o=>`<button type="button" class="btn-secondary opg-name" onclick="_opgPick(${_ja(o.name)},${o.has_pin?1:0})">${esc(o.name)}${o.has_pin?' <span class="opg-lock" aria-hidden="true">•••</span>':''}</button>`).join('')}</div>`:''}
+      ${withPin?'':`<div class="form-group" style="margin-bottom:12px"><label for="op-gate-name">${t('logsOperator')}</label>
         <input id="op-gate-name" type="text" maxlength="40" placeholder="${esc(t('logsOperatorPh'))}" onkeydown="if(event.key==='Enter')_opGateSave()"></div>
-      <div class="modal-footer"><button class="btn-primary" style="width:100%" onclick="_opGateSave()">${t('opGateBtn')}</button></div>
-    </div></div>`;
+      <div class="modal-footer"><button class="btn-primary" style="width:100%" onclick="_opGateSave()">${t('opGateBtn')}</button></div>`}
+      ${G.switching?`<button type="button" class="btn-secondary" style="width:100%;margin-top:8px" onclick="_opGateDone()">${t('cancelBtn')}</button>`:''}`;
+  }
+  // No backdrop-close and, on a first gate, no cancel: anonymous staff actions are what this prevents.
+  m.innerHTML=`<div class="modal-backdrop" style="z-index:290"><div class="modal-box op-gate" role="dialog" aria-modal="true" style="max-width:380px">${body}</div></div>`;
+}
+function _opgPick(name,pin){const G=S._opg;if(!G)return;if(!pin){_opGatePick(name);return;}G.pick=name;G.digits='';G.msg='';G.shake=false;_opGateRender();}
+async function _opgKey(d){
+  const G=S._opg;if(!G||!G.pick||G.busy)return;
+  if(d==='del'){G.digits=G.digits.slice(0,-1);_opGateRender();return;}
+  if(!/^\d$/.test(d)||G.digits.length>=4)return;
+  G.digits+=d;G.shake=false;G.msg='';_opGateRender();
+  if(G.digits.length<4)return;
+  G.busy=true;
+  let r;try{r=await sb.rpc('staff_check_operator_pin',{p_name:G.pick,p_pin:G.digits});}catch(e){r={error:e};}
+  G.busy=false;if(S._opg!==G)return;
+  const v=r&&!r.error?r.data:null;
+  if(v&&(v.ok||v.reason==='no_pin')){setOpName(G.pick);_opGateDone();return;} // no_pin: cleared while the keypad was open
+  G.digits='';G.shake=true;
+  G.msg=!v?t('errConnection'):v.reason==='locked'?t('opPinLocked').replace('{0}',v.seconds||60):t('opPinWrong').replace('{0}',v.left);
+  _opGateRender();
+}
+document.addEventListener('keydown',e=>{
+  const G=S._opg;if(!G||!G.pick)return;
+  if(/^\d$/.test(e.key)){e.preventDefault();_opgKey(e.key);}else if(e.key==='Backspace'){e.preventDefault();_opgKey('del');}
+});
+function _opChipHtml(){
+  const n=_opName();
+  return `<button type="button" class="topbar-btn op-chip" onclick="showOpGate(true)" title="${esc(t('opSwitch'))}" aria-label="${esc(t('opSwitch'))}${n?': '+esc(n):''}">${_artIcon('person',14)}<span class="op-chip-name">${esc(n)}</span></button>`;
 }
 function _opGatePick(n){if(!String(n||'').trim())return;setOpName(n);_opGateDone();}
+
+// ── Who may open and change what (Claude Design #8, #9) ──
+// A sign-in account may be limited to some sections (staff.modules_view) and allowed to change
+// only some of those (staff.modules_edit); null is everything its role allows. The role itself
+// (admin or front desk) is still what the database enforces; section rights are this page's.
+// a function, not a const: the first tab can be asked for during boot, before this line has run
+function _staffSections(){return['queue','cashier','inventory','workshop','community','ambassadors','website','messages','analytics','history','team'];}
+const SECTION_KEY={queue:'tabQueue',cashier:'tabCashier',inventory:'tabInventory',workshop:'tabWorkshop',community:'tabCommunity',ambassadors:'tabAmbassadors',messages:'tabMessages',analytics:'tabAnalytics',history:'tabHistory',team:'tabTeam'};
+function _sectionName(k){return k==='website'?'micromobility.sa':t(SECTION_KEY[k]||k);}
+function _viewOk(tab){return !Array.isArray(S._myView)||S._myView.includes(tab);}
+function _editOk(tab){return !Array.isArray(S._myEdit)||S._myEdit.includes(tab);}
+function _firstTab(){return _staffSections().find(_deskTabOk)||'queue';}
+function _accessSet(row,uid){
+  S._myView=row&&Array.isArray(row.modules_view)?row.modules_view:null;
+  S._myEdit=row&&Array.isArray(row.modules_edit)?row.modules_edit:null;
+  try{localStorage.setItem('cq_access',JSON.stringify({uid:String(uid||''),view:S._myView,edit:S._myEdit}));}catch(_){}
+  if(S.view==='staff'){try{if(!_deskTabOk(S.staffTab))setStaffTab(_firstTab());else renderStaffTabs();}catch(_){}}
+}
+// Until the account's row answers, the lists this device last saw for that account stand.
+(function(){try{const a=JSON.parse(localStorage.getItem('cq_access')||'null');if(a&&a.uid&&a.uid===localStorage.getItem('cq_role_uid')){S._myView=Array.isArray(a.view)?a.view:null;S._myEdit=Array.isArray(a.edit)?a.edit:null;}}catch(_){}})();
+// Read-only (#9): while the section on screen is one this account may open but not change, its
+// writes are refused here with one notice. The audit log, the error log and the sales and
+// bookings this device queued elsewhere (the two outbox flushes) still go through. Declared with
+// var and functions: the client is wrapped at boot, before this part of the script has run.
+var _roAllowN=0,_roToastAt=0;
+function _roOkTable(tbl){return tbl==='staff_actions'||tbl==='error_log';}
+function _roOkRpc(fn){return ['customer_profile','customer_exists','staff_resolve_bike','staff_sync','staff_email_for_phone','staff_inventory_costs','staff_ambassador_stats','promo_lookup','my_bookings','list_sessions','customer_token_ok','customer_pwd_state','customer_consents','customer_addon_stock','community_member','customer_fix_fields','staff_team_list','staff_operator_list','staff_check_operator_pin'].indexOf(fn)>=0;}
+function _roNow(){try{return !_roAllowN&&S.view==='staff'&&!_editOk(S.staffTab);}catch(_){return false;}}
+function _roRefusal(){
+  if(Date.now()-(_roToastAt||0)>2000){_roToastAt=Date.now();try{toast(t('roMode'),'error');}catch(_){}}
+  const res={data:null,error:{code:'READONLY',message:t('roMode'),details:null,hint:null},count:null,status:403,statusText:'Read-only'};
+  // Any chain a caller builds on the refused write (.eq().select().single()...) ends in the same answer.
+  const p=new Proxy(function(){},{
+    get(_,k){if(k==='then')return(ok,bad)=>Promise.resolve(res).then(ok,bad);if(k==='catch')return f=>Promise.resolve(res).catch(f);if(k==='finally')return f=>Promise.resolve(res).finally(f);return()=>p;},
+    apply(){return p;}});
+  return p;
+}
+function _roWrap(client){
+  if(!client||client.__roWrapped)return client;
+  const from=client.from.bind(client),rpc=client.rpc.bind(client);
+  client.from=function(tbl){
+    const q=from(tbl);
+    if(_roOkTable(tbl))return q;
+    ['insert','update','upsert','delete'].forEach(m=>{const orig=q[m];if(typeof orig==='function')q[m]=function(...a){return _roNow()?_roRefusal():orig.apply(q,a);};});
+    return q;
+  };
+  client.rpc=function(fn,...a){return (_roNow()&&!_roOkRpc(fn))?_roRefusal():rpc(fn,...a);};
+  client.__roWrapped=true;
+  return client;
+}
+
+// ── Team (Claude Design #7, #8): the operator names with their PINs, and the sign-in accounts
+// with their role and the sections each can open and change. Admins only (not a desk section).
+function _tm(){return S._tm||(S._tm={ops:null,accts:null,opsMissing:false,acctMissing:false,busy:false,edit:{}});}
+function _tmMissing(e){return !!e&&(e.code==='PGRST202'||/could not find the function/i.test(e.message||''));}
+async function _tmLoad(){
+  const T=_tm();if(T.busy||!sb)return;T.busy=true;
+  try{
+    const[o,a]=await Promise.all([sb.rpc('staff_operator_list'),sb.rpc('staff_team_list')]);
+    if(o&&o.error){T.opsMissing=_tmMissing(o.error);T.ops=(S.teamMembers||[]).map(n=>({name:n,has_pin:null}));}
+    else{T.opsMissing=false;T.ops=(o&&o.data)||[];}
+    if(a&&a.error){T.acctMissing=_tmMissing(a.error);T.accts=[];}
+    else{T.acctMissing=false;T.accts=(a&&a.data)||[];}
+  }catch(e){T.ops=T.ops||[];T.accts=T.accts||[];}
+  finally{T.busy=false;}
+  if(S.staffTab==='team')renderTeam();
+}
+function renderTeam(){
+  const el=document.getElementById('tab-team');if(!el)return;
+  const T=_tm(),head=`<div class="page-title">${t('tabTeam')}</div><div class="page-sub">${t('teamPageSub')}</div>`;
+  if(T.ops===null){if(!T.busy)_tmLoad();el.innerHTML=head+skeletonList();return;}
+  const ops=`<div class="form-section tm-sec" style="margin-top:0">
+    <div class="form-title">${t('opsTitle')}</div><div class="ca-sub">${t('opsSub')}</div>
+    ${T.opsMissing?`<div class="tm-note">${t('dbPending')}</div>`:''}
+    <div class="tm-ops">${(T.ops||[]).map(o=>`<div class="tm-op" data-op="${esc(o.name)}">
+        <strong>${esc(o.name)}</strong>
+        ${o.has_pin==null?'':`<span class="tm-pin${o.has_pin?' on':''}">${o.has_pin?t('opsPinSet'):t('opsPinNone')}</span>`}
+        <span class="tm-op-acts">
+          ${T.opsMissing?'':`<button type="button" class="btn-sm btn-green" onclick="_tmSetPin(${_ja(o.name)})">${t('opsSetPin')}</button>${o.has_pin?`<button type="button" class="btn-sm btn-muted" onclick="_tmClearPin(${_ja(o.name)})">${t('opsClearPin')}</button>`:''}`}
+          <button type="button" class="btn-sm btn-muted" onclick="_tmRemove(${_ja(o.name)})">${t('removeBtn')}</button>
+        </span></div>`).join('')||`<div class="empty-state">${t('teamEmpty')}</div>`}</div>
+    <div class="tm-add"><input id="tm-add-name" type="text" maxlength="40" placeholder="${esc(t('opsAddPh'))}" aria-label="${esc(t('opsAdd'))}" onkeydown="if(event.key==='Enter')_tmAdd()"><button type="button" class="btn-sm btn-green" onclick="_tmAdd()">${t('opsAdd')}</button></div>
+  </div>`;
+  const acct=a=>{
+    const d=T.edit[a.user_id]||{role:a.role,view:a.modules_view,edit:a.modules_edit};
+    const secs=d.role==='frontdesk'?DESK_TABS:_staffSections();
+    const inV=k=>!Array.isArray(d.view)||d.view.includes(k),inE=k=>!Array.isArray(d.edit)||d.edit.includes(k);
+    const dis=a.is_me?' disabled':'';
+    const chip=(kind,k,on)=>`<button type="button" class="toggle-btn tm-chip${on?' active':''}" aria-pressed="${on}" data-sec="${kind}:${k}"${dis} onclick="_tmToggle(${_ja(a.user_id)},'${kind}','${k}')">${esc(_sectionName(k))}</button>`;
+    return`<div class="tm-acct" data-acct="${esc(a.user_id)}">
+      <div class="tm-acct-head"><strong>${esc(a.email||a.user_id)}</strong>${a.is_me?`<span class="tm-me">${t('acctYou')}</span>`:''}
+        <select class="filter-select" aria-label="${esc(t('roleAdmin'))} / ${esc(t('roleFrontDesk'))}"${dis} onchange="_tmRole(${_ja(a.user_id)},this.value)"><option value="admin"${d.role==='admin'?' selected':''}>${t('roleAdmin')}</option><option value="frontdesk"${d.role==='frontdesk'?' selected':''}>${t('roleFrontDesk')}</option></select></div>
+      <div class="tm-row"><span class="tm-lbl">${t('acctView')}</span><div class="tm-chips">${secs.map(k=>chip('view',k,inV(k))).join('')}</div></div>
+      <div class="tm-row"><span class="tm-lbl">${t('acctEdit')}</span><div class="tm-chips">${secs.filter(inV).map(k=>chip('edit',k,inE(k))).join('')}</div></div>
+      ${a.is_me?'':`<div class="tm-save"><button type="button" class="btn-sm btn-green" onclick="_tmSave(${_ja(a.user_id)})"${T.edit[a.user_id]?'':' disabled'}>${t('saveBtn')}</button></div>`}
+    </div>`;
+  };
+  const accts=`<div class="form-section tm-sec"><div class="form-title">${t('acctTitle')}</div>
+    ${T.acctMissing?`<div class="tm-note">${t('dbPending')}</div>`:`<div class="ca-sub">${t('acctSub')}</div>${(T.accts||[]).map(acct).join('')}`}</div>`;
+  el.innerHTML=head+ops+accts;
+}
+function _tmDraft(uid){
+  const T=_tm(),a=(T.accts||[]).find(x=>x.user_id===uid);if(!a||a.is_me)return null;
+  return T.edit[uid]||(T.edit[uid]={role:a.role,view:Array.isArray(a.modules_view)?[...a.modules_view]:null,edit:Array.isArray(a.modules_edit)?[...a.modules_edit]:null});
+}
+// A list that holds every section the role has is stored as null, "everything it allows".
+function _tmNorm(d){
+  const secs=d.role==='frontdesk'?DESK_TABS:_staffSections();
+  if(Array.isArray(d.view)){d.view=d.view.filter(k=>secs.includes(k));if(secs.every(k=>d.view.includes(k)))d.view=null;}
+  if(Array.isArray(d.edit)){d.edit=d.edit.filter(k=>secs.includes(k)&&(!Array.isArray(d.view)||d.view.includes(k)));if(secs.every(k=>d.edit.includes(k)))d.edit=null;}
+}
+function _tmToggle(uid,kind,k){
+  const d=_tmDraft(uid);if(!d)return;
+  const secs=d.role==='frontdesk'?DESK_TABS:_staffSections();
+  const list=Array.isArray(d[kind])?[...d[kind]]:(kind==='edit'&&Array.isArray(d.view)?[...d.view]:[...secs]);
+  const i=list.indexOf(k);if(i>=0)list.splice(i,1);else list.push(k);
+  d[kind]=list;_tmNorm(d);renderTeam();
+}
+function _tmRole(uid,v){const d=_tmDraft(uid);if(!d)return;d.role=v==='frontdesk'?'frontdesk':'admin';_tmNorm(d);renderTeam();}
+async function _tmSave(uid){
+  const T=_tm(),d=T.edit[uid],a=(T.accts||[]).find(x=>x.user_id===uid);if(!d||!a)return;
+  const r=await sb.rpc('staff_set_access',{p_user:uid,p_role:d.role,p_view:d.view,p_edit:d.edit});
+  if(_writeErr(r,'staff access'))return;
+  delete T.edit[uid];
+  const msg=t('acctSaved').replace('{0}',a.email||'');
+  logAction(`${msg} · ${d.role}${d.view?' · '+d.view.join(','):''}${d.edit?' / '+d.edit.join(','):''}`);toast(`✓ ${msg}`);
+  _tmLoad();
+}
+async function _tmAdd(){
+  const i=document.getElementById('tm-add-name');const v=String((i&&i.value)||'').trim().slice(0,40);
+  if(!v){if(i){_fieldErr(i,t('errFieldRequired'));i.focus();}return;}
+  if(!(S.teamMembers||[]).includes(v)){S.teamMembers=[...(S.teamMembers||[]),v].sort();_teamRosterSave([v],[]);}
+  if(i)i.value='';
+  setTimeout(_tmLoad,400); // the roster write lands first
+}
+function _tmRemove(name){
+  confirmDialog({title:t('removeBtn'),body:esc(name),confirmLabel:t('removeBtn'),confirmClass:'btn-red',onConfirm:()=>{
+    S.teamMembers=(S.teamMembers||[]).filter(n=>n!==name);_teamRosterSave([],[name]);
+    const T=_tm();T.ops=(T.ops||[]).filter(o=>o.name!==name);renderTeam();
+    logAction(`${t('removeBtn')}: ${name}`);
+  }});
+}
+async function _tmSetPin(name){
+  const v=await promptDialog({title:t('opsPinPrompt').replace('{0}',name),numeric:true});
+  if(v==null)return;
+  const pin=_asciiDigits(String(v)).trim();
+  if(!/^\d{4}$/.test(pin)){toast(t('opsPinBad'),'error');return;}
+  const r=await sb.rpc('staff_set_operator_pin',{p_name:name,p_pin:pin});
+  if(_writeErr(r,'operator pin'))return;
+  const msg=t('opsPinSaved').replace('{0}',name);logAction(msg);toast(`✓ ${msg}`);_tmLoad();
+}
+async function _tmClearPin(name){
+  const r=await sb.rpc('staff_set_operator_pin',{p_name:name,p_pin:null});
+  if(_writeErr(r,'operator pin'))return;
+  const msg=t('opsPinCleared').replace('{0}',name);logAction(msg);toast(`✓ ${msg}`);_tmLoad();
+}
 function _opGateSave(){
   const i=document.getElementById('op-gate-name');const v=(i?i.value:'').trim();
   if(!v){if(i){_fieldErr(i,t('errFieldRequired'));i.focus();}return;}
   setOpName(v);_opGateDone();
 }
-function _opGateDone(){const m=document.getElementById('op-gate-modal');if(m){m.style.display='none';m.innerHTML='';}if(S.staffTab==='history'&&S.histView==='log')renderLogs();}
+function _opGateDone(){S._opg=null;const m=document.getElementById('op-gate-modal');if(m){m.style.display='none';m.innerHTML='';}if(S.staffTab==='history'&&S.histView==='log')renderLogs();}
 function logAction(label){
   if(!label)return;
   const op=_opName();
@@ -15457,7 +15669,7 @@ function renderLogs(){
     .sort((a,b)=>(b.ts||0)-(a.ts||0));
   const opBar=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap">
       <span style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">${t('logsOperator')}</span>
-      <input type="text" value="${esc(_opName())}" placeholder="${t('logsOperatorPh')}" onchange="setOpName(this.value)" maxlength="40" style="flex:1;max-width:260px;background:var(--s3);border:1px solid rgba(var(--tint-rgb),.15);border-radius:4px;padding:7px 11px;color:var(--text);font-family:var(--font-body);font-size:13px;font-weight:700;outline:none">
+      <strong class="op-cur">${esc(_opName())||'—'}</strong><button type="button" class="btn-sm btn-muted" onclick="showOpGate(true)">${t('opSwitch')}</button>
       ${isAdmin()?`<button class="btn-sm btn-muted" onclick="fixDuplicateQNums()" style="font-size:12px">${t('fixDupBtn')}</button>`:''}
     </div>`;
   const ops=[...new Set(all.map(i=>i.by).filter(Boolean))].sort();
@@ -23816,7 +24028,9 @@ function _outboxCount(){return _outbox().length;}
 function _outboxEnqueueMany(ops){const ids=new Set(ops.map(x=>x.id));const o=_outbox().filter(op=>!ids.has(op.id));ops.forEach(x=>o.push({oid:uid(),kind:x.kind,id:x.id,data:x.data||null}));const ok=_outboxSave(o);_outboxFlush();return ok;}
 function _outboxEnqueue(kind,id,data){return _outboxEnqueueMany([{kind,id,data}]);}
 let _outboxBusy=false;
-async function _outboxFlush(){
+// A sale queued on this device goes out from whatever section is on screen, read-only or not.
+async function _outboxFlush(){_roAllowN=(_roAllowN||0)+1;try{return await _outboxFlush0();}finally{_roAllowN--;}}
+async function _outboxFlush0(){
   if(_outboxBusy||!sb||(typeof navigator!=='undefined'&&navigator.onLine===false))return;
   _outboxBusy=true;
   const snapshot=_outbox();const doneIds=[];const stuck=new Set();
@@ -23873,7 +24087,8 @@ function _bookOutboxAdd(row){const o=_bookOutbox();o.push(row);return _bookOutbo
 function _bookOutboxCount(){return _bookOutbox().length;}
 function _applyBookOutbox(){const bo=_bookOutbox();if(!bo.length)return;const have=new Set((S.queue||[]).map(e=>e.id));bo.forEach(db=>{if(!have.has(db.id)){try{S.queue.push(entryFromDB(db));}catch(_){}}});}
 let _bookBusy=false;
-async function _bookOutboxFlush(){
+async function _bookOutboxFlush(){_roAllowN=(_roAllowN||0)+1;try{return await _bookOutboxFlush0();}finally{_roAllowN--;}}
+async function _bookOutboxFlush0(){
   if(_bookBusy||!sb||(typeof navigator!=='undefined'&&navigator.onLine===false))return;
   _bookBusy=true;
   const snap=_bookOutbox();const done=[];const renum={};

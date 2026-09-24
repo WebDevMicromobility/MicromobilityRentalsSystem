@@ -134,7 +134,8 @@ test('with no session today the day sheet says so', async ({ page }) => {
 
 // The sign-in dialog's markup stays in the page, hidden, once drawn; the shortcut handler and
 // pull-to-refresh asked "is there a backdrop" and were dead on the staff page as long as it was.
-test('the desk shortcuts work with the hidden sign-in markup in the page', async ({ page }) => {
+test('the desk shortcuts work with the hidden sign-in markup in the page', async ({ page }, info) => {
+  test.skip(info.project.name === 'mobile', 'keyboard shortcuts are for the desk computer');
   await staff(page);
   expect(await page.evaluate(`!!document.querySelector('.auth-backdrop')`)).toBe(true);
   await page.evaluate(`setStaffTab('cashier')`);
