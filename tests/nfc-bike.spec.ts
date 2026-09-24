@@ -170,3 +170,34 @@ test('the in-app scanner reads a bike sticker into the open modal, and an expire
   await expect(modal.locator('#ci-bike')).toHaveValue('42');
   await expect(modal.getByRole('button', { name: 'Scan sticker' })).toBeVisible();
 });
+
+test('the tag leaves a receipt: the bike, the booking, whether it matches, and Undo', async ({ page }) => {
+  await stubSupabase(page, fixtures({ queue_entries: [{ ...ENTRY, type_preference: 'Hybrid' }] }));
+  await unlockStaff(page);
+  await page.addInitScript(() => {
+    localStorage.setItem('mm_active_checkin', JSON.stringify({ entryId: 'e1', ref: '#7', openedAt: Date.now() }));
+  });
+  await page.goto('/?bike=42');
+  await waitForSb(page);
+  const rcpt = page.locator('#checkin-modal .ci-nfc-rcpt');
+  await expect(rcpt).toContainText('Road 042');
+  await expect(rcpt).toContainText('#42');
+  await expect(rcpt).toContainText('#7 Rider Seven');
+  await expect(rcpt).toHaveClass(/warn/);
+  await expect(rcpt).toContainText('Booked Hybrid · M - this bike is Road · M');
+  await rcpt.getByRole('button', { name: 'Undo' }).click();
+  await expect(rcpt).toHaveCount(0);
+  await expect(page.locator('#checkin-modal #ci-bike')).toHaveValue('');
+  await expect(page.locator('.toast').last()).toContainText('Bike taken out of the check-in');
+});
+
+test('a bike that matches the booking says so', async ({ page }) => {
+  await stubSupabase(page, fixtures());
+  await unlockStaff(page);
+  await page.addInitScript(() => {
+    localStorage.setItem('mm_active_checkin', JSON.stringify({ entryId: 'e1', ref: '#7', openedAt: Date.now() }));
+  });
+  await page.goto('/?bike=42');
+  await waitForSb(page);
+  await expect(page.locator('#checkin-modal .ci-nfc-rcpt')).toContainText('Matches the booking');
+});
