@@ -31,7 +31,9 @@ test('rides-since counts from the service stamp, and flags past the threshold', 
   await expect(m).toContainText('Mark serviced');
 });
 
-test('never-serviced reads as untracked, not overdue', async ({ page }) => {
+// The fleet was re-added from scratch in Sep 2026, so a bike never serviced counts every ride
+// it has done (it used to read "not tracked" while the old fleet predated the service stamp).
+test('never-serviced counts every ride and says so, flagged only past the threshold', async ({ page }) => {
   await stubSupabase(page, { sessions, queue_entries: [ride(1)], bikes: [
     { id: 'b1', name: 'R-01', type: 'Road', size: 'M', status: 'available', colors: [] }] });
   await unlockStaff(page);
@@ -40,7 +42,9 @@ test('never-serviced reads as untracked, not overdue', async ({ page }) => {
   await page.waitForFunction(`getBikes().length>0`);
   await page.evaluate(`openBikeProfile('b1')`);
   const m = page.locator('#bike-profile-modal');
-  await expect(m).toContainText('not tracked');
+  const tile = m.getByText('Rides since service').locator('..');
+  await expect(tile).toContainText('1');
+  await expect(tile).toContainText('Never serviced');
   await expect(m).not.toContainText('⚠');
 });
 
