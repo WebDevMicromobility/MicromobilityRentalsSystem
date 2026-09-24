@@ -588,7 +588,7 @@ en:{landMainTitleHtml:'Reserve Your <span>Bicycle Now!</span>',spotsFull:'Full',
   posLabel:'Pos.',inLine:'in line',
   assignBikeCheckin:'Assign Bike & Check In',
   filterAll:'All',filterWaiting:'Waiting',filterOnBike:'On Bike',filterDone:'Done',filterNoshow:'No-Show',
-  allSessions:'All Sessions',scopeTonight:'Tonight',scopeUpcoming:'Upcoming',scopePast:'Past',resetView:'Reset view',viewReset:'View reset to tonight’s ride',colRider:'Rider',colMember:'Membership',memberYes:'Member',memberNo:'Non-member',colWants:'Wants',
+  allSessions:'All Sessions',colRider:'Rider',colMember:'Membership',memberYes:'Member',memberNo:'Non-member',colWants:'Wants',
   walkinTitle:'Walk-in Registration',walkinName:'Full Name',walkinPhone:'Phone Number',
   walkinSession:'Session',walkinSize:'Frame Size',walkinType:'Bike Type Preference',
   addWalkinBtn:'Add Walk-in',cancelBtn:'Cancel',
@@ -1013,7 +1013,7 @@ ar:{landMainTitleHtml:'احجز <span>دراجتك الآن!</span>',spotsFull:'
   posLabel:'مركز',inLine:'في الطابور',
   assignBikeCheckin:'تخصيص دراجة وتسجيل الدخول',
   filterAll:'الكل',filterWaiting:'بانتظار',filterOnBike:'على الدراجة',filterDone:'منتهي',filterNoshow:'لم يحضر',
-  allSessions:'جميع الجلسات',scopeTonight:'الليلة',scopeUpcoming:'القادمة',scopePast:'السابقة',resetView:'إعادة تعيين العرض',viewReset:'عاد العرض إلى رحلة الليلة',colRider:'الراكب',colMember:'العضوية',memberYes:'عضو',memberNo:'غير عضو',colWants:'الطلب',
+  allSessions:'جميع الجلسات',colRider:'الراكب',colMember:'العضوية',memberYes:'عضو',memberNo:'غير عضو',colWants:'الطلب',
   walkinTitle:'تسجيل زيارة مباشرة',walkinName:'الاسم الكامل',walkinPhone:'رقم الهاتف',
   walkinSession:'الجلسة',walkinSize:'مقاس الإطار',walkinType:'تفضيل نوع الدراجة',
   addWalkinBtn:'إضافة زيارة',cancelBtn:'إلغاء',
@@ -6314,7 +6314,7 @@ function goStaff(){
 // lands (_sfDefaultToToday), unless the staffer has picked one in between.
 function _autoSelectSession(){
   if(!S._qvRestored){S._qvRestored=true;_restoreQueueView();} // once per load, before anything is saved over it
-  S.sfSession=_currentSessId();S.sfLimit=150;S._sfPicked=false;S.sfScope=null;
+  S.sfSession=_currentSessId();S.sfLimit=150;S._sfPicked=false;
   S._sfDefaulted=!!S.dataLoaded&&!S._cacheOnly;
 }
 // Current = tonight's ride while it is open or full (of two, one not yet over first). No live
@@ -13150,58 +13150,13 @@ function openPetrominPage(sid){
 // The session chips at the top of the Queue page. The Petromin form's registrations have a
 // chip of their own, with the Petromin logo, right after that night's chip; with no Petromin
 // night open, one chip for the latest night keeps the page in reach.
-// ── Time scope: Tonight / Upcoming / Past ────────────────────────────────────
-// The strip holds one band of rides at a time, so tonight's chips are never lost among next
-// month's. The band follows the ride being looked at (S.sfSession), so the desk still opens on
-// the current ride (_currentSessId) and the pill agrees with it; picking a pill opens that band's
-// first ride. Tonight keeps a ride it has closed; Upcoming is live rides only; Past is the last
-// twelve, newest first. Front Desk never sees an approval ride in any band.
-function _sessDay(s){return String((s&&(s.session_date||s.id))||'').slice(0,10);}
-function _scopeOf(s){const d=_sessDay(s),td=todayStr();return d===td?'tonight':d>td?'upcoming':'past';}
-function _scopeSessions(scope){
-  const fd=!isAdmin();
-  const ss=allSessions().filter(s=>s.status!=='deleted'&&!(fd&&_isApprovalRide(s))&&_scopeOf(s)===scope);
-  if(scope==='past')return ss.sort((a,b)=>_sessDay(b).localeCompare(_sessDay(a))||String(b.id).localeCompare(String(a.id))).slice(0,12);
-  return(scope==='upcoming'?ss.filter(_sessLive):ss).sort(_sessOrder);
-}
-function _sfScopeNow(){
-  const cur=S.sfSession!=='all'&&allSessions().find(s=>s.id===S.sfSession);
-  if(cur)return _scopeOf(cur);
-  return S.sfScope||(_scopeSessions('tonight').length?'tonight':'upcoming');
-}
-function setSfScope(scope){
-  const first=_scopeSessions(scope)[0];
-  S.sfScope=scope;
-  if(first){setSfSession(first.id);return;}
-  S.sfSession='all';S.sfLimit=150;S._sfPicked=true;renderStaffQueue();
-}
-// Off the opening view: another ride than the current one, or any filter or search on.
-function _sfViewDirty(){
-  return S.sfSession!==_currentSessId()||S.sfStatus!=='all'||(S.sfPay||'all')!=='all'||(S.sfBike||'all')!=='all'
-    ||(S.sfSize||'all')!=='all'||(S.sfMember||'all')!=='all'||!!S.sfSearch;
-}
-function resetSfView(){
-  S.sfStatus='all';S.sfPay='all';S.sfBike='all';S.sfSize='all';S.sfMember='all';S.sfSearch='';
-  _autoSelectSession();renderStaffQueue();toast(t('viewReset'));
-}
-function _sfScopePills(){
-  const cur=_sfScopeNow();
-  const pills=['tonight','upcoming','past'].map(k=>{
-    const n=_scopeSessions(k).length,on=k===cur;
-    return`<button type="button" class="filter-pill${on?' active':''}" aria-pressed="${on}"${n||on?'':' disabled'} onclick="setSfScope('${k}')">${t({tonight:'scopeTonight',upcoming:'scopeUpcoming',past:'scopePast'}[k])} <span class="num scope-n">${n}</span></button>`;
-  }).join('');
-  return`<div class="sess-scope" role="group" aria-label="${esc(t('colSession'))}">${pills}${_sfViewDirty()?`<button type="button" class="btn-sm btn-muted sess-scope-reset" onclick="resetSfView()">${t('resetView')}</button>`:''}</div>`;
-}
 function _sessStripHtml(){
   const _fd=!isAdmin();
   const _td=todayStr();
-  const _scope=_sfScopeNow();
-  const openSess=_scopeSessions(_scope);
-  // The Petromin chip stands for a Petromin night: it sits in that night's band.
-  let _pmSid=_pmStripNight(allSessions().filter(s=>_sessLive(s)&&!(_fd&&_isApprovalRide(s))));
-  if(_pmSid){const _pn=allSessions().find(s=>s.id===_pmSid);if(_pn&&_scopeOf(_pn)!==_scope)_pmSid=null;}
-  const _pills=_sfScopePills();
-  if(!openSess.length&&!_pmSid)return`<div id="sess-strip">${_pills}</div>`;
+  const openSess=allSessions().filter(s=>_sessLive(s)&&!(_fd&&_isApprovalRide(s)))
+    .sort(_sessOrder);
+  const _pmSid=_pmStripNight(openSess);
+  if(!openSess.length&&!_pmSid)return'';
   const chips=openSess.map(s=>{
     const q=getQueue().filter(e=>e.sessionId===s.id);
     const sWait=q.filter(e=>e.status==='waiting').length;
@@ -13243,7 +13198,7 @@ function _sessStripHtml(){
       return`<option value="${esc(s.id)}"${S.queueView!=='petromin'&&S.sfSession===s.id?' selected':''}>${label}</option>`+(_rideKind(s)==='petromin'?_pmOptHtml(s.id):'');
     }).join('')+(_pmSid&&!openSess.some(s=>s.id===_pmSid)?_pmOptHtml(_pmSid):'');
 
-  return`<div id="sess-strip">${_pills}
+  return`<div id="sess-strip">
     <div class="sess-summary-bar sess-bar-desktop">${chips}</div>
     <div class="sess-bar-mobile" style="margin-bottom:14px">
       <select class="filter-select" aria-label="${esc(t('colSession'))}" style="width:100%;font-size:14px;height:44px" onchange="setSfSession(this.value)">${dropdownOpts}</select>
@@ -14343,9 +14298,7 @@ function _showOverdue(){S.sfStatus='active';S.sfOverdueFirst=true;S.sfLimit=150;
 function setSfSession(v){
   if(String(v).startsWith('pm:')){openPetrominPage(String(v).slice(3));return;}
   if(S.queueView==='petromin')S.queueView='bookings';
-  S.sfSession=v;S.sfLimit=150;S._sfPicked=true;
-  const _ps=v!=='all'&&allSessions().find(s=>s.id===v);if(_ps)S.sfScope=_scopeOf(_ps);
-  renderStaffQueue();
+  S.sfSession=v;S.sfLimit=150;S._sfPicked=true;renderStaffQueue();
 }
 function setSfSort(col){
   if(S.sfSort===col) S.sfSortDir=-S.sfSortDir;

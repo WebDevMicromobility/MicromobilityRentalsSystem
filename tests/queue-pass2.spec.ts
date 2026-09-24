@@ -81,15 +81,11 @@ test('a paid session closing leaves its riders alone', async ({ page }) => {
   expect(patches).toHaveLength(0);
 });
 
-// Since 2026-09-24 the strip shows one band at a time (Tonight / Upcoming / Past): tonight's
-// ride opens alone and large, and later nights wait under Upcoming.
 test("tonight's session leads the strip and is the large chip", async ({ page }) => {
   await boot(page, [row('q1')]);
   const chips = page.locator('.sess-summary-bar .sess-summary-chip');
-  await page.locator('.sess-scope .filter-pill', { hasText: 'Tonight' }).click();
   await expect(chips.first()).toHaveClass(/today-sess/);
-  await page.locator('.sess-scope .filter-pill', { hasText: 'Upcoming' }).click();
-  await expect(chips.first()).not.toHaveClass(/today-sess/);
+  await expect(chips.nth(1)).not.toHaveClass(/today-sess/);
 });
 
 test('a reserved rider shows the held bike under the status', async ({ page }) => {
