@@ -49,6 +49,10 @@ export async function stubSupabase(page: Page, fixtures: Fixtures = {}, failWrit
   await page.route(/(^|\.)wa\.me\/|cloudflareinsights\.com|maps\.app\.goo\.gl/,
     (r) => r.fulfill({ status: 204, headers: { 'access-control-allow-origin': '*' }, body: '' }));
   await stubRealtime(page);
+  // The staff page's Website editor reads micromobility.sa/api/site-schema. The suite never
+  // depends on the live site: it answers 404 here, and a spec that needs the schema registers
+  // its own route after this call (Playwright consults the newest route first).
+  await page.route(/^https:\/\/micromobility\.sa\//, (r) => r.fulfill({ status: 404, body: '' }));
   await page.route('**://*.supabase.co/**', async (route) => {
     const req = route.request();
     const url = new URL(req.url());
