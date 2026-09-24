@@ -45,6 +45,7 @@ test('the check-in modal shows the amount, the party total, and follows a price 
     await route.fallback();
   });
   await page.evaluate(`showCheckinModal('p2')`);
+  await page.locator('#checkin-modal').getByRole('button', { name: 'Pending', exact: true }).click(); // opens on Paid now; this is about the arithmetic
   const money = page.locator('#ci-money');
   const line = () => money.innerText().then(x => x.replace(/\s+/g, ' ').trim());
   await expect.poll(line).toBe('SAR 75 · party SAR 245 SAR 170 due');       // one line: this rider · the party's total and what is due

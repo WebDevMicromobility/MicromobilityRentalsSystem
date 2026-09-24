@@ -112,11 +112,11 @@ test('scanned tickets collect on a list and check in as one group, without becom
   await expect(modal.locator('#ci-money')).toContainText('all SAR 120');
 
   for (const [i, next] of [['1', 'Solo Badr'], ['2', 'Party Cala'], ['3', 'Party Dina']] as const) {
-    await modal.getByRole('button', { name: 'Check In', exact: true }).click();
+    await modal.locator('#ci-confirm').click();
     await expect(modal).toContainText(next);
     await expect(modal).toContainText(`Rider ${Number(i) + 1} of 4`);
   }
-  await modal.getByRole('button', { name: 'Check In', exact: true }).click();
+  await modal.locator('#ci-confirm').click();
   await expect(modal).toBeHidden();
 
   await expect.poll(() => writes.filter((w) => w.body.status === 'active').map((w) => w.id.slice(0, 2)))
@@ -138,12 +138,12 @@ test('with Keep scanning, the camera waits for the last rider of the group inste
 
   const modal = page.locator('#checkin-modal [role="dialog"]'); // as with the scanner, the wrapper has no box
   await expect(modal).toContainText('Solo Amal');
-  await modal.getByRole('button', { name: 'Check In', exact: true }).click();
+  await modal.locator('#ci-confirm').click();
   await expect(modal).toContainText('Solo Eid');
   await page.waitForTimeout(300); // past the scanner's 80 ms reopen
   await expect(scanner).toBeHidden();
 
-  await modal.getByRole('button', { name: 'Check In', exact: true }).click();
+  await modal.locator('#ci-confirm').click();
   await expect(modal).toBeHidden();
   await expect(scanner).toBeVisible(); // back for the next arrivals, list empty, tally kept
   await expect(scanner.getByRole('list', { name: 'Riders checking in together' })).toHaveCount(0);

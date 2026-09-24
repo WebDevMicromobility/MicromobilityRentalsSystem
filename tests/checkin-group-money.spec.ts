@@ -27,6 +27,13 @@ const open = (page: Page, id: string) => page.evaluate((i) => {
   // @ts-expect-error app global
   showCheckinModal(i);
 }, id);
+// An unpaid rider now opens on Paid (2026-09-24). These tests are about the arithmetic, so they
+// start such a rider from Pending, where the modal used to open.
+const openPending = async (page: Page, id: string) => {
+  await open(page, id);
+  if (!(await page.evaluate(`!!getQueue().find(e=>e.id===${JSON.stringify(id)}).paid`)))
+    await page.locator('#checkin-modal').getByRole('button', { name: 'Pending', exact: true }).click();
+};
 const money = async (page: Page) => ((await page.locator('#ci-money').textContent()) || '').replace(/\s+/g, ' ').trim();
 
 test('a house-covered rider does not move the party total as staff step through the riders', async ({ page }) => {
@@ -36,10 +43,10 @@ test('a house-covered rider does not move the party total as staff step through 
     e('p2', { queue_num: 2 }),
   ], [{ id: 'c1', name: 'House Rider', default_pay: 'house', email: 'h@x.com', phone: '' }]);
 
-  await open(page, 'p1');
+  await openPending(page, 'p1');
   expect(await money(page)).toContain('SAR 0');
   expect(await money(page)).toContain('party SAR 57.50');
-  await open(page, 'p2');
+  await openPending(page, 'p2');
   expect(await money(page)).toContain('party SAR 57.50'); // was SAR 115: the covered rider counted twice over
   expect(await money(page)).toContain('SAR 57.50 due');
 });
@@ -51,7 +58,7 @@ test('an ordinary party reads the same from every step', async ({ page }) => {
     e('p3', { queue_num: 3, paid: true }),
   ]);
   const seen: string[] = [];
-  for (const id of ['p1', 'p2', 'p3']) { await open(page, id); seen.push(await money(page)); }
+  for (const id of ['p1', 'p2', 'p3']) { await openPending(page, id); seen.push(await money(page)); }
   expect(seen.map((s) => s.slice(s.indexOf('party')))).toEqual([
     'party SAR 190SAR 132.50 due', 'party SAR 190SAR 132.50 due', 'party SAR 190SAR 132.50 due',
   ]);
@@ -59,11 +66,11 @@ test('an ordinary party reads the same from every step', async ({ page }) => {
 
 test('marking one rider paid is the only thing that moves the total', async ({ page }) => {
   await boot(page, [e('p1', { queue_num: 1 }), e('p2', { queue_num: 2 })]);
-  await open(page, 'p1');
+  await openPending(page, 'p1');
   expect(await money(page)).toContain('SAR 115 due');
-  await page.locator('#checkin-modal').getByRole('button', { name: /Paid · Card/ }).click();
+  await page.locator('#checkin-modal').getByRole('button', { name: '✓ Paid', exact: true }).click();
   expect(await money(page)).toContain('SAR 57.50 due');
-  await open(page, 'p2'); // the choice is still only a draft, but the line keeps telling the truth about it
+  await openPending(page, 'p2'); // the choice is still only a draft, but the line keeps telling the truth about it
   expect(await money(page)).toContain('SAR 57.50 due');
 });
 
@@ -93,7 +100,7 @@ test('a Petromin employee retyped at check-in keeps the employee fare', async ({
   await modal.getByRole('button', { name: 'Mountain', exact: true }).click();
   await expect(page.locator('#ci-money')).toContainText('SAR 50');
   await expect(page.locator('#ci-money')).toContainText('party SAR 107.50'); // the website booker beside them pays 57.50
-  await modal.getByRole('button', { name: 'Check In', exact: true }).click();
+  await modal.locator('#ci-confirm').click();
   // The booked 50 stands, so there is no price to rewrite.
   await expect.poll(() => patched.some((p) => p.status === 'active')).toBe(true);
   expect(patched.filter((p) => 'price' in p).map((p) => p.price)).toEqual([]);
@@ -112,7 +119,7 @@ test('a website booking on a Petromin night is retyped at the standard fare, not
   const modal = page.locator('#checkin-modal');
   await modal.getByRole('button', { name: 'Mountain', exact: true }).click();
   await expect(page.locator('#ci-money')).toContainText('SAR 57.50');
-  await modal.getByRole('button', { name: 'Check In', exact: true }).click();
+  await modal.locator('#ci-confirm').click();
   await expect.poll(() => patched.some((p) => p.status === 'active')).toBe(true);
   expect(patched.filter((p) => 'price' in p).map((p) => p.price)).toEqual([57.5]);
 });

@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
 import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
 
-// The check-in modal, 2026-09-22: Check In is an action on the rider, beside No-Show and Cancel
-// booking. Confirm keeps what the modal changed — payment, bike type, a picked bike held as a
-// reservation — and leaves the rider waiting. Every button in the modal is the same size as the
-// ones beside it.
+// The check-in modal, 2026-09-24: the outcome — Check in, Waiting, No-show, Cancel booking — is
+// chosen like the payment is, one row of choices each in its own colour, and nothing happens on the
+// choice: Confirm applies it together with the payment, bike type and bike. Every button in the
+// modal is the same size as the ones beside it.
 
 const sessions = [{ id: 's0', day: 'Friday', session_date: '2099-02-10', capacity: 12, status: 'open', created_at: 1 }];
 const entry = {
@@ -30,10 +30,12 @@ async function open(page: P) {
   return { modal, patches };
 }
 
-test('Confirm keeps the payment and type it was given and leaves the rider waiting', async ({ page }) => {
+test('Waiting keeps the payment and type it was given, and Confirm leaves the rider waiting', async ({ page }) => {
   const { modal, patches } = await open(page);
-  await modal.getByRole('button', { name: /Paid · Card/ }).click();
+  await modal.getByRole('button', { name: '✓ Paid', exact: true }).click();
   await modal.getByRole('button', { name: 'Road', exact: true }).click();
+  await modal.locator('#ci-out-waiting').click();
+  await expect(modal.locator('.modal-box')).toBeVisible();   // choosing does nothing on its own
   await modal.locator('#ci-confirm').click();
   await expect(modal).toBeHidden();
 
@@ -44,33 +46,73 @@ test('Confirm keeps the payment and type it was given and leaves the rider waiti
   expect(await page.evaluate(`getQueue().find(e=>e.id==='e1').status`)).toBe('waiting');
 });
 
-test('Check In sits beside No-Show and Cancel booking, and checks the rider in', async ({ page }) => {
+test('the four outcomes are one row of choices, Check in first and chosen, and Confirm applies it', async ({ page }) => {
   const { modal, patches } = await open(page);
-  const actions = modal.locator('.ci-actions .btn-sm');
-  await expect(actions).toHaveCount(3);
-  await expect(actions.nth(0)).toHaveText('Check In');
-  await expect(actions.nth(1)).toHaveText('No-Show');
-  await expect(actions.nth(2)).toHaveText('Cancel booking');
-  await modal.locator('#ci-checkin').click();
+  const outs = modal.locator('.ci-outcomes .ci-out');
+  await expect(outs).toHaveText(['Check In', 'Waiting', 'No-Show', 'Cancel booking']);
+  await expect(modal.locator('#ci-out-checkin')).toHaveAttribute('aria-checked', 'true');
+  // choosing another and coming back moves the choice, and touches nothing on the server
+  await modal.locator('#ci-out-noshow').click();
+  await expect(modal.locator('#ci-out-noshow')).toHaveAttribute('aria-checked', 'true');
+  await expect(modal.locator('#ci-out-checkin')).toHaveAttribute('aria-checked', 'false');
+  await modal.locator('#ci-out-checkin').click();
+  expect(patches.length).toBe(0);
+  await modal.locator('#ci-confirm').click();
   await expect(modal).toBeHidden();
   await expect.poll(() => patches.length).toBeGreaterThanOrEqual(1);
   expect(patches[0].status).toBe('active');
 });
 
-test('every button in the modal matches the ones beside it', async ({ page }) => {
+test('No-show chosen and confirmed marks the rider a no-show', async ({ page }) => {
+  const { modal, patches } = await open(page);
+  await modal.locator('#ci-out-noshow').click();
+  expect(patches.length).toBe(0);                              // the choice alone writes nothing
+  await modal.locator('#ci-confirm').click();
+  await expect.poll(() => patches.some((b) => b.status === 'noshow')).toBe(true);
+});
+
+test('every button in the modal matches the ones beside it, each outcome in its own colour', async ({ page }) => {
   const { modal } = await open(page);
-  const widths = async (sel: string) =>
-    (await modal.locator(sel).evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().width))));
   const same = (w: number[]) => { expect(w.length).toBeGreaterThan(1); expect(Math.max(...w) - Math.min(...w)).toBeLessThanOrEqual(1); };
-  same(await widths('.ci-actions .btn-sm'));        // Check In · No-Show · Cancel booking
-  same(await widths('.modal-footer > button'));     // Close · Confirm
-  for (const g of await modal.locator('.ci-opts').all()) {   // the payment row, then the type row
-    same(await g.locator('.toggle-btn').evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().width))));
-  }
-  // and nothing spills out of its own button
-  for (const b of await modal.locator('.ci-actions .btn-sm, .modal-footer > button, .ci-opts .toggle-btn').all()) {
+  const widths = (loc: import('@playwright/test').Locator) => loc.evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().width)));
+  same(await widths(modal.locator('.ci-outcomes .ci-out')));   // Check In · Waiting · No-Show · Cancel booking
+  same(await widths(modal.locator('.modal-footer > button')));  // Close · Confirm
+  for (const g of await modal.locator('.ci-opts').all()) same(await widths(g.locator('.toggle-btn')));
+  const colours = await modal.locator('.ci-outcomes .ci-out').evaluateAll((els) => els.map((e) => getComputedStyle(e).borderTopColor));
+  expect(new Set(colours).size).toBe(4);                      // four outcomes, four colours
+  for (const b of await modal.locator('.ci-out, .modal-footer > button, .ci-opts .toggle-btn').all()) {
     expect(await b.evaluate((e) => e.scrollWidth <= e.clientWidth + 1)).toBe(true);
   }
+});
+
+// 2026-09-24: the payment reads just "Paid", an unpaid rider opens on it, and a bike owner — who
+// rents nothing — is shown Free, with no payment to choose, in the modal and on the roster.
+test('an unpaid rider opens on Paid, and the option says Paid without "Card"', async ({ page }) => {
+  const { modal } = await open(page);
+  const paid = modal.getByRole('button', { name: '✓ Paid', exact: true });
+  await expect(paid).toHaveClass(/\bactive\b/);
+  await expect(modal).not.toContainText('Card');
+});
+
+test('a bike owner has no payment to choose: Free in the modal, Free on the roster', async ({ page }) => {
+  const owner = { ...entry, id: 'o1', queue_num: 8, name: 'Owner Rider', type_preference: 'Own', price: 0 };
+  await stubSupabase(page, { sessions, queue_entries: [entry, owner], bikes });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  await page.evaluate(`setStaffTab('queue');S.queueView='bookings';S.sfSession='s0';renderStaffQueue()`);
+  await expect.poll(() => page.evaluate(`document.getElementById('q-results').innerText`)).toContain('Owner Rider');
+  expect(await page.evaluate(`_ownFree(getQueue().find(e=>e.id==='o1'))`)).toBe(true);
+  const results = await page.evaluate(`document.getElementById('q-results').innerText`) as string;
+  expect(results).toContain('Free');
+  await page.evaluate(`showCheckinModal('o1')`);
+  const modal = page.locator('#checkin-modal');
+  await expect(modal.locator('#ci-money')).toHaveText('Free');
+  await expect(modal.getByRole('button', { name: '✓ Paid', exact: true })).toHaveCount(0);
+  await expect(modal.getByRole('button', { name: 'Pending', exact: true })).toHaveCount(0);
+  // switched to a rented bike in the modal, there is something to pay again
+  await modal.getByRole('button', { name: 'Road', exact: true }).click();
+  await expect(modal.getByRole('button', { name: '✓ Paid', exact: true })).toBeVisible();
 });
 
 test('the members-only dialog gives its three buttons one size', async ({ page }) => {

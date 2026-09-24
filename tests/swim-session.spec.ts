@@ -122,7 +122,8 @@ test('staff checking a swimmer in are offered no bike', async ({ page }) => {
   await page.evaluate(`showCheckinModal('q1')`);
   const html = await page.evaluate(`document.getElementById('checkin-modal').innerHTML`) as string;
   expect(html).not.toContain('openModal(');       // no route into the bike picker
-  expect(html).toContain('confirmCheckinModal');  // but they can still be marked as here
+  expect(html).toContain('ci-out-checkin');        // but they can still be marked as here:
+  expect(html).toContain('confirmCheckinOutcome'); // Check In is chosen, and Confirm applies it
 });
 
 test('the swim session carries its own identity colour, not the circuit blue', async ({ page }) => {

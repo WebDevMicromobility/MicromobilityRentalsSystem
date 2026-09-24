@@ -185,7 +185,7 @@ test.describe('the quick check-in', () => {
     await page.evaluate(`closeConfirm()`);
     await done;
     expect(rpcs).not.toContain('staff_checkin');
-    await expect(page.locator('#ci-checkin')).toBeEnabled();
+    await expect(page.locator('#ci-confirm')).toBeEnabled();
   });
 
   test('"Link this tag" offers only the number just keyed in for this rider', async ({ page }) => {

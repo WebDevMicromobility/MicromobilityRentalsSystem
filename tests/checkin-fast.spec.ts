@@ -40,7 +40,7 @@ test('a party shows numbered steps and moves to the next rider after Confirm', a
   const modal = page.locator('#checkin-modal');
   await expect(modal).toContainText('Rider 1 of 2');
   await expect(modal.getByRole('list', { name: 'Riders in this party' }).getByRole('button')).toHaveCount(2);
-  await modal.getByRole('button', { name: 'Check In', exact: true }).click();
+  await modal.locator('#ci-confirm').click();
   await expect(modal).toContainText('Second Rider');   // opened by itself
   await expect(modal).toContainText('Rider 2 of 2');
 });
@@ -66,7 +66,9 @@ test('No-show inside the modal marks the rider and moves on', async ({ page }) =
   page.on('request', (r) => { if (r.method() === 'PATCH' && r.url().includes('queue_entries') && r.url().includes('id=eq.p1')) patches.push(r.postData() || ''); });
   await page.evaluate(`showCheckinModal('p1')`);
   const modal = page.locator('#checkin-modal');
-  await modal.getByRole('button', { name: 'No-Show' }).click();
+  await modal.locator('#ci-out-noshow').click();                // chosen, like a payment…
+  expect(patches.length).toBe(0);
+  await modal.locator('#ci-confirm').click();                   // …and applied by Confirm
   await expect.poll(() => patches.some((b) => /"status":"noshow"/.test(b))).toBe(true);
   await expect(modal).toContainText('Second Rider');
 });
@@ -80,7 +82,8 @@ test('Cancel booking inside the modal asks once, cancels, and moves on', async (
   page.on('request', (r) => { if (r.method() === 'PATCH' && r.url().includes('queue_entries') && r.url().includes('id=eq.p1')) patches.push(r.postData() || ''); });
   await page.evaluate(`showCheckinModal('p1')`);
   const modal = page.locator('#checkin-modal');
-  await modal.getByRole('button', { name: 'Cancel booking' }).click();
+  await modal.locator('#ci-out-cancel').click();
+  await modal.locator('#ci-confirm').click();                   // Confirm asks for the cancel's own confirmation
   await page.locator('#confirm-modal, .modal-backdrop').last().getByRole('button', { name: 'Cancel booking' }).click();
   await expect.poll(() => patches.some((b) => /"status":"cancelled"/.test(b))).toBe(true);
   await expect(modal).toContainText('Second Rider');
@@ -101,15 +104,15 @@ test("switching riders keeps each rider's choices", async ({ page }) => {
   ]);
   await page.evaluate(`showCheckinModal('p1')`);
   const modal = page.locator('#checkin-modal');
-  await modal.getByRole('button', { name: /Paid · Card/ }).click();
+  await modal.getByRole('button', { name: 'Pending', exact: true }).click();   // not the default, so keeping it proves something
   await modal.getByRole('button', { name: 'Hybrid', exact: true }).click();
   await modal.locator('#ci-bike').fill('R-11');
   await modal.getByRole('list', { name: 'Riders in this party' }).getByRole('button', { name: /2 Second/ }).click();
   await expect(modal).toContainText('Rider 2 of 2');
-  expect(await page.evaluate('S._ciPaid')).toBe('pending');     // the second rider starts fresh
+  expect(await page.evaluate('S._ciPaid')).toBe('card');        // the second rider starts fresh — on Paid, since 2026-09-24
   await modal.getByRole('list', { name: 'Riders in this party' }).getByRole('button', { name: /1 First/ }).click();
   await expect(modal).toContainText('Rider 1 of 2');
-  expect(await page.evaluate('[S._ciPaid,S._ciType]')).toEqual(['card', 'Hybrid']);
+  expect(await page.evaluate('[S._ciPaid,S._ciType]')).toEqual(['pending', 'Hybrid']);
   await expect(modal.locator('#ci-bike')).toHaveValue('R-11');
 });
 
@@ -132,7 +135,7 @@ test('a no-show member can be opened again and brought back to be checked in', a
   await expect(modal).toContainText('is marked no-show');
   await modal.getByRole('button', { name: 'Customer Showed' }).click();
   await expect(modal).toContainText('Rider 1 of 2');
-  await expect(modal.locator('#ci-checkin')).toBeVisible();     // back to a normal check-in
+  await expect(modal.locator('#ci-confirm')).toBeVisible();     // back to a normal check-in
   await expect(modal.getByRole('list', { name: 'Riders in this party' }).getByRole('button', { name: /1 First/ })).toBeVisible();
 });
 
@@ -159,6 +162,7 @@ test("changing the bike type in the modal moves the rider's amount and the party
   ]);
   await page.evaluate(`showCheckinModal('p1')`);
   const modal = page.locator('#checkin-modal');
+  await modal.getByRole('button', { name: 'Pending', exact: true }).click(); // opens on Paid now; this is about the arithmetic
   const line = () => modal.locator('#ci-money').innerText().then(x => x.replace(/\s+/g, ' ').trim());
   await expect.poll(line).toBe('SAR 75 · party SAR 150 SAR 150 due');
   await modal.getByRole('button', { name: 'Hybrid', exact: true }).click();          // Road 75 -> Hybrid 57.5

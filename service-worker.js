@@ -1,5 +1,5 @@
 
-const CACHE = 'mmcq-a89c402d77';
+const CACHE = 'mmcq-cceeb96d52';
 
 // The one key the app shell lives under. './index.html' is deliberately NOT precached and
 // never used as a key: Cloudflare Pages answers /index.html with a 308 to /, so caching it
@@ -11,7 +11,7 @@ const CACHE = 'mmcq-a89c402d77';
 const SHELL_KEY = './';
 const SHELL = [
   SHELL_KEY,
-  './styles.css?v=cf2c1c403a',
+  './styles.css?v=a51c9ec445',
   './manifest.json',
   './logo.png',
   './logo-dark.png',

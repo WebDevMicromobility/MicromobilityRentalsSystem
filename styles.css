@@ -4789,8 +4789,6 @@ body.has-modal .fab-row{display:none !important;}
 /* ── Check-in modal and the members-only dialog: one size for every button ──
    Check in stands beside No-show and Cancel (it is an action on the rider); Confirm keeps what
    the modal changed. Each row shares its width out equally so nothing reads as the odd one out. */
-#checkin-modal .ci-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:12px;}
-#checkin-modal .ci-actions .btn-sm{width:100%;min-height:44px;padding-inline:8px;white-space:normal;text-align:center;}
 #checkin-modal .modal-footer{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
 #checkin-modal .modal-footer>button{width:100%;min-height:44px;}
 html[dir="rtl"] #checkin-modal .modal-footer{direction:rtl;}
@@ -4836,3 +4834,24 @@ html[dir="rtl"] #checkin-modal .modal-footer{direction:rtl;}
   body.view-staff .filter-sess .filter-field-lbl{display:none;}
   body.view-staff .filter-sess select{width:100%;}
 }
+
+/* ── The check-in modal's outcome row ──
+   Check in, Waiting, No-show and Cancel booking are chosen like the payment is, and Confirm applies
+   the choice. Each wears its own colour — the colour the roster gives that state — outlined until
+   chosen and filled once it is, and all four share one width. */
+#checkin-modal .ci-outcomes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:4px;}
+#checkin-modal .ci-out{
+  --oc:var(--sf-green-ink,var(--green));
+  width:100%;min-width:0;min-height:44px;padding-inline:6px;white-space:normal;text-align:center;
+  background:var(--sf-card,#fff);color:var(--oc);border:1.5px solid var(--oc);font-weight:800;
+}
+#checkin-modal .ci-out-waiting{--oc:var(--orange);}
+#checkin-modal .ci-out-noshow{--oc:var(--muted);}
+#checkin-modal .ci-out-cancel{--oc:var(--red);}
+#checkin-modal .ci-out.active,#checkin-modal .ci-out.active:hover{background:var(--oc);border-color:var(--oc);color:#fff;}
+#checkin-modal .ci-out:hover{border-color:var(--oc);color:var(--oc);}
+html[data-staff-theme="dark"] #checkin-modal .ci-out.active{color:#0b0f0d;}
+@media (max-width:560px){#checkin-modal .ci-outcomes{grid-template-columns:repeat(2,minmax(0,1fr));}}
+
+/* A bike owner's ride costs nothing: the word Free stands where the amount would. */
+.own-free{color:var(--sf-green-ink,var(--green));font-weight:800;}

@@ -5368,6 +5368,9 @@ function _partnerHtml(s,cls){return _rideKind(s)==='workshop'?`<span class="${cl
 // Rider brings their own bike ('Own' is offered where _ownOffered says). Own-bike bookings
 // never consume a session spot: spots meter the Micromobility bikes, not attendance.
 function _isOwnBike(e){return !!e&&e.typePreference==='Own';}
+// A rider on their own bike pays no rental; with no add-ons bought either, there is nothing to
+// take, so the roster reads "Free" where the amount goes and offers no payment to mark.
+function _ownFree(e){return _isOwnBike(e)&&!(addonsCost(entryAddons(e))>0);}
 // Does a rider on their own bike take one of this session's places? Only on the Petromin
 // ride: its places are the track's (the venue admits N riders), not the rack's, so an owner
 // fills one exactly like a renter. Everywhere else places allocate Micromobility bikes and an
@@ -7127,7 +7130,7 @@ function showWlPayMenu(id,evt){
   const isHouse=w.paid&&_wlRowPrice(w)===0;
   const opts=[
     {label:` ${t('pendingLabel')}`,mode:'pending',active:!w.paid},
-    {label:`✓ ${t('paidLabel')} · ${t('cashCard')}`,mode:'card',active:w.paid&&!isHouse}, // card is the only way to pay; rows paid before by cash/split still read as paid
+    {label:`✓ ${t('paidLabel')}`,mode:'card',active:w.paid&&!isHouse}, // card is the only way to pay; rows paid before by cash/split still read as paid
     {label:` ${t('onTheHouseLabel')} · SAR 0`,mode:'house',active:isHouse},
   ];
   const menu=document.createElement('div');
@@ -13497,10 +13500,10 @@ function renderQRow(e){
             <span style="font-weight:700;font-size:13px">${esc(b.name)}</span>
           </div>`).join('')
         :'<span style="color:var(--muted)">—</span>'}${assignedBikes.some(b=>b.colors&&b.colors.length)?`<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:4px">${colorSwatches}</div>`:''}</td>`:''}
-      ${_qc.money?`<td style="font-weight:800;white-space:nowrap">${_freeSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:(()=>{const _p=e.price??DEFAULT_PRICE,_a=addonsCost(entryAddons(e));return _a>0?`SAR ${Math.round((_p+_a)*100)/100}<div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${t('reviewRentalLabel')} ${_p} + ${t('addonsLabel')} ${_a}</div>`:`SAR ${_p}`;})()}</td>
+      ${_qc.money?`<td style="font-weight:800;white-space:nowrap">${_freeSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:_ownFree(e)?`<span class="own-free">${t('invFree')}</span>`:(()=>{const _p=e.price??DEFAULT_PRICE,_a=addonsCost(entryAddons(e));return _a>0?`SAR ${Math.round((_p+_a)*100)/100}<div style="font-size:10px;color:var(--muted);font-weight:600;margin-top:2px">${t('reviewRentalLabel')} ${_p} + ${t('addonsLabel')} ${_a}</div>`:`SAR ${_p}`;})()}</td>
       <td onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-          ${_freeSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu(${_ja(e.id)},event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
+          ${(_freeSessIds.has(e.sessionId)||_ownFree(e))?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu(${_ja(e.id)},event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
         </div>
       </td>`:''}
       <td>${statusCellHtml(e)}</td>
@@ -13625,7 +13628,7 @@ function renderQRow(e){
           ${_qc.money?`<td rowspan="${n}" style="vertical-align:middle">${priceSpan}${(!_freeSessIds.has(primary.sessionId)&&remaining>0)?`<button class="btn-sm btn-green" style="margin-top:6px;white-space:nowrap;font-size:11px;padding:4px 9px" onclick="groupMarkPaid(${_ja(primary.id)})">✓ ${t('bulkPaidBtn')}</button>`:''}</td>`:''}
           ${_qc.money?`<td style="vertical-align:middle" onclick="event.stopPropagation()">
             <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-              ${_freeSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu(${_ja(e.id)},event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
+              ${(_freeSessIds.has(e.sessionId)||_ownFree(e))?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu(${_ja(e.id)},event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
             </div>
           </td>`:''}
           <td style="vertical-align:middle">${statusCellHtml(e)}</td>
@@ -13642,7 +13645,7 @@ function renderQRow(e){
           ${_qc.bike?`<td style="vertical-align:middle"><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${bikeNames}${allColors.length?colorSwatches:''}</div></td>`:''}
           ${_qc.money?`<td style="vertical-align:middle" onclick="event.stopPropagation()">
             <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
-              ${_freeSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu(${_ja(e.id)},event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
+              ${(_freeSessIds.has(e.sessionId)||_ownFree(e))?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu(${_ja(e.id)},event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
             </div>
           </td>`:''}
           <td style="vertical-align:middle">${statusCellHtml(e)}</td>
@@ -13670,7 +13673,7 @@ function renderQRow(e){
       const isHouse=e.paid&&(e.price??DEFAULT_PRICE)===0;
       // Same tappable payment control the desktop table has: shows the state, opens the
       // Pending / Paid (cash·card·split) / On-the-house menu.
-      const payBtn=_freeSessIds.has(e.sessionId)?'':`<button class="pay-toggle ${isHouse?'house':e.paid?'paid':'pending'}" style="font-size:10px;padding:5px 9px;min-height:26px" onclick="event.stopPropagation();showPayMenu(${_ja(e.id)},event)">${isHouse?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`;
+      const payBtn=(_freeSessIds.has(e.sessionId)||_ownFree(e))?'':`<button class="pay-toggle ${isHouse?'house':e.paid?'paid':'pending'}" style="font-size:10px;padding:5px 9px;min-height:26px" onclick="event.stopPropagation();showPayMenu(${_ja(e.id)},event)">${isHouse?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`;
       const indent=n>1?'padding-inline-start:22px':'';
       return`<div style="padding:6px 0;${i>0?'border-top:1px solid rgba(var(--tint-rgb),.05)':''}">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
@@ -13682,7 +13685,7 @@ function renderQRow(e){
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">${e.phone?_contactCell(e.phone,e):''}<span style="text-align:end">${statusCellHtml(e)}</span>${payBtn}</div>
         </div>
         <div style="font-size:11px;color:var(--muted);margin-top:2px;${indent}">
-          ${esc(typeLabel(e.typePreference))}${bikeInfo?` &middot; <span style="color:var(--muted-l)">${esc(bikeInfo)}</span>`:''}${_freeSessIds.has(e.sessionId)?'':` &middot; <bdi style="font-weight:800;color:var(--text)">SAR ${e.price??DEFAULT_PRICE}</bdi>`}
+          ${esc(typeLabel(e.typePreference))}${bikeInfo?` &middot; <span style="color:var(--muted-l)">${esc(bikeInfo)}</span>`:''}${_freeSessIds.has(e.sessionId)?'':_ownFree(e)?` &middot; <span class="own-free">${t('invFree')}</span>`:` &middot; <bdi style="font-weight:800;color:var(--text)">SAR ${e.price??DEFAULT_PRICE}</bdi>`}
         </div>
       </div>`;
     }).join('');
@@ -14341,7 +14344,7 @@ function showPayMenu(id,evt){
   const isHouse=entry.paid&&(entry.price??DEFAULT_PRICE)===0;
   const opts=[
     {label:` ${t('pendingLabel')}`,mode:'pending',active:!entry.paid},
-    {label:`✓ ${t('paidLabel')} · ${t('cashCard')}`,mode:'card',active:entry.paid&&!isHouse}, // card is the only way to pay; rows paid before by cash/split still read as paid
+    {label:`✓ ${t('paidLabel')}`,mode:'card',active:entry.paid&&!isHouse}, // card is the only way to pay; rows paid before by cash/split still read as paid
     {label:` ${t('onTheHouseLabel')} · SAR 0`,mode:'house',active:isHouse},
     {label:`✎ ${t('editPriceBtn')}…`,mode:'price',active:false}, // the pill is the whole control: price lives here too
   ];
@@ -17565,7 +17568,8 @@ function showCheckinModal(id){
   // with the Riders tab; on a ride that takes them, the first check-in fetches them instead.
   if(!S.ridersLoaded){const _s=S.sessions.find(s=>s.id===e.sessionId);if(_s&&_s.ride_kind==='petromin')loadRiders().then(()=>{if(S._ciId===id)renderCheckinModal();});}
   S._ciId=id;S._ciType=resolvedType(e)||'Any';
-  S._ciPaid=e.paid?((e.price??DEFAULT_PRICE)===0?'house':'card'):'pending'; // card is the only paid state; older cash/split rows read as paid by card
+  // A rider who has not paid yet opens on Paid: at the desk, that is what happens next (2026-09-24).
+  S._ciPaid=e.paid?((e.price??DEFAULT_PRICE)===0?'house':'card'):'card'; // card is the only paid state; older cash/split rows read as paid by card
   // The Bike field: a bike that arrived with this modal (NFC tab, scanner, the other tab)
   // is kept; anything else starts empty. The open check-in is published for the tab iOS
   // opens when a tag is tapped, and every open tab listens for the answer.
@@ -17573,7 +17577,7 @@ function showCheckinModal(id){
   const _mine=!!(_arr&&_arr.entryId===id&&_arr.bike&&_arr.bike.bike);
   S._ciBike=_mine?_arr.bike:null;S._ciNfc=_mine&&!!_arr.nfc;
   S._ciBikeCode=S._ciBike?String(S._ciBike.bike.bike_number??''):'';
-  S._ciBikeMsg=null;S._ciLinkOffer=null;S._ciErr=null;S._ciFocusOnce=true;
+  S._ciBikeMsg=null;S._ciLinkOffer=null;S._ciErr=null;S._ciFocusOnce=true;S._ciOutcome='checkin';
   const _d=(S._ciDrafts||{})[id];
   if(_d){S._ciType=_d.type||S._ciType;S._ciPaid=_d.paid||S._ciPaid;if(!_mine){S._ciBike=_d.bike||null;S._ciBikeCode=_d.bikeCode||S._ciBikeCode;}}
   _setActiveCheckin(e);
@@ -17770,7 +17774,7 @@ function _ciSpecHtml(){
 }
 function _ciRenderBikeSpec(){
   const el=document.getElementById('ci-bike-spec');if(el)el.innerHTML=_ciSpecHtml();
-  const c=document.getElementById('ci-confirm');if(c)c.disabled=_ciBikeBlocked()||!!S._ciSaving;
+  const c=document.getElementById('ci-confirm');if(c)c.disabled=_ciConfirmBlocked()||!!S._ciSaving;
   const er=document.getElementById('ci-error');if(er)er.textContent=S._ciErr||'';
 }
 function renderCheckinModal(){
@@ -17806,6 +17810,8 @@ function renderCheckinModal(){
     return;
   }
   const comm=_commSessIds.has(e.sessionId),free=_freeSessIds.has(e.sessionId);
+  // A bike owner (the type picked here) with no add-ons pays nothing: no payment to choose.
+  const ownFree=S._ciType==='Own'&&!(addonsCost(entryAddons(e))>0);
   // No bike to choose and none to hand over: a swim check-in is just "they are here".
   const _bikeless=!_needsBike(allSessions().find(x=>x.id===e.sessionId));
   const tyBtn=ty=>`<button type="button" class="toggle-btn${S._ciType===ty?' active':''}" onclick="S._ciType=${_ja(ty)};renderCheckinModal()">${typeLabel(ty)}</button>`;
@@ -17819,7 +17825,7 @@ function renderCheckinModal(){
       ${S._ciNfc?`<div role="status" style="margin-top:8px;font-size:12.5px;font-weight:700;color:var(--green)">${t('ciNfcNotice').replace('{0}',esc(e.name))}</div>`:''}
       ${_bikeless?'':_ciBikeFieldHtml(e)}
       ${_bikeless?'':`<button type="button" style="background:none;border:none;padding:0;margin:-4px 0 6px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;text-decoration:underline;font-family:var(--font-body)" onclick="_ciCarryPay();closeCheckinModal(true);openModal(${_ja(e.id)})">${t('assignBikeTitle')}…</button>`}
-      ${free?'':(()=>{
+      ${free?'':ownFree?`<div id="ci-money" style="margin:8px 0 0;font-size:14px;font-weight:800"><span class="own-free">${t('invFree')}</span></div>`:(()=>{
         // every rider as the modal would confirm them: the picked type's price, the picked payment
         const _pend=_ciAsConfirmed(e);
         const mine=_partyMoney([_pend]),all=_party.length>1?_partyMoney(_party.map(m=>_ciAsConfirmed(m))):null;
@@ -17828,29 +17834,30 @@ function renderCheckinModal(){
           <b style="font-size:14px"><bdi>${_fmtSar(mine.total)}</bdi></b>${mine.paidCount?`<span style="color:var(--green)">✓ ${t('paidLabel')}</span>`:''}
           ${all?`<span style="color:var(--muted-l)">·</span><span style="color:var(--muted)">${t(_batch?'ciBatchWord':'ciPartyWord')} <bdi>${_fmtSar(all.total)}</bdi></span><span style="color:${all.due>0?'var(--orange)':'var(--green)'}">${all.due>0?`<bdi>${_fmtSar(all.due)}</bdi> ${t('dueWord')}`:`✓ ${t('settledLabel')}`}</span>`:''}
         </div>`;})()}
-      ${free?'':`<div class="form-group" style="margin:8px 0 10px"><label>${t('colPayment')}${!e.paid?` · ${_fmtSar(_ciPendingPrice(e))}`:''}</label>
+      ${(free||ownFree)?'':`<div class="form-group" style="margin:8px 0 10px"><label>${t('colPayment')}${!e.paid?` · ${_fmtSar(_ciPendingPrice(e))}`:''}</label>
         <div class="ci-opts">
           ${payBtn('pending',' '+t('pendingLabel'))}
-          ${payBtn('card','✓ '+t('paidLabel')+' · '+t('cashCard'))}
+          ${payBtn('card','✓ '+t('paidLabel'))}
           ${payBtn('house',' '+t('onTheHouseLabel'))}
         </div></div>`}
       ${(_bikeless||(S._ciBike&&S._ciBike.bike))?'':`<div class="form-group" style="margin:8px 0 12px"><label>${t('bikeTypeLabel')}</label>
         <div class="ci-opts">${bikeTypeOpts(_ownOffered(allSessions().find(x=>x.id===e.sessionId)),_noCarbonSessIds.has(e.sessionId)).map(tyBtn).join('')}</div></div>`}
-      <div class="ci-actions">
-        <button type="button" id="ci-checkin" class="btn-sm btn-green" onclick="confirmCheckinModal()"${(_ciBikeBlocked()||S._ciSaving)?' disabled':''}>${t('checkInBtn')}</button>
-        <button type="button" class="btn-sm btn-muted" onclick="_ciNoShow()">${t('noShowBtn')}</button>
-        <button type="button" class="btn-sm btn-red" onclick="_ciCancelBooking()">${t('cancelBookingLabel')}</button>
-      </div>
+      <div class="form-group" style="margin:8px 0 0"><label id="ci-out-lbl">${t('colStatus')}</label>
+        <div class="ci-outcomes" role="radiogroup" aria-labelledby="ci-out-lbl">
+          ${[['checkin',t('checkInBtn')],['waiting',t('statusWaiting')],['noshow',t('noShowBtn')],['cancel',t('cancelBookingLabel')]].map(([v,l])=>{
+            const on=(S._ciOutcome||'checkin')===v;
+            return`<button type="button" id="ci-out-${v}" class="toggle-btn ci-out ci-out-${v}${on?' active':''}" role="radio" aria-checked="${on}" onclick="_ciPickOutcome(${_ja(v)})">${l}</button>`;}).join('')}
+        </div></div>
       <div id="ci-error" role="alert" style="color:var(--red);font-size:12.5px;font-weight:700;min-height:0;margin-top:8px">${S._ciErr?esc(S._ciErr):''}</div>
       <div class="modal-footer">
         <button class="btn-secondary" onclick="closeCheckinModal()">${t('closeBtn')}</button>
-        <button id="ci-confirm" class="btn-primary" onclick="applyCheckinChanges()"${S._ciSaving?' disabled':''}>${t('confirmBtn')}</button>
+        <button id="ci-confirm" class="btn-primary" onclick="confirmCheckinOutcome()"${(_ciConfirmBlocked()||S._ciSaving)?' disabled':''}>${t('confirmBtn')}</button>
       </div>
     </div></div>`;
   // First paint only (the pay/type toggles re-render): Confirm when a bike came with the
   // modal, otherwise the Bike field, which is where the next thing to arrive goes. After the
   // dialog focus manager (_syncModalFocus, 40ms after the mutation) has had its turn.
-  if(S._ciFocusOnce){S._ciFocusOnce=false;setTimeout(()=>{const c=document.getElementById(S._ciBike?'ci-checkin':'ci-bike')||document.getElementById('ci-checkin');if(c&&!c.disabled)c.focus();},120);}
+  if(S._ciFocusOnce){S._ciFocusOnce=false;setTimeout(()=>{const c=document.getElementById(S._ciBike?'ci-confirm':'ci-bike')||document.getElementById('ci-confirm');if(c&&!c.disabled)c.focus();},120);}
 }
 function closeCheckinModal(_noResume,_fromBus){
   const wasOpen=!!S._ciId; // renders call this defensively; only a real close forgets the open check-in
@@ -17936,12 +17943,24 @@ async function _addonsOnLeaveWaitlist(entry,wasWaitlist){
 // One Confirm at a time. A double tap ran the whole check-in twice: staff_checkin answers a
 // repeat with a no-op success, so everything after it ran again - a waitlisted rider's add-ons
 // taken from stock twice, the log line twice, the next rider's modal reset under the staffer.
+// The outcome is chosen like the payment is — Check in, Waiting, No-show or Cancel booking —
+// and nothing happens on the choice: Confirm applies it together with the payment, the bike
+// type and the bike (asked for 2026-09-24). Only a check-in needs a bike free to hand over.
+function _ciConfirmBlocked(){return (S._ciOutcome||'checkin')==='checkin'&&_ciBikeBlocked();}
+function _ciPickOutcome(v){S._ciOutcome=v;renderCheckinModal();}
+function confirmCheckinOutcome(){
+  const o=S._ciOutcome||'checkin';
+  if(o==='waiting')return applyCheckinChanges();
+  if(o==='noshow')return _ciNoShow();
+  if(o==='cancel')return _ciCancelBooking();
+  return confirmCheckinModal();
+}
 async function confirmCheckinModal(_bikeId){
   if(S._ciSaving)return;
   S._ciSaving=true;
-  const b=document.getElementById('ci-checkin');if(b)b.disabled=true;
+  const b=document.getElementById('ci-confirm');if(b)b.disabled=true;
   try{await _confirmCheckinRun(_bikeId);}
-  finally{S._ciSaving=false;const c=document.getElementById('ci-checkin');if(c)c.disabled=_ciBikeBlocked();}
+  finally{S._ciSaving=false;const c=document.getElementById('ci-confirm');if(c)c.disabled=_ciConfirmBlocked();}
 }
 // Confirm keeps what the modal changed — payment, bike type, and a picked bike held the way
 // Reserve bike holds one — and leaves the rider where they are. Checking them in is its own
@@ -17951,7 +17970,7 @@ async function applyCheckinChanges(){
   S._ciSaving=true;
   const b=document.getElementById('ci-confirm');if(b)b.disabled=true;
   try{await _confirmCheckinRun(null,true);}
-  finally{S._ciSaving=false;const c=document.getElementById('ci-confirm');if(c)c.disabled=false;}
+  finally{S._ciSaving=false;const c=document.getElementById('ci-confirm');if(c)c.disabled=_ciConfirmBlocked();}
 }
 async function _confirmCheckinRun(_bikeId,_applyOnly){
   const e=getQueue().find(x=>x.id===S._ciId);if(!e)return;
@@ -17975,7 +17994,7 @@ async function _confirmCheckinRun(_bikeId,_applyOnly){
     // registrations; showCheckinModal starts loading them, and a Confirm quicker than that load
     // used to price them at the public fare. Wait for it here.
     if(!S.ridersLoaded&&ty!==e.typePreference){const _s=allSessions().find(x=>x.id===e.sessionId);if(_s&&_s.ride_kind==='petromin')await loadRiders();}
-    const mode=S._ciPaid||'pending';
+    const mode=(ty==='Own'&&!(addonsCost(entryAddons(e))>0))?'house':(S._ciPaid||'pending'); // a bike owner is free
     const isHouseNow=e.paid&&(e.price??DEFAULT_PRICE)===0;
     const c=e.customerId?(S.customers||[]).find(x=>x.id===e.customerId):null;
     const houseForTy=c&&_custHouseFor(c,ty)&&String(c.name||'').trim().toLowerCase()===String(e.name||'').trim().toLowerCase();
@@ -20843,7 +20862,7 @@ function renderHistory(_resultsOnly){
       ${_hc.money?`<td onclick="event.stopPropagation()">
         <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
           ${e.status==='done'&&!e.paid&&!_freeSessIds.has(e.sessionId)?`<button class="btn-sm" title="${t('selectRowTip')}" onclick="toggleHistSelect(${_ja(e.id)})" style="padding:4px 8px;background:${S.histSelected.includes(e.id)?'rgba(var(--green-rgb),.18)':'rgba(var(--tint-rgb),.04)'};border:1px solid ${S.histSelected.includes(e.id)?'var(--green)':'rgba(var(--tint-rgb),.14)'};color:${S.histSelected.includes(e.id)?'var(--green)':'var(--muted)'}">${S.histSelected.includes(e.id)?_artIcon('boxOn',13):_artIcon('boxOff',13)}</button>`:''}
-          ${_freeSessIds.has(e.sessionId)?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu(${_ja(e.id)},event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
+          ${(_freeSessIds.has(e.sessionId)||_ownFree(e))?`<span style="color:var(--muted)">—</span>`:`<button class="pay-toggle ${e.paid&&(e.price??DEFAULT_PRICE)===0?'house':e.paid?'paid':'pending'}" onclick="showPayMenu(${_ja(e.id)},event)">${e.paid&&(e.price??DEFAULT_PRICE)===0?' '+t('onTheHouseLabel'):e.paid?'✓ '+t('paidLabel'):' '+t('pendingLabel')}</button>`}
           <button onclick="showEditPriceModal(${_ja(e.id)})" title="${t('editPriceBtn')}" aria-label="${t('editPriceBtn')}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;padding:6px;min-width:24px;min-height:24px;line-height:1" onmouseover="this.style.color='var(--green)'" onmouseout="this.style.color='var(--muted)'">${ICON_PENCIL}</button>
         </div>
       </td>`:''}

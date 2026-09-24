@@ -87,10 +87,10 @@ test('staff session with an open check-in: the modal reopens with the bike fille
   await expect(modal.locator('#ci-bike-spec')).toContainText('042');
   await expect(modal.locator('#ci-bike-spec')).toContainText('Carbon');
   await expect(modal).toContainText('You can confirm here');
-  await expect.poll(() => page.evaluate(() => document.activeElement && document.activeElement.id)).toBe('ci-checkin');
-  await expect(modal.locator('#ci-checkin')).toBeEnabled();
+  await expect.poll(() => page.evaluate(() => document.activeElement && document.activeElement.id)).toBe('ci-confirm');
+  await expect(modal.locator('#ci-confirm')).toBeEnabled();
 
-  await modal.locator('#ci-checkin').click();
+  await modal.locator('#ci-confirm').click();
   await expect.poll(() => rpcs.find((c) => c.name === 'staff_checkin')?.body).toEqual({ p_booking_id: 'e1', p_bike_id: 'b1' });
   await expect(modal).toBeHidden();
   await expect.poll(() => page.evaluate(() => localStorage.getItem('mm_active_checkin'))).toBeNull();
@@ -110,7 +110,7 @@ test('a bike that is out disables Confirm and names who has it', async ({ page }
   const modal = page.locator('#checkin-modal');
   await expect(modal).toHaveCSS('display', 'flex');
   await expect(modal.locator('#ci-bike-spec')).toContainText('Someone Else');
-  await expect(modal.locator('#ci-checkin')).toBeDisabled();
+  await expect(modal.locator('#ci-confirm')).toBeDisabled();
 });
 
 test('a database without the RPC: the classic check-in write runs instead', async ({ page }) => {
@@ -131,8 +131,8 @@ test('a database without the RPC: the classic check-in write runs instead', asyn
   await waitForSb(page);
 
   const modal = page.locator('#checkin-modal');
-  await expect(modal.locator('#ci-checkin')).toBeEnabled();
-  await modal.locator('#ci-checkin').click();
+  await expect(modal.locator('#ci-confirm')).toBeEnabled();
+  await modal.locator('#ci-confirm').click();
   await expect.poll(() => patched.some((p) => p.status === 'active' && p.assigned_bike_id === 'b1')).toBe(true);
   await expect(modal).toBeHidden();
 });
@@ -157,7 +157,7 @@ test('the in-app scanner reads a bike sticker into the open modal, and an expire
   await expect(modal).toHaveCSS('display', 'flex');
   await expect(modal.locator('#ci-bike')).toHaveValue('');
   // A payment already chosen must survive the arrival of the bike.
-  await modal.getByRole('button', { name: /Paid · Card/ }).click();
+  await modal.getByRole('button', { name: '✓ Paid', exact: true }).click();
   // @ts-expect-error app globals
   await page.evaluate(() => _onScanPayload('https://micromobilityrentals.pages.dev/?bike=42'));
   await expect(modal.locator('#ci-bike')).toHaveValue('42');
