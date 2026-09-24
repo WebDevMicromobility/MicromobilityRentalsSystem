@@ -73,6 +73,9 @@ with expected(fname, want_definer, note) as (values
   ('_employee_fare',         false, 'pure price table'),
   ('_booking_fare',          false, 'reads rider_registrations, but only ever runs inside the definer triggers; revoked from anon+authenticated'),
   ('_rider_link_reprice',    true,  'trigger: reprices the linked queue_entries row whoever made the link, anon form included'),
+  -- The website content store (20260924150000)
+  ('_site_content_log',     true,  'writes site_content_history, which has no write policy for anyone'),
+  ('_site_content_stamp',   false, 'sets updated_at/updated_by on NEW only'),
   -- The 2026-09-22 review fixes (20260922120100 … 124000)
   ('promo_lookup',           true,  'answers one code for the booking form; promo_codes is staff-only'),
   ('_ip_gate',               true,  'writes login_throttle for every per-network meter; internal only'),
