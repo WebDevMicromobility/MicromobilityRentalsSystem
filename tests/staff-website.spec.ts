@@ -3,8 +3,8 @@ import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
 
 // micromobility.sa is controlled from the staff page (owner, 2026-09-24). The Website section
 // reads site_content, edits the Coming Soon screen's words in English and Arabic, shows the
-// Coming Soon switch (locked until the Home page exists), lists the pages, and keeps a history
-// where any change can be put back. Admin only.
+// Coming Soon switch (locked until the Home page exists), switches the built pages on and off,
+// and keeps a history where any change can be put back. Admin only.
 
 const sessions = [{ id: '2099-05-05', day: 'Tuesday', session_date: '2099-05-05', capacity: 40, status: 'open', created_at: 1, bike_slots: '{"_time":"21:00 - 23:00"}' }];
 
@@ -130,6 +130,55 @@ test('a failed save says so and keeps what was typed', async ({ page }) => {
   await expect(page.locator('.toast').last()).toContainText('Could not save');
   await expect(f).toHaveValue('Micromobility KSA');
   await expect(page.locator('#web-save')).toBeEnabled();
+});
+
+test('a built page is switched on from the Pages list at once, with undo', async ({ page }) => {
+  const writes = await open(page);
+  const pages = panel(page).locator('.web-pages');
+  const row = pages.locator('tr', { hasText: 'Experiences' });
+  await expect(row).toContainText('Hidden');
+  const sw = row.locator('input.web-toggle');
+  await expect(sw).toBeEnabled();
+  await expect(sw).not.toBeChecked();
+  // Home opens with the Coming Soon switch, and a page that is not built cannot be switched on.
+  await expect(pages.locator('tr', { hasText: 'Home' }).locator('input.web-toggle')).toBeDisabled();
+  await expect(pages.locator('tr', { hasText: 'About' }).locator('input.web-toggle')).toBeDisabled();
+  await sw.click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0].body).toEqual([{ key: 'page.experiences.visible', value: true, updated_by: 'Spec Staff' }]);
+  await expect(page.locator('.toast').last()).toContainText('Page switched on: Experiences');
+  // Undo: the key did not exist before, so it is removed and the page is off again.
+  await page.evaluate(`doUndo()`);
+  await expect.poll(() => writes.length).toBe(2);
+  expect(writes[1].method).toBe('DELETE');
+  expect(writes[1].url).toContain('key=in.(page.experiences.visible)');
+});
+
+test('a page that is on waits for Coming Soon, then is live; off writes false', async ({ page }) => {
+  const writes = await open(page, { site_content: [{ key: 'page.club.visible', value: true }] });
+  const club = panel(page).locator('.web-pages tr', { hasText: 'Club' });
+  await expect(club).toContainText('On - opens with the site');
+  await expect(club.locator('input.web-toggle')).toBeChecked();
+  await club.locator('input.web-toggle').click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0].body).toEqual([{ key: 'page.club.visible', value: false, updated_by: 'Spec Staff' }]);
+  await expect(page.locator('.toast').last()).toContainText('Page switched off: Club');
+});
+
+test('with the site open, a page that is on is Live', async ({ page }) => {
+  await open(page, { site_content: [{ key: 'site.coming_soon', value: false }, { key: 'page.help.visible', value: true }] });
+  await expect(panel(page).locator('.web-pages tr', { hasText: 'Help' })).toContainText('Live');
+  await expect(panel(page).locator('.web-pages tr', { hasText: 'Workshop' })).toContainText('Hidden');
+});
+
+test('each built page opens in preview on its own', async ({ page }) => {
+  await open(page);
+  await page.evaluate(`sb.auth.getSession=async()=>({data:{session:{access_token:'tok.en'}}});window.__opened=[];window.open=u=>{window.__opened.push(u);return null;}`);
+  await panel(page).getByRole('button', { name: 'Preview · Workshop' }).click();
+  await expect.poll(() => page.evaluate('window.__opened.length')).toBe(1);
+  expect(await page.evaluate('window.__opened[0]')).toBe('https://micromobility.sa/en/preview#t=tok.en&to=%2Fworkshop');
+  // a page that is not built has nothing to preview
+  await expect(panel(page).locator('.web-pages tr', { hasText: 'About' }).getByRole('button')).toHaveCount(0);
 });
 
 test('in Arabic the section reads right to left', async ({ page }) => {
