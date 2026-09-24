@@ -35,6 +35,17 @@ test('the event picker carries the National Day card, with the official lockup',
   await expect(card.locator('img')).toHaveAttribute('src', 'assets/snd96-logo.svg');
 });
 
+test('once the ride is over the card is gone, and the other two stay', async ({ page }) => {
+  const over = { ...snd, session_date: '2020-09-23', status: 'closed' };
+  await stubSupabase(page, { ...fixtures, sessions: [jcc, over, sat] });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
+  await page.goto('/');
+  await waitForSb(page);
+  await expect(page.locator('#land-events .landing-event-card.ev-jcc')).toBeVisible();
+  await expect(page.locator('#land-events .landing-event-card.ev-snd96')).toHaveCount(0);
+  await expect(page.locator('#land-events .landing-event-card')).toHaveCount(2);
+});
+
 test('the ride is open to everyone: no members gate between the card and the sessions', async ({ page }) => {
   await boot(page);
   await page.locator('.landing-event-card.ev-snd96').click();

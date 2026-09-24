@@ -5611,13 +5611,10 @@ function _evMatch(s,ev){
 function _evOf(s){return _rideKind(s)==='workshop'?'workshop':_rideKind(s)==='snd96'?'snd96':_isCommunity(s)?'community':'jcc';}
 // ── The Saudi National Day 96 ride ────────────────────────────────────────────
 // A dated event, so its card dates itself out rather than sitting on the picker for ever:
-// it shows while a live ride is on the books, and until the National Day window closes.
-const SND96_CARD_UNTIL='2026-09-30';
+// it shows only while a live ride is on the books. The 2026 ride ended on 23 Sep, so the
+// card is gone until staff add next year's ride.
 function _snd96Live(){return allSessions().some(s=>_rideKind(s)==='snd96'&&_sessLive(s)&&!_sessPastDay(s));}
-function _showSnd96(){
-  if(_snd96Live())return true;
-  try{return new Date().toLocaleDateString('en-CA',{timeZone:KSA_TZ})<=SND96_CARD_UNTIL;}catch(e){return true;}
-}
+function _showSnd96(){return _snd96Live();}
 // One class on <body> carries the whole National Day skin; styles.css redefines the surface
 // tokens under it, so nothing that paints the flow has to know the ride has its own colours.
 function _sndOn(){
@@ -5810,6 +5807,7 @@ async function _openEventLink(){
   let dl=null;try{dl=JSON.parse(sessionStorage.getItem(_EVLINK_KEY)||'null');}catch(e){}
   if(!dl||!S.dataLoaded||S.view!=='landing'||!(S.loggedIn||getSession()))return;
   try{sessionStorage.removeItem(_EVLINK_KEY);}catch(e){}
+  if(dl.ev==='snd96'&&!_showSnd96())return; // no card, so no link into it either
   await selectEvent(dl.ev);
   if(!dl.session||S.selEvent!==dl.ev||S.view!=='customer')return;
   const s=allSessions().find(x=>x.id===dl.session);
