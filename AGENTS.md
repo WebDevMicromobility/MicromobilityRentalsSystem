@@ -81,6 +81,18 @@ Cloudflare Pages serves the repo root, so internal files must be blocked from pu
   window has streamed in, `loadDataLight()` fetches `QUEUE_BOOT_DAYS` of queue rows and sales
   and merges them over older rows; every tenth background poll is a full reload. A row older
   than two months edited on another device converges within five minutes, not thirty seconds.
+- **A signed-in staff device syncs, it does not re-read (2026-09-24).** `_syncFetch` keeps
+  bookings, riders and rider tags in IndexedDB (`mm-sync`) and asks `staff_sync` (migration
+  20260924230000) for the rows whose `updated_at` moved since the server clock of its last read,
+  less five minutes, plus the keys in `sync_deletions`. Each answer is the WHOLE list as the device
+  now holds it (`whole:true`), so callers merge it over nothing. Each list is read whole once a
+  day. No function (or a stub's `[]`) turns it off for the page and the old reads carry on. The
+  copy is dropped with the unlock (`_syncDrop`). A column the desk reads from `customers` must be
+  added to `cust_cols` in `staff_sync` as well as to `CUST_REF_COLS`.
+- **A customer's device is cheap to keep open.** It joins only `sessions` and `bikes` on the live
+  channel (`_rtTables`), ignores bike events outside My Rides, reloads at most once per
+  `RT_CUST_GAP_MS` (`_rtCustWait`), and in secure mode never asks for the staff-only lists
+  (`_custOnly`). `goStaff` rebuilds the channel with the staff tables (`_rtEnsureMode`).
 - **Paint first, reconcile after.** Check-in, bulk check-in, no-show and return set the local
   row and call `renderStaffQueue()` before awaiting any reload. Keep that order in new actions.
 - **Hot helpers are cached.** `shortDate` memoises per language; `_decidedByPerson()` and

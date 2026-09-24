@@ -1562,6 +1562,7 @@ async function staffAuthSignIn(identifier,password){
 async function staffAuthSignOut(){
   S._staffAuthed=false;
   _refLiveStop();
+  _syncDrop(); // the device's copy of the bookings and riders leaves with the account
   // The operator name belongs to the account that just left: drop the device copy so the
   // next sign-in restores that person's own name (or asks once) instead of inheriting this one.
   try{localStorage.removeItem('cq_op_name');}catch(_){}
@@ -1595,7 +1596,7 @@ async function staffAuthRestore(){
         const _noSession=!r.error||_m.includes('authsessionmissing')||_m.includes('session missing')
           ||_m.includes('refresh token not found')||_m.includes('invalid refresh token');
         if(_noSession){
-          if(SECURE_AUTH){try{localStorage.removeItem('cq_staff');}catch(_){}_clearActiveCheckin(false);} // the unlock goes, so does the open check-in
+          if(SECURE_AUTH){try{localStorage.removeItem('cq_staff');}catch(_){}_clearActiveCheckin(false);_syncDrop();_rtEnsureMode();} // the unlock goes, so do the open check-in, the device's copy of the lists and the staff tables on the live channel
         }
         S._staffAuthed=false;return;
       }
@@ -1612,7 +1613,7 @@ async function staffAuthRestore(){
   if(err){S._staffAuthed=false;return;}   // ditto: an error is not proof of non-staff
   if(!row){
     // A clean answer with no staff row IS a verdict: this account has no business here.
-    if(SECURE_AUTH){try{localStorage.removeItem('cq_staff');}catch(_){}_clearActiveCheckin(false);} // the unlock goes, so does the open check-in
+    if(SECURE_AUTH){try{localStorage.removeItem('cq_staff');}catch(_){}_clearActiveCheckin(false);_syncDrop();_rtEnsureMode();} // the unlock goes, so do the open check-in, the device's copy of the lists and the staff tables on the live channel
     S._staffAuthed=false;return;
   }
   S._staffAuthed=true;S._mustChangePwd=!!row.must_change_pwd;_staffRoleConfirmed(uid,row.role);
@@ -2508,10 +2509,12 @@ async function _refFetch(onCustomers){
     const gen=_refGen;_refFetching=true;_refMissed=[];
     let res;
     try{
+      // The riders and their tags come from this device's own copy, topped up with what changed
+      // (_syncFetch); the old whole reads stand in wherever there is no sync.
       res=await Promise.all([
-        _custListFetch(),
+        _syncFetch('c').then(s=>s||_custListFetch()),
         sb.from('tags').select('*').then(x=>x,e=>({data:null,error:e})),
-        _pagedAll(()=>sb.from('customer_tags').select('*').order('customer_id').order('tag_id')).catch(e=>({data:null,error:e})),
+        _syncFetch('ct').then(s=>s||_pagedAll(()=>sb.from('customer_tags').select('*').order('customer_id').order('tag_id'))).catch(e=>({data:null,error:e})),
         sb.from('breakfast_spots').select('*').then(x=>x,e=>({data:null,error:e})),
         sb.from('staff_options').select('*').then(x=>x,e=>({data:null,error:e})),
       ]);
@@ -2555,10 +2558,10 @@ async function _optionalFetch(){
       if(S._staffAuthed){try{let c=await sb.rpc('staff_inventory_costs');if(c.error)c=await sb.from('inventory').select('id,cost');if(!c.error&&Array.isArray(c.data)&&c.data.length){const m=new Map(c.data.map(r=>[r.id,r.cost]));rows.forEach(r=>{if(m.has(r.id))r.cost=m.get(r.id);});}}catch(e){}}
       S.inventory=rows;
     }catch(e){}})(),
-    (async()=>{try{const wl=await _pagedAll(()=>sb.from('desk_waitlist').select('*').order('id'),'id');if(!wl.error)S.deskWaitlist=wl.data||[];}catch(e){}})(),
-    (async()=>{try{const pc=await sb.from('promo_codes').select('*');if(!pc.error)S.promoCodes=pc.data||[];}catch(e){}})(),
+    (async()=>{if(_custOnly())return;try{const wl=await _pagedAll(()=>sb.from('desk_waitlist').select('*').order('id'),'id');if(!wl.error)S.deskWaitlist=wl.data||[];}catch(e){}})(),
+    (async()=>{if(_custOnly())return;try{const pc=await sb.from('promo_codes').select('*');if(!pc.error)S.promoCodes=pc.data||[];}catch(e){}})(),
     // cashier_sales grows one row per POS sale forever - page it or revenue reports silently under-count past 1000.
-    (async()=>{try{const cs=await _pagedAll(()=>sb.from('cashier_sales').select('*').order('id'),'id');if(!cs.error)S.cashSales=cs.data||[];}catch(e){}})(),
+    (async()=>{if(_custOnly())return;try{const cs=await _pagedAll(()=>sb.from('cashier_sales').select('*').order('id'),'id');if(!cs.error)S.cashSales=cs.data||[];}catch(e){}})(),
   ]);
 }
 const REF_TABLES=['customers','tags','customer_tags','breakfast_spots','staff_options'];
@@ -2575,9 +2578,121 @@ function _watchRefWrites(client){
     return qb;
   };
 }
+// ── A staff device's own copy of the big lists, kept in step by what changed ──────────────
+// Measured on 2026-09-24, staff devices were most of the project's egress: every open read the
+// 60-day window and then the whole year of bookings (~5,300 rows, ~4.7 MB), the year again
+// every half hour it stayed open, and the whole rider list and tag list on every open. A signed-
+// in staff device now keeps the bookings, the riders and the rider tags in IndexedDB and asks
+// staff_sync (migration 20260924230000) for the rows changed since it last looked and the keys
+// deleted since. One call is one database snapshot, and every answer is the whole list as the
+// device now holds it, so a caller lays it over nothing. Each list is still read whole once a
+// day. A database without the function, or an answer not shaped like one, turns the sync off for
+// the page's life and the old reads carry on, so this build is safe on either side of the
+// migration. Signing out, or losing the unlock, drops the copy (_syncDrop): it holds riders' details.
+const SYNC_V=1;                        // bump to throw away every device's copy (a key or a column that changed meaning)
+const SYNC_MARGIN_MS=5*60*1000;        // ask again for the last five minutes: a write committed after a read began can carry an earlier stamp
+const SYNC_FULL_EVERY_MS=24*3600*1000; // and read each list whole once a day, whatever the copy says
+const SYNC_TABLES={q:'queue_entries',c:'customers',ct:'customer_tags'};
+// The order the old reads came back in, which the lists have always been held in.
+const SYNC_ORDER={
+  q:(a,b)=>String(a.session_id).localeCompare(String(b.session_id))||((a.queue_num||0)-(b.queue_num||0))||String(a.id).localeCompare(String(b.id)),
+  c:(a,b)=>String(a.created_at||'').localeCompare(String(b.created_at||''))||String(a.id).localeCompare(String(b.id)),
+  ct:(a,b)=>String(a.customer_id).localeCompare(String(b.customer_id))||String(a.tag_id).localeCompare(String(b.tag_id)),
+};
+const _syncKey=(kind,r)=>kind==='ct'?(r.customer_id+'|'+r.tag_id):String(r.id);
+let _sync={},_syncOff=false,_syncSaveT={},_syncChain={};
+let _idbP=null;
+function _idb(){
+  if(_idbP)return _idbP;
+  _idbP=new Promise(res=>{
+    try{
+      if(typeof indexedDB==='undefined')return res(null);
+      const rq=indexedDB.open('mm-sync',1);
+      rq.onupgradeneeded=()=>{try{rq.result.createObjectStore('sets');}catch(_){}};
+      rq.onsuccess=()=>res(rq.result);rq.onerror=()=>res(null);rq.onblocked=()=>res(null);
+      setTimeout(()=>res(null),3000); // a store that never answers (some private modes) is no store: the lists are read whole
+    }catch(e){res(null);}
+  });
+  return _idbP;
+}
+// One request on the 'sets' store; resolves with its result, or null when there is no store.
+function _idbDo(mode,fn){
+  return _idb().then(db=>db?new Promise(res=>{
+    try{const tx=db.transaction('sets',mode);const rq=fn(tx.objectStore('sets'));tx.oncomplete=()=>res(rq?rq.result:null);tx.onerror=tx.onabort=()=>res(null);}
+    catch(e){res(null);}
+  }):null);
+}
+async function _syncLoad(kind){
+  const rec=await _idbDo('readonly',st=>st.get(kind));
+  if(!rec||rec.v!==SYNC_V||rec.url!==SUPABASE_URL||!rec.wm||!Array.isArray(rec.rows))return null;
+  const rows=new Map();rec.rows.forEach(r=>{if(r)rows.set(_syncKey(kind,r),r);});
+  return{wm:rec.wm,fullAt:rec.fullAt||0,savedAt:Date.now(),rows};
+}
+function _syncSave(kind){
+  clearTimeout(_syncSaveT[kind]);
+  _syncSaveT[kind]=setTimeout(()=>{
+    const st=_sync[kind];if(!st)return;st.savedAt=Date.now();
+    _idbDo('readwrite',s=>s.put({v:SYNC_V,url:SUPABASE_URL,wm:st.wm,fullAt:st.fullAt,rows:[...st.rows.values()]},kind));
+  },1500);
+}
+function _syncDrop(){
+  _sync={};Object.keys(_syncSaveT).forEach(k=>clearTimeout(_syncSaveT[k]));_syncSaveT={};
+  return _idbDo('readwrite',s=>s.clear());
+}
+// The list as this device now holds it ({data,error,whole}), or null when there is no sync to
+// be had and the caller reads the old way. One call per list at a time: a second waits for the
+// first, and then asks only for what changed after it.
+function _syncFetch(kind,cut){
+  if(_syncOff||!S._staffAuthed||!sb||typeof sb.rpc!=='function')return Promise.resolve(null);
+  // A fault in here must never cost the desk its data: it answers null and the old read takes over.
+  const run=(_syncChain[kind]||Promise.resolve()).then(()=>_syncRun(kind,cut)).catch(e=>{console.warn('sync:',e);return null;});
+  _syncChain[kind]=run;
+  return run;
+}
+async function _syncRun(kind,cut){
+  if(_syncOff||!S._staffAuthed)return null;
+  if(_sync[kind]===undefined)_sync[kind]=await _syncLoad(kind); // null: this device holds no copy
+  const st=_sync[kind];
+  const wmMs=st?Date.parse(st.wm):NaN;
+  const full=!st||!isFinite(wmMs)||(Date.now()-(st.fullAt||0))>SYNC_FULL_EVERY_MS;
+  const since=full?null:new Date(wmMs-SYNC_MARGIN_MS).toISOString();
+  let r;
+  try{r=await sb.rpc('staff_sync',{p_table:SYNC_TABLES[kind],p_since:since,p_cut:cut||null});}
+  catch(e){return{data:null,error:e};}
+  if(r.error){
+    if(_rpcAbsent(r.error)){_syncOff=true;return null;}
+    return{data:null,error:r.error}; // the network, or a staff session the server no longer accepts: the caller keeps what it holds
+  }
+  const d=r.data;
+  if(!d||typeof d!=='object'||Array.isArray(d)||!Array.isArray(d.rows)||!d.now){_syncOff=true;return null;}
+  if(_sync[kind]!==st)return{data:null,error:{message:'sync: the copy was dropped mid-read'}}; // signed out while the read was on the wire
+  const rows=full?new Map():st.rows;
+  d.rows.forEach(x=>{if(x)rows.set(_syncKey(kind,x),x);});
+  // A key deleted and then used again (a booking rolled back and inserted anew) stays: the row
+  // stamped after the delete is the one that exists.
+  if(!full)(d.deleted||[]).forEach(x=>{
+    const k=String(x&&x.id),cur=rows.get(k);if(!cur)return;
+    if(cur.updated_at&&x.at&&Date.parse(cur.updated_at)>Date.parse(x.at))return;
+    rows.delete(k);
+  });
+  if(cut)rows.forEach((x,k)=>{if(String(x.session_date||x.session_id||'')<cut)rows.delete(k);});
+  const changed=full||d.rows.length>0||(d.deleted||[]).length>0;
+  const next=_sync[kind]={wm:d.now,fullAt:full?Date.now():st.fullAt,savedAt:full?0:st.savedAt,rows};
+  if(changed||(Date.now()-(next.savedAt||0))>30*60*1000)_syncSave(kind); // keep the clock fresh on disk too, without rewriting megabytes on every quiet poll
+  return{data:[...rows.values()].sort(SYNC_ORDER[kind]),error:null,whole:true};
+}
+// A customer's device in secure mode: not unlocked for staff and no staff session. The staff-only
+// tables (sales, the desk list, promo codes, the team roster, the schema probes) answer it with
+// nothing under RLS; it asked for them anyway on every load and every realtime reload, some 3,000
+// empty requests a day (edge logs, 2026-09-24). It no longer asks.
+function _custOnly(){if(!SECURE_AUTH||S._staffAuthed)return false;try{return localStorage.getItem('cq_staff')!=='1';}catch(e){return true;}}
 async function _queueFetch(windowed,days){
   const wantSecure=SECURE_AUTH&&!S._staffAuthed;
   if(!wantSecure){
+    // A signed-in staff device asks for what changed since its own copy (_syncFetch); the answer
+    // is the whole year either way, flagged `whole` so the caller lays it over nothing.
+    const s=await _syncFetch('q',_qWindowCut(QUEUE_WINDOW_DAYS));
+    if(s)return s;
     return _pagedAll(()=>{
       let sel=sb.from('queue_entries').select('*');
       if(windowed)sel=sel.gte('session_date',_qWindowCut(days));
@@ -2712,8 +2827,8 @@ async function _loadDataInner(showLoader){
     const _keepPII=(typeof localStorage!=='undefined'&&localStorage.getItem('cq_staff')==='1');
     const _prevPII={};
     if(_keepPII)(S.queue||[]).forEach(e=>{if(e&&e.id&&((e.name||'').trim()||(e.phone||'').trim()))_prevPII[e.id]=e;});
-    S.queue=_qMerge((q.data||[]).map(entryFromDB),_qs&&_qs.cut);
-    _qWholeAt=_qs?(_qs.whole?Date.now():_qWholeAt):0;
+    S.queue=_qMerge((q.data||[]).map(entryFromDB),q.whole?null:(_qs&&_qs.cut)); // a synced answer is the whole year: laid over nothing
+    _qWholeAt=q.whole?Date.now():(_qs?(_qs.whole?Date.now():_qWholeAt):0);
     if(_keepPII)S.queue.forEach(e=>_carryKnown(e,_prevPII[e.id]));
   }
   try{_applyBookOutbox();}catch(_){}_bookOutboxFlush(); // surface + sync any bookings queued while offline
@@ -2755,7 +2870,7 @@ async function _afterOptional(){
   // MM Team roster is shared across devices via the team_members table. When it exists it's the
   // source of truth (plus any names already used in sales, which can never be lost). Falls back to
   // this device's localStorage when the table hasn't been created yet.
-  try{const{data,error}=await sb.from('team_members').select('name');if(!error&&Array.isArray(data)){const used=(S.cashSales||[]).map(r=>r.team_name).filter(Boolean);S.teamMembers=[...new Set([...data.map(r=>r.name).filter(Boolean),...used])].sort();try{localStorage.setItem('cq_team',JSON.stringify(S.teamMembers));}catch(e){}}}catch(e){}
+  if(!_custOnly())try{const{data,error}=await sb.from('team_members').select('name');if(!error&&Array.isArray(data)){const used=(S.cashSales||[]).map(r=>r.team_name).filter(Boolean);S.teamMembers=[...new Set([...data.map(r=>r.name).filter(Boolean),...used])].sort();try{localStorage.setItem('cq_team',JSON.stringify(S.teamMembers));}catch(e){}}}catch(e){}
 }
 let _bootReadyAt=0;
 let _lastLoadOk=false;   // the core data (queue, bikes, sessions) of the last load arrived
@@ -6317,6 +6432,7 @@ function staffAccessClick(){if(_isLiveCustomerHost()){location.href=STAFF_ORIGIN
 function goStaff(){
   const _onQueue=S.view==='staff'&&S.staffTab==='queue'; // the queue is already open: not a new opening
   localStorage.setItem('cq_staff','1');
+  _rtEnsureMode(); // a customer's device just unlocked: the live channel joins the staff tables
   showView('staff');
   // The signed-out landing keeps the auth page open; entering staff must clear it or the
   // overlay would sit on top of the panel (view is 'staff' now, so the close guard passes).
@@ -26714,7 +26830,7 @@ function _bootStaffTab(nav){
   const _staffEntry=sessionStorage.getItem('cq_staff_entry')==='1';
   if(_staffEntry)sessionStorage.removeItem('cq_staff_entry');
   {const _to=_staffRedirectFor(location.hostname,location.search,_staffEntry);if(_to){location.replace(_to);return;}}
-  if(_isLiveCustomerHost()){document.body.classList.add('no-staff-entry');try{localStorage.removeItem('cq_staff');}catch(e){}}
+  if(_isLiveCustomerHost()){document.body.classList.add('no-staff-entry');try{if(localStorage.getItem('cq_staff')==='1')_syncDrop();localStorage.removeItem('cq_staff');}catch(e){}} // a staff copy of the lists never stays on the customer address
   // /?bike=042 is what a bike's NFC tag holds (an NDEF URL record; iOS opens it in Safari on
   // tap). It is a staff URL and nothing else: the code comes off the address bar before any
   // view draws, is parked for goStaff() to consume once a staff session is confirmed, and a
@@ -26872,9 +26988,9 @@ async function _loadDataLightInner(){
   try{[q,ses,cs,bk,wl]=await Promise.all([
     _queueFetch(true,_qs?_qs.days:_lightDays),
     _sessionsFetch(),
-    _pagedAll(()=>{let cs=sb.from('cashier_sales').select('*');if(_cut)cs=cs.gte('created_at',_cut);return cs.order('id');},'id'), // paged like loadData; the same two-month window once the year is in
+    _custOnly()?null:_pagedAll(()=>{let cs=sb.from('cashier_sales').select('*');if(_cut)cs=cs.gte('created_at',_cut);return cs.order('id');},'id'), // paged like loadData; the same two-month window once the year is in
     sb.from('bikes').select('id,status'), // status-only (no photos) so availability stays fresh on the poll without a heavy payload
-    sb.from('desk_waitlist').select('*'), // small table; error-tolerant below (pre-migration DBs)
+    _custOnly()?null:sb.from('desk_waitlist').select('*'), // small table; error-tolerant below (pre-migration DBs)
   ]);}catch(e){S._netDown=true;_updateConnUI();return false;} // unreachable: keep current state, flag the connection
   // supabase-js answers a dead network with {error}, it does not throw, so the catch above almost
   // never ran - and the flag was cleared here on every poll, the captive-portal case included,
@@ -26886,8 +27002,8 @@ async function _loadDataLightInner(){
   if(_down)return false;
   if(q&&!q.error){
     _qColsLearn(q.data);
-    S.queue=_qMerge((q.data||[]).map(entryFromDB),_qs?_qs.cut:_cut);
-    _qWholeAt=_qs?(_qs.whole?Date.now():_qWholeAt):0;
+    S.queue=_qMerge((q.data||[]).map(entryFromDB),q.whole?null:(_qs?_qs.cut:_cut)); // a synced answer is the whole year: laid over nothing
+    _qWholeAt=q.whole?Date.now():(_qs?(_qs.whole?Date.now():_qWholeAt):0);
     try{_applyBookOutbox();}catch(_){}_bookOutboxFlush();
   }
   if(ses&&!ses.error)S.sessions=ses.data||[];
@@ -26986,7 +27102,10 @@ try{document.addEventListener('visibilitychange',()=>{
   if(document.hidden||(typeof window!=='undefined'&&window.__noWiden))return;
   _staffKeepAlive(); // the token could not refresh itself while the tab was hidden
   if(S.view==='staff')_autoRefresh(true); // full catch-up when the booth screen comes back
-  else if(S.view==='customer'&&S.custTab==='myrides'){loadData().then(()=>{try{_lastRefresh=Date.now();renderMyRides();renderLandingAvail();}catch(e){}}).catch(()=>{});} // customers had no poll/visibility catch-up — My Rides could sit stale
+  // Customers had no poll/visibility catch-up and My Rides could sit stale. The light set is what
+  // it draws from (the rider's own rides, the nights, the bikes' states), and not more often than
+  // a live event would bring it: switching to WhatsApp and back used to reload everything.
+  else if(S.view==='customer'&&S.custTab==='myrides'&&(Date.now()-_lastRefresh)>RT_CUST_GAP_MS){loadDataLight().then(ok=>{try{if(ok!==false)_lastRefresh=Date.now();renderMyRides();renderLandingAvail();}catch(e){}}).catch(()=>{});}
 });}catch(e){}
 // ── Supabase Realtime: ONE channel pushes DB changes to the screen (debounced); the 30s poll is the fallback. ──
 // Routes by table: bikes/inventory changes trigger a full reload (new rows + photos); everything else uses the slim
@@ -27017,6 +27136,18 @@ function _rtFetchRow(id){
   _rtFetchIds.add(id);if(_rtFetchT)return;
   _rtFetchT=setTimeout(()=>{_rtFetchT=null;const ids=[..._rtFetchIds];_rtFetchIds.clear();Promise.resolve(_reloadRows(ids)).catch(()=>{});},200);
 }
+// A customer's page answers the first event at once and then at most one reload every thirty
+// seconds, the trailing one spread over five more so a hundred phones do not ask in the same
+// second. A ride night changes a bike with every check-in and every return, and each change had
+// every open customer page reload (the edge logs show one phone making 29 reads in 24 seconds).
+const RT_CUST_GAP_MS=30000;
+let _rtCustAt=0,_rtCustT=null;
+function _rtCustWait(){
+  const wait=_rtCustAt+RT_CUST_GAP_MS-Date.now();
+  if(wait<=0){_rtCustAt=Date.now();return false;}
+  if(!_rtCustT)_rtCustT=setTimeout(()=>{_rtCustT=null;_rtApply();},wait+Math.random()*5000);
+  return true;
+}
 function _rtApply(){
   if(_rtDebounce)clearTimeout(_rtDebounce);
   _rtDebounce=setTimeout(async()=>{
@@ -27025,6 +27156,7 @@ function _rtApply(){
     const full=_rtWantFull;_rtWantFull=false;
     try{
       if(S.view==='staff'){await _autoRefresh(full);}
+      else if(_rtCustWait())return; // a customer's page reloads at most once per RT_CUST_GAP_MS; the last event of a burst still lands
       // My Rides reads the light set only. It used to take the FULL load whenever a bike changed -
       // every bike and inventory photo again - and every check-in and every return changes a bike,
       // so each rider keeping My Rides open at the venue re-downloaded the photos twice per ride.
@@ -27088,6 +27220,10 @@ function _rtMergeRow(payload){
 }
 function _onRt(payload){
   if(!payload)return _rtApply();
+  // A bike's status is drawn on a customer's device only in My Rides (their own bike at the
+  // venue); anywhere else a check-in or a return at the desk changes nothing on their screen.
+  // (A staff device keeps every event, whichever view it happens to show.)
+  if(payload.table==='bikes'&&_rtStaffMode===false&&S.custTab!=='myrides')return;
   // Only a staff device takes the FULL reload for these (inventory ships only there; a bike row
   // it could not merge). A customer's device reloads the light set whatever changed.
   const staff=S.view==='staff'&&!(typeof window!=='undefined'&&window.__noWiden);
@@ -27109,6 +27245,16 @@ function _rtScheduleRetry(){
   const delay=Math.min(30000,1000*Math.pow(2,Math.min(_rtRetry++,5))); // 1s,2s,4s…capped 30s
   _rtRetryT=setTimeout(()=>{_rtRetryT=null;setupRealtime();},delay);
 }
+// A customer's device listens to the two tables its screens are drawn from: sessions (a ride
+// filling up, opening, closing) and bikes (My Rides at the venue). It used to join all seven.
+// Bookings, sales, the desk list and rider forms are staff-only under RLS, so they never brought
+// it a single event - but the server still checked every change against every customer's
+// subscription to find that out. Stock changes with every sale at the till, and each one had
+// every open customer page reload. A device unlocked for staff rebuilds the channel (goStaff).
+let _rtStaffMode=null;
+function _rtStaffDevice(){try{return localStorage.getItem('cq_staff')==='1';}catch(e){return false;}}
+function _rtTables(staff){return staff?['queue_entries','desk_waitlist','sessions','bikes','inventory','cashier_sales','rider_registrations']:['sessions','bikes'];}
+function _rtEnsureMode(){if(_rtStaffMode!==null&&_rtStaffMode!==_rtStaffDevice())setupRealtime();}
 function setupRealtime(){
   if(!sb||!sb.channel)return;
   if(_rtRetryT){clearTimeout(_rtRetryT);_rtRetryT=null;} // this rebuild is the one that was pending
@@ -27117,16 +27263,13 @@ function setupRealtime(){
   // below and scheduled another rebuild.
   try{if(_rtChannel){const c=_rtChannel;_rtChannel=null;sb.removeChannel(c);}}catch(_){}
   try{
-    const _ch=_rtChannel=sb.channel('mmcq-live')
-      .on('postgres_changes',{event:'*',schema:'public',table:'queue_entries'},_onRt)
-      .on('postgres_changes',{event:'*',schema:'public',table:'desk_waitlist'},_onRt)
-      .on('postgres_changes',{event:'*',schema:'public',table:'sessions'},_onRt)
-      .on('postgres_changes',{event:'*',schema:'public',table:'bikes'},_onRt)
-      .on('postgres_changes',{event:'*',schema:'public',table:'inventory'},_onRt)
-      .on('postgres_changes',{event:'*',schema:'public',table:'cashier_sales'},_onRt)
-      // No customers binding: rider changes come on the private staff-ref channel below. The
-      // table is not in the publication and must not be - postgres_changes sends whole rows.
-      .on('postgres_changes',{event:'*',schema:'public',table:'rider_registrations'},_onRidersRt) // /register form submissions (own tab, own loader)
+    // No customers binding: rider changes come on the private staff-ref channel below. The
+    // table is not in the publication and must not be - postgres_changes sends whole rows.
+    // rider_registrations are the /register form submissions (own tab, own loader).
+    _rtStaffMode=_rtStaffDevice();
+    let _b=sb.channel('mmcq-live');
+    _rtTables(_rtStaffMode).forEach(tb=>{_b=_b.on('postgres_changes',{event:'*',schema:'public',table:tb},tb==='rider_registrations'?_onRidersRt:_onRt);});
+    const _ch=_rtChannel=_b
       .subscribe(status=>{
         // removeChannel() fires the REMOVED channel's callback with CLOSED — reacting to a
         // channel that is no longer ours scheduled a rebuild, whose removeChannel fired the
@@ -27219,7 +27362,7 @@ function _refLiveStop(){
 // Probe once whether the optional queue_entries.card_amount column exists. If not, the rental Split option is hidden
 // (it would otherwise silently down-categorize a split as cash). Default assumes present until proven missing.
 async function _probeSchema(){
-  if(!sb)return;
+  if(!sb||_custOnly())return; // staff questions (the split payment, sales by rider); a device unlocked later keeps the default, which assumes present
   try{
     const{error}=await sb.from('queue_entries').select('card_amount').limit(1);
     if(error){const m=((error.code||error.message)||'')+'';if(m.includes('42703')||/card_amount/i.test(m)||/does not exist/i.test(m)){S.hasCardAmount=false;try{document.querySelectorAll('.pay-menu-popup').forEach(x=>x.remove());}catch(_){}}}

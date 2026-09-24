@@ -100,6 +100,10 @@ with expected(fname, want_definer, note) as (values
   ('_amb_discount_sync',    true,  'reprices the ambassador promo codes when the discount is saved'),
   ('_amb_stamp',            false, 'sets updated_at/updated_by on NEW only'),
   ('_try_ts',               false, 'parses a text time; pure'),
+  -- Staff devices' delta sync (20260924230000)
+  ('staff_sync',            false, 'invoker on purpose: the tables'' own staff policies decide what it returns, and it refuses non-staff itself'),
+  ('_sync_touch',           false, 'sets updated_at on NEW only'),
+  ('_sync_tombstone',       true,  'writes sync_deletions, which the deleting role cannot'),
   -- The 2026-09-22 review fixes (20260922120100 … 124000)
   ('promo_lookup',           true,  'answers one code for the booking form; promo_codes is staff-only'),
   ('_ip_gate',               true,  'writes login_throttle for every per-network meter; internal only'),
