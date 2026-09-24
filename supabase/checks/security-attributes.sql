@@ -84,6 +84,22 @@ with expected(fname, want_definer, note) as (values
   -- Messages from the website (20260924170000)
   ('site_message_send',     true,  'the business and help forms write site_messages, which anon cannot touch; metered'),
   ('_site_messages_stamp',  false, 'sets updated_at/updated_by on NEW only'),
+  -- Ambassadors and the Club (20260924180000)
+  ('ambassador_apply',      true,  'the website form writes ambassadors, which anon cannot touch; metered'),
+  ('ambassador_portal',     true,  'one ambassador''s card for their code + mobile; metered'),
+  ('ambassador_redeem',     true,  'writes ambassador_redemptions for a code + mobile; metered'),
+  ('ambassador_board',      true,  'the season''s top five: first names and codes only; metered'),
+  ('club_card',             true,  'one member''s card for their email + mobile; reads customers and bookings; metered'),
+  ('club_rides',            true,  'upcoming open community rides: titles, days and times only; metered'),
+  ('staff_ambassador_set',  true,  'approves/pauses an ambassador and switches their promo code; checks is_staff() itself'),
+  ('staff_ambassador_stats',true,  'every ambassador''s numbers; checks is_staff() itself'),
+  ('_amb_events',           true,  'reads bookings and workshop jobs for a code; internal only'),
+  ('_amb_summary',          true,  'an ambassador''s totals; internal only'),
+  ('_amb_redeem_items',     true,  'reads the rewards list from site_content; internal only'),
+  ('_site_num',             true,  'reads one number from site_content; internal only'),
+  ('_amb_discount_sync',    true,  'reprices the ambassador promo codes when the discount is saved'),
+  ('_amb_stamp',            false, 'sets updated_at/updated_by on NEW only'),
+  ('_try_ts',               false, 'parses a text time; pure'),
   -- The 2026-09-22 review fixes (20260922120100 … 124000)
   ('promo_lookup',           true,  'answers one code for the booking form; promo_codes is staff-only'),
   ('_ip_gate',               true,  'writes login_throttle for every per-network meter; internal only'),
