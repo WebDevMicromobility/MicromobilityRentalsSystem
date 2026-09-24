@@ -2,6 +2,8 @@
 // CAN stop internal files from being served. Cloudflare Pages serves the whole repo
 // root; this blocks source, SQL, docs, configs, tests, dotfiles from the public.
 // App assets (.html/.css/.js/.png + manifest.json) pass through to next().
+const STAFF_ORIGIN = 'https://staff.micromobility.sa';
+
 export async function onRequest(context) {
   const raw = new URL(context.request.url).pathname;
 
@@ -45,6 +47,17 @@ export async function onRequest(context) {
     /(^|\/)\.[^/]+$/.test(path);                                        // dotfiles (.gitignore, .prettierrc, …)
 
   if (blocked) return notFound();
+
+  // The live customer address keeps no way into staff: the /staff/ stub, /?staff and an NFC
+  // tag's /?bike= all go on to the staff address. Previews and other hosts are untouched.
+  const reqUrl = new URL(context.request.url);
+  if (reqUrl.hostname.toLowerCase() === 'micromobilityrentals.pages.dev') {
+    const bike = (reqUrl.searchParams.get('bike') || '').trim();
+    if (path === '/staff' || path.startsWith('/staff/') || reqUrl.searchParams.has('staff') || reqUrl.searchParams.has('bike')) {
+      const to = STAFF_ORIGIN + '/' + (/^[0-9A-Za-z-]{1,40}$/.test(bike) ? '?bike=' + bike : '');
+      return new Response(null, { status: 302, headers: { location: to, 'cache-control': 'no-store' } });
+    }
+  }
 
   // staff.micromobility.sa serves the same app, and nothing on it is for search engines: its
   // robots.txt shuts every crawler out and every answer carries noindex.

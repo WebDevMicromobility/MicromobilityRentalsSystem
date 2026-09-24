@@ -5158,6 +5158,19 @@ function _syncCustNav(){
 // sign-in or the panel, never on the customer pages, and the sign-in cannot be closed onto
 // them. The customer site and the old /staff/ link are unchanged.
 function _isStaffHost(){try{return /^staff\./i.test(location.hostname);}catch(e){return false;}}
+// The live customer address keeps no way into staff: no Staff Access button, a device once
+// signed in as staff opens the customer site like anyone's, and a staff link (/?staff, the
+// /staff/ stub, an NFC tag's /?bike=) is sent on to the staff address. The middleware does the
+// same on the server; this covers a page the service worker answered from its cache. Previews,
+// local runs and the suite keep the old entrances.
+const STAFF_ORIGIN='https://staff.micromobility.sa';
+function _isLiveCustomerHost(h){return(h||location.hostname).toLowerCase()==='micromobilityrentals.pages.dev';}
+function _staffRedirectFor(h,search,staffEntry){
+  if(!_isLiveCustomerHost(h))return'';
+  const q=new URLSearchParams(search||'');
+  if(q.has('bike')){const b=String(q.get('bike')||'').trim();return STAFF_ORIGIN+'/'+(/^[0-9A-Za-z-]{1,40}$/.test(b)?'?bike='+b:'');}
+  return q.has('staff')||staffEntry?STAFF_ORIGIN+'/':'';
+}
 function _staffHostGate(){if(localStorage.getItem('cq_staff')==='1')goStaff();else{showView('landing');openPinModal();}}
 function showView(v){
   if(_isStaffHost()&&v==='customer')v='landing'; // no customer pages here; landing is blank on this host
@@ -6287,7 +6300,7 @@ async function _bikeArrived(code,src){
 
 // Staff Access (landing footer): the panel if this device is already unlocked, else the
 // staff sign-in (PIN, or email+password under SECURE_AUTH) - same rule as the /staff URL.
-function staffAccessClick(){if(localStorage.getItem('cq_staff')==='1')goStaff();else openPinModal();}
+function staffAccessClick(){if(_isLiveCustomerHost()){location.href=STAFF_ORIGIN+'/';return;}if(localStorage.getItem('cq_staff')==='1')goStaff();else openPinModal();}
 function goStaff(){
   const _onQueue=S.view==='staff'&&S.staffTab==='queue'; // the queue is already open: not a new opening
   localStorage.setItem('cq_staff','1');
@@ -25313,6 +25326,8 @@ function _bootStaffTab(nav){
   
   const _staffEntry=sessionStorage.getItem('cq_staff_entry')==='1';
   if(_staffEntry)sessionStorage.removeItem('cq_staff_entry');
+  {const _to=_staffRedirectFor(location.hostname,location.search,_staffEntry);if(_to){location.replace(_to);return;}}
+  if(_isLiveCustomerHost()){document.body.classList.add('no-staff-entry');try{localStorage.removeItem('cq_staff');}catch(e){}}
   // /?bike=042 is what a bike's NFC tag holds (an NDEF URL record; iOS opens it in Safari on
   // tap). It is a staff URL and nothing else: the code comes off the address bar before any
   // view draws, is parked for goStaff() to consume once a staff session is confirmed, and a

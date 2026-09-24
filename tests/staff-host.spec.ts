@@ -77,3 +77,47 @@ test.describe('the middleware on the staff address', () => {
     expect(await (await run('https://micromobilityrentals.pages.dev/robots.txt')).text()).toBe('asset');
   });
 });
+
+// The live customer address keeps no way into staff (2026-09-24). Only the live host changes:
+// previews, local runs and this suite keep the old entrances, so these check the rules directly.
+test.describe('the customer address, once staff has its own', () => {
+  const mw = async (url: string) => {
+    const mod = await import(pathToFileURL(resolve(__dirname, '..', 'functions/_middleware.js')).href + '?s=' + Math.random());
+    return mod.onRequest({ request: new Request(url), next: () => new Response('asset') }) as Promise<Response>;
+  };
+  test('the server sends every staff link on to the staff address', async () => {
+    const live = 'https://micromobilityrentals.pages.dev';
+    for (const [path, to] of [['/staff/', 'https://staff.micromobility.sa/'], ['/staff', 'https://staff.micromobility.sa/'],
+      ['/?staff', 'https://staff.micromobility.sa/'], ['/?bike=042', 'https://staff.micromobility.sa/?bike=042'],
+      ['/?bike=04A1B2C3D4', 'https://staff.micromobility.sa/?bike=04A1B2C3D4'], ['/?bike=<x>', 'https://staff.micromobility.sa/']]) {
+      const r = await mw(live + path);
+      expect(r.status, path).toBe(302);
+      expect(r.headers.get('location'), path).toBe(to);
+    }
+    expect((await mw(live + '/')).status).toBe(200);
+    expect((await mw(live + '/?lang=ar')).status).toBe(200);
+  });
+  test('previews and other hosts keep the old entrances', async () => {
+    expect((await mw('https://abc123.micromobilityrentals.pages.dev/staff/')).status).toBe(200);
+    expect((await mw('https://staff.micromobility.sa/?bike=042')).status).toBe(200);
+  });
+  test('the page does the same when the offline cache answered it', async ({ page }) => {
+    await stubSupabase(page, { sessions, queue_entries: [], bikes: [] });
+    await page.goto('/');
+    await waitForSb(page);
+    const r = await page.evaluate(`[
+      _staffRedirectFor('micromobilityrentals.pages.dev','?bike=042',false),
+      _staffRedirectFor('micromobilityrentals.pages.dev','?staff',false),
+      _staffRedirectFor('micromobilityrentals.pages.dev','',true),
+      _staffRedirectFor('micromobilityrentals.pages.dev','?lang=ar',false),
+      _staffRedirectFor('127.0.0.1','?staff',false),
+      _staffRedirectFor('staff.micromobility.sa','?bike=042',false)]`);
+    expect(r).toEqual(['https://staff.micromobility.sa/?bike=042', 'https://staff.micromobility.sa/', 'https://staff.micromobility.sa/', '', '', '']);
+  });
+  test('locally the Staff Access button is still there (only the live address hides it)', async ({ page }) => {
+    await stubSupabase(page, { sessions, queue_entries: [], bikes: [] });
+    await page.goto('/');
+    await waitForSb(page);
+    expect(await page.evaluate(`document.body.classList.contains('no-staff-entry')`)).toBe(false);
+  });
+});
