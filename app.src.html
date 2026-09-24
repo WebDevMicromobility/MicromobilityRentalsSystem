@@ -1969,6 +1969,9 @@ function _custTagNames(c){
   const mine=(S.customerTags||[]).filter(ct=>ct.customer_id===c.id&&_tagActive(ct));
   return mine.map(ct=>{const tg=(S.tags||[]).find(x=>x.id===ct.tag_id);return tg&&tg.name;}).filter(Boolean);
 }
+// iPhone, iPod and iPad. iPadOS asks for the desktop site and says "Macintosh", so a Mac that
+// reports a touch screen is an iPad: no Mac has one.
+function _isAppleTouch(){try{const ua=navigator.userAgent||'';return /iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&(navigator.maxTouchPoints||0)>1);}catch(e){return false;}}
 function saveCustomerContact(id){
   const c=(S.customers||[]).find(x=>x.id===id);if(!c)return;
   if(!c.phone&&!c.email){toast(t('amContactNone'),'warning');return;}
@@ -1977,9 +1980,24 @@ function saveCustomerContact(id){
   const text=_vcardFor(c);
   const file=`${String(c.name||'contact').replace(/[^\w\u0600-\u06FF -]/g,'').trim().slice(0,40)||'contact'}.vcf`;
   const done=()=>toast(t('amContactSaved').replace('{0}',c.name||''));
-  // The share sheet first. On a phone this is the only route that actually reaches Contacts:
-  // a download lands in Files and nobody goes looking for it. It must be called straight
-  // from the tap, so no await comes before it.
+  // iPhone and iPad: neither the share sheet nor a download reaches Contacts there (the sheet
+  // has no Contacts in it, a download lands in Files). A vCard served from the site is what
+  // Safari opens as the contact itself, with "Create New Contact" one tap away, so the card is
+  // posted to /api/contact (functions/api/contact.js), which hands the same bytes back as
+  // text/vcard. A POST, so no rider's details sit in a URL; a new tab, so the desk stays where
+  // it was (and a home-screen app, which has no Back, is not stranded on the card). No toast:
+  // nothing is saved until the rider's card is created on the phone's own screen.
+  if(_isAppleTouch()){
+    const f=document.createElement('form');
+    f.method='POST';f.action='/api/contact';f.target='_blank';f.style.display='none';
+    [['vcf',text],['name',file.replace(/\.vcf$/,'')]].forEach(([n,v])=>{const i=document.createElement('textarea');i.name=n;i.value=v;f.appendChild(i);});
+    document.body.appendChild(f);f.submit();setTimeout(()=>f.remove(),1000);
+    return;
+  }
+  // Elsewhere, the share sheet where the browser offers one for a contact card, and the
+  // download where it does not (Android's "Open" on it hands the card to Contacts; a desktop
+  // keeps it in the downloads folder). share() must be called straight from the tap, so no
+  // await comes before it.
   try{
     if(typeof File==='function'&&navigator.canShare){
       const f=new File([text],file,{type:'text/vcard'});
@@ -1989,7 +2007,7 @@ function saveCustomerContact(id){
       }
     }
   }catch(e){/* fall through to the download */}
-  // Desktop: an ordinary download, which every browser there handles.
+  // The download, which every browser handles.
   const url=URL.createObjectURL(new Blob([text],{type:'text/vcard;charset=utf-8'}));
   const a=document.createElement('a');
   a.href=url;a.download=file;a.rel='noopener';

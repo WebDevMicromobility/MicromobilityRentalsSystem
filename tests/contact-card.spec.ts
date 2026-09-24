@@ -99,3 +99,32 @@ test('what is handed over starts at BEGIN:VCARD, with no byte-order mark in fron
   expect(first.startsWith('BEGIN:VCARD')).toBe(true);   // a BOM here is what broke the parse
   expect(first).toContain('\r\n');
 });
+
+// An iPhone has no route from a card the page makes to Contacts: the share sheet has no
+// Contacts in it and a download lands in Files. Served from the site as text/vcard, Safari
+// opens it as the contact with "Create New Contact", so on an iPhone the card is posted to
+// /api/contact in a new tab. (What that endpoint answers is in pages-functions.spec.ts.)
+test.describe('on an iPhone', () => {
+  test.use({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.7 Mobile/15E148 Safari/604.1' });
+
+  test('the card is posted to the site and opens in a new tab, with nothing claimed as saved', async ({ page, context }) => {
+    await accounts(page);
+    let posted = '';
+    await context.route('**/api/contact', async (route) => {
+      posted = route.request().postData() || '';
+      await route.fulfill({ status: 200, headers: { 'content-type': 'text/plain' }, body: 'the card' });
+    });
+    const shared = await page.evaluate(`(()=>{window.__shared=false;navigator.share=()=>{window.__shared=true;return Promise.resolve();};navigator.canShare=()=>true;return 0;})()`);
+    expect(shared).toBe(0);
+    const [tab] = await Promise.all([context.waitForEvent('page'), page.locator('.am-vcard[onclick*="c1"]').click()]);
+    await tab.waitForLoadState();
+    expect(tab.url()).toContain('/api/contact');
+    const sent = new URLSearchParams(posted);
+    expect(sent.get('vcf')?.startsWith('BEGIN:VCARD')).toBe(true);
+    expect(sent.get('vcf')).toContain('FN:Amal Al Rashid');
+    expect(sent.get('vcf')).toContain('TEL;TYPE=CELL:+966500000001');
+    expect(sent.get('name')).toBe('Amal Al Rashid');
+    expect(await page.evaluate('window.__shared')).toBe(false);          // not the share sheet
+    await expect(page.locator('.toast', { hasText: 'saved as a contact' })).toHaveCount(0);
+  });
+});

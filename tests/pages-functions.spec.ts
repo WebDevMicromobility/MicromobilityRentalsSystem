@@ -183,3 +183,49 @@ test.describe('the Apple Wallet pass', () => {
     expect(res.body).toEqual({ ok: false, error: 'sign failed' });
   });
 });
+
+test.describe('the contact card endpoint', () => {
+  // An iPhone opens a vCard in Contacts only when the site serves it (functions/api/contact.js);
+  // the staff page posts the card it built and gets the same bytes back as text/vcard.
+  const card = 'BEGIN:VCARD\r\nVERSION:3.0\r\nN:Rashid;Amal Al;;;\r\nFN:Amal Al Rashid\r\nTEL;TYPE=CELL:+966500000001\r\nEND:VCARD';
+  const post = async (fields: Record<string, string>, headers: Record<string, string> = { 'sec-fetch-site': 'same-origin' }) => {
+    const onRequestPost = await load('functions/api/contact.js', 'onRequestPost');
+    return onRequestPost({
+      request: new Request('https://site.test/api/contact', {
+        method: 'POST',
+        headers: { 'content-type': 'application/x-www-form-urlencoded', ...headers },
+        body: new URLSearchParams(fields),
+      }),
+    });
+  };
+
+  test('hands the card back inline as text/vcard, the shape Safari opens as a contact', async () => {
+    const res = await post({ vcf: card, name: 'Amal Al Rashid' });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('text/vcard; charset=utf-8');
+    expect(res.headers.get('content-disposition')).toMatch(/^inline; filename="Amal Al Rashid\.vcf"; filename\*=UTF-8''Amal%20Al%20Rashid\.vcf$/);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(await res.text()).toBe(card);
+  });
+
+  test('an Arabic name is kept in filename*, with a plain stand-in for filename', async () => {
+    const res = await post({ vcf: card, name: 'أمل الراشد' });
+    const cd = res.headers.get('content-disposition') || '';
+    expect(cd).toContain('filename="contact.vcf"');
+    expect(cd).toContain("filename*=UTF-8''" + encodeURIComponent('أمل الراشد') + '.vcf');
+  });
+
+  test('answers only the site’s own pages', async () => {
+    expect((await post({ vcf: card }, { 'sec-fetch-site': 'cross-site', origin: 'https://evil.test' })).status).toBe(403);
+    expect((await post({ vcf: card }, {})).status).toBe(403);
+    // Safari before Sec-Fetch-Site still sends Origin on a form POST.
+    expect((await post({ vcf: card }, { origin: 'https://site.test' })).status).toBe(200);
+  });
+
+  test('refuses anything that is not a vCard, or too big to be one', async () => {
+    expect((await post({ vcf: '<html><script>alert(1)</script></html>' })).status).toBe(400);
+    expect((await post({ vcf: 'BEGIN:VCARD\r\nFN:' + 'x'.repeat(40000) + '\r\nEND:VCARD' })).status).toBe(400);
+    expect((await post({})).status).toBe(400);
+  });
+});
