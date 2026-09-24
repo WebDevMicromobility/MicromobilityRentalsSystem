@@ -142,7 +142,7 @@ test('a built page is switched on from the Pages list at once, with undo', async
   await expect(sw).not.toBeChecked();
   // Home opens with the Coming Soon switch, and a page that is not built cannot be switched on.
   await expect(pages.locator('tr', { hasText: 'Home' }).locator('input.web-toggle')).toBeDisabled();
-  await expect(pages.locator('tr', { hasText: 'About' }).locator('input.web-toggle')).toBeDisabled();
+  await expect(pages.locator('tr', { hasText: 'Store' }).locator('input.web-toggle')).toBeDisabled();
   await sw.click();
   await expect.poll(() => writes.length).toBe(1);
   expect(writes[0].body).toEqual([{ key: 'page.experiences.visible', value: true, updated_by: 'Spec Staff' }]);
@@ -178,7 +178,7 @@ test('each built page opens in preview on its own', async ({ page }) => {
   await expect.poll(() => page.evaluate('window.__opened.length')).toBe(1);
   expect(await page.evaluate('window.__opened[0]')).toBe('https://micromobility.sa/en/preview#t=tok.en&to=%2Fworkshop');
   // a page that is not built has nothing to preview
-  await expect(panel(page).locator('.web-pages tr', { hasText: 'About' }).getByRole('button')).toHaveCount(0);
+  await expect(panel(page).locator('.web-pages tr', { hasText: 'Store' }).getByRole('button')).toHaveCount(0);
 });
 
 test('in Arabic the section reads right to left', async ({ page }) => {

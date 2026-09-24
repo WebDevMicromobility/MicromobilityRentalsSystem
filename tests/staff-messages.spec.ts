@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
 
-// Messages from micromobility.sa - business enquiries and Help centre questions - land in the
+// Messages from micromobility.sa - business enquiries, Help centre questions and job applications - land in the
 // staff page (owner, 2026-09-24). Staff reply on WhatsApp or by email (the message is marked as
 // replied), keep notes and close it. Admin only.
 
@@ -155,6 +155,19 @@ test('the From filter and search narrow the list', async ({ page }) => {
   await page.locator('#sm-search-input').fill('m8');
   await expect(card(page, 8)).toBeVisible();
   await expect(panel(page).locator('.sm-row')).toHaveCount(1);
+});
+
+test('job applications from About arrive as their own kind, with the role', async ({ page }) => {
+  await open(page, { site_messages: [msg({}),
+    msg({ id: 10, kind: 'jobs', topic: 'ride-captain', name: 'Sara Ali', company: null, message: 'Three years leading group rides.' }),
+    msg({ id: 11, kind: 'jobs', topic: 'general', name: 'Omar Said', company: null, message: 'Any role in the workshop.' })] });
+  await expect(card(page, 10)).toContainText('Job application');
+  await expect(card(page, 10)).toContainText('Ride captain');
+  await expect(card(page, 11)).toContainText('Any role');
+  await panel(page).locator('.filter-toggle').click();
+  await page.locator('#sm-kind').selectOption('jobs');
+  await expect(panel(page).locator('.sm-row')).toHaveCount(2);
+  await expect(card(page, 7)).toHaveCount(0);
 });
 
 test('a failed save says so and leaves the message as it was', async ({ page }) => {
