@@ -104,7 +104,7 @@ returns boolean
 language plpgsql security definer set search_path to 'public'
 as $$
 declare
-  allowed text[] := array['queue','cashier','inventory','workshop','community','ambassadors','website','messages','analytics','history','team'];
+  allowed text[] := array['queue','dashboard','cashier','inventory','workshop','community','ambassadors','website','messages','analytics','history','team'];
 begin
   if not is_admin() then raise exception 'ADMIN_ONLY' using errcode = '42501'; end if;
   if p_user = auth.uid() then raise exception 'NOT_YOURSELF' using errcode = '42501'; end if;
