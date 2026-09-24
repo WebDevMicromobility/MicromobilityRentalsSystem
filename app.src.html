@@ -20386,6 +20386,7 @@ function _renderRiderModal(){
   m.innerHTML=`<div class="modal-backdrop" onclick="if(event.target===this)closeRiderModal()">
     <div class="modal-box" role="dialog" aria-modal="true" aria-label="${esc(r.booking_no||'')} ${esc(r.name)}" style="max-width:440px">
       <div class="modal-title"><span class="status-badge badge-active" style="font-variant-numeric:tabular-nums">${esc(r.booking_no||'')}</span> ${esc(r.name)}</div>
+      ${Number(r.submissions)>1?`<div class="rider-sent" style="margin-top:6px;font-size:12px;font-weight:700;color:var(--orange)">${esc(t('ridersResub').replace('{0}',String(r.submissions)))}</div>`:''}
       <div id="rider-state" style="margin-top:6px;font-size:13px;font-weight:800;color:${stateClr}">${state}${r.checked_in_at?` · <bdi>${esc(_riderClock(r.checked_in_at))}</bdi>`:''}${r.checked_out_at?` · <bdi>${esc(_riderClock(r.checked_out_at))}</bdi>`:''}${dur?` · ${esc(t('ridersRideTime').replace('{0}',dur))}`:''}</div>
       <div style="margin-top:10px">
         ${row(t('colBadge'),esc(r.badge))}
