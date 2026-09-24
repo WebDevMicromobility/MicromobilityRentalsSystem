@@ -6427,7 +6427,7 @@ function _staffBusListen(){
 // which takes the bike out here and in the tab where the check-in was opened.
 function _ciNfcReceiptHtml(e){
   const b=S._ciNfc&&S._ciBike&&S._ciBike.bike;if(!b)return'';
-  const want=S._ciType||resolvedType(e)||'Any',base=PREMIUM_TIERS[want]||want;
+  const want=resolvedType(e)||'Any',base=PREMIUM_TIERS[want]||want; // what was BOOKED - the type buttons follow the bike
   const size=e.size||(e.height?heightToSize(Number(e.height)):'');
   const match=(base==='Any'||b.type===base)&&(!size||!b.size||b.size===size);
   const line=match?t('nfcRcptMatch'):t('nfcRcptMismatch').replace('{0}',[typeLabel(want),size].filter(Boolean).join(' · ')).replace('{1}',[typeLabel(b.type),b.size].filter(Boolean).join(' · '));
