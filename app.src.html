@@ -7661,14 +7661,9 @@ function renderTopbarRight(){
     }
   } else if(S.view==='staff'){
     const last=S.undoStack.length?S.undoStack[S.undoStack.length-1]:null;
-    // Role switcher is ONE segmented control (active side lit) instead of a badge + a
-    // separate mode button - the pair read as two unrelated boxes before.
+    // No Admin / Front Desk switch: the role is the signed-in account's own (set on the Team page)
     el.innerHTML=`
       ${_gsBtnHtml()}${_ntBtnHtml()}${_opChipHtml()}
-      <div class="role-seg" role="group" aria-label="${t('roleAdmin')} / ${t('roleFrontDesk')}">
-        <button class="${isAdmin()?'on':''}" aria-pressed="${isAdmin()}" ${isAdmin()?'':`onclick="openPinModal(true)" title="${t('switchToAdmin')}"`}>${t('roleAdmin')}</button>
-        <button class="${isAdmin()?'':'on'}" aria-pressed="${!isAdmin()}" ${isAdmin()?`onclick="setStaffRole('frontdesk')" title="${t('switchToFrontDesk')}"`:''}>${t('roleFrontDesk')}</button>
-      </div>
       ${last?`<button class="topbar-btn undo-btn" onclick="doUndo()" title="${esc(last.label)}" style="animation:undoPulse 2s ease-in-out infinite">${_artIcon('undo',13)} ${t('undoBtn')}</button>`:''}
       ${S._staffAuthed?`<button class="topbar-btn icon" onclick="openStaffPwdModal()" title="${t('staffPwdTitle')}" aria-label="${t('staffPwdTitle')}">${_artIcon('key',14)}</button>`:''}
       <button class="topbar-btn danger icon" onclick="lockStaff()" title="${t('lockBtn')}" aria-label="${t('lockBtn')}">${_artIcon('lock',15)}</button>`;
@@ -7684,7 +7679,7 @@ function renderTopbarRight(){
 // opens where that thing lives. Front Desk searches only what its own sections hold.
 const GS_ST={waiting:'statusWaiting',waitlist:'statusWaitlist',active:'statusActive',done:'statusDone',noshow:'statusNoshow',cancelled:'statusCancelled'};
 function _gsBtnHtml(){
-  return `<button type="button" class="topbar-btn gs-btn" onclick="_gsOpen()" title="${esc(t('gsOpenBtn'))} (Ctrl K)" aria-label="${esc(t('gsOpenBtn'))}" aria-haspopup="dialog">${_artIcon('search',15)}<span class="gs-btn-lbl">${esc(t('gsPh'))}</span></button>`;
+  return `<button type="button" class="topbar-btn icon gs-btn" onclick="_gsOpen()" title="${esc(t('gsOpenBtn'))} (Ctrl K)" aria-label="${esc(t('gsOpenBtn'))}" aria-haspopup="dialog">${_artIcon('search',16)}</button>`;
 }
 function _gsHits(q){
   const raw=String(q||'').trim();if(raw.length<2)return null;
