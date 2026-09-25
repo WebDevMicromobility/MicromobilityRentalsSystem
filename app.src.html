@@ -5828,9 +5828,18 @@ async function selectSessCard(id){
 // and someone is signed in, exactly as tapping the event card and the date would, so every gate
 // (the profile page, the members gate, a rejected rider) answers the same way.
 const _EVLINK_KEY='cq_open_event';
+// ?tab=bookings: a ticket on micromobility.sa/account opens My Bookings here to reschedule or
+// cancel (the website never changes a booking itself). Parked the same way as an event link.
+const _TABLINK_KEY='cq_open_tab';
 function _readEventLink(){
   try{
     const q=new URLSearchParams(location.search);
+    if(q.get('tab')==='bookings'){
+      sessionStorage.setItem(_TABLINK_KEY,'myrides');
+      q.delete('tab');
+      const rest=q.toString();
+      history.replaceState(history.state,'',location.pathname+(rest?'?'+rest:'')+location.hash);
+    }
     if(!q.has('ev')&&!q.has('session'))return;
     const ev=q.get('ev')||'',sid=q.get('session')||'';
     if(['jcc','community','snd96','workshop'].includes(ev))
@@ -5841,6 +5850,12 @@ function _readEventLink(){
   }catch(e){}
 }
 async function _openEventLink(){
+  let tab=null;try{tab=sessionStorage.getItem(_TABLINK_KEY);}catch(e){}
+  if(tab==='myrides'&&S.dataLoaded&&S.view==='landing'&&(S.loggedIn||getSession())){
+    try{sessionStorage.removeItem(_TABLINK_KEY);}catch(e){}
+    setCustTab('myrides');
+    return;
+  }
   let dl=null;try{dl=JSON.parse(sessionStorage.getItem(_EVLINK_KEY)||'null');}catch(e){}
   if(!dl||!S.dataLoaded||S.view!=='landing'||!(S.loggedIn||getSession()))return;
   try{sessionStorage.removeItem(_EVLINK_KEY);}catch(e){}

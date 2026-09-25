@@ -55,3 +55,27 @@ test('a signed-out visitor keeps the link for after signing in', async ({ page }
   await page.waitForFunction(`S.view==='customer' && S.selSession==='2099-01-09'`);
   expect(await page.evaluate(`sessionStorage.getItem('cq_open_event')`)).toBeNull();
 });
+
+// micromobility.sa/account's tickets send Reschedule and Cancel here with ?tab=bookings: the rider
+// lands on My Bookings, where those changes are made. Parked for after signing in, like an event.
+test('?tab=bookings opens My Bookings for a signed-in rider, and comes off the address', async ({ page }) => {
+  await stubSupabase(page, fixtures);
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider' });
+  await page.goto('/?lang=en&tab=bookings');
+  await waitForSb(page);
+  await page.waitForFunction(`S.view==='customer' && S.custTab==='myrides'`);
+  expect(new URL(page.url()).search).toBe('?lang=en');
+  expect(await page.evaluate(`sessionStorage.getItem('cq_open_tab')`)).toBeNull();
+});
+
+test('?tab=bookings waits for a signed-out visitor to sign in', async ({ page }) => {
+  await stubSupabase(page, fixtures);
+  await page.goto('/?tab=bookings');
+  await waitForSb(page);
+  expect(new URL(page.url()).search).toBe('');
+  expect(await page.evaluate(`sessionStorage.getItem('cq_open_tab')`)).toBe('myrides');
+  expect(await page.evaluate('S.view')).toBe('landing');
+  await page.evaluate(`localStorage.setItem('cq_session', JSON.stringify({ id: 'c1', name: 'Spec Rider', email: 'spec@example.com', phone: '0500000001', session_token: 'tok-spec' })); S.loggedIn = getSession(); renderLandingAvail();`);
+  await page.waitForFunction(`S.view==='customer' && S.custTab==='myrides'`);
+  expect(await page.evaluate(`sessionStorage.getItem('cq_open_tab')`)).toBeNull();
+});
