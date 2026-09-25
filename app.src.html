@@ -6670,6 +6670,9 @@ function renderStaffTabs(){
     b.classList.toggle('active',_on);
     if(_on)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');
   });
+  // A group heading with none of its sections left (an account's own list) goes too.
+  {let grp=null,any=false;const fin=()=>{if(grp)grp.style.display=any?'':'none';};
+   [...document.getElementById('staff-tab-nav').children].forEach(n=>{if(n.classList.contains('snav-group')){fin();grp=n;any=false;}else if(n.classList.contains('tab-btn')&&n.style.display!=='none')any=true;});fin();}
   _syncStaffNavLabel();
   document.getElementById('tab-queue')     .classList.toggle('active',S.staffTab==='queue');
   document.getElementById('tab-inventory') .classList.toggle('active',S.staffTab==='inventory');
