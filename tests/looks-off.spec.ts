@@ -163,6 +163,23 @@ test('names in scripts with vowel signs, names written without spaces and Kyrgyz
   });
 });
 
+// Short forms written into names (user, 2026-09-25): "Md." and "Mohd." are a way of writing
+// Muhammad, not initials. Titles and initials written with periods still show.
+test('short forms such as Md., Mohd. and Jr. are not initials; Dr., A. and J.R. still are', async ({ page }) => {
+  await accounts(page);
+  const r = await page.evaluate(`(()=>{
+    const run=c=>{const o=[];_sxName(c.name,o);return o.map(x=>x.k);};
+    return {
+      mdDot: run({name:'Md. Abdul Karim'}), md: run({name:'Md Abdul Karim'}), mohdDot: run({name:'Mohd. Ali Khan'}),
+      jr: run({name:'Sara Khan Jr.'}), mdJoined: run({name:'Md.Rahman Khan'}),
+      initialDot: run({name:'Ahmed A.'}), dotted: run({name:'J.R. Smith'}), titleDot: run({name:'Dr. Ahmed Saleh'}), mdDotted: run({name:'M.D. Rahman'}),
+    };})()`);
+  expect(r).toEqual({
+    mdDot: [], md: [], mohdDot: [], jr: [], mdJoined: [],
+    initialDot: ['sxNameInitial'], dotted: ['sxNameInitial'], titleDot: ['sxNameInitial'], mdDotted: ['sxNameInitial'],
+  });
+});
+
 test('a phone-rules file that cannot be loaded is not asked for again on every redraw', async ({ page }) => {
   await stubSupabase(page, { sessions: [], queue_entries: [], bikes: [], customers, tags: [], customer_tags: [], staff_options: [] });
   let asked = 0;

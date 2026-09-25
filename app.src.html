@@ -26161,6 +26161,9 @@ function _sxDist(a,b){
 // Short words that belong in real names: Al Ghamdi, El Sayed, Habib ur Rehman, Zia ul Haq, Nasir
 // ud Din, De Souza, Da Silva, Le Roux, آل سعود, بن علي. Every other one- or two-letter part is shown.
 const SX_NAME_PARTICLES=new Set(['al','el','ul','ud','ur','de','da','di','du','la','le','آل','ال','بن']);
+// Short forms that are a way of writing a name, not an initial: Md (Muhammad), Jr, Sr - with or
+// without their period. A title (Dr, Mr) still shows, and so do initials written with periods (J.R.).
+const SX_NAME_SHORT=new Set(['md','jr','sr']);
 function _sxName(name,out){
   const s=String(name||'').trim();if(!s)return;
   if(/[​-‏‪-‮⁦-⁩﻿]/.test(s))out.push({f:'name',k:'sxNameHidden',v:s});
@@ -26175,7 +26178,7 @@ function _sxName(name,out){
   const bare=p=>p.replace(/[.'’-]/g,''); // a letter with its vowel sign is a syllable, not an initial
   // Chinese, Japanese and Korean names are written without a space between family and given name.
   if(parts.length===1&&!/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(parts[0]))out.push({f:'name',k:'sxNameOneWord',v:s});
-  else if(parts.length>1&&parts.some(p=>{const w=bare(p);return[...w].length<=2&&!SX_NAME_PARTICLES.has(w.toLowerCase());}))out.push({f:'name',k:'sxNameInitial',v:s}); // one or two letters: an initial or a short form, wherever it stands
+  else if(parts.length>1&&parts.some(p=>{const w=bare(p),lw=w.toLowerCase();return[...w].length<=2&&!SX_NAME_PARTICLES.has(lw)&&!(SX_NAME_SHORT.has(lw)&&!/\../.test(p));}))out.push({f:'name',k:'sxNameInitial',v:s}); // one or two letters: an initial or a short form, wherever it stands
   if(/(\p{L})\1\1/iu.test(letters))out.push({f:'name',k:'sxNameRepeat',v:s});
   // A run of Latin consonants is a hand on a keyboard, not a name. Other scripts write their
   // vowels as marks (or not at all), so this one asks only of Latin.
