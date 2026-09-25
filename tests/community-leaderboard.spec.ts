@@ -25,12 +25,12 @@ async function staff(page: Page) {
   await waitForSb(page);
 }
 
-test('Community opens on the Leaderboard, with Statistics, Accounts, Flagged and Applications after it', async ({ page }) => {
+test('Community opens on the Leaderboard, with Statistics, Accounts, Flagged, Applications and Birthdays after it', async ({ page }) => {
   await staff(page);
   await page.evaluate(`setStaffTab('community')`);
   const tab = page.locator('#tab-community');
   const pills = tab.locator('.filter-row').first().locator('.filter-pill');
-  await expect(pills).toHaveText(['Leaderboard', 'Statistics', 'Accounts', 'Flagged', /^Applications/]); // the pill carries the pending count
+  await expect(pills).toHaveText(['Leaderboard', 'Statistics', 'Accounts', 'Flagged', /^Applications/, /^Birthdays/]); // Applications carries the pending count, Birthdays today's
   await expect(pills.first()).toHaveClass(/active/);
   await expect(tab.locator('.form-title', { hasText: 'Leaderboard' })).toHaveCount(1);
   await expect(tab.getByText('Amal Top').first()).toBeVisible();
