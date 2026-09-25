@@ -32,6 +32,19 @@ async function staff(page: Page, x: Record<string, unknown> = {}) {
   await waitForSb(page);
 }
 
+test('the staff bar holds a search button, not a search bar, and no Admin / Front Desk switch', async ({ page }) => {
+  await staff(page);
+  const btn = page.locator('#topbar .gs-btn');
+  await expect(btn).toHaveAttribute('aria-label', 'Search');
+  await expect(btn).toHaveText('');
+  const box = await btn.boundingBox();
+  expect(box!.width).toBeLessThan(48);
+  await expect(page.locator('#topbar .role-seg')).toHaveCount(0);
+  await expect(page.locator('#topbar')).not.toContainText('Front Desk');
+  await btn.click();
+  await expect(page.locator('#gs-panel .gs-box')).toBeVisible();
+});
+
 test('the staff bar searches bookings, accounts, bikes and items, phones in any format', async ({ page }) => {
   await staff(page);
   await page.keyboard.press('Control+k');
