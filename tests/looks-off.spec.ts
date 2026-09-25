@@ -121,6 +121,11 @@ test('the checks themselves: providers, endings, Saudi shapes, dates and heights
       fake: run({name:'Sara Khalid',email:'a@b.com',phone:'+966500000000'}),
       initial: run({name:'Ahmed A',email:'a@b.com',phone:'+966551876215'}),
       middle: run({name:'Ahmed M Alharbi',email:'a@b.com',phone:'+966551876215'}),
+      twoLetters: run({name:'Mo Alharbi',email:'a@b.com',phone:'+966551876215'}),
+      title: run({name:'Dr Ahmed Saleh',email:'a@b.com',phone:'+966551876215'}),
+      particles: run({name:'Mohammed Al Ghamdi',email:'a@b.com',phone:'+966551876215'}),
+      particlesMore: run({name:'Habib ur Rehman',email:'a@b.com',phone:'+966551876215'}),
+      arabicParticles: run({name:'فهد بن عبدالله آل سعود',email:'a@b.com',phone:'+966551876215'}),
       mixed: run({name:'Ahmed أحمد',email:'a@b.com',phone:'+966551876215'}),
       diacritics: run({name:'مُحَمَّد العتيبي',email:'a@b.com',phone:'+966551876215'}),
       kid: run({name:'Sara Khalid',email:'a@b.com',phone:'+966551876215',birth_date:'2016-05-05',height:135}),
@@ -130,7 +135,8 @@ test('the checks themselves: providers, endings, Saudi shapes, dates and heights
   expect(r).toEqual({
     realNear: [], regional: [], gmailCo: ['sxEmailTypo'], badTld: ['sxEmailTld'], relay: [],
     twice: ['sxPhoneSaTwice'], zero: ['sxPhoneSaZero'], landline: ['sxPhoneSaNotMobile'], kg: ['sxPhoneKg'],
-    noCode: ['sxPhoneCode'], fake: ['sxPhoneFake'], initial: ['sxNameInitial'], middle: [], mixed: ['sxNameMixed'],
+    noCode: ['sxPhoneCode'], fake: ['sxPhoneFake'], initial: ['sxNameInitial'], middle: ['sxNameInitial'], mixed: ['sxNameMixed'],
+    twoLetters: ['sxNameInitial'], title: ['sxNameInitial'], particles: [], particlesMore: [], arabicParticles: [],
     diacritics: [], kid: [], tallKid: ['sxHeightAge'], afterSignup: ['sxDobYoung'],
   });
 });
