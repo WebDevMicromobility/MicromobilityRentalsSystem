@@ -75,7 +75,7 @@ test('the bell counts what needs attention, and Mark all read clears the badge',
   await expect(bell.locator('.nt-badge')).toHaveText('2'); // a ride past two hours, a helmet low on stock
   await bell.click();
   const panel = page.locator('#nt-panel .nt-box');
-  await expect(panel.locator('.nt-row')).toHaveText(['1 rides running over 2 hours', '1 items low on stock']);
+  await expect(panel.locator('.nt-row')).toHaveText(['Rides past 2 hours: 1', 'Items low on stock: 1']);
   await panel.getByRole('button', { name: 'Mark all read' }).click();
   await expect(bell.locator('.nt-badge')).toHaveCount(0);
   await expect(panel.locator('.nt-row')).toHaveCount(2); // still listed, no longer new
@@ -84,7 +84,7 @@ test('the bell counts what needs attention, and Mark all read clears the badge',
   expect(await page.evaluate('S.staffTab')).toBe('inventory');
   // Front Desk is not told about stock it cannot open
   await page.evaluate(`S.staffRole='frontdesk';renderTopbarRight();_ntOpen()`);
-  await expect(page.locator('#nt-panel .nt-row')).toHaveText(['1 rides running over 2 hours']);
+  await expect(page.locator('#nt-panel .nt-row')).toHaveText(['Rides past 2 hours: 1']);
 });
 
 test('Sync now sends what is waiting and says when all is up to date', async ({ page }) => {
