@@ -153,7 +153,10 @@ test.describe('Community > Birthdays', () => {
     const amal = page.locator('#bd-list .bd-row', { hasText: 'Amal Today' });
     const wa = amal.locator('a.bd-wa');
     expect(await wa.getAttribute('href')).toBe('https://wa.me/966551112222?text=' + encodeURIComponent('Happy birthday, Amal! 🎂 Everyone at Micromobility wishes you a wonderful year ahead, full of great rides. See you on the road! 🚴'));
-    await expect(page.locator('#bd-list .bd-row', { hasText: 'Badr Tomorrow' }).locator('.bd-wa.off')).toHaveAttribute('title', /said yes to ride news/);
+    // a birthday greeting does not wait for ride news (owner, 2026-09-25): Badr said no and still gets the button
+    await expect(page.locator('#bd-list .bd-row', { hasText: 'Badr Tomorrow' }).locator('a.bd-wa')).toHaveAttribute('href', /^https:\/\/wa\.me\/966553334444\?text=/);
+    // only an account with no mobile number has nothing to open
+    expect(await page.evaluate(`_bdWishHtml({id:'x',name:'No Phone',phone:''},2026)`)).toContain('bd-wa off" role="img" title="No mobile number on this account."');
     // Arabic, by the staff pick
     await page.locator('.bd-lang select').selectOption('ar');
     expect(decodeURIComponent((await page.locator('#bd-list .bd-row', { hasText: 'Amal Today' }).locator('a.bd-wa').getAttribute('href'))!)).toContain('كل عام وأنت بخير يا Amal!');
