@@ -3,7 +3,7 @@ import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
 
 // micromobility.sa is controlled from the staff page (owner, 2026-09-24). The Website section
 // reads site_content, edits the Coming Soon screen's words in English and Arabic, shows the
-// Coming Soon switch (locked until the Home page exists), switches the built pages on and off,
+// Coming Soon switch (it opens the site, after a confirmation), switches the built pages on and off,
 // and keeps a history where any change can be put back. Admin only.
 
 const sessions = [{ id: '2099-05-05', day: 'Tuesday', session_date: '2099-05-05', capacity: 40, status: 'open', created_at: 1, bike_slots: '{"_time":"21:00 - 23:00"}' }];
@@ -49,13 +49,21 @@ test('before the database update it says so, instead of failing', async ({ page 
   await expect(panel(page)).toContainText("isn't set up yet");
 });
 
-test('Coming Soon is on and cannot be turned off while there is no Home page', async ({ page }) => {
-  await open(page, { site_content: [{ key: 'site.coming_soon', value: true, updated_at: '2026-09-24T10:00:00Z', updated_by: 'migration' }] });
+test('Coming Soon is on; the switch opens the website only once confirmed', async ({ page }) => {
+  // Home is built (2026-09-25), so the switch is the one thing that opens the site.
+  const writes = await open(page, { site_content: [{ key: 'site.coming_soon', value: true, updated_at: '2026-09-24T10:00:00Z', updated_by: 'migration' }] });
   await expect(panel(page)).toContainText('Coming Soon is on');
-  await expect(page.locator('#web-cs-switch')).toBeChecked();
-  await expect(page.locator('#web-cs-switch')).toBeDisabled();
-  await expect(panel(page)).toContainText('once the Home page is built');
-  await expect(panel(page).locator('.web-table').first()).toContainText('Not built yet');
+  const sw = page.locator('#web-cs-switch');
+  await expect(sw).toBeChecked();
+  await expect(sw).toBeEnabled();
+  await expect(panel(page)).not.toContainText('once the Home page is built');
+  await expect(panel(page).locator('.web-table').first()).toContainText('Not built yet'); // the Store
+  await sw.click();
+  await expect(page.locator('#confirm-modal')).toContainText('Open the website?');
+  expect(writes.length).toBe(0); // nothing until it is confirmed
+  await page.locator('#confirm-modal').getByRole('button', { name: 'Open the website' }).click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0].body).toEqual([{ key: 'site.coming_soon', value: false, updated_by: 'Spec Staff' }]);
 });
 
 test('the Coming Soon words show what is saved, else the original wording', async ({ page }) => {
