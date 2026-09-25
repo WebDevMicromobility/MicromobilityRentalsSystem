@@ -23603,18 +23603,30 @@ async function _webShrink(file){
   const png=file.type==='image/png'; // keeps a transparent background (the hero bike)
   const type=png?'image/png':'image/jpeg';
   const blob=await new Promise(r=>c.toBlob(r,type,.85));
-  return{blob,type,ext:png?'png':'jpg'};
+  return{blob,type,ext:png?'png':'jpg',bmp};
+}
+// The website asks for a photo at the size it draws it (mm-platform lib/img.ts, /media/...?w=640):
+// a 640 and a 1280 px WebP are saved beside the photo, named <photo>.w640.webp. A browser that
+// cannot write WebP hands back a PNG instead; then no copy is saved and the website shows the photo.
+async function _webVariant(bmp,w){
+  if(!bmp||bmp.width<=w)return null;
+  const c=document.createElement('canvas');c.width=w;c.height=Math.max(1,Math.round(bmp.height*w/bmp.width));
+  c.getContext('2d').drawImage(bmp,0,0,c.width,c.height);
+  const b=await new Promise(r=>c.toBlob(r,'image/webp',.78));
+  return b&&b.type==='image/webp'?b:null;
 }
 async function _webEdUpload(file,k,i,fid){
   const E=_webEd(),page=k.split('.')[0];
   if(!/^image\/(jpeg|png|webp|avif)$/.test(file.type)){toast(t('webEdUploadType'),'error');return;}
   E.busy[k]=true;toast(t('webEdUploading'));
   try{
-    const{blob,type,ext}=await _webShrink(file);
+    const{blob,type,ext,bmp}=await _webShrink(file);
     if(!blob||blob.size>5*1024*1024){toast(t('webEdUploadBig'),'error');E.busy[k]=false;return;}
     const path=page+'/'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8)+'.'+ext;
     const{error}=await sb.storage.from('site').upload(path,blob,{contentType:type,upsert:false,cacheControl:'31536000'});
     if(error)throw error;
+    // The smaller copies are a convenience: one that fails to save only means the full photo is sent.
+    for(const w of [640,1280]){try{const v=await _webVariant(bmp,w);if(v)await sb.storage.from('site').upload(path.replace(/\.(jpg|png)$/,'.w'+w+'.webp'),v,{contentType:'image/webp',upsert:false,cacheControl:'31536000'});}catch(_){}}
     _webEdInput(k,i,fid,'','/media/'+path);
     renderWebsite();
     toast(t('webEdUploaded'));

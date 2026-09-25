@@ -1,3 +1,4 @@
+import zlib from 'node:zlib';
 import { test, expect, type Page } from '@playwright/test';
 import { stubSupabase, unlockStaff, waitForSb } from './helpers/supabase';
 
@@ -140,6 +141,35 @@ test('a photo is shrunk, uploaded to the site bucket and used by path', async ({
   const b = writes[0].body as { key: string; value: { url: string } }[];
   expect(b[0].key).toBe('home.hero.image');
   expect(b[0].value.url).toMatch(/^\/media\/home\/[a-z0-9]+-[a-z0-9]+\.png$/);
+});
+
+// A plain PNG of any size, for uploads larger than the website's smaller copies.
+function solidPng(w: number, h: number): Buffer {
+  const chunk = (type: string, data: Buffer) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(zlib.crc32(Buffer.concat([Buffer.from(type), data])));
+    return Buffer.concat([len, Buffer.from(type), data, crc]);
+  };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(w * 3, 0x55)]);
+  const raw = Buffer.concat(Array.from({ length: h }, () => row));
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+}
+
+test('a large photo also gets the 640 and 1280 px WebP copies the website asks for', async ({ page }) => {
+  await open(page);
+  const uploads: { url: string }[] = [];
+  await page.route(/\/storage\/v1\/object\/site\//, r => {
+    uploads.push({ url: decodeURIComponent(r.request().url()) });
+    return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ Key: 'site/x', Id: '1' }) });
+  });
+  const chooser = page.waitForEvent('filechooser');
+  await page.locator('#tab-website .web-ed-img').getByRole('button', { name: 'Upload photo' }).click();
+  await (await chooser).setFiles({ name: 'wide.png', mimeType: 'image/png', buffer: solidPng(1500, 800) });
+  await expect(page.locator('.toast').last()).toContainText('Photo uploaded');
+  const main = uploads[0].url.match(/site\/(home\/[a-z0-9]+-[a-z0-9]+)\.png$/);
+  expect(main).not.toBeNull();
+  expect(uploads.slice(1).map(u => u.url.replace(/^.*\/object\/site\//, ''))).toEqual([`${main![1]}.w640.webp`, `${main![1]}.w1280.webp`]);
 });
 
 test('when micromobility.sa cannot be reached it says so, with a retry', async ({ page }) => {
