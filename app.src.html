@@ -2185,6 +2185,44 @@ const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 // during parse. _sbReady resolves once it's loaded and the client is created; every
 // parse-time consumer (boot, realtime, schema probe, outbox) waits on it.
 let sb;
+// A sign-in token the server refuses is renewed once and the request sent again. supabase-js
+// judges a token's expiry by the phone's own clock, so a phone running slow kept sending a
+// Google sign-in the server had already expired, without ever renewing it: every read came
+// back 401 (PGRST303), the public ones too, and the rider was told no sessions were available
+// while the week's rides were open (24 Sep 2026). A renewal is the server's clock answering.
+// One renewal serves every request refused in the same burst; a request that still fails, or
+// a renewal that cannot be had, returns the original refusal - never the public key, because
+// customer_oauth_login answers the public key with "no account" and would send an existing
+// rider to the sign-up form.
+let _jwtRenewP=null;
+function _jwtRenew(stale){
+  if(!_jwtRenewP)_jwtRenewP=(async()=>{
+    try{
+      const cur=await sb.auth.getSession();
+      const tok=cur&&cur.data&&cur.data.session&&cur.data.session.access_token;
+      if(!tok||tok!==stale)return tok||null; // renewed while this request was out, or signed out
+      const r=await sb.auth.refreshSession();
+      return (!r.error&&r.data&&r.data.session&&r.data.session.access_token)||null;
+    }catch(e){return null;}
+  })().finally(()=>{setTimeout(()=>{_jwtRenewP=null;},0);});
+  return _jwtRenewP;
+}
+async function _sbFetch(input,init){
+  const res=await fetch(input,init);
+  if(res.status!==401)return res;
+  try{
+    if(String((input&&input.url)||input).indexOf('/rest/v1/')<0)return res;
+    const h=new Headers((init&&init.headers)||undefined);
+    const used=(h.get('Authorization')||'').replace(/^Bearer\s+/i,'');
+    if(!used||used===SUPABASE_KEY||!sb)return res; // the public key was refused: there is no sign-in to renew
+    const body=await res.clone().json().catch(()=>null);
+    if(!body||(body.code!=='PGRST301'&&body.code!=='PGRST303'))return res;
+    const tok=await _jwtRenew(used);
+    if(!tok||tok===used)return res;
+    h.set('Authorization','Bearer '+tok);
+    return await fetch(input,{...init,headers:h});
+  }catch(e){return res;}
+}
 // Resolves once supabase-js has loaded and the client is built. Critically, it ALSO
 // resolves after a hard timeout: if the CDN is blocked/slow (ad-blocker, extension,
 // flaky network) supabase-js may never arrive, and without this cap `await _sbReady`
@@ -2196,7 +2234,7 @@ const _sbReady=new Promise(res=>{
   (function w(){
     if(sb)return; // client already built
     if(window.supabase&&window.supabase.createClient){
-      try{sb=_roWrap(window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY));}catch(e){console.error('Supabase init failed:',e.message);}
+      try{sb=_roWrap(window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{global:{fetch:_sbFetch}}));}catch(e){console.error('Supabase init failed:',e.message);}
       // Any write to a reference table marks the cached copy stale, wherever it comes from.
       // One wrapper rather than a refDirty() call at twenty-five sites, which the next write
       // added would quietly forget — and a forgotten one shows a real customer as "not found".
@@ -2788,6 +2826,16 @@ async function _sessionsFetch(){
   // for stable range paging since two events can share a date.)
   return _pagedAll(()=>sb.from('sessions').select('*').order('session_date').order('id'));
 }
+// The last sessions read failed and none are held from before. The pickers say so and offer a
+// retry: "no sessions are available" read as the truth, and riders reported that the rides
+// were gone while the week's rides were open.
+function _sessLoadFailed(){return !!S._sessErr&&!(S.sessions||[]).length;}
+let _sessRetryBusy=false;
+async function _sessRetry(){
+  if(_sessRetryBusy)return;_sessRetryBusy=true;
+  try{await loadData();}catch(e){}finally{_sessRetryBusy=false;}
+  try{_refreshView();}catch(e){}
+}
 
 let _bootDone=false;
 // A burst of actions (a bulk check-in, a fast till) used to stack a full reload per action,
@@ -2853,6 +2901,7 @@ async function _loadDataInner(showLoader){
   if(q.error)console.error('loadData queue error:',q.error.message);
   if(b.error)console.error('loadData bikes error:',b.error.message);
   if(ses.error)console.error('loadData sessions error:',ses.error.message);
+  S._sessErr=!!ses.error; // an empty picker then says the rides could not be loaded, not that there are none
   // Total failure = the three core fetches all errored (the customer list is not part of this
   // test - the old !c.data condition made this branch unreachable).
   if(q.error&&b.error&&ses.error){S.dataLoaded=true;try{_applyBookOutbox();}catch(_){}_bookOutboxFlush();toast(t('toastConnStale'),'error');if(_isNetErr(q.error)){S._netDown=true;_updateConnUI();}return false;} // false: the caller must not call the screen fresh
@@ -6427,6 +6476,10 @@ function renderLandingAvail(){
   }
   if(cust){strip.innerHTML='';_openEventLink();return;} // signed-in landing shows no availability strip; a parked event link opens now
   const open=openSessions().filter(s=>_evMatch(s,'jcc')&&!_sessPastDay(s)); // strip = public JCC availability only, today onwards; every row opens the circuit list, so it lists what that list holds
+  if(!open.length&&_sessLoadFailed()){
+    strip.innerHTML=`<div class="landing-avail-empty sess-load-err">${t('errConnection')} <button type="button" class="btn-sm btn-secondary" onclick="_sessRetry()">${t('retryBtn')}</button></div>`;
+    return;
+  }
   if(!open.length){
     // v2: distinguish "everything is booked out" from "nothing scheduled".
     const anyFull=allSessions().some(s=>_sessFull(s)&&_evMatch(s,'jcc'));
@@ -8238,6 +8291,8 @@ function renderRegister(){
           <span class="sess-card-time">${sessionTime(s)}</span>
         </button>`;
       }).join('')
+    : _sessLoadFailed()
+    ? `<div class="empty-state sess-load-err">${t('errConnection')}<div style="margin-top:10px"><button type="button" class="btn-sm btn-secondary" onclick="_sessRetry()">${t('retryBtn')}</button></div></div>`
     : `<div style="text-align:center;padding:28px 20px 20px">
         <div style="font-size:16px;font-weight:900;margin-bottom:8px">${t('noSessionsAvail')}</div>
         <div style="font-size:13px;color:var(--muted-l);font-weight:600;margin-bottom:18px">${t('noSessionsSocial')}</div>
@@ -28423,6 +28478,7 @@ async function _loadDataLightInner(){
   // the network.
   const _down=[q,ses].every(r=>!r||(r.error&&_isNetErr(r.error)));
   S._netDown=_down;_updateConnUI();
+  if(ses)S._sessErr=!!ses.error;
   if(_down)return false;
   if(q&&!q.error){
     _qColsLearn(q.data);
