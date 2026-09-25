@@ -100,23 +100,34 @@ test('the bell counts what needs attention, and Mark all read clears the badge',
   await expect(page.locator('#nt-panel .nt-row')).toHaveText(['Rides past 2 hours: 1']);
 });
 
-// The bell remembers which items were marked read, not how many (2026-09-25): a count taken
-// before the lists had loaded read as zero, and every reload brought read notifications back.
-test('what was marked read stays read, even when the bell counts before its lists have loaded', async ({ page }) => {
+// The bell remembers which items were marked read, not how many (2026-09-25), and forgets one only
+// against a list that has loaded. A page opens on its snapshot, and the inventory arrives after the
+// first paint: counted against the snapshot's copy, the helmet read earlier came back as new.
+test('what was marked read stays read across a reload, while the page shows its snapshot and the inventory is on its way', async ({ page }) => {
   await staff(page);
   const bell = page.locator('#nt-btn');
   await expect(bell.locator('.nt-badge')).toHaveText('2');
   await bell.click();
   await page.locator('#nt-panel').getByRole('button', { name: 'Mark all read' }).click();
   await expect(bell.locator('.nt-badge')).toHaveCount(0);
-  // a page opening: the lists are still empty when the bell first counts, then they arrive
-  await page.evaluate(`(()=>{const q=S.queue,inv=S.inventory;S.queue=[];S.inventory=[];S.dataLoaded=false;_ntSync();S.queue=q;S.inventory=inv;S.dataLoaded=true;_ntSync();})()`);
-  await expect(bell.locator('.nt-badge')).toHaveCount(0);
+  // the snapshot this device keeps, from before the helmet ran low; the inventory read takes a while
+  await page.evaluate(`localStorage.setItem('cq_snapshot',JSON.stringify({q:S.queue,ses:S.sessions,bk:S.bikes,inv:[],cs:[]}))`);
+  await page.route(/\/rest\/v1\/inventory/, async route => { await new Promise(r => setTimeout(r, 1500)); await route.fallback(); });
   await page.reload();
   await waitForSb(page);
-  await page.waitForFunction('S.dataLoaded&&getQueue().length>0');
+  expect(await page.evaluate('S.inventory.length')).toBe(1);
   await page.evaluate('_ntSync()');
   await expect(page.locator('#nt-btn .nt-badge')).toHaveCount(0);
+});
+
+test('Mark all read clears the bell however many items are listed', async ({ page }) => {
+  await staff(page);
+  await page.evaluate(`S.inventory=Array.from({length:350},(_,i)=>({id:'k'+i,name:'Item '+i,category:'Helmet',qty:0,low_threshold:1,price:1}));_ntSync()`);
+  const bell = page.locator('#nt-btn');
+  await expect(bell.locator('.nt-badge')).toHaveText('2');
+  await bell.click();
+  await page.locator('#nt-panel').getByRole('button', { name: 'Mark all read' }).click();
+  await expect(bell.locator('.nt-badge')).toHaveCount(0);
 });
 
 test('a different item is new even at the same count, and a read one that clears and returns is new again', async ({ page }) => {

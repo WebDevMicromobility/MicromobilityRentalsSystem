@@ -68,6 +68,31 @@ test('?tab=bookings opens My Bookings for a signed-in rider, and comes off the a
   expect(await page.evaluate(`sessionStorage.getItem('cq_open_tab')`)).toBeNull();
 });
 
+test('the newest link wins: ?tab=bookings drops an event link still waiting in the tab', async ({ page }) => {
+  await stubSupabase(page, fixtures);
+  await page.goto('/?ev=jcc&session=2099-01-09');
+  await waitForSb(page);
+  expect(await page.evaluate(`sessionStorage.getItem('cq_open_event')`)).not.toBeNull();
+  await page.goto('/?tab=bookings');
+  await waitForSb(page);
+  expect(await page.evaluate(`sessionStorage.getItem('cq_open_event')`)).toBeNull();
+  expect(await page.evaluate(`sessionStorage.getItem('cq_open_tab')`)).toBe('myrides');
+  await page.goto('/?ev=jcc&session=2099-01-09');                                        // and the other way round
+  await waitForSb(page);
+  expect(await page.evaluate(`sessionStorage.getItem('cq_open_tab')`)).toBeNull();
+});
+
+test('a parked link waits for the remembered session to be checked, and outlives a dead one', async ({ page }) => {
+  await stubSupabase(page, { ...fixtures, 'rpc:customer_token_ok': false });
+  await loginCustomer(page, { id: 'c1', name: 'Spec Rider', session_token: 'tok-rotated' });
+  await page.goto('/?lang=en&tab=bookings');
+  await waitForSb(page);
+  await page.waitForFunction(`!S.loggedIn && S.view==='landing'`);                      // signed out: the token was rotated away
+  expect(await page.evaluate(`sessionStorage.getItem('cq_open_tab')`)).toBe('myrides');
+  await page.evaluate(`localStorage.setItem('cq_session', JSON.stringify({ id: 'c1', name: 'Spec Rider', email: 'spec@example.com', phone: '0500000001', session_token: 'tok-new' })); S.loggedIn = getSession(); renderLandingAvail();`);
+  await page.waitForFunction(`S.view==='customer' && S.custTab==='myrides'`);
+});
+
 test('?tab=bookings waits for a signed-out visitor to sign in', async ({ page }) => {
   await stubSupabase(page, fixtures);
   await page.goto('/?tab=bookings');

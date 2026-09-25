@@ -2525,6 +2525,10 @@ async function _pagedAll(makeSel,key){
 // the project's egress. While it is down, or the list in hand was read before staff auth
 // (RLS returns no rows then), the five minutes stand.
 let _refAt=0,_refDirty=true,_refInFlight=null,_refByStaff=false,_refLive=false; // _refLive: the staff-ref channel is joined
+// Which lists hold the server's answer rather than an empty or partial one. Set by the fetch that
+// read them: the inventory, staff_options and the riders with their tags, both read by a signed-in
+// staff session (RLS answers anyone else with no rows, not an error). The bell reads them.
+const _listOk={inv:false,opts:false,riders:false};
 const REF_TTL_MS=5*60*1000;
 const REF_TTL_LIVE_MS=30*60*1000;
 const CUST_REF_COLS='id,name,email,phone,height,type_preference,gender,birth_date,country,city,nationality,socials,created_at,default_pay,hidden_types';
@@ -2597,12 +2601,12 @@ async function _refFetch(onCustomers){
     if(rt&&!rt.error&&rt.data)S.tags=rt.data;
     if(rct&&!rct.error&&rct.data)S.customerTags=rct.data;
     if(rbs&&!rbs.error&&rbs.data)S.breakfastSpots=rbs.data;
-    if(rso&&!rso.error&&rso.data)S.staffOptions=Object.fromEntries(rso.data.map(r=>[r.key,r.items]));
+    if(rso&&!rso.error&&rso.data){S.staffOptions=Object.fromEntries(rso.data.map(r=>[r.key,r.items]));_listOk.opts=!!S._staffAuthed;}
     // Only a fully successful pass counts as fresh, or one denied read would silence the
     // retry for five minutes and leave the picker empty for the rest of the shift. And only a
     // pass nothing was written during clears the dirty mark: a customer or tag saved while the
     // pages were in flight may not be in them, so the next load asks again.
-    if(r&&!r.error&&r.data){S.customers=r.data;_refAt=Date.now();if(_refGen===gen)_refDirty=false;_refByStaff=!!S._staffAuthed;}
+    if(r&&!r.error&&r.data){S.customers=r.data;_refAt=Date.now();if(_refGen===gen)_refDirty=false;_refByStaff=!!S._staffAuthed;_listOk.riders=_refByStaff&&!!(rt&&!rt.error&&rt.data)&&!!(rct&&!rct.error&&rct.data);}
     // The changes that arrived while the pages were on the wire, laid over them in order.
     const missed=_refMissed;_refMissed=[];
     missed.forEach(([k,p])=>{try{_rtRefMerge(k,p);}catch(e){}});
@@ -2630,7 +2634,7 @@ async function _optionalFetch(){
       // Until that migration lands the RPC does not exist and the column is still readable, so
       // staff fall back to reading it directly: the costs must not vanish for the day in between.
       if(S._staffAuthed){try{let c=await sb.rpc('staff_inventory_costs');if(c.error)c=await sb.from('inventory').select('id,cost');if(!c.error&&Array.isArray(c.data)&&c.data.length){const m=new Map(c.data.map(r=>[r.id,r.cost]));rows.forEach(r=>{if(m.has(r.id))r.cost=m.get(r.id);});}}catch(e){}}
-      S.inventory=rows;
+      S.inventory=rows;_listOk.inv=true;
     }catch(e){}})(),
     (async()=>{if(_custOnly())return;try{const wl=await _pagedAll(()=>sb.from('desk_waitlist').select('*').order('id'),'id');if(!wl.error)S.deskWaitlist=wl.data||[];}catch(e){}})(),
     (async()=>{if(_custOnly())return;try{const pc=await sb.from('promo_codes').select('*');if(!pc.error)S.promoCodes=pc.data||[];}catch(e){}})(),
@@ -5353,16 +5357,24 @@ function doLogout(silent){
 // no error. Validate the stored token once per boot; if it's dead, sign out with an
 // explanation instead of leaving the ghost. Fails open: RPC missing (pre-migration DB)
 // or any transport error must never log a working customer out.
+// A parked link (_openEventLink) waits for this answer: opened on the remembered session before it,
+// it was spent on a rider signed out a moment later, who then signed in to the event picker.
+let _custDoubt=true;
 async function _custSessionCheck(){
-  const cust=S.loggedIn||getSession();
-  if(!cust||!cust.id||!cust.session_token||!sb)return;
   try{
-    const{data,error}=await sb.rpc('customer_token_ok',{p_id:cust.id,p_token:cust.session_token});
-    if(!error&&data===false){
-      doLogout(true);
-      toast(t('errSessionStale'),'warning');
-    }
-  }catch(_){}
+    const cust=S.loggedIn||getSession();
+    if(!cust||!cust.id||!cust.session_token||!sb)return;
+    try{
+      const{data,error}=await sb.rpc('customer_token_ok',{p_id:cust.id,p_token:cust.session_token});
+      if(!error&&data===false){
+        doLogout(true);
+        toast(t('errSessionStale'),'warning');
+      }
+    }catch(_){}
+  }finally{
+    _custDoubt=false;
+    if(S.view==='landing')_openEventLink();
+  }
 }
 
 function prefillFromAccount(){
@@ -5901,31 +5913,36 @@ const _TABLINK_KEY='cq_open_tab';
 // the website, signed in there too (_handoffToSite). Parked for this tab, which the Google and
 // Apple sign-ins leave and come back to.
 const _HANDOFF_KEY='cq_handoff';
+// The newest link wins: an event link and ?tab=bookings each drop the other one still parked in
+// this tab, which used to open on the next landing, long after the link that set it.
 function _readEventLink(){
   try{
-    const q=new URLSearchParams(location.search);
+    const q=new URLSearchParams(location.search),was=q.toString();
     if(q.get('handoff')==='site'){
       sessionStorage.setItem(_HANDOFF_KEY,'1');
       const mode=q.get('auth');if(mode==='signup'||mode==='forgot')S.authMode=mode;
       q.delete('handoff');q.delete('auth');
-      const rest=q.toString();
-      history.replaceState(history.state,'',location.pathname+(rest?'?'+rest:'')+location.hash);
+    }
+    if(q.has('ev')||q.has('session')){
+      const ev=q.get('ev')||'',sid=q.get('session')||'';
+      if(['jcc','community','snd96','workshop'].includes(ev)){
+        sessionStorage.setItem(_EVLINK_KEY,JSON.stringify({ev,session:/^\d{4}-\d{2}-\d{2}(-[a-z0-9]{1,6})?$/.test(sid)?sid:null}));
+        sessionStorage.removeItem(_TABLINK_KEY);
+      }
+      q.delete('ev');q.delete('session');
     }
     if(q.get('tab')==='bookings'){
       sessionStorage.setItem(_TABLINK_KEY,'myrides');
+      sessionStorage.removeItem(_EVLINK_KEY);
       q.delete('tab');
-      const rest=q.toString();
-      history.replaceState(history.state,'',location.pathname+(rest?'?'+rest:'')+location.hash);
     }
-    if(!q.has('ev')&&!q.has('session'))return;
-    const ev=q.get('ev')||'',sid=q.get('session')||'';
-    if(['jcc','community','snd96','workshop'].includes(ev))
-      sessionStorage.setItem(_EVLINK_KEY,JSON.stringify({ev,session:/^\d{4}-\d{2}-\d{2}(-[a-z0-9]{1,6})?$/.test(sid)?sid:null}));
-    q.delete('ev');q.delete('session');
     const rest=q.toString();
-    history.replaceState(history.state,'',location.pathname+(rest?'?'+rest:'')+location.hash);
+    if(rest!==was)history.replaceState(history.state,'',location.pathname+(rest?'?'+rest:'')+location.hash);
   }catch(e){}
 }
+// Links opened on the staff panel are spent: parked, they waited for the first customer landing in
+// this tab and opened there, whenever that came.
+function _dropParkedLinks(){try{sessionStorage.removeItem(_TABLINK_KEY);sessionStorage.removeItem(_EVLINK_KEY);}catch(e){}}
 // The website trades a one-time code for the session on its side (customer_handoff_create: two
 // minutes, one use; mm-platform /api/account/handoff). Before the database has the function, or
 // if it answers nothing, the rider simply stays here, signed in.
@@ -5937,6 +5954,7 @@ async function _handoffToSite(cust){
   return false;
 }
 async function _openEventLink(){
+  if(_custDoubt)return; // a remembered session may be dead: _custSessionCheck calls again once it knows
   let back=null;try{back=sessionStorage.getItem(_HANDOFF_KEY);}catch(e){}
   const who=S.loggedIn||getSession();
   if(back&&who&&who.session_token&&S.view==='landing'){
@@ -7935,22 +7953,29 @@ document.addEventListener('keydown',e=>{
 // counted before its data had loaded read as zero: the memory dropped to nothing and every
 // reload brought the same notifications back as new (2026-09-25). An item that goes away once
 // its list has loaded is forgotten, so if it comes back it is new again.
+// Whether each list the bell counts from is the server's whole answer. A read id is forgotten only
+// against such a list, never against one holding less than there is: the snapshot the page opens
+// on, a load the server refused, the first 60 days before the year streams in, the inventory before
+// it arrives, or a rider list read before staff sign-in (2026-09-25).
+function _ntLoaded(){
+  const core=!!S.dataLoaded&&!S._cacheOnly&&_lastLoadOk&&!S._netDown;
+  return{queue:core,year:core&&_qWholeAt>0&&_listOk.opts,inv:core&&_listOk.inv,riders:core&&_listOk.riders};
+}
 function _ntKinds(){
-  const adm=isAdmin(),out=[];
-  const fresh=!!S.dataLoaded&&!S._netDown; // read from the server this visit, not the cached copy
-  const add=(k,ids,key,c,go,ready)=>out.push({k,ids:ids.map(String),key,c,go,ready});
-  add('long',getQueue().filter(e=>e.status==='active'&&(_activeMinutes(e)||0)>=OVERDUE_RIDE_MIN).map(e=>e.id),'ntLong','warn',"setStaffTab('queue')",fresh);
-  if(_deskTabOk('workshop'))add('ws',((S._ws&&S._ws.jobs)||[]).filter(j=>j.status==='new').map(j=>j.id),'ntWs','green',"setStaffTab('workshop')",!!(S._ws&&S._ws.jobs));
+  const adm=isAdmin(),out=[],L=_ntLoaded();
+  const add=(k,ids,key,c,go,ready)=>out.push({k,ids:ids.map(String),key,c,go,ready:!!ready});
+  add('long',getQueue().filter(e=>e.status==='active'&&(_activeMinutes(e)||0)>=OVERDUE_RIDE_MIN).map(e=>e.id),'ntLong','warn',"setStaffTab('queue')",L.queue);
+  if(_deskTabOk('workshop'))add('ws',_wsNew().map(j=>j.id),'ntWs','green',"setStaffTab('workshop')",S._ws&&S._ws.jobs);
   if(adm){
-    add('apps',(S._caApps||[]).filter(a=>a.status==='pending').map(a=>a.id),'ntApps','green',"setStaffTab('community');setCommTab('applications')",Array.isArray(S._caApps));
-    add('bday',_bdRows(BD_TAG).rows.filter(r=>r.days===0&&!_bdWished(r.c.id,r.y)).map(r=>r.c.id+'|'+r.y),'ntBday','green',"setStaffTab('community');setCommTab('birthdays')",_refAt>0);
-    add('msgs',((S._sm&&S._sm.rows)||[]).filter(m=>m.status==='new').map(m=>m.id),'ntMsgs','green',"setStaffTab('messages')",!!(S._sm&&S._sm.rows));
-    add('attn',_bkAttnRows(getBikes()).map(r=>r.b.id),'ntAttn','warn',"setStaffTab('inventory');S.invSection='bikes';renderInventory()",fresh);
-    add('stock',(S.inventory||[]).filter(it=>{const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;return q<=0||(lo>0&&q<=lo);}).map(it=>it.id+'|'+((Number(it.qty)||0)<=0?'out':'low')),'ntStock','red',"setStaffTab('inventory')",fresh);
+    add('apps',_caPending().map(a=>a.id),'ntApps','green',"setStaffTab('community');setCommTab('applications')",Array.isArray(S._caApps));
+    add('bday',_bdTodayOpen().map(r=>r.c.id+'|'+r.y),'ntBday','green',"setStaffTab('community');setCommTab('birthdays')",L.riders);
+    add('msgs',_smNew().map(m=>m.id),'ntMsgs','green',"setStaffTab('messages')",S._sm&&S._sm.rows);
+    add('attn',_bkAttnRows(getBikes()).map(r=>r.b.id),'ntAttn','warn',"setStaffTab('inventory');S.invSection='bikes';renderInventory()",L.year); // due for service counts the year's rides against service_every
+    add('stock',(S.inventory||[]).filter(it=>{const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;return q<=0||(lo>0&&q<=lo);}).map(it=>it.id+'|'+((Number(it.qty)||0)<=0?'out':'low')),'ntStock','red',"setStaffTab('inventory')",L.inv);
   }
   return out;
 }
-function _ntRows(){return _ntKinds().filter(x=>x.ids.length).map(x=>({...x,n:x.ids.length,txt:t(x.key).replace('{0}',x.ids.length)}));}
+function _ntRows(kinds){return(kinds||_ntKinds()).filter(x=>x.ids.length).map(x=>({...x,n:x.ids.length,txt:t(x.key).replace('{0}',x.ids.length)}));}
 const _NT_KEY='cq_nt_read';
 function _ntSeen(){try{const v=JSON.parse(localStorage.getItem(_NT_KEY)||'{}');return v&&typeof v==='object'&&!Array.isArray(v)?v:{};}catch(_){return{};}}
 function _ntSeenSave(v){try{localStorage.setItem(_NT_KEY,JSON.stringify(v));localStorage.removeItem('cq_nt_seen');}catch(_){}} // cq_nt_seen: the counts it replaces
@@ -7972,10 +7997,10 @@ function _ntSync(){
     if(kept.length!==seen[x.k].length){seen[x.k]=kept;ch=true;}
   });
   if(ch)_ntSeenSave(seen);
-  const rows=_ntRows();
+  const rows=_ntRows(kinds);
   const b=document.getElementById('nt-btn');
   if(b){const n=_ntUnseen(rows);const old=b.querySelector('.nt-badge');if(old)old.remove();if(n)b.insertAdjacentHTML('beforeend',_ntBadge(n));b.setAttribute('aria-label',t('ntOpen')+(n?` (${n})`:''));}
-  _ntPaint();
+  _ntPaint(rows);
 }
 function _ntToggle(){const p=document.getElementById('nt-panel');if(p&&p.style.display==='block')_ntClose();else _ntOpen();}
 function _ntOpen(){
@@ -7992,9 +8017,9 @@ function _ntClose(){
   const p=document.getElementById('nt-panel');if(p){p.style.display='none';p.innerHTML='';}
   const b=document.getElementById('nt-btn');if(b)b.setAttribute('aria-expanded','false');
 }
-function _ntPaint(){
+function _ntPaint(rows){
   const p=document.getElementById('nt-panel');if(!p||p.style.display!=='block')return;
-  const rows=_ntRows(),seen=_ntSeen();
+  rows=rows||_ntRows();const seen=_ntSeen();
   p.innerHTML=`<div class="nt-scrim" onclick="_ntClose()"></div>
     <div class="nt-box" role="dialog" aria-label="${esc(t('ntOpen'))}">
       <div class="nt-head"><strong>${t('ntOpen')}</strong>${_ntUnseen(rows)?`<button type="button" class="nt-read" onclick="_ntMarkRead()">${t('ntMarkRead')}</button>`:''}</div>
@@ -8002,9 +8027,12 @@ function _ntPaint(){
         :`<div class="nt-empty">${t('ntEmpty')}</div>`}
     </div>`;
 }
+// Every item listed now is kept, however many there are; a cap on the whole list dropped some of
+// them, and Mark all read could never clear a kind past it. Of the read ids no longer listed (their
+// list may not have loaded yet) the latest 300 stay.
 function _ntMarkRead(){
   const seen=_ntSeen();
-  _ntRows().forEach(r=>{seen[r.k]=[...new Set([...(Array.isArray(seen[r.k])?seen[r.k]:[]).map(String),...r.ids])].slice(-300);});
+  _ntRows().forEach(r=>{const now=new Set(r.ids),old=(Array.isArray(seen[r.k])?seen[r.k]:[]).map(String).filter(id=>!now.has(id));seen[r.k]=[...old.slice(-300),...now];});
   _ntSeenSave(seen);_ntSync();
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){_ntClose();}});
@@ -12965,24 +12993,27 @@ function _bdMilestone(n){return n>=30?n%10===0:BD_MILESTONES.includes(n);}
 // mean the Community's (BD_TAG), whatever the list is filtered to.
 const BD_TAG='tag_saturday';
 function _bdTag(){const v=S._bdTag||BD_TAG;return v==='any'||v==='all'||(S.tags||[]).some(x=>x.id===v)?v:BD_TAG;}
-const _bdCache=new Map();
+// Rows are kept for one copy of the lists: when the riders, their tags or the day change, every
+// tag's rows go, so no tag viewed earlier holds on to an old rider list (over a megabyte each).
+const _bdCache=new Map();let _bdSrc=null;
 function _bdRows(tag){
   tag=tag||_bdTag();
-  const today=todayStr(),hit=_bdCache.get(tag);
-  if(hit&&hit.c===S.customers&&hit.ct===S.customerTags&&hit.tg===S.tags&&hit.today===today)return hit;
+  const today=todayStr();
+  if(!_bdSrc||_bdSrc.c!==S.customers||_bdSrc.ct!==S.customerTags||_bdSrc.tg!==S.tags||_bdSrc.today!==today){_bdCache.clear();_bdSrc={c:S.customers,ct:S.customerTags,tg:S.tags,today};}
+  const hit=_bdCache.get(tag);if(hit)return hit;
   const ids=tag==='all'?null:new Set((S.customerTags||[]).filter(ct=>(tag==='any'||ct.tag_id===tag)&&_tagActive(ct)).map(ct=>String(ct.customer_id)));
   const mem=(S.customers||[]).filter(c=>!ids||ids.has(String(c.id)));
   const rows=[];let missing=0;
   mem.forEach(c=>{const n=_bdNext(c.birth_date,today);if(!n||n.turns<1){missing++;return;}rows.push({c,...n});});
   rows.sort((a,b)=>a.days-b.days||String(a.c.name||'').localeCompare(String(b.c.name||'')));
-  const out={c:S.customers,ct:S.customerTags,tg:S.tags,today,rows,missing,members:mem.length,tag};
+  const out={today,rows,missing,members:mem.length,tag};
   _bdCache.set(tag,out);
   return out;
 }
 function _bdWishes(){return _optList(BD_KEY).filter(x=>x&&x.id&&x.y);}
 function _bdWished(id,y){return _bdWishes().find(x=>String(x.id)===String(id)&&+x.y===+y)||null;}
-// Birthdays today nobody has wished yet: the bell's count.
-function _bdTodayOpen(){return _bdRows(BD_TAG).rows.filter(r=>r.days===0&&!_bdWished(r.c.id,r.y)).length;}
+// The Community's birthdays today nobody has wished yet: the bell's.
+function _bdTodayOpen(){return _bdRows(BD_TAG).rows.filter(r=>r.days===0&&!_bdWished(r.c.id,r.y));}
 // The mark is read fresh and merged before it is written, so two desks marking at once both
 // land. Marks older than last year fall away.
 async function _bdMark(id,y,on){
@@ -13042,10 +13073,16 @@ function _bdFiltered(){
     return true;
   });
 }
+// A page at a time, like Accounts: every account ('all') is thousands of rows, and the tab is drawn
+// again on each background repaint. The Community (under 300) fits on the first page.
+const BD_PAGE=300;
+function _bdMore(){S._bdShow=Math.max(BD_PAGE,+S._bdShow||0)+BD_PAGE;_bdPaintList();}
 function _bdListHtml(){
-  const B=_bdRows(),rows=_bdFiltered();
+  const B=_bdRows(),all=_bdFiltered();
   if(!B.rows.length)return`<div class="empty-state">${t(B.tag===BD_TAG?'bdNone':'bdNoneAll')}</div>`;
-  if(!rows.length)return`<div class="empty-state">${t('bdEmpty')}</div>`;
+  if(!all.length)return`<div class="empty-state">${t('bdEmpty')}</div>`;
+  const rows=all.slice(0,Math.max(BD_PAGE,+S._bdShow||0)),rest=all.length-rows.length;
+  const more=rest>0?`<div style="padding:14px 0;text-align:center"><button type="button" class="btn-secondary" onclick="_bdMore()">${t('amShowMore').replace('{0}',Math.min(rest,BD_PAGE))}</button><div class="am-meta" style="margin-top:6px">${esc(t('amShowingOf').replace('{0}',rows.length).replace('{1}',all.length))}</div></div>`:'';
   const rides=_bdNextRides(B.today);
   return`<div class="table-wrapper"><table class="bd-table">
     <thead><tr><th>${t('bdColMember')}</th><th class="bd-hide-sm">${t('bdColBirthday')}</th><th>${t('bdColWhen')}</th><th class="bd-hide-sm">${t('bdColAge')}</th><th class="bd-hide-sm">${t('bdColRide')}</th><th>${t('bdColWish')}</th></tr></thead>
@@ -13061,13 +13098,13 @@ function _bdListHtml(){
         <td class="bd-hide-sm" data-sort="${ride||'9999'}">${ride?`${esc(shortDate(ride))}${near?` <span class="bd-ride" title="${esc(t('bdRidesBday'))}">🎉 ${esc(t('bdRidesBdayShort'))}</span>`:''}`:`<span class="bd-sub">${t('bdNoRide')}</span>`}</td>
         <td data-nosort>${_bdWishHtml(c,r.y)}</td>
       </tr>`;}).join('')}</tbody>
-  </table></div>`;
+  </table></div>${more}`;
 }
 function _bdPaintList(){const el=document.getElementById('bd-list');if(el)el.innerHTML=_bdListHtml();}
-function _bdSetRange(v){S._bdRange=v;renderCommunity();}
-function _bdSetMonth(m){S._bdMonth=(+S._bdMonth===+m)?0:+m;renderCommunity();}
+function _bdSetRange(v){S._bdRange=v;S._bdShow=0;renderCommunity();}
+function _bdSetMonth(m){S._bdMonth=(+S._bdMonth===+m)?0:+m;S._bdShow=0;renderCommunity();}
 function _bdSetLang(v){S._bdLang=v;renderCommunity();}
-function _bdSetTag(v){S._bdTag=v;S._bdMonth=0;renderCommunity();}
+function _bdSetTag(v){S._bdTag=v;S._bdMonth=0;S._bdShow=0;renderCommunity();}
 function _commBirthdays(){
   const B=_bdRows(),rows=B.rows,today=B.today,comm=B.tag===BD_TAG;
   const todays=rows.filter(r=>r.days===0);
@@ -13101,6 +13138,9 @@ function _commBirthdays(){
   const pill=(k,l)=>`<button class="filter-pill${rng===k?' active':''}" onclick="_bdSetRange(${_ja(k)})">${l}</button>`;
   // The Tag filter: every tag by name, then anyone holding a tag, then every account.
   const tagOpts=[...(S.tags||[])].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''))).map(x=>[x.id,x.name||x.id]).concat([['any',t('acrTagAny')],['all',t('filterAll')]]);
+  // The list in use is always one of the options. Without the Community tag in S.tags (the tags
+  // not loaded, or the tag removed) none was selected, and the browser showed the first tag.
+  if(!tagOpts.some(([v])=>v===B.tag))tagOpts.unshift([B.tag,t('commTitle')]);
   const tagSel=`<select class="filter-select" aria-label="${esc(t('acrFilterTag'))}" onchange="_bdSetTag(this.value)">${tagOpts.map(([v,l])=>`<option value="${esc(v)}"${B.tag===v?' selected':''}>${esc(l)}</option>`).join('')}</select>`;
   const langs=['auto',...Object.keys(BD_MSG)];
   const langSel=`<label class="filter-field bd-lang"><span class="filter-field-lbl">${t('bdMsgLang')}</span><select class="filter-select" onchange="_bdSetLang(this.value)">${langs.map(l=>`<option value="${l}"${(S._bdLang||'auto')===l?' selected':''}>${l==='auto'?esc(t('bdMsgAuto')):esc(_langOf(l).label||l)}</option>`).join('')}</select></label>`;
@@ -13114,7 +13154,7 @@ function _commBirthdays(){
     ${rows.length?months:''}
     <div class="filter-row bd-tools">
       <div class="${_srchCls('bd',S._bdQ)}" data-srch="bd">${_artIcon('search',13)}
-        <input class="search-input" id="bd-search" type="search" value="${esc(S._bdQ||'')}" placeholder="${esc(t('searchWord'))}" aria-label="${esc(t('searchWord'))}" oninput="S._bdQ=this.value;_debRender('bd',_bdPaintList)" onfocus="S._bdFocused=true" onblur="S._bdFocused=false">
+        <input class="search-input" id="bd-search" type="search" value="${esc(S._bdQ||'')}" placeholder="${esc(t('searchWord'))}" aria-label="${esc(t('searchWord'))}" oninput="S._bdQ=this.value;S._bdShow=0;_debRender('bd',_bdPaintList)" onfocus="S._bdFocused=true" onblur="S._bdFocused=false">
         ${_srchBtn()}
       </div>
       ${_fBtn('bd',comm?0:1)}
@@ -13184,7 +13224,8 @@ async function _caLoad(){
   if(S.communityTab==='applications')renderCommunity();
   else{const n=document.getElementById('ca-pill-n');if(n)n.textContent=_caPendingN()?` (${_caPendingN()})`:'';}
 }
-function _caPendingN(){return(S._caApps||[]).filter(a=>a.status==='pending').length;}
+function _caPending(){return(S._caApps||[]).filter(a=>a.status==='pending');}
+function _caPendingN(){return _caPending().length;}
 function _caFind(id){return(S._caApps||[]).find(a=>a.id===id)||null;}
 // The account this application lands on, found the way staff_community_approve finds it:
 // the email (or Apple relay email) first, then the phone's digits.
@@ -22424,7 +22465,8 @@ const WS_MSG={
 function _ws(){return S._ws||(S._ws={jobs:null,busy:false,err:false,missing:false,at:0,maxAt:null,filter:'new',q:'',hist:{},events:{},working:false});}
 function _wsRef(j){return'W-'+String(j.id).padStart(4,'0');}
 function _wsFind(id){return(_ws().jobs||[]).find(j=>String(j.id)===String(id))||null;}
-function _wsNewN(){const W=S._ws;return W&&W.jobs?W.jobs.filter(j=>j.status==='new').length:0;}
+function _wsNew(){const W=S._ws;return W&&W.jobs?W.jobs.filter(j=>j.status==='new'):[];}
+function _wsNewN(){return _wsNew().length;}
 function _wsStage(s){return WS_STAGE_KEY[s]?t(WS_STAGE_KEY[s]):String(s||'');}
 function _wsSar(v){return v==null||v===''?'':_fmtSar(Number(v));}
 // The rail's name for the section, with the count of requests nobody has confirmed yet.
@@ -22808,7 +22850,8 @@ const SM_MSG={
 function _sm(){return S._sm||(S._sm={rows:null,busy:false,err:false,missing:false,at:0,maxAt:null,filter:'new',kind:'all',q:'',working:false});}
 function _smRef(m){return'M-'+String(m.id).padStart(4,'0');}
 function _smFind(id){return(_sm().rows||[]).find(m=>String(m.id)===String(id))||null;}
-function _smNewN(){const W=S._sm;return W&&W.rows?W.rows.filter(m=>m.status==='new').length:0;}
+function _smNew(){const W=S._sm;return W&&W.rows?W.rows.filter(m=>m.status==='new'):[];}
+function _smNewN(){return _smNew().length;}
 function _smTabLabel(){const n=_smNewN();return esc(t('tabMessages'))+(n?` <span class="tab-badge" title="${esc(t('smNewBadge').replace('{0}',n))}">${n}</span>`:'');}
 function _smTabLabelSync(){const l=document.querySelector('#staff-tab-nav .tab-btn[data-stab="messages"] .snav-lbl');if(l)l.innerHTML=_smTabLabel();try{_ntSync();}catch(e){}}
 function _smIsMissing(e){const c=String(e&&e.code||''),m=String(e&&e.message||'');return c==='PGRST205'||c==='42P01'||(/site_messages/.test(m)&&/does not exist|schema cache/.test(m));}
@@ -28409,6 +28452,7 @@ function _bootStaffTab(nav){
   }
   // A view MUST end up active or the page is a blank header/footer. If the chosen
   // view's render throws, fall back to the landing so the user always sees something.
+  if(target==='staff')_dropParkedLinks();
   try{
   if(target==='staff'){
     goStaff();

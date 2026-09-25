@@ -205,7 +205,45 @@ test.describe('Community > Birthdays', () => {
     await expect(page.locator('#tab-community')).toContainText('Birthdays, soonest first.');  // no longer "Community members'"
     await page.locator('#fm-bd select').selectOption('all');
     await expect(names(page)).toHaveCount(7);                                               // everyone with a date, a lapsed tag too
-    expect(await page.evaluate('_bdTodayOpen()')).toBe(1);                                  // the bell: Amal alone, not the other two born today
+    expect(await page.evaluate('_bdTodayOpen().length')).toBe(1);                           // the bell: Amal alone, not the other two born today
+  });
+
+  test('the Tag filter shows the list in use, and every account comes a page at a time', async ({ page }) => {
+    const jcc = { id: 'tag_jcc', slug: 'jcc', name: 'Jeddah Corniche Circuit', color: '#2f63ad' };
+    // the Community tag missing from the tag list: the picker still says what is listed
+    await staff(page, { tags: [jcc], customer_tags: [...customer_tags, { customer_id: 'n1', tag_id: 'tag_jcc', added_at: 1 }] });
+    await page.evaluate(`setCommTab('birthdays')`);
+    await expect(names(page)).toHaveCount(5);
+    await page.locator('#tab-community .filter-toggle').click();
+    await expect(page.locator('#fm-bd select')).toHaveValue('tag_saturday');
+    await expect(page.locator('#fm-bd select option:checked')).toHaveText('Community');
+    await page.locator('#fm-bd select').selectOption('tag_jcc');                            // the first tag can be picked
+    await expect(names(page)).toHaveText(['Not Member']);
+    // 700 more riders with a birth date: every account, 300 at a time
+    await page.evaluate(`S.customers=[...S.customers,...Array.from({length:700},(_,i)=>({id:'x'+i,name:'Rider '+i,phone:'',birth_date:'1990-01-15',created_at:'2026-01-01T00:00:00Z'}))];_bdSetTag('all')`);
+    await expect(names(page)).toHaveCount(300);
+    await expect(page.locator('#bd-list')).toContainText('Showing 300 of 707');
+    await page.locator('#bd-list button', { hasText: 'Show 300 more' }).click();
+    await expect(names(page)).toHaveCount(600);
+    await page.locator('#bd-list button', { hasText: 'Show 107 more' }).click();
+    await expect(names(page)).toHaveCount(707);
+    await expect(page.locator('#bd-list button', { hasText: /^Show / })).toHaveCount(0);
+    // a search starts again from the first page
+    await page.evaluate(`S._bdQ='rider';S._bdShow=0;_bdPaintList()`);
+    await expect(names(page)).toHaveCount(300);
+    // rows are kept for one copy of the lists only
+    expect(await page.evaluate(`(()=>{_bdRows('any');_bdRows('tag_jcc');S.customers=[...S.customers];_bdRows(BD_TAG);return _bdCache.size;})()`)).toBe(1);
+  });
+
+  test('a birthday marked read stays read when the rider list comes back empty before staff sign-in', async ({ page }) => {
+    await staff(page);
+    const bell = page.locator('#nt-btn');
+    await bell.click();
+    await page.locator('#nt-panel').getByRole('button', { name: 'Mark all read' }).click();
+    await expect(bell.locator('.nt-badge')).toHaveCount(0);
+    // RLS answers a read made before the staff session with no rows, not an error
+    await page.evaluate(`(()=>{const c=S.customers;S.customers=[];_ntSync();S.customers=c;_ntSync();})()`);
+    await expect(bell.locator('.nt-badge')).toHaveCount(0);
   });
 
   test('Add to calendar saves every birthday as a yearly event, day and month only', async ({ page }) => {
