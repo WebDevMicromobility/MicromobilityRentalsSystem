@@ -4971,3 +4971,237 @@ body.view-staff .web-ed-list-foot{display:flex;gap:10px;align-items:center;margi
   body.view-staff .web-head-btns{width:100%;}
   body.view-staff .web-head-btns>*{flex:1;justify-content:center;}
 }
+
+
+/* ── Check-in as a side panel beside the roster, with Previous / Next (Claude Design #2, 2026-09-25) ──
+   Desktop only: the roster stays in view under a light scrim. On a phone and a narrow tablet
+   check-in keeps its bottom sheet. */
+#checkin-modal .ci-chain{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0 0;padding:6px 8px;
+  background:var(--sf-head);border:1px solid var(--sf-line2);border-radius:var(--r-md);}
+#checkin-modal .ci-chain .btn-sm{min-height:38px;max-width:44%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#checkin-modal .ci-chain .btn-sm[disabled]{opacity:.45;cursor:default;}
+#checkin-modal .ci-chain-pos{font-size:12px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;}
+@media(min-width:1024px){
+  body.view-staff.view-staff #checkin-modal .modal-backdrop.ci-drawer-bg{justify-content:flex-end;align-items:stretch;padding:0;
+    background:rgba(15,18,21,.12);backdrop-filter:none;-webkit-backdrop-filter:none;}
+  body.view-staff #checkin-modal .ci-drawer-bg>.modal-box{max-width:none!important;width:min(480px,100vw);height:100vh;max-height:100vh;
+    margin:0;border-radius:0;border-width:0;border-inline-start:1px solid var(--sf-line2);animation:ciDrawerIn .22s cubic-bezier(.2,.8,.2,1) both;}
+  html[dir="rtl"] body.view-staff #checkin-modal .ci-drawer-bg>.modal-box{animation-name:ciDrawerInRtl;}
+}
+@keyframes ciDrawerIn{from{transform:translateX(24px);opacity:.6}to{transform:none;opacity:1}}
+@keyframes ciDrawerInRtl{from{transform:translateX(-24px);opacity:.6}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){body.view-staff #checkin-modal .ci-drawer-bg>.modal-box{animation:none;}}
+
+/* ── The NFC receipt on the phone that tapped the tag (Claude Design #5) ── */
+#checkin-modal .ci-nfc-rcpt{margin:10px 0 4px;padding:10px 12px;border:1px solid rgba(var(--green-rgb),.35);background:rgba(var(--green-rgb),.06);border-radius:var(--r-md);display:flex;flex-direction:column;gap:4px;}
+#checkin-modal .ci-nfc-rcpt.warn{border-color:rgba(var(--warn-rgb),.45);background:rgba(var(--warn-rgb),.08);}
+#checkin-modal .ci-nfc-rcpt-top{font-size:13.5px;}
+#checkin-modal .ci-nfc-rcpt-line{font-size:12.5px;font-weight:700;color:var(--green);}
+#checkin-modal .ci-nfc-rcpt.warn .ci-nfc-rcpt-line{color:var(--orange);}
+#checkin-modal .ci-nfc-rcpt-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);}
+#checkin-modal .ci-nfc-rcpt-foot .btn-sm{flex:none;min-height:36px;}
+
+/* ── Fleet: Needs attention and the service threshold (Claude Design #13) ── */
+body.view-staff .bk-attn{background:var(--sf-card);border:1px solid rgba(var(--warn-rgb),.45);border-inline-start:4px solid var(--orange);border-radius:10px;padding:12px 14px;margin:0 0 16px;display:flex;flex-direction:column;gap:8px;}
+body.view-staff .bk-attn-head{display:flex;justify-content:space-between;align-items:center;gap:10px;border:0;background:none;padding:0;min-height:32px;font:inherit;color:inherit;cursor:pointer;text-align:start;}
+body.view-staff .bk-attn-head strong{font-size:15px;color:var(--orange);}
+body.view-staff .bk-attn-head span{font-size:12.5px;font-weight:600;color:var(--muted);}
+body.view-staff .bk-attn-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--sf-line2);padding-top:8px;}
+body.view-staff .bk-attn-main{display:flex;flex-direction:column;gap:4px;min-width:0;}
+body.view-staff .bk-attn-name{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+body.view-staff .bk-attn-dot{width:8px;height:8px;border-radius:50%;background:var(--orange);flex:none;}
+body.view-staff .bk-attn-dot.red{background:var(--red);}
+body.view-staff .bk-attn-link{border:0;background:none;padding:0;font:inherit;font-weight:700;font-size:13.5px;color:var(--text);cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;}
+body.view-staff .bk-attn-meta{font-size:12px;color:var(--muted);}
+body.view-staff .bk-attn-flags{display:flex;gap:6px;flex-wrap:wrap;}
+body.view-staff .bk-attn-flag{font-size:11.5px;font-weight:700;border:1px solid var(--sf-line2);border-radius:4px;padding:2px 8px;background:rgba(var(--warn-rgb),.08);color:var(--orange);font-variant-numeric:tabular-nums;}
+body.view-staff .bk-attn-flag.muted{color:var(--muted);}
+body.view-staff .bk-attn-flag.red{color:var(--red);background:rgba(var(--red-rgb),.06);}
+body.view-staff .bk-attn-acts{display:flex;gap:6px;flex-wrap:wrap;}
+body.view-staff .bk-attn-acts .btn-sm{min-height:38px;}
+body.view-staff .bk-attn-log{border-top:1px solid var(--sf-line2);padding-top:8px;display:flex;flex-direction:column;gap:4px;}
+body.view-staff .bk-attn-log-h{font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);}
+html[dir="rtl"] body.view-staff .bk-attn-log-h{letter-spacing:0;}
+body.view-staff .bk-attn-log-row{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
+body.view-staff .bk-attn-log-row strong{font-weight:600;color:var(--text);}
+body.view-staff .bk-svc-every{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap;}
+body.view-staff .bk-svc-every input{width:58px;height:32px;border:1px solid var(--sf-ctl);border-radius:4px;padding:0 6px;font-size:12.5px;text-align:center;background:var(--sf-card);color:var(--text);}
+
+/* ── New session: templates and repeat days (Claude Design #11) ── */
+body.view-staff .ns-tpl{background:var(--sf-head);border:1px solid var(--sf-line2);border-radius:8px;padding:10px 12px;margin:0 0 16px;display:flex;flex-direction:column;gap:8px;}
+body.view-staff .ns-tpl-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+body.view-staff .ns-tpl-title{font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:var(--muted);}
+html[dir="rtl"] body.view-staff .ns-tpl-title{letter-spacing:0;}
+body.view-staff .ns-tpl-head .btn-sm{min-height:38px;}
+body.view-staff .ns-tpl-list{display:flex;gap:6px;flex-wrap:wrap;}
+body.view-staff .ns-tpl-chip{display:inline-flex;align-items:stretch;border:1px solid var(--sf-ctl);border-radius:4px;background:var(--sf-card);overflow:hidden;}
+body.view-staff .ns-tpl-use{min-height:38px;padding:0 12px;border:0;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--text);cursor:pointer;}
+body.view-staff .ns-tpl-use:hover{background:rgba(var(--green-rgb),.06);}
+body.view-staff .ns-tpl-del{width:32px;border:0;border-inline-start:1px solid var(--sf-line2);background:none;color:var(--red);font-size:15px;cursor:pointer;}
+body.view-staff .ns-tpl-none{font-size:12.5px;color:var(--muted);}
+body.view-staff .ns-days-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;}
+body.view-staff .ns-day{min-width:48px;min-height:40px;justify-content:center;}
+body.view-staff .ns-fill{font-size:12px;color:var(--muted);margin-top:6px;font-variant-numeric:tabular-nums;min-height:1em;}
+
+/* ── The staff bar: search and notifications (Claude Design #16, #17) ── */
+body.view-staff .gs-btn{display:inline-flex;align-items:center;gap:8px;}
+body.view-staff .gs-btn .gs-btn-lbl{display:none;}
+@media(min-width:1024px){
+  body.view-staff .gs-btn{min-width:240px;justify-content:flex-start;color:var(--muted);font-weight:600;}
+  body.view-staff .gs-btn .gs-btn-lbl{display:inline;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+}
+#gs-panel,#nt-panel{position:fixed;inset:0;z-index:9500;display:none;}
+#gs-panel .gs-scrim{position:absolute;inset:0;background:rgba(15,18,21,.28);}
+#nt-panel .nt-scrim{position:absolute;inset:0;background:transparent;}
+#gs-panel .gs-box{position:absolute;top:calc(var(--topbar-h,56px) + 8px);left:50%;transform:translateX(-50%);width:min(560px,calc(100vw - 24px));
+  background:var(--sf-card,var(--s1));border:1px solid var(--sf-line2,var(--border));border-radius:12px;box-shadow:0 16px 40px rgba(16,19,18,.2);overflow:hidden;}
+#gs-panel .gs-field{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--sf-line2,var(--border));color:var(--muted);}
+#gs-panel .gs-field input{flex:1;min-width:0;border:0;background:none;font:inherit;font-size:15px;color:var(--text);outline:none;min-height:36px;padding:0;box-shadow:none;}
+#gs-panel .gs-x{border:0;background:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer;min-width:36px;min-height:36px;}
+#gs-panel .gs-results{max-height:min(420px,60vh);overflow-y:auto;padding:6px 0;}
+#gs-panel .gs-note{padding:14px 16px;font-size:13px;color:var(--muted);}
+#gs-panel .gs-item{display:flex;align-items:center;gap:10px;width:100%;min-height:48px;padding:8px 16px;border:0;background:none;font:inherit;text-align:start;color:var(--text);cursor:pointer;}
+#gs-panel .gs-item.sel,#gs-panel .gs-item:hover{background:rgba(var(--green-rgb),.07);}
+#gs-panel .gs-kind{flex:none;min-width:72px;padding:3px 8px;border-radius:4px;background:var(--sf-head,var(--s2));color:var(--muted);font-size:10.5px;font-weight:700;text-align:center;}
+#gs-panel .gs-main{min-width:0;display:flex;flex-direction:column;}
+#gs-panel .gs-main strong{font-size:13.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#gs-panel .gs-main small{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+body.view-staff .nt-btn{position:relative;}
+body.view-staff .nt-badge{position:absolute;top:-5px;inset-inline-end:-5px;min-width:17px;height:17px;border-radius:9px;background:#a33b2e;color:#fff;font-size:10.5px;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center;padding:0 4px;line-height:1;}
+#nt-panel .nt-box{position:absolute;top:calc(var(--topbar-h,56px) + 6px);inset-inline-end:12px;width:min(340px,calc(100vw - 24px));
+  background:var(--sf-card,var(--s1));border:1px solid var(--sf-line2,var(--border));border-radius:10px;box-shadow:0 12px 40px rgba(16,19,18,.16);padding:6px 0;max-height:min(420px,70vh);overflow-y:auto;}
+#nt-panel .nt-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--sf-line2,var(--border));}
+#nt-panel .nt-head strong{font-size:13.5px;}
+#nt-panel .nt-read{border:0;background:none;color:var(--green);font:inherit;font-size:12px;font-weight:700;cursor:pointer;min-height:32px;}
+#nt-panel .nt-row{display:flex;align-items:flex-start;gap:10px;width:100%;padding:11px 16px;border:0;border-bottom:1px solid var(--sf-line2,var(--border));background:none;font:inherit;font-size:13px;text-align:start;color:var(--text);cursor:pointer;min-height:44px;}
+#nt-panel .nt-row:last-child{border-bottom:0;}
+#nt-panel .nt-row:hover{background:rgba(var(--green-rgb),.06);}
+#nt-panel .nt-row.new{font-weight:700;}
+#nt-panel .nt-dot{width:8px;height:8px;border-radius:50%;flex:none;margin-top:5px;background:var(--green);}
+#nt-panel .nt-dot.warn{background:var(--orange);}
+#nt-panel .nt-dot.red{background:var(--red);}
+#nt-panel .nt-empty{padding:14px 16px;font-size:13px;color:var(--muted);}
+
+/* ── Sync now (Claude Design #18) ── */
+.sync-now{border:0;background:none;padding:0;font:inherit;font-weight:700;color:var(--green);text-decoration:underline;text-underline-offset:2px;cursor:pointer;}
+.sync-now[disabled]{opacity:.6;cursor:default;text-decoration:none;}
+#conn-banner .sync-now{color:#fff;margin-inline-start:8px;}
+
+/* ── Phones and tablets: the bottom bar (Claude Design #19) ── */
+body.view-staff .staff-tabbar{display:none;}
+@media(max-width:1023px){
+  body.view-staff .staff-tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;gap:2px;
+    padding:4px 4px calc(4px + env(safe-area-inset-bottom));background:#0f1215;border-top:1px solid rgba(255,255,255,.1);}
+  body.view-staff .staff-tabbar .tb-btn{flex:1 1 0;min-width:0;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    border:0;border-radius:8px;background:none;color:#9aa3a9;font:inherit;font-size:11px;font-weight:700;cursor:pointer;}
+  body.view-staff .staff-tabbar .tb-btn span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  body.view-staff .staff-tabbar .tb-btn.active{color:#03ff89;background:rgba(3,255,137,.08);}
+  body.view-staff #view-staff .view-main{padding-bottom:calc(76px + env(safe-area-inset-bottom));}
+  body.view-staff #toast-container{bottom:calc(76px + env(safe-area-inset-bottom));}
+  body.view-staff .mm-cart-foot{bottom:calc(60px + env(safe-area-inset-bottom));}
+  /* Walk-in and Scan float above the bar, and the roster's last row clears both */
+  body.view-staff .fab-row{bottom:calc(76px + env(safe-area-inset-bottom));}
+  body.view-staff #tab-queue{padding-bottom:84px;}
+}
+
+/* ── Read-only sections, the operator chip and PIN keypad, and the Team page (Claude Design #7–#9) ── */
+body.view-staff .ro-banner{display:flex;align-items:center;gap:8px;margin:0 0 14px;padding:10px 14px;border-radius:8px;background:#1a1919;color:#d7dcda;font-size:12.5px;font-weight:600;}
+body.view-staff .ro-banner::before{content:"";width:7px;height:7px;border-radius:50%;background:#c08a1e;flex:none;}
+body.view-staff .ro-banner[hidden]{display:none;}
+body.view-staff .op-chip{display:inline-flex;align-items:center;gap:6px;max-width:180px;}
+body.view-staff .op-chip-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;}
+@media(max-width:767px){body.view-staff .op-chip-name{display:none;}}
+.op-gate .opg-names{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;max-height:46vh;overflow-y:auto;}
+.op-gate .opg-name{width:100%;justify-content:space-between;display:flex;align-items:center;min-height:44px;}
+.op-gate .opg-lock{color:var(--muted);letter-spacing:2px;}
+.op-gate .opg-dots{display:flex;justify-content:center;gap:14px;margin:18px 0 8px;}
+.op-gate .opg-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--muted);}
+.op-gate .opg-dot.on{background:var(--green);border-color:var(--green);}
+.op-gate .opg-dots.shake{animation:opgShake .35s ease;}
+@keyframes opgShake{0%,100%{transform:none}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-6px)}80%{transform:translateX(6px)}}
+@media(prefers-reduced-motion:reduce){.op-gate .opg-dots.shake{animation:none;}}
+.op-gate .opg-msg{min-height:18px;text-align:center;font-size:12.5px;font-weight:700;color:var(--red);margin-bottom:8px;}
+.op-gate .opg-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.op-gate .opg-key{min-height:52px;border-radius:8px;border:1px solid var(--border);background:var(--s1);color:var(--text);font:inherit;font-size:20px;font-weight:700;cursor:pointer;font-variant-numeric:tabular-nums;}
+.op-gate .opg-key:active{background:rgba(var(--green-rgb),.12);}
+body.view-staff .tm-sec{margin-bottom:16px;}
+body.view-staff .tm-note{margin:8px 0;padding:8px 12px;border-radius:6px;background:rgba(var(--warn-rgb),.1);color:var(--orange);font-size:12.5px;font-weight:700;}
+body.view-staff .tm-ops{display:flex;flex-direction:column;margin-top:8px;}
+body.view-staff .tm-op{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--sf-line2);}
+body.view-staff .tm-op strong{font-size:14px;}
+body.view-staff .tm-pin{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:4px;border:1px solid var(--sf-line2);color:var(--muted);}
+body.view-staff .tm-pin.on{color:var(--green);border-color:rgba(var(--green-rgb),.35);background:rgba(var(--green-rgb),.06);}
+body.view-staff .tm-op-acts{display:flex;gap:6px;flex-wrap:wrap;margin-inline-start:auto;}
+body.view-staff .tm-op-acts .btn-sm,body.view-staff .tm-add .btn-sm,body.view-staff .tm-save .btn-sm{min-height:38px;}
+body.view-staff .tm-add{display:flex;gap:8px;margin-top:12px;}
+body.view-staff .tm-add input{flex:1;min-width:0;max-width:320px;}
+body.view-staff .tm-acct{padding:12px 0;border-top:1px solid var(--sf-line2);display:flex;flex-direction:column;gap:8px;}
+body.view-staff .tm-acct-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+body.view-staff .tm-acct-head strong{font-size:14px;overflow-wrap:anywhere;}
+body.view-staff .tm-acct-head select{margin-inline-start:auto;height:36px;}
+body.view-staff .tm-me{font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;background:var(--sf-head);color:var(--muted);}
+body.view-staff .tm-row{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;}
+body.view-staff .tm-lbl{min-width:90px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding-top:9px;}
+html[dir="rtl"] body.view-staff .tm-lbl{letter-spacing:0;}
+body.view-staff .tm-chips{display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0;}
+body.view-staff .tm-chip{min-height:34px;font-size:12px;}
+body.view-staff .tm-chip[disabled]{opacity:.55;cursor:default;}
+body.view-staff .tm-save{display:flex;justify-content:flex-end;}
+
+/* ── Dashboard (Claude Design #22) ── */
+body.view-staff .dash-kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:0 0 16px;}
+body.view-staff .dash-kpi{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:12px 14px;border:1px solid var(--sf-line2);border-radius:10px;background:var(--sf-card);color:var(--text);font:inherit;text-align:start;cursor:pointer;min-height:64px;}
+body.view-staff .dash-kpi[disabled]{cursor:default;}
+body.view-staff .dash-kpi strong{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;}
+body.view-staff .dash-kpi span{font-size:11.5px;color:var(--muted);font-weight:600;}
+body.view-staff .dash-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}
+@media(max-width:900px){body.view-staff .dash-grid{grid-template-columns:1fr;}}
+body.view-staff .dash-card{margin:0;}
+body.view-staff .dash-row{display:flex;align-items:center;gap:10px;width:100%;padding:10px 4px;border:0;border-bottom:1px solid var(--sf-line2);background:none;font:inherit;color:var(--text);text-align:start;cursor:pointer;min-height:44px;}
+body.view-staff .dash-row:last-child{border-bottom:0;}
+body.view-staff .dash-row-main{flex:1;min-width:0;display:flex;flex-direction:column;font-size:13px;}
+body.view-staff .dash-row-main small{color:var(--muted);font-size:11.5px;}
+body.view-staff .dash-row em{font-style:normal;font-weight:800;font-variant-numeric:tabular-nums;}
+body.view-staff .dash-dot,body.view-staff .nt-dot-inline{width:8px;height:8px;border-radius:50%;flex:none;background:var(--green);}
+body.view-staff .nt-dot-inline.warn{background:var(--orange);}
+body.view-staff .nt-dot-inline.red{background:var(--red);}
+body.view-staff .dash-dot.ev-community,body.view-staff .cal-sess.ev-community{--ev:#7a46c2;}
+body.view-staff .dash-dot.ev-workshop,body.view-staff .cal-sess.ev-workshop{--ev:#2f63ad;}
+body.view-staff .dash-dot.ev-snd96,body.view-staff .cal-sess.ev-snd96{--ev:#0c7a3d;}
+body.view-staff .dash-dot.ev-jcc,body.view-staff .cal-sess.ev-jcc{--ev:#8a5c14;}
+body.view-staff .dash-dot{background:var(--ev,var(--green));}
+body.view-staff .dash-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+body.view-staff .dash-actions button{min-height:44px;}
+body.view-staff .dash-feed-row{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--sf-line2);font-size:12.5px;}
+body.view-staff .dash-feed-row:last-child{border-bottom:0;}
+body.view-staff .dash-feed-row small{color:var(--muted);flex:none;font-variant-numeric:tabular-nums;}
+
+/* ── Sessions as a month (Claude Design #23) ── */
+body.view-staff .sess-cal{background:var(--sf-card);border:1px solid var(--sf-line2);border-radius:10px;padding:12px;}
+body.view-staff .cal-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+body.view-staff .cal-head strong{font-size:16px;min-width:150px;text-align:center;}
+body.view-staff .cal-head .btn-sm{min-height:36px;}
+body.view-staff .cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;}
+body.view-staff .cal-dow{font-size:11px;font-weight:700;color:var(--muted);text-align:center;padding:4px 0;text-transform:uppercase;letter-spacing:.5px;}
+html[dir="rtl"] body.view-staff .cal-dow{letter-spacing:0;}
+body.view-staff .cal-cell{min-height:92px;border:1px solid var(--sf-line2);border-radius:6px;padding:4px;display:flex;flex-direction:column;gap:3px;position:relative;background:var(--sf-card);}
+body.view-staff .cal-cell.cal-pad{border:0;background:none;}
+body.view-staff .cal-cell.past{background:var(--sf-head);}
+body.view-staff .cal-cell.today{border-color:var(--green);box-shadow:inset 0 0 0 1px var(--green);}
+body.view-staff .cal-dnum{font-size:12px;font-weight:700;color:var(--muted);}
+body.view-staff .cal-cell.today .cal-dnum{color:var(--green);}
+body.view-staff .cal-sess{display:flex;align-items:center;gap:4px;width:100%;min-height:26px;padding:2px 5px;border:0;border-inline-start:3px solid var(--ev,var(--green));border-radius:4px;background:rgba(var(--tint-rgb),.05);font:inherit;font-size:11px;color:var(--text);text-align:start;cursor:pointer;overflow:hidden;}
+body.view-staff .cal-sess.st-closed{opacity:.7;}
+body.view-staff .cal-time{font-weight:700;font-variant-numeric:tabular-nums;flex:none;}
+body.view-staff .cal-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+body.view-staff .cal-sess em{font-style:normal;font-weight:700;flex:none;font-variant-numeric:tabular-nums;color:var(--muted);}
+body.view-staff .cal-ws{font-size:10.5px;font-weight:700;color:#2f63ad;}
+body.view-staff .cal-add{margin-top:auto;align-self:flex-end;width:28px;height:28px;border-radius:50%;border:1px dashed var(--sf-ctl);background:none;color:var(--muted);font-size:16px;line-height:1;cursor:pointer;opacity:.5;}
+body.view-staff .cal-cell:hover .cal-add,body.view-staff .cal-add:focus-visible{opacity:1;}
+@media(max-width:767px){
+  body.view-staff .cal-cell{min-height:64px;padding:3px;}
+  body.view-staff .cal-name,body.view-staff .cal-sess em,body.view-staff .cal-ws{display:none;}
+  body.view-staff .cal-sess{font-size:10px;padding:2px 3px;}
+  body.view-staff .cal-add{opacity:.7;width:24px;height:24px;}
+}

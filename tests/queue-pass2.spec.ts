@@ -55,9 +55,24 @@ test('the check-in modal shows the amount, the party total, and follows a price 
   await expect(page.locator('#checkin-modal .pg-box, #checkin-modal .modal-box')).toBeVisible(); // still open
 });
 
-test('closing a free session marks its approved riders completed, and no one else', async ({ page }) => {
+test('closing a future free ride leaves its riders as they are (sign-ups only pause)', async ({ page }) => {
   const free = { id: '2099-02-01', day: 'Saturday', session_date: '2099-02-01', capacity: 20, status: 'open', created_at: 3, event_kind: 'community', ride_kind: 'saturday', paid_ride: false, needs_approval: true, spots: 20 };
-  const fr = (id: string, status: string, approval: string | null) => row(id, { session_id: free.id, session_date: free.id, session_day: 'Saturday', status, approval, price: 0 });
+  await stubSupabase(page, { sessions: [...sessions, free], bikes, queue_entries: [row('f1', { session_id: free.id, session_date: free.id, session_day: 'Saturday', status: 'waiting', approval: 'approved', price: 0 })] });
+  await unlockStaff(page);
+  await page.goto('/');
+  await waitForSb(page);
+  const patches: string[] = [];
+  page.on('request', r => { if (r.method() === 'PATCH' && /queue_entries/.test(r.url())) patches.push(r.url()); });
+  await page.evaluate(`toggleSession('${free.id}','closed')`);
+  await page.waitForTimeout(600);
+  expect(patches).toEqual([]);
+});
+
+test('closing a free session marks its approved riders completed, and no one else', async ({ page }) => {
+  // on the ride's own day: closing a future one only pauses sign-ups (next test)
+  const TODAY = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Riyadh' });
+  const free = { id: TODAY + '-sat', day: 'Saturday', session_date: TODAY, capacity: 20, status: 'open', created_at: 3, event_kind: 'community', ride_kind: 'saturday', paid_ride: false, needs_approval: true, spots: 20 };
+  const fr = (id: string, status: string, approval: string | null) => row(id, { session_id: free.id, session_date: free.session_date, session_day: 'Saturday', status, approval, price: 0 });
   await stubSupabase(page, { sessions: [...sessions, free], bikes, queue_entries: [fr('a1', 'waiting', 'approved'), fr('a2', 'active', 'approved'), fr('a3', 'waiting', 'pending'), fr('a4', 'waiting', null)] });
   await unlockStaff(page);
   await page.goto('/');

@@ -899,3 +899,12 @@ test('staff edit a party: companions come filled in, one is changed, one removed
   expect(reqs.filter((q) => q.method === 'PATCH' && /id=eq\.1(&|$)/.test(q.url))).toHaveLength(0); // the employee's own row was untouched
   expect(errs).toEqual([]);
 });
+
+test('the pop-up says when a rider sent the form more than once (Claude Design #6)', async ({ page }) => {
+  await openRiders(page);
+  await page.evaluate(`openRiderModal(2)`);
+  await expect(page.locator('#rider-modal .rider-sent')).toHaveText('Submitted 2 times');
+  await page.evaluate(`closeRiderModal()`);
+  await page.evaluate(`openRiderModal(1)`);
+  await expect(page.locator('#rider-modal .rider-sent')).toHaveCount(0);
+});

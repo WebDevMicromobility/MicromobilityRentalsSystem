@@ -103,6 +103,9 @@ src = src.slice(0, langSpan.start) + trimmedLang + src.slice(langSpan.end);
 const packMap = JSON.stringify(packHash);
 if (!src.includes('const LANG_PACKS={}')) throw new Error('build: LANG_PACKS placeholder missing');
 src = src.replace('const LANG_PACKS={}', `const LANG_PACKS=${packMap}`);
+// Without the stamp the prefetch asks for lang/<code>.json with no version, which the service
+// worker then serves cache-first for as long as its cache lives: a stale pack, silently.
+if (!src.includes('<script>try{var _ql=')) throw new Error('build: the <head> language prefetch (__LANG_V) was not found');
 src = src.replace('<script>try{var _ql=', `<script>window.__LANG_V=${packMap};try{var _ql=`);
 console.log(`build: extracted ${packCodes.join(', ')} to lang/ (${packCodes.length} packs)`);
 
@@ -151,6 +154,12 @@ out = out.replace(/styles\.css\?v=[a-z0-9]+/g, `styles.css?v=${cssHash}`);
 if (out === beforeCss && /styles\.css\?v=/.test(beforeCss)) {
   throw new Error('build: styles.css cache tag present but not rewritten');
 }
+// fonts.css the same way. Its ?v= was bumped by hand, and the print windows (receipt, day sheet,
+// billing report) asked for it with none: /fonts/ is cached as immutable for a year, so those
+// windows could keep an old copy that long. Every reference now carries the file's own hash.
+const fontsHash = createHash('sha256').update(await readFile(new URL('../fonts/fonts.css', import.meta.url))).digest('hex').slice(0, 10);
+out = out.replace(/fonts\/fonts\.css(?:\?v=[a-z0-9]+)?(?=["'])/g, `fonts/fonts.css?v=${fontsHash}`);
+if (/fonts\/fonts\.css(?!\?v=[a-f0-9]{10}["'])/.test(out)) throw new Error('build: a fonts.css reference was left without its hash');
 
 // Keep the service worker's precache entry and cache name in lockstep.
 //
@@ -161,7 +170,7 @@ if (out === beforeCss && /styles\.css\?v=/.test(beforeCss)) {
 // no way out but an unrelated CSS edit. The name then became a hash of the precache list - but
 // the worker serves EVERY same-origin file cache-first, not just the ones it precaches: the tag
 // badges, the National Day marks, logo-mark-dark.png, the splash screens, fonts.css (whose ?v=
-// is bumped by hand) and phone-rules.json all sat outside it, and a new version of any of them
+// was then bumped by hand; it is its content hash now, above) and phone-rules.json all sat outside it, and a new version of any of them
 // alone stayed stale for good. So the name now covers every file the site ships (the same
 // FILES/DIRS assemble-dist.mjs copies), less the ones that cannot go stale in that cache:
 //   index.html      - rewritten by THIS build further down, and stale-while-revalidate with an

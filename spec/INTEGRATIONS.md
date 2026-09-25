@@ -367,7 +367,7 @@ base-uri 'self'; object-src 'none'; form-action 'self'; upgrade-insecure-request
 
 ## 11. Fonts
 
-Self-hosted under `./fonts/` (`fonts.css?v=6`), **no Google Fonts request**. Two weights are
+Self-hosted under `./fonts/` (`fonts.css?v=<content hash>`, stamped by `scripts/build-html.mjs` on every reference, the print windows' too), **no Google Fonts request**. Two weights are
 preloaded to avoid a swap flash: `Barlow-500-latin.woff2` and `BarlowCond-800i-latin.woff2`.
 Families: **Barlow**, **Barlow Condensed**, **IBM Plex Sans Arabic**, **Chakra Petch**.
 

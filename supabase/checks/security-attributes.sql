@@ -102,6 +102,11 @@ with expected(fname, want_definer, note) as (values
   ('_try_ts',               false, 'parses a text time; pure'),
   -- Staff devices' delta sync (20260924230000)
   ('staff_sync',            false, 'invoker on purpose: the tables'' own staff policies decide what it returns, and it refuses non-staff itself'),
+  ('staff_operator_list',    true,  'reads team_members.pin_hash, which no client can select'),
+  ('staff_set_operator_pin', true,  'writes team_members.pin_hash; admins only'),
+  ('staff_check_operator_pin',true, 'reads the hash, writes login_throttle'),
+  ('staff_team_list',        true,  'reads staff and auth.users; admins only'),
+  ('staff_set_access',       true,  'writes staff rows, which no client can update; admins only'),
   ('_sync_touch',           false, 'sets updated_at on NEW only'),
   ('_sync_tombstone',       true,  'writes sync_deletions, which the deleting role cannot'),
   -- The 2026-09-22 review fixes (20260922120100 … 124000)
@@ -122,7 +127,13 @@ with expected(fname, want_definer, note) as (values
   -- One-step account delete and the narrow profile saves (20260922150000)
   ('staff_delete_customer',  true,  'unlinks bookings and sales, deletes tags, push rows and the account in one go; admin only'),
   ('customer_set_height',    true,  'writes the caller''s own height; token-checked'),
-  ('customer_set_birth_nat', true,  'writes the caller''s own birth date and nationality; token-checked')
+  ('customer_set_birth_nat', true,  'writes the caller''s own birth date and nationality; token-checked'),
+  -- The 2026-09-25 review fixes (20260925140000)
+  ('customer_profile',       true,  'reads the caller''s own customers row, the perk and hidden types included; token-checked'),
+  ('customer_update_profile',true,  'writes the caller''s own customers row; token-checked, a new phone or email metered'),
+  ('customer_oauth_signup',  true,  'writes customers for a Google/Apple sign-in; metered'),
+  ('staff_set_customer_password', true, 'writes customers.password_hash, which no client can select; staff only'),
+  ('_error_log_gate',        true,  'trigger: meters error_log inserts per network through _ip_gate')
 )
 select e.fname,
        case when p.oid is null then 'MISSING FROM DATABASE'
