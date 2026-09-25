@@ -196,7 +196,8 @@ test.describe('with customer_set_birth_nat on the server', () => {
     const calls = watch(page);
     await page.click('#pg-save');
     await expect(page.locator('#profile-gate .pg-box')).toBeHidden();
-    expect(calls.map((c) => c.name)).toEqual(['customer_set_birth_nat']);
+    // The booking then starts and reads the rider's perks once (_perksHydrate): a read, not a write.
+    expect(calls.filter((c) => c.name !== 'customer_profile').map((c) => c.name)).toEqual(['customer_set_birth_nat']);
     expect(JSON.parse(calls[0].body)).toEqual({ p_id: 'c1', p_token: 'tok-spec', p_birth_date: '1996-03-14', p_nationality: 'Egypt' });
     expect(await page.evaluate('[S.selEvent,S.loggedIn.nationality,S.loggedIn.birth_date]')).toEqual(['jcc', 'Egypt', '1996-03-14']);
   });
@@ -232,6 +233,8 @@ test.describe('with customer_set_birth_nat on the server', () => {
     const calls = watch(page);
     await page.click('#pg-save');
     await expect(page.locator('#profile-gate .pg-box')).toBeHidden();
-    expect(calls.map((c) => c.name)).toEqual(['customer_set_birth_nat', 'customer_profile', 'customer_update_profile']);
+    // ...and after the save, the booking's own read of the rider's perks (_perksHydrate).
+    expect(calls.map((c) => c.name).slice(0, 3)).toEqual(['customer_set_birth_nat', 'customer_profile', 'customer_update_profile']);
+    expect(calls.slice(3).every((c) => c.name === 'customer_profile')).toBe(true);
   });
 });

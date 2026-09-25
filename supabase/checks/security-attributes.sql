@@ -127,7 +127,13 @@ with expected(fname, want_definer, note) as (values
   -- One-step account delete and the narrow profile saves (20260922150000)
   ('staff_delete_customer',  true,  'unlinks bookings and sales, deletes tags, push rows and the account in one go; admin only'),
   ('customer_set_height',    true,  'writes the caller''s own height; token-checked'),
-  ('customer_set_birth_nat', true,  'writes the caller''s own birth date and nationality; token-checked')
+  ('customer_set_birth_nat', true,  'writes the caller''s own birth date and nationality; token-checked'),
+  -- The 2026-09-25 review fixes (20260925140000)
+  ('customer_profile',       true,  'reads the caller''s own customers row, the perk and hidden types included; token-checked'),
+  ('customer_update_profile',true,  'writes the caller''s own customers row; token-checked, a new phone or email metered'),
+  ('customer_oauth_signup',  true,  'writes customers for a Google/Apple sign-in; metered'),
+  ('staff_set_customer_password', true, 'writes customers.password_hash, which no client can select; staff only'),
+  ('_error_log_gate',        true,  'trigger: meters error_log inserts per network through _ip_gate')
 )
 select e.fname,
        case when p.oid is null then 'MISSING FROM DATABASE'
