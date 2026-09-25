@@ -5896,9 +5896,21 @@ const _EVLINK_KEY='cq_open_event';
 // ?tab=bookings: a ticket on micromobility.sa/account opens My Bookings here to reschedule or
 // cancel (the website never changes a booking itself). Parked the same way as an event link.
 const _TABLINK_KEY='cq_open_tab';
+// ?handoff=site: micromobility.sa/account sent the rider here to sign up (&auth=signup), reset a
+// password (&auth=forgot) or sign in with Google or Apple; once signed in they are handed back to
+// the website, signed in there too (_handoffToSite). Parked for this tab, which the Google and
+// Apple sign-ins leave and come back to.
+const _HANDOFF_KEY='cq_handoff';
 function _readEventLink(){
   try{
     const q=new URLSearchParams(location.search);
+    if(q.get('handoff')==='site'){
+      sessionStorage.setItem(_HANDOFF_KEY,'1');
+      const mode=q.get('auth');if(mode==='signup'||mode==='forgot')S.authMode=mode;
+      q.delete('handoff');q.delete('auth');
+      const rest=q.toString();
+      history.replaceState(history.state,'',location.pathname+(rest?'?'+rest:'')+location.hash);
+    }
     if(q.get('tab')==='bookings'){
       sessionStorage.setItem(_TABLINK_KEY,'myrides');
       q.delete('tab');
@@ -5914,7 +5926,23 @@ function _readEventLink(){
     history.replaceState(history.state,'',location.pathname+(rest?'?'+rest:'')+location.hash);
   }catch(e){}
 }
+// The website trades a one-time code for the session on its side (customer_handoff_create: two
+// minutes, one use; mm-platform /api/account/handoff). Before the database has the function, or
+// if it answers nothing, the rider simply stays here, signed in.
+async function _handoffToSite(cust){
+  try{
+    const r=await sb.rpc('customer_handoff_create',{p_id:cust.id,p_token:cust.session_token});
+    if(!r.error&&typeof r.data==='string'&&/^[0-9a-f]{48}$/.test(r.data)){location.replace(SITE_URL+'/api/account/handoff?code='+r.data);return true;}
+  }catch(e){}
+  return false;
+}
 async function _openEventLink(){
+  let back=null;try{back=sessionStorage.getItem(_HANDOFF_KEY);}catch(e){}
+  const who=S.loggedIn||getSession();
+  if(back&&who&&who.session_token&&S.view==='landing'){
+    try{sessionStorage.removeItem(_HANDOFF_KEY);}catch(e){}
+    if(await _handoffToSite(who))return;
+  }
   let tab=null;try{tab=sessionStorage.getItem(_TABLINK_KEY);}catch(e){}
   if(tab==='myrides'&&S.dataLoaded&&S.view==='landing'&&(S.loggedIn||getSession())){
     try{sessionStorage.removeItem(_TABLINK_KEY);}catch(e){}
