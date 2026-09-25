@@ -18593,7 +18593,11 @@ async function onRequestPost(context) {
   const rows = await rpc.json();
   const b = Array.isArray(rows) ? rows.find((r) => r.id === bookingId) : null;
   if (!b) return json({ ok: false, error: "not found" }, 404);
-  let group = groupIds.length ? rows.filter((r) => groupIds.includes(r.id)) : [b];
+  // The party is the rider's own bookings on THIS ride that are still live: the ids come from the
+  // device, and a stale or edited list put another night's booking, or a cancelled one, on the
+  // pass - in its rider count, its bike types and its price.
+  const _off = (r) => ["cancelled", "noshow", "removed"].includes(String(r.status || ""));
+  let group = groupIds.length ? rows.filter((r) => groupIds.includes(r.id) && r.session_id === b.session_id && (r.id === b.id || !_off(r))) : [b];
   if (!group.some((r) => r.id === b.id)) group = [b];
   // The booking rows carry no session times - queue_entries holds the date and the day, not
   // the clock - so the pass had none, and every pass expired at midnight. Read the session

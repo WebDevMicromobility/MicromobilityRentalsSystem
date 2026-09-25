@@ -26,9 +26,15 @@ const SHELL = [
   './icon-512.png',
 ];
 
+// From the server, not the browser's HTTP cache: the images here are cached for a week without
+// a version in their names, so a new version's cache could be filled with the image the last
+// deploy replaced, and keep it until the next version.
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
+
+// Named by version (vendor/, fonts/, lang/, a ?v= hash): whatever the HTTP cache holds is right.
+const PINNED = /^\/(?:vendor|fonts|lang)\//;
 
 self.addEventListener('activate', (e) => {
   e.waitUntil(
@@ -114,8 +120,11 @@ self.addEventListener('fetch', (e) => {
   // lives: the cache NAME hashes every file the site ships (scripts/build-html.mjs), and the
   // translation packs and city lists are asked for by their own content hash.
   if (url.origin === self.location.origin) {
+    // Anything else is asked of the server again (a 304 when it has not changed), for the same
+    // reason as at install: this copy is kept for the life of the cache.
+    const pinned = PINNED.test(url.pathname) || url.searchParams.has('v');
     e.respondWith(
-      caches.match(req).then((hit) => hit || fetch(req).then((res) => {
+      caches.match(req).then((hit) => hit || fetch(req, pinned ? undefined : { cache: 'no-cache' }).then((res) => {
         // Only cache successes: caching a 404 (e.g. an image that ships in a later deploy)
         // would pin the failure until the next cache-version bump.
         if (res && res.ok) { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }

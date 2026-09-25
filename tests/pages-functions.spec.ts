@@ -119,18 +119,18 @@ test.describe('the Apple Wallet pass', () => {
   let sessionUrls: string[] = [];
   test.afterEach(() => { globalThis.fetch = realFetch; });
 
-  async function pass(b: typeof booking, sess: Record<string, unknown> | null, pw = 'pw') {
+  async function pass(b: typeof booking, sess: Record<string, unknown> | null, pw = 'pw', party: { rows?: (typeof booking)[]; groupIds?: string[] } = {}) {
     sessionUrls = [];
     globalThis.fetch = (async (u: string | URL | Request) => {
       const url = String(u);
-      if (url.includes('/rpc/my_bookings')) return new Response(JSON.stringify([b]));
+      if (url.includes('/rpc/my_bookings')) return new Response(JSON.stringify([b, ...(party.rows || [])]));
       if (url.includes('/rpc/list_sessions')) { sessionUrls.push(url); return new Response(JSON.stringify(sess ? [sess] : [])); }
       if (url.includes('apple.com')) return new Response(wwdrDer);
       return new Response('', { status: 404 });
     }) as typeof fetch;
     const post = await load('functions/api/wallet-pass.js', 'onRequestPost');
     const res = await post({
-      request: new Request('https://site.test/api/wallet-pass', { method: 'POST', body: JSON.stringify({ customerId: 'c1', token: 't', bookingId: b.id }) }),
+      request: new Request('https://site.test/api/wallet-pass', { method: 'POST', body: JSON.stringify({ customerId: 'c1', token: 't', bookingId: b.id, ...(party.groupIds ? { groupIds: party.groupIds } : {}) }) }),
       env: { APPLE_PASS_P12_BASE64: p12b64, APPLE_PASS_P12_PASSWORD: pw, APPLE_PASS_TYPE_ID: 'pass.test', APPLE_TEAM_ID: 'TEAM', SUPABASE_ANON_KEY: 'anon', SUPABASE_URL: 'https://db.test' },
     });
     if (res.headers.get('content-type') !== 'application/vnd.apple.pkpass') return { status: res.status, body: await res.json(), json: null };
@@ -145,6 +145,15 @@ test.describe('the Apple Wallet pass', () => {
     expect(json.relevantDate).toBe('2026-09-23T20:15:00+03:00');
     // Asking for the one session, not every session ever run.
     expect(sessionUrls[0]).toContain('/rpc/list_sessions?id=eq.s1');
+  });
+
+  test("a party pass counts the rider's live bookings on this ride only", async () => {
+    const mate = { ...booking, id: 'mate01', queue_num: 8, name: 'Mate' };
+    const gone = { ...booking, id: 'gone01', queue_num: 9, name: 'Gone', status: 'cancelled' };
+    const other = { ...booking, id: 'othr01', session_id: 's2', queue_num: 3, name: 'Other night' };
+    const { json } = await pass(booking, circuit, 'pw', { rows: [mate, gone, other], groupIds: [booking.id, mate.id, gone.id, other.id] });
+    const riders = json.eventTicket.primaryFields.find((f: { key: string }) => f.key === 'riders');
+    expect(riders.value).toBe('2 riders');
   });
 
   test('the directions link is a link, and the circuit is where the circuit ride meets', async () => {
