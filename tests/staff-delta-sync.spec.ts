@@ -158,3 +158,43 @@ test('a database without staff_sync keeps the old reads, and stops asking', asyn
   await syncLoad(page);
   expect(syncs.length).toBe(asked); // turned off for the page's life after the first answer
 });
+
+test('a staff_sync that fails on its own hands over to the old reads, and stops asking', async ({ page }) => {
+  // 2026-09-25: a column grant the function lacked refused every call, and the desk opened with
+  // no riders - the account report found nobody. The riders must still come, the old way.
+  await bootStaff(page, undefined, {
+    customers: [{ id: 'old', name: 'Read The Old Way', created_at: '2000-01-01' }],
+    'rpc:staff_sync': { __rpcError: { status: 403, code: '42501', message: 'permission denied for table customers' } },
+  });
+  const syncs: string[] = [];
+  const reads: string[] = [];
+  page.on('request', (r) => {
+    if (r.url().includes('/rpc/staff_sync')) syncs.push(r.url());
+    if (r.method() === 'GET' && r.url().includes('/rest/v1/customers?')) reads.push(r.url());
+  });
+  await page.evaluate(`(async()=>{S._staffAuthed=true;refDirty();await loadData();})()`);
+  expect(await page.evaluate(`S.customers.map(c=>c.id).join()`)).toBe('old');
+  expect(reads.length).toBeGreaterThan(0);
+  const asked = syncs.length;
+  expect(asked).toBeGreaterThan(0);
+  await page.evaluate(`(async()=>{refDirty();await loadData();})()`);
+  expect(syncs.length).toBe(asked);
+});
+
+test('a staff session the server refuses keeps what the device holds, and asks again next time', async ({ page }) => {
+  await bootStaff(page, undefined, {
+    'rpc:staff_sync': { __rpcError: { status: 403, code: '42501', message: 'STAFF_ONLY' } },
+  });
+  const syncs: string[] = [];
+  const reads: string[] = [];
+  page.on('request', (r) => {
+    if (r.url().includes('/rpc/staff_sync')) syncs.push(r.url());
+    if (r.method() === 'GET' && r.url().includes('/rest/v1/customers?')) reads.push(r.url());
+  });
+  await page.evaluate(`(async()=>{S._staffAuthed=true;refDirty();await loadData();})()`);
+  expect(reads).toEqual([]); // RLS would answer an empty list; the device keeps its own
+  const asked = syncs.length;
+  expect(asked).toBeGreaterThan(0);
+  await page.evaluate(`(async()=>{refDirty();await loadData();})()`);
+  expect(syncs.length).toBeGreaterThan(asked);
+});
