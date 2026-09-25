@@ -82,12 +82,12 @@ test('Flag again reopens the dialog with the same fields and asks through staff_
 });
 
 // ── the name rule ─────────────────────────────────────────────────────────────
-test('a name may hold letters of any script and spaces - nothing else, not even a dash', async ({ page }) => {
+test('a name may hold letters of any script, spaces and periods - nothing else, not even a dash', async ({ page }) => {
   await stubSupabase(page, {});
   await page.goto('/');
   await waitForSb(page);
-  const ok = ['Malik Anas', 'Anne Marie', 'Al Harbi', 'محمد عبد الرحمن', 'مُحَمَّد', 'अमित कुमार', 'सुनिल श्रेष्ठ', 'রবীন্দ্রনাথ ঠাকুর', 'عمران خان', 'José Müller'];
-  const bad = ['Malik 2', 'محمد ٣', 'अमित ५', 'রবি ৭', "O'Brien", 'Mohd. Ali', 'ali@x', 'Malik 😀', 'Sara ❤', 'a_b', 'علي، محمد', 'Anne-Marie', 'Al–Harbi'];
+  const ok = ['Malik Anas', 'Anne Marie', 'Al Harbi', 'محمد عبد الرحمن', 'مُحَمَّد', 'अमित कुमार', 'सुनिल श्रेष्ठ', 'রবীন্দ্রনাথ ঠাকুর', 'عمران خان', 'José Müller', 'Mohd. Ali', 'Md.Rahman'];
+  const bad = ['Malik 2', 'محمد ٣', 'अमित ५', 'রবি ৭', "O'Brien", '.Ali', 'Ali .Omar', 'Md.. Ali', 'ali@x', 'Malik 😀', 'Sara ❤', 'a_b', 'علي، محمد', 'Anne-Marie', 'Al–Harbi'];
   expect(await page.evaluate(`${JSON.stringify(ok)}.map(n=>_nameCharsOk(n))`)).toEqual(ok.map(() => true));
   expect(await page.evaluate(`${JSON.stringify(bad)}.map(n=>_nameCharsOk(n))`)).toEqual(bad.map(() => false));
   expect(await page.evaluate(`_isNameCharsErr({message:'name_chars'})`)).toBe(true);
@@ -105,7 +105,7 @@ test('sign-up: signs are dropped as they are typed, and a name that still carrie
   await page.evaluate('switchAuthMode("signup")');
   await page.fill('#a-first', "Mal1k😀-Ann'e");
   await expect(page.locator('#a-first')).toHaveValue('Malk Anne');                     // digit, emoji and apostrophe gone; the dash is a space
-  await expect(page.locator('.toast').last()).toContainText('letters and spaces');
+  await expect(page.locator('.toast').last()).toContainText('letters, spaces and periods');
   await page.fill('#a-last', 'Babalghoum');
   await page.evaluate('setSignupGender("male")');
   await page.fill('#a-email', 'faisal@example.com');
@@ -116,14 +116,14 @@ test('sign-up: signs are dropped as they are typed, and a name that still carrie
   // a value that arrives without typing (autofill, a script) is still judged at submit
   await page.evaluate(`document.getElementById('a-last').value='Babalghoum 2'`);
   await page.evaluate('S.signupAck=true;doSignup()');
-  await expect(page.locator('#auth-err')).toContainText('Names can only contain letters and spaces.');
+  await expect(page.locator('#auth-err')).toContainText('Names can only contain letters, spaces and periods.');
   expect(calls).toHaveLength(0);
 });
 
 test('sign-up: the server refusing the name reads as the same message', async ({ page }) => {
   await stubSupabase(page, {});
   await page.route(/\/rest\/v1\/rpc\/customer_signup/, r => r.fulfill({ status: 400, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' },
-    body: JSON.stringify({ code: '22023', message: 'name_chars', hint: 'A name may contain letters and spaces only.' }) }));
+    body: JSON.stringify({ code: '22023', message: 'name_chars', hint: 'A name may contain letters, spaces and periods only.' }) }));
   await page.goto('/');
   await waitForSb(page);
   await page.evaluate('openAuthModal()');
@@ -137,7 +137,7 @@ test('sign-up: the server refusing the name reads as the same message', async ({
   await page.fill('#a-pwd2', 'Zq8xTselah');
   await page.fill('#a-height', '175');
   await page.evaluate('S.signupAck=true;doSignup()');
-  await expect(page.locator('#auth-err')).toContainText('Names can only contain letters and spaces.');
+  await expect(page.locator('#auth-err')).toContainText('Names can only contain letters, spaces and periods.');
 });
 
 test('My Account: an existing name is not re-judged, a new one is', async ({ page }) => {
@@ -156,7 +156,7 @@ test('My Account: an existing name is not re-judged, a new one is', async ({ pag
   // changed to something with a digit: refused here, before the server
   await page.evaluate(`document.getElementById('acc-first').value='Malik3'`);
   await page.evaluate('saveAccount()');
-  await expect(page.locator('#acc-err')).toHaveText('Names can only contain letters and spaces.');
+  await expect(page.locator('#acc-err')).toHaveText('Names can only contain letters, spaces and periods.');
   expect(saves).toHaveLength(1);
 });
 
