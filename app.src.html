@@ -7833,36 +7833,49 @@ document.addEventListener('keydown',e=>{
 });
 
 // What needs attention, counted from what this device already holds; nothing new is stored
-// on the server. The badge counts what is new since this device last marked the list read.
-function _ntRows(){
-  const adm=isAdmin(),rows=[];
-  const add=(k,n,key,c,go)=>{if(n>0)rows.push({k,n,txt:t(key).replace('{0}',n),c,go});};
-  add('long',getQueue().filter(e=>e.status==='active'&&(_activeMinutes(e)||0)>=OVERDUE_RIDE_MIN).length,'ntLong','warn',"setStaffTab('queue')");
-  if(_deskTabOk('workshop'))add('ws',_wsNewN(),'ntWs','green',"setStaffTab('workshop')");
+// on the server. The bell remembers WHICH items this device marked read (their ids), not how
+// many there were. A count could not tell a new item from a read one it replaced, and a list
+// counted before its data had loaded read as zero: the memory dropped to nothing and every
+// reload brought the same notifications back as new (2026-09-25). An item that goes away once
+// its list has loaded is forgotten, so if it comes back it is new again.
+function _ntKinds(){
+  const adm=isAdmin(),out=[];
+  const fresh=!!S.dataLoaded&&!S._netDown; // read from the server this visit, not the cached copy
+  const add=(k,ids,key,c,go,ready)=>out.push({k,ids:ids.map(String),key,c,go,ready});
+  add('long',getQueue().filter(e=>e.status==='active'&&(_activeMinutes(e)||0)>=OVERDUE_RIDE_MIN).map(e=>e.id),'ntLong','warn',"setStaffTab('queue')",fresh);
+  if(_deskTabOk('workshop'))add('ws',((S._ws&&S._ws.jobs)||[]).filter(j=>j.status==='new').map(j=>j.id),'ntWs','green',"setStaffTab('workshop')",!!(S._ws&&S._ws.jobs));
   if(adm){
-    add('apps',_caPendingN(),'ntApps','green',"setStaffTab('community');setCommTab('applications')");
-    add('bday',_bdTodayOpen(),'ntBday','green',"setStaffTab('community');setCommTab('birthdays')");
-    add('msgs',_smNewN(),'ntMsgs','green',"setStaffTab('messages')");
-    add('attn',_bkAttnRows(getBikes()).length,'ntAttn','warn',"setStaffTab('inventory');S.invSection='bikes';renderInventory()");
-    add('stock',(S.inventory||[]).filter(it=>{const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;return q<=0||(lo>0&&q<=lo);}).length,'ntStock','red',"setStaffTab('inventory')");
+    add('apps',(S._caApps||[]).filter(a=>a.status==='pending').map(a=>a.id),'ntApps','green',"setStaffTab('community');setCommTab('applications')",Array.isArray(S._caApps));
+    add('bday',_bdRows(BD_TAG).rows.filter(r=>r.days===0&&!_bdWished(r.c.id,r.y)).map(r=>r.c.id+'|'+r.y),'ntBday','green',"setStaffTab('community');setCommTab('birthdays')",_refAt>0);
+    add('msgs',((S._sm&&S._sm.rows)||[]).filter(m=>m.status==='new').map(m=>m.id),'ntMsgs','green',"setStaffTab('messages')",!!(S._sm&&S._sm.rows));
+    add('attn',_bkAttnRows(getBikes()).map(r=>r.b.id),'ntAttn','warn',"setStaffTab('inventory');S.invSection='bikes';renderInventory()",fresh);
+    add('stock',(S.inventory||[]).filter(it=>{const q=Number(it.qty)||0,lo=Number(it.low_threshold)||0;return q<=0||(lo>0&&q<=lo);}).map(it=>it.id+'|'+((Number(it.qty)||0)<=0?'out':'low')),'ntStock','red',"setStaffTab('inventory')",fresh);
   }
-  return rows;
+  return out;
 }
-function _ntSeen(){try{const v=JSON.parse(localStorage.getItem('cq_nt_seen')||'{}');return v&&typeof v==='object'?v:{};}catch(_){return{};}}
-function _ntSeenSave(v){try{localStorage.setItem('cq_nt_seen',JSON.stringify(v));}catch(_){}}
-function _ntUnseen(rows){const seen=_ntSeen();return rows.filter(r=>r.n>(Number(seen[r.k])||0)).length;}
+function _ntRows(){return _ntKinds().filter(x=>x.ids.length).map(x=>({...x,n:x.ids.length,txt:t(x.key).replace('{0}',x.ids.length)}));}
+const _NT_KEY='cq_nt_read';
+function _ntSeen(){try{const v=JSON.parse(localStorage.getItem(_NT_KEY)||'{}');return v&&typeof v==='object'&&!Array.isArray(v)?v:{};}catch(_){return{};}}
+function _ntSeenSave(v){try{localStorage.setItem(_NT_KEY,JSON.stringify(v));localStorage.removeItem('cq_nt_seen');}catch(_){}} // cq_nt_seen: the counts it replaces
+function _ntNew(r,seen){const had=new Set((seen||_ntSeen())[r.k]||[]);return r.ids.some(id=>!had.has(id));}
+function _ntUnseen(rows){const seen=_ntSeen();return rows.filter(r=>_ntNew(r,seen)).length;}
 function _ntBadge(n){return n?`<span class="nt-badge">${n}</span>`:'';}
 function _ntBtnHtml(){
   const n=_ntUnseen(_ntRows());
   return `<button type="button" id="nt-btn" class="topbar-btn icon nt-btn" onclick="_ntToggle()" title="${esc(t('ntOpen'))}" aria-label="${esc(t('ntOpen'))}${n?` (${n})`:''}" aria-expanded="false">${_artIcon('bell',16)}${_ntBadge(n)}</button>`;
 }
-// The badge follows the data without redrawing the bar. A count that fell is remembered lower,
-// so the next rise shows again.
+// The badge follows the data without redrawing the bar. A read item that is gone from its list
+// is forgotten - but only once that list has loaded, never from the empty one before it.
 function _ntSync(){
   if(S.view!=='staff')return;
-  const rows=_ntRows(),seen=_ntSeen();let ch=false;
-  Object.keys(seen).forEach(k=>{const r=rows.find(x=>x.k===k),n=r?r.n:0;if(n<seen[k]){seen[k]=n;ch=true;}});
+  const kinds=_ntKinds(),seen=_ntSeen();let ch=false;
+  kinds.forEach(x=>{
+    if(!x.ready||!Array.isArray(seen[x.k]))return;
+    const now=new Set(x.ids),kept=seen[x.k].filter(id=>now.has(String(id)));
+    if(kept.length!==seen[x.k].length){seen[x.k]=kept;ch=true;}
+  });
   if(ch)_ntSeenSave(seen);
+  const rows=_ntRows();
   const b=document.getElementById('nt-btn');
   if(b){const n=_ntUnseen(rows);const old=b.querySelector('.nt-badge');if(old)old.remove();if(n)b.insertAdjacentHTML('beforeend',_ntBadge(n));b.setAttribute('aria-label',t('ntOpen')+(n?` (${n})`:''));}
   _ntPaint();
@@ -7888,11 +7901,15 @@ function _ntPaint(){
   p.innerHTML=`<div class="nt-scrim" onclick="_ntClose()"></div>
     <div class="nt-box" role="dialog" aria-label="${esc(t('ntOpen'))}">
       <div class="nt-head"><strong>${t('ntOpen')}</strong>${_ntUnseen(rows)?`<button type="button" class="nt-read" onclick="_ntMarkRead()">${t('ntMarkRead')}</button>`:''}</div>
-      ${rows.length?rows.map(r=>`<button type="button" class="nt-row${r.n>(Number(seen[r.k])||0)?' new':''}" data-nt="${r.k}" onclick="_ntClose();${r.go}"><span class="nt-dot ${r.c}" aria-hidden="true"></span><span>${esc(r.txt)}</span></button>`).join('')
+      ${rows.length?rows.map(r=>`<button type="button" class="nt-row${_ntNew(r,seen)?' new':''}" data-nt="${r.k}" onclick="_ntClose();${r.go}"><span class="nt-dot ${r.c}" aria-hidden="true"></span><span>${esc(r.txt)}</span></button>`).join('')
         :`<div class="nt-empty">${t('ntEmpty')}</div>`}
     </div>`;
 }
-function _ntMarkRead(){const seen={};_ntRows().forEach(r=>{seen[r.k]=r.n;});_ntSeenSave(seen);_ntSync();}
+function _ntMarkRead(){
+  const seen=_ntSeen();
+  _ntRows().forEach(r=>{seen[r.k]=[...new Set([...(Array.isArray(seen[r.k])?seen[r.k]:[]).map(String),...r.ids])].slice(-300);});
+  _ntSeenSave(seen);_ntSync();
+}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){_ntClose();}});
 
 // Sync now (Claude Design #18): sends what this device is still holding (sales and bookings
