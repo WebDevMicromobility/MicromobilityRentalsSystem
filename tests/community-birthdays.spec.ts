@@ -188,6 +188,23 @@ test.describe('Community > Birthdays', () => {
     await expect(names(page)).toHaveText(['Faisal Recent']);
   });
 
+  test('filters by tag: the Community by default, then any tag or every account; the bell still counts the Community', async ({ page }) => {
+    const jcc = { id: 'tag_jcc', slug: 'jcc', name: 'Jeddah Corniche Circuit', color: '#2f63ad' };
+    await staff(page, { tags: [...tags, jcc], customer_tags: [...customer_tags, { customer_id: 'n1', tag_id: 'tag_jcc', added_at: 1 }] });
+    await page.evaluate(`setCommTab('birthdays')`);
+    await expect(names(page)).toHaveCount(5);                                               // the Community, as before
+    const filter = page.locator('#tab-community .filter-toggle');
+    await expect(filter).not.toContainText('(1)');
+    await filter.click();
+    await page.locator('#fm-bd select').selectOption('tag_jcc');
+    await expect(names(page)).toHaveText(['Not Member']);
+    await expect(filter).toContainText('(1)');
+    await expect(page.locator('#tab-community')).toContainText('Birthdays, soonest first.');  // no longer "Community members'"
+    await page.locator('#fm-bd select').selectOption('all');
+    await expect(names(page)).toHaveCount(7);                                               // everyone with a date, a lapsed tag too
+    expect(await page.evaluate('_bdTodayOpen()')).toBe(1);                                  // the bell: Amal alone, not the other two born today
+  });
+
   test('Add to calendar saves every birthday as a yearly event, day and month only', async ({ page }) => {
     await staff(page);
     await page.evaluate(`setCommTab('birthdays')`);
