@@ -4612,18 +4612,28 @@ function _consentAsk(needAck,needNews){
   m.innerHTML=`<div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="rn-ask-title" style="max-width:420px">
     <div class="modal-title" id="rn-ask-title" style="margin:0 0 8px">${t(needAck?'consentAskTitle':'rideNewsAskTitle')}</div>
     ${needAck?`<div style="font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:4px">${t('rideNewsAskNotice').replace('{0}',_privacyLink())}</div>
-    ${_tickHtml('cs-ack',false,t('privacyAckOpt').replace('{0}',_privacyLink()),'_consentToggleAck()',true)}`:''}
+    ${_tickHtml('cs-ack',false,t('privacyAckOpt').replace('{0}',esc(t('privacyNotice'))),'_consentToggleAck()',true)}
+    <div id="rn-ask-ackerr" role="alert" style="color:var(--red);font-size:12.5px;font-weight:700;margin-top:6px"></div>`:''}
     ${newsBlock}
     <div id="rn-ask-err" role="alert" style="color:var(--red);font-size:12.5px;font-weight:700;margin-top:8px"></div>
   </div>`;
   document.body.appendChild(m);
   const f=m.querySelector(needAck?'#cs-ack':'.rn-ans');if(f)f.focus();
 }
-function _consentToggleAck(){S._csAck=!S._csAck;_tickSet('cs-ack',S._csAck);const e=document.getElementById('rn-ask-err');if(e&&S._csAck)e.textContent='';}
+// The whole confirmation line ticks the box: the notice's link sits in the sentence above it, not
+// in the label, so a tap on the words never opens the notice instead. Riders who tapped the words
+// or tapped an answer without the tick (the reminder sat below the screen on small phones) took the
+// blurred page for one with no sessions. A missed tick is now shown on the box itself.
+function _consentToggleAck(){S._csAck=!S._csAck;_tickSet('cs-ack',S._csAck);if(S._csAck){const e=document.getElementById('rn-ask-ackerr'),b=document.getElementById('cs-ack');if(e)e.textContent='';if(b)b.style.outline='';}}
+function _consentAckMissing(){
+  const e=document.getElementById('rn-ask-ackerr'),b=document.getElementById('cs-ack');
+  if(e)e.textContent=t('privacyAckRequired');
+  if(b){b.style.outline='2px solid var(--red)';b.style.outlineOffset='4px';b.style.borderRadius='10px';try{b.scrollIntoView({block:'center',behavior:'smooth'});}catch(x){}b.focus({preventScroll:true});}
+}
 async function _consentAnswer(news){
   const cust=S.loggedIn,m=document.getElementById('rn-ask'),need=S._csNeed||{};if(!cust||!m||S._rnBusy)return;
   const err=document.getElementById('rn-ask-err');
-  if(need.ack&&!S._csAck){if(err)err.textContent=t('privacyAckRequired');const b=document.getElementById('cs-ack');if(b)b.focus();return;}
+  if(need.ack&&!S._csAck){_consentAckMissing();return;}
   const btns=[...m.querySelectorAll('.rn-ans')];
   S._rnBusy=true;btns.forEach(b=>b.disabled=true);
   const r=await _consentsRpc(cust.id,cust.session_token,need.ack?PRIVACY_VERSION:null,need.news?news:null);

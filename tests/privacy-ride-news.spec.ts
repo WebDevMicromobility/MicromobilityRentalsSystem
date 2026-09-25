@@ -203,9 +203,17 @@ test.describe('the popup for existing accounts', () => {
     await page.mouse.click(5, 5); // the backdrop
     await expect(ask).toBeVisible();
     await ask.getByRole('button', { name: 'No thanks' }).click(); // not confirmed yet
-    await expect(page.locator('#rn-ask-err')).toHaveText('Please confirm you’ve read the Privacy Notice.');
+    // the reminder sits right under the box, which is outlined - not at the foot of the sheet
+    await expect(page.locator('#rn-ask-ackerr')).toHaveText('Please confirm you’ve read the Privacy Notice.');
+    expect(await page.evaluate(`document.getElementById('cs-ack').nextElementSibling.id`)).toBe('rn-ask-ackerr');
+    await expect(page.locator('#cs-ack')).toHaveCSS('outline-style', 'solid');
     expect(calls.length).toBe(1); // only the read
-    await page.locator('#cs-ack-box').click();
+    // the words tick it too: the label holds no link, so a tap on them never opens the notice
+    await expect(page.locator('#cs-ack .pv-link')).toHaveCount(0);
+    await page.locator('#cs-ack-lbl').click();
+    await expect(page.locator('#cs-ack')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('#rn-ask-ackerr')).toHaveText('');
+    await expect(page.locator('#privacy-backdrop')).toHaveCount(0);
     await ask.getByRole('button', { name: 'No thanks' }).click();
     await expect(ask).toHaveCount(0);
     expect(calls[1]).toMatchObject({ p_privacy: VERSION, p_ride_news: false });
@@ -255,7 +263,7 @@ test.describe('the popup for existing accounts', () => {
 
   test('the notice opens over it without ticking the box, and closing it leaves the question', async ({ page }) => {
     await arrive(page, consentsServer());
-    await page.locator('#cs-ack .pv-link').click();
+    await page.locator('#rn-ask .pv-link').click(); // the link in the sentence above the box
     await expect(page.locator('#privacy-backdrop .pv-box')).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page.locator('#privacy-backdrop')).toHaveCount(0);
