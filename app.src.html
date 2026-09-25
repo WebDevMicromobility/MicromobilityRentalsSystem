@@ -1535,8 +1535,15 @@ function _staffRoleRetry(uid,n){
   n=n||0;if(n>=4)return;
   setTimeout(async()=>{
     if(!S._staffAuthed||!sb)return;
-    let r=null;try{r=await sb.from('staff').select('role').eq('user_id',uid).maybeSingle();}catch(e){r=null;}
-    if(r&&!r.error&&r.data)_staffRoleConfirmed(uid,r.data.role);
+    // the whole row: its sections and the forced password change apply once it answers, not only the role
+    let r=null;try{r=await sb.from('staff').select('role,modules_view,modules_edit,must_change_pwd').eq('user_id',uid).maybeSingle();}catch(e){r=null;}
+    if(r&&r.error&&/modules_view|must_change_pwd|42703/i.test((r.error.code||'')+' '+(r.error.message||''))){ // before the migration: the role alone
+      try{r=await sb.from('staff').select('role').eq('user_id',uid).maybeSingle();}catch(e){r=null;}
+    }
+    if(r&&!r.error&&r.data){
+      _staffRoleConfirmed(uid,r.data.role);_accessSet(r.data,uid);
+      if(r.data.must_change_pwd&&!S._mustChangePwd){S._mustChangePwd=true;if(S.view==='staff')openStaffPwdModal(true);}
+    }
     else if(!r||r.error)_staffRoleRetry(uid,n+1);
   },[5000,15000,45000,120000][n]);
 }
@@ -2146,7 +2153,10 @@ const S={
   
   authMode:'login',   
   forgotEmail:'',forgotStep:1,forgotVerified:null,
-  rememberMe:true, // default ON: session-only storage evaporates on iOS, logging customers out on every app switch
+  // Where this device keeps the session says whether the rider asked to be remembered: starting
+  // at true moved an unremembered session into localStorage on the next save (the consent check
+  // saves it on every boot), and on a shared phone the next person was signed in.
+  rememberMe:(()=>{try{return !(sessionStorage.getItem('cq_session')&&!localStorage.getItem('cq_session'));}catch(e){return true;}})(), // default ON: session-only storage evaporates on iOS, logging customers out on every app switch
   cancellationLog:[],  
   _flashId:null,_flashColor:'green',
   signupTypePref:'Any',signupGender:null,_pendingGoogle:null,
@@ -3716,7 +3726,7 @@ async function reconcileOrphanBikes(){
       const held=new Set();
       data.filter(r=>r&&r.status==='active').forEach(r=>getAssignedBikeIds({id:r.id,assignedBikeId:r.assigned_bike_id}).forEach(id=>held.add(id)));
       const res=await Promise.all(due.filter(b=>!held.has(b.id)).map(b=>
-        sb.from('bikes').update({status:'available'}).eq('id',b.id).eq('status','in-use').select('id').then(r=>({b,r}),()=>({b,r:null}))));
+        _roFree(()=>sb.from('bikes').update({status:'available'}).eq('id',b.id).eq('status','in-use').select('id')).then(r=>({b,r}),()=>({b,r:null}))));
       res.forEach(({b,r})=>{if(r&&!r.error&&r.data&&r.data.length){b.status='available';freed.push(b);}});
     }
   }catch(e){console.warn('reconcileOrphanBikes failed:',e);}
@@ -7483,8 +7493,6 @@ async function giveDeskBike(id){
 }
 async function _giveDeskBike(id){
   const w=(S.deskWaitlist||[]).find(x=>x.id===id);if(!w||w.status!=='waiting')return;
-  // S._wlSess is set by the Waitlist page's session select; landing here straight from the
-  // Staff List (which has no selector) must still work — fall back to the first open session.
   const _open=_wlOpenSess();
   // The Staff List has its own session picker; when it is aimed at a ride, a walk-up handed a
   // bike from there belongs to THAT ride. Falling through to "the first open session" put the
@@ -7494,10 +7502,12 @@ async function _giveDeskBike(id){
   // rider), the rider is not quietly booked onto some other night instead: staff are told, and
   // pick the ride themselves.
   if(_aimedMw&&!_open.some(x=>x.id===_aimedMw)){toast(t('wlAimedClosedMsg'),'warning');return;}
-  const _aimed=_aimedMw||S._wlSess;
-  const sess=_open.find(x=>x.id===_aimed)||_open.find(x=>x.id===S._wlSess)||_open[0];
+  // Otherwise tonight's ride, as Bookings opens on. The first live session in date order was
+  // often last week's: a night stays open or full after it ends, and nothing closes it, so the
+  // rider, the capacity and the money all landed on a night long gone.
+  const _cur=_currentSessId();
+  const sess=_open.find(x=>x.id===_aimedMw)||_open.find(x=>x.id===_cur)||_open.find(x=>!_sessPastDay(x))||_open[0];
   if(!sess){toast(t('noSessionsAvail'),'warning');return;}
-  S._wlSess=sess.id;
   // Link a known customer account (phone, email, then name) so the booking shows in their My Bookings.
   const _match=_linkCustomer(w.name,w.phone,w.email);
   const ty=CUST_TYPES.includes(w.bike_type)?w.bike_type:'Any';
@@ -7828,14 +7838,14 @@ function printDaySheet(){
     riders+=rows.length;
     const _t=(()=>{try{return sessionTime(x);}catch(_){return'';}})();
     return `<section><h2>${esc(_evName(x))}${_t?` &middot; ${esc(_t)}`:''} &middot; ${rows.length}</h2>
-      <table><thead><tr><th>#</th><th>${t('colName')}</th><th>${t('bikeTypeLabel')}</th><th>${t('colStatus')}</th><th>${t('filterPay')}</th></tr></thead><tbody>
+      <table><thead><tr><th>#</th><th>${t('colRider')}</th><th>${t('bikeTypeLabel')}</th><th>${t('colStatus')}</th><th>${t('filterPay')}</th></tr></thead><tbody>
       ${rows.map(e=>{const bikes=getAssignedBikes(e).map(b=>b.name).join(', ');const price=e.price??DEFAULT_PRICE;
-        return`<tr><td>${e.status==='waitlist'?'W':''}${e.queueNum}</td><td>${esc(e.name||'')}</td><td>${esc(typeLabel(resolvedType(e)))}${e.size?' '+esc(e.size):''}${bikes?' &middot; '+esc(bikes):''}</td><td>${t(ST[e.status])}</td><td>${!price?t('freeLabel'):e.paid?`SAR ${price} &#10003;`:`SAR ${price} &middot; ${t('pendingLabel')}`}</td></tr>`;}).join('')
+        return`<tr><td>#${e.queueNum}${e.status==='waitlist'&&e.waitlistNum?' · W'+e.waitlistNum:''}</td><td>${esc(e.name||'')}</td><td>${esc(typeLabel(resolvedType(e)))}${e.size?' '+esc(e.size):''}${bikes?' &middot; '+esc(bikes):''}</td><td>${t(ST[e.status])}</td><td>${!price?t('freeLabel'):e.paid?`SAR ${price} &#10003;`:`SAR ${price} &middot; ${t('pendingLabel')}`}</td></tr>`;}).join('')
         ||`<tr><td colspan="5">—</td></tr>`}
       </tbody></table></section>`;
   }).join('');
   const W=S._ws,jobs=(W&&W.jobs||[]).filter(j=>['in_workshop','awaiting_parts','ready'].includes(j.status)||String(j.scheduled_for||'').slice(0,10)===today);
-  const wsBlock=jobs.length?`<section><h2>${t('daySheetWs')} &middot; ${jobs.length}</h2><table><thead><tr><th>${t('colName')}</th><th>${t('gsKindBike')}</th><th>${t('gsKindWorkshop')}</th><th>${t('colStatus')}</th></tr></thead><tbody>
+  const wsBlock=jobs.length?`<section><h2>${t('daySheetWs')} &middot; ${jobs.length}</h2><table><thead><tr><th>${t('nameLabel')}</th><th>${t('gsKindBike')}</th><th>${t('gsKindWorkshop')}</th><th>${t('colStatus')}</th></tr></thead><tbody>
     ${jobs.map(j=>`<tr><td>${esc(j.name||'')}</td><td>${esc(j.bike||'')}</td><td>${esc(j.service_label||j.service||'')}</td><td>${esc(_wsStage(j.status))}</td></tr>`).join('')}</tbody></table></section>`:'';
   const html=_reportShell({kind:t('daySheetTitle'),title:`${dayLabel(DAY_NAMES[new Date(today+'T12:00:00').getDay()])} &middot; ${shortDate(today)}`,
     refNo:'MM-DAY-'+today.slice(2).replace(/-/g,''),chip:`<strong>${riders}</strong> ${t('daySheetRiders')}`,body:blocks+wsBlock});
@@ -7875,7 +7885,8 @@ async function _staffPwdSubmit(){
     const{error}=await sb.auth.updateUser({password:p1});
     if(error){err(error.message||t('errConnection'));if(btn)btn.disabled=false;return;}
   }catch(e){err(t('errConnection'));if(btn)btn.disabled=false;return;}
-  try{await sb.rpc('staff_mark_pwd_changed');}catch(e){} // clear the must-change flag (no-op until the migration is run)
+  // clear the must-change flag (no-op until the migration is run); a refused call leaves it set, so the dialog comes back
+  try{const r=await sb.rpc('staff_mark_pwd_changed');if(r&&r.error&&!/PGRST202|Could not find the function/i.test((r.error.code||'')+' '+(r.error.message||'')))console.error('mark pwd changed',r.error);}catch(e){}
   S._mustChangePwd=false;S._pwdMandatory=false;
   document.getElementById('staff-pwd-modal')?.remove();
   toast(t('staffPwdDone'));
@@ -8174,6 +8185,9 @@ function renderRegister(){
   // Carbon road bikes are not offered on a no-carbon ride: a selection carried over from a
   // JCC pick (or a profile preference) silently becomes 'Any' here.
   if(_noCarbonSel)S.regBikeTypes=S.regBikeTypes.map(ty=>ty==='Road Carbon'?'Any':ty);
+  // "My own bike" carried over from a ride that offers it (the Saturday ride) onto one that does
+  // not (the circuit) was a rental at SAR 0 that held no bike: the choice is cleared to be made again.
+  if(_selSessObj&&!_ownOffered(_selSessObj))S.regBikeTypes=S.regBikeTypes.map(ty=>ty==='Own'?'':ty);
   // A quantity carried over from another night may be past this night's allowance.
   if(!_commSel&&_selSessObj&&S.regQty>_maxRiders(_selSessObj)){S.regQty=_maxRiders(_selSessObj);ensureBikeSizes();}
   const qtyStepper=(_commSel&&!_grpSel)?'':`
@@ -8894,6 +8908,8 @@ async function _submitReg(){
   }
   const _selSess0=allSessions().find(s=>s.id===S.selSession);
   if(!_sessLive(_selSess0)||_sessPastDay(_selSess0)){toast(t('errSessionClosed'),'error');return;}
+  // no "own bike" on a ride that does not offer it, however the choice got here
+  if(!_ownOffered(_selSess0)&&S.regBikeTypes.slice(0,S.regQty).includes('Own')){S.regBikeTypes=S.regBikeTypes.map(ty=>ty==='Own'?'':ty);renderRegister();toast(t('errBikeTypeReq'),'error');return;}
   // Members gate, re-checked at submit: the card/event clicks are already gated, but no
   // state path may insert a community booking for a non-member (the DB trigger backstops this).
   if(_isCommunity(_selSess0)&&!_openToAll(_selSess0)&&!(await commAccess())){showCommMembersModal();return;}
@@ -14959,10 +14975,13 @@ async function staffResetPassword(){
   const err=m=>{el.innerHTML=`<div style="color:var(--red);font-size:13px;font-weight:700">${m}</div>`;};
   if(!email||!/^[^\s<>"'()]+@[^\s<>"'()]+\.[^\s<>"'()]+$/.test(email))return err(t('errValidEmail'));
   if(pw.length<8||!/[A-Z]/.test(pw)||!/[0-9]/.test(pw))return err(t('errPasswordLen'));
-  const{data:cust}=await sb.from('customers').select('id,name').eq('email',email).maybeSingle();
+  // Any capitals in the stored address still match (ilike, with its wildcards escaped).
+  const{data:cust}=await sb.from('customers').select('id,name').ilike('email',email.replace(/[\\%_]/g,'\\$&')).maybeSingle();
   if(!cust)return err(t('errAccountNotFound'));
-  const{error}=await sb.from('customers').update({password_hash:await makePwdHash(pw)}).eq('id',cust.id);
-  if(error)return err(error.message||t('errConnection'));
+  // Set on the server (bcrypt, and the token rotates) as the account editor does. A hash made here
+  // (pbkdf2) is one customer sign-in cannot check: the rider was locked out while this said done.
+  const{data:pwok,error}=await sb.rpc('staff_set_customer_password',{p_customer_id:cust.id,p_new_pwd:pw});
+  if(error||pwok!==true)return err((error&&error.message)||t('errConnection'));
   logAction(t('logStaffResetPwd')+cust.name);
   el.innerHTML=`<div style="background:rgba(var(--green-rgb),.07);border:1px solid rgba(var(--green-rgb),.25);border-radius:6px;padding:16px 20px">
     <div style="font-size:13px;font-weight:800;color:var(--green);margin-bottom:6px">✓ ${t('staffResetDone').replace('{0}',esc(cust.name))}</div>
@@ -15081,6 +15100,7 @@ async function _opGateCheck(){
     const n=data&&data.session&&data.session.user&&data.session.user.user_metadata&&data.session.user.user_metadata.op_name;
     if(n){
       try{localStorage.setItem('cq_op_name',String(n).trim().slice(0,40));}catch(_){}
+      try{renderTopbarRight();}catch(_){} // the operator chip shows the restored name
       if(S.staffTab==='history'&&S.histView==='log')renderLogs();
       return;
     }
@@ -15091,50 +15111,69 @@ async function _opGateCheck(){
 // server: five wrong tries lock that name for a minute. While any name has a PIN, a name can no
 // longer be typed in, so nobody signs as someone else. Switching (the bar's operator chip) may
 // be cancelled; the first gate on a device may not.
-async function _opList(){try{const r=await sb.rpc('staff_operator_list');return r&&!r.error?(r.data||[]):null;}catch(_){return null;}}
+async function _opList(){
+  try{const r=await sb.rpc('staff_operator_list');if(r&&!r.error)return{list:r.data||[]};return{list:null,missing:_tmMissing(r&&r.error)};}
+  catch(_){return{list:null,missing:false};}
+}
 function showOpGate(switching){
   const m=document.getElementById('op-gate-modal');if(!m||m.style.display==='flex')return;
-  S._opg={switching:!!switching,list:null,pick:null,digits:'',msg:'',busy:false,shake:false};
-  m.style.display='flex';_opGateRender();
-  _opList().then(l=>{if(!S._opg)return;S._opg.list=l;_opGateRender();});
+  S._opg={switching:!!switching,list:undefined,missing:false,pick:null,digits:'',msg:'',busy:false,shake:false};
+  m.style.display='flex';_opGateRender();_opGateLoad();
+}
+// Nothing can be picked until the server has said which names have a PIN: painted before that, a
+// name with a PIN was one tap away without it. Typed names come back only where the database has
+// no PINs yet (the function is missing); any other failure says so and offers to ask again.
+function _opGateLoad(){
+  const G=S._opg;if(!G)return;
+  G.list=undefined;G.missing=false;G.err=false;_opGateRender();
+  _opList().then(x=>{if(S._opg!==G)return;G.list=x.list;G.missing=!!x.missing;G.err=!x.list&&!x.missing;_opGateRender();});
 }
 function _opGateRender(){
   const m=document.getElementById('op-gate-modal'),G=S._opg;if(!m||!G)return;
-  const withPin=Array.isArray(G.list)&&G.list.some(x=>x.has_pin);
-  const names=Array.isArray(G.list)&&G.list.length?G.list:(S.teamMembers||[]).map(n=>({name:n,has_pin:false}));
+  const loading=G.list===undefined,useTeam=G.missing;
+  const list=Array.isArray(G.list)?G.list:useTeam?(S.teamMembers||[]).map(n=>({name:n,has_pin:false})):[];
+  const withPin=list.some(x=>x.has_pin);
+  const typed=useTeam||(Array.isArray(G.list)&&!withPin); // a name may be typed only while no name has a PIN
   let body;
   if(G.pick){
     const dots=[0,1,2,3].map(i=>`<span class="opg-dot${i<G.digits.length?' on':''}"></span>`).join('');
-    const key=d=>d?`<button type="button" class="opg-key" data-key="${d}" onclick="_opgKey('${d}')"${d==='del'?` aria-label="⌫"`:''}>${d==='del'?'⌫':d}</button>`:'<span></span>';
+    const key=d=>d?`<button type="button" class="opg-key" data-key="${d}" onclick="_opgKey('${d}')"${d==='del'?` aria-label="⌫"`:''}${G.busy?' disabled':''}>${d==='del'?'⌫':d}</button>`:'<span></span>';
     body=`<div class="modal-title">${esc(t('opPinTitle').replace('{0}',G.pick))}</div>
-      <div class="opg-dots${G.shake?' shake':''}">${dots}</div>
+      <div class="opg-dots${G.shake?' shake':''}" dir="ltr">${dots}</div>
       <div class="opg-msg" role="alert">${esc(G.msg||'')}</div>
-      <div class="opg-pad">${['1','2','3','4','5','6','7','8','9','','0','del'].map(key).join('')}</div>
-      <button type="button" class="btn-secondary" style="width:100%;margin-top:10px" onclick="S._opg.pick=null;S._opg.digits='';S._opg.msg='';_opGateRender()">${t('cancelBtn')}</button>`;
+      <div class="opg-pad" dir="ltr">${['1','2','3','4','5','6','7','8','9','','0','del'].map(key).join('')}</div>
+      <button type="button" class="btn-secondary" style="width:100%;margin-top:10px" onclick="_opgBack()"${G.busy?' disabled':''}>${t('cancelBtn')}</button>`;
   }else{
     body=`<div class="modal-title">${G.switching?t('opSwitch'):t('opGateTitle')}</div>
       <div style="font-size:13px;color:var(--muted);margin:6px 0 14px">${t('opGateMsg')}</div>
-      ${names.length?`<div class="opg-names">${names.slice(0,24).map(o=>`<button type="button" class="btn-secondary opg-name" onclick="_opgPick(${_ja(o.name)},${o.has_pin?1:0})">${esc(o.name)}${o.has_pin?' <span class="opg-lock" aria-hidden="true">•••</span>':''}</button>`).join('')}</div>`:''}
-      ${withPin?'':`<div class="form-group" style="margin-bottom:12px"><label for="op-gate-name">${t('logsOperator')}</label>
+      ${loading?skeletonList():G.err?`<div class="empty-state">${t('errConnection')}<div style="margin-top:10px"><button type="button" class="btn-sm btn-secondary" onclick="_opGateLoad()">${t('retryBtn')}</button></div></div>`
+        :list.length?`<div class="opg-names">${list.map(o=>`<button type="button" class="btn-secondary opg-name" onclick="_opgPick(${_ja(o.name)},${o.has_pin?1:0})">${esc(o.name)}${o.has_pin?' <span class="opg-lock" aria-hidden="true">•••</span>':''}</button>`).join('')}</div>`:''}
+      ${typed?`<div class="form-group" style="margin-bottom:12px"><label for="op-gate-name">${t('logsOperator')}</label>
         <input id="op-gate-name" type="text" maxlength="40" placeholder="${esc(t('logsOperatorPh'))}" onkeydown="if(event.key==='Enter')_opGateSave()"></div>
-      <div class="modal-footer"><button class="btn-primary" style="width:100%" onclick="_opGateSave()">${t('opGateBtn')}</button></div>`}
+      <div class="modal-footer"><button class="btn-primary" style="width:100%" onclick="_opGateSave()">${t('opGateBtn')}</button></div>`:''}
       ${G.switching?`<button type="button" class="btn-secondary" style="width:100%;margin-top:8px" onclick="_opGateDone()">${t('cancelBtn')}</button>`:''}`;
   }
+  // A name half-typed in the box survives the redraw that brings the list.
+  const typedNow=(document.getElementById('op-gate-name')||{}).value||'';
   // No backdrop-close and, on a first gate, no cancel: anonymous staff actions are what this prevents.
   m.innerHTML=`<div class="modal-backdrop" style="z-index:290"><div class="modal-box op-gate" role="dialog" aria-modal="true" style="max-width:380px">${body}</div></div>`;
+  const inp=document.getElementById('op-gate-name');if(inp&&typedNow)inp.value=typedNow;
 }
-function _opgPick(name,pin){const G=S._opg;if(!G)return;if(!pin){_opGatePick(name);return;}G.pick=name;G.digits='';G.msg='';G.shake=false;_opGateRender();}
+function _opgPick(name,pin){const G=S._opg;if(!G||G.busy||G.list===undefined)return;if(!pin){_opGatePick(name);return;}G.pick=name;G.digits='';G.msg='';G.shake=false;_opGateRender();}
+function _opgBack(){const G=S._opg;if(!G||G.busy)return;G.pick=null;G.digits='';G.msg='';_opGateRender();}
 async function _opgKey(d){
   const G=S._opg;if(!G||!G.pick||G.busy)return;
   if(d==='del'){G.digits=G.digits.slice(0,-1);_opGateRender();return;}
   if(!/^\d$/.test(d)||G.digits.length>=4)return;
   G.digits+=d;G.shake=false;G.msg='';_opGateRender();
   if(G.digits.length<4)return;
-  G.busy=true;
-  let r;try{r=await sb.rpc('staff_check_operator_pin',{p_name:G.pick,p_pin:G.digits});}catch(e){r={error:e};}
-  G.busy=false;if(S._opg!==G)return;
+  // the name and the PIN as sent: an answer counts only for the name it was asked about
+  const name=G.pick,pin=G.digits;
+  G.busy=true;_opGateRender();
+  let r;try{r=await sb.rpc('staff_check_operator_pin',{p_name:name,p_pin:pin});}catch(e){r={error:e};}
+  G.busy=false;if(S._opg!==G||G.pick!==name)return;
   const v=r&&!r.error?r.data:null;
-  if(v&&(v.ok||v.reason==='no_pin')){setOpName(G.pick);_opGateDone();return;} // no_pin: cleared while the keypad was open
+  if(v&&(v.ok||v.reason==='no_pin')){setOpName(name);_opGateDone();return;} // no_pin: cleared while the keypad was open
   G.digits='';G.shake=true;
   G.msg=!v?t('errConnection'):v.reason==='locked'?t('opPinLocked').replace('{0}',v.seconds||60):t('opPinWrong').replace('{0}',v.left);
   _opGateRender();
@@ -15174,8 +15213,12 @@ function _accessSet(row,uid){
 // var and functions: the client is wrapped at boot, before this part of the script has run.
 var _roAllowN=0,_roToastAt=0;
 function _roOkTable(tbl){return tbl==='staff_actions'||tbl==='error_log';}
-function _roOkRpc(fn){return ['customer_profile','customer_exists','staff_resolve_bike','staff_sync','staff_email_for_phone','staff_inventory_costs','staff_ambassador_stats','promo_lookup','my_bookings','list_sessions','customer_token_ok','customer_pwd_state','customer_consents','customer_addon_stock','community_member','customer_fix_fields','staff_team_list','staff_operator_list','staff_check_operator_pin'].indexOf(fn)>=0;}
+function _roOkRpc(fn){return ['customer_profile','customer_exists','staff_resolve_bike','staff_sync','staff_email_for_phone','staff_inventory_costs','staff_ambassador_stats','promo_lookup','my_bookings','list_sessions','customer_token_ok','customer_pwd_state','customer_consents','customer_addon_stock','community_member','customer_fix_fields','staff_team_list','staff_operator_list','staff_check_operator_pin','staff_mark_pwd_changed'].indexOf(fn)>=0;}
 function _roNow(){try{return !_roAllowN&&S.view==='staff'&&!_editOk(S.staffTab);}catch(_){return false;}}
+// Builds one call the guard lets through (queued work sent from elsewhere, the page's own
+// housekeeping). The guard looks at the moment a write is built, so only that moment is exempt:
+// the returned query is awaited after, with the guard back on for everything else.
+function _roFree(fn){_roAllowN=(_roAllowN||0)+1;try{return fn();}finally{_roAllowN--;}}
 function _roRefusal(){
   if(Date.now()-(_roToastAt||0)>2000){_roToastAt=Date.now();try{toast(t('roMode'),'error');}catch(_){}}
   const res={data:null,error:{code:'READONLY',message:t('roMode'),details:null,hint:null},count:null,status:403,statusText:'Read-only'};
@@ -24126,9 +24169,7 @@ function _outboxCount(){return _outbox().length;}
 function _outboxEnqueueMany(ops){const ids=new Set(ops.map(x=>x.id));const o=_outbox().filter(op=>!ids.has(op.id));ops.forEach(x=>o.push({oid:uid(),kind:x.kind,id:x.id,data:x.data||null}));const ok=_outboxSave(o);_outboxFlush();return ok;}
 function _outboxEnqueue(kind,id,data){return _outboxEnqueueMany([{kind,id,data}]);}
 let _outboxBusy=false;
-// A sale queued on this device goes out from whatever section is on screen, read-only or not.
-async function _outboxFlush(){_roAllowN=(_roAllowN||0)+1;try{return await _outboxFlush0();}finally{_roAllowN--;}}
-async function _outboxFlush0(){
+async function _outboxFlush(){
   if(_outboxBusy||!sb||(typeof navigator!=='undefined'&&navigator.onLine===false))return;
   _outboxBusy=true;
   const snapshot=_outbox();const doneIds=[];const stuck=new Set();
@@ -24138,7 +24179,7 @@ async function _outboxFlush0(){
     // one is retried.
     if(stuck.has(op.id))continue;
     try{
-      const res=op.kind==='delete'?await sb.from('cashier_sales').delete().eq('id',op.id):await sb.from('cashier_sales').upsert(op.data);
+      const res=op.kind==='delete'?await _roFree(()=>sb.from('cashier_sales').delete().eq('id',op.id)):await _roFree(()=>sb.from('cashier_sales').upsert(op.data));
       if(!(res&&res.error))doneIds.push(op.oid);else stuck.add(op.id);
     }catch(_){stuck.add(op.id);/* keep op for retry */}
   }
@@ -24166,6 +24207,7 @@ async function _outboxRetryOrClear(){
 // Local + queued upsert/delete of sale rows (never lost on refresh; syncs to the DB when online).
 // All-or-nothing: when the device cannot store the ops, the ledger on screen is put back too.
 function _salesApply(upserts,deletes){
+  if(_roNow()){_roRefusal();return false;} // queued, a write would skip the read-only guard
   const had=(S.cashSales||[]).slice(),del=new Set(deletes||[]);
   let cs=(S.cashSales||[]).filter(r=>!del.has(r.id));
   (upserts||[]).forEach(row=>{const i=cs.findIndex(r=>r.id===row.id);if(i>=0)cs[i]=row;else cs=[...cs,row];});
@@ -24185,8 +24227,7 @@ function _bookOutboxAdd(row){const o=_bookOutbox();o.push(row);return _bookOutbo
 function _bookOutboxCount(){return _bookOutbox().length;}
 function _applyBookOutbox(){const bo=_bookOutbox();if(!bo.length)return;const have=new Set((S.queue||[]).map(e=>e.id));bo.forEach(db=>{if(!have.has(db.id)){try{S.queue.push(entryFromDB(db));}catch(_){}}});}
 let _bookBusy=false;
-async function _bookOutboxFlush(){_roAllowN=(_roAllowN||0)+1;try{return await _bookOutboxFlush0();}finally{_roAllowN--;}}
-async function _bookOutboxFlush0(){
+async function _bookOutboxFlush(){
   if(_bookBusy||!sb||(typeof navigator!=='undefined'&&navigator.onLine===false))return;
   _bookBusy=true;
   const snap=_bookOutbox();const done=[];const renum={};
@@ -24201,7 +24242,7 @@ async function _bookOutboxFlush0(){
       // be refused on flush and retried forever: the rider turns up expecting a bike and the
       // roster has never heard of them, with nothing on any screen saying so.
       if(_c&&_c.session_token&&String(row.customer_id||'')===String(_c.id)){
-        const r=await sb.rpc('customer_create_booking',{p_id:_c.id,p_token:_c.session_token,p_entries:[row]});
+        const r=await _roFree(()=>sb.rpc('customer_create_booking',{p_id:_c.id,p_token:_c.session_token,p_entries:[row]}));
         const _m=((r&&r.error&&(r.error.code||''))+' '+((r&&r.error&&r.error.message)||'')).toLowerCase();
         if(r&&!r.error&&r.data&&r.data.length)res={data:r.data};
         // The row already landed and we simply never heard the answer: the primary key says so,
@@ -24211,13 +24252,13 @@ async function _bookOutboxFlush0(){
         else if(_m.includes('pgrst202')||_m.includes('42883')||_m.includes('could not find')||_m.includes('does not exist'))res=null;
         else res={error:(r&&r.error)||{message:'booking refused'}};
       }
-      if(!res)res=await sb.from('queue_entries').upsert(row,{ignoreDuplicates:true}); // already landed (a lost response) = done; never overwrite staff changes made since
+      if(!res)res=await _roFree(()=>sb.from('queue_entries').upsert(row,{ignoreDuplicates:true})); // already landed (a lost response) = done; never overwrite staff changes made since
       // queue_num collides with a booking made on another device while offline: the partial unique
       // index rejects it and it would otherwise retry forever. Take a fresh number and re-upsert
       // (one bump per flush; a further collision resolves on the next flush as data loads).
       if(res&&res.error&&/23505|duplicate|unique/i.test((res.error.code||'')+' '+(res.error.message||''))){
         const fresh=nextQNum(row.session_id);
-        if(fresh&&fresh!==row.queue_num){renum[row.id]=fresh;row.queue_num=fresh;res=await sb.from('queue_entries').upsert(row);}
+        if(fresh&&fresh!==row.queue_num){renum[row.id]=fresh;row.queue_num=fresh;res=await _roFree(()=>sb.from('queue_entries').upsert(row));}
       }
       if(!(res&&res.error))done.push(row.id);
       // A genuine refusal (not a dropped connection) is counted on the row. Three of them is
@@ -24277,8 +24318,10 @@ function _ctPreview(){
 }
 function _ctCardSAR(paidTotal){const v=parseFloat(S._ctCard);if(isNaN(v)||v<=0)return 0;const c=S._ctCardPct?paidTotal*(v/100):v;return Math.min(Math.max(0,paidTotal),Math.round(c*100)/100);}
 async function _ctRecord(){
+  if(S._ctBusy)return; // a second tap while the stock write is out recorded the receipt twice
   const sessId=S._ctSession;if(!sessId){toast(t('errSelectSession'),'error');return;}
   if(!(S._ctCart||[]).length){toast(t('cashCartEmpty'),'error');return;}
+  if(_roNow()){_roRefusal();return;} // a view-only Sales records nothing (the outbox would send it)
   const rid=uid(),cust=(S._ctCust||'').trim()||null,at=new Date().toISOString();
   const rows=S._ctCart.map(l=>({id:uid(),receipt_id:rid,session_id:sessId,customer_name:l.pay==='team'?null:cust,item_id:l.item_id||null,name:l.name,category:l.cat,qty:l.qty,price:l.price,pay:l.pay,team_name:l.team||null,created_at:at})); // MM Team lines belong to the team member, not a customer
   // Per-receipt discount as a negative 'paid' line (no schema change needed)
@@ -24300,12 +24343,17 @@ async function _ctRecord(){
   // nor a later flush, so it must not be reported as taken: the receipt stays on screen to be
   // re-entered once there is room.
   if(!_salesApply(rows,[])){renderCashier();return;} // _lsSetCritical has already said why
-  await _addonStockBatch(rows,-1); // decrement stock for stocked items (summed per item — no concurrent-write race)
-  logAction(`${t('cashierTitle')}: ${t('cashReceiptWord')} ×${S._ctCart.length}${cust?` (${cust})`:''}`);
+  // The receipt is booked: its cart leaves the screen now, before the stock write, so a second tap
+  // or a redraw meanwhile cannot record it again, and items added meanwhile start the next one.
+  const nLines=S._ctCart.length;
   // The next receipt is the next customer's. The name and the linked account used to stay in the
   // box, so the following walk-up's purchase went onto the previous rider's account unless
   // someone remembered to clear it. Payment and team choice stay, as they do between items.
   S._ctCart=[];S._ctDisc='';S._ctCard='';S._ctCust='';S._ctCustId='';
+  S._ctBusy=true;renderCashier();
+  try{await _addonStockBatch(rows,-1);} // decrement stock for stocked items (summed per item — no concurrent-write race)
+  finally{S._ctBusy=false;}
+  logAction(`${t('cashierTitle')}: ${t('cashReceiptWord')} ×${nLines}${cust?` (${cust})`:''}`);
   toast(t('cashReceiptRecorded'));
   renderCashier();
 }
@@ -24545,7 +24593,10 @@ function renderCashier(){
   if(!S.dataLoaded){el.innerHTML=skeletonList(5);return;}
   const sessions=allSessions().filter(s=>s.status!=='deleted').sort(_sessOrder);
   if(!sessions.length){el.innerHTML=`<div class="empty-state" style="padding:48px">${t('cashNoSessions')}</div>`;return;}
-  if(!S._ctSession||!sessions.find(s=>s.id===S._ctSession)){const open=sessions.find(s=>s.status==='open')||sessions[0];S._ctSession=open.id;}
+  // Tonight's ride, as Bookings opens on. The first open session in date order was often last
+  // week's (nothing closes a night) or next week's (tonight full), and every sale, the close-out
+  // and the drawer count went there.
+  if(!S._ctSession||!sessions.find(s=>s.id===S._ctSession)){const cur=_currentSessId();S._ctSession=(cur!=='all'&&sessions.some(s=>s.id===cur))?cur:(sessions.find(s=>!_sessPastDay(s)&&s.status==='open')||sessions[0]).id;}
   const sessId=S._ctSession;
   const lines=_cashSessionLines(sessId);
   const tot=_salesTotals(lines);
@@ -24948,7 +24999,7 @@ function renderInventory(){
     // Roll each present category up to its top-level group (a protein leaf → 'ProteinSnacks')
     const groups=[...new Set(list.map(it=>_catGroup(it.category||'Other')||(it.category||'Other')))];
     const ordered=[...presets.filter(g=>groups.includes(g)),...groups.filter(g=>!presets.includes(g)).sort((a,b)=>_invCatLabel(a).localeCompare(_invCatLabel(b)))];
-    const heading=(label,count,sub)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;font-size:${sub?12:13}px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)${sub?';padding-inline-start:12px':''}">${label} <span style="background:var(--s3);border:1px solid rgba(var(--tint-rgb),.08);border-radius:9px;padding:1px 9px;font-size:11px;font-weight:800;color:var(--muted-l)">${count}</span></div>`;
+    const heading=(label,count,sub)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:2px;font-size:${sub?12:13}px;font-weight:900;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)${sub?';padding-inline-start:12px':''}">${esc(label)} <span style="background:var(--s3);border:1px solid rgba(var(--tint-rgb),.08);border-radius:9px;padding:1px 9px;font-size:11px;font-weight:800;color:var(--muted-l)">${count}</span></div>`; // a custom category is stored as typed: escaped, or "<img onerror>" ran on every staff device
     return ordered.map(g=>{
       const gItems=list.filter(it=>(_catGroup(it.category||'Other')||(it.category||'Other'))===g);
       if(!gItems.length)return'';

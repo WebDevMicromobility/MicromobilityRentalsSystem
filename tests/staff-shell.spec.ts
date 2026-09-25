@@ -123,7 +123,8 @@ test('the day sheet prints today\'s riders still expected or out', async ({ page
   const html = await page.evaluate('window.__sheet') as string;
   expect(html).toContain('Day sheet');
   for (const name of ['Amal Saad', 'Badr Omar', 'Dana Faisal']) expect(html).toContain(name);
-  expect(html).toContain('W3'); // the waitlist is marked as such
+  expect(html).toContain('#3'); // the booking number, and the waitlist place beside it
+  expect(html).not.toContain('colName');
 });
 
 test('with no session today the day sheet says so', async ({ page }) => {
