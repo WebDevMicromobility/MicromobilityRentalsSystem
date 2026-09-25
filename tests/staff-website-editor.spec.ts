@@ -65,6 +65,32 @@ test('the editor lists the pages the website declares, first section open', asyn
   await expect(page.locator('[data-web-save="home.hero"]')).toBeDisabled();
 });
 
+test('a text can be written in the website\'s other languages; an empty one is not saved', async ({ page }) => {
+  const writes = await open(page);
+  const more = page.locator('#tab-website .web-ed-field').filter({ has: page.locator('#we-home-hero-title') }).locator('details.web-ed-more');
+  await expect(more.locator('summary')).toHaveText('Other languages (0 of 14)');
+  await expect(page.locator('#tab-website .web-ed-field').filter({ has: page.locator('#we-home-hero-image') }).locator('details.web-ed-more')).toHaveCount(0); // a photo has no words
+  await more.locator('summary').click();
+  await field(page, '#we-home-hero-title-de').fill('Carbon-Tempo, gebaut für Dschidda.');
+  await field(page, '#we-home-hero-title-ja').fill('x');
+  await field(page, '#we-home-hero-title-ja').fill('');
+  await page.locator('[data-web-save="home.hero"]').click();
+  await expect.poll(() => writes.length).toBe(1);
+  expect(writes[0].body).toEqual([{ key: 'home.hero.title', value: { en: 'Carbon speed, built for Jeddah.', ar: 'سرعة الكربون، صُنعت لجدة.', de: 'Carbon-Tempo, gebaut für Dschidda.' }, updated_by: 'Spec Staff' }]);
+});
+
+test('a field that is one value everywhere, or English and Arabic only, offers no other languages', async ({ page }) => {
+  const schema = JSON.parse(JSON.stringify(SCHEMA));
+  schema.pages[1].sections[0].fields.push(
+    { id: 'code', type: 'text', max: 10, mono: true, label: bi('Code', 'الرمز'), def: bi('X1', 'X1') },
+    { id: 'legal', type: 'longtext', max: 400, enArOnly: true, label: bi('Legal', 'قانوني'), def: bi('Terms.', 'الشروط.') },
+  );
+  await open(page, [], schema);
+  for (const id of ['code', 'legal']) {
+    await expect(page.locator('#tab-website .web-ed-field').filter({ has: page.locator(`#we-home-hero-${id}`) }).locator('details.web-ed-more')).toHaveCount(0);
+  }
+});
+
 test('a text edit saves as one row, signed, and undo removes it again', async ({ page }) => {
   const writes = await open(page);
   await field(page, '#we-home-hero-title').fill('Built for the corniche.');
