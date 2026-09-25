@@ -23,6 +23,11 @@ grant select (name, created_at) on public.team_members to anon, authenticated;
 grant insert (name, created_at) on public.team_members to anon, authenticated;
 grant update (name) on public.team_members to anon, authenticated;
 
+-- A name with a PIN is removed only by an admin; renaming keeps the row and its PIN.
+drop policy if exists team_members_delete on public.team_members;
+create policy team_members_delete on public.team_members for delete
+  using ((select is_staff()) and (pin_hash is null or (select is_admin())));
+
 -- Which names ask for a PIN at the operator gate.
 create or replace function public.staff_operator_list()
 returns table(name text, has_pin boolean)
